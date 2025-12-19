@@ -392,6 +392,7 @@ var state = {
   answers: {},
   variant: null,
   flatQuestions: [],
+  shuffleMappings: {},
   timerInterval: null,
   remainingSeconds: null,
   timeExpired: false,
@@ -466,6 +467,7 @@ function formatTime(seconds) {
 function generateVariant() {
   state.variant = { sections: [] };
   state.flatQuestions = [];
+  state.shuffleMappings = {}; // Store shuffle mappings for each question
 
   TEST_DATA.sections.forEach(function(section) {
     var questions = shuffle(section.questions.slice()).slice(0, section.drawCount);
@@ -475,6 +477,32 @@ function generateVariant() {
       questionIds: questions.map(function(q) { return q.id; })
     });
     questions.forEach(function(q) {
+      // Generate shuffle mappings for each question type
+      if (q.type === 'single' || q.type === 'multiple') {
+        var optCount = q.data.options ? q.data.options.length : 0;
+        if (optCount > 0) {
+          state.shuffleMappings[q.id] = createShuffleMapping(optCount);
+        }
+      } else if (q.type === 'matching') {
+        var leftCount = q.data.left ? q.data.left.length : 0;
+        var rightCount = q.data.right ? q.data.right.length : 0;
+        if (leftCount > 0 && rightCount > 0) {
+          state.shuffleMappings[q.id] = {
+            left: createShuffleMapping(leftCount),
+            right: createShuffleMapping(rightCount)
+          };
+        }
+      } else if (q.type === 'ranking') {
+        var itemCount = q.data.items ? q.data.items.length : 0;
+        if (itemCount > 0) {
+          state.shuffleMappings[q.id] = createShuffleMapping(itemCount);
+          // Initialize ranking with shuffled order
+          if (!state.answers[q.id]) {
+            state.answers[q.id] = state.shuffleMappings[q.id].slice();
+          }
+        }
+      }
+      
       state.flatQuestions.push({
         question: q,
         topicId: section.topicId,
@@ -483,6 +511,14 @@ function generateVariant() {
     });
   });
   state.flatQuestions = shuffle(state.flatQuestions);
+}
+
+function createShuffleMapping(length) {
+  var indices = [];
+  for (var i = 0; i < length; i++) {
+    indices.push(i);
+  }
+  return shuffle(indices.slice());
 }
 
 function shuffle(arr) {
@@ -709,22 +745,25 @@ function renderQuestionInput(q) {
   var answer = state.answers[q.id];
   var locked = TEST_DATA.showCorrectAnswers && state.feedbackShown;
   var correct = q.correct || {};
+  var shuffleMapping = state.shuffleMappings[q.id];
 
   // SINGLE
   if (q.type === 'single') {
     var correctIndex = (typeof correct.correctIndex === 'number') ? correct.correctIndex : -1;
+    var displayOrder = shuffleMapping || q.data.options.map(function(_, i) { return i; });
     var html = '';
-    q.data.options.forEach(function(opt, i) {
-      var selected = answer === i ? 'selected' : '';
+    
+    displayOrder.forEach(function(originalIndex, displayIndex) {
+      var selected = answer === originalIndex ? 'selected' : '';
       var correctClass = '';
       if (locked) {
-        if (i === correctIndex) correctClass = ' correct-answer';
-        else if (answer === i && i !== correctIndex) correctClass = ' incorrect-answer';
+        if (originalIndex === correctIndex) correctClass = ' correct-answer';
+        else if (answer === originalIndex && originalIndex !== correctIndex) correctClass = ' incorrect-answer';
       }
-      var clickHandler = locked ? '' : 'onclick="selectSingle(\\'' + q.id + '\\',' + i + ')"';
+      var clickHandler = locked ? '' : 'onclick="selectSingle(\\'' + q.id + '\\',' + originalIndex + ')"';
       html += '<div class="option ' + selected + correctClass + '" ' + clickHandler + ' style="' + (locked ? 'cursor:default;' : '') + '">';
-      html += '<input type="radio" name="q_' + q.id + '" ' + (answer === i ? 'checked' : '') + ' ' + (locked ? 'disabled' : '') + '>';
-      html += escapeHtml(opt) + '</div>';
+      html += '<input type="radio" name="q_' + q.id + '" ' + (answer === originalIndex ? 'checked' : '') + ' ' + (locked ? 'disabled' : '') + '>';
+      html += escapeHtml(q.data.options[originalIndex]) + '</div>';
     });
     return html;
   }
@@ -733,60 +772,70 @@ function renderQuestionInput(q) {
   if (q.type === 'multiple') {
     var selected = Array.isArray(answer) ? answer : [];
     var correctSet = Array.isArray(correct.correctIndices) ? correct.correctIndices : [];
+    var displayOrder = shuffleMapping || q.data.options.map(function(_, i) { return i; });
     var html = '';
-    q.data.options.forEach(function(opt, i) {
-      var isSelected = selected.indexOf(i) !== -1;
-      var isCorrect = correctSet.indexOf(i) !== -1;
+    
+    displayOrder.forEach(function(originalIndex, displayIndex) {
+      var isSelected = selected.indexOf(originalIndex) !== -1;
+      var isCorrect = correctSet.indexOf(originalIndex) !== -1;
       var correctClass = '';
       if (locked) {
         if (isCorrect) correctClass = ' correct-answer';
         else if (isSelected && !isCorrect) correctClass = ' incorrect-answer';
       }
-      var clickHandler = locked ? '' : 'onclick="toggleMultiple(\\'' + q.id + '\\',' + i + ')"';
+      var clickHandler = locked ? '' : 'onclick="toggleMultiple(\\'' + q.id + '\\',' + originalIndex + ')"';
       html += '<div class="option ' + (isSelected ? 'selected' : '') + correctClass + '" ' + clickHandler + ' style="' + (locked ? 'cursor:default;' : '') + '">';
       html += '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' ' + (locked ? 'disabled' : '') + '>';
-      html += escapeHtml(opt) + '</div>';
+      html += escapeHtml(q.data.options[originalIndex]) + '</div>';
     });
     return html;
   }
 
-  // MATCHING (у тебя correct.pairs = [{left,right}], делаем map left->right)
+  // MATCHING
   if (q.type === 'matching') {
-  var pairs = (answer && typeof answer === 'object') ? answer : {};
+    var pairs = (answer && typeof answer === 'object') ? answer : {};
+    var correctPairsArr = Array.isArray(correct.pairs) ? correct.pairs : [];
+    var correctMap = {};
+    correctPairsArr.forEach(function(p) { correctMap[p.left] = p.right; });
 
-  // correct.pairs = [{left, right}]
-  var correctPairsArr = Array.isArray(correct.pairs) ? correct.pairs : [];
-  var correctMap = {};
-  correctPairsArr.forEach(function(p) { correctMap[p.left] = p.right; });
+    var leftMapping = shuffleMapping && shuffleMapping.left ? shuffleMapping.left : q.data.left.map(function(_, i) { return i; });
+    var rightMapping = shuffleMapping && shuffleMapping.right ? shuffleMapping.right : q.data.right.map(function(_, i) { return i; });
 
-  var html = '<div style="margin-top:8px">';
-  q.data.left.forEach(function(left, i) {
-    var isCorrect = locked && Number(pairs[i]) === correctMap[i];
-    var isIncorrect = locked && pairs[i] !== undefined && Number(pairs[i]) !== correctMap[i];
-    var rowClass = isCorrect ? 'correct-answer' : (isIncorrect ? 'incorrect-answer' : '');
-    html += '<div class="matching-row ' + rowClass + '">';
-    html += '<div class="matching-item">' + (i + 1) + '. ' + escapeHtml(left) + '</div>';
-    html += '<span style="margin:0 8px;">→</span>';
-    html += '<select onchange="setMatch(\\'' + q.id + '\\',' + i + ',this.value)"' + (locked ? ' disabled' : '') + '>';
-    html += '<option value="">Выберите...</option>';
-    q.data.right.forEach(function(right, j) {
-      var sel = Number(pairs[i]) === j ? 'selected' : '';
-      html += '<option value="' + j + '" ' + sel + '>' + String.fromCharCode(65 + j) + '. ' + escapeHtml(right) + '</option>';
+    var html = '<div style="margin-top:8px">';
+    leftMapping.forEach(function(originalLeftIdx, displayLeftIdx) {
+      var selectedOriginalRightIdx = pairs[originalLeftIdx];
+      var selectedDisplayRightIdx = selectedOriginalRightIdx !== undefined ? rightMapping.indexOf(selectedOriginalRightIdx) : -1;
+      
+      var isCorrect = locked && Number(pairs[originalLeftIdx]) === correctMap[originalLeftIdx];
+      var isIncorrect = locked && pairs[originalLeftIdx] !== undefined && Number(pairs[originalLeftIdx]) !== correctMap[originalLeftIdx];
+      var rowClass = isCorrect ? 'correct-answer' : (isIncorrect ? 'incorrect-answer' : '');
+      
+      html += '<div class="matching-row ' + rowClass + '">';
+      html += '<div class="matching-item">' + (displayLeftIdx + 1) + '. ' + escapeHtml(q.data.left[originalLeftIdx]) + '</div>';
+      html += '<span style="margin:0 8px;">→</span>';
+      html += '<select onchange="setMatchWithMapping(\\'' + q.id + '\\',' + originalLeftIdx + ',this.value,\\'' + JSON.stringify(rightMapping).replace(/"/g, '&quot;') + '\\')"' + (locked ? ' disabled' : '') + '>';
+      html += '<option value="">Выберите...</option>';
+      
+      rightMapping.forEach(function(originalRightIdx, displayRightIdx) {
+        var sel = selectedDisplayRightIdx === displayRightIdx ? 'selected' : '';
+        html += '<option value="' + displayRightIdx + '" ' + sel + '>' + String.fromCharCode(65 + displayRightIdx) + '. ' + escapeHtml(q.data.right[originalRightIdx]) + '</option>';
+      });
+      html += '</select>';
+
+      if (locked && isIncorrect) {
+        var correctDisplayRightIdx = rightMapping.indexOf(correctMap[originalLeftIdx]);
+        html += '<span style="color:#16a34a;margin-left:8px;font-size:12px;">(Правильно: ' + String.fromCharCode(65 + correctDisplayRightIdx) + ')</span>';
+      }
+
+      html += '</div>';
     });
-    html += '</select>';
-
-    if (locked && isIncorrect) {
-      html += '<span style="color:#16a34a;margin-left:8px;font-size:12px;">(Правильно: ' + String.fromCharCode(65 + correctMap[i]) + ')</span>';
-    }
-
     html += '</div>';
-  });
-  html += '</div>';
-  return html;
-}
+    return html;
+  }
+  
   // RANKING
   if (q.type === 'ranking') {
-    var defaultOrder = q.data.items.map(function(_, i) { return i; });
+    var defaultOrder = shuffleMapping || q.data.items.map(function(_, i) { return i; });
     var order = Array.isArray(answer) ? answer : defaultOrder;
     var correctOrder = Array.isArray(correct.correctOrder) ? correct.correctOrder : defaultOrder;
 
@@ -817,7 +866,21 @@ function renderQuestionInput(q) {
 function selectSingle(qId, idx) {
   if (TEST_DATA.showCorrectAnswers && state.feedbackShown) return;
   state.answers[qId] = idx;
-  render();
+  
+  // Update DOM without full re-render
+  var options = document.querySelectorAll('input[name="q_' + qId + '"]');
+  options.forEach(function(radio, i) {
+    var parent = radio.parentElement;
+    if (parent) {
+      if (radio.checked && i !== idx) {
+        radio.checked = false;
+        parent.classList.remove('selected');
+      } else if (!radio.checked && radio.parentElement.onclick && radio.parentElement.onclick.toString().includes(',' + idx + ')')) {
+        radio.checked = true;
+        parent.classList.add('selected');
+      }
+    }
+  });
 }
 
 function toggleMultiple(qId, idx) {
@@ -830,7 +893,38 @@ function toggleMultiple(qId, idx) {
     current.splice(pos, 1);
   }
   state.answers[qId] = current;
-  render();
+  
+  // Update DOM without full re-render - just toggle the clicked checkbox
+  var checkboxes = document.querySelectorAll('.option input[type="checkbox"]');
+  checkboxes.forEach(function(cb) {
+    var parent = cb.parentElement;
+    if (parent && parent.onclick && parent.onclick.toString().includes(qId) && parent.onclick.toString().includes(',' + idx + ')')) {
+      cb.checked = current.indexOf(idx) !== -1;
+      if (cb.checked) {
+        parent.classList.add('selected');
+      } else {
+        parent.classList.remove('selected');
+      }
+    }
+  });
+}
+
+function setMatchWithMapping(qId, originalLeftIdx, displayRightVal, rightMappingJson) {
+  if (TEST_DATA.showCorrectAnswers && state.feedbackShown) return;
+
+  var rightMapping = JSON.parse(rightMappingJson);
+  var pairs = state.answers[qId] || {};
+
+  if (displayRightVal === '' || displayRightVal === null || displayRightVal === undefined) {
+    delete pairs[originalLeftIdx];
+  } else {
+    var displayRightIdx = parseInt(displayRightVal, 10);
+    if (!Number.isNaN(displayRightIdx) && rightMapping[displayRightIdx] !== undefined) {
+      pairs[originalLeftIdx] = rightMapping[displayRightIdx];
+    }
+  }
+
+  state.answers[qId] = pairs;
 }
 
 function setMatch(qId, leftIdx, rightVal) {
@@ -847,7 +941,6 @@ function setMatch(qId, leftIdx, rightVal) {
   }
 
   state.answers[qId] = pairs;
-  render();
 }
 
 
@@ -898,48 +991,57 @@ function renderResults() {
   var pct = Math.round(results.percent);
   var passed = !!results.passed;
 
-  // ring math
-  var r = 68;
+  // ring
+  var size = 140;
+  var stroke = 14;
+  var r = (size - stroke) / 2;
   var c = 2 * Math.PI * r;
   var offset = c - (pct / 100) * c;
 
   var html = '';
-  html += '<div class="card summary-card">';
-  html +=   '<div class="summary-head">';
-  html +=     '<div class="hero-title">' + (passed ? 'Тест пройден' : 'Тест не пройден') + '</div>';
-  html +=     '<div class="hero-subtitle">' + escapeHtml(TEST_DATA.title || '') + '</div>';
+  html += '<div class="results-page">';
+
+  // Top hero
+  html +=   '<div class="results-hero">';
+  html +=     '<div class="results-hero-icon ' + (passed ? 'is-pass' : 'is-fail') + '">';
+  html +=       '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+  html +=         passed
+    ? '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10"/><path d="M17 4v5a5 5 0 0 1-10 0V4"/><path d="M5 6h2"/><path d="M17 6h2"/>'
+    : '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6"/><path d="M15 9l-6 6"/>';
+  html +=       '</svg>';
+  html +=     '</div>';
+  html +=     '<div class="results-hero-title">' + (passed ? 'Поздравляем!' : 'Тест не пройден') + '</div>';
+  html +=     '<div class="results-hero-sub">' + (passed ? 'Вы успешно прошли тест.' : 'Попробуйте ещё раз.') + '</div>';
   html +=   '</div>';
 
-  html +=   '<div class="ring-wrap">';
-  html +=     '<div class="ring">';
-  html +=       '<svg viewBox="0 0 160 160">';
-  html +=         '<circle cx="80" cy="80" r="' + r + '" stroke="rgba(255,255,255,0.12)" stroke-width="14" fill="none"></circle>';
-  html +=         '<circle cx="80" cy="80" r="' + r + '" stroke="currentColor" stroke-width="14" fill="none" stroke-linecap="round"';
+  // Main card
+  html +=   '<div class="card results-main-card">';
+  html +=     '<div class="results-main-title">' + escapeHtml(TEST_DATA.title || '') + '</div>';
+  html +=     '<div class="results-main-sub">Результаты теста</div>';
+
+  html +=     '<div class="results-ring">';
+  html +=       '<svg viewBox="0 0 ' + size + ' ' + size + '">';
+  html +=         '<circle cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" class="ring-bg" stroke-width="' + stroke + '" fill="none"></circle>';
+  html +=         '<circle cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" class="ring-fg ' + (passed ? 'is-pass' : 'is-fail') + '" stroke-width="' + stroke + '" fill="none" stroke-linecap="round"';
   html +=           ' style="stroke-dasharray:' + c.toFixed(2) + ';stroke-dashoffset:' + offset.toFixed(2) + '"></circle>';
   html +=       '</svg>';
-  html +=       '<div class="center">';
-  html +=         '<div class="pct">' + pct + '%</div>';
-  html +=         '<div class="label">результат</div>';
+  html +=       '<div class="results-ring-center">';
+  html +=         '<div class="results-ring-pct">' + pct + '%</div>';
+  html +=         '<div class="results-ring-label">Баллы</div>';
   html +=       '</div>';
   html +=     '</div>';
 
-  html +=     '<div class="pill ' + (passed ? 'pass' : 'fail') + '">' + (passed ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО') + '</div>';
-
-  html +=     '<div class="stats-row">';
-  html +=       '<div class="stat"><div class="v">' + results.correct + '</div><div class="l">верно</div></div>';
-  html +=       '<div class="stat"><div class="v">' + results.totalQuestions + '</div><div class="l">всего</div></div>';
-  html +=       '<div class="stat"><div class="v">' + results.earnedPoints.toFixed(1) + '</div><div class="l">баллы</div></div>';
+  html +=     '<div class="results-stats">';
+  html +=       '<div class="results-stat"><div class="v">' + results.totalQuestions + '</div><div class="l">Вопросов</div></div>';
+  html +=       '<div class="results-stat"><div class="v">' + results.correct + '/' + results.totalQuestions + '</div><div class="l">Верно</div></div>';
+  html +=       '<div class="results-stat"><div class="v">' + results.earnedPoints.toFixed(1) + '</div><div class="l">Баллов</div></div>';
+  html +=       '<div class="results-pill ' + (passed ? 'is-pass' : 'is-fail') + '">' + (passed ? 'Пройден' : 'Не пройден') + '</div>';
   html +=     '</div>';
   html +=   '</div>';
 
-  if (TEST_DATA.testFeedback) {
-    html += '<div style="margin-top:14px;color:hsl(var(--muted-foreground))">' + escapeHtml(TEST_DATA.testFeedback) + '</div>';
-  }
-
-  html += '</div>';
-
-  html += '<div class="section-title">Результаты по темам</div>';
-  html += '<div class="topic-grid">';
+  // Topics
+  html +=   '<div class="results-section-title">Результаты по темам</div>';
+  html +=   '<div class="results-topics-grid">';
 
   results.topicResults.forEach(function(tr) {
     var tpct = Math.round(tr.percent || 0);
@@ -947,38 +1049,53 @@ function renderResults() {
 
     html += '<div class="card topic-card">';
     html +=   '<div class="topic-head">';
-    html +=     '<div class="topic-name">' + escapeHtml(tr.topicName || '') + '</div>';
+    html +=     '<div class="topic-left">';
+    html +=       '<div class="topic-icon ' + (tpass ? 'is-pass' : 'is-fail') + '">';
+    html +=         '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+    html +=           tpass ? '<path d="M20 6 9 17l-5-5"/>' : '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+    html +=         '</svg>';
+    html +=       '</div>';
+    html +=       '<div class="topic-name">' + escapeHtml(tr.topicName || '') + '</div>';
+    html +=     '</div>';
     if (tpass !== null) {
-      html += '<div class="pill ' + (tpass ? 'pass' : 'fail') + '">' + (tpass ? 'ОК' : 'НЕТ') + '</div>';
+      html +=   '<div class="results-pill ' + (tpass ? 'is-pass' : 'is-fail') + '">' + (tpass ? 'Пройден' : 'Нет') + '</div>';
     }
     html +=   '</div>';
 
-    html +=   '<div class="topic-meta">' + tpct + '% • ' + tr.correct + ' / ' + tr.total + '</div>';
-    html +=   '<div class="topic-bar ' + (tpass ? 'pass' : '') + '"><div style="width:' + Math.min(100, Math.max(0, tpct)) + '%"></div></div>';
+    html +=   '<div class="topic-row">';
+    html +=     '<div class="k">Вопросов</div>';
+    html +=     '<div class="val">' + tr.total + ' / ' + tr.total + ' (' + tpct + '%)</div>';
+    html +=   '</div>';
 
-    if (tr.topicFeedback) {
-      html += '<div style="margin-top:10px;color:hsl(var(--muted-foreground))">' + escapeHtml(tr.topicFeedback) + '</div>';
-    }
+    html +=   '<div class="topic-row">';
+    html +=     '<div class="k">Баллов</div>';
+    html +=     '<div class="val">' + tr.earnedPoints.toFixed(1) + ' / ' + tr.possiblePoints.toFixed(1) + '</div>';
+    html +=   '</div>';
 
-    if (Array.isArray(tr.recommendedCourses) && tr.recommendedCourses.length) {
-      tr.recommendedCourses.forEach(function(c) {
-        html += '<a class="course-link" target="_blank" rel="noopener noreferrer" href="' + escapeHtml(c.url) + '">' + escapeHtml(c.title) + '</a>';
-      });
+    html +=   '<div class="topic-bar ' + (tpass ? 'is-pass' : 'is-fail') + '"><div style="width:' + Math.min(100, Math.max(0, tpct)) + '%"></div></div>';
+
+    // если у темы есть passRule percent — покажем "Требуется: X%"
+    var section = TEST_DATA.sections.find(function(s) { return s.topicId === tr.topicId; });
+    if (section && section.topicPassRule && section.topicPassRule.type === 'percent') {
+      html += '<div class="topic-required">Требуется: ' + section.topicPassRule.value + '%</div>';
     }
 
     html += '</div>';
   });
 
-  html += '</div>';
+  html +=   '</div>';
 
-  html += '<div class="footer-actions">';
-  html +=   '<button class="btn btn-outline" onclick="restart()">Пройти ещё раз</button>';
+  // Actions
+  html +=   '<div class="results-actions">';
+  html +=     '<button class="btn btn-outline" onclick="restart()">Пройти заново</button>';
+  html +=   '</div>';
+
   html += '</div>';
 
   app.innerHTML = html;
-
   finishScorm(results);
 }
+
 
 function restart() {
   state.phase = 'start';
@@ -1230,275 +1347,695 @@ function escapeHtml(str) {
 `;
 }
 function buildStylesCss(): string {
-  const tokens = loadAppThemeTokensCss();
-  const { light, dark } = tokens;
-
-  const darkAsMedia = dark
-    ? `@media (prefers-color-scheme: dark) { :root ${extractBodyFromBlock(dark)} }`
-    : "";
-
   return `
-/* ===== App theme tokens (copied/extracted from client/src/index.css) ===== */
-${light || ""}
-
-${darkAsMedia}
-
-/* optional manual override */
-${dark || ""}
-
-/* ===== SCORM UI on tokens ===== */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
+/* ===== Modern Dark Theme SCORM Package ===== */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --border: 0 0% 89%;
-  --card: 0 0% 98%;
-  --card-foreground: 0 0% 9%;
-  --card-border: 0 0% 94%;
+  --background: 20 14% 10%;
+  --foreground: 0 0% 98%;
+  --border: 0 0% 22%;
+  --card: 20 14% 14%;
+  --card-foreground: 0 0% 98%;
+  --card-border: 0 0% 24%;
   --primary: 217 91% 42%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 217 12% 90%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 217 10% 92%;
-  --muted-foreground: 0 0% 35%;
-  --accent: 217 8% 93%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 84% 38%;
-  --destructive-foreground: 0 0% 98%;
-  --ring: 217 91% 42%;
-  --chart-3: 160 75% 32%;
-  --font-sans: 'Inter', sans-serif;
-  --radius: .5rem;
-  --shadow-sm: 0px 1px 2px rgba(0,0,0,.06);
-  --shadow: 0px 1px 3px rgba(0,0,0,.10);
-
-  /* SCORM additions */
-  --success: var(--chart-3);
-  --success-foreground: 0 0% 98%;
+  --muted: 20 10% 20%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 20 8% 22%;
+  --destructive: 0 84% 52%;
+  --success: 142 76% 36%;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --radius: 12px;
+  --shadow: 0px 4px 16px rgba(0,0,0,.5);
 }
 
-/* DARK MODE (как в .dark из client/src/index.css) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 0 0% 9%;
-    --foreground: 0 0% 98%;
-    --border: 0 0% 18%;
-    --card: 0 0% 11%;
-    --card-foreground: 0 0% 98%;
-    --card-border: 0 0% 14%;
-    --primary: 217 91% 35%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 217 12% 19%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 217 10% 17%;
-    --muted-foreground: 0 0% 68%;
-    --accent: 217 8% 17%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84% 32%;
-    --destructive-foreground: 0 0% 98%;
-    --ring: 217 91% 55%;
-    --chart-3: 160 75% 58%;
-
-    --shadow-sm: 0px 1px 2px rgba(0,0,0,.35);
-    --shadow: 0px 1px 3px rgba(0,0,0,.45);
-
-    --success: var(--chart-3);
-  }
-}
-
-/* manual override (если окружение добавит .dark) */
-.dark {
-  --background: 0 0% 9%;
-  --foreground: 0 0% 98%;
-  --border: 0 0% 18%;
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 14%;
-  --primary: 217 91% 35%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 217 12% 19%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 217 10% 17%;
-  --muted-foreground: 0 0% 68%;
-  --accent: 217 8% 17%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 84% 32%;
-  --destructive-foreground: 0 0% 98%;
-  --ring: 217 91% 55%;
-  --chart-3: 160 75% 58%;
-  --success: var(--chart-3);
-}
-
-/* ===== SCORM UI styles (через токены) ===== */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
+/* ===== Base Styles ===== */
+* {
+  box-sizing: border-box;
   margin: 0;
-  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
+  line-height: 1.6;
 }
 
-.container { max-width: 860px; margin: 0 auto; }
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
 
 h1 {
-  font-size: 24px;
-  margin: 0 0 20px;
+  font-size: 28px;
+  margin: 0 0 24px;
   color: hsl(var(--foreground));
+  font-weight: 600;
 }
 
+/* ===== Card System ===== */
 .card {
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
   border: 1px solid hsl(var(--card-border));
   border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 16px;
+  padding: 32px;
+  margin-bottom: 24px;
   box-shadow: var(--shadow);
 }
 
-.question-text { font-size: 18px; margin-bottom: 16px; }
+/* ===== Results Page - Summary Card ===== */
+.summary-card {
+  text-align: center;
+  padding: 40px 32px;
+}
+
+.summary-head {
+  margin-bottom: 32px;
+}
+
+.hero-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: hsl(var(--foreground));
+}
+
+.hero-subtitle {
+  font-size: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ===== Ring Progress Circle ===== */
+.ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.ring {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.ring .center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.ring .pct {
+  font-size: 52px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1;
+}
+
+.ring .label {
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== Pass/Fail Pill ===== */
+.pill {
+  display: inline-block;
+  padding: 10px 24px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.pill.pass {
+  background: hsl(var(--success) / 0.2);
+  color: hsl(var(--success));
+  border: 2px solid hsl(var(--success) / 0.4);
+}
+
+.pill.fail {
+  background: hsl(var(--destructive) / 0.2);
+  color: hsl(var(--destructive));
+  border: 2px solid hsl(var(--destructive) / 0.4);
+}
+
+/* ===== Stats Row ===== */
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 56px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat .v {
+  font-size: 36px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1;
+}
+
+.stat .l {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ===== Section Title ===== */
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 40px 0 20px;
+  color: hsl(var(--foreground));
+}
+
+/* ===== Topic Grid ===== */
+.topic-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.topic-card {
+  padding: 24px 28px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--card-border));
+  border-radius: var(--radius);
+}
+
+.topic-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.topic-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.topic-meta {
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 12px;
+}
+
+/* ===== Topic Progress Bar ===== */
+.topic-bar {
+  height: 10px;
+  background: hsl(var(--muted));
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.topic-bar > div {
+  height: 100%;
+  background: hsl(var(--muted-foreground));
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 999px;
+}
+
+.topic-bar.pass > div {
+  background: hsl(var(--success));
+}
+
+/* ===== Course Links ===== */
+.course-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: hsl(var(--accent));
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  margin-top: 14px;
+  color: hsl(var(--primary));
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.course-link:hover {
+  background: hsl(var(--accent) / 0.7);
+  border-color: hsl(var(--primary));
+  transform: translateY(-1px);
+}
+
+/* ===== Footer Actions ===== */
+.footer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 40px;
+}
+
+/* ===== Questions Page ===== */
+.question-text {
+  font-size: 18px;
+  margin-bottom: 28px;
+  color: hsl(var(--foreground));
+  line-height: 1.7;
+}
 
 .option {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 18px 22px;
   border: 2px solid hsl(var(--border));
-  border-radius: var(--radius);
-  margin-bottom: 8px;
+  border-radius: 10px;
+  margin-bottom: 12px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: all 0.2s;
   background: hsl(var(--card));
 }
 
 .option:hover {
   border-color: hsl(var(--primary));
   background: hsl(var(--accent));
+  transform: translateX(2px);
 }
 
 .option.selected {
   border-color: hsl(var(--primary));
-  background: hsl(var(--accent));
+  background: hsl(var(--primary) / 0.12);
 }
 
 .option.correct-answer {
   border-color: hsl(var(--success));
-  background: hsl(var(--success) / 0.18);
+  background: hsl(var(--success) / 0.15);
 }
 
 .option.incorrect-answer {
   border-color: hsl(var(--destructive));
-  background: hsl(var(--destructive) / 0.18);
+  background: hsl(var(--destructive) / 0.15);
 }
 
-.option input { margin-right: 12px; }
+.option input {
+  margin-right: 14px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
 
+/* ===== Progress Bar ===== */
 .progress-bar {
-  height: 8px;
+  height: 10px;
   background: hsl(var(--muted));
   border-radius: 999px;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
   overflow: hidden;
 }
+
 .progress-fill {
   height: 100%;
   background: hsl(var(--primary));
-  transition: width 0.3s;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ===== Buttons ===== */
 .btn {
-  display: inline-block;
-  padding: 12px 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 28px;
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
-  border: 1px solid hsl(var(--primary));
-  border-radius: var(--radius);
-  font-size: 16px;
+  border: 2px solid hsl(var(--primary));
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
 }
-.btn:hover { filter: brightness(1.03); }
-.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .btn-outline {
   background: transparent;
-  color: hsl(var(--primary));
-  border: 2px solid hsl(var(--primary));
+  color: hsl(var(--foreground));
+  border: 2px solid hsl(var(--border));
 }
-.btn-outline:hover { background: hsl(var(--accent)); }
 
-.navigation { display: flex; justify-content: space-between; margin-top: 20px; }
+.btn-outline:hover {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary));
+}
 
-.result-hero { text-align: center; padding: 40px 20px; }
-.result-score { font-size: 64px; font-weight: 700; }
-.result-passed { color: hsl(var(--success)); }
-.result-failed { color: hsl(var(--destructive)); }
-.result-status { font-size: 24px; margin-top: 10px; }
-
-.topic-result {
+.navigation {
   display: flex;
   justify-content: space-between;
+  margin-top: 32px;
+}
+
+/* ===== Matching Questions ===== */
+.matching-row {
+  display: flex;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid hsl(var(--border));
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 6px;
+  border-radius: 10px;
+  transition: background 0.2s;
 }
-.topic-result:last-child { border-bottom: none; }
 
-.course-link {
-  display: block;
-  padding: 12px 16px;
-  background: hsl(var(--accent));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  margin-top: 8px;
-  color: hsl(var(--primary));
-  text-decoration: none;
+.matching-item {
+  flex: 1;
+  padding: 14px 18px;
+  background: hsl(var(--muted));
+  border-radius: 8px;
+  font-size: 15px;
 }
-.course-link:hover { filter: brightness(1.02); }
 
-.matching-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
-.matching-item { flex: 1; padding: 12px; background: hsl(var(--muted)); border-radius: var(--radius); }
-.matching-row.correct-answer { background: hsl(var(--success) / 0.12); border-radius: var(--radius); padding: 4px 8px; }
-.matching-row.incorrect-answer { background: hsl(var(--destructive) / 0.12); border-radius: var(--radius); padding: 4px 8px; }
+.matching-row.correct-answer {
+  background: hsl(var(--success) / 0.15);
+}
+
+.matching-row.incorrect-answer {
+  background: hsl(var(--destructive) / 0.15);
+}
 
 select {
-  padding: 10px;
+  padding: 12px 14px;
   border: 2px solid hsl(var(--border));
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
-  border-radius: var(--radius);
-  font-size: 14px;
-  min-width: 140px;
+  border-radius: 8px;
+  font-size: 15px;
+  min-width: 180px;
+  cursor: pointer;
+  transition: border-color 0.2s;
 }
 
+select:hover {
+  border-color: hsl(var(--primary));
+}
+
+select:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+
+/* ===== Ranking Questions ===== */
 .ranking-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 16px 18px;
   background: hsl(var(--card));
   border: 2px solid hsl(var(--border));
-  border-radius: var(--radius);
-  margin-bottom: 8px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: all 0.2s;
 }
-.ranking-item.correct-answer { background: hsl(var(--success) / 0.12); }
-.ranking-item.incorrect-answer { background: hsl(var(--destructive) / 0.12); }
+
+.ranking-item:hover {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+.ranking-item.correct-answer {
+  background: hsl(var(--success) / 0.15);
+  border-color: hsl(var(--success) / 0.4);
+}
+
+.ranking-item.incorrect-answer {
+  background: hsl(var(--destructive) / 0.15);
+  border-color: hsl(var(--destructive) / 0.4);
+}
+
+.ranking-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 .ranking-controls button {
   background: hsl(var(--muted));
   color: hsl(var(--foreground));
   border: 1px solid hsl(var(--border));
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
 }
-.ranking-controls button:hover { filter: brightness(1.03); }
-.ranking-controls button:disabled { opacity: 0.35; cursor: not-allowed; }
 
-#loading { text-align: center; padding: 60px; color: hsl(var(--muted-foreground)); }
+.ranking-controls button:hover {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary));
+}
+
+.ranking-controls button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ===== Loading State ===== */
+#loading {
+  text-align: center;
+  padding: 100px 20px;
+  color: hsl(var(--muted-foreground));
+  font-size: 18px;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 6px;
+  border: 2px solid hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.4s ease-out;
+}
+/* ===== Results page (match app) ===== */
+.results-page{
+  max-width: 980px;
+  margin: 28px auto 40px;
+  padding: 0 18px;
+}
+
+.results-hero{
+  text-align:center;
+  margin: 10px 0 22px;
+}
+.results-hero-icon{
+  width: 56px; height: 56px;
+  border-radius: 999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  margin-bottom: 12px;
+}
+.results-hero-icon.is-pass{ color: hsl(var(--success)); background: hsl(var(--success)/.12); border-color: hsl(var(--success)/.25); }
+.results-hero-icon.is-fail{ color: hsl(var(--destructive)); background: hsl(var(--destructive)/.12); border-color: hsl(var(--destructive)/.25); }
+
+.results-hero-title{ font-size: 40px; font-weight: 800; margin: 0; }
+.results-hero-sub{ margin-top: 8px; color: hsl(var(--muted-foreground)); font-size: 16px; }
+
+.results-main-card{
+  padding: 22px 22px 18px;
+  text-align:center;
+}
+.results-main-title{ font-size: 18px; font-weight: 800; margin: 0; }
+.results-main-sub{ margin-top: 8px; color: hsl(var(--muted-foreground)); font-size: 14px; }
+
+.results-ring{
+  width: 140px; height: 140px;
+  margin: 18px auto 10px;
+  position: relative;
+}
+.results-ring svg{
+  width: 140px; height: 140px;
+  transform: rotate(-90deg);
+}
+.ring-bg{ stroke: rgba(47, 47, 47, 1); }
+.ring-fg{ transition: stroke-dashoffset .35s ease; }
+.ring-fg.is-pass{ stroke: hsl(var(--success)); }
+.ring-fg.is-fail{ stroke: hsl(var(--destructive)); }
+
+.results-ring-center{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  transform: translateY(2px);
+}
+.results-ring-pct{ font-size: 38px; font-weight: 900; line-height: 1; }
+.results-ring-label{ margin-top: 4px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+
+.results-stats{
+  display:flex;
+  justify-content:center;
+  align-items:flex-end;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.results-stat{ min-width: 90px; }
+.results-stat .v{ font-size: 22px; font-weight: 900; }
+.results-stat .l{ margin-top: 4px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+
+.results-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+  border: 1px solid hsl(var(--border));
+  height: 28px;
+}
+.results-pill.is-pass{ background: hsl(var(--success)/.18); border-color: hsl(var(--success)/.35); color: hsl(var(--success)); }
+.results-pill.is-fail{ background: hsl(var(--destructive)/.18); border-color: hsl(var(--destructive)/.35); color: hsl(var(--destructive)); }
+
+.results-section-title{
+  margin: 28px 0 14px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.results-topics-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.topic-card{ padding: 18px; text-align:left; }
+.topic-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.topic-left{ display:flex; align-items:center; gap: 10px; }
+.topic-icon{
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border: 1px solid hsl(var(--border));
+}
+.topic-icon.is-pass{ color: hsl(var(--success)); background: hsl(var(--success)/.12); border-color: hsl(var(--success)/.25); }
+.topic-icon.is-fail{ color: hsl(var(--destructive)); background: hsl(var(--destructive)/.12); border-color: hsl(var(--destructive)/.25); }
+.topic-name{ font-weight: 900; }
+
+.topic-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.topic-row .k{ color: hsl(var(--muted-foreground)); }
+.topic-row .val{ font-weight: 700; }
+
+.topic-bar{
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  overflow:hidden;
+  margin-top: 12px;
+}
+.topic-bar > div{ height:100%; }
+.topic-bar.is-pass > div{ background: hsl(var(--success)); }
+.topic-bar.is-fail > div{ background: hsl(var(--destructive)); }
+
+.topic-required{
+  margin-top: 10px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.results-actions{ы
+  display:flex;
+  justify-content:center;
+  gap: 12px;
+  margin-top: 22px;
+}
 `.trim();
 }
 
