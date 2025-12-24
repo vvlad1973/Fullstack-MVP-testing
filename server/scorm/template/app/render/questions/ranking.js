@@ -1,0 +1,37 @@
+function renderRankingQuestionInput(q, answer, locked, correct, shuffleMapping) {
+  var items = (q.data && Array.isArray(q.data.items)) ? q.data.items : [];
+
+  var userOrder = Array.isArray(answer) ? answer.slice() : null;
+  if (!userOrder || userOrder.length !== items.length) {
+    userOrder = items.map(function(_, i){ return i; });
+    state.answers[q.id] = userOrder;
+  }
+
+  var html = '<div class="ranking-board" data-qid="' + escapeHtml(q.id) + '">';
+
+  userOrder.forEach(function(itemIdx, pos){
+    var text = (items[itemIdx] != null) ? String(items[itemIdx]) : ('#' + itemIdx);
+
+    html += ''
+      + '<div class="rank-item rank-draggable"'
+      + ' draggable="true"'
+      + ' data-qid="' + escapeHtml(q.id) + '"'
+      + ' data-pos="' + pos + '"'
+      + ' data-item="' + itemIdx + '">'
+      +   '<span class="rank-grip">' + burgerSvgInline() + '</span>'
+      +   '<span class="rank-text">' + escapeHtml(text) + '</span>'
+      + '</div>';
+  });
+
+  html += '</div>';
+  return html;
+
+  function burgerSvgInline(){
+    return ''
+      + '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+      + '<path d="M2.5 4.99524H17.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
+      + '<path d="M14.1667 9.9952H2.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
+      + '<path d="M2.5 14.9951H10.8333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
+      + '</svg>';
+  }
+}

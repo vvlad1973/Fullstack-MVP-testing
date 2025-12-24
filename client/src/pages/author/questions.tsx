@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, type ChangeEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, FileQuestion, GripVertical, ArrowRight, Image, Music, Video, Copy, Upload, Download } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -66,6 +66,8 @@ export default function QuestionsPage() {
 
   const [mediaUrl, setMediaUrl] = useState<string>("");
   const [mediaType, setMediaType] = useState<"image" | "audio" | "video" | "">("");
+  const [mediaFileName, setMediaFileName] = useState<string>("");
+  const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
   const [shuffleAnswers, setShuffleAnswers] = useState<boolean>(true);
   const [feedbackMode, setFeedbackMode] = useState<"general" | "conditional">("general");
   const [feedback, setFeedback] = useState<string>("");
@@ -75,6 +77,7 @@ export default function QuestionsPage() {
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: questions, isLoading: questionsLoading } = useQuery<QuestionWithTopic[]>({
     queryKey: ["/api/questions"],
@@ -195,6 +198,86 @@ export default function QuestionsPage() {
       importMutation.mutate(importFile);
     }
   };
+    const guessMediaType = (mime: string): "image" | "audio" | "video" | "" => {
+    if (!mime) return "";
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("audio/")) return "audio";
+    if (mime.startsWith("video/")) return "video";
+    return "";
+  };
+  const isDataUrl = (v: string) => v.trim().startsWith("data:");
+  const handlePickMediaFile = () => {
+    mediaFileInputRef.current?.click();
+  };
+
+  const clearMedia = () => {
+    setMediaUrl("");
+    setMediaType("");
+    setMediaFileName("");
+    if (mediaFileInputRef.current) {
+      mediaFileInputRef.current.value = "";
+    }
+  };
+
+  const handleMediaFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // защита от слишком больших файлов (можешь поменять лимит)
+    const MAX_MB = 200;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: t.common.error,
+        description: `Файл слишком большой (>${MAX_MB}MB).`,
+      });
+      return;
+    }
+
+    const mt = guessMediaType(file.type);
+    if (!mt) {
+      toast({
+        variant: "destructive",
+        title: t.common.error,
+        description: "Поддерживаются только image/audio/video.",
+      });
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const payload: { url: string; mime?: string } = await response.json();
+
+      setMediaUrl(payload.url); // ✅ короткий URL (без base64)
+      setMediaType(guessMediaType(payload.mime || file.type) || mt);
+      setMediaFileName(file.name);
+    } catch (err) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: t.common.error,
+        description: "Не удалось загрузить файл. Проверь права (author) и размер.",
+      });
+    } finally {
+      setIsUploadingMedia(false);
+      // чтобы можно было выбрать тот же файл повторно
+      if (mediaFileInputRef.current) mediaFileInputRef.current.value = "";
+    }
+  };
+
 
   const handleDuplicate = (id: string) => {
     duplicateMutation.mutate(id);
@@ -216,6 +299,10 @@ export default function QuestionsPage() {
     setFeedback("");
     setFeedbackCorrect("");
     setFeedbackIncorrect("");
+    setMediaFileName("");
+    if (mediaFileInputRef.current) {
+      mediaFileInputRef.current.value = "";
+    }
   };
 
   const handleOpenCreate = () => {
@@ -308,6 +395,23 @@ export default function QuestionsPage() {
 
   const onSubmit = (formData: any) => {
     const { dataJson, correctJson } = buildQuestionData();
+    if (isUploadingMedia) {
+      toast({
+        variant: "destructive",
+        title: t.common.error,
+        description: "Дождись окончания загрузки медиа.",
+      });
+      return;
+    }
+  
+    if (mediaUrl && isDataUrl(mediaUrl)) {
+      toast({
+        variant: "destructive",
+        title: t.common.error,
+        description: "Нельзя сохранять медиа как base64 в JSON. Используй кнопку \"Загрузить файл\".",
+      });
+      return;
+    }
     const data = {
       ...formData,
       dataJson,
@@ -651,7 +755,7 @@ export default function QuestionsPage() {
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">{t.questions.mediaUrl}</Label>
                     <Input
-                      type="url"
+                      type="text"
                       placeholder={t.questions.mediaUrlPlaceholder}
                       value={mediaUrl}
                       onChange={(e) => setMediaUrl(e.target.value)}
@@ -676,6 +780,53 @@ export default function QuestionsPage() {
                     </Select>
                   </div>
                 </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePickMediaFile}
+                    disabled={isUploadingMedia}
+                    data-testid="button-upload-question-media"
+                  >
+                    {isUploadingMedia ? (
+                      <>
+                        <LoadingSpinner className="mr-2" />
+                        Загрузка...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Загрузить файл
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearMedia}
+                    disabled={!mediaUrl || isUploadingMedia}
+                    data-testid="button-clear-question-media"
+                  >
+                    Очистить
+                  </Button>
+
+                  {mediaFileName && (
+                    <span className="text-xs text-muted-foreground">
+                      {mediaFileName}
+                    </span>
+                  )}
+                </div>
+
+                <input
+                  ref={mediaFileInputRef}
+                  type="file"
+                  accept="image/*,audio/*,video/*"
+                  className="hidden"
+                  onChange={handleMediaFileChange}
+                />
                 {mediaUrl && mediaType && (
                   <div className="rounded-md border p-4">
                     {mediaType === "image" && (
@@ -819,7 +970,7 @@ export default function QuestionsPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={isUploadingMedia || createMutation.isPending || updateMutation.isPending}
                   data-testid="button-submit-question"
                 >
                   {(createMutation.isPending || updateMutation.isPending) && (

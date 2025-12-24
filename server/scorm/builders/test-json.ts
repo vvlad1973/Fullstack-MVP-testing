@@ -1,0 +1,59 @@
+import type { Test, TestSection, Topic, Question, TopicCourse, PassRule } from "@shared/schema";
+
+interface ExportData {
+  test: Test;
+  sections: (TestSection & { topic: Topic; questions: Question[]; courses: TopicCourse[] })[];
+}
+
+export function buildTestJson(data: ExportData): string {
+  const totalQuestions = data.sections.reduce((sum, s) => sum + s.drawCount, 0);
+  const overallPassRule = data.test.overallPassRuleJson as PassRule;
+
+  const passPercent =
+    overallPassRule.type === "percent"
+      ? overallPassRule.value
+      : totalQuestions > 0
+        ? Math.round((overallPassRule.value / totalQuestions) * 100)
+        : 80;
+
+  const test = {
+    id: data.test.id,
+    title: data.test.title,
+    description: data.test.description,
+    overallPassRule: overallPassRule,
+    webhookUrl: data.test.webhookUrl,
+    testFeedback: data.test.feedback || null,
+    timeLimitMinutes: data.test.timeLimitMinutes || null,
+    maxAttempts: data.test.maxAttempts || null,
+    showCorrectAnswers: data.test.showCorrectAnswers || false,
+    startPageContent: data.test.startPageContent || null,
+    passPercent: passPercent,
+    totalQuestions: totalQuestions,
+    sections: data.sections.map((s) => ({
+      topicId: s.topic.id,
+      topicName: s.topic.name,
+      drawCount: s.drawCount,
+      topicPassRule: (s.topicPassRuleJson as PassRule | null) ?? null,
+      topicFeedback: s.topic.feedback || null,
+      recommendedCourses: s.courses.map((c) => ({ title: c.title, url: c.url })),
+      questions: s.questions.map((q) => ({
+        id: q.id,
+        type: q.type,
+        prompt: q.prompt,
+        data: q.dataJson,
+        correct: q.correctJson,
+        points: q.points || 1,
+        mediaUrl: q.mediaUrl || null,
+        mediaType: q.mediaType || null,
+        feedback: q.feedback || null,
+        feedbackMode: q.feedbackMode || "general",
+        feedbackCorrect: q.feedbackCorrect || null,
+        feedbackIncorrect: q.feedbackIncorrect || null,
+      })),
+    })),
+  };
+
+  return JSON.stringify(test, null, 2);
+}
+
+export type { ExportData };

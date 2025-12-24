@@ -1,19 +1,56 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import MemoryStore from "memorystore";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import path from "node:path";
+import fs from "node:fs";
+import crypto from "node:crypto";
 import { storage } from "./storage";
 import { generateScormPackage } from "./scorm-exporter";
 import type { TestVariant, AttemptResult, TopicResult, PassRule, Question } from "@shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage() });
+const mediaDir = path.resolve(process.cwd(), "uploads", "media");
+fs.mkdirSync(mediaDir, { recursive: true });
+
+const mediaUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, mediaDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      cb(null, `${Date.now()}_${crypto.randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB на dev, подстрой
+  fileFilter: (_req, file, cb) => {
+    const ok =
+      file.mimetype.startsWith("image/") ||
+      file.mimetype.startsWith("audio/") ||
+      file.mimetype.startsWith("video/");
+    cb(ok ? null : new Error("Unsupported media type"), ok);
+  },
+});
+
 
 declare module "express-session" {
   interface SessionData {
     userId: string;
   }
+}
+
+function rejectBase64MediaUrl(mediaUrl: unknown, res: Response) {
+  if (typeof mediaUrl !== "string") return false;
+  const v = mediaUrl.trim();
+  if (v.startsWith("data:")) {
+    res.status(413).json({
+      error:
+        "Base64 (data:...) запрещён. Загрузи файл через /api/media/upload и сохрани url вида /uploads/media/...",
+    });
+    return true;
+  }
+  return false;
 }
 
 const MemStore = MemoryStore(session);
@@ -71,7 +108,7 @@ export async function registerRoutes(
       },
     })
   );
-
+  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -97,6 +134,23 @@ export async function registerRoutes(
       res.json({ success: true });
     });
   });
+
+  app.post(
+    "/api/media/upload",
+    requireAuth,
+    mediaUpload.single("file"),
+    (req: Request, res: Response) => {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+      const url = `/uploads/media/${req.file.filename}`;
+      res.json({
+        url,
+        mime: req.file.mimetype,
+        originalName: req.file.originalname,
+        size: req.file.size,
+      });
+    }
+  );
 
   app.get("/api/auth/me", async (req, res) => {
     if (!req.session.userId) {
