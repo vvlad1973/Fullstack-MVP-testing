@@ -7,36 +7,71 @@ function finishAndClose() {
   scormFinished = true;
 
   var results = calculateResults();
+  
+  console.log('🎯 Завершение теста, процент:', Math.round(results.percent));
+
+  saveAttemptResult(results);
+  
+  console.log('💾 Результат сохранен в suspend_data');
 
   var attemptsExhausted = !!TEST_DATA.maxAttempts && !hasAttemptsLeft();
   var realPassed = !!results.passed;
 
-  // по умолчанию — честно
   var passedForLms = realPassed;
 
-  // если время вышло — считаем провалом (и не закрываем "читом")
   if (state.timeExpired) {
     passedForLms = false;
   }
 
-  // ✅ ХАК ДЛЯ WebSoft:
-  // если попытки кончились и тест НЕ пройден — закрываем курс, иначе он висит "в процессе"
+  // ✅ НОВОЕ: Определяем хак ДО получения лучшей попытки
+  var forcePassedHack = false;
   if (attemptsExhausted && !realPassed && !state.timeExpired) {
+    console.log('🔴 Попытки кончились, принудительно закрываем с passed=true');
+    forcePassedHack = true;
     passedForLms = true;
-
-    // маркер в данные, чтобы было видно, что фактически не сдал
     try {
       SCORM.setValue('cmi.comments_from_learner', 'ATTEMPTS_EXHAUSTED: FAILED (forced close)');
-    } catch (e) {}
+      SCORM.commit();
+      console.log('✅ Comments установлены успешно');
+    } catch (e) {
+      console.log('⚠️ Ошибка установки comments:', e);
+    }
   }
 
-  finishScorm(results, passedForLms);
+  var bestAttempt = getBestAttempt();
+  console.log('🏆 Лучшая попытка:', bestAttempt ? Math.round(bestAttempt.percent) + '%' : 'none');
+  
+  var resultsForLms = bestAttempt || results;
+  var bestPassed = !!resultsForLms.passed;
+  
+  // ✅ НОВОЕ: Если включен хак - переопределяем passed независимо от результата
+  if (forcePassedHack) {
+    console.log('🔓 Хак активирован - переопределяем passed на true');
+    bestPassed = true;
+  }
+  
+  console.log('📤 Отправляем в LMS:', Math.round(resultsForLms.percent) + '%, passed:', bestPassed);
+
+  if (bestAttempt && bestAttempt !== results) {
+    console.log('🔄 Восстанавливаем state из лучшей попытки');
+    var savedAnswers = state.answers;
+    var savedFlatQuestions = state.flatQuestions;
+    
+    state.answers = bestAttempt.answers || {};
+    state.flatQuestions = bestAttempt.flatQuestions || [];
+    
+    finishScorm(resultsForLms, bestPassed);
+    
+    state.answers = savedAnswers;
+    state.flatQuestions = savedFlatQuestions;
+  } else {
+    finishScorm(resultsForLms, bestPassed);
+  }
 
   try { SCORM.commit(); } catch (e) {}
   try { SCORM.terminate(); } catch (e) {}
   try { window.close(); } catch (e) {}
 }
-
 
 window.finishAndClose = finishAndClose;
 

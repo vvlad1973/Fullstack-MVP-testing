@@ -199,6 +199,10 @@ function renderResults() {
   html += '<div class="results-actions">';
 
   if (canFinish || noAttempts || timeAndNoAttempts) {
+    // ✅ PDF кнопка только если попытки кончились
+    if (noAttempts || timeAndNoAttempts) {
+      html += '<button class="btn btn-outline" onclick="downloadPDF()">📄 Скачать результаты (PDF)</button>';
+    }
     html += '<button class="btn" onclick="finishAndClose()">Завершить тест</button>';
   } else {
     html += '<button class="btn btn-outline" onclick="restart()">Пройти заново</button>';
@@ -210,6 +214,132 @@ function renderResults() {
   //finishScorm(results);
 }
 
+
+function downloadPDF() {
+  // ✅ Если есть сохраненные попытки - берем лучшую, иначе текущий результат
+  var bestAttempt = getBestAttempt();
+  var resultsToExport = bestAttempt || calculateResults();
+  exportResultsToPDF(resultsToExport, TEST_DATA.title || 'Результаты теста');
+}
+
+// ✅ НОВАЯ ФУНКЦИЯ: Просмотр сохраненных результатов
+function viewSavedResults() {
+  var bestAttempt = getBestAttempt();
+  if (!bestAttempt) {
+    showToast('Нет сохраненных результатов', 'warn');
+    return;
+  }
+  
+  renderSavedResults(bestAttempt);
+}
+
+function renderSavedResults(attempt) {
+  var app = document.getElementById('app');
+  var percent = Math.round(attempt.percent);
+  var passed = !!attempt.passed;
+  
+  // ring
+  var size = 140;
+  var stroke = 14;
+  var r = (size - stroke) / 2;
+  var c = 2 * Math.PI * r;
+  var offset = c - (percent / 100) * c;
+
+  var html = '';
+  html += '<div class="results-page">';
+
+  // Top hero
+  html +=   '<div class="results-hero">';
+  html +=     '<div class="results-hero-icon ' + (passed ? 'is-pass' : 'is-fail') + '">';
+  html +=       '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+  html +=         passed
+    ? '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10"/><path d="M17 4v5a5 5 0 0 1-10 0V4"/><path d="M5 6h2"/><path d="M17 6h2"/>'
+    : '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6"/><path d="M15 9l-6 6"/>';
+  html +=       '</svg>';
+  html +=     '</div>';
+  html +=     '<div class="results-hero-title">' + (passed ? 'Поздравляем!' : 'Тест не пройден') + '</div>';
+  html +=     '<div class="results-hero-sub">Лучший результат из ' + getAllAttempts().length + ' попыток</div>';
+  html +=   '</div>';
+
+  // Main card
+  html +=   '<div class="card results-main-card">';
+  html +=     '<div class="results-main-title">' + escapeHtml(TEST_DATA.title || '') + '</div>';
+  html +=     '<div class="results-main-sub">Результаты теста</div>';
+
+  html +=     '<div class="results-ring">';
+  html +=       '<svg viewBox="0 0 ' + size + ' ' + size + '">';
+  html +=         '<circle cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" class="ring-bg" stroke-width="' + stroke + '" fill="none"></circle>';
+  html +=         '<circle cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" class="ring-fg ' + (passed ? 'is-pass' : 'is-fail') + '" stroke-width="' + stroke + '" fill="none" stroke-linecap="round"';
+  html +=           ' style="stroke-dasharray:' + c.toFixed(2) + ';stroke-dashoffset:' + offset.toFixed(2) + '"></circle>';
+  html +=       '</svg>';
+  html +=       '<div class="results-ring-center">';
+  html +=         '<div class="results-ring-pct">' + percent + '%</div>';
+  html +=         '<div class="results-ring-label">Баллы</div>';
+  html +=       '</div>';
+  html +=     '</div>';
+
+  html +=     '<div class="results-stats">';
+  html +=       '<div class="results-stat"><div class="v">' + attempt.totalQuestions + '</div><div class="l">Вопросов</div></div>';
+  html +=       '<div class="results-stat"><div class="v">' + attempt.totalCorrect + '/' + attempt.totalQuestions + '</div><div class="l">Верно</div></div>';
+  html +=       '<div class="results-stat"><div class="v">' + attempt.earnedPoints.toFixed(1) + '</div><div class="l">Баллов</div></div>';
+  html +=       '<div class="results-pill ' + (passed ? 'is-pass' : 'is-fail') + '">' + (passed ? 'Пройден' : 'Не пройден') + '</div>';
+  html +=     '</div>';
+  html +=   '</div>';
+
+  // Topics
+  html +=   '<div class="results-section-title">Результаты по темам</div>';
+  html +=   '<div class="results-topics-grid">';
+
+  attempt.topicResults.forEach(function(tr) {
+    var tpct = Math.round(tr.percent || 0);
+    var tpass = (tr.passed === null) ? null : !!tr.passed;
+
+    html += '<div class="card topic-card">';
+    html +=   '<div class="topic-head">';
+    html +=     '<div class="topic-left">';
+    html +=       '<div class="topic-icon ' + (tpass ? 'is-pass' : 'is-fail') + '">';
+    html +=         '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+    html +=           tpass ? '<path d="M20 6 9 17l-5-5"/>' : '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+    html +=         '</svg>';
+    html +=       '</div>';
+    html +=       '<div class="topic-name">' + escapeHtml(tr.topicName || '') + '</div>';
+    html +=     '</div>';
+    if (tpass !== null) {
+      html +=   '<div class="results-pill ' + (tpass ? 'is-pass' : 'is-fail') + '">' + (tpass ? 'Пройден' : 'Нет') + '</div>';
+    }
+    html +=   '</div>';
+
+    html +=   '<div class="topic-row">';
+    html +=     '<div class="k">Вопросов</div>';
+    html +=     '<div class="val">' + tr.total + ' / ' + tr.total + ' (' + tpct + '%)</div>';
+    html +=   '</div>';
+
+    html +=   '<div class="topic-row">';
+    html +=     '<div class="k">Баллов</div>';
+    html +=     '<div class="val">' + tr.earnedPoints.toFixed(1) + ' / ' + tr.possiblePoints.toFixed(1) + '</div>';
+    html +=   '</div>';
+
+    html +=   '<div class="topic-bar ' + (tpass ? 'is-pass' : 'is-fail') + '"><div style="width:' + Math.min(100, Math.max(0, tpct)) + '%"></div></div>';
+
+    html += '</div>';
+  });
+
+  html +=   '</div>';
+
+  // Actions
+  html += '<div class="results-actions">';
+  html += '<button class="btn btn-outline" onclick="downloadPDF()">📄 Скачать результаты (PDF)</button>';
+  html += '<button class="btn" onclick="backToStart()">Назад</button>';
+  html += '</div>';
+
+  app.innerHTML = html;
+}
+
+function backToStart() {
+  state.phase = 'start';
+  renderStartPage();
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -218,4 +348,3 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-

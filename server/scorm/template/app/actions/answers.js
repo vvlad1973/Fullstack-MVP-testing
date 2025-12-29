@@ -171,6 +171,9 @@ function next() {
   if (!requireAnswerOrToast()) return;
 
   if (state.currentIndex < state.flatQuestions.length - 1) {
+    // ✅ НОВОЕ: Сохраняем текущее состояние перед переходом
+    saveSessionState();
+    
     state.currentIndex++;
     state.feedbackShown = false;
     render();
@@ -185,6 +188,9 @@ function submit(force) {
   if (!force) {
     if (!requireAnswerOrToast()) return;
   }
+
+  // ✅ НОВОЕ: Сохраняем финальное состояние перед завершением
+  saveSessionState();
 
   state.submitted = true;
 
@@ -202,6 +208,14 @@ function restart() {
     showToast('Попытки закончились', 'warn');
     return;
   }
+
+  // ✅ НОВОЕ: Если есть текущие ответы - сохраняем их как завершенную попытку
+  if (state.currentIndex > 0 || Object.keys(state.answers).length > 0) {
+    console.log('💾 Сохраняем текущую попытку перед перезагрузкой');
+    var results = calculateResults();
+    saveAttemptResult(results);
+  }
+
   state.phase = 'start';
   state.currentIndex = 0;
   state.answers = {};
@@ -219,4 +233,27 @@ function restart() {
 
   generateVariant();
   render();
+}
+
+// ===== НОВОЕ: Сохранение состояния сессии =====
+
+function saveSessionState() {
+  // Сохраняем текущий прогресс в suspend_data
+  try {
+    var sessionData = {
+      currentIndex: state.currentIndex,
+      answers: JSON.parse(JSON.stringify(state.answers)),
+      submitted: state.submitted,
+      timestamp: new Date().toISOString()
+    };
+    
+    var s = readSuspendObj();
+    s.currentSession = sessionData;
+    s.lastUpdated = new Date().toISOString();
+    
+    writeSuspendObj(s);
+    console.log('💾 Сохранено состояние сессии: вопрос ' + (state.currentIndex + 1) + '/' + state.flatQuestions.length);
+  } catch (e) {
+    console.log('⚠️ Ошибка сохранения сессии:', e);
+  }
 }

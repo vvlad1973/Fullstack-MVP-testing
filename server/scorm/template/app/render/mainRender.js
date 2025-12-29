@@ -4,6 +4,11 @@ function render() {
         return;
     }
 
+    if (state.phase === 'viewResults') {
+        renderViewResults();
+        return;
+    }
+
     var app = document.getElementById('app');
     var total = state.flatQuestions.length;
     var current = state.currentIndex;
@@ -71,6 +76,27 @@ function render() {
 
     app.innerHTML = html;
     syncMatchingHeights();
+}
+
+function rerenderCurrentQuestionInput() {
+  var fq = state.flatQuestions[state.currentIndex];
+  if (!fq) return;
+  var q = fq.question;
+
+  var container = document.getElementById('question-input');
+  if (!container) return;
+
+  container.innerHTML = renderQuestionInput(q);
+  syncMatchingHeights(); // чтобы matching не ломался по высотам
+}
+
+function burgerSvgInline() {
+    return ''
+        + '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+        + '<path d="M2.5 4.99524H17.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
+        + '<path d="M14.1667 9.9952H2.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
+        + '<path d="M2.5 14.9951H10.8333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
+        + '</svg>';
 }
 
 function rerenderCurrentQuestionInput() {

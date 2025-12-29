@@ -3,6 +3,7 @@ function renderStartPage() {
   var used = getAttemptsUsed();
   var hasLimit = !!TEST_DATA.maxAttempts;
   var left = hasLimit ? Math.max(0, TEST_DATA.maxAttempts - used) : null;
+  var hasCompleted = hasCompletedAttempts();
   
   var iconQuestions = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>';
   var iconPass = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
@@ -64,27 +65,58 @@ function renderStartPage() {
     html += '</div>';
   }
   
-  // Start button
-  var noAttempts = hasLimit && left <= 0;
-  var hasCompletedAttempts = !!getAllAttempts() && getAllAttempts().length > 0;
-
-  html += '<div style="margin-top:24px;text-align:center;">';
+  // ===== ЛОГИКА КНОПОК =====
+  html += '<div style="margin-top:24px;">';
   
-  // ✅ Если есть завершенные попытки и нет попыток - показываем "Мой результат"
-  if (noAttempts && hasCompletedAttempts) {
-    html += '<button class="btn btn-outline" onclick="viewSavedResults()" style="padding:14px 40px;font-size:16px;font-weight:600;margin-bottom:12px;">📊 Мой результат</button>';
+  var noAttempts = hasLimit && left <= 0;
+  var canStartNewAttempt = hasAttemptsLeft();
+  
+  // Случай 1: Все попытки исчерпаны, есть завершенные попытки
+  if (noAttempts && hasCompleted) {
+    html += '<div style="text-align:center;">';
+    html += '<button class="btn" onclick="viewResults()" style="padding:14px 40px;font-size:16px;font-weight:600;">';
+    html += 'Мой результат';
+    html += '</button>';
+    html += '</div>';
+  }
+  // Случай 2: Нет лимита попыток (можно бесконечно) и есть завершенные попытки
+  else if (!hasLimit && hasCompleted) {
+    html += '<div style="display:flex;gap:12px;flex-direction:column;">';
+    html += '<button class="btn" onclick="startTest()" style="padding:14px 40px;font-size:16px;font-weight:600;">';
+    html += 'Начать тестирование заново';
+    html += '</button>';
+    html += '<button class="btn" style="padding:14px 40px;font-size:16px;font-weight:600;background:hsl(var(--muted));color:hsl(var(--foreground));" onclick="viewResults()">';
+    html += 'Мой результат';
+    html += '</button>';
+    html += '</div>';
+  }
+  // Случай 3: Есть попытки левые и завершенные попытки
+  else if (canStartNewAttempt && hasCompleted) {
+    html += '<div style="display:flex;gap:12px;flex-direction:column;">';
+    html += '<button class="btn" onclick="startTest()" style="padding:14px 40px;font-size:16px;font-weight:600;">';
+    html += 'Начать тестирование заново';
+    html += '</button>';
+    html += '<button class="btn" style="padding:14px 40px;font-size:16px;font-weight:600;background:hsl(var(--muted));color:hsl(var(--foreground));" onclick="viewResults()">';
+    html += 'Мой результат';
+    html += '</button>';
+    html += '</div>';
+  }
+  // Случай 4: Нет завершенных попыток (первый вход или все неудачи)
+  else {
+    html += '<div style="text-align:center;">';
+    html += '<button class="btn" '
+      + (noAttempts ? 'disabled ' : '')
+      + 'onclick="' + (noAttempts ? 'return false;' : 'startTest()') + '" '
+      + 'style="padding:14px 40px;font-size:16px;font-weight:600;'
+      + (noAttempts ? 'opacity:.55;cursor:not-allowed;' : '')
+      + '">'
+      + (noAttempts ? 'Попытки закончились' : 'Начать тестирование')
+      + '</button>';
+    html += '</div>';
   }
   
-  html += '<button class="btn" '
-    + (noAttempts ? 'disabled ' : '')
-    + 'onclick="' + (noAttempts ? 'return false;' : 'startTest()') + '" '
-    + 'style="padding:14px 40px;font-size:16px;font-weight:600;'
-    + (noAttempts ? 'opacity:.55;cursor:not-allowed;' : '')
-    + '">'
-    + (noAttempts ? 'Попытки закончились' : 'Начать тестирование')
-    + '</button>';
   html += '</div>';
-
+  
   // закрываем карточку и обёртку страницы
   html += '</div></div>';
   
@@ -106,5 +138,18 @@ function startTest() {
 
   state.phase = 'question';
   initTimer();
+  render();
+}
+
+// ===== НОВАЯ ФУНКЦИЯ: Просмотр результатов =====
+function viewResults() {
+  var bestAttempt = getBestAttempt();
+  if (!bestAttempt) {
+    showToast('Нет завершенных попыток', 'warn');
+    return;
+  }
+  
+  state.phase = 'viewResults';
+  state.viewedAttempt = bestAttempt;
   render();
 }

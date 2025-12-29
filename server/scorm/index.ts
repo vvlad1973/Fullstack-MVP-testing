@@ -88,6 +88,7 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
   const qMatchingJs = readOneOf(["app/render/questions/matching.js"]);
   const qRankingJs  = readOneOf(["app/render/questions/ranking.js"]);
   const qIndexJs    = readOneOf(["app/render/questions/index.js"]);
+  const viewResultsJs = readOneOf(["app/render/viewResults.js"]);
 
 
   const matchingDndJs = readOneOf([
@@ -110,6 +111,10 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     "app/render/questionMedia.js",
   ]);
 
+  const pdfExportJs = readOneOf([
+    "app/utils/pdfExport.js",
+  ]);
+
   const appJs = joinJsParts([
     escapeHtmlJs,
     shuffleJs,
@@ -126,8 +131,10 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     matchingDndJs,
     rankingDndJs,
     startPageJs,
+    viewResultsJs,
     resultsPageJs,
     questionMediaJs,
+    pdfExportJs,
     mainRenderJs,
     appMain,
     feedbackJs,
