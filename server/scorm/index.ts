@@ -23,6 +23,17 @@ function readOneOf(paths: string[]) {
   throw new Error("None of SCORM assets found:\n" + errors.join("\n"));
 }
 
+function tryReadAsset(paths: string[]): string {
+  for (const p of paths) {
+    try {
+      return readAsset(p);
+    } catch {
+      continue;
+    }
+  }
+  return "";
+}
+
 export async function generateScormPackage(data: ExportData): Promise<Buffer> {
   const testJson = buildTestJson(data);
 
@@ -36,7 +47,7 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
   const appTpl = readAsset("app.js");
   const testJsonB64 = Buffer.from(JSON.stringify(patchedTestObj), "utf8").toString("base64");
 
-  const appMain = appTpl; // app.js больше не содержит __TEST_JSON_B64__
+  const appMain = appTpl;
 
   // ✅ утилиты подключаем ДО app.js
   const escapeHtmlJs = readOneOf([
@@ -115,6 +126,15 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     "app/utils/pdfExport.js",
   ]);
 
+  // Adaptive mode files (optional - only if test is adaptive)
+  const adaptiveJs = tryReadAsset([
+    "app/adaptive/adaptive.js",
+  ]);
+
+  const adaptiveRenderJs = tryReadAsset([
+    "app/render/adaptiveRender.js",
+  ]);
+
   const appJs = joinJsParts([
     escapeHtmlJs,
     shuffleJs,
@@ -135,6 +155,10 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     resultsPageJs,
     questionMediaJs,
     pdfExportJs,
+    // Adaptive mode support
+    adaptiveJs,
+    adaptiveRenderJs,
+    // Main render and app
     mainRenderJs,
     appMain,
     feedbackJs,

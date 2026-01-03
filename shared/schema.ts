@@ -38,6 +38,7 @@ export const questions = pgTable("questions", {
   dataJson: jsonb("data_json").notNull(),
   correctJson: jsonb("correct_json").notNull(),
   points: integer("points").notNull().default(1),
+  difficulty: integer("difficulty").notNull().default(50),
   mediaUrl: text("media_url"),
   mediaType: text("media_type", { enum: ["image", "audio", "video"] }),
   shuffleAnswers: boolean("shuffle_answers").notNull().default(true),
@@ -51,6 +52,8 @@ export const tests = pgTable("tests", {
   id: varchar("id", { length: 36 }).primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  mode: text("mode", { enum: ["standard", "adaptive"] }).notNull().default("standard"),
+  showDifficultyLevel: boolean("show_difficulty_level").notNull().default(true),
   overallPassRuleJson: jsonb("overall_pass_rule_json").notNull(),
   webhookUrl: text("webhook_url"),
   published: boolean("published").default(false),
@@ -68,6 +71,34 @@ export const testSections = pgTable("test_sections", {
   topicId: varchar("topic_id", { length: 36 }).notNull(),
   drawCount: integer("draw_count").notNull(),
   topicPassRuleJson: jsonb("topic_pass_rule_json"),
+});
+
+export const adaptiveTopicSettings = pgTable("adaptive_topic_settings", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 }).notNull(),
+  topicId: varchar("topic_id", { length: 36 }).notNull(),
+  failureFeedback: text("failure_feedback"),
+});
+
+export const adaptiveLevels = pgTable("adaptive_levels", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 }).notNull(),
+  topicId: varchar("topic_id", { length: 36 }).notNull(),
+  levelIndex: integer("level_index").notNull(),
+  levelName: text("level_name").notNull(),
+  minDifficulty: integer("min_difficulty").notNull(),
+  maxDifficulty: integer("max_difficulty").notNull(),
+  questionsCount: integer("questions_count").notNull(),
+  passThreshold: integer("pass_threshold").notNull(),
+  passThresholdType: text("pass_threshold_type", { enum: ["percent", "absolute"] }).notNull().default("percent"),
+  feedback: text("feedback"),
+});
+
+export const adaptiveLevelLinks = pgTable("adaptive_level_links", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  levelId: varchar("level_id", { length: 36 }).notNull(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
 });
 
 export const attempts = pgTable("attempts", {
@@ -90,6 +121,10 @@ export const insertQuestionSchema = createInsertSchema(questions).omit({ id: tru
 export const insertTestSchema = createInsertSchema(tests).omit({ id: true });
 export const insertTestSectionSchema = createInsertSchema(testSections).omit({ id: true });
 export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true });
+
+export const insertAdaptiveTopicSettingsSchema = createInsertSchema(adaptiveTopicSettings).omit({ id: true });
+export const insertAdaptiveLevelSchema = createInsertSchema(adaptiveLevels).omit({ id: true });
+export const insertAdaptiveLevelLinkSchema = createInsertSchema(adaptiveLevelLinks).omit({ id: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -114,6 +149,15 @@ export type TestSection = typeof testSections.$inferSelect;
 
 export type InsertAttempt = z.infer<typeof insertAttemptSchema>;
 export type Attempt = typeof attempts.$inferSelect;
+
+export type InsertAdaptiveTopicSettings = z.infer<typeof insertAdaptiveTopicSettingsSchema>;
+export type AdaptiveTopicSettings = typeof adaptiveTopicSettings.$inferSelect;
+
+export type InsertAdaptiveLevel = z.infer<typeof insertAdaptiveLevelSchema>;
+export type AdaptiveLevel = typeof adaptiveLevels.$inferSelect;
+
+export type InsertAdaptiveLevelLink = z.infer<typeof insertAdaptiveLevelLinkSchema>;
+export type AdaptiveLevelLink = typeof adaptiveLevelLinks.$inferSelect;
 
 export const passRuleSchema = z.object({
   type: z.enum(["percent", "absolute"]),
@@ -210,3 +254,296 @@ export const loginSchema = z.object({
 });
 
 export type LoginData = z.infer<typeof loginSchema>;
+
+// === Adaptive Testing Types ===
+
+// Adaptive variant - stores state of adaptive test attempt
+export const adaptiveVariantSchema = z.object({
+  mode: z.literal("adaptive"),
+  topics: z.array(z.object({
+    topicId: z.string(),
+    topicName: z.string(),
+    currentLevelIndex: z.number(),
+    levelsState: z.array(z.object({
+      levelIndex: z.number(),
+      levelName: z.string(),
+      minDifficulty: z.number(),
+      maxDifficulty: z.number(),
+      questionsCount: z.number(),
+      passThreshold: z.number(),
+      passThresholdType: z.enum(["percent", "absolute"]),
+      questionIds: z.array(z.string()),
+      answeredQuestionIds: z.array(z.string()),
+      correctCount: z.number(),
+      status: z.enum(["pending", "in_progress", "passed", "failed"]),
+    })),
+    finalLevelIndex: z.number().nullable(), // The level user achieved (or null if failed all)
+    status: z.enum(["in_progress", "completed"]),
+  })),
+  currentTopicIndex: z.number(),
+  currentQuestionId: z.string().nullable(),
+});
+
+export type AdaptiveVariant = z.infer<typeof adaptiveVariantSchema>;
+
+export type AdaptiveLevelState = AdaptiveVariant["topics"][0]["levelsState"][0];
+export type AdaptiveTopicState = AdaptiveVariant["topics"][0];
+
+// Adaptive result extends standard result
+export const adaptiveTopicResultSchema = z.object({
+  topicId: z.string(),
+  topicName: z.string(),
+  achievedLevelIndex: z.number().nullable(),
+  achievedLevelName: z.string().nullable(),
+  levelPercent: z.number(), // Percent within achieved level
+  totalQuestionsAnswered: z.number(),
+  totalCorrect: z.number(),
+  levelsAttempted: z.array(z.object({
+    levelIndex: z.number(),
+    levelName: z.string(),
+    questionsAnswered: z.number(),
+    correctCount: z.number(),
+    status: z.enum(["passed", "failed"]),
+  })),
+  feedback: z.string().nullable(),
+  recommendedLinks: z.array(z.object({ title: z.string(), url: z.string() })),
+});
+
+export const adaptiveAttemptResultSchema = z.object({
+  mode: z.literal("adaptive"),
+  overallPassed: z.boolean(),
+  topicResults: z.array(adaptiveTopicResultSchema),
+});
+
+export type AdaptiveTopicResult = z.infer<typeof adaptiveTopicResultSchema>;
+export type AdaptiveAttemptResult = z.infer<typeof adaptiveAttemptResultSchema>;
+
+// Response from answer-adaptive endpoint
+export const adaptiveAnswerResponseSchema = z.object({
+  isCorrect: z.boolean(),
+  correctAnswer: z.unknown().optional(), // Only if showCorrectAnswers is enabled
+  feedback: z.string().nullable().optional(),
+  nextQuestion: z.object({
+    id: z.string(),
+    question: z.unknown(), // Question object
+    topicName: z.string(),
+    levelName: z.string(),
+    questionNumber: z.number(),
+    totalInLevel: z.number(),
+  }).nullable(), // null if test is finished
+  levelTransition: z.object({
+    type: z.enum(["up", "down", "complete"]),
+    fromLevel: z.string(),
+    toLevel: z.string().nullable(),
+    message: z.string(),
+  }).nullable(),
+  topicTransition: z.object({
+    fromTopic: z.string(),
+    toTopic: z.string(),
+  }).nullable(),
+  isFinished: z.boolean(),
+  result: adaptiveAttemptResultSchema.nullable(), // Only when isFinished is true
+});
+
+export type AdaptiveAnswerResponse = z.infer<typeof adaptiveAnswerResponseSchema>;
+
+// ============================================
+// Phase 5: Detailed Analytics Types
+// Добавить в конец schema.ts
+// ============================================
+
+// Детальный ответ на вопрос (для хранения в resultJson)
+export const detailedAnswerSchema = z.object({
+  questionId: z.string(),
+  questionPrompt: z.string(),
+  questionType: z.enum(["single", "multiple", "matching", "ranking"]),
+  topicId: z.string(),
+  topicName: z.string(),
+  userAnswer: z.unknown(),
+  correctAnswer: z.unknown(),
+  isCorrect: z.boolean(),
+  earnedPoints: z.number(),
+  possiblePoints: z.number(),
+  answeredAt: z.string().optional(), // ISO timestamp
+  // Для адаптивных тестов
+  levelName: z.string().optional(),
+  levelIndex: z.number().optional(),
+  difficulty: z.number().optional(),
+});
+
+export type DetailedAnswer = z.infer<typeof detailedAnswerSchema>;
+
+// Событие траектории адаптивного теста
+export const adaptiveTrajectoryEventSchema = z.object({
+  timestamp: z.string(),
+  action: z.enum(["start", "answer", "level_up", "level_down", "topic_complete", "test_complete"]),
+  topicId: z.string().optional(),
+  topicName: z.string().optional(),
+  levelIndex: z.number().optional(),
+  levelName: z.string().optional(),
+  questionId: z.string().optional(),
+  isCorrect: z.boolean().optional(),
+  message: z.string().optional(),
+});
+
+export type AdaptiveTrajectoryEvent = z.infer<typeof adaptiveTrajectoryEventSchema>;
+
+// Расширенный результат с детализацией (для стандартных тестов)
+export const detailedAttemptResultSchema = attemptResultSchema.extend({
+  detailedAnswers: z.array(detailedAnswerSchema),
+  duration: z.number().optional(), // Время прохождения в секундах
+});
+
+export type DetailedAttemptResult = z.infer<typeof detailedAttemptResultSchema>;
+
+// Расширенный результат для адаптивных тестов
+export const detailedAdaptiveResultSchema = adaptiveAttemptResultSchema.extend({
+  detailedAnswers: z.array(detailedAnswerSchema),
+  trajectory: z.array(adaptiveTrajectoryEventSchema),
+  duration: z.number().optional(),
+});
+
+export type DetailedAdaptiveResult = z.infer<typeof detailedAdaptiveResultSchema>;
+
+// ============================================
+// Analytics API Response Types
+// ============================================
+
+// Статистика по уровню (для адаптивных тестов)
+export const adaptiveLevelStatsSchema = z.object({
+  levelIndex: z.number(),
+  levelName: z.string(),
+  topicId: z.string(),
+  topicName: z.string(),
+  achievedCount: z.number(), // Сколько пользователей достигло этого уровня как финального
+  attemptedCount: z.number(), // Сколько пользователей проходило этот уровень
+  passedCount: z.number(), // Сколько прошли этот уровень
+  failedCount: z.number(), // Сколько провалили
+  avgCorrectPercent: z.number(),
+});
+
+export type AdaptiveLevelStats = z.infer<typeof adaptiveLevelStatsSchema>;
+
+// Статистика по вопросу
+export const questionStatsSchema = z.object({
+  questionId: z.string(),
+  questionPrompt: z.string(),
+  questionType: z.enum(["single", "multiple", "matching", "ranking"]),
+  topicId: z.string(),
+  topicName: z.string(),
+  difficulty: z.number(),
+  totalAnswers: z.number(),
+  correctAnswers: z.number(),
+  correctPercent: z.number(),
+  avgTimeSeconds: z.number().optional(),
+});
+
+export type QuestionStats = z.infer<typeof questionStatsSchema>;
+
+// Детальная аналитика по тесту
+export const testAnalyticsSchema = z.object({
+  testId: z.string(),
+  testTitle: z.string(),
+  testMode: z.enum(["standard", "adaptive"]),
+  
+  // Общая статистика
+  summary: z.object({
+    totalAttempts: z.number(),
+    completedAttempts: z.number(),
+    uniqueUsers: z.number(),
+    avgPercent: z.number(),
+    avgDuration: z.number().optional(), // в секундах
+    passRate: z.number(),
+    avgScore: z.number(),
+    maxScore: z.number(),
+  }),
+  
+  // Статистика по темам
+  topicStats: z.array(z.object({
+    topicId: z.string(),
+    topicName: z.string(),
+    totalAnswers: z.number(),
+    correctAnswers: z.number(),
+    avgPercent: z.number(),
+    passRate: z.number().nullable(),
+  })),
+  
+  // Статистика по вопросам
+  questionStats: z.array(questionStatsSchema),
+  
+  // Для адаптивных тестов - статистика по уровням
+  levelStats: z.array(adaptiveLevelStatsSchema).optional(),
+  
+  // Распределение результатов (для гистограммы)
+  scoreDistribution: z.array(z.object({
+    range: z.string(), // "0-10", "11-20", etc.
+    count: z.number(),
+  })),
+  
+  // Тренды по дням
+  dailyTrends: z.array(z.object({
+    date: z.string(),
+    attempts: z.number(),
+    avgPercent: z.number(),
+    passRate: z.number(),
+  })),
+});
+
+export type TestAnalytics = z.infer<typeof testAnalyticsSchema>;
+
+// Элемент списка попыток
+export const attemptListItemSchema = z.object({
+  attemptId: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  duration: z.number().nullable(), // в секундах
+  overallPercent: z.number(),
+  earnedPoints: z.number(),
+  possiblePoints: z.number(),
+  passed: z.boolean(),
+  // Для адаптивных
+  achievedLevels: z.array(z.object({
+    topicName: z.string(),
+    levelName: z.string().nullable(),
+  })).optional(),
+});
+
+export type AttemptListItem = z.infer<typeof attemptListItemSchema>;
+
+// Детализация попытки
+export const attemptDetailSchema = z.object({
+  attemptId: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  testId: z.string(),
+  testTitle: z.string(),
+  testMode: z.enum(["standard", "adaptive"]),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  duration: z.number().nullable(),
+  
+  // Результаты
+  overallPercent: z.number(),
+  earnedPoints: z.number(),
+  possiblePoints: z.number(),
+  passed: z.boolean(),
+  
+  // Детальные ответы
+  answers: z.array(detailedAnswerSchema),
+  
+  // Результаты по темам
+  topicResults: z.array(topicResultSchema).or(z.array(adaptiveTopicResultSchema)),
+  
+  // Для адаптивных - траектория
+  trajectory: z.array(adaptiveTrajectoryEventSchema).optional(),
+  achievedLevels: z.array(z.object({
+    topicId: z.string(),
+    topicName: z.string(),
+    levelIndex: z.number().nullable(),
+    levelName: z.string().nullable(),
+  })).optional(),
+});
+
+export type AttemptDetail = z.infer<typeof attemptDetailSchema>;

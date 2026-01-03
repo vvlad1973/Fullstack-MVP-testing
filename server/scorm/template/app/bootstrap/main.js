@@ -13,8 +13,15 @@
     bindMatchingDnDOnce();
     bindRankingDnDOnce();
 
-    // генерация варианта + первый рендер
-    generateVariant();
+    // Определяем режим теста и инициализируем
+    if (TEST_DATA.mode === 'adaptive' && TEST_DATA.adaptiveTopics) {
+      // Adaptive mode
+      initAdaptiveTest();
+    } else {
+      // Standard mode
+      generateVariant();
+    }
+    
     render();
 
     window.addEventListener("resize", function () {

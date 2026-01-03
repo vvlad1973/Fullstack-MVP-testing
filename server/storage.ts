@@ -4,6 +4,7 @@ import { eq, inArray, and, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, topics, topicCourses, questions, tests, testSections, attempts, folders,
+  adaptiveTopicSettings, adaptiveLevels, adaptiveLevelLinks,
   type User, type InsertUser,
   type Folder, type InsertFolder,
   type Topic, type InsertTopic,
@@ -12,6 +13,9 @@ import {
   type Test, type InsertTest,
   type TestSection, type InsertTestSection,
   type Attempt, type InsertAttempt,
+  type AdaptiveTopicSettings, type InsertAdaptiveTopicSettings,
+  type AdaptiveLevel, type InsertAdaptiveLevel,
+  type AdaptiveLevelLink, type InsertAdaptiveLevelLink,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -58,8 +62,25 @@ export interface IStorage {
   updateAttempt(id: string, updates: Partial<Attempt>): Promise<Attempt | undefined>;
   getAttemptsByUser(userId: string): Promise<Attempt[]>;
   getAllAttempts(): Promise<Attempt[]>;
-}
 
+  // Adaptive testing
+  getAdaptiveTopicSettings(testId: string, topicId: string): Promise<AdaptiveTopicSettings | undefined>;
+  getAdaptiveTopicSettingsByTest(testId: string): Promise<AdaptiveTopicSettings[]>;
+  createAdaptiveTopicSettings(settings: InsertAdaptiveTopicSettings): Promise<AdaptiveTopicSettings>;
+  updateAdaptiveTopicSettings(id: string, settings: Partial<InsertAdaptiveTopicSettings>): Promise<AdaptiveTopicSettings | undefined>;
+  deleteAdaptiveTopicSettingsByTest(testId: string): Promise<void>;
+
+  getAdaptiveLevels(testId: string, topicId: string): Promise<AdaptiveLevel[]>;
+  getAdaptiveLevelsByTest(testId: string): Promise<AdaptiveLevel[]>;
+  createAdaptiveLevel(level: InsertAdaptiveLevel): Promise<AdaptiveLevel>;
+  updateAdaptiveLevel(id: string, level: Partial<InsertAdaptiveLevel>): Promise<AdaptiveLevel | undefined>;
+  deleteAdaptiveLevelsByTest(testId: string): Promise<void>;
+
+  getAdaptiveLevelLinks(levelId: string): Promise<AdaptiveLevelLink[]>;
+  createAdaptiveLevelLink(link: InsertAdaptiveLevelLink): Promise<AdaptiveLevelLink>;
+  deleteAdaptiveLevelLinksByLevel(levelId: string): Promise<void>;
+  deleteAdaptiveLevelLinksByTest(testId: string): Promise<void>;
+}
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -209,10 +230,14 @@ export class DatabaseStorage implements IStorage {
       dataJson: question.dataJson,
       correctJson: question.correctJson,
       points: question.points ?? 1,
+      difficulty: question.difficulty ?? 50,
       mediaUrl: question.mediaUrl || null,
       mediaType: question.mediaType || null,
       shuffleAnswers: question.shuffleAnswers ?? true,
       feedback: question.feedback || null,
+      feedbackMode: question.feedbackMode || "general",
+      feedbackCorrect: question.feedbackCorrect || null,
+      feedbackIncorrect: question.feedbackIncorrect || null,
     }).returning();
     return newQuestion;
   }
@@ -229,8 +254,12 @@ export class DatabaseStorage implements IStorage {
       prompt: original.prompt + " (копия)",
       dataJson: original.dataJson,
       correctJson: original.correctJson,
-      feedback: original.feedback,
       points: original.points,
+      difficulty: original.difficulty,
+      feedback: original.feedback,
+      feedbackMode: original.feedbackMode,
+      feedbackCorrect: original.feedbackCorrect,
+      feedbackIncorrect: original.feedbackIncorrect,
       mediaUrl: original.mediaUrl,
       mediaType: original.mediaType,
       shuffleAnswers: original.shuffleAnswers,
@@ -272,10 +301,14 @@ export class DatabaseStorage implements IStorage {
         dataJson: q.dataJson,
         correctJson: q.correctJson,
         points: q.points,
+        difficulty: q.difficulty,
         mediaUrl: q.mediaUrl,
         mediaType: q.mediaType,
         shuffleAnswers: q.shuffleAnswers,
         feedback: q.feedback,
+        feedbackMode: q.feedbackMode,
+        feedbackCorrect: q.feedbackCorrect,
+        feedbackIncorrect: q.feedbackIncorrect,
       }).returning();
       newQuestions.push(newQ);
     }
@@ -327,6 +360,8 @@ export class DatabaseStorage implements IStorage {
       maxAttempts: test.maxAttempts || null,
       startPageContent: test.startPageContent || null,
       feedback: test.feedback || null,
+      mode: test.mode || "standard",
+      showDifficultyLevel: test.showDifficultyLevel ?? true,
     }).returning();
 
     for (const section of sections) {
@@ -342,7 +377,6 @@ export class DatabaseStorage implements IStorage {
 
     return newTest;
   }
-
   async updateTest(id: string, updates: Partial<InsertTest>, sections?: Omit<InsertTestSection, "testId">[]): Promise<Test | undefined> {
     // Increment version when test is updated
     const [updated] = await db.update(tests)
@@ -410,6 +444,86 @@ export class DatabaseStorage implements IStorage {
 
   async getAllAttempts(): Promise<Attempt[]> {
     return db.select().from(attempts);
+  }
+
+  // === Adaptive Testing Methods ===
+
+  async getAdaptiveTopicSettings(testId: string, topicId: string): Promise<AdaptiveTopicSettings | undefined> {
+    const [settings] = await db.select().from(adaptiveTopicSettings)
+      .where(and(eq(adaptiveTopicSettings.testId, testId), eq(adaptiveTopicSettings.topicId, topicId)));
+    return settings || undefined;
+  }
+
+  async getAdaptiveTopicSettingsByTest(testId: string): Promise<AdaptiveTopicSettings[]> {
+    return db.select().from(adaptiveTopicSettings).where(eq(adaptiveTopicSettings.testId, testId));
+  }
+
+  async createAdaptiveTopicSettings(settings: InsertAdaptiveTopicSettings): Promise<AdaptiveTopicSettings> {
+    const id = randomUUID();
+    const [newSettings] = await db.insert(adaptiveTopicSettings).values({ id, ...settings }).returning();
+    return newSettings;
+  }
+
+  async updateAdaptiveTopicSettings(id: string, settings: Partial<InsertAdaptiveTopicSettings>): Promise<AdaptiveTopicSettings | undefined> {
+    const [updated] = await db.update(adaptiveTopicSettings).set(settings).where(eq(adaptiveTopicSettings.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteAdaptiveTopicSettingsByTest(testId: string): Promise<void> {
+    await db.delete(adaptiveTopicSettings).where(eq(adaptiveTopicSettings.testId, testId));
+  }
+
+  async getAdaptiveLevels(testId: string, topicId: string): Promise<AdaptiveLevel[]> {
+    return db.select().from(adaptiveLevels)
+      .where(and(eq(adaptiveLevels.testId, testId), eq(adaptiveLevels.topicId, topicId)))
+      .orderBy(adaptiveLevels.levelIndex);
+  }
+
+  async getAdaptiveLevelsByTest(testId: string): Promise<AdaptiveLevel[]> {
+    return db.select().from(adaptiveLevels)
+      .where(eq(adaptiveLevels.testId, testId))
+      .orderBy(adaptiveLevels.levelIndex);
+  }
+
+  async createAdaptiveLevel(level: InsertAdaptiveLevel): Promise<AdaptiveLevel> {
+    const id = randomUUID();
+    const [newLevel] = await db.insert(adaptiveLevels).values({ id, ...level }).returning();
+    return newLevel;
+  }
+
+  async updateAdaptiveLevel(id: string, level: Partial<InsertAdaptiveLevel>): Promise<AdaptiveLevel | undefined> {
+    const [updated] = await db.update(adaptiveLevels).set(level).where(eq(adaptiveLevels.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteAdaptiveLevelsByTest(testId: string): Promise<void> {
+    // First delete all links for levels of this test
+    const levels = await this.getAdaptiveLevelsByTest(testId);
+    for (const level of levels) {
+      await this.deleteAdaptiveLevelLinksByLevel(level.id);
+    }
+    await db.delete(adaptiveLevels).where(eq(adaptiveLevels.testId, testId));
+  }
+
+  async getAdaptiveLevelLinks(levelId: string): Promise<AdaptiveLevelLink[]> {
+    return db.select().from(adaptiveLevelLinks).where(eq(adaptiveLevelLinks.levelId, levelId));
+  }
+
+  async createAdaptiveLevelLink(link: InsertAdaptiveLevelLink): Promise<AdaptiveLevelLink> {
+    const id = randomUUID();
+    const [newLink] = await db.insert(adaptiveLevelLinks).values({ id, ...link }).returning();
+    return newLink;
+  }
+
+  async deleteAdaptiveLevelLinksByLevel(levelId: string): Promise<void> {
+    await db.delete(adaptiveLevelLinks).where(eq(adaptiveLevelLinks.levelId, levelId));
+  }
+
+  async deleteAdaptiveLevelLinksByTest(testId: string): Promise<void> {
+    const levels = await this.getAdaptiveLevelsByTest(testId);
+    for (const level of levels) {
+      await this.deleteAdaptiveLevelLinksByLevel(level.id);
+    }
   }
 }
 

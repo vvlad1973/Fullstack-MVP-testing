@@ -32,6 +32,7 @@ function bindRankingDnDOnce(){
   __rankDndBound = true;
 
   var dragPayload = null; // { qid, fromPos, itemIdx }
+  var __rankOverEl = null;
 
   function closestByClass(node, cls) {
     var el = node;
@@ -42,11 +43,22 @@ function bindRankingDnDOnce(){
     return null;
   }
 
-  // function clearOver(){
-  //   document.querySelectorAll('.rank-item.is-over').forEach(function(n){
-  //     n.classList.remove('is-over');
-  //   });
-  // }
+  function clearRankOver() {
+    if (__rankOverEl) {
+      __rankOverEl.classList.remove('is-over');
+    }
+    __rankOverEl = null;
+  }
+
+  function setRankOver(el) {
+    if (__rankOverEl && __rankOverEl !== el) {
+      __rankOverEl.classList.remove('is-over');
+    }
+    __rankOverEl = el;
+    if (__rankOverEl) {
+      __rankOverEl.classList.add('is-over');
+    }
+  }
 
   function getPayload(e){
     try {
@@ -92,8 +104,7 @@ function bindRankingDnDOnce(){
     var el = closestByClass(e.target, 'rank-draggable');
     if (el) el.classList.remove('dragging');
     dragPayload = null;
-    clearMatchOver();
-    // clearOver();
+    clearRankOver();
   });
 
   document.addEventListener('dragover', function(e){
@@ -103,13 +114,23 @@ function bindRankingDnDOnce(){
     if (TEST_DATA.showCorrectAnswers && state.feedbackShown) return;
 
     e.preventDefault();
-    // clearOver();
-    over.classList.add('is-over');
+    setRankOver(over);
 
     try{ e.dataTransfer.dropEffect = 'move'; }catch(err){}
   });
 
+  document.addEventListener('dragleave', function(e){
+    var over = closestByClass(e.target, 'rank-item');
+    if (!over) return;
+
+    // снимаем подсветку только если реально вышли из текущего drop
+    if (__rankOverEl === over && (!e.relatedTarget || !over.contains(e.relatedTarget))) {
+      clearRankOver();
+    }
+  });
+
   document.addEventListener('drop', function(e){
+    clearRankOver();
     var over = closestByClass(e.target, 'rank-item');
     if (!over) return;
 

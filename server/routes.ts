@@ -336,7 +336,7 @@ export async function registerRoutes(
 
   app.post("/api/questions", requireAuthor, async (req, res) => {
     try {
-      const { topicId, type, prompt, dataJson, correctJson, points, feedback, feedbackMode, feedbackCorrect, feedbackIncorrect, shuffleAnswers, mediaUrl, mediaType } = req.body;
+      const { topicId, type, prompt, dataJson, correctJson, points, difficulty, feedback, feedbackMode, feedbackCorrect, feedbackIncorrect, shuffleAnswers, mediaUrl, mediaType } = req.body;
       if (!topicId || !type || !prompt) {
         return res.status(400).json({ error: "Missing required fields" });
       }
@@ -347,6 +347,7 @@ export async function registerRoutes(
         dataJson,
         correctJson,
         points: points || 1,
+        difficulty: difficulty ?? 50,
         feedback,
         feedbackMode,
         feedbackCorrect,
@@ -363,7 +364,7 @@ export async function registerRoutes(
 
   app.put("/api/questions/:id", requireAuthor, async (req, res) => {
     try {
-      const { topicId, type, prompt, dataJson, correctJson, points, feedback, feedbackMode, feedbackCorrect, feedbackIncorrect, shuffleAnswers, mediaUrl, mediaType } = req.body;
+      const { topicId, type, prompt, dataJson, correctJson, points, difficulty, feedback, feedbackMode, feedbackCorrect, feedbackIncorrect, shuffleAnswers, mediaUrl, mediaType } = req.body;
       const question = await storage.updateQuestion(req.params.id, {
         topicId,
         type,
@@ -371,6 +372,7 @@ export async function registerRoutes(
         dataJson,
         correctJson,
         points,
+        difficulty,
         feedback,
         feedbackMode,
         feedbackCorrect,
@@ -478,6 +480,7 @@ export async function registerRoutes(
           "Тип вопроса": typeLabel,
           "Текст вопроса": q.prompt,
           "Балл": q.points,
+          "Сложность": q.difficulty ?? 50,
           "Тексты вариантов ответа": optionsStr,
           "Номера правильных ответов": correctStr,
           "Следование вариантов ответов": q.shuffleAnswers ? "Random" : "",
@@ -527,6 +530,7 @@ export async function registerRoutes(
           const typeLabel = String(row["Тип вопроса"] || "").trim().toLowerCase();
           const prompt = String(row["Текст вопроса"] || "").trim();
           const points = Number(row["Балл"]) || 1;
+          const difficulty = Math.min(100, Math.max(0, Number(row["Сложность"]) || 50));
           const optionsStr = String(row["Тексты вариантов ответа"] || "").trim();
           const correctStr = String(row["Номера правильных ответов"] || "").trim();
           const orderStr = String(row["Следование вариантов ответов"] || "").trim().toLowerCase();
@@ -591,6 +595,7 @@ export async function registerRoutes(
             dataJson,
             correctJson,
             points,
+            difficulty,
             shuffleAnswers,
             feedback: feedbackStr || null,
           });
@@ -608,6 +613,98 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Import error:", error);
       res.status(500).json({ error: "Failed to import questions" });
+    }
+  });
+
+  // Get difficulty distribution for a topic (for adaptive test setup)
+  app.get("/api/topics/:topicId/difficulty-distribution", requireAuthor, async (req, res) => {
+    try {
+      const { topicId } = req.params;
+      const questions = await storage.getQuestionsByTopic(topicId);
+
+      if (questions.length === 0) {
+        return res.json({
+          totalQuestions: 0,
+          histogram: [],
+          suggestedLevels: [],
+          warnings: ["В этой теме нет вопросов"],
+        });
+      }
+
+      // Build histogram (0-10, 11-20, ..., 91-100)
+      const histogram: { min: number; max: number; count: number }[] = [];
+      for (let i = 0; i <= 90; i += 10) {
+        const min = i;
+        const max = i + 10;
+        const count = questions.filter(q => {
+          const d = q.difficulty ?? 50;
+          return d >= min && (max === 100 ? d <= max : d < max);
+        }).length;
+        histogram.push({ min, max: max === 100 ? 100 : max - 1, count });
+      }
+
+      // Check for questions without explicit difficulty (all at default 50)
+      const defaultDifficultyCount = questions.filter(q => q.difficulty === 50 || q.difficulty === null).length;
+      const warnings: string[] = [];
+      if (defaultDifficultyCount === questions.length) {
+        warnings.push("Все вопросы имеют сложность по умолчанию (50). Рекомендуется задать сложность для каждого вопроса.");
+      } else if (defaultDifficultyCount > questions.length * 0.5) {
+        warnings.push(`${defaultDifficultyCount} из ${questions.length} вопросов имеют сложность по умолчанию (50).`);
+      }
+
+      // Suggest levels based on distribution
+      const difficulties = questions.map(q => q.difficulty ?? 50).sort((a, b) => a - b);
+      const minQuestions = 10; // Minimum questions per level
+
+      // Try to create 3 levels with roughly equal questions
+      const suggestedLevels: { levelName: string; minDifficulty: number; maxDifficulty: number; questionCount: number }[] = [];
+      
+      if (questions.length >= minQuestions * 2) {
+        // Can support at least 2 levels
+        const tercile1 = difficulties[Math.floor(difficulties.length / 3)];
+        const tercile2 = difficulties[Math.floor(difficulties.length * 2 / 3)];
+        
+        const easyCount = questions.filter(q => (q.difficulty ?? 50) <= tercile1).length;
+        const mediumCount = questions.filter(q => (q.difficulty ?? 50) > tercile1 && (q.difficulty ?? 50) <= tercile2).length;
+        const hardCount = questions.filter(q => (q.difficulty ?? 50) > tercile2).length;
+
+        if (easyCount >= minQuestions && mediumCount >= minQuestions && hardCount >= minQuestions) {
+          // 3 levels
+          suggestedLevels.push(
+            { levelName: "Начальный", minDifficulty: 0, maxDifficulty: tercile1, questionCount: easyCount },
+            { levelName: "Средний", minDifficulty: tercile1 + 1, maxDifficulty: tercile2, questionCount: mediumCount },
+            { levelName: "Продвинутый", minDifficulty: tercile2 + 1, maxDifficulty: 100, questionCount: hardCount }
+          );
+        } else if (easyCount + mediumCount >= minQuestions && hardCount >= minQuestions) {
+          // 2 levels: easy+medium combined, hard
+          suggestedLevels.push(
+            { levelName: "Базовый", minDifficulty: 0, maxDifficulty: tercile2, questionCount: easyCount + mediumCount },
+            { levelName: "Продвинутый", minDifficulty: tercile2 + 1, maxDifficulty: 100, questionCount: hardCount }
+          );
+        } else {
+          // Single level
+          suggestedLevels.push(
+            { levelName: "Общий", minDifficulty: 0, maxDifficulty: 100, questionCount: questions.length }
+          );
+          warnings.push("Недостаточно вопросов для разделения на уровни. Рекомендуется добавить больше вопросов с разной сложностью.");
+        }
+      } else {
+        // Not enough questions
+        suggestedLevels.push(
+          { levelName: "Общий", minDifficulty: 0, maxDifficulty: 100, questionCount: questions.length }
+        );
+        warnings.push(`Недостаточно вопросов (${questions.length}). Рекомендуется минимум ${minQuestions * 2} вопросов для адаптивного тестирования.`);
+      }
+
+      res.json({
+        totalQuestions: questions.length,
+        histogram,
+        suggestedLevels,
+        warnings,
+      });
+    } catch (error) {
+      console.error("Difficulty distribution error:", error);
+      res.status(500).json({ error: "Failed to get difficulty distribution" });
     }
   });
 
@@ -632,7 +729,32 @@ export async function registerRoutes(
               };
             })
           );
-          return { ...test, sections: sectionsWithDetails };
+
+          // If adaptive test, load adaptive settings
+          let adaptiveSettings = null;
+          if (test.mode === "adaptive") {
+            const topicSettings = await storage.getAdaptiveTopicSettingsByTest(test.id);
+            const levels = await storage.getAdaptiveLevelsByTest(test.id);
+            
+            adaptiveSettings = await Promise.all(
+              topicSettings.map(async (ts) => {
+                const topicLevels = levels.filter(l => l.topicId === ts.topicId);
+                const levelsWithLinks = await Promise.all(
+                  topicLevels.map(async (level) => {
+                    const links = await storage.getAdaptiveLevelLinks(level.id);
+                    return { ...level, links };
+                  })
+                );
+                return {
+                  ...ts,
+                  topicName: topicMap.get(ts.topicId)?.name || "Unknown",
+                  levels: levelsWithLinks,
+                };
+              })
+            );
+          }
+
+          return { ...test, sections: sectionsWithDetails, adaptiveSettings };
         })
       );
 
@@ -644,41 +766,187 @@ export async function registerRoutes(
 
   app.post("/api/tests", requireAuthor, async (req, res) => {
     try {
-      const { title, description, overallPassRuleJson, webhookUrl, sections, showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback } = req.body;
-      if (!title || !sections || sections.length === 0) {
-        return res.status(400).json({ error: "Title and sections are required" });
+      const { 
+        title, description, overallPassRuleJson, webhookUrl, sections, 
+        showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback,
+        mode, showDifficultyLevel, adaptiveSettings 
+      } = req.body;
+      
+      if (!title) {
+        return res.status(400).json({ error: "Title is required" });
+      }
+      
+      // For standard mode, sections are required
+      if (mode !== "adaptive" && (!sections || sections.length === 0)) {
+        return res.status(400).json({ error: "Sections are required for standard tests" });
       }
 
       const test = await storage.createTest(
-        { title, description, overallPassRuleJson, webhookUrl, published: false, showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback },
-        sections
+        { 
+          title, description, overallPassRuleJson, webhookUrl, published: false, 
+          showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback,
+          mode: mode || "standard",
+          showDifficultyLevel: showDifficultyLevel ?? true
+        },
+        sections || []
       );
+
+      // If adaptive mode, save adaptive settings
+      if (mode === "adaptive" && adaptiveSettings) {
+        for (const topicSettings of adaptiveSettings) {
+          // Create topic settings (failure feedback)
+          await storage.createAdaptiveTopicSettings({
+            testId: test.id,
+            topicId: topicSettings.topicId,
+            failureFeedback: topicSettings.failureFeedback || null,
+          });
+
+          // Create levels for this topic
+          for (const level of topicSettings.levels || []) {
+            const createdLevel = await storage.createAdaptiveLevel({
+              testId: test.id,
+              topicId: topicSettings.topicId,
+              levelIndex: level.levelIndex,
+              levelName: level.levelName,
+              minDifficulty: level.minDifficulty,
+              maxDifficulty: level.maxDifficulty,
+              questionsCount: level.questionsCount,
+              passThreshold: level.passThreshold,
+              passThresholdType: level.passThresholdType || "percent",
+              feedback: level.feedback || null,
+            });
+
+            // Create links for this level
+            for (const link of level.links || []) {
+              await storage.createAdaptiveLevelLink({
+                levelId: createdLevel.id,
+                title: link.title,
+                url: link.url,
+              });
+            }
+          }
+        }
+      }
 
       res.status(201).json(test);
     } catch (error) {
+      console.error("Create test error:", error);
       res.status(500).json({ error: "Failed to create test" });
     }
   });
 
+  // Get adaptive settings for a test
+  app.get("/api/tests/:id/adaptive-settings", requireAuthor, async (req, res) => {
+    try {
+      const testId = req.params.id;
+      const topicSettings = await storage.getAdaptiveTopicSettingsByTest(testId);
+      const levels = await storage.getAdaptiveLevelsByTest(testId);
+      const topics = await storage.getTopics();
+      const topicMap = new Map(topics.map((t) => [t.id, t]));
+
+      const adaptiveSettings = await Promise.all(
+        topicSettings.map(async (ts) => {
+          const topicLevels = levels.filter(l => l.topicId === ts.topicId);
+          const levelsWithLinks = await Promise.all(
+            topicLevels.map(async (level) => {
+              const links = await storage.getAdaptiveLevelLinks(level.id);
+              return { ...level, links };
+            })
+          );
+          return {
+            ...ts,
+            topicName: topicMap.get(ts.topicId)?.name || "Unknown",
+            levels: levelsWithLinks,
+          };
+        })
+      );
+
+      res.json(adaptiveSettings);
+    } catch (error) {
+      console.error("Get adaptive settings error:", error);
+      res.status(500).json({ error: "Failed to get adaptive settings" });
+    }
+  });
+  
   app.put("/api/tests/:id", requireAuthor, async (req, res) => {
     try {
-      const { title, description, overallPassRuleJson, webhookUrl, sections, showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback } = req.body;
+      const { 
+        title, description, overallPassRuleJson, webhookUrl, sections, 
+        showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback,
+        mode, showDifficultyLevel, adaptiveSettings 
+      } = req.body;
+      
+      // Update test basic info (without sections - we'll handle them separately)
       const test = await storage.updateTest(
         req.params.id,
-        { title, description, overallPassRuleJson, webhookUrl, showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback },
-        sections
+        { 
+          title, description, overallPassRuleJson, webhookUrl, 
+          showCorrectAnswers, timeLimitMinutes, maxAttempts, startPageContent, feedback,
+          mode, showDifficultyLevel
+        },
+        mode === "standard" ? sections : undefined  // Only update sections for standard mode
       );
+      
       if (!test) {
         return res.status(404).json({ error: "Test not found" });
       }
+
+      // If adaptive mode and settings provided, update adaptive settings
+      if (mode === "adaptive" && adaptiveSettings) {
+        // Delete old adaptive settings
+        await storage.deleteAdaptiveLevelLinksByTest(test.id);
+        await storage.deleteAdaptiveLevelsByTest(test.id);
+        await storage.deleteAdaptiveTopicSettingsByTest(test.id);
+
+        // Create new adaptive settings
+        for (const topicSettings of adaptiveSettings) {
+          await storage.createAdaptiveTopicSettings({
+            testId: test.id,
+            topicId: topicSettings.topicId,
+            failureFeedback: topicSettings.failureFeedback || null,
+          });
+
+          for (const level of topicSettings.levels || []) {
+            const createdLevel = await storage.createAdaptiveLevel({
+              testId: test.id,
+              topicId: topicSettings.topicId,
+              levelIndex: level.levelIndex,
+              levelName: level.levelName,
+              minDifficulty: level.minDifficulty,
+              maxDifficulty: level.maxDifficulty,
+              questionsCount: level.questionsCount,
+              passThreshold: level.passThreshold,
+              passThresholdType: level.passThresholdType || "percent",
+              feedback: level.feedback || null,
+            });
+
+            for (const link of level.links || []) {
+              await storage.createAdaptiveLevelLink({
+                levelId: createdLevel.id,
+                title: link.title,
+                url: link.url,
+              });
+            }
+          }
+        }
+      }
+      // Note: We keep both standard sections and adaptive settings in DB
+      // This allows users to switch between modes without losing configuration
+
       res.json(test);
     } catch (error) {
+      console.error("Update test error:", error);
       res.status(500).json({ error: "Failed to update test" });
     }
   });
 
   app.delete("/api/tests/:id", requireAuthor, async (req, res) => {
     try {
+      // Delete adaptive settings first
+      await storage.deleteAdaptiveLevelLinksByTest(req.params.id);
+      await storage.deleteAdaptiveLevelsByTest(req.params.id);
+      await storage.deleteAdaptiveTopicSettingsByTest(req.params.id);
+
       const success = await storage.deleteTest(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Test not found" });
@@ -691,40 +959,64 @@ export async function registerRoutes(
 
   // SCORM export
   app.get("/api/tests/:id/export/scorm", requireAuthor, async (req, res) => {
-    try {
-      const test = await storage.getTest(req.params.id);
-      if (!test) {
-        return res.status(404).json({ error: "Test not found" });
-      }
+  try {
+    const test = await storage.getTest(req.params.id);
+    if (!test) {
+      return res.status(404).json({ error: "Test not found" });
+    }
 
-      const sections = await storage.getTestSections(test.id);
-      const exportSections = await Promise.all(
-        sections.map(async (s) => {
-          const topic = await storage.getTopic(s.topicId);
-          const questions = await storage.getQuestionsByTopic(s.topicId);
-          const courses = await storage.getTopicCourses(s.topicId);
-          return {
-            ...s,
-            topic: topic!,
-            questions,
-            courses,
-          };
+    const sections = await storage.getTestSections(test.id);
+    const exportSections = await Promise.all(
+      sections.map(async (s) => {
+        const topic = await storage.getTopic(s.topicId);
+        const questions = await storage.getQuestionsByTopic(s.topicId);
+        const courses = await storage.getTopicCourses(s.topicId);
+        return {
+          ...s,
+          topic: topic!,
+          questions,
+          courses,
+        };
+      })
+    );
+
+    // Load adaptive settings if test is adaptive
+    let adaptiveSettings = null;
+    if (test.mode === "adaptive") {
+      const topicSettings = await storage.getAdaptiveTopicSettingsByTest(test.id);
+      const levels = await storage.getAdaptiveLevelsByTest(test.id);
+      
+      // Load links for each level
+      const levelsWithLinks = await Promise.all(
+        levels.map(async (level) => {
+          const links = await storage.getAdaptiveLevelLinks(level.id);
+          return { ...level, links };
         })
       );
 
-      const buffer = await generateScormPackage({ test, sections: exportSections });
-
-      res.setHeader("Content-Type", "application/zip");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="test_${test.id}_scorm.zip"`
-      );
-      res.send(buffer);
-    } catch (error) {
-      console.error("SCORM export error:", error);
-      res.status(500).json({ error: "Failed to export SCORM package" });
+      adaptiveSettings = {
+        topicSettings,
+        levels: levelsWithLinks,
+      };
     }
-  });
+
+    const buffer = await generateScormPackage({ 
+      test, 
+      sections: exportSections,
+      adaptiveSettings,
+    });
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="test_${test.id}_scorm.zip"`
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("SCORM export error:", error);
+    res.status(500).json({ error: "Failed to export SCORM package" });
+  }
+});
 
   // Learner tests - Learner only
   app.get("/api/learner/tests", requireLearner, async (req, res) => {
@@ -749,6 +1041,529 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch tests" });
     }
   });
+
+  // === Adaptive Testing Endpoints ===
+
+  // Start adaptive test attempt
+  app.post("/api/tests/:testId/attempts/start-adaptive", requireLearner, async (req, res) => {
+    try {
+      const test = await storage.getTest(req.params.testId);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      if (test.mode !== "adaptive") {
+        return res.status(400).json({ error: "This is not an adaptive test" });
+      }
+
+      const adaptiveSettings = await storage.getAdaptiveTopicSettingsByTest(test.id);
+      const adaptiveLevels = await storage.getAdaptiveLevelsByTest(test.id);
+      const topics = await storage.getTopics();
+      const topicMap = new Map(topics.map((t) => [t.id, t.name]));
+
+      if (adaptiveSettings.length === 0) {
+        return res.status(400).json({ error: "Adaptive test has no settings configured" });
+      }
+
+      // Build adaptive variant
+      const adaptiveTopics: any[] = [];
+
+      for (const topicSettings of adaptiveSettings) {
+        const topicLevels = adaptiveLevels
+          .filter(l => l.topicId === topicSettings.topicId)
+          .sort((a, b) => a.levelIndex - b.levelIndex);
+
+        if (topicLevels.length === 0) continue;
+
+        // Get questions for this topic
+        const allQuestions = await storage.getQuestionsByTopic(topicSettings.topicId);
+
+        // Build levels state
+        const levelsState: any[] = [];
+
+        for (const level of topicLevels) {
+          // Filter questions by difficulty range
+          const levelQuestions = allQuestions.filter(
+            q => (q.difficulty ?? 50) >= level.minDifficulty && (q.difficulty ?? 50) <= level.maxDifficulty
+          );
+
+          // Shuffle and select questions for this level
+          const shuffled = levelQuestions.sort(() => Math.random() - 0.5);
+          const selected = shuffled.slice(0, level.questionsCount);
+          const questionIds = selected.map(q => q.id);
+
+          levelsState.push({
+            levelIndex: level.levelIndex,
+            levelName: level.levelName,
+            minDifficulty: level.minDifficulty,
+            maxDifficulty: level.maxDifficulty,
+            questionsCount: level.questionsCount,
+            passThreshold: level.passThreshold,
+            passThresholdType: level.passThresholdType,
+            questionIds,
+            answeredQuestionIds: [],
+            correctCount: 0,
+            status: "pending",
+          });
+        }
+
+        // Start from median level
+        const startLevelIndex = Math.floor(topicLevels.length / 2);
+
+        adaptiveTopics.push({
+          topicId: topicSettings.topicId,
+          topicName: topicMap.get(topicSettings.topicId) || "Unknown",
+          currentLevelIndex: startLevelIndex,
+          levelsState,
+          finalLevelIndex: null,
+          status: "in_progress",
+        });
+      }
+
+      if (adaptiveTopics.length === 0) {
+        return res.status(400).json({ error: "No valid adaptive topics configured" });
+      }
+
+      // Set first level to in_progress and get first question
+      const firstTopic = adaptiveTopics[0];
+      const firstLevel = firstTopic.levelsState[firstTopic.currentLevelIndex];
+      firstLevel.status = "in_progress";
+      const firstQuestionId = firstLevel.questionIds[0] || null;
+
+      const variant = {
+        mode: "adaptive",
+        topics: adaptiveTopics,
+        currentTopicIndex: 0,
+        currentQuestionId: firstQuestionId,
+      };
+
+      const attempt = await storage.createAttempt({
+        userId: req.session.userId!,
+        testId: test.id,
+        testVersion: test.version || 1,
+        variantJson: variant,
+        answersJson: {},
+        resultJson: null,
+        startedAt: new Date(),
+        finishedAt: null,
+      });
+
+      // Get first question details
+      let firstQuestion = null;
+      if (firstQuestionId) {
+        const questions = await storage.getQuestionsByIds([firstQuestionId]);
+        firstQuestion = questions[0] || null;
+      }
+
+      res.status(201).json({
+        attemptId: attempt.id,
+        testTitle: test.title,
+        showDifficultyLevel: test.showDifficultyLevel,
+        currentQuestion: firstQuestion ? {
+          id: firstQuestion.id,
+          question: firstQuestion,
+          topicName: firstTopic.topicName,
+          levelName: firstLevel.levelName,
+          questionNumber: 1,
+          totalInLevel: firstLevel.questionIds.length,
+        } : null,
+        totalTopics: adaptiveTopics.length,
+        currentTopicIndex: 0,
+      });
+    } catch (error) {
+      console.error("Start adaptive attempt error:", error);
+      res.status(500).json({ error: "Failed to start adaptive attempt" });
+    }
+  });
+
+  // Answer question in adaptive test
+  app.post("/api/attempts/:attemptId/answer-adaptive", requireLearner, async (req, res) => {
+    try {
+      const attempt = await storage.getAttempt(req.params.attemptId);
+      if (!attempt) {
+        return res.status(404).json({ error: "Attempt not found" });
+      }
+
+      if (attempt.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      if (attempt.finishedAt) {
+        return res.status(400).json({ error: "Attempt already finished" });
+      }
+
+      const { questionId, answer } = req.body;
+      const variant = attempt.variantJson as any;
+
+      if (variant.mode !== "adaptive") {
+        return res.status(400).json({ error: "This is not an adaptive attempt" });
+      }
+
+      const test = await storage.getTest(attempt.testId);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      // Get current state
+      const currentTopic = variant.topics[variant.currentTopicIndex];
+      const currentLevel = currentTopic.levelsState[currentTopic.currentLevelIndex];
+
+      // Verify this is the expected question
+      if (variant.currentQuestionId !== questionId) {
+        return res.status(400).json({ error: "Unexpected question ID" });
+      }
+
+      // Get question and check answer
+      const questions = await storage.getQuestionsByIds([questionId]);
+      const question = questions[0];
+      if (!question) {
+        return res.status(404).json({ error: "Question not found" });
+      }
+
+      // Check answer correctness
+      const isCorrect = checkAnswer(question, answer) === 1;
+
+      // Update answers
+      const updatedAnswers = { ...(attempt.answersJson as any || {}), [questionId]: answer };
+
+      // Update level state
+      currentLevel.answeredQuestionIds.push(questionId);
+      if (isCorrect) {
+        currentLevel.correctCount++;
+      }
+
+      // Calculate if level is passed/failed
+      const answeredCount = currentLevel.answeredQuestionIds.length;
+      const remainingQuestions = currentLevel.questionIds.length - answeredCount;
+      const correctCount = currentLevel.correctCount;
+
+      // Calculate threshold
+      let requiredCorrect: number;
+      if (currentLevel.passThresholdType === "percent") {
+        requiredCorrect = Math.ceil(currentLevel.questionIds.length * currentLevel.passThreshold / 100);
+      } else {
+        requiredCorrect = currentLevel.passThreshold;
+      }
+
+      // Check for early pass (enough correct answers)
+      const canStillPass = correctCount + remainingQuestions >= requiredCorrect;
+      const alreadyPassed = correctCount >= requiredCorrect;
+
+      // Check for early fail (impossible to pass)
+      const alreadyFailed = !canStillPass;
+
+      // Check if all questions answered
+      const allAnswered = remainingQuestions === 0;
+
+      let levelTransition: any = null;
+      let topicTransition: any = null;
+      let isFinished = false;
+      let nextQuestionData: any = null;
+
+      if (alreadyPassed || (allAnswered && correctCount >= requiredCorrect)) {
+        // Level passed!
+        currentLevel.status = "passed";
+
+        // Check if there's a higher level
+        const nextLevelIndex = currentTopic.currentLevelIndex + 1;
+        if (nextLevelIndex < currentTopic.levelsState.length) {
+          // Move to higher level
+          levelTransition = {
+            type: "up",
+            fromLevel: currentLevel.levelName,
+            toLevel: currentTopic.levelsState[nextLevelIndex].levelName,
+            message: `Уровень "${currentLevel.levelName}" пройден! Переход на уровень "${currentTopic.levelsState[nextLevelIndex].levelName}"`,
+          };
+
+          currentTopic.currentLevelIndex = nextLevelIndex;
+          const newLevel = currentTopic.levelsState[nextLevelIndex];
+          newLevel.status = "in_progress";
+
+          // Get first question of new level
+          const nextQuestionId = newLevel.questionIds[0];
+          variant.currentQuestionId = nextQuestionId;
+
+          if (nextQuestionId) {
+            const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+            if (nextQuestions[0]) {
+              nextQuestionData = {
+                id: nextQuestionId,
+                question: nextQuestions[0],
+                topicName: currentTopic.topicName,
+                levelName: newLevel.levelName,
+                questionNumber: 1,
+                totalInLevel: newLevel.questionIds.length,
+              };
+            }
+          }
+        } else {
+          // Highest level passed - topic complete!
+          currentTopic.finalLevelIndex = currentTopic.currentLevelIndex;
+          currentTopic.status = "completed";
+
+          levelTransition = {
+            type: "complete",
+            fromLevel: currentLevel.levelName,
+            toLevel: null,
+            message: `Поздравляем! Достигнут максимальный уровень "${currentLevel.levelName}"!`,
+          };
+
+          // Check if there's another topic
+          const nextTopicIndex = variant.currentTopicIndex + 1;
+          if (nextTopicIndex < variant.topics.length) {
+            // Move to next topic
+            topicTransition = {
+              fromTopic: currentTopic.topicName,
+              toTopic: variant.topics[nextTopicIndex].topicName,
+            };
+
+            variant.currentTopicIndex = nextTopicIndex;
+            const nextTopic = variant.topics[nextTopicIndex];
+            const startLevel = nextTopic.levelsState[nextTopic.currentLevelIndex];
+            startLevel.status = "in_progress";
+
+            const nextQuestionId = startLevel.questionIds[0];
+            variant.currentQuestionId = nextQuestionId;
+
+            if (nextQuestionId) {
+              const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+              if (nextQuestions[0]) {
+                nextQuestionData = {
+                  id: nextQuestionId,
+                  question: nextQuestions[0],
+                  topicName: nextTopic.topicName,
+                  levelName: startLevel.levelName,
+                  questionNumber: 1,
+                  totalInLevel: startLevel.questionIds.length,
+                };
+              }
+            }
+          } else {
+            // All topics complete
+            isFinished = true;
+            variant.currentQuestionId = null;
+          }
+        }
+      } else if (alreadyFailed || (allAnswered && correctCount < requiredCorrect)) {
+        // Level failed!
+        currentLevel.status = "failed";
+
+        // Check if there's a lower level
+        const prevLevelIndex = currentTopic.currentLevelIndex - 1;
+        if (prevLevelIndex >= 0) {
+          // Move to lower level
+          levelTransition = {
+            type: "down",
+            fromLevel: currentLevel.levelName,
+            toLevel: currentTopic.levelsState[prevLevelIndex].levelName,
+            message: `Уровень "${currentLevel.levelName}" не пройден. Переход на уровень "${currentTopic.levelsState[prevLevelIndex].levelName}"`,
+          };
+
+          currentTopic.currentLevelIndex = prevLevelIndex;
+          const newLevel = currentTopic.levelsState[prevLevelIndex];
+          newLevel.status = "in_progress";
+
+          // Get first question of new level
+          const nextQuestionId = newLevel.questionIds[0];
+          variant.currentQuestionId = nextQuestionId;
+
+          if (nextQuestionId) {
+            const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+            if (nextQuestions[0]) {
+              nextQuestionData = {
+                id: nextQuestionId,
+                question: nextQuestions[0],
+                topicName: currentTopic.topicName,
+                levelName: newLevel.levelName,
+                questionNumber: 1,
+                totalInLevel: newLevel.questionIds.length,
+              };
+            }
+          }
+        } else {
+          // Lowest level failed - topic complete with failure
+          currentTopic.finalLevelIndex = null; // No level achieved
+          currentTopic.status = "completed";
+
+          levelTransition = {
+            type: "complete",
+            fromLevel: currentLevel.levelName,
+            toLevel: null,
+            message: `К сожалению, базовый уровень "${currentLevel.levelName}" не пройден.`,
+          };
+
+          // Check if there's another topic
+          const nextTopicIndex = variant.currentTopicIndex + 1;
+          if (nextTopicIndex < variant.topics.length) {
+            topicTransition = {
+              fromTopic: currentTopic.topicName,
+              toTopic: variant.topics[nextTopicIndex].topicName,
+            };
+
+            variant.currentTopicIndex = nextTopicIndex;
+            const nextTopic = variant.topics[nextTopicIndex];
+            const startLevel = nextTopic.levelsState[nextTopic.currentLevelIndex];
+            startLevel.status = "in_progress";
+
+            const nextQuestionId = startLevel.questionIds[0];
+            variant.currentQuestionId = nextQuestionId;
+
+            if (nextQuestionId) {
+              const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+              if (nextQuestions[0]) {
+                nextQuestionData = {
+                  id: nextQuestionId,
+                  question: nextQuestions[0],
+                  topicName: nextTopic.topicName,
+                  levelName: startLevel.levelName,
+                  questionNumber: 1,
+                  totalInLevel: startLevel.questionIds.length,
+                };
+              }
+            }
+          } else {
+            // All topics complete
+            isFinished = true;
+            variant.currentQuestionId = null;
+          }
+        }
+      } else {
+        // Continue with next question in same level
+        const currentQuestionIndex = currentLevel.questionIds.indexOf(questionId);
+        const nextQuestionId = currentLevel.questionIds[currentQuestionIndex + 1];
+        variant.currentQuestionId = nextQuestionId;
+
+        if (nextQuestionId) {
+          const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+          if (nextQuestions[0]) {
+            nextQuestionData = {
+              id: nextQuestionId,
+              question: nextQuestions[0],
+              topicName: currentTopic.topicName,
+              levelName: currentLevel.levelName,
+              questionNumber: currentQuestionIndex + 2,
+              totalInLevel: currentLevel.questionIds.length,
+            };
+          }
+        }
+      }
+
+      // Build result if finished
+      let result: any = null;
+      if (isFinished) {
+        result = await buildAdaptiveResult(variant, test.id, storage);
+      }
+
+      // Update attempt
+      await storage.updateAttempt(attempt.id, {
+        variantJson: variant,
+        answersJson: updatedAnswers,
+        resultJson: isFinished ? result : null,
+        finishedAt: isFinished ? new Date() : null,
+      });
+
+      // Build response
+      const response: any = {
+        isCorrect,
+        nextQuestion: nextQuestionData,
+        levelTransition,
+        topicTransition,
+        isFinished,
+        result,
+      };
+
+      // Add correct answer if showCorrectAnswers is enabled
+      if (test.showCorrectAnswers) {
+        response.correctAnswer = question.correctJson;
+        response.feedback = question.feedback;
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("Answer adaptive error:", error);
+      res.status(500).json({ error: "Failed to process answer" });
+    }
+  });
+
+  // Helper function to build adaptive result
+  async function buildAdaptiveResult(variant: any, testId: string, storage: any) {
+    const adaptiveSettings = await storage.getAdaptiveTopicSettingsByTest(testId);
+    const adaptiveLevels = await storage.getAdaptiveLevelsByTest(testId);
+
+    const topicResults: any[] = [];
+    let overallPassed = true;
+
+    for (const topic of variant.topics) {
+      const topicSettings = adaptiveSettings.find((s: any) => s.topicId === topic.topicId);
+      const topicLevels = adaptiveLevels.filter((l: any) => l.topicId === topic.topicId);
+
+      // Calculate stats
+      let totalQuestionsAnswered = 0;
+      let totalCorrect = 0;
+      const levelsAttempted: any[] = [];
+
+      for (const levelState of topic.levelsState) {
+        if (levelState.status === "passed" || levelState.status === "failed") {
+          totalQuestionsAnswered += levelState.answeredQuestionIds.length;
+          totalCorrect += levelState.correctCount;
+          levelsAttempted.push({
+            levelIndex: levelState.levelIndex,
+            levelName: levelState.levelName,
+            questionsAnswered: levelState.answeredQuestionIds.length,
+            correctCount: levelState.correctCount,
+            status: levelState.status,
+          });
+        }
+      }
+
+      // Get achieved level info
+      let achievedLevelName: string | null = null;
+      let levelPercent = 0;
+      let feedback: string | null = null;
+      let recommendedLinks: any[] = [];
+
+      if (topic.finalLevelIndex !== null) {
+        const achievedLevel = topicLevels.find((l: any) => l.levelIndex === topic.finalLevelIndex);
+        if (achievedLevel) {
+          achievedLevelName = achievedLevel.levelName;
+          const levelState = topic.levelsState.find((ls: any) => ls.levelIndex === topic.finalLevelIndex);
+          if (levelState && levelState.answeredQuestionIds.length > 0) {
+            levelPercent = (levelState.correctCount / levelState.answeredQuestionIds.length) * 100;
+          }
+          feedback = achievedLevel.feedback;
+
+          // Get links for this level
+          const links = await storage.getAdaptiveLevelLinks(achievedLevel.id);
+          recommendedLinks = links.map((l: any) => ({ title: l.title, url: l.url }));
+        }
+      } else {
+        // Failed all levels
+        overallPassed = false;
+        feedback = topicSettings?.failureFeedback || null;
+      }
+
+      topicResults.push({
+        topicId: topic.topicId,
+        topicName: topic.topicName,
+        achievedLevelIndex: topic.finalLevelIndex,
+        achievedLevelName,
+        levelPercent,
+        totalQuestionsAnswered,
+        totalCorrect,
+        levelsAttempted,
+        feedback,
+        recommendedLinks,
+      });
+    }
+
+    return {
+      mode: "adaptive",
+      overallPassed,
+      topicResults,
+    };
+  }
+
+  // Learner routes
 
   // Attempts - Learner only
   app.post("/api/tests/:testId/attempts/start", requireLearner, async (req, res) => {
@@ -1214,10 +2029,1400 @@ export async function registerRoutes(
     }
   });
 
+  // Детальная аналитика по конкретному тесту
+app.get("/api/analytics/tests/:testId", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const testId = req.params.testId;
+    const test = await storage.getTest(testId);
+    
+    if (!test) {
+      return res.status(404).json({ error: "Test not found" });
+    }
+    
+    const allAttempts = await storage.getAllAttempts();
+    const testAttempts = allAttempts.filter(a => a.testId === testId);
+    const completedAttempts = testAttempts.filter(a => a.resultJson !== null);
+    
+    // Уникальные пользователи
+    const uniqueUsers = new Set(completedAttempts.map(a => a.userId)).size;
+    
+    // Базовая статистика
+    let totalPercent = 0;
+    let totalPassed = 0;
+    let totalScore = 0;
+    let maxScore = 0;
+    let totalDuration = 0;
+    let durationCount = 0;
+    
+    for (const attempt of completedAttempts) {
+      const result = attempt.resultJson as AttemptResult | null;
+      if (result) {
+        totalPercent += result.overallPercent || 0;
+        if (result.overallPassed) totalPassed++;
+        totalScore += result.totalEarnedPoints || 0;
+        if ((result.totalPossiblePoints || 0) > maxScore) {
+          maxScore = result.totalPossiblePoints || 0;
+        }
+        
+        if (attempt.startedAt && attempt.finishedAt) {
+          const duration = (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000;
+          totalDuration += duration;
+          durationCount++;
+        }
+      }
+    }
+    
+    const summary = {
+      totalAttempts: testAttempts.length,
+      completedAttempts: completedAttempts.length,
+      uniqueUsers,
+      avgPercent: completedAttempts.length > 0 ? totalPercent / completedAttempts.length : 0,
+      avgDuration: durationCount > 0 ? totalDuration / durationCount : null,
+      passRate: completedAttempts.length > 0 ? (totalPassed / completedAttempts.length) * 100 : 0,
+      avgScore: completedAttempts.length > 0 ? totalScore / completedAttempts.length : 0,
+      maxScore,
+    };
+    
+    // Статистика по темам
+    interface TopicStatsEntry {
+      topicId: string;
+      topicName: string;
+      totalAnswers: number;
+      correctAnswers: number;
+      earnedPoints: number;
+      possiblePoints: number;
+      passedCount: number;
+      failedCount: number;
+    }
+    
+    const topicStatsMap = new Map<string, TopicStatsEntry>();
+    
+    for (const attempt of completedAttempts) {
+      const result = attempt.resultJson as any;
+      if (!result?.topicResults) continue;
+      
+      for (const tr of result.topicResults) {
+        const existing = topicStatsMap.get(tr.topicId) || {
+          topicId: tr.topicId,
+          topicName: tr.topicName,
+          totalAnswers: 0,
+          correctAnswers: 0,
+          earnedPoints: 0,
+          possiblePoints: 0,
+          passedCount: 0,
+          failedCount: 0,
+        };
+        
+        existing.totalAnswers += tr.total || tr.totalQuestionsAnswered || 0;
+        existing.correctAnswers += tr.correct || tr.totalCorrect || 0;
+        existing.earnedPoints += tr.earnedPoints || 0;
+        existing.possiblePoints += tr.possiblePoints || 0;
+        
+        if (tr.passed === true || (tr.achievedLevelIndex !== undefined && tr.achievedLevelIndex !== null)) {
+          existing.passedCount++;
+        } else if (tr.passed === false || tr.achievedLevelIndex === null) {
+          existing.failedCount++;
+        }
+        
+        topicStatsMap.set(tr.topicId, existing);
+      }
+    }
+    
+    const topicStats = Array.from(topicStatsMap.values()).map(ts => ({
+      topicId: ts.topicId,
+      topicName: ts.topicName,
+      totalAnswers: ts.totalAnswers,
+      correctAnswers: ts.correctAnswers,
+      avgPercent: ts.possiblePoints > 0 ? (ts.earnedPoints / ts.possiblePoints) * 100 : 0,
+      passRate: (ts.passedCount + ts.failedCount) > 0 
+        ? (ts.passedCount / (ts.passedCount + ts.failedCount)) * 100 
+        : null,
+    }));
+    
+    // Статистика по вопросам
+    interface QuestionStatsEntry {
+      questionId: string;
+      questionPrompt: string;
+      questionType: string;
+      topicId: string;
+      topicName: string;
+      difficulty: number;
+      totalAnswers: number;
+      correctAnswers: number;
+    }
+    
+    const questionStatsMap = new Map<string, QuestionStatsEntry>();
+    
+    const allQuestionIds = new Set<string>();
+    for (const attempt of testAttempts) {
+      const variant = attempt.variantJson as any;
+      if (variant?.sections) {
+        for (const section of variant.sections) {
+          for (const qId of section.questionIds || []) {
+            allQuestionIds.add(qId);
+          }
+        }
+      }
+      if (variant?.topics) {
+        for (const topic of variant.topics) {
+          for (const level of topic.levelsState || []) {
+            for (const qId of level.questionIds || []) {
+              allQuestionIds.add(qId);
+            }
+          }
+        }
+      }
+    }
+    
+    const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    const topics = await storage.getTopics();
+    const topicMap = new Map(topics.map(t => [t.id, t.name]));
+    
+    for (const attempt of completedAttempts) {
+      const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+      
+      for (const [qId, answer] of Object.entries(answers)) {
+        const question = questionMap.get(qId);
+        if (!question) continue;
+        
+        const existing = questionStatsMap.get(qId) || {
+          questionId: qId,
+          questionPrompt: question.prompt,
+          questionType: question.type,
+          topicId: question.topicId,
+          topicName: topicMap.get(question.topicId) || "Unknown",
+          difficulty: question.difficulty || 50,
+          totalAnswers: 0,
+          correctAnswers: 0,
+        };
+        
+        existing.totalAnswers++;
+        if (checkAnswer(question, answer) === 1) {
+          existing.correctAnswers++;
+        }
+        
+        questionStatsMap.set(qId, existing);
+      }
+    }
+    
+    const questionStats = Array.from(questionStatsMap.values()).map(qs => ({
+      questionId: qs.questionId,
+      questionPrompt: qs.questionPrompt,
+      questionType: qs.questionType,
+      topicId: qs.topicId,
+      topicName: qs.topicName,
+      difficulty: qs.difficulty,
+      totalAnswers: qs.totalAnswers,
+      correctAnswers: qs.correctAnswers,
+      correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
+    })).sort((a, b) => a.correctPercent - b.correctPercent);
+    
+    // Статистика по уровням (для адаптивных тестов)
+    interface LevelStatsEntry {
+      levelIndex: number;
+      levelName: string;
+      topicId: string;
+      topicName: string;
+      achievedCount: number;
+      attemptedCount: number;
+      passedCount: number;
+      failedCount: number;
+      totalCorrect: number;
+      totalAnswered: number;
+    }
+    
+    let levelStats: Array<LevelStatsEntry & { avgCorrectPercent: number }> = [];
+    
+    if (test.mode === "adaptive") {
+      const levelStatsMap = new Map<string, LevelStatsEntry>();
+      
+      for (const attempt of completedAttempts) {
+        const result = attempt.resultJson as any;
+        if (!result?.topicResults) continue;
+        
+        for (const tr of result.topicResults) {
+          if (tr.achievedLevelIndex !== undefined && tr.achievedLevelIndex !== null) {
+            const key = `${tr.topicId}-${tr.achievedLevelIndex}`;
+            const existing = levelStatsMap.get(key) || {
+              levelIndex: tr.achievedLevelIndex,
+              levelName: tr.achievedLevelName || `Level ${tr.achievedLevelIndex}`,
+              topicId: tr.topicId,
+              topicName: tr.topicName,
+              achievedCount: 0,
+              attemptedCount: 0,
+              passedCount: 0,
+              failedCount: 0,
+              totalCorrect: 0,
+              totalAnswered: 0,
+            };
+            existing.achievedCount++;
+            levelStatsMap.set(key, existing);
+          }
+          
+          for (const la of tr.levelsAttempted || []) {
+            const key = `${tr.topicId}-${la.levelIndex}`;
+            const existing = levelStatsMap.get(key) || {
+              levelIndex: la.levelIndex,
+              levelName: la.levelName,
+              topicId: tr.topicId,
+              topicName: tr.topicName,
+              achievedCount: 0,
+              attemptedCount: 0,
+              passedCount: 0,
+              failedCount: 0,
+              totalCorrect: 0,
+              totalAnswered: 0,
+            };
+            
+            existing.attemptedCount++;
+            existing.totalCorrect += la.correctCount || 0;
+            existing.totalAnswered += la.questionsAnswered || 0;
+            
+            if (la.status === "passed") {
+              existing.passedCount++;
+            } else if (la.status === "failed") {
+              existing.failedCount++;
+            }
+            
+            levelStatsMap.set(key, existing);
+          }
+        }
+      }
+      
+      levelStats = Array.from(levelStatsMap.values()).map(ls => ({
+        ...ls,
+        avgCorrectPercent: ls.totalAnswered > 0 ? (ls.totalCorrect / ls.totalAnswered) * 100 : 0,
+      })).sort((a, b) => {
+        if (a.topicId !== b.topicId) return a.topicId.localeCompare(b.topicId);
+        return a.levelIndex - b.levelIndex;
+      });
+    }
+    
+    // Распределение результатов
+    const scoreRanges = [
+      { range: "0-10", min: 0, max: 10, count: 0 },
+      { range: "11-20", min: 11, max: 20, count: 0 },
+      { range: "21-30", min: 21, max: 30, count: 0 },
+      { range: "31-40", min: 31, max: 40, count: 0 },
+      { range: "41-50", min: 41, max: 50, count: 0 },
+      { range: "51-60", min: 51, max: 60, count: 0 },
+      { range: "61-70", min: 61, max: 70, count: 0 },
+      { range: "71-80", min: 71, max: 80, count: 0 },
+      { range: "81-90", min: 81, max: 90, count: 0 },
+      { range: "91-100", min: 91, max: 100, count: 0 },
+    ];
+    
+    for (const attempt of completedAttempts) {
+      const result = attempt.resultJson as AttemptResult | null;
+      const percent = result?.overallPercent || 0;
+      for (const range of scoreRanges) {
+        if (percent >= range.min && percent <= range.max) {
+          range.count++;
+          break;
+        }
+      }
+    }
+    
+    const scoreDistribution = scoreRanges.map(r => ({ range: r.range, count: r.count }));
+    
+    // Тренды по дням
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const dailyMap = new Map<string, { date: string; attempts: number; totalPercent: number; passed: number }>();
+    
+    for (const attempt of completedAttempts) {
+      if (!attempt.finishedAt) continue;
+      const finishedDate = new Date(attempt.finishedAt);
+      if (finishedDate < thirtyDaysAgo) continue;
+      
+      const dateStr = finishedDate.toISOString().split("T")[0];
+      const result = attempt.resultJson as AttemptResult | null;
+      
+      const existing = dailyMap.get(dateStr) || { date: dateStr, attempts: 0, totalPercent: 0, passed: 0 };
+      existing.attempts++;
+      existing.totalPercent += result?.overallPercent || 0;
+      if (result?.overallPassed) existing.passed++;
+      dailyMap.set(dateStr, existing);
+    }
+    
+    const dailyTrends = Array.from(dailyMap.values())
+      .map(d => ({
+        date: d.date,
+        attempts: d.attempts,
+        avgPercent: d.attempts > 0 ? d.totalPercent / d.attempts : 0,
+        passRate: d.attempts > 0 ? (d.passed / d.attempts) * 100 : 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    res.json({
+      testId: test.id,
+      testTitle: test.title,
+      testMode: test.mode,
+      summary,
+      topicStats,
+      questionStats,
+      levelStats: test.mode === "adaptive" ? levelStats : undefined,
+      scoreDistribution,
+      dailyTrends,
+    });
+    
+  } catch (error) {
+    console.error("Test analytics error:", error);
+    res.status(500).json({ error: "Failed to fetch test analytics" });
+  }
+});
+
+// Список попыток по тесту
+app.get("/api/analytics/tests/:testId/attempts", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const testId = req.params.testId;
+    const test = await storage.getTest(testId);
+    
+    if (!test) {
+      return res.status(404).json({ error: "Test not found" });
+    }
+    
+    const allAttempts = await storage.getAllAttempts();
+    const testAttempts = allAttempts.filter(a => a.testId === testId);
+    
+    const userIds = Array.from(new Set(testAttempts.map(a => a.userId)));
+    const users = await Promise.all(userIds.map(id => storage.getUser(id)));
+    const userMap = new Map<string, string>();
+    for (const u of users) {
+      if (u) userMap.set(u.id, u.username);
+    }
+    
+    const attemptsList = testAttempts.map(attempt => {
+      const result = attempt.resultJson as any;
+      const duration = attempt.startedAt && attempt.finishedAt
+        ? (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000
+        : null;
+      
+      let achievedLevels: Array<{ topicName: string; levelName: string | null }> | undefined;
+      if (test.mode === "adaptive" && result?.topicResults) {
+        achievedLevels = result.topicResults.map((tr: any) => ({
+          topicName: tr.topicName,
+          levelName: tr.achievedLevelName || null,
+        }));
+      }
+      
+      return {
+        attemptId: attempt.id,
+        userId: attempt.userId,
+        username: userMap.get(attempt.userId) || "Unknown",
+        startedAt: attempt.startedAt?.toISOString() || null,
+        finishedAt: attempt.finishedAt?.toISOString() || null,
+        duration,
+        overallPercent: result?.overallPercent || 0,
+        earnedPoints: result?.totalEarnedPoints || 0,
+        possiblePoints: result?.totalPossiblePoints || 0,
+        passed: result?.overallPassed || false,
+        completed: result !== null,
+        achievedLevels,
+      };
+    }).sort((a, b) => {
+      if (a.completed !== b.completed) return b.completed ? 1 : -1;
+      const dateA = a.finishedAt || a.startedAt || "";
+      const dateB = b.finishedAt || b.startedAt || "";
+      return dateB.localeCompare(dateA);
+    });
+    
+    res.json({
+      testId: test.id,
+      testTitle: test.title,
+      testMode: test.mode,
+      attempts: attemptsList,
+    });
+    
+  } catch (error) {
+    console.error("Test attempts list error:", error);
+    res.status(500).json({ error: "Failed to fetch attempts list" });
+  }
+});
+
+// Детализация конкретной попытки
+app.get("/api/analytics/attempts/:attemptId", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const attemptId = req.params.attemptId;
+    const attempt = await storage.getAttempt(attemptId);
+    
+    if (!attempt) {
+      return res.status(404).json({ error: "Attempt not found" });
+    }
+    
+    const test = await storage.getTest(attempt.testId);
+    if (!test) {
+      return res.status(404).json({ error: "Test not found" });
+    }
+    
+    const user = await storage.getUser(attempt.userId);
+    const topics = await storage.getTopics();
+    const topicMap = new Map(topics.map(t => [t.id, t.name]));
+    
+    const result = attempt.resultJson as any;
+    const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+    const variant = attempt.variantJson as any;
+    
+    const questionIds: string[] = [];
+    if (variant?.sections) {
+      for (const section of variant.sections) {
+        questionIds.push(...(section.questionIds || []));
+      }
+    }
+    if (variant?.topics) {
+      for (const topic of variant.topics) {
+        for (const level of topic.levelsState || []) {
+          questionIds.push(...(level.questionIds || []));
+        }
+      }
+    }
+    
+    const uniqueQuestionIds = Array.from(new Set(questionIds));
+    const questions = await storage.getQuestionsByIds(uniqueQuestionIds);
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    
+    interface DetailedAnswerItem {
+      questionId: string;
+      questionPrompt: string;
+      questionType: string;
+      topicId: string;
+      topicName: string;
+      userAnswer: unknown;
+      correctAnswer: unknown;
+      isCorrect: boolean;
+      earnedPoints: number;
+      possiblePoints: number;
+      difficulty: number;
+      levelName?: string;
+      levelIndex?: number;
+    }
+    
+    const detailedAnswers: DetailedAnswerItem[] = [];
+    
+    for (const [qId, userAnswer] of Object.entries(answers)) {
+      const question = questionMap.get(qId);
+      if (!question) continue;
+      
+      const isCorrect = checkAnswer(question, userAnswer) === 1;
+      
+      let levelName: string | undefined;
+      let levelIndex: number | undefined;
+      
+      if (variant?.topics) {
+        for (const topic of variant.topics) {
+          for (const level of topic.levelsState || []) {
+            if (level.answeredQuestionIds?.includes(qId)) {
+              levelName = level.levelName;
+              levelIndex = level.levelIndex;
+              break;
+            }
+          }
+        }
+      }
+      
+      detailedAnswers.push({
+        questionId: qId,
+        questionPrompt: question.prompt,
+        questionType: question.type,
+        topicId: question.topicId,
+        topicName: topicMap.get(question.topicId) || "Unknown",
+        userAnswer,
+        correctAnswer: question.correctJson,
+        isCorrect,
+        earnedPoints: isCorrect ? (question.points || 1) : 0,
+        possiblePoints: question.points || 1,
+        difficulty: question.difficulty || 50,
+        levelName,
+        levelIndex,
+      });
+    }
+    
+    interface TrajectoryItem {
+      action: string;
+      topicId?: string;
+      topicName?: string;
+      levelIndex?: number;
+      levelName?: string;
+      message?: string;
+    }
+    
+    interface AchievedLevelItem {
+      topicId: string;
+      topicName: string;
+      levelIndex: number | null;
+      levelName: string | null;
+    }
+    
+    let trajectory: TrajectoryItem[] | undefined;
+    let achievedLevels: AchievedLevelItem[] | undefined;
+    
+    if (test.mode === "adaptive" && variant?.topics) {
+      achievedLevels = variant.topics.map((t: any) => ({
+        topicId: t.topicId,
+        topicName: t.topicName,
+        levelIndex: t.finalLevelIndex,
+        levelName: t.finalLevelIndex !== null && t.levelsState[t.finalLevelIndex]
+          ? t.levelsState[t.finalLevelIndex].levelName
+          : null,
+      }));
+      
+      trajectory = [];
+      for (const topic of variant.topics) {
+        for (const level of topic.levelsState || []) {
+          if (level.status === "passed" || level.status === "failed") {
+            trajectory.push({
+              action: level.status === "passed" ? "level_up" : "level_down",
+              topicId: topic.topicId,
+              topicName: topic.topicName,
+              levelIndex: level.levelIndex,
+              levelName: level.levelName,
+              message: level.status === "passed" 
+                ? `Уровень "${level.levelName}" пройден` 
+                : `Уровень "${level.levelName}" не пройден`,
+            });
+          }
+        }
+      }
+    }
+    
+    const duration = attempt.startedAt && attempt.finishedAt
+      ? (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000
+      : null;
+    
+    res.json({
+      attemptId: attempt.id,
+      userId: attempt.userId,
+      username: user?.username || "Unknown",
+      testId: test.id,
+      testTitle: test.title,
+      testMode: test.mode,
+      startedAt: attempt.startedAt?.toISOString() || null,
+      finishedAt: attempt.finishedAt?.toISOString() || null,
+      duration,
+      overallPercent: result?.overallPercent || 0,
+      earnedPoints: result?.totalEarnedPoints || 0,
+      possiblePoints: result?.totalPossiblePoints || 0,
+      passed: result?.overallPassed || false,
+      answers: detailedAnswers,
+      topicResults: result?.topicResults || [],
+      trajectory,
+      achievedLevels,
+    });
+    
+  } catch (error) {
+    console.error("Attempt detail error:", error);
+    res.status(500).json({ error: "Failed to fetch attempt details" });
+  }
+});
+
+  // ============================================
+// Phase 5: Excel Export Endpoint (UPDATED)
+// Заменить предыдущую версию в routes.ts
+// ============================================
+
+// Экспорт аналитики теста в Excel
+app.get("/api/analytics/tests/:testId/export/excel", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const testId = req.params.testId;
+    const test = await storage.getTest(testId);
+    
+    if (!test) {
+      return res.status(404).json({ error: "Test not found" });
+    }
+    
+    const allAttempts = await storage.getAllAttempts();
+    const testAttempts = allAttempts.filter(a => a.testId === testId);
+    const completedAttempts = testAttempts.filter(a => a.resultJson !== null);
+    
+    // Загружаем пользователей
+    const userIds = Array.from(new Set(testAttempts.map(a => a.userId)));
+    const users = await Promise.all(userIds.map(id => storage.getUser(id)));
+    const userMap = new Map<string, string>();
+    for (const u of users) {
+      if (u) userMap.set(u.id, u.username);
+    }
+    
+    // Загружаем темы
+    const topics = await storage.getTopics();
+    const topicMap = new Map(topics.map(t => [t.id, t.name]));
+    
+    // Собираем все вопросы
+    const allQuestionIds = new Set<string>();
+    for (const attempt of testAttempts) {
+      const variant = attempt.variantJson as any;
+      if (variant?.sections) {
+        for (const section of variant.sections) {
+          for (const qId of section.questionIds || []) {
+            allQuestionIds.add(qId);
+          }
+        }
+      }
+      if (variant?.topics) {
+        for (const topic of variant.topics) {
+          for (const level of topic.levelsState || []) {
+            for (const qId of level.questionIds || []) {
+              allQuestionIds.add(qId);
+            }
+          }
+        }
+      }
+    }
+    
+    const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    
+    // ===== ЛИСТ 1: Сводка =====
+    const summaryData: any[][] = [
+      ["Аналитика теста"],
+      [],
+      ["Название теста", test.title],
+      ["Режим", test.mode === "adaptive" ? "Адаптивный" : "Стандартный"],
+      ["Дата экспорта", new Date().toLocaleString("ru-RU")],
+      [],
+      ["Показатель", "Значение"],
+      ["Всего попыток", testAttempts.length],
+      ["Завершённых попыток", completedAttempts.length],
+      ["Уникальных пользователей", new Set(completedAttempts.map(a => a.userId)).size],
+    ];
+    
+    if (completedAttempts.length > 0) {
+      const avgPercent = completedAttempts.reduce((sum, a) => {
+        const result = a.resultJson as any;
+        return sum + (result?.overallPercent || 0);
+      }, 0) / completedAttempts.length;
+      
+      const passedCount = completedAttempts.filter(a => {
+        const result = a.resultJson as any;
+        return result?.overallPassed;
+      }).length;
+      
+      summaryData.push(
+        ["Средний результат", `${avgPercent.toFixed(1)}%`],
+        ["Процент прохождения", `${((passedCount / completedAttempts.length) * 100).toFixed(1)}%`]
+      );
+    }
+    
+    // ===== ЛИСТ 2: Попытки =====
+    const attemptsHeaders = [
+      "ID попытки",
+      "Пользователь",
+      "Дата начала",
+      "Дата завершения",
+      "Время (сек)",
+      "Результат (%)",
+      "Баллы",
+      "Макс. баллы",
+      "Статус",
+    ];
+    
+    if (test.mode === "adaptive") {
+      attemptsHeaders.push("Достигнутые уровни");
+    }
+    
+    const attemptsData: any[][] = [attemptsHeaders];
+    
+    for (const attempt of testAttempts) {
+      const result = attempt.resultJson as any;
+      const duration = attempt.startedAt && attempt.finishedAt
+        ? Math.round((new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000)
+        : null;
+      
+      const row: any[] = [
+        attempt.id,
+        userMap.get(attempt.userId) || "Unknown",
+        attempt.startedAt ? new Date(attempt.startedAt).toLocaleString("ru-RU") : "",
+        attempt.finishedAt ? new Date(attempt.finishedAt).toLocaleString("ru-RU") : "",
+        duration ?? "",
+        result?.overallPercent?.toFixed(1) ?? "",
+        result?.totalEarnedPoints ?? "",
+        result?.totalPossiblePoints ?? "",
+        result ? (result.overallPassed ? "Сдан" : "Не сдан") : "В процессе",
+      ];
+      
+      if (test.mode === "adaptive" && result?.topicResults) {
+        const levels = result.topicResults
+          .map((tr: any) => `${tr.topicName}: ${tr.achievedLevelName || "—"}`)
+          .join("; ");
+        row.push(levels);
+      }
+      
+      attemptsData.push(row);
+    }
+    
+    // ===== ЛИСТ 3: Детальные ответы =====
+    const answersHeaders = [
+      "ID попытки",
+      "Пользователь",
+      "Время начала",
+      "Вопрос",
+      "Тема",
+      "Тип вопроса",
+      "Сложность",
+      "Варианты ответа",
+      "Правильный ответ",
+      "Ответ пользователя",
+      "Результат",
+      "Баллы",
+    ];
+    
+    if (test.mode === "adaptive") {
+      answersHeaders.push("Уровень");
+    }
+    
+    const answersData: any[][] = [answersHeaders];
+    
+    // Сортируем попытки по пользователю и дате
+    const sortedAttempts = [...completedAttempts].sort((a, b) => {
+      const userA = userMap.get(a.userId) || "";
+      const userB = userMap.get(b.userId) || "";
+      if (userA !== userB) return userA.localeCompare(userB);
+      const dateA = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+      const dateB = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+      return dateA - dateB;
+    });
+    
+    for (const attempt of sortedAttempts) {
+      const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+      const variant = attempt.variantJson as any;
+      const username = userMap.get(attempt.userId) || "Unknown";
+      const startDateStr = attempt.startedAt 
+        ? new Date(attempt.startedAt).toLocaleString("ru-RU") 
+        : "";
+      
+      for (const [qId, userAnswer] of Object.entries(answers)) {
+        const question = questionMap.get(qId);
+        if (!question) continue;
+        
+        const isCorrect = checkAnswer(question, userAnswer) === 1;
+        const dataJson = question.dataJson as any;
+        const correctJson = question.correctJson as any;
+        
+        // Форматируем варианты ответа
+        const allOptions = formatAllOptions(question.type, dataJson);
+        
+        // Форматируем правильный ответ (текстом)
+        const correctAnswerText = formatCorrectAnswerText(question.type, dataJson, correctJson);
+        
+        // Форматируем ответ пользователя (текстом)
+        const userAnswerText = formatUserAnswerText(question.type, dataJson, userAnswer);
+        
+        // Находим уровень для адаптивных тестов
+        let levelName = "";
+        if (variant?.topics) {
+          for (const topic of variant.topics) {
+            for (const level of topic.levelsState || []) {
+              if (level.answeredQuestionIds?.includes(qId)) {
+                levelName = level.levelName;
+                break;
+              }
+            }
+          }
+        }
+        
+        const row: any[] = [
+          attempt.id,
+          username,
+          startDateStr,
+          question.prompt,
+          topicMap.get(question.topicId) || "Unknown",
+          formatQuestionType(question.type),
+          question.difficulty || 50,
+          allOptions,
+          correctAnswerText,
+          userAnswerText,
+          isCorrect ? "Верно" : "Неверно",
+          isCorrect ? (question.points || 1) : 0,
+        ];
+        
+        if (test.mode === "adaptive") {
+          row.push(levelName);
+        }
+        
+        answersData.push(row);
+      }
+    }
+    
+    // ===== ЛИСТ 4: Статистика по вопросам =====
+    const questionStatsMap = new Map<string, { total: number; correct: number }>();
+    
+    for (const attempt of completedAttempts) {
+      const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+      for (const [qId, answer] of Object.entries(answers)) {
+        const question = questionMap.get(qId);
+        if (!question) continue;
+        
+        const stats = questionStatsMap.get(qId) || { total: 0, correct: 0 };
+        stats.total++;
+        if (checkAnswer(question, answer) === 1) {
+          stats.correct++;
+        }
+        questionStatsMap.set(qId, stats);
+      }
+    }
+    
+    const questionStatsData: any[][] = [
+      ["Вопрос", "Тема", "Тип", "Сложность", "Варианты ответа", "Правильный ответ", "Всего ответов", "Правильных", "% правильных"]
+    ];
+    
+    for (const [qId, stats] of questionStatsMap.entries()) {
+      const question = questionMap.get(qId);
+      if (!question) continue;
+      
+      const dataJson = question.dataJson as any;
+      const correctJson = question.correctJson as any;
+      
+      questionStatsData.push([
+        question.prompt,
+        topicMap.get(question.topicId) || "Unknown",
+        formatQuestionType(question.type),
+        question.difficulty || 50,
+        formatAllOptions(question.type, dataJson),
+        formatCorrectAnswerText(question.type, dataJson, correctJson),
+        stats.total,
+        stats.correct,
+        stats.total > 0 ? `${((stats.correct / stats.total) * 100).toFixed(1)}%` : "0%",
+      ]);
+    }
+    
+    // Сортируем по % правильных (от меньшего к большему)
+    const header = questionStatsData.shift();
+    questionStatsData.sort((a, b) => {
+      const pctA = parseFloat(String(a[8]).replace("%", "")) || 0;
+      const pctB = parseFloat(String(b[8]).replace("%", "")) || 0;
+      return pctA - pctB;
+    });
+    questionStatsData.unshift(header!);
+    
+    // ===== Создаём Excel файл =====
+    const workbook = XLSX.utils.book_new();
+    
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Сводка");
+    
+    const attemptsSheet = XLSX.utils.aoa_to_sheet(attemptsData);
+    attemptsSheet["!cols"] = [
+      { wch: 36 }, // ID попытки
+      { wch: 20 }, // Пользователь
+      { wch: 18 }, // Дата начала
+      { wch: 18 }, // Дата завершения
+      { wch: 12 }, // Время
+      { wch: 12 }, // Результат
+      { wch: 10 }, // Баллы
+      { wch: 12 }, // Макс баллы
+      { wch: 12 }, // Статус
+      { wch: 40 }, // Уровни
+    ];
+    XLSX.utils.book_append_sheet(workbook, attemptsSheet, "Попытки");
+    
+    const answersSheet = XLSX.utils.aoa_to_sheet(answersData);
+    answersSheet["!cols"] = [
+      { wch: 36 }, // ID попытки
+      { wch: 15 }, // Пользователь
+      { wch: 18 }, // Время начала
+      { wch: 50 }, // Вопрос
+      { wch: 20 }, // Тема
+      { wch: 15 }, // Тип вопроса
+      { wch: 10 }, // Сложность
+      { wch: 50 }, // Варианты ответа
+      { wch: 30 }, // Правильный ответ
+      { wch: 30 }, // Ответ пользователя
+      { wch: 10 }, // Результат
+      { wch: 8 },  // Баллы
+      { wch: 15 }, // Уровень
+    ];
+    XLSX.utils.book_append_sheet(workbook, answersSheet, "Ответы");
+    
+    const questionStatsSheet = XLSX.utils.aoa_to_sheet(questionStatsData);
+    questionStatsSheet["!cols"] = [
+      { wch: 50 }, // Вопрос
+      { wch: 20 }, // Тема
+      { wch: 15 }, // Тип
+      { wch: 10 }, // Сложность
+      { wch: 50 }, // Варианты
+      { wch: 30 }, // Правильный
+      { wch: 12 }, // Всего
+      { wch: 12 }, // Правильных
+      { wch: 12 }, // %
+    ];
+    XLSX.utils.book_append_sheet(workbook, questionStatsSheet, "Статистика вопросов");
+    
+    // Генерируем буфер
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    
+    // Отправляем файл
+    const filename = `analytics_${test.title.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.xlsx`;
+    
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.send(buffer);
+    
+  } catch (error) {
+    console.error("Excel export error:", error);
+    res.status(500).json({ error: "Failed to export Excel" });
+  }
+});
+
+// ===== Вспомогательные функции для форматирования =====
+
+// Форматирование типа вопроса на русском
+function formatQuestionType(type: string): string {
+  const types: Record<string, string> = {
+    single: "Один ответ",
+    multiple: "Несколько ответов",
+    matching: "Сопоставление",
+    ranking: "Ранжирование",
+  };
+  return types[type] || type;
+}
+
+// Все варианты ответа
+function formatAllOptions(type: string, dataJson: any): string {
+  if (!dataJson) return "";
+  
+  switch (type) {
+    case "single":
+    case "multiple":
+      // options: ["A", "B", "C", "D"]
+      if (dataJson.options && Array.isArray(dataJson.options)) {
+        return dataJson.options.map((opt: string, i: number) => `${i + 1}) ${opt}`).join("\n");
+      }
+      break;
+      
+    case "matching":
+      // left: ["A", "B"], right: ["1", "2"]
+      if (dataJson.left && dataJson.right) {
+        const leftStr = dataJson.left.map((l: string, i: number) => `${i + 1}. ${l}`).join(", ");
+        const rightStr = dataJson.right.map((r: string, i: number) => `${String.fromCharCode(65 + i)}. ${r}`).join(", ");
+        return `Левая: ${leftStr}\nПравая: ${rightStr}`;
+      }
+      break;
+      
+    case "ranking":
+      // items: ["First", "Second", "Third"]
+      if (dataJson.items && Array.isArray(dataJson.items)) {
+        return dataJson.items.map((item: string, i: number) => `${i + 1}) ${item}`).join("\n");
+      }
+      break;
+  }
+  
+  return JSON.stringify(dataJson);
+}
+
+// Правильный ответ текстом
+function formatCorrectAnswerText(type: string, dataJson: any, correctJson: any): string {
+  if (!correctJson) return "";
+  
+  switch (type) {
+    case "single":
+      // correctIndex: 2 -> "3) Option C"
+      if (correctJson.correctIndex !== undefined && dataJson?.options) {
+        const idx = correctJson.correctIndex;
+        return `${idx + 1}) ${dataJson.options[idx] || "?"}`;
+      }
+      break;
+      
+    case "multiple":
+      // correctIndices: [0, 2] -> "1) A, 3) C"
+      if (correctJson.correctIndices && dataJson?.options) {
+        return correctJson.correctIndices
+          .map((idx: number) => `${idx + 1}) ${dataJson.options[idx] || "?"}`)
+          .join(", ");
+      }
+      break;
+      
+    case "matching":
+      // pairs: [{left: 0, right: 1}, {left: 1, right: 0}]
+      if (correctJson.pairs && dataJson?.left && dataJson?.right) {
+        return correctJson.pairs
+          .map((p: any) => `${dataJson.left[p.left]} → ${dataJson.right[p.right]}`)
+          .join(", ");
+      }
+      break;
+      
+    case "ranking":
+      // correctOrder: [2, 0, 1] -> items in correct order
+      if (correctJson.correctOrder && dataJson?.items) {
+        return correctJson.correctOrder
+          .map((idx: number, pos: number) => `${pos + 1}. ${dataJson.items[idx] || "?"}`)
+          .join(", ");
+      }
+      break;
+  }
+  
+  return JSON.stringify(correctJson);
+}
+
+// Ответ пользователя текстом
+function formatUserAnswerText(type: string, dataJson: any, userAnswer: unknown): string {
+  if (userAnswer === null || userAnswer === undefined) return "(нет ответа)";
+  
+  switch (type) {
+    case "single":
+      // userAnswer: 1 -> "2) Option B"
+      if (typeof userAnswer === "number" && dataJson?.options) {
+        return `${userAnswer + 1}) ${dataJson.options[userAnswer] || "?"}`;
+      }
+      break;
+      
+    case "multiple":
+      // userAnswer: [0, 2] -> "1) A, 3) C"
+      if (Array.isArray(userAnswer) && dataJson?.options) {
+        if (userAnswer.length === 0) return "(ничего не выбрано)";
+        return userAnswer
+          .map((idx: number) => `${idx + 1}) ${dataJson.options[idx] || "?"}`)
+          .join(", ");
+      }
+      break;
+      
+    case "matching":
+      // userAnswer: {0: 1, 1: 0} -> "A → 2, B → 1"
+      if (typeof userAnswer === "object" && dataJson?.left && dataJson?.right) {
+        const pairs = userAnswer as Record<string, number>;
+        return Object.entries(pairs)
+          .map(([leftIdx, rightIdx]) => {
+            const leftItem = dataJson.left[Number(leftIdx)] || "?";
+            const rightItem = dataJson.right[rightIdx] || "?";
+            return `${leftItem} → ${rightItem}`;
+          })
+          .join(", ");
+      }
+      break;
+      
+    case "ranking":
+      // userAnswer: [1, 2, 0] -> "1. B, 2. C, 3. A"
+      if (Array.isArray(userAnswer) && dataJson?.items) {
+        return userAnswer
+          .map((idx: number, pos: number) => `${pos + 1}. ${dataJson.items[idx] || "?"}`)
+          .join(", ");
+      }
+      break;
+  }
+  
+  return String(userAnswer);
+}
+
+// ============================================
+// ИСПРАВЛЕНИЕ: Эндпоинт фильтров экспорта
+// ЗАМЕНИ старый app.get("/api/export/filters"...) на этот
+// ============================================
+
+// Получить данные для фильтров экспорта (тесты и пользователи)
+app.get("/api/export/filters", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const tests = await storage.getTests();
+    const allAttempts = await storage.getAllAttempts();
+    
+    const testOptions = tests.map(t => ({
+      id: t.id,
+      title: t.title,
+      mode: t.mode || "standard",
+    }));
+    
+    // Получаем уникальных пользователей из попыток
+    const userIds = Array.from(new Set(allAttempts.map(a => a.userId)));
+    const users = await Promise.all(userIds.map(id => storage.getUser(id)));
+    
+    const userOptions = users
+      .filter((u): u is NonNullable<typeof u> => u !== undefined)
+      .map(u => ({
+        id: u.id,
+        username: u.username,
+      }))
+      .sort((a, b) => a.username.localeCompare(b.username));
+    
+    res.json({
+      tests: testOptions,
+      users: userOptions,
+    });
+  } catch (error) {
+    console.error("Export filters error:", error);
+    res.status(500).json({ error: "Failed to fetch export filters" });
+  }
+});
+
+// ============================================
+// Export report to Excel (POST /api/export/excel)
+// ============================================
+app.post("/api/export/excel", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const config = req.body as any;
+
+    const testIds: string[] = Array.isArray(config?.testIds) ? config.testIds : [];
+    const userIds: string[] = Array.isArray(config?.userIds) ? config.userIds : [];
+    const dateFrom: string = config?.dateFrom || "";
+    const dateTo: string = config?.dateTo || "";
+    const bestAttemptOnly: boolean = !!config?.bestAttemptOnly;
+    const bestAttemptCriteria: "percent" | "level_sum" | "level_count" = config?.bestAttemptCriteria || "percent";
+    const includeSheets = config?.includeSheets || {
+      summary: true, attempts: true, answers: true, questionStats: true, levelStats: true,
+    };
+
+    if (!testIds.length) {
+      return res.status(400).json({ error: "testIds is required" });
+    }
+
+    const tests = await storage.getTests();
+    const selectedTests = tests.filter(t => testIds.includes(t.id));
+    const testTitleMap = new Map(selectedTests.map(t => [t.id, t.title]));
+    const testModeMap = new Map(selectedTests.map(t => [t.id, t.mode || "standard"]));
+
+    const topics = await storage.getTopics();
+    const topicMap = new Map(topics.map(t => [t.id, t.name]));
+
+    const allAttempts = await storage.getAllAttempts();
+
+    // --- filter attempts by testIds/userIds/dates ---
+    let attempts = allAttempts.filter(a => testIds.includes(a.testId));
+
+    if (userIds.length) {
+      const set = new Set(userIds);
+      attempts = attempts.filter(a => set.has(a.userId));
+    }
+
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
+
+    if (from || to) {
+      attempts = attempts.filter(a => {
+        const dt = a.finishedAt ? new Date(a.finishedAt) : (a.startedAt ? new Date(a.startedAt) : null);
+        if (!dt) return false;
+        if (from && dt < from) return false;
+        if (to && dt > to) return false;
+        return true;
+      });
+    }
+
+    // завершённые
+    let completed = attempts.filter(a => a.resultJson !== null);
+
+    // --- bestAttemptOnly ---
+    if (bestAttemptOnly) {
+      const best = new Map<string, any>(); // key = testId:userId
+
+      const scoreKey = (a: any) => {
+        const mode = testModeMap.get(a.testId) || "standard";
+        const r = a.resultJson as any;
+
+        if (mode !== "adaptive") {
+          return { primary: r?.overallPercent ?? 0, secondary: 0 };
+        }
+
+        const trs = r?.topicResults || [];
+        const levelSum = trs.reduce((s: number, tr: any) => s + (typeof tr.achievedLevelIndex === "number" ? tr.achievedLevelIndex : -1), 0);
+        const levelCount = trs.filter((tr: any) => tr.achievedLevelIndex !== null && tr.achievedLevelIndex !== undefined).length;
+        const percent = r?.overallPercent ?? 0;
+
+        if (bestAttemptCriteria === "level_sum") return { primary: levelSum, secondary: percent };
+        if (bestAttemptCriteria === "level_count") return { primary: levelCount, secondary: percent };
+        return { primary: percent, secondary: levelSum };
+      };
+
+      for (const a of completed) {
+        const k = `${a.testId}:${a.userId}`;
+        const prev = best.get(k);
+        if (!prev) { best.set(k, a); continue; }
+
+        const A = scoreKey(a);
+        const P = scoreKey(prev);
+
+        const aTime = a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+        const pTime = prev.finishedAt ? new Date(prev.finishedAt).getTime() : 0;
+
+        if (A.primary > P.primary) best.set(k, a);
+        else if (A.primary === P.primary && A.secondary > P.secondary) best.set(k, a);
+        else if (A.primary === P.primary && A.secondary === P.secondary && aTime > pTime) best.set(k, a);
+      }
+
+      completed = Array.from(best.values());
+    }
+
+    // --- users map ---
+    const uniqUserIds = Array.from(new Set(completed.map(a => a.userId)));
+    const users = await Promise.all(uniqUserIds.map(id => storage.getUser(id)));
+    const userMap = new Map<string, string>();
+    for (const u of users) if (u) userMap.set(u.id, u.username);
+
+    // --- collect questions from variants ---
+    const allQuestionIds = new Set<string>();
+    for (const attempt of completed) {
+      const variant = attempt.variantJson as any;
+      if (variant?.sections) {
+        for (const s of variant.sections) for (const qId of (s.questionIds || [])) allQuestionIds.add(qId);
+      }
+      if (variant?.topics) {
+        for (const t of variant.topics) for (const lvl of (t.levelsState || [])) for (const qId of (lvl.questionIds || [])) allQuestionIds.add(qId);
+      }
+    }
+
+    const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+
+    const wb = XLSX.utils.book_new();
+
+    // ===== Sheet: Summary =====
+    if (includeSheets.summary) {
+      const rows: any[][] = [
+        ["Отчёт по аналитике"],
+        ["Дата экспорта", new Date().toLocaleString("ru-RU")],
+        ["Тестов", selectedTests.length],
+        ["Попыток (завершённых)", completed.length],
+        ["Пользователей", new Set(completed.map(a => a.userId)).size],
+        ["bestAttemptOnly", bestAttemptOnly ? "Да" : "Нет"],
+        ["Период", `${dateFrom || "—"} .. ${dateTo || "—"}`],
+        [],
+        ["Тест", "Попыток", "Средний %", "Процент сдачи"],
+      ];
+
+      for (const t of selectedTests) {
+        const ta = completed.filter(a => a.testId === t.id);
+        const avg = ta.length ? (ta.reduce((s, a) => s + ((a.resultJson as any)?.overallPercent ?? 0), 0) / ta.length) : 0;
+        const passed = ta.filter(a => ((a.resultJson as any)?.overallPassed)).length;
+        rows.push([t.title, ta.length, `${avg.toFixed(1)}%`, ta.length ? `${(passed / ta.length * 100).toFixed(1)}%` : "0%"]);
+      }
+
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Сводка");
+    }
+
+    // ===== Sheet: Attempts =====
+    if (includeSheets.attempts) {
+      const rows: any[][] = [[
+        "Тест", "ID попытки", "Пользователь", "Дата начала", "Дата завершения",
+        "Время (сек)", "Результат (%)", "Баллы", "Макс. баллы", "Статус",
+      ]];
+
+      for (const a of completed) {
+        const r = a.resultJson as any;
+        const dur = a.startedAt && a.finishedAt
+          ? Math.round((new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000)
+          : "";
+
+        rows.push([
+          testTitleMap.get(a.testId) || a.testId,
+          a.id,
+          userMap.get(a.userId) || "Unknown",
+          a.startedAt ? new Date(a.startedAt).toLocaleString("ru-RU") : "",
+          a.finishedAt ? new Date(a.finishedAt).toLocaleString("ru-RU") : "",
+          dur,
+          r?.overallPercent?.toFixed(1) ?? "",
+          r?.totalEarnedPoints ?? "",
+          r?.totalPossiblePoints ?? "",
+          r ? (r.overallPassed ? "Сдан" : "Не сдан") : "—",
+        ]);
+      }
+
+      const sh = XLSX.utils.aoa_to_sheet(rows);
+      sh["!cols"] = [{ wch: 24 }, { wch: 36 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }];
+      XLSX.utils.book_append_sheet(wb, sh, "Попытки");
+    }
+
+    // ===== Sheet: Answers =====
+    if (includeSheets.answers) {
+      const rows: any[][] = [[
+        "Тест","ID попытки","Пользователь","Время начала","Вопрос","Тема","Тип","Сложность",
+        "Варианты ответа","Правильный ответ","Ответ пользователя","Результат","Баллы",
+      ]];
+
+      for (const attempt of completed) {
+        const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+        const username = userMap.get(attempt.userId) || "Unknown";
+        const startStr = attempt.startedAt ? new Date(attempt.startedAt).toLocaleString("ru-RU") : "";
+
+        for (const [qId, userAnswer] of Object.entries(answers)) {
+          const q = questionMap.get(qId);
+          if (!q) continue;
+
+          const isCorrect = checkAnswer(q, userAnswer) === 1;
+          const dataJson = q.dataJson as any;
+          const correctJson = q.correctJson as any;
+
+          rows.push([
+            testTitleMap.get(attempt.testId) || attempt.testId,
+            attempt.id,
+            username,
+            startStr,
+            q.prompt,
+            topicMap.get(q.topicId) || "Unknown",
+            formatQuestionType(q.type),
+            q.difficulty || 50,
+            formatAllOptions(q.type, dataJson),
+            formatCorrectAnswerText(q.type, dataJson, correctJson),
+            formatUserAnswerText(q.type, dataJson, userAnswer),
+            isCorrect ? "Верно" : "Неверно",
+            isCorrect ? (q.points || 1) : 0,
+          ]);
+        }
+      }
+
+      const sh = XLSX.utils.aoa_to_sheet(rows);
+      sh["!cols"] = [{ wch: 24 }, { wch: 36 }, { wch: 15 }, { wch: 18 }, { wch: 50 }, { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 50 }, { wch: 30 }, { wch: 30 }, { wch: 10 }, { wch: 8 }];
+      XLSX.utils.book_append_sheet(wb, sh, "Ответы");
+    }
+
+    // ===== Sheet: Question stats =====
+    if (includeSheets.questionStats) {
+      const stat = new Map<string, { total: number; correct: number; testId: string }>();
+
+      for (const attempt of completed) {
+        const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+        for (const [qId, ans] of Object.entries(answers)) {
+          const q = questionMap.get(qId);
+          if (!q) continue;
+
+          const key = `${attempt.testId}:${qId}`;
+          const s = stat.get(key) || { total: 0, correct: 0, testId: attempt.testId };
+          s.total++;
+          if (checkAnswer(q, ans) === 1) s.correct++;
+          stat.set(key, s);
+        }
+      }
+
+      const rows: any[][] = [[ "Тест","Вопрос","Тема","Тип","Сложность","Всего","Правильных","% правильных" ]];
+      for (const [key, s] of stat.entries()) {
+        const qId = key.split(":")[1];
+        const q = questionMap.get(qId);
+        if (!q) continue;
+
+        rows.push([
+          testTitleMap.get(s.testId) || s.testId,
+          q.prompt,
+          topicMap.get(q.topicId) || "Unknown",
+          formatQuestionType(q.type),
+          q.difficulty || 50,
+          s.total,
+          s.correct,
+          s.total ? `${((s.correct / s.total) * 100).toFixed(1)}%` : "0%",
+        ]);
+      }
+
+      const sh = XLSX.utils.aoa_to_sheet(rows);
+      sh["!cols"] = [{ wch: 24 }, { wch: 50 }, { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, sh, "Статистика вопросов");
+    }
+
+    // levelStats (пока пропускаем, если не нужно — чтобы быстро заработало)
+    // if (includeSheets.levelStats) { ... }
+
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    const filename = `report_${new Date().toISOString().split("T")[0]}.xlsx`;
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.send(buffer);
+
+  } catch (e) {
+    console.error("POST /api/export/excel error:", e);
+    res.status(500).json({ error: "Failed to export Excel" });
+  }
+});
+
   return httpServer;
 }
 
-// Returns a score between 0 and 1 (partial credit support)
+// Returns a score between 0 and 1 (all-or-nothing scoring)
 function checkAnswer(question: any, answer: any): number {
   if (answer === undefined || answer === null) return 0;
 
@@ -1229,65 +3434,53 @@ function checkAnswer(question: any, answer: any): number {
   }
 
   if (question.type === "multiple") {
-    // Multiple choice: partial credit based on correct selections
-    // Score = (correct selections - incorrect selections) / total correct options
-    // Minimum score is 0
+    // Multiple choice: all or nothing
+    // Must select ALL correct options and NO incorrect options
     const correctIndices = new Set(correct.correctIndices as number[]);
     const answerList = (answer || []) as number[];
-    const totalCorrect = correctIndices.size;
+    const answerSet = new Set(answerList);
     
-    if (totalCorrect === 0) return 0;
+    // Check if sets are equal
+    if (correctIndices.size !== answerSet.size) return 0;
     
-    let correctSelections = 0;
-    let incorrectSelections = 0;
-    
-    for (const idx of answerList) {
-      if (correctIndices.has(idx)) {
-        correctSelections++;
-      } else {
-        incorrectSelections++;
-      }
+    for (const idx of correctIndices) {
+      if (!answerSet.has(idx)) return 0;
     }
     
-    // Partial credit formula: (correct - incorrect) / total, minimum 0
-    const score = Math.max(0, (correctSelections - incorrectSelections) / totalCorrect);
-    return score;
+    return 1;
   }
 
   if (question.type === "matching") {
-    // Matching: partial credit for each correct pair
+    // Matching: all or nothing - all pairs must be correct
     const pairs = answer || {};
     const correctPairs = correct.pairs || [];
-    const totalPairs = correctPairs.length;
     
-    if (totalPairs === 0) return 0;
+    if (correctPairs.length === 0) return 0;
     
-    let correctCount = 0;
     for (const p of correctPairs) {
-      if (pairs[p.left] === p.right) {
-        correctCount++;
+      if (pairs[p.left] !== p.right) {
+        return 0;
       }
     }
     
-    return correctCount / totalPairs;
+    return 1;
   }
 
   if (question.type === "ranking") {
-    // Ranking: partial credit for correctly positioned items
+    // Ranking: all or nothing - order must be exactly correct
     const order = answer || [];
     const correctOrder = correct.correctOrder;
     
     if (correctOrder.length === 0) return 0;
     if (order.length !== correctOrder.length) return 0;
     
-    let correctPositions = 0;
     for (let i = 0; i < correctOrder.length; i++) {
-      if (order[i] === correctOrder[i]) {
-        correctPositions++;
+      if (order[i] !== correctOrder[i]) {
+        return 0;
       }
     }
     
-    return correctPositions / correctOrder.length;
+    return 1;
   }
 
   return 0;

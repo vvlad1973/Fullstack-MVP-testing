@@ -1,4 +1,11 @@
 function render() {
+    // Check for adaptive mode
+    if (TEST_DATA.mode === 'adaptive' && state.adaptiveState) {
+      renderAdaptive();
+      return;
+    }
+    
+    // Standard mode rendering
     if (state.phase === 'start') {
         renderStartPage();
         return;
@@ -78,16 +85,52 @@ function render() {
     syncMatchingHeights();
 }
 
+/**
+ * Render adaptive mode
+ */
+function renderAdaptive() {
+  if (state.phase === 'start') {
+    renderStartPage();
+    return;
+  }
+
+  if (state.phase === 'viewResults') {
+    renderViewResults();
+    return;
+  }
+
+  if (state.adaptiveState.isFinished) {
+    renderAdaptiveResults();
+    return;
+  }
+
+  renderAdaptiveQuestion();
+}
+
 function rerenderCurrentQuestionInput() {
-  var fq = state.flatQuestions[state.currentIndex];
-  if (!fq) return;
-  var q = fq.question;
+  var q = null;
+  
+  // Check if adaptive mode
+  if (TEST_DATA.mode === 'adaptive' && state.adaptiveState) {
+    var qData = getCurrentAdaptiveQuestion();
+    if (qData) {
+      q = qData.question;
+    }
+  } else {
+    // Standard mode
+    var fq = state.flatQuestions[state.currentIndex];
+    if (fq) {
+      q = fq.question;
+    }
+  }
+  
+  if (!q) return;
 
   var container = document.getElementById('question-input');
   if (!container) return;
 
   container.innerHTML = renderQuestionInput(q);
-  syncMatchingHeights(); // чтобы matching не ломался по высотам
+  syncMatchingHeights();
 }
 
 function burgerSvgInline() {
@@ -98,25 +141,3 @@ function burgerSvgInline() {
         + '<path d="M2.5 14.9951H10.8333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
         + '</svg>';
 }
-
-function rerenderCurrentQuestionInput() {
-  var fq = state.flatQuestions[state.currentIndex];
-  if (!fq) return;
-  var q = fq.question;
-
-  var container = document.getElementById('question-input');
-  if (!container) return;
-
-  container.innerHTML = renderQuestionInput(q);
-  syncMatchingHeights(); // чтобы matching не ломался по высотам
-}
-
-function burgerSvgInline() {
-    return ''
-        + '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-        + '<path d="M2.5 4.99524H17.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
-        + '<path d="M14.1667 9.9952H2.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
-        + '<path d="M2.5 14.9951H10.8333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path>'
-        + '</svg>';
-}
-

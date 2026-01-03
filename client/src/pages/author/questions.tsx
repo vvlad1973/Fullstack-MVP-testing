@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
@@ -51,6 +52,7 @@ export default function QuestionsPage() {
   const [selectedType, setSelectedType] = useState<QuestionType>("single");
   const [filterTopicId, setFilterTopicId] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
 
   const [singleOptions, setSingleOptions] = useState<string[]>(["", "", "", ""]);
   const [singleCorrect, setSingleCorrect] = useState<number>(0);
@@ -69,6 +71,7 @@ export default function QuestionsPage() {
   const [mediaFileName, setMediaFileName] = useState<string>("");
   const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
   const [shuffleAnswers, setShuffleAnswers] = useState<boolean>(true);
+  const [difficulty, setDifficulty] = useState<number>(50);
   const [feedbackMode, setFeedbackMode] = useState<"general" | "conditional">("general");
   const [feedback, setFeedback] = useState<string>("");
   const [feedbackCorrect, setFeedbackCorrect] = useState<string>("");
@@ -295,6 +298,7 @@ export default function QuestionsPage() {
     setMediaUrl("");
     setMediaType("");
     setShuffleAnswers(true);
+    setDifficulty(50);
     setFeedbackMode("general");
     setFeedback("");
     setFeedbackCorrect("");
@@ -343,6 +347,7 @@ export default function QuestionsPage() {
     setMediaUrl(question.mediaUrl || "");
     setMediaType((question.mediaType as "image" | "audio" | "video" | "") || "");
     setShuffleAnswers(question.shuffleAnswers !== false);
+    setDifficulty(question.difficulty ?? 50);
     setFeedbackMode((question.feedbackMode as "general" | "conditional") || "general");
     setFeedback(question.feedback || "");
     setFeedbackCorrect(question.feedbackCorrect || "");
@@ -419,6 +424,7 @@ export default function QuestionsPage() {
       mediaUrl: mediaUrl.trim() || null,
       mediaType: mediaType || null,
       shuffleAnswers,
+      difficulty,
       feedbackMode,
       feedback: feedbackMode === "general" ? (feedback.trim() || null) : null,
       feedbackCorrect: feedbackMode === "conditional" ? (feedbackCorrect.trim() || null) : null,
@@ -452,6 +458,12 @@ export default function QuestionsPage() {
   const filteredQuestions = questions?.filter((q) => {
     if (filterTopicId !== "all" && q.topicId !== filterTopicId) return false;
     if (filterType !== "all" && q.type !== filterType) return false;
+    if (filterDifficulty !== "all") {
+      const diff = q.difficulty ?? 50;
+      if (filterDifficulty === "easy" && diff > 33) return false;
+      if (filterDifficulty === "medium" && (diff <= 33 || diff > 66)) return false;
+      if (filterDifficulty === "hard" && diff <= 66) return false;
+    }
     return true;
   });
 
@@ -476,6 +488,16 @@ export default function QuestionsPage() {
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
       default:
         return "";
+    }
+  };
+
+  const getDifficultyBadgeColor = (difficulty: number) => {
+    if (difficulty <= 33) {
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    } else if (difficulty <= 66) {
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+    } else {
+      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
     }
   };
 
@@ -536,6 +558,20 @@ export default function QuestionsPage() {
                   {type.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">{t.questions.difficulty}:</Label>
+          <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
+            <SelectTrigger className="w-44" data-testid="select-filter-difficulty">
+              <SelectValue placeholder={t.questions.allDifficulties} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.questions.allDifficulties}</SelectItem>
+              <SelectItem value="easy">{t.questions.difficultyEasy}</SelectItem>
+              <SelectItem value="medium">{t.questions.difficultyMedium}</SelectItem>
+              <SelectItem value="hard">{t.questions.difficultyHard}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -602,6 +638,9 @@ export default function QuestionsPage() {
                         {questionTypes.find((ty) => ty.value === question.type)?.label}
                       </Badge>
                       <Badge variant="outline">{formatPoints(question.points || 1)}</Badge>
+                      <Badge variant="outline" className={getDifficultyBadgeColor(question.difficulty ?? 50)}>
+                        {t.questions.difficulty}: {question.difficulty ?? 50}
+                      </Badge>
                     </div>
                     <CardTitle className="text-base font-medium">{question.prompt}</CardTitle>
                   </div>
@@ -727,27 +766,54 @@ export default function QuestionsPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="points"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.questions.points}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={1}
-                        placeholder="1"
-                        className="w-32"
-                        data-testid="input-question-points"
-                        value={field.value}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="points"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.questions.points}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="1"
+                          className="w-32"
+                          data-testid="input-question-points"
+                          value={field.value}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormItem>
+                  <FormLabel>{t.questions.difficulty}</FormLabel>
+                  <div className="flex items-center gap-4">
+                    <Slider
+                      value={[difficulty]}
+                      onValueChange={(values) => setDifficulty(values[0])}
+                      min={0}
+                      max={100}
+                      step={1}
+                      className="flex-1"
+                      data-testid="slider-question-difficulty"
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={difficulty}
+                      onChange={(e) => setDifficulty(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                      className="w-20"
+                      data-testid="input-question-difficulty"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t.questions.difficultyHint}</p>
+                </FormItem>
+              </div>
 
               <div className="space-y-4">
                 <FormLabel>{t.questions.mediaOptional}</FormLabel>

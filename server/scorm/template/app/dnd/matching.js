@@ -45,7 +45,7 @@ function bindMatchingDnDOnce() {
     return null;
   }
 
-    var __matchOverEl = null;
+  var __matchOverEl = null;
 
   function clearMatchOver() {
     if (__matchOverEl) __matchOverEl.classList.remove('is-over');
@@ -93,13 +93,39 @@ function bindMatchingDnDOnce() {
   }
 
   function getCurrentQuestionById(qid) {
-    var current = state.flatQuestions[state.currentIndex] && state.flatQuestions[state.currentIndex].question;
-    if (current && String(current.id) === String(qid)) return current;
+    // Standard mode - check flatQuestions
+    if (state.flatQuestions && state.flatQuestions.length > 0) {
+      var current = state.flatQuestions[state.currentIndex] && state.flatQuestions[state.currentIndex].question;
+      if (current && String(current.id) === String(qid)) return current;
 
-    for (var i = 0; i < state.flatQuestions.length; i++) {
-      var q = state.flatQuestions[i].question;
-      if (q && String(q.id) === String(qid)) return q;
+      for (var i = 0; i < state.flatQuestions.length; i++) {
+        var q = state.flatQuestions[i].question;
+        if (q && String(q.id) === String(qid)) return q;
+      }
     }
+    
+    // Adaptive mode - check adaptiveState and TEST_DATA.adaptiveTopics
+    if (TEST_DATA.mode === 'adaptive' && state.adaptiveState) {
+      // First check current question
+      if (state.adaptiveState.currentQuestionId === qid) {
+        var qData = getCurrentAdaptiveQuestion();
+        if (qData && qData.question) return qData.question;
+      }
+      
+      // Search in all adaptive topics
+      if (TEST_DATA.adaptiveTopics) {
+        for (var t = 0; t < TEST_DATA.adaptiveTopics.length; t++) {
+          var topic = TEST_DATA.adaptiveTopics[t];
+          if (topic.questions) {
+            for (var j = 0; j < topic.questions.length; j++) {
+              var aq = topic.questions[j];
+              if (aq && String(aq.id) === String(qid)) return aq;
+            }
+          }
+        }
+      }
+    }
+    
     return null;
   }
 
@@ -216,7 +242,7 @@ function bindMatchingDnDOnce() {
   });
 
   // dragover
-   document.addEventListener('dragover', function(e) {
+  document.addEventListener('dragover', function(e) {
     var rightDrop = closestByClass(e.target, 'match-drop-right');
     var leftDrop = closestByClass(e.target, 'match-drop-left');
     var dropEl = rightDrop || leftDrop;
@@ -229,8 +255,7 @@ function bindMatchingDnDOnce() {
     try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
   });
 
-
-    document.addEventListener('dragleave', function(e) {
+  document.addEventListener('dragleave', function(e) {
     var rightDrop = closestByClass(e.target, 'match-drop-right');
     var leftDrop = closestByClass(e.target, 'match-drop-left');
     var dropEl = rightDrop || leftDrop;
@@ -241,7 +266,6 @@ function bindMatchingDnDOnce() {
       clearMatchOver();
     }
   });
-
 
   // drop
   document.addEventListener('drop', function(e) {

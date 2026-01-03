@@ -1,8 +1,18 @@
-import type { Test, TestSection, Topic, Question, TopicCourse, PassRule } from "@shared/schema";
+import type { Test, TestSection, Topic, Question, TopicCourse, PassRule, AdaptiveTopicSettings, AdaptiveLevel, AdaptiveLevelLink } from "@shared/schema";
+
+interface AdaptiveLevelWithLinks extends AdaptiveLevel {
+  links: AdaptiveLevelLink[];
+}
+
+interface AdaptiveSettingsExport {
+  topicSettings: AdaptiveTopicSettings[];
+  levels: AdaptiveLevelWithLinks[];
+}
 
 interface ExportData {
   test: Test;
   sections: (TestSection & { topic: Topic; questions: Question[]; courses: TopicCourse[] })[];
+  adaptiveSettings?: AdaptiveSettingsExport | null;
 }
 
 export function buildTestJson(data: ExportData): string {
@@ -16,10 +26,12 @@ export function buildTestJson(data: ExportData): string {
         ? Math.round((overallPassRule.value / totalQuestions) * 100)
         : 80;
 
-  const test = {
+  const test: any = {
     id: data.test.id,
     title: data.test.title,
     description: data.test.description,
+    mode: data.test.mode || "standard",
+    showDifficultyLevel: data.test.showDifficultyLevel ?? true,
     overallPassRule: overallPassRule,
     webhookUrl: data.test.webhookUrl,
     testFeedback: data.test.feedback || null,
@@ -43,6 +55,7 @@ export function buildTestJson(data: ExportData): string {
         data: q.dataJson,
         correct: q.correctJson,
         points: q.points || 1,
+        difficulty: q.difficulty || 50,
         mediaUrl: q.mediaUrl || null,
         mediaType: q.mediaType || null,
         feedback: q.feedback || null,
@@ -52,6 +65,62 @@ export function buildTestJson(data: ExportData): string {
       })),
     })),
   };
+
+  // Add adaptive settings if present
+  if (data.test.mode === "adaptive" && data.adaptiveSettings) {
+    const { topicSettings, levels } = data.adaptiveSettings;
+
+    // Group levels by topicId
+    const levelsByTopic: Record<string, any[]> = {};
+    for (const level of levels) {
+      if (!levelsByTopic[level.topicId]) {
+        levelsByTopic[level.topicId] = [];
+      }
+      levelsByTopic[level.topicId].push({
+        levelIndex: level.levelIndex,
+        levelName: level.levelName,
+        minDifficulty: level.minDifficulty,
+        maxDifficulty: level.maxDifficulty,
+        questionsCount: level.questionsCount,
+        passThreshold: level.passThreshold,
+        passThresholdType: level.passThresholdType,
+        feedback: level.feedback || null,
+        links: level.links.map((l) => ({ title: l.title, url: l.url })),
+      });
+    }
+
+    // Sort levels by levelIndex within each topic
+    for (const topicId of Object.keys(levelsByTopic)) {
+      levelsByTopic[topicId].sort((a, b) => a.levelIndex - b.levelIndex);
+    }
+
+    // Create adaptive topics array
+    test.adaptiveTopics = data.sections.map((s) => {
+      const topicSetting = topicSettings.find((ts) => ts.topicId === s.topic.id);
+      return {
+        topicId: s.topic.id,
+        topicName: s.topic.name,
+        failureFeedback: topicSetting?.failureFeedback || null,
+        levels: levelsByTopic[s.topic.id] || [],
+        // Include all questions for this topic (they will be filtered by difficulty in runtime)
+        questions: s.questions.map((q) => ({
+          id: q.id,
+          type: q.type,
+          prompt: q.prompt,
+          data: q.dataJson,
+          correct: q.correctJson,
+          points: q.points || 1,
+          difficulty: q.difficulty || 50,
+          mediaUrl: q.mediaUrl || null,
+          mediaType: q.mediaType || null,
+          feedback: q.feedback || null,
+          feedbackMode: q.feedbackMode || "general",
+          feedbackCorrect: q.feedbackCorrect || null,
+          feedbackIncorrect: q.feedbackIncorrect || null,
+        })),
+      };
+    });
+  }
 
   return JSON.stringify(test, null, 2);
 }

@@ -12,6 +12,7 @@ import TopicsPage from "@/pages/author/topics";
 import QuestionsPage from "@/pages/author/questions";
 import TestsPage from "@/pages/author/tests";
 import AnalyticsPage from "@/pages/author/analytics";
+import TestAnalyticsPage from "@/pages/author/test-analytics";
 import { AuthorLayout } from "@/pages/author/layout";
 import LearnerTestListPage from "@/pages/learner/test-list";
 import TakeTestPage from "@/pages/learner/take-test";
@@ -94,6 +95,14 @@ function Router() {
         <ProtectedRoute allowedRoles={["author"]}>
           <AuthorLayout>
             <AnalyticsPage />
+          </AuthorLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/author/tests/:testId/analytics">
+        <ProtectedRoute allowedRoles={["author"]}>
+          <AuthorLayout>
+            <TestAnalyticsPage />
           </AuthorLayout>
         </ProtectedRoute>
       </Route>

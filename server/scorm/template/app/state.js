@@ -8,12 +8,16 @@ var state = {
   variant: null,
   flatQuestions: [],
   shuffleMappings: {},
+  matchingPools: {},
   timerInterval: null,
   remainingSeconds: null,
   timeExpired: false,
   submitted: false,
   answerConfirmed: false,
-  feedbackShown: false
+  feedbackShown: false,
+  
+  // Adaptive mode state
+  adaptiveState: null, // Will be initialized for adaptive tests
 };
 
 // SCORM finish guard
