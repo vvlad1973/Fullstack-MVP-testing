@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCORM Test Constructor — Sequence Diagram</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      padding: 30px;
+      color: #333;
+    }
+    
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 5px;
+      color: #1a1a2e;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 30px;
+    }
+    
+    .diagram-wrapper {
+      overflow-x: auto;
+      padding-bottom: 20px;
+    }
+    
+    .sequence-diagram {
+      min-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    /* Actor boxes at top */
+    .actors {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0;
+    }
+    
+    .actor {
+      width: 140px;
+      text-align: center;
+    }
+    
+    .actor-box {
+      background: #e8f4fd;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      padding: 12px 8px;
+      margin-bottom: 0;
+    }
+    
+    .actor-icon {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+    
+    .actor-name {
+      font-weight: 600;
+      font-size: 11px;
+      color: #2c3e50;
+    }
+    
+    .actor-tech {
+      font-size: 9px;
+      color: #7f8c8d;
+      margin-top: 3px;
+    }
+    
+    /* Lifelines */
+    .lifelines-container {
+      position: relative;
+      min-height: 7800px;
+    }
+    
+    .lifeline {
+      position: absolute;
+      width: 2px;
+      background: #bdc3c7;
+      top: 0;
+      bottom: 0;
+    }
+    
+    .lifeline-1 { left: 70px; }
+    .lifeline-2 { left: 280px; }
+    .lifeline-3 { left: 490px; }
+    .lifeline-4 { left: 700px; }
+    .lifeline-5 { left: 910px; }
+    .lifeline-6 { left: 1120px; }
+    .lifeline-7 { left: 1330px; }
+    
+    /* Messages */
+    .message {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      font-size: 10px;
+      height: 30px;
+    }
+    
+    .message-line {
+      height: 2px;
+      background: #2c3e50;
+      flex-grow: 1;
+      position: relative;
+    }
+    
+    .message-line.dashed {
+      background: transparent;
+      border-top: 2px dashed #7f8c8d;
+    }
+    
+    .message-line::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: -5px;
+      border: 6px solid transparent;
+      border-left: 8px solid #2c3e50;
+    }
+    
+    .message-line.dashed::after {
+      border-left-color: #7f8c8d;
+    }
+    
+    .message-line.left::after {
+      right: auto;
+      left: -1px;
+      border-left: none;
+      border-right: 8px solid #2c3e50;
+    }
+    
+    .message-line.left.dashed::after {
+      border-right-color: #7f8c8d;
+    }
+    
+    .message-text {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 2px 8px;
+      white-space: nowrap;
+      font-size: 10px;
+      color: #2c3e50;
+      border-radius: 3px;
+    }
+    
+    .message-protocol {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #f8f9fa;
+      padding: 1px 6px;
+      font-size: 8px;
+      color: #95a5a6;
+      border-radius: 2px;
+      border: 1px solid #ecf0f1;
+    }
+    
+    /* Section dividers */
+    .section-divider {
+      position: absolute;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e0e0e0;
+    }
+    
+    .section-label {
+      background: #f5f5f5;
+      padding: 5px 15px;
+      border-radius: 15px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      white-space: nowrap;
+    }
+    
+    /* Activation boxes */
+    .activation {
+      position: absolute;
+      width: 12px;
+      background: #ecf0f1;
+      border: 1px solid #bdc3c7;
+      border-radius: 2px;
+      margin-left: -6px;
+    }
+    
+    /* Notes */
+    .note {
+      position: absolute;
+      background: #fffde7;
+      border: 1px solid #ffd54f;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 9px;
+      max-width: 150px;
+      line-height: 1.4;
+    }
+    
+    .note::before {
+      content: '⚠️';
+      margin-right: 4px;
+    }
+    
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      color: #999;
+      font-size: 11px;
+    }
+    
+    /* Legend */
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+    
+    .legend-line {
+      width: 50px;
+      height: 2px;
+      background: #2c3e50;
+      position: relative;
+    }
+    
+    .legend-line::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: -4px;
+      border: 5px solid transparent;
+      border-left: 7px solid #2c3e50;
+    }
+    
+    .legend-line.dashed {
+      background: transparent;
+      border-top: 2px dashed #7f8c8d;
+    }
+    
+    .legend-line.dashed::after {
+      border-left-color: #7f8c8d;
+    }
+  </style>
+</head>
+<body>
+  <h1>SCORM Test Constructor — Call-Flow Diagram</h1>
+  <p class="subtitle">Диаграмма последовательности взаимодействия компонентов системы</p>
+  
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-line"></div>
+      <span>Запрос (Request)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line dashed"></div>
+      <span>Ответ (Response)</span>
+    </div>
+  </div>
+  
+  <div class="diagram-wrapper">
+    <div class="sequence-diagram">
+      <!-- Actors -->
+      <div class="actors">
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">👨‍💼</div>
+            <div class="actor-name">Автор</div>
+            <div class="actor-tech">Author</div>
+          </div>
+        </div>
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">⚛️</div>
+            <div class="actor-name">Frontend</div>
+            <div class="actor-tech">React + Vite</div>
+          </div>
+        </div>
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">🚀</div>
+            <div class="actor-name">Backend API</div>
+            <div class="actor-tech">Node.js + Express</div>
+          </div>
+        </div>
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">🗄️</div>
+            <div class="actor-name">PostgreSQL</div>
+            <div class="actor-tech">Drizzle ORM</div>
+          </div>
+        </div>
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">🎯</div>
+            <div class="actor-name">LMS</div>
+            <div class="actor-tech">WebSoft / Moodle</div>
+          </div>
+        </div>
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">📦</div>
+            <div class="actor-name">SCORM Package</div>
+            <div class="actor-tech">HTML + JS</div>
+          </div>
+        </div>
+        <div class="actor">
+          <div class="actor-box">
+            <div class="actor-icon">🎓</div>
+            <div class="actor-name">Learner</div>
+            <div class="actor-tech">Обучающийся</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Lifelines and Messages -->
+      <div class="lifelines-container">
+        <!-- Lifelines -->
+        <div class="lifeline lifeline-1"></div>
+        <div class="lifeline lifeline-2"></div>
+        <div class="lifeline lifeline-3"></div>
+        <div class="lifeline lifeline-4"></div>
+        <div class="lifeline lifeline-5"></div>
+        <div class="lifeline lifeline-6"></div>
+        <div class="lifeline lifeline-7"></div>
+        
+        <!-- SECTION 1: Создание контента -->
+        <div class="section-divider" style="top: 20px;">
+          <span class="section-label">📝 1. СОЗДАНИЕ КОНТЕНТА (Автор)</span>
+        </div>
+        
+        <!-- Author -> Frontend: Создание теста -->
+        <div class="message" style="top: 60px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Создание тем, вопросов, теста</span>
+            <span class="message-protocol">UI</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: POST /api/tests -->
+        <div class="message" style="top: 100px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/tests</span>
+            <span class="message-protocol">HTTPS / JSON</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: INSERT -->
+        <div class="message" style="top: 140px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT INTO tests, questions...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: OK -->
+        <div class="message" style="top: 180px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">rows affected</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: 201 Created -->
+        <div class="message" style="top: 220px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">201 Created { test }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 2: Экспорт SCORM -->
+        <div class="section-divider" style="top: 280px;">
+          <span class="section-label">📦 2. ЭКСПОРТ SCORM ПАКЕТА</span>
+        </div>
+        
+        <!-- Author -> Frontend: Экспорт -->
+        <div class="message" style="top: 320px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Нажатие "Экспорт SCORM"</span>
+            <span class="message-protocol">UI</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: GET /api/tests/:id/export/scorm -->
+        <div class="message" style="top: 360px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">GET /api/tests/:id/export/scorm</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: SELECT test data -->
+        <div class="message" style="top: 400px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">SELECT test, questions, topics...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: test data -->
+        <div class="message" style="top: 440px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">test data + questions</span>
+          </div>
+        </div>
+        
+        <!-- Backend generates SCORM -->
+        <div class="note" style="top: 470px; left: 420px;">
+          Генерация ZIP: manifest.xml, index.html, app.js, media files
+        </div>
+        
+        <!-- Backend -> PostgreSQL: INSERT scorm_packages -->
+        <div class="message" style="top: 520px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT INTO scorm_packages</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: OK -->
+        <div class="message" style="top: 560px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">package_id, secret_key</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: SCORM ZIP -->
+        <div class="message" style="top: 600px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK + SCORM.zip (binary)</span>
+            <span class="message-protocol">application/zip</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Author: Download -->
+        <div class="message" style="top: 640px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Скачивание файла</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 3: Загрузка в LMS -->
+        <div class="section-divider" style="top: 700px;">
+          <span class="section-label">🎯 3. ЗАГРУЗКА В LMS</span>
+        </div>
+        
+        <!-- Author -> LMS: Upload SCORM -->
+        <div class="message" style="top: 740px; left: 70px; width: 630px;">
+          <div class="message-line">
+            <span class="message-text">Загрузка SCORM пакета в LMS</span>
+            <span class="message-protocol">HTTPS / Upload</span>
+          </div>
+        </div>
+        
+        <!-- LMS -> Author: OK -->
+        <div class="message" style="top: 780px; left: 70px; width: 630px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Курс опубликован</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 4: Прохождение теста -->
+        <div class="section-divider" style="top: 840px;">
+          <span class="section-label">🎓 4. ПРОХОЖДЕНИЕ ТЕСТА (Learner)</span>
+        </div>
+        
+        <!-- Learner -> LMS: Запуск курса -->
+        <div class="message" style="top: 880px; left: 700px; width: 630px;">
+          <div class="message-line left">
+            <span class="message-text">Запуск курса из каталога</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- LMS -> SCORM: Load in iframe -->
+        <div class="message" style="top: 920px; left: 910px; width: 210px;">
+          <div class="message-line left">
+            <span class="message-text">Загрузка SCORM в iframe</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> LMS: API_1484_11.Initialize -->
+        <div class="message" style="top: 960px; left: 700px; width: 210px;">
+          <div class="message-line left">
+            <span class="message-text">API_1484_11.Initialize("")</span>
+            <span class="message-protocol">JS API</span>
+          </div>
+        </div>
+        
+        <!-- LMS -> SCORM: "true" -->
+        <div class="message" style="top: 1000px; left: 700px; width: 210px;">
+          <div class="message-line dashed">
+            <span class="message-text">"true"</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> LMS: GetValue learner_id -->
+        <div class="message" style="top: 1040px; left: 700px; width: 210px;">
+          <div class="message-line left">
+            <span class="message-text">GetValue("cmi.learner_id")</span>
+            <span class="message-protocol">JS API</span>
+          </div>
+        </div>
+        
+        <!-- LMS -> SCORM: user data -->
+        <div class="message" style="top: 1080px; left: 700px; width: 210px;">
+          <div class="message-line dashed">
+            <span class="message-text">"user_12345"</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 5: Телеметрия -->
+        <div class="section-divider" style="top: 1140px;">
+          <span class="section-label">📡 5. ТЕЛЕМЕТРИЯ (отправка на сервер)</span>
+        </div>
+        
+        <!-- SCORM -> Backend: /start -->
+        <div class="message" style="top: 1180px; left: 490px; width: 420px;">
+          <div class="message-line left">
+            <span class="message-text">POST /api/scorm-telemetry/start { packageId, sessionId, signature }</span>
+            <span class="message-protocol">HTTPS / HMAC-SHA256</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: INSERT attempt -->
+        <div class="message" style="top: 1220px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT INTO scorm_attempts</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: OK -->
+        <div class="message" style="top: 1260px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">attempt_id</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> SCORM: 200 OK -->
+        <div class="message" style="top: 1300px; left: 490px; width: 420px;">
+          <div class="message-line dashed">
+            <span class="message-text">200 OK { attemptNumber: 1 }</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> Backend: /answer -->
+        <div class="message" style="top: 1360px; left: 490px; width: 420px;">
+          <div class="message-line left">
+            <span class="message-text">POST /api/scorm-telemetry/answer { questionId, userAnswer, isCorrect }</span>
+            <span class="message-protocol">HTTPS / HMAC-SHA256</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: INSERT answer -->
+        <div class="message" style="top: 1400px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT INTO scorm_answers</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- Note: повторяется для каждого вопроса -->
+        <div class="note" style="top: 1430px; left: 630px; background: #e3f2fd; border-color: #2196f3;">
+          Повторяется для каждого ответа на вопрос
+        </div>
+        
+        <!-- SECTION 6: Завершение теста -->
+        <div class="section-divider" style="top: 1500px;">
+          <span class="section-label">✅ 6. ЗАВЕРШЕНИЕ ТЕСТА</span>
+        </div>
+        
+        <!-- SCORM -> Backend: /finish -->
+        <div class="message" style="top: 1540px; left: 490px; width: 420px;">
+          <div class="message-line left">
+            <span class="message-text">POST /api/scorm-telemetry/finish { percent, passed, earnedPoints }</span>
+            <span class="message-protocol">HTTPS / HMAC-SHA256</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: UPDATE attempt -->
+        <div class="message" style="top: 1580px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">UPDATE scorm_attempts SET result...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: OK -->
+        <div class="message" style="top: 1620px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">OK</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> LMS: SetValue score -->
+        <div class="message" style="top: 1680px; left: 700px; width: 210px;">
+          <div class="message-line left">
+            <span class="message-text">SetValue("cmi.score.raw", 85)</span>
+            <span class="message-protocol">JS API</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> LMS: SetValue completion -->
+        <div class="message" style="top: 1720px; left: 700px; width: 210px;">
+          <div class="message-line left">
+            <span class="message-text">SetValue("cmi.completion_status", "completed")</span>
+            <span class="message-protocol">JS API</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> LMS: Commit + Terminate -->
+        <div class="message" style="top: 1760px; left: 700px; width: 210px;">
+          <div class="message-line left">
+            <span class="message-text">Commit("") + Terminate("")</span>
+            <span class="message-protocol">JS API</span>
+          </div>
+        </div>
+        
+        <!-- LMS -> SCORM: "true" -->
+        <div class="message" style="top: 1800px; left: 700px; width: 210px;">
+          <div class="message-line dashed">
+            <span class="message-text">"true"</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 7: Показ результатов и обратной связи -->
+        <div class="section-divider" style="top: 1860px;">
+          <span class="section-label">📊 7. ПОКАЗ РЕЗУЛЬТАТОВ И ОБРАТНОЙ СВЯЗИ</span>
+        </div>
+        
+        <!-- SCORM показывает результаты -->
+        <div class="note" style="top: 1900px; left: 860px; background: #e8f5e9; border-color: #4caf50;">
+          SCORM отображает экран результатов с процентом, баллами, статусом пройден/не пройден
+        </div>
+        
+        <!-- SCORM -> Learner: Показ результатов по темам -->
+        <div class="message" style="top: 1960px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Показ результатов по темам (topicResults)</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> Learner: Показ обратной связи по непройденным темам -->
+        <div class="message" style="top: 2010px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Обратная связь по непройденным темам (topicFeedback)</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- Note: Feedback показывается только для failed topics -->
+        <div class="note" style="top: 2040px; left: 1050px; background: #fff3e0; border-color: #ff9800;">
+          Feedback показывается только для тем со статусом passed=false
+        </div>
+        
+        <!-- SCORM -> Learner: Показ рекомендованных курсов -->
+        <div class="message" style="top: 2100px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Рекомендованные курсы (recommendedCourses)</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- Note: Courses показываются только для failed topics -->
+        <div class="note" style="top: 2130px; left: 1050px; background: #fff3e0; border-color: #ff9800;">
+          Курсы показываются только для непройденных тем
+        </div>
+        
+        <!-- SECTION 8: Скачивание PDF -->
+        <div class="section-divider" style="top: 2200px;">
+          <span class="section-label">📄 8. СКАЧИВАНИЕ PDF РЕЗУЛЬТАТОВ</span>
+        </div>
+        
+        <!-- Note: PDF доступен когда попытки закончились -->
+        <div class="note" style="top: 2240px; left: 860px; background: #e3f2fd; border-color: #2196f3;">
+          Кнопка "Скачать PDF" доступна когда: попытки закончились ИЛИ тест пройден
+        </div>
+        
+        <!-- Learner -> SCORM: Нажатие "Скачать PDF" -->
+        <div class="message" style="top: 2300px; left: 910px; width: 420px;">
+          <div class="message-line left">
+            <span class="message-text">Нажатие "Скачать результаты (PDF)"</span>
+            <span class="message-protocol">UI click</span>
+          </div>
+        </div>
+        
+        <!-- SCORM показывает loading overlay -->
+        <div class="message" style="top: 2350px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Показ оверлея "Генерация PDF..."</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- SCORM: getBestAttempt() -->
+        <div class="note" style="top: 2390px; left: 860px; background: #f3e5f5; border-color: #9c27b0;">
+          getBestAttempt() — выбор лучшей попытки из suspend_data по максимальному percent
+        </div>
+        
+        <!-- SCORM: loadPdfAssets -->
+        <div class="message" style="top: 2450px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Загрузка ассетов: pdf-bg-1/2/3.png, logo-light.png</span>
+            <span class="message-protocol">async load</span>
+          </div>
+        </div>
+        
+        <!-- SCORM: generatePdfHtml -->
+        <div class="message" style="top: 2500px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">generatePdfHtml() — создание HTML с результатами</span>
+            <span class="message-protocol">JS</span>
+          </div>
+        </div>
+        
+        <!-- Note: что включается в PDF -->
+        <div class="note" style="top: 2530px; left: 1050px; background: #e8f5e9; border-color: #4caf50; max-width: 200px;">
+          PDF содержит: заголовок, % и статус, результаты по темам, feedback (для failed), рекомендованные курсы
+        </div>
+        
+        <!-- SCORM: html2canvas -->
+        <div class="message" style="top: 2620px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">html2canvas() — рендеринг HTML в canvas</span>
+            <span class="message-protocol">html2canvas lib</span>
+          </div>
+        </div>
+        
+        <!-- SCORM: jsPDF -->
+        <div class="message" style="top: 2670px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">jsPDF.addImage() + pdf.link() для кликабельных ссылок</span>
+            <span class="message-protocol">jsPDF lib</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> Learner: Скачивание PDF -->
+        <div class="message" style="top: 2720px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">pdf.save("Результаты_TestName_DD_MM_YYYY.pdf")</span>
+            <span class="message-protocol">download</span>
+          </div>
+        </div>
+        
+        <!-- SCORM: убираем loading overlay -->
+        <div class="message" style="top: 2770px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Скрытие оверлея загрузки</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- Learner получает PDF -->
+        <div class="message" style="top: 2820px; left: 910px; width: 420px;">
+          <div class="message-line dashed left">
+            <span class="message-text">PDF файл сохранён на устройство</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 9: Просмотр аналитики -->
+        <div class="section-divider" style="top: 2900px;">
+          <span class="section-label">📊 9. ПРОСМОТР АНАЛИТИКИ (Автор/Админ)</span>
+        </div>
+        
+        <!-- Author -> Frontend: Открытие аналитики -->
+        <div class="message" style="top: 2950px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Открытие раздела "Аналитика"</span>
+            <span class="message-protocol">UI</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: GET /api/analytics -->
+        <div class="message" style="top: 3000px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">GET /api/analytics</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: SELECT общая статистика -->
+        <div class="message" style="top: 3050px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">SELECT COUNT(*) FROM tests, attempts...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: stats -->
+        <div class="message" style="top: 3100px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">{ totalTests, totalAttempts, avgScore... }</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: analytics data -->
+        <div class="message" style="top: 3150px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK { summary, tests[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Author: Отображение дашборда -->
+        <div class="message" style="top: 3200px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Дашборд с графиками и статистикой</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 10: Детальная аналитика по тесту -->
+        <div class="section-divider" style="top: 3270px;">
+          <span class="section-label">🔍 10. ДЕТАЛЬНАЯ АНАЛИТИКА ПО ТЕСТУ</span>
+        </div>
+        
+        <!-- Author -> Frontend: Выбор теста -->
+        <div class="message" style="top: 3320px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Выбор теста для детального просмотра</span>
+            <span class="message-protocol">UI click</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: GET /api/analytics/tests/:testId -->
+        <div class="message" style="top: 3370px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">GET /api/analytics/tests/:testId</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: SELECT детальная статистика -->
+        <div class="message" style="top: 3420px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">SELECT attempts, answers, topics...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: detailed stats -->
+        <div class="message" style="top: 3470px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">попытки, ответы, статистика по вопросам</span>
+          </div>
+        </div>
+        
+        <!-- Note: что включает детальная аналитика -->
+        <div class="note" style="top: 3500px; left: 420px; background: #e8f5e9; border-color: #4caf50; max-width: 180px;">
+          Включает: passRate, avgPercent, topicStats, questionStats, scoreDistribution, dailyTrends
+        </div>
+        
+        <!-- Backend -> Frontend: test analytics -->
+        <div class="message" style="top: 3580px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK { summary, topicStats[], questionStats[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Author: Отображение детальной аналитики -->
+        <div class="message" style="top: 3630px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Графики, таблицы, список попыток</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 11: Просмотр SCORM телеметрии -->
+        <div class="section-divider" style="top: 3700px;">
+          <span class="section-label">📡 11. ПРОСМОТР SCORM ТЕЛЕМЕТРИИ</span>
+        </div>
+        
+        <!-- Frontend -> Backend: GET /api/analytics/scorm-attempts -->
+        <div class="message" style="top: 3750px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">GET /api/analytics/scorm-attempts</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: SELECT scorm data -->
+        <div class="message" style="top: 3800px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">SELECT FROM scorm_attempts, scorm_answers</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: scorm attempts -->
+        <div class="message" style="top: 3850px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">попытки из LMS с lms_user_id, lms_user_name</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: scorm analytics -->
+        <div class="message" style="top: 3900px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK { attempts[], packages[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Note: данные из LMS -->
+        <div class="note" style="top: 3930px; left: 200px; background: #fff3e0; border-color: #ff9800; max-width: 180px;">
+          Данные пользователя приходят из LMS: learner_id, learner_name, email, org
+        </div>
+        
+        <!-- SECTION 12: Экспорт отчётов в Excel -->
+        <div class="section-divider" style="top: 4020px;">
+          <span class="section-label">📥 12. ЭКСПОРТ ОТЧЁТОВ В EXCEL</span>
+        </div>
+        
+        <!-- Author -> Frontend: Нажатие "Экспорт в Excel" -->
+        <div class="message" style="top: 4070px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Нажатие "Экспорт в Excel"</span>
+            <span class="message-protocol">UI click</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: POST /api/export/excel -->
+        <div class="message" style="top: 4120px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/export/excel { filters }</span>
+            <span class="message-protocol">HTTPS / JSON</span>
+          </div>
+        </div>
+        
+        <!-- Note: фильтры экспорта -->
+        <div class="note" style="top: 4150px; left: 200px; background: #e3f2fd; border-color: #2196f3; max-width: 180px;">
+          Фильтры: testId, dateFrom, dateTo, packageId, lmsUserId, passed
+        </div>
+        
+        <!-- Backend -> PostgreSQL: SELECT filtered data -->
+        <div class="message" style="top: 4220px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">SELECT attempts, answers WHERE filters...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: filtered results -->
+        <div class="message" style="top: 4270px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">отфильтрованные попытки и ответы</span>
+          </div>
+        </div>
+        
+        <!-- Backend generates Excel -->
+        <div class="note" style="top: 4310px; left: 420px; background: #f3e5f5; border-color: #9c27b0; max-width: 200px;">
+          Генерация XLSX через библиотеку xlsx: листы "Попытки", "Ответы", "Статистика"
+        </div>
+        
+        <!-- Backend -> Frontend: Excel file -->
+        <div class="message" style="top: 4390px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK + report.xlsx (binary)</span>
+            <span class="message-protocol">application/xlsx</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Author: Download -->
+        <div class="message" style="top: 4440px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Скачивание Excel файла</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 13: Экспорт для LMS (расширенный) -->
+        <div class="section-divider" style="top: 4510px;">
+          <span class="section-label">📊 13. ЭКСПОРТ ДЛЯ LMS (РАСШИРЕННЫЙ)</span>
+        </div>
+        
+        <!-- Frontend -> Backend: POST /api/export/excel-lms -->
+        <div class="message" style="top: 4560px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/export/excel-lms { packageIds }</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: SELECT LMS data -->
+        <div class="message" style="top: 4610px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">SELECT scorm_packages, scorm_attempts...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: LMS results -->
+        <div class="message" style="top: 4660px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">данные по пакетам и попыткам из LMS</span>
+          </div>
+        </div>
+        
+        <!-- Note: что включает LMS отчёт -->
+        <div class="note" style="top: 4700px; left: 420px; background: #e8f5e9; border-color: #4caf50; max-width: 200px;">
+          Включает: ФИО из LMS, организация, email, все попытки, детальные ответы
+        </div>
+        
+        <!-- Backend -> Frontend: LMS Excel -->
+        <div class="message" style="top: 4780px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK + lms_report.xlsx</span>
+            <span class="message-protocol">application/xlsx</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Author: Download LMS report -->
+        <div class="message" style="top: 4830px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Excel с данными из LMS</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 14: Импорт/Экспорт вопросов -->
+        <div class="section-divider" style="top: 4900px;">
+          <span class="section-label">📤 14. ИМПОРТ/ЭКСПОРТ ВОПРОСОВ (Excel)</span>
+        </div>
+        
+        <!-- Author -> Frontend: Импорт вопросов -->
+        <div class="message" style="top: 4950px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Загрузка Excel файла с вопросами</span>
+            <span class="message-protocol">UI upload</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: POST /api/questions/import -->
+        <div class="message" style="top: 5000px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/questions/import (multipart)</span>
+            <span class="message-protocol">HTTPS / FormData</span>
+          </div>
+        </div>
+        
+        <!-- Note: формат Excel -->
+        <div class="note" style="top: 5030px; left: 200px; background: #e3f2fd; border-color: #2196f3; max-width: 180px;">
+          Excel формат: topic, type, prompt, options, correct, points, difficulty
+        </div>
+        
+        <!-- Backend -> PostgreSQL: INSERT questions -->
+        <div class="message" style="top: 5100px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT INTO questions (batch)</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- PostgreSQL -> Backend: OK -->
+        <div class="message" style="top: 5150px; left: 490px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">imported: N questions</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: import result -->
+        <div class="message" style="top: 5200px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK { imported: N, errors[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Экспорт вопросов -->
+        <div class="message" style="top: 5270px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">GET /api/questions/export?topicId=...</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: Excel -->
+        <div class="message" style="top: 5320px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK + questions.xlsx</span>
+            <span class="message-protocol">application/xlsx</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 15: Загрузка медиа файлов -->
+        <div class="section-divider" style="top: 5390px;">
+          <span class="section-label">🖼️ 15. ЗАГРУЗКА МЕДИА ФАЙЛОВ</span>
+        </div>
+        
+        <!-- Author -> Frontend: Upload media -->
+        <div class="message" style="top: 5440px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Загрузка изображения/видео/аудио</span>
+            <span class="message-protocol">UI upload</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: POST /api/media/upload -->
+        <div class="message" style="top: 5490px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/media/upload (multipart)</span>
+            <span class="message-protocol">HTTPS / FormData</span>
+          </div>
+        </div>
+        
+        <!-- Note: типы медиа -->
+        <div class="note" style="top: 5520px; left: 200px; background: #fff3e0; border-color: #ff9800; max-width: 160px;">
+          Поддерживаются: image/*, audio/*, video/* (до 200MB)
+        </div>
+        
+        <!-- Backend saves to disk -->
+        <div class="note" style="top: 5570px; left: 420px; background: #f3e5f5; border-color: #9c27b0; max-width: 160px;">
+          Сохранение в /uploads/media/ с уникальным именем
+        </div>
+        
+        <!-- Backend -> Frontend: media URL -->
+        <div class="message" style="top: 5640px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK { url: "/uploads/media/..." }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Author: Preview -->
+        <div class="message" style="top: 5690px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Превью медиа в редакторе вопроса</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 16: Дублирование тем и вопросов -->
+        <div class="section-divider" style="top: 5760px;">
+          <span class="section-label">📋 16. ДУБЛИРОВАНИЕ ТЕМ И ВОПРОСОВ</span>
+        </div>
+        
+        <!-- Author -> Frontend: Duplicate topic -->
+        <div class="message" style="top: 5810px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Нажатие "Дублировать тему"</span>
+            <span class="message-protocol">UI click</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: POST duplicate -->
+        <div class="message" style="top: 5860px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/topics/:id/duplicate</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: Copy topic + questions -->
+        <div class="message" style="top: 5910px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT topic (copy) + questions (copy)</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- Note: что копируется -->
+        <div class="note" style="top: 5940px; left: 420px; background: #e8f5e9; border-color: #4caf50; max-width: 180px;">
+          Копируются: тема, все вопросы, рекомендованные курсы
+        </div>
+        
+        <!-- Backend -> Frontend: new topic -->
+        <div class="message" style="top: 6020px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">201 Created { topic, questions[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 17: Адаптивный режим теста -->
+        <div class="section-divider" style="top: 6100px;">
+          <span class="section-label">🎯 17. АДАПТИВНЫЙ РЕЖИМ ТЕСТА</span>
+        </div>
+        
+        <!-- Note: описание адаптивного режима -->
+        <div class="note" style="top: 6140px; left: 70px; background: #e3f2fd; border-color: #2196f3; max-width: 250px;">
+          Адаптивный режим: вопросы выбираются по уровням сложности. Переход на следующий уровень при достижении порога.
+        </div>
+        
+        <!-- Author -> Frontend: Configure adaptive -->
+        <div class="message" style="top: 6220px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Настройка уровней сложности</span>
+            <span class="message-protocol">UI</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: Save adaptive settings -->
+        <div class="message" style="top: 6270px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/tests { mode: "adaptive", adaptiveSettings }</span>
+            <span class="message-protocol">HTTPS / JSON</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: Save levels -->
+        <div class="message" style="top: 6320px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT adaptive_levels, adaptive_level_links</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- Note: структура уровня -->
+        <div class="note" style="top: 6350px; left: 420px; background: #fff3e0; border-color: #ff9800; max-width: 200px;">
+          Уровень: minDifficulty, maxDifficulty, questionsCount, passThreshold, feedback, links[]
+        </div>
+        
+        <!-- SCORM adaptive flow -->
+        <div class="message" style="top: 6440px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">SCORM: adaptive.js выбирает вопросы по difficulty</span>
+            <span class="message-protocol">JS logic</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> Learner: Level achieved -->
+        <div class="message" style="top: 6490px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Показ достигнутого уровня + feedback + ссылки на материалы</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- SECTION 18: Таймер и лимит попыток -->
+        <div class="section-divider" style="top: 6570px;">
+          <span class="section-label">⏱️ 18. ТАЙМЕР И ЛИМИТ ПОПЫТОК</span>
+        </div>
+        
+        <!-- SCORM: Timer init -->
+        <div class="message" style="top: 6620px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">initTimer() — запуск обратного отсчёта</span>
+            <span class="message-protocol">JS</span>
+          </div>
+        </div>
+        
+        <!-- Note: timer settings -->
+        <div class="note" style="top: 6650px; left: 1050px; background: #ffebee; border-color: #f44336; max-width: 180px;">
+          TEST_DATA.timeLimitMinutes — лимит в минутах. При истечении — автозавершение.
+        </div>
+        
+        <!-- SCORM: Check attempts -->
+        <div class="message" style="top: 6740px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">hasAttemptsLeft() — проверка лимита попыток</span>
+            <span class="message-protocol">JS</span>
+          </div>
+        </div>
+        
+        <!-- Note: attempts in suspend_data -->
+        <div class="note" style="top: 6770px; left: 1050px; background: #e8f5e9; border-color: #4caf50; max-width: 180px;">
+          Попытки хранятся в cmi.suspend_data. getBestAttempt() выбирает лучшую.
+        </div>
+        
+        <!-- SECTION 19: Показ правильных ответов -->
+        <div class="section-divider" style="top: 6860px;">
+          <span class="section-label">✅ 19. ПОКАЗ ПРАВИЛЬНЫХ ОТВЕТОВ</span>
+        </div>
+        
+        <!-- Note: showCorrectAnswers -->
+        <div class="note" style="top: 6900px; left: 860px; background: #e3f2fd; border-color: #2196f3; max-width: 220px;">
+          Если TEST_DATA.showCorrectAnswers=true — после ответа показывается правильный вариант
+        </div>
+        
+        <!-- SCORM -> Learner: Show correct -->
+        <div class="message" style="top: 6980px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Подсветка правильных/неправильных ответов</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- SCORM -> Learner: Show feedback -->
+        <div class="message" style="top: 7030px; left: 910px; width: 420px;">
+          <div class="message-line">
+            <span class="message-text">Показ feedback к вопросу (general/conditional)</span>
+            <span class="message-protocol">UI render</span>
+          </div>
+        </div>
+        
+        <!-- Note: feedback modes -->
+        <div class="note" style="top: 7060px; left: 1050px; background: #fff3e0; border-color: #ff9800; max-width: 180px;">
+          feedbackMode: "general" — один текст, "conditional" — разный для верно/неверно
+        </div>
+        
+        <!-- SECTION 20: Learner режим (встроенный) -->
+        <div class="section-divider" style="top: 7150px;">
+          <span class="section-label">🎓 20. LEARNER РЕЖИМ (ВСТРОЕННЫЙ)</span>
+        </div>
+        
+        <!-- Note: learner mode -->
+        <div class="note" style="top: 7190px; left: 70px; background: #f3e5f5; border-color: #9c27b0; max-width: 250px;">
+          Помимо SCORM есть встроенный learner режим для прохождения тестов прямо в приложении (без LMS)
+        </div>
+        
+        <!-- Learner -> Frontend: Start test -->
+        <div class="message" style="top: 7270px; left: 70px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">Выбор теста из списка</span>
+            <span class="message-protocol">UI</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Backend: POST /api/tests/:id/attempts/start -->
+        <div class="message" style="top: 7320px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/tests/:id/attempts/start</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> PostgreSQL: CREATE attempt -->
+        <div class="message" style="top: 7370px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">INSERT INTO attempts</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: attempt + variant -->
+        <div class="message" style="top: 7420px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">201 Created { attemptId, variant, questions[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Frontend -> Learner: Test UI -->
+        <div class="message" style="top: 7470px; left: 70px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">Интерфейс прохождения теста</span>
+          </div>
+        </div>
+        
+        <!-- Learner answers -->
+        <div class="message" style="top: 7530px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">POST /api/attempts/:id/finish { answers }</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+        <!-- Backend calculates results -->
+        <div class="message" style="top: 7580px; left: 490px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">UPDATE attempts SET result_json...</span>
+            <span class="message-protocol">SQL</span>
+          </div>
+        </div>
+        
+        <!-- Backend -> Frontend: results -->
+        <div class="message" style="top: 7630px; left: 280px; width: 210px;">
+          <div class="message-line dashed left">
+            <span class="message-text">200 OK { percent, passed, topicResults[] }</span>
+            <span class="message-protocol">JSON</span>
+          </div>
+        </div>
+        
+        <!-- Learner history -->
+        <div class="message" style="top: 7700px; left: 280px; width: 210px;">
+          <div class="message-line">
+            <span class="message-text">GET /api/learner/attempts — история попыток</span>
+            <span class="message-protocol">HTTPS</span>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>SCORM Test Constructor — Call-Flow Diagram</p>
+    <p style="margin-top: 5px;">Документ сгенерирован: <script>document.write(new Date().toLocaleString('ru-RU'));</script></p>
+  </div>
+</body>
+</html>

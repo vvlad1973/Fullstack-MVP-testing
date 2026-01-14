@@ -7,3 +7,4 @@ vite.config.ts.*
 server/scorm-exporter_rab.ts.bak
 server/scorm-exporter.ts.bak
 components.zip
+.env

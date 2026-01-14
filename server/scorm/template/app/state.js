@@ -15,6 +15,7 @@ var state = {
   submitted: false,
   answerConfirmed: false,
   feedbackShown: false,
+  attemptSavedForThisSession: false,
   
   // Adaptive mode state
   adaptiveState: null, // Will be initialized for adaptive tests

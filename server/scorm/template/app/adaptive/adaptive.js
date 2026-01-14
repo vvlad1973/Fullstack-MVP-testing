@@ -183,6 +183,46 @@ function submitAdaptiveAnswer(questionId, answer) {
 
   // Check answer
   var isCorrect = checkAnswer(question, answer) === 1;
+
+  // Подготавливаем данные о вариантах ответов
+  var answerOptions = null;
+  var leftItems = null;
+  var rightItems = null;
+  var rankingItems = null;
+  
+  if (question.type === 'single' || question.type === 'multiple') {
+    answerOptions = question.data && question.data.options ? question.data.options : null;
+  } else if (question.type === 'matching') {
+    leftItems = question.data && question.data.left ? question.data.left : null;
+    rightItems = question.data && question.data.right ? question.data.right : null;
+  } else if (question.type === 'ranking') {
+    rankingItems = question.data && question.data.items ? question.data.items : null;
+  }
+
+  // Send answer to telemetry (adaptive)
+  var currentTopic = state.adaptiveState.currentTopic;
+  var currentLevel = state.adaptiveState.currentLevel;
+  Telemetry.answer({
+    questionId: question.id,
+    questionPrompt: question.prompt,
+    questionType: question.type,
+    topicId: currentTopic ? currentTopic.topicId : null,
+    topicName: currentTopic ? currentTopic.topicName : null,
+    difficulty: question.difficulty || 50,
+    userAnswer: answer,
+    correctAnswer: question.correct,
+    isCorrect: isCorrect,
+    points: isCorrect ? (question.points || 1) : 0,
+    maxPoints: question.points || 1,
+    levelIndex: currentLevel ? currentLevel.levelIndex : null,
+    levelName: currentLevel ? currentLevel.levelName : null,
+    // Варианты ответов для отображения в аналитике
+    options: answerOptions,
+    leftItems: leftItems,
+    rightItems: rightItems,
+    items: rankingItems
+  });
+  
   console.log('Answer correct:', isCorrect);
 
   // Update level state

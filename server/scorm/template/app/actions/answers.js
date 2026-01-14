@@ -204,16 +204,35 @@ function submit(force) {
 }
 
 function restart() {
+  console.log('🔄 restart() вызван');
   if (!hasAttemptsLeft()) {
     showToast('Попытки закончились', 'warn');
     return;
   }
 
   // ✅ НОВОЕ: Если есть текущие ответы - сохраняем их как завершенную попытку
-  if (state.currentIndex > 0 || Object.keys(state.answers).length > 0) {
-    console.log('💾 Сохраняем текущую попытку перед перезагрузкой');
+  var hasProgress = state.currentIndex > 0 || Object.keys(state.answers).length > 0;
+  console.log('🔍 hasProgress:', hasProgress, 'currentIndex:', state.currentIndex, 'answers:', Object.keys(state.answers).length);
+  
+  if (hasProgress) {
+    console.log('💾 Сохраняем текущую попытку перед перезапуском');
     var results = calculateResults();
     saveAttemptResult(results);
+    
+    // Сохраняем текущий номер попытки ДО увеличения
+    var currentAttemptNum = Telemetry.getAttemptNumber();
+    console.log('📤 Отправляем finish для попытки:', currentAttemptNum, 'percent:', results.percent, 'passed:', results.passed);
+    
+    // Отправляем телеметрию finish с явным номером попытки
+    Telemetry.finish({
+      percent: results.percent,
+      passed: results.passed,
+      earnedPoints: results.earnedPoints,
+      possiblePoints: results.possiblePoints,
+      totalQuestions: results.totalQuestions,
+      correct: results.correct,
+      achievedLevels: results.achievedLevels || null
+    }, currentAttemptNum);
   }
 
   state.phase = 'start';
@@ -232,6 +251,11 @@ function restart() {
   state.remainingSeconds = null;
 
   generateVariant();
+  
+  // Телеметрия: новая попытка
+  console.log('🆕 Вызываем Telemetry.startNewAttempt()');
+  Telemetry.startNewAttempt();
+  
   render();
 }
 

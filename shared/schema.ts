@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, integer, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, integer, boolean, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core"
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -547,3 +547,102 @@ export const attemptDetailSchema = z.object({
 });
 
 export type AttemptDetail = z.infer<typeof attemptDetailSchema>;
+
+// ============================================
+// SCORM Telemetry Tables
+// Добавить в конец schema.ts
+// ============================================
+
+export const scormPackages = pgTable("scorm_packages", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 }), // nullable - тест может быть удалён
+  testTitle: text("test_title").notNull(),
+  testMode: text("test_mode", { enum: ["standard", "adaptive"] }).notNull().default("standard"),
+  secretKey: text("secret_key").notNull(),
+  apiBaseUrl: text("api_base_url").notNull(),
+  exportedAt: timestamp("exported_at").notNull(),
+  createdBy: varchar("created_by", { length: 36 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const scormAttempts = pgTable("scorm_attempts", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  packageId: varchar("package_id", { length: 36 }).notNull(),
+  sessionId: varchar("session_id", { length: 64 }).notNull(),
+  
+  // НОВОЕ: Номер попытки внутри сессии (1, 2, 3...)
+  attemptNumber: integer("attempt_number").notNull().default(1),
+  
+  // Данные из LMS
+  lmsUserId: text("lms_user_id"),
+  lmsUserName: text("lms_user_name"),
+  lmsUserEmail: text("lms_user_email"),
+  lmsUserOrg: text("lms_user_org"),
+  
+  // Временные метки
+  startedAt: timestamp("started_at").notNull(),
+  finishedAt: timestamp("finished_at"),
+  lastActivityAt: timestamp("last_activity_at").notNull(),
+  
+  // Результаты
+  resultPercent: integer("result_percent"),
+  resultPassed: boolean("result_passed"),
+  totalPoints: integer("total_points"),
+  maxPoints: integer("max_points"),
+  totalQuestions: integer("total_questions"),
+  correctAnswers: integer("correct_answers"),
+  
+  // Для адаптивных тестов
+  achievedLevelsJson: jsonb("achieved_levels_json"),
+}, (table) => ({
+  // Уникальный индекс: одна комбинация package+session+attemptNumber
+  sessionAttemptIdx: uniqueIndex("scorm_attempts_session_attempt_idx")
+    .on(table.packageId, table.sessionId, table.attemptNumber),
+}));
+
+export const scormAnswers = pgTable("scorm_answers", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  attemptId: varchar("attempt_id", { length: 36 }).notNull(),
+  
+  // Данные вопроса
+  questionId: varchar("question_id", { length: 36 }).notNull(),
+  questionPrompt: text("question_prompt").notNull(),
+  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking"] }).notNull(),
+  topicId: varchar("topic_id", { length: 36 }),
+  topicName: text("topic_name"),
+  difficulty: integer("difficulty"),
+  
+  // Ответ
+  userAnswerJson: jsonb("user_answer_json").notNull(),
+  correctAnswerJson: jsonb("correct_answer_json").notNull(),
+  isCorrect: boolean("is_correct").notNull(),
+  points: integer("points").notNull(),
+  maxPoints: integer("max_points").notNull(),
+  
+  // Варианты ответов для отображения в аналитике
+  optionsJson: jsonb("options_json"),           // для single/multiple
+  leftItemsJson: jsonb("left_items_json"),      // для matching
+  rightItemsJson: jsonb("right_items_json"),    // для matching
+  itemsJson: jsonb("items_json"),               // для ranking
+  
+  // Для адаптивных
+  levelIndex: integer("level_index"),
+  levelName: text("level_name"),
+  
+  answeredAt: timestamp("answered_at").notNull(),
+});
+
+// Insert schemas
+export const insertScormPackageSchema = createInsertSchema(scormPackages).omit({ id: true });
+export const insertScormAttemptSchema = createInsertSchema(scormAttempts).omit({ id: true });
+export const insertScormAnswerSchema = createInsertSchema(scormAnswers).omit({ id: true });
+
+// Types
+export type InsertScormPackage = z.infer<typeof insertScormPackageSchema>;
+export type ScormPackage = typeof scormPackages.$inferSelect;
+
+export type InsertScormAttempt = z.infer<typeof insertScormAttemptSchema>;
+export type ScormAttempt = typeof scormAttempts.$inferSelect;
+
+export type InsertScormAnswer = z.infer<typeof insertScormAnswerSchema>;
+export type ScormAnswer = typeof scormAnswers.$inferSelect;

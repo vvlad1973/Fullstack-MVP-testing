@@ -103,6 +103,11 @@ export default function TestsPage() {
   const [distributionCache, setDistributionCache] = useState<Record<string, DifficultyDistribution>>({});
   const [loadingDistribution, setLoadingDistribution] = useState<string | null>(null);
 
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportTestId, setExportTestId] = useState<string | null>(null);
+  const [enableTelemetry, setEnableTelemetry] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
   const { data: tests, isLoading: testsLoading } = useQuery<TestWithSections[]>({
     queryKey: ["/api/tests"],
   });
@@ -268,26 +273,44 @@ export default function TestsPage() {
     }
   };
 
-  const handleExportScorm = async (testId: string) => {
+  const openExportDialog = (testId: string) => {
+    setExportTestId(testId);
+    setEnableTelemetry(true); // По умолчанию включено
+    setExportDialogOpen(true);
+  };
+
+  const handleExportScorm = async () => {
+    if (!exportTestId) return;
+
+    setIsExporting(true);
     try {
-      const response = await fetch(`/api/tests/${testId}/export/scorm`, {
+      const url = `/api/tests/${exportTestId}/export/scorm${enableTelemetry ? '?telemetry=true' : ''}`;
+      const response = await fetch(url, {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Export failed");
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `test_${testId}_scorm.zip`;
+      a.href = downloadUrl;
+      a.download = `test_${exportTestId}_scorm.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(downloadUrl);
 
-      toast({ title: t.tests.exportSuccessful, description: t.tests.scormDownloaded });
+      toast({
+        title: t.tests.exportSuccessful,
+        description: enableTelemetry
+          ? "SCORM пакет с телеметрией успешно создан"
+          : t.tests.scormDownloaded
+      });
+      setExportDialogOpen(false);
     } catch {
       toast({ variant: "destructive", title: t.tests.exportFailed, description: t.tests.couldNotExport });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -660,7 +683,7 @@ export default function TestsPage() {
                 <CardFooter>
                   <Button
                     variant="outline"
-                    onClick={() => handleExportScorm(test.id)}
+                    onClick={() => openExportDialog(test.id)}
                     data-testid={`button-export-scorm-${test.id}`}
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -1462,6 +1485,61 @@ export default function TestsPage() {
               </form>
             </Form>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Export SCORM Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Экспорт SCORM</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label className="text-base font-medium">Включить телеметрию</Label>
+                <p className="text-sm text-muted-foreground">
+                  Собирать статистику прохождения из LMS
+                </p>
+              </div>
+              <Switch
+                checked={enableTelemetry}
+                onCheckedChange={setEnableTelemetry}
+              />
+            </div>
+
+            {enableTelemetry && (
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4 text-sm">
+                <p className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  📊 Телеметрия позволит:
+                </p>
+                <ul className="list-disc list-inside text-blue-700 dark:text-blue-300 space-y-1">
+                  <li>Видеть результаты из LMS в аналитике</li>
+                  <li>Отслеживать ответы пользователей</li>
+                  <li>Получать данные о времени прохождения</li>
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleExportScorm} disabled={isExporting}>
+              {isExporting ? (
+                <>
+                  <LoadingSpinner className="mr-2 h-4 w-4" />
+                  Экспорт...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Скачать SCORM
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

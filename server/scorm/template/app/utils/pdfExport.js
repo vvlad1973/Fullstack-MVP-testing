@@ -1,214 +1,386 @@
-// PDF Export Utility
-// Генерирует PDF с результатами теста
+// PDF Export Utility - Генерация красивого PDF с подложкой
+// Использует html2canvas для рендеринга HTML в картинку
 
-async function exportResultsToPDF(results, testName) {
-  try {
-    console.log('📄 Начинаем генерацию PDF...');
-    
-    // Динамически загружаем библиотеки
-    const jsPDF = window.jspdf.jsPDF;
-    const html2canvas = window.html2canvas;
+var pdfAssets = {
+  backgrounds: [],
+  logo: null,
+  loaded: false
+};
 
-    // Создаем HTML контент для PDF
-    const htmlContent = generatePDFContent(results, testName);
-    
-    // Создаем временный контейнер
-    const tempContainer = document.createElement('div');
-    tempContainer.innerHTML = htmlContent;
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.width = '800px';
-    tempContainer.style.backgroundColor = 'white';
-    document.body.appendChild(tempContainer);
-
-    // Конвертируем в canvas
-    const canvas = await html2canvas(tempContainer, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      logging: false,
-      useCORS: true
-    });
-
-    // Создаем PDF
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    
-    // Вычисляем масштаб
-    const imgWidth = pageWidth - 20; // 10mm отступ с каждой стороны
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let heightLeft = imgHeight;
-    let position = 10; // 10mm сверху
-
-    const imgData = canvas.toDataURL('image/png');
-
-    // Добавляем контент на страницы
-    while (heightLeft > 0) {
-      if (position > 0) {
-        pdf.addPage();
-        position = 10;
-      }
-      
-      const pageHeightAvailable = pageHeight - 20; // 10mm отступы
-      const heightToPrint = Math.min(heightLeft, pageHeightAvailable);
-      
-      pdf.addImage(
-        imgData,
-        'PNG',
-        10,
-        position,
-        imgWidth,
-        (heightToPrint * imgWidth) / imgWidth
-      );
-      
-      heightLeft -= heightToPrint;
-      position = 0;
-    }
-
-    // Скачиваем PDF
-    const fileName = `Результаты_${testName}_${new Date().toLocaleDateString('ru-RU')}.pdf`;
-    pdf.save(fileName);
-    
-    console.log('✅ PDF успешно сгенерирован и скачан');
-
-    // Удаляем временный контейнер
-    document.body.removeChild(tempContainer);
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Ошибка при генерации PDF:', error);
-    alert('Ошибка при экспорте PDF: ' + error.message);
-    return false;
-  }
+// Загрузка изображения как Data URL
+function loadImageAsDataUrl(src) {
+  return new Promise(function (resolve) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve({
+        dataUrl: canvas.toDataURL('image/png'),
+        width: img.width,
+        height: img.height
+      });
+    };
+    img.onerror = function () {
+      console.warn('⚠️ Не удалось загрузить:', src);
+      resolve(null);
+    };
+    img.src = src;
+  });
 }
 
-function generatePDFContent(results, testName) {
-  const percent = Math.round(results.percent);
-  const statusText = results.passed ? '✓ ПРОЙДЕН' : '✗ НЕ ПРОЙДЕН';
-  const statusColor = results.passed ? '#10b981' : '#ef4444';
-  const statusBg = results.passed ? '#f0fdf4' : '#fef2f2';
+// Загрузка всех PDF-ассетов
+async function loadPdfAssets() {
+  if (pdfAssets.loaded) return;
 
-  // Генерируем HTML для PDF с встроенными стилями
-  let html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 40px; background: white; color: #1f2937;">
-      
-      <!-- Заголовок -->
-      <div style="text-align: center; margin-bottom: 40px; border-bottom: 3px solid #e5e7eb; padding-bottom: 30px;">
-        <h1 style="margin: 0; color: #0f172a; font-size: 32px; font-weight: 700;">Результаты теста</h1>
-        <p style="margin: 12px 0 0 0; color: #64748b; font-size: 16px; font-weight: 500;">${escapeHtml(testName)}</p>
-        <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 13px;">${new Date().toLocaleString('ru-RU')}</p>
-      </div>
+  console.log('🔍 Загружаем PDF ассеты...');
 
-      <!-- Основной результат -->
-      <div style="text-align: center; margin-bottom: 40px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; padding: 40px; border: 2px solid #e2e8f0;">
-        <div style="font-size: 64px; font-weight: 700; color: ${statusColor}; margin-bottom: 16px;">${percent}%</div>
-        <div style="font-size: 24px; color: ${statusColor}; font-weight: 600; margin-bottom: 8px;">${statusText}</div>
-        <div style="font-size: 14px; color: #64748b;">${results.totalCorrect} из ${results.totalQuestions} вопросов</div>
-      </div>
+  var basePath = 'assets/media/';
 
-      <!-- Статистика в два столбца -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
-        <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 24px; text-align: center;">
-          <div style="color: #4ade80; font-size: 28px; font-weight: 700; margin-bottom: 8px;">${results.totalCorrect}</div>
-          <div style="color: #22863a; font-size: 14px; font-weight: 600;">Правильных ответов</div>
-          <div style="color: #4ade80; font-size: 12px; margin-top: 4px;">${results.totalQuestions} всего</div>
-        </div>
-        
-        <div style="background: #fef3c7; border: 2px solid #fcd34d; border-radius: 12px; padding: 24px; text-align: center;">
-          <div style="color: #f59e0b; font-size: 28px; font-weight: 700; margin-bottom: 8px;">${results.earnedPoints.toFixed(1)}</div>
-          <div style="color: #78350f; font-size: 14px; font-weight: 600;">Набрано баллов</div>
-          <div style="color: #f59e0b; font-size: 12px; margin-top: 4px;">${results.possiblePoints.toFixed(1)} максимум</div>
-        </div>
-      </div>
+  var bg1 = await loadImageAsDataUrl(basePath + 'pdf-bg-1.png');
+  var bg2 = await loadImageAsDataUrl(basePath + 'pdf-bg-2.png');
+  var bg3 = await loadImageAsDataUrl(basePath + 'pdf-bg-3.png');
+  var logo = await loadImageAsDataUrl(basePath + 'logo-light.png');
 
-      <!-- Результаты по темам -->
-      <div style="margin-bottom: 40px;">
-        <h2 style="margin: 0 0 24px 0; color: #0f172a; font-size: 20px; font-weight: 700; border-bottom: 3px solid #e2e8f0; padding-bottom: 16px;">
-          📚 Результаты по темам
-        </h2>
-        
-        ${results.topicResults.map((topic, idx) => {
-          const topicPercent = Math.round(topic.percent);
-          const topicStatus = topic.passed ? '✓' : '✗';
-          const topicColor = topic.passed ? '#10b981' : '#ef4444';
-          const bgColor = topic.passed ? '#f0fdf4' : '#fef2f2';
-          const borderColor = topic.passed ? '#86efac' : '#fca5a5';
-          
-          return `
-            <div style="background: ${bgColor}; border-left: 5px solid ${topicColor}; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                <div style="flex: 1;">
-                  <div style="font-weight: 700; color: #0f172a; font-size: 15px; margin-bottom: 6px;">
-                    <span style="color: ${topicColor}; font-size: 18px; margin-right: 10px;">${topicStatus}</span>
-                    ${escapeHtml(topic.topicName)}
-                  </div>
-                  <div style="font-size: 13px; color: #64748b;">
-                    ${topic.correct}/${topic.total} правильно • ${topic.earnedPoints.toFixed(1)}/${topic.possiblePoints.toFixed(1)} баллов
-                  </div>
-                </div>
-                <div style="font-weight: 700; color: ${topicColor}; font-size: 18px; min-width: 50px; text-align: right;">${topicPercent}%</div>
-              </div>
-              
-              <!-- Прогресс бар -->
-              <div style="background: rgba(0,0,0,0.08); border-radius: 6px; height: 10px; margin: 12px 0; overflow: hidden;">
-                <div style="background: ${topicColor}; height: 100%; width: ${topicPercent}%; border-radius: 6px;"></div>
-              </div>
+  if (bg1) pdfAssets.backgrounds.push(bg1);
+  if (bg2) pdfAssets.backgrounds.push(bg2);
+  if (bg3) pdfAssets.backgrounds.push(bg3);
+  pdfAssets.logo = logo;
 
-              ${topic.recommendedCourses && topic.recommendedCourses.length > 0 ? `
-                <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,0.1);">
-                  <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 600;">📖 Рекомендуемые материалы:</div>
-                  ${topic.recommendedCourses.map(course => `
-                    <div style="font-size: 12px; color: #0066cc; margin-bottom: 6px; padding: 6px 0;">
-                      • ${escapeHtml(course.title)}
-                    </div>
-                  `).join('')}
-                </div>
-              ` : ''}
-            </div>
-          `;
-        }).join('')}
-      </div>
+  pdfAssets.loaded = true;
+  console.log('✅ PDF ассеты загружены:', pdfAssets.backgrounds.length, 'подложек');
+}
 
-      <!-- Рекомендации или поздравления -->
-      <div style="border-radius: 12px; padding: 24px; margin-bottom: 20px; ${results.topicResults.some(t => !t.passed) ? `background: #fffbeb; border: 2px solid #f59e0b;` : `background: #f0fdf4; border: 2px solid #10b981;`}">
-        ${results.topicResults.some(t => !t.passed) ? `
-          <h3 style="margin: 0 0 12px 0; color: #92400e; font-size: 16px; font-weight: 700;">💡 Рекомендации для улучшения</h3>
-          <ul style="margin: 0; padding-left: 20px; color: #78350f; font-size: 14px; line-height: 1.6;">
-            ${results.topicResults.filter(t => !t.passed).map(topic => `
-              <li style="margin-bottom: 10px;">
-                <strong>${escapeHtml(topic.topicName)}</strong> – ${Math.round(topic.percent)}% верно. 
-                ${topic.recommendedCourses && topic.recommendedCourses.length > 0 ? 'Рекомендуем пройти предложенные материалы.' : 'Рекомендуем повторить эту тему.'}
-              </li>
-            `).join('')}
-          </ul>
-        ` : `
-          <div style="text-align: center;">
-            <h3 style="margin: 0 0 8px 0; color: #15803d; font-size: 18px; font-weight: 700;">🎉 Отлично!</h3>
-            <p style="margin: 0; color: #22863a; font-size: 14px;">Вы успешно прошли все темы теста.</p>
-          </div>
-        `}
-      </div>
+// Генерация HTML для PDF
+function generatePdfHtml(results, testName, bgDataUrl, logoDataUrl) {
+  var percent = Math.round(results.percent);
+  var passed = results.passed;
+  var attempts = typeof getAllAttempts === 'function' ? getAllAttempts().length : 1;
 
-      <!-- Подвал -->
-      <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 12px;">
-        <p style="margin: 0;">✓ Документ автоматически сгенерирован системой тестирования</p>
-        <p style="margin: 8px 0 0 0;">Дата: ${new Date().toLocaleString('ru-RU')}</p>
-      </div>
-    </div>
-  `;
+  var statusColor = passed ? '#22c55e' : '#ef4444';
+  var statusText = passed ? 'Тест пройден' : 'Тест не пройден';
+  var statusBadge = passed ? 'пройден' : 'не пройден';
+  var statusBadgeBg = passed ? 'rgba(34, 197, 94, 0.2)' : '#432027';
+  var statusBadgeBorder = passed ? '#22c55e' : '#eb1e1e';
+  var statusBadgeColor = passed ? '#22c55e' : '#ff3131';
+
+  // Определяем количество колонок для тем (макс 3)
+  var topicCount = results.topicResults ? results.topicResults.length : 0;
+  var gridColumns = topicCount === 1 ? 1 : (topicCount === 2 ? 2 : 3);
+
+  // Фон
+  var bgStyle = bgDataUrl
+    ? 'background-image: url(' + bgDataUrl + '); background-size: cover; background-position: center;'
+    : 'background: linear-gradient(180deg, #1c1c2b 0%, #7700ff 100%);';
+
+  var html = '';
+  html += '<div style="' + bgStyle + ' width: 595px; min-height: 842px; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; color: #ffffff; position: relative;">';
+  html += '<div style="padding: 20px 25px;">';
+
+  // Логотип
+  if (logoDataUrl) {
+    html += '<div style="margin-bottom: 15px;">';
+    html += '<img src="' + logoDataUrl + '" style="height: 32px;" />';
+    html += '</div>';
+  }
+
+  // Главный заголовок
+  html += '<div style="font-size: 42px; font-weight: 900; margin-bottom: 4px; line-height: 1; color: ' + (passed ? '#22c55e' : '#ffffff') + ';">' + escapeHtml(statusText) + '</div>';
+  html += '<div style="font-size: 14px; font-weight: 300; color: #aca9a9; margin-bottom: 15px;">Лучший результат за ' + attempts + ' ' + pluralize(attempts, 'попытку', 'попытки', 'попыток') + '</div>';
+
+  // Карточка с результатами
+  html += '<div style="background: rgba(31, 33, 41, 0.68); border-radius: 18px; padding: 18px 20px; margin-bottom: 15px;">';
+  html += '<div style="font-size: 22px; font-weight: 400; margin-bottom: 4px;">' + escapeHtml(testName || 'Результаты теста') + '</div>';
+  html += '<div style="font-size: 14px; font-weight: 300; color: #aca9a9; margin-bottom: 20px;">Результат теста</div>';
+
+  // Секция с метриками
+  html += '<div style="display: flex; align-items: center; gap: 20px;">';
+
+  // Метрики
+  html += '<div style="display: flex; gap: 30px;">';
+  html += createMetric(results.totalQuestions, 'вопросов');
+  html += createMetric((results.totalCorrect || results.correct) + '/' + results.totalQuestions, 'верно');
+  html += createMetric(results.earnedPoints.toFixed(1), 'баллов');
+  html += '</div>';
+
+  // Круг с процентом (SVG)
+  var circumference = 2 * Math.PI * 44;
+  var offset = circumference - (circumference * percent / 100);
+  html += '<div style="width: 100px; height: 100px; position: relative; display: flex; align-items: center; justify-content: center;">';
+  html += '<svg viewBox="0 0 100 100" style="position: absolute; width: 100%; height: 100%; transform: rotate(-90deg);">';
+  html += '<circle cx="50" cy="50" r="44" fill="none" stroke="#2f2f2f" stroke-width="12"/>';
+  html += '<circle cx="50" cy="50" r="44" fill="none" stroke="' + statusColor + '" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + offset + '"/>';
+  html += '</svg>';
+  html += '<div style="font-size: 28px; font-weight: 900; z-index: 1;">' + percent + '%</div>';
+  html += '</div>';
+
+  // Бейдж статуса
+  html += '<div style="margin-left: auto; padding: 10px 20px; border-radius: 50px; font-size: 12px; font-weight: 500; background: ' + statusBadgeBg + '; border: 2px solid ' + statusBadgeBorder + '; color: ' + statusBadgeColor + ';">' + statusBadge + '</div>';
+
+  html += '</div>'; // score-section
+  html += '</div>'; // info-card
+
+  // Результаты по темам
+  if (topicCount > 0) {
+    html += '<div style="background: rgba(31, 33, 41, 0.68); border-radius: 18px; padding: 18px 20px; margin-bottom: 15px;">';
+    html += '<div style="font-size: 22px; font-weight: 400; margin-bottom: 15px;">Результаты по темам</div>';
+
+    html += '<div style="display: grid; grid-template-columns: repeat(' + gridColumns + ', 1fr); gap: 10px;">';
+
+    results.topicResults.forEach(function (topic) {
+      var topicPercent = Math.round(topic.percent);
+      var topicPassed = topic.passed;
+      var topicColor = topicPassed ? '#22c55e' : '#ef4444';
+      var topicStatusBg = topicPassed ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+
+      html += '<div style="background: linear-gradient(135deg, #2a2a3d 0%, #1f1f2e 100%); border-radius: 10px; padding: 10px; position: relative; overflow: hidden;">';
+
+      // Верхняя полоса
+      html += '<div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: ' + topicColor + ';"></div>';
+
+      // Заголовок темы
+      html += '<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 5px;">';
+      html += '<div style="font-size: 12px; font-weight: 700; line-height: 1.2; flex: 1;">' + escapeHtml(topic.topicName || 'Тема') + '</div>';
+      html += '<div style="font-size: 6px; font-weight: 500; padding: 2px 6px; border-radius: 3px; white-space: nowrap; background: ' + topicStatusBg + '; color: ' + topicColor + ';">' + (topicPassed ? 'Пройден' : 'Не пройден') + '</div>';
+      html += '</div>';
+
+      // Статистика
+      html += '<div style="display: flex; justify-content: space-between; font-size: 7px; color: #aca9a9; margin-bottom: 5px;">';
+      html += '<span>' + topic.correct + ' из ' + topic.total + ' (' + topicPercent + '%)</span>';
+      html += '<span>' + topic.earnedPoints.toFixed(1) + '/' + topic.possiblePoints.toFixed(1) + '</span>';
+      html += '</div>';
+
+      // Прогресс-бар
+      html += '<div style="height: 3px; background: #2f2f2f; border-radius: 2px; overflow: hidden; margin-bottom: 6px;">';
+      html += '<div style="height: 100%; width: ' + topicPercent + '%; background: ' + topicColor + '; border-radius: 2px;"></div>';
+      html += '</div>';
+
+      // Обратная связь (только для непройденных)
+      if (!topicPassed && topic.topicFeedback && topic.topicFeedback.trim()) {
+        html += '<div style="font-size: 10px; font-weight: 300; color: rgba(255, 255, 255, 0.7); line-height: 1.3; margin-top: 4px;">' + escapeHtml(topic.topicFeedback) + '</div>';
+      }
+
+      html += '</div>'; // topic-card
+    });
+
+    html += '</div>'; // topics-grid
+    html += '</div>'; // section-card
+  }
+
+  // Рекомендации по курсам (только для непройденных тем)
+  var recommendations = [];
+  if (results.topicResults) {
+    results.topicResults.forEach(function (topic) {
+      if (!topic.passed && topic.recommendedCourses && topic.recommendedCourses.length > 0) {
+        topic.recommendedCourses.forEach(function (course) {
+          recommendations.push({
+            topicName: topic.topicName,
+            courseTitle: course.title,
+            courseUrl: course.url
+          });
+        });
+      }
+    });
+  }
+
+  if (recommendations.length > 0) {
+    html += '<div style="background: rgba(31, 33, 41, 0.68); border-radius: 18px; padding: 18px 20px; margin-bottom: 15px;">';
+    html += '<div style="font-size: 22px; font-weight: 400; margin-bottom: 8px;">Рекомендации по курсам</div>';
+    html += '<div style="font-size: 11px; font-weight: 300; color: #aca9a9; margin-bottom: 15px; line-height: 1.5;">Изучите эти материалы для улучшения знаний по темам, которые требуют внимания.</div>';
+    
+    recommendations.forEach(function(rec, index) {
+      html += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">';
+      html += '<div style="font-size: 14px; font-weight: 700;">' + escapeHtml(rec.topicName) + '</div>';
+      html += '<div class="pdf-link-btn" data-url="' + escapeHtml(rec.courseUrl) + '" data-index="' + index + '" style="background: #59209b; border-radius: 8px; padding: 10px 25px; font-size: 12px; font-weight: 300; color: #fafafa;">' + escapeHtml(rec.courseTitle) + '</div>';
+      html += '</div>';
+    });
+    
+    html += '</div>'; // recommendations
+  }
+
+  // Футер
+  html += '<div style="text-align: center; padding-top: 15px; font-size: 9px; color: rgba(255, 255, 255, 0.3);">';
+  html += 'Документ сформирован: ' + new Date().toLocaleString('ru-RU');
+  html += '</div>';
+
+  html += '</div>'; // padding
+  html += '</div>'; // page
 
   return html;
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
-  var div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+function createMetric(value, label) {
+  return '<div style="text-align: center;">' +
+    '<div style="font-size: 28px; font-weight: 900;">' + value + '</div>' +
+    '<div style="font-size: 12px; font-weight: 300; color: #aca9a9;">' + label + '</div>' +
+    '</div>';
+}
+
+function pluralize(n, one, few, many) {
+  var mod10 = n % 10;
+  var mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 19) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+function sanitizeFileName(name) {
+  if (!name) return 'test';
+  return name.replace(/[^a-zA-Zа-яА-Я0-9_\-\s]/g, '').replace(/\s+/g, '_').substring(0, 50);
+}
+
+function formatDate(date) {
+  var d = date.getDate().toString().padStart(2, '0');
+  var m = (date.getMonth() + 1).toString().padStart(2, '0');
+  var y = date.getFullYear();
+  return d + '_' + m + '_' + y;
+}
+
+// Главная функция экспорта
+async function exportResultsToPDF(results, testName) {
+  // Создаём оверлей загрузки
+  var overlay = document.createElement('div');
+  overlay.id = 'pdf-loading-overlay';
+  overlay.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">' +
+    '<div style="width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: pdf-spin 1s linear infinite;"></div>' +
+    '<div style="font-size: 18px; font-weight: 500;">Генерация PDF...</div>' +
+    '<div style="font-size: 14px; opacity: 0.7;">Это может занять некоторое время</div>' +
+    '</div>';
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 99999; color: #fff; font-family: Inter, sans-serif;';
+
+  // Добавляем анимацию
+  var style = document.createElement('style');
+  style.textContent = '@keyframes pdf-spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+
+  try {
+    console.log('📄 Начинаем генерацию PDF...');
+
+    // Загружаем ассеты
+    await loadPdfAssets();
+
+    // Проверяем библиотеки
+    var jsPDF = window.jspdf && window.jspdf.jsPDF;
+    var html2canvas = window.html2canvas;
+
+    if (!jsPDF || !html2canvas) {
+      throw new Error('Библиотеки jsPDF или html2canvas не загружены');
+    }
+
+    // Выбираем случайную подложку
+    var bgDataUrl = null;
+    if (pdfAssets.backgrounds.length > 0) {
+      var randomIndex = Math.floor(Math.random() * pdfAssets.backgrounds.length);
+      bgDataUrl = pdfAssets.backgrounds[randomIndex].dataUrl;
+      console.log('🎨 Выбрана подложка:', randomIndex + 1);
+    }
+
+    var logoDataUrl = pdfAssets.logo ? pdfAssets.logo.dataUrl : null;
+
+    // Генерируем HTML
+    var htmlContent = generatePdfHtml(results, testName, bgDataUrl, logoDataUrl);
+
+    // Создаём временный контейнер
+    var container = document.createElement('div');
+    container.innerHTML = htmlContent;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    document.body.appendChild(container);
+
+    // Ждём рендеринга
+    await new Promise(function (resolve) { setTimeout(resolve, 100); });
+
+    // Рендерим в canvas
+    var canvas = await html2canvas(container.firstChild, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      logging: false
+    });
+
+    // Удаляем контейнер
+    // document.body.removeChild(container);
+
+    // Вычисляем размеры
+    var imgWidth = 210; // A4 ширина в мм
+    var imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    // Собираем позиции ссылок до удаления контейнера
+    var linkButtons = container.querySelectorAll('.pdf-link-btn');
+    var links = [];
+    var containerRect = container.firstChild.getBoundingClientRect();
+    
+    linkButtons.forEach(function(btn) {
+      var rect = btn.getBoundingClientRect();
+      links.push({
+        url: btn.getAttribute('data-url'),
+        x: rect.left - containerRect.left,
+        y: rect.top - containerRect.top,
+        width: rect.width,
+        height: rect.height
+      });
+    });
+    
+    // Удаляем контейнер
+    document.body.removeChild(container);
+    
+    // Вычисляем размеры
+    var imgWidth = 210; // A4 ширина в мм
+    var imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // Коэффициент масштабирования (пиксели → мм)
+    var scale = imgWidth / 595; // 595px - ширина контейнера
+    
+    // Создаём PDF
+    var pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [imgWidth, Math.max(imgHeight, 297)]
+    });
+    
+    var imgData = canvas.toDataURL('image/jpeg', 0.92);
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+    
+    // Добавляем кликабельные ссылки
+    links.forEach(function(link) {
+      if (link.url) {
+        pdf.link(
+          link.x * scale,
+          link.y * scale,
+          link.width * scale,
+          link.height * scale,
+          { url: link.url }
+        );
+      }
+    });
+    
+    // Сохраняем
+    var fileName = 'Результаты_' + sanitizeFileName(testName) + '_' + formatDate(new Date()) + '.pdf';
+    pdf.save(fileName);
+
+    console.log('✅ PDF сгенерирован:', fileName);
+    
+    // Убираем оверлей
+    var overlayToRemove = document.getElementById('pdf-loading-overlay');
+    if (overlayToRemove) overlayToRemove.remove();
+    
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Ошибка генерации PDF:', error);
+    
+    // Убираем оверлей при ошибке
+    var overlayToRemove = document.getElementById('pdf-loading-overlay');
+    if (overlayToRemove) overlayToRemove.remove();
+    
+    alert('Ошибка при экспорте PDF: ' + error.message);
+    return false;
+  }
 }

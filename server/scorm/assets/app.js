@@ -51,6 +51,14 @@ function generateVariant() {
 
 function renderResults() {
   var results = calculateResults();
+  
+  // ✅ Сразу сохраняем результат попытки при показе результатов
+  if (typeof saveAttemptResult === 'function' && !state.attemptSavedForThisSession) {
+    saveAttemptResult(results);
+    state.attemptSavedForThisSession = true;
+    console.log('💾 renderResults: результат попытки сохранён', Math.round(results.percent) + '%');
+  }
+  
   var app = document.getElementById('app');
 
   var pct = Math.round(results.percent);

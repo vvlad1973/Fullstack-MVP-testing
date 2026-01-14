@@ -5,7 +5,11 @@ import { buildMetadataXml } from "./builders/metadata";
 import { escapeXml } from "./utils/escape";
 import { readAsset } from "./assets/read-asset";
 import { extractEmbeddedMediaIntoAssets } from "./builders/media-assets";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function joinJsParts(parts: string[]) {
   return parts.filter(Boolean).join("\n;\n");
@@ -32,6 +36,32 @@ function tryReadAsset(paths: string[]): string {
     }
   }
   return "";
+}
+
+function tryReadBinaryAsset(relativePath: string): Buffer | null {
+  const possiblePaths = [
+    path.resolve(__dirname, "template", relativePath),
+    path.resolve(__dirname, relativePath),
+    path.resolve(__dirname, "assets", relativePath),
+    path.resolve(process.cwd(), "server", "scorm", "template", relativePath),
+    path.resolve(process.cwd(), "dist", "scorm", "template", relativePath),
+    path.resolve(process.cwd(), "scorm", "template", relativePath),
+  ];
+  
+  console.log("[tryReadBinaryAsset] Looking for:", relativePath);
+  
+  for (const p of possiblePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        console.log("[tryReadBinaryAsset] Found at:", p);
+        return fs.readFileSync(p);
+      }
+    } catch {
+      continue;
+    }
+  }
+  console.log("[tryReadBinaryAsset] Not found:", relativePath);
+  return null;
 }
 
 export async function generateScormPackage(data: ExportData): Promise<Buffer> {
@@ -135,8 +165,13 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     "app/render/adaptiveRender.js",
   ]);
 
+  const telemetryJs = tryReadAsset([
+    "app/telemetry/telemetry.js",
+  ]);
+
   const appJs = joinJsParts([
     escapeHtmlJs,
+    telemetryJs, 
     shuffleJs,
     suspendAttemptsJs,
     testDataJs,
@@ -155,10 +190,8 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     resultsPageJs,
     questionMediaJs,
     pdfExportJs,
-    // Adaptive mode support
     adaptiveJs,
     adaptiveRenderJs,
-    // Main render and app
     mainRenderJs,
     appMain,
     feedbackJs,
@@ -166,6 +199,21 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
   ]).replace("__TEST_JSON_B64__", testJsonB64);
 
   const mediaHrefs = Object.keys(assets);
+
+  // Добавляем PDF-ассеты в список файлов для манифеста
+  const pdfAssetPaths = [
+    "assets/media/pdf-bg-1.png",
+    "assets/media/pdf-bg-2.png", 
+    "assets/media/pdf-bg-3.png",
+    "assets/media/logo-light.png"
+  ];
+
+  // Добавляем только те PDF-ассеты, которые реально существуют
+  pdfAssetPaths.forEach(assetPath => {
+    if (tryReadBinaryAsset(assetPath)) {
+      mediaHrefs.push(assetPath);
+    }
+  });
 
   const files: Record<string, string | Buffer> = {
     "imsmanifest.xml": buildManifest(data.test, data, mediaHrefs), 
@@ -175,6 +223,21 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     "runtime.js": runtimeJs,
     "app.js": appJs,
   };
+  
+  // Добавляем подложки и логотипы для PDF (только в assets/media/)
+  try {
+    const pdfBg1 = tryReadBinaryAsset("assets/media/pdf-bg-1.png");
+    const pdfBg2 = tryReadBinaryAsset("assets/media/pdf-bg-2.png");
+    const pdfBg3 = tryReadBinaryAsset("assets/media/pdf-bg-3.png");
+    const logoLight = tryReadBinaryAsset("assets/media/logo-light.png");
+    
+    if (pdfBg1) files["assets/media/pdf-bg-1.png"] = pdfBg1;
+    if (pdfBg2) files["assets/media/pdf-bg-2.png"] = pdfBg2;
+    if (pdfBg3) files["assets/media/pdf-bg-3.png"] = pdfBg3;
+    if (logoLight) files["assets/media/logo-light.png"] = logoLight;
+  } catch (e) {
+    console.log("PDF assets not found, skipping");
+  }
   
   for (const [zipPath, buf] of Object.entries(assets)) {
     files[zipPath] = buf;

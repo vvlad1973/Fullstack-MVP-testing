@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCORM Test Constructor — Полная архитектура v2.0</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 40px;
+      color: #fff;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 32px;
+      color: #a78bfa;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    
+    .version {
+      text-align: center;
+      color: #a78bfa;
+      font-size: 12px;
+      margin-bottom: 40px;
+      padding: 5px 15px;
+      background: rgba(167, 139, 250, 0.1);
+      border-radius: 20px;
+      display: inline-block;
+      margin-left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+    
+    /* Section styling */
+    .section {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 30px;
+    }
+    
+    .section-title {
+      font-size: 20px;
+      color: #a78bfa;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid rgba(167, 139, 250, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .section-title-icon {
+      font-size: 24px;
+    }
+    
+    /* Actors */
+    .actors-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+    
+    .actor-card {
+      background: rgba(167, 139, 250, 0.1);
+      border: 2px solid #a78bfa;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .actor-icon { font-size: 40px; margin-bottom: 10px; }
+    .actor-name { font-weight: 600; color: #a78bfa; font-size: 16px; }
+    .actor-role { font-size: 12px; color: #888; margin-top: 5px; }
+    .actor-actions {
+      margin-top: 15px;
+      text-align: left;
+      font-size: 11px;
+      color: #aaa;
+    }
+    .actor-actions li {
+      padding: 3px 0;
+      list-style: none;
+      padding-left: 15px;
+      position: relative;
+    }
+    .actor-actions li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: #a78bfa;
+    }
+    
+    /* Components grid */
+    .components-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    
+    .component-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .component-card:hover {
+      border-color: rgba(167, 139, 250, 0.5);
+      transform: translateY(-2px);
+      transition: all 0.3s;
+    }
+    
+    .component-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .component-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    
+    .component-icon.frontend { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .component-icon.backend { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .component-icon.database { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .component-icon.scorm { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .component-icon.lms { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .component-icon.storage { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+    
+    .component-title { font-weight: 600; font-size: 16px; }
+    .component-tech { font-size: 11px; color: #888; margin-top: 3px; }
+    
+    .component-features {
+      font-size: 12px;
+      color: #aaa;
+    }
+    
+    .component-features ul {
+      list-style: none;
+      columns: 2;
+      column-gap: 15px;
+    }
+    
+    .component-features li {
+      padding: 4px 0;
+      padding-left: 18px;
+      position: relative;
+      break-inside: avoid;
+    }
+    
+    .component-features li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: #a78bfa;
+    }
+    
+    /* Process steps */
+    .process-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+    
+    .process-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 15px;
+      border-left: 4px solid;
+    }
+    
+    .process-card.author { border-left-color: #3b82f6; }
+    .process-card.learner { border-left-color: #22c55e; }
+    .process-card.scorm { border-left-color: #ef4444; }
+    .process-card.analytics { border-left-color: #f59e0b; }
+    .process-card.system { border-left-color: #8b5cf6; }
+    
+    .process-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .process-number {
+      width: 28px;
+      height: 28px;
+      background: #a78bfa;
+      color: #000;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    
+    .process-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    .process-desc {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+    
+    .process-flow {
+      font-size: 10px;
+      color: #888;
+      background: rgba(0,0,0,0.2);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+    
+    /* Database tables */
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    
+    .table-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+      border-left: 3px solid #f59e0b;
+    }
+    
+    .table-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: #f59e0b;
+      margin-bottom: 5px;
+      font-family: monospace;
+    }
+    
+    .table-desc {
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    
+    .table-fields {
+      font-size: 9px;
+      color: #666;
+      font-family: monospace;
+    }
+    
+    /* API section */
+    .api-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    
+    .api-group {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    
+    .api-group-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #22c55e;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .api-endpoint {
+      font-family: monospace;
+      font-size: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      color: #aaa;
+    }
+    
+    .api-method {
+      font-weight: 700;
+      margin-right: 8px;
+      display: inline-block;
+      width: 35px;
+    }
+    
+    .api-method.get { color: #3b82f6; }
+    .api-method.post { color: #22c55e; }
+    .api-method.put { color: #f59e0b; }
+    .api-method.del { color: #ef4444; }
+    
+    /* SCORM internals */
+    .scorm-modules {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+    
+    .scorm-module {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    
+    .scorm-module-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: #ef4444;
+      margin-bottom: 8px;
+    }
+    
+    .scorm-module-file {
+      font-family: monospace;
+      font-size: 9px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    
+    .scorm-module-desc {
+      font-size: 10px;
+      color: #aaa;
+    }
+    
+    /* Data flows */
+    .flow-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    
+    .flow-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      font-size: 11px;
+    }
+    
+    .flow-num {
+      width: 24px;
+      height: 24px;
+      background: #a78bfa;
+      color: #000;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 10px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    
+    .flow-from, .flow-to {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    
+    .flow-arrow {
+      margin: 0 8px;
+      color: #a78bfa;
+    }
+    
+    .flow-desc {
+      flex: 1;
+      color: #888;
+      margin-left: 10px;
+    }
+    
+    .flow-protocol {
+      background: rgba(167, 139, 250, 0.2);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      color: #a78bfa;
+      margin-left: 8px;
+    }
+    
+    /* Question types */
+    .question-types {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+    
+    .question-type {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+    }
+    
+    .question-type-icon { font-size: 30px; margin-bottom: 8px; }
+    .question-type-name { font-weight: 600; font-size: 14px; color: #3b82f6; }
+    .question-type-desc { font-size: 10px; color: #888; margin-top: 5px; }
+    
+    /* Test settings */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    
+    .settings-group {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 15px;
+    }
+    
+    .settings-group-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #8b5cf6;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .setting-name { color: #aaa; }
+    .setting-value { color: #a78bfa; font-family: monospace; }
+    
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: #666;
+      font-size: 12px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .components-grid, .api-grid, .settings-grid { grid-template-columns: repeat(2, 1fr); }
+      .tables-grid, .scorm-modules, .question-types { grid-template-columns: repeat(2, 1fr); }
+      .actors-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    
+    @media (max-width: 768px) {
+      .components-grid, .api-grid, .settings-grid, .process-grid { grid-template-columns: 1fr; }
+      .tables-grid, .scorm-modules, .question-types, .flow-list { grid-template-columns: 1fr; }
+      .actors-grid { grid-template-columns: 1fr; }
+      .component-features ul { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎓 SCORM Test Constructor</h1>
+  <p class="subtitle">Полная архитектура системы и взаимодействие компонентов</p>
+  <div class="version">v2.0 — Полная документация</div>
+  
+  <div class="container">
+    
+    <!-- 1. ACTORS -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">👥</span>
+        Участники системы (Actors)
+      </div>
+      <div class="actors-grid">
+        <div class="actor-card">
+          <div class="actor-icon">👨‍💼</div>
+          <div class="actor-name">Автор (Author)</div>
+          <div class="actor-role">Роль: author</div>
+          <ul class="actor-actions">
+            <li>Создаёт темы и папки</li>
+            <li>Создаёт вопросы (4 типа)</li>
+            <li>Конструирует тесты</li>
+            <li>Настраивает адаптивный режим</li>
+            <li>Экспортирует SCORM пакеты</li>
+            <li>Загружает медиа файлы</li>
+            <li>Импортирует вопросы из Excel</li>
+            <li>Просматривает аналитику</li>
+            <li>Экспортирует отчёты</li>
+          </ul>
+        </div>
+        <div class="actor-card">
+          <div class="actor-icon">🎓</div>
+          <div class="actor-name">Обучающийся (Learner)</div>
+          <div class="actor-role">Роль: learner</div>
+          <ul class="actor-actions">
+            <li>Проходит тесты в LMS</li>
+            <li>Проходит тесты встроенно</li>
+            <li>Видит результаты и feedback</li>
+            <li>Скачивает PDF с результатами</li>
+            <li>Получает рекомендации курсов</li>
+            <li>Видит историю попыток</li>
+          </ul>
+        </div>
+        <div class="actor-card">
+          <div class="actor-icon">🖥️</div>
+          <div class="actor-name">LMS</div>
+          <div class="actor-role">Внешняя система</div>
+          <ul class="actor-actions">
+            <li>Загружает SCORM пакеты</li>
+            <li>Запускает тесты</li>
+            <li>Предоставляет SCORM API</li>
+            <li>Хранит результаты</li>
+            <li>Передаёт данные пользователя</li>
+            <li>WebSoft, Moodle, iSpring...</li>
+          </ul>
+        </div>
+        <div class="actor-card">
+          <div class="actor-icon">📊</div>
+          <div class="actor-name">Администратор</div>
+          <div class="actor-role">Роль: author (расширенные права)</div>
+          <ul class="actor-actions">
+            <li>Просматривает всю аналитику</li>
+            <li>Анализирует статистику</li>
+            <li>Экспортирует отчёты Excel</li>
+            <li>Управляет SCORM пакетами</li>
+            <li>Видит данные из LMS</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 2. COMPONENTS -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">🏗️</span>
+        Компоненты системы
+      </div>
+      <div class="components-grid">
+        <!-- Frontend -->
+        <div class="component-card">
+          <div class="component-header">
+            <div class="component-icon frontend">⚛️</div>
+            <div>
+              <div class="component-title">Frontend (Admin Panel)</div>
+              <div class="component-tech">React 18 + TypeScript + Vite + TailwindCSS + shadcn/ui</div>
+            </div>
+          </div>
+          <div class="component-features">
+            <ul>
+              <li>Управление темами</li>
+              <li>Управление папками</li>
+              <li>Редактор вопросов</li>
+              <li>Конструктор тестов</li>
+              <li>Настройка adaptive</li>
+              <li>Экспорт SCORM</li>
+              <li>Импорт из Excel</li>
+              <li>Экспорт в Excel</li>
+              <li>Загрузка медиа</li>
+              <li>Дублирование</li>
+              <li>Аналитика дашборд</li>
+              <li>Детальная статистика</li>
+              <li>Learner режим</li>
+              <li>История попыток</li>
+              <li>Темная/светлая тема</li>
+              <li>Адаптивный дизайн</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Backend -->
+        <div class="component-card">
+          <div class="component-header">
+            <div class="component-icon backend">🚀</div>
+            <div>
+              <div class="component-title">Backend API</div>
+              <div class="component-tech">Node.js + Express + TypeScript + Drizzle ORM</div>
+            </div>
+          </div>
+          <div class="component-features">
+            <ul>
+              <li>REST API (60+ endpoints)</li>
+              <li>Session авторизация</li>
+              <li>SCORM генератор</li>
+              <li>Телеметрия приём</li>
+              <li>HMAC-SHA256 проверка</li>
+              <li>Аналитика расчёт</li>
+              <li>Excel импорт (XLSX)</li>
+              <li>Excel экспорт</li>
+              <li>Медиа upload (200MB)</li>
+              <li>Дублирование</li>
+              <li>Learner API</li>
+              <li>Adaptive API</li>
+              <li>CORS для SCORM</li>
+              <li>Static files</li>
+              <li>Error handling</li>
+              <li>Validation (Zod)</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Database -->
+        <div class="component-card">
+          <div class="component-header">
+            <div class="component-icon database">🗄️</div>
+            <div>
+              <div class="component-title">База данных</div>
+              <div class="component-tech">PostgreSQL + Drizzle ORM + Zod schemas</div>
+            </div>
+          </div>
+          <div class="component-features">
+            <ul>
+              <li>14 таблиц</li>
+              <li>users (auth)</li>
+              <li>folders (организация)</li>
+              <li>topics (темы)</li>
+              <li>topic_courses (курсы)</li>
+              <li>questions (вопросы)</li>
+              <li>tests (тесты)</li>
+              <li>test_sections (секции)</li>
+              <li>adaptive_levels</li>
+              <li>adaptive_topic_settings</li>
+              <li>adaptive_level_links</li>
+              <li>attempts (встроенные)</li>
+              <li>scorm_packages</li>
+              <li>scorm_attempts</li>
+              <li>scorm_answers</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- SCORM Package -->
+        <div class="component-card">
+          <div class="component-header">
+            <div class="component-icon scorm">📦</div>
+            <div>
+              <div class="component-title">SCORM 2004 Package</div>
+              <div class="component-tech">Vanilla JS + html2canvas + jsPDF</div>
+            </div>
+          </div>
+          <div class="component-features">
+            <ul>
+              <li>Автономный HTML/JS/CSS</li>
+              <li>SCORM 2004 API</li>
+              <li>Standard режим</li>
+              <li>Adaptive режим</li>
+              <li>Таймер теста</li>
+              <li>Лимит попыток</li>
+              <li>Телеметрия HMAC</li>
+              <li>PDF экспорт</li>
+              <li>Suspend/Resume</li>
+              <li>Best attempt</li>
+              <li>Feedback вопросов</li>
+              <li>Feedback тем</li>
+              <li>Recommended courses</li>
+              <li>Show correct answers</li>
+              <li>DnD matching</li>
+              <li>DnD ranking</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- LMS -->
+        <div class="component-card">
+          <div class="component-header">
+            <div class="component-icon lms">🎯</div>
+            <div>
+              <div class="component-title">LMS (внешняя)</div>
+              <div class="component-tech">WebSoft HCM / Moodle / iSpring / СДО</div>
+            </div>
+          </div>
+          <div class="component-features">
+            <ul>
+              <li>Загрузка SCORM ZIP</li>
+              <li>Публикация курсов</li>
+              <li>Запуск в iframe</li>
+              <li>SCORM 2004 API</li>
+              <li>Initialize/Terminate</li>
+              <li>GetValue/SetValue</li>
+              <li>Commit данных</li>
+              <li>cmi.learner_id</li>
+              <li>cmi.learner_name</li>
+              <li>cmi.score.raw</li>
+              <li>cmi.completion_status</li>
+              <li>cmi.success_status</li>
+              <li>cmi.suspend_data</li>
+              <li>Отчёты LMS</li>
+              <li>Назначение курсов</li>
+              <li>Gradebook</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- File Storage -->
+        <div class="component-card">
+          <div class="component-header">
+            <div class="component-icon storage">📁</div>
+            <div>
+              <div class="component-title">File Storage</div>
+              <div class="component-tech">Local filesystem + Multer</div>
+            </div>
+          </div>
+          <div class="component-features">
+            <ul>
+              <li>/uploads/media/</li>
+              <li>Images (jpg, png, gif)</li>
+              <li>Audio (mp3, wav)</li>
+              <li>Video (mp4, webm)</li>
+              <li>До 200MB на файл</li>
+              <li>UUID имена файлов</li>
+              <li>Static serving</li>
+              <li>SCORM media assets</li>
+              <li>PDF backgrounds</li>
+              <li>Logo images</li>
+              <li>Excel temp files</li>
+              <li>SCORM ZIP генерация</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 3. QUESTION TYPES -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">❓</span>
+        Типы вопросов
+      </div>
+      <div class="question-types">
+        <div class="question-type">
+          <div class="question-type-icon">⭕</div>
+          <div class="question-type-name">Single Choice</div>
+          <div class="question-type-desc">Один правильный ответ из нескольких вариантов. Radio buttons.</div>
+        </div>
+        <div class="question-type">
+          <div class="question-type-icon">☑️</div>
+          <div class="question-type-name">Multiple Choice</div>
+          <div class="question-type-desc">Несколько правильных ответов. Checkboxes. Частичные баллы.</div>
+        </div>
+        <div class="question-type">
+          <div class="question-type-icon">🔗</div>
+          <div class="question-type-name">Matching</div>
+          <div class="question-type-desc">Соответствие левых и правых элементов. Drag & Drop.</div>
+        </div>
+        <div class="question-type">
+          <div class="question-type-icon">📊</div>
+          <div class="question-type-name">Ranking</div>
+          <div class="question-type-desc">Упорядочивание элементов. Drag & Drop сортировка.</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 4. TEST SETTINGS -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">⚙️</span>
+        Настройки теста
+      </div>
+      <div class="settings-grid">
+        <div class="settings-group">
+          <div class="settings-group-title">📝 Основные</div>
+          <div class="setting-item">
+            <span class="setting-name">Название</span>
+            <span class="setting-value">title: string</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Описание</span>
+            <span class="setting-value">description: string</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Режим</span>
+            <span class="setting-value">mode: standard | adaptive</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Порог прохождения</span>
+            <span class="setting-value">passRule: {type, value}</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Контент стартовой</span>
+            <span class="setting-value">startPageContent: HTML</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Feedback теста</span>
+            <span class="setting-value">feedback: string</span>
+          </div>
+        </div>
+        
+        <div class="settings-group">
+          <div class="settings-group-title">⏱️ Ограничения</div>
+          <div class="setting-item">
+            <span class="setting-name">Лимит времени</span>
+            <span class="setting-value">timeLimitMinutes: number</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Макс. попыток</span>
+            <span class="setting-value">maxAttempts: number</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Показ правильных</span>
+            <span class="setting-value">showCorrectAnswers: bool</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Показ сложности</span>
+            <span class="setting-value">showDifficultyLevel: bool</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Перемешивание</span>
+            <span class="setting-value">shuffleAnswers: bool</span>
+          </div>
+        </div>
+        
+        <div class="settings-group">
+          <div class="settings-group-title">🎯 Адаптивный режим</div>
+          <div class="setting-item">
+            <span class="setting-name">Уровни сложности</span>
+            <span class="setting-value">adaptiveLevels[]</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Min/Max difficulty</span>
+            <span class="setting-value">0-100 для каждого уровня</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Вопросов на уровень</span>
+            <span class="setting-value">questionsCount: number</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Порог перехода</span>
+            <span class="setting-value">passThreshold: % | abs</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Feedback уровня</span>
+            <span class="setting-value">levelFeedback: string</span>
+          </div>
+          <div class="setting-item">
+            <span class="setting-name">Ссылки материалов</span>
+            <span class="setting-value">levelLinks[]</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 5. PROCESSES (20 steps) -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">🔄</span>
+        Процессы системы (20 этапов)
+      </div>
+      <div class="process-grid">
+        <!-- Author processes -->
+        <div class="process-card author">
+          <div class="process-header">
+            <div class="process-number">1</div>
+            <div class="process-title">Создание контента</div>
+          </div>
+          <div class="process-desc">Автор создаёт темы, папки, вопросы (4 типа), настраивает feedback</div>
+          <div class="process-flow">Автор → Frontend → POST /api/topics, /questions → PostgreSQL</div>
+        </div>
+        
+        <div class="process-card author">
+          <div class="process-header">
+            <div class="process-number">2</div>
+            <div class="process-title">Конструирование теста</div>
+          </div>
+          <div class="process-desc">Создание теста, добавление секций с темами, настройка порогов</div>
+          <div class="process-flow">Автор → Frontend → POST /api/tests → PostgreSQL (tests, test_sections)</div>
+        </div>
+        
+        <div class="process-card author">
+          <div class="process-header">
+            <div class="process-number">3</div>
+            <div class="process-title">Настройка адаптивного режима</div>
+          </div>
+          <div class="process-desc">Конфигурация уровней сложности, порогов, feedback, ссылок на материалы</div>
+          <div class="process-flow">Автор → Frontend → POST /api/tests {mode: adaptive} → adaptive_levels</div>
+        </div>
+        
+        <div class="process-card author">
+          <div class="process-header">
+            <div class="process-number">4</div>
+            <div class="process-title">Загрузка медиа</div>
+          </div>
+          <div class="process-desc">Upload изображений, аудио, видео к вопросам (до 200MB)</div>
+          <div class="process-flow">Автор → Frontend → POST /api/media/upload → /uploads/media/</div>
+        </div>
+        
+        <div class="process-card author">
+          <div class="process-header">
+            <div class="process-number">5</div>
+            <div class="process-title">Импорт вопросов</div>
+          </div>
+          <div class="process-desc">Массовый импорт вопросов из Excel файла</div>
+          <div class="process-flow">Автор → Frontend → POST /api/questions/import (FormData) → PostgreSQL</div>
+        </div>
+        
+        <div class="process-card author">
+          <div class="process-header">
+            <div class="process-number">6</div>
+            <div class="process-title">Дублирование контента</div>
+          </div>
+          <div class="process-desc">Копирование тем со всеми вопросами, дублирование отдельных вопросов</div>
+          <div class="process-flow">Автор → POST /api/topics/:id/duplicate → новая тема + вопросы</div>
+        </div>
+        
+        <div class="process-card scorm">
+          <div class="process-header">
+            <div class="process-number">7</div>
+            <div class="process-title">Экспорт SCORM пакета</div>
+          </div>
+          <div class="process-desc">Генерация ZIP: manifest.xml, index.html, app.js, media, PDF assets</div>
+          <div class="process-flow">Автор → GET /api/tests/:id/export/scorm → SCORM.zip download</div>
+        </div>
+        
+        <div class="process-card scorm">
+          <div class="process-header">
+            <div class="process-number">8</div>
+            <div class="process-title">Загрузка в LMS</div>
+          </div>
+          <div class="process-desc">Автор загружает SCORM пакет в LMS, публикует курс</div>
+          <div class="process-flow">Автор → LMS Admin → Upload SCORM.zip → Publish course</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">9</div>
+            <div class="process-title">Запуск теста в LMS</div>
+          </div>
+          <div class="process-desc">Learner открывает курс, LMS загружает SCORM в iframe</div>
+          <div class="process-flow">Learner → LMS → iframe load → SCORM index.html</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">10</div>
+            <div class="process-title">SCORM API Initialize</div>
+          </div>
+          <div class="process-desc">SCORM подключается к LMS API, получает данные пользователя</div>
+          <div class="process-flow">SCORM → API_1484_11.Initialize() → GetValue(learner_id, learner_name)</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">11</div>
+            <div class="process-title">Телеметрия Start</div>
+          </div>
+          <div class="process-desc">SCORM отправляет начало сессии на сервер с HMAC подписью</div>
+          <div class="process-flow">SCORM → POST /api/scorm-telemetry/start {HMAC} → scorm_attempts</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">12</div>
+            <div class="process-title">Прохождение теста</div>
+          </div>
+          <div class="process-desc">Learner отвечает на вопросы, таймер, показ feedback</div>
+          <div class="process-flow">Learner → SCORM UI → timer.js, feedback.js, answers.js</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">13</div>
+            <div class="process-title">Телеметрия Answer</div>
+          </div>
+          <div class="process-desc">Каждый ответ отправляется на сервер для аналитики</div>
+          <div class="process-flow">SCORM → POST /api/scorm-telemetry/answer → scorm_answers</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">14</div>
+            <div class="process-title">Завершение теста</div>
+          </div>
+          <div class="process-desc">Финиш попытки, расчёт результатов, сохранение в suspend_data</div>
+          <div class="process-flow">SCORM → calculateResults() → saveAttemptResult() → suspend_data</div>
+        </div>
+        
+        <div class="process-card scorm">
+          <div class="process-header">
+            <div class="process-number">15</div>
+            <div class="process-title">Показ результатов и feedback</div>
+          </div>
+          <div class="process-desc">Экран результатов: %, баллы, статус, feedback по темам, рекомендации</div>
+          <div class="process-flow">SCORM → resultsPage.js → topicResults, topicFeedback, recommendedCourses</div>
+        </div>
+        
+        <div class="process-card scorm">
+          <div class="process-header">
+            <div class="process-number">16</div>
+            <div class="process-title">PDF экспорт результатов</div>
+          </div>
+          <div class="process-desc">Генерация PDF с результатами, кликабельными ссылками на курсы</div>
+          <div class="process-flow">Learner → pdfExport.js → html2canvas → jsPDF → download</div>
+        </div>
+        
+        <div class="process-card learner">
+          <div class="process-header">
+            <div class="process-number">17</div>
+            <div class="process-title">SCORM Commit & Terminate</div>
+          </div>
+          <div class="process-desc">Отправка результатов в LMS, закрытие сессии</div>
+          <div class="process-flow">SCORM → SetValue(score, status) → Commit() → Terminate()</div>
+        </div>
+        
+        <div class="process-card analytics">
+          <div class="process-header">
+            <div class="process-number">18</div>
+            <div class="process-title">Просмотр аналитики</div>
+          </div>
+          <div class="process-desc">Дашборд с общей статистикой, детальная аналитика по тестам</div>
+          <div class="process-flow">Админ → GET /api/analytics, /analytics/tests/:id → charts, tables</div>
+        </div>
+        
+        <div class="process-card analytics">
+          <div class="process-header">
+            <div class="process-number">19</div>
+            <div class="process-title">Экспорт отчётов Excel</div>
+          </div>
+          <div class="process-desc">Выгрузка попыток, ответов, статистики с фильтрами</div>
+          <div class="process-flow">Админ → POST /api/export/excel {filters} → XLSX download</div>
+        </div>
+        
+        <div class="process-card system">
+          <div class="process-header">
+            <div class="process-number">20</div>
+            <div class="process-title">Встроенный Learner режим</div>
+          </div>
+          <div class="process-desc">Прохождение тестов без LMS прямо в приложении</div>
+          <div class="process-flow">Learner → Frontend → /api/tests/:id/attempts/start, /finish → attempts</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 6. SCORM MODULES -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">📦</span>
+        Модули SCORM пакета
+      </div>
+      <div class="scorm-modules">
+        <div class="scorm-module">
+          <div class="scorm-module-title">🚀 Bootstrap</div>
+          <div class="scorm-module-file">main.js, testData.js</div>
+          <div class="scorm-module-desc">Инициализация SCORM API, загрузка данных теста, beforeunload handler</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">📊 State</div>
+          <div class="scorm-module-file">state.js</div>
+          <div class="scorm-module-desc">Глобальное состояние: phase, answers, timer, shuffleMappings</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">🎨 Render</div>
+          <div class="scorm-module-file">mainRender.js, startPage.js, resultsPage.js</div>
+          <div class="scorm-module-desc">Отрисовка UI: стартовая страница, вопросы, результаты</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">❓ Questions</div>
+          <div class="scorm-module-file">single.js, multiple.js, matching.js, ranking.js</div>
+          <div class="scorm-module-desc">Рендеринг 4 типов вопросов, обработка ответов</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">✋ DnD</div>
+          <div class="scorm-module-file">matching.js, ranking.js (dnd/)</div>
+          <div class="scorm-module-desc">Drag & Drop для matching и ranking вопросов</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">⏱️ Timer</div>
+          <div class="scorm-module-file">timer.js</div>
+          <div class="scorm-module-desc">Обратный отсчёт, автозавершение при истечении</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">💬 Feedback</div>
+          <div class="scorm-module-file">feedback.js</div>
+          <div class="scorm-module-desc">Показ feedback после ответа, general/conditional режимы</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">📡 Telemetry</div>
+          <div class="scorm-module-file">telemetry.js</div>
+          <div class="scorm-module-desc">Отправка данных на сервер с HMAC-SHA256 подписью</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">💾 Suspend</div>
+          <div class="scorm-module-file">suspendAttempts.js</div>
+          <div class="scorm-module-desc">Сохранение попыток в cmi.suspend_data, getBestAttempt()</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">🎯 Adaptive</div>
+          <div class="scorm-module-file">adaptive.js, adaptiveRender.js</div>
+          <div class="scorm-module-desc">Логика адаптивного тестирования, выбор вопросов по difficulty</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">📄 PDF Export</div>
+          <div class="scorm-module-file">pdfExport.js</div>
+          <div class="scorm-module-desc">Генерация PDF: html2canvas + jsPDF, кликабельные ссылки</div>
+        </div>
+        <div class="scorm-module">
+          <div class="scorm-module-title">🔧 Utils</div>
+          <div class="scorm-module-file">escapeHtml.js, shuffle.js</div>
+          <div class="scorm-module-desc">Утилиты: экранирование HTML, перемешивание массивов</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 7. DATABASE -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">🗄️</span>
+        База данных (14 таблиц)
+      </div>
+      <div class="tables-grid">
+        <div class="table-card">
+          <div class="table-name">users</div>
+          <div class="table-desc">Пользователи системы</div>
+          <div class="table-fields">id, username, password, role (author|learner)</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">folders</div>
+          <div class="table-desc">Папки для организации</div>
+          <div class="table-fields">id, name, parentId</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">topics</div>
+          <div class="table-desc">Темы с вопросами</div>
+          <div class="table-fields">id, name, description, feedback, folderId</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">topic_courses</div>
+          <div class="table-desc">Рекомендуемые курсы</div>
+          <div class="table-fields">id, topicId, title, url</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">questions</div>
+          <div class="table-desc">Вопросы (4 типа)</div>
+          <div class="table-fields">id, topicId, type, prompt, dataJson, correctJson, points, difficulty, mediaUrl, feedback...</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">tests</div>
+          <div class="table-desc">Тесты</div>
+          <div class="table-fields">id, title, mode, passRule, timeLimitMinutes, maxAttempts, showCorrectAnswers...</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">test_sections</div>
+          <div class="table-desc">Секции теста</div>
+          <div class="table-fields">id, testId, topicId, drawCount, topicPassRuleJson</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">adaptive_topic_settings</div>
+          <div class="table-desc">Настройки тем adaptive</div>
+          <div class="table-fields">id, testId, topicId, failureFeedback</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">adaptive_levels</div>
+          <div class="table-desc">Уровни сложности</div>
+          <div class="table-fields">id, testId, topicId, levelIndex, levelName, minDifficulty, maxDifficulty, questionsCount, passThreshold...</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">adaptive_level_links</div>
+          <div class="table-desc">Ссылки по уровням</div>
+          <div class="table-fields">id, levelId, title, url</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">attempts</div>
+          <div class="table-desc">Попытки (встроенные)</div>
+          <div class="table-fields">id, userId, testId, variantJson, answersJson, resultJson, startedAt, finishedAt</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">scorm_packages</div>
+          <div class="table-desc">SCORM пакеты</div>
+          <div class="table-fields">id, testId, testTitle, secretKey, apiBaseUrl, exportedAt, createdBy, isActive</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">scorm_attempts</div>
+          <div class="table-desc">Попытки из телеметрии</div>
+          <div class="table-fields">id, packageId, sessionId, attemptNumber, lmsUserId, lmsUserName, resultPercent, resultPassed...</div>
+        </div>
+        <div class="table-card">
+          <div class="table-name">scorm_answers</div>
+          <div class="table-desc">Ответы из телеметрии</div>
+          <div class="table-fields">id, attemptId, questionId, questionPrompt, userAnswerJson, correctAnswerJson, isCorrect, points...</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 8. API ENDPOINTS -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">🔌</span>
+        API Endpoints (60+)
+      </div>
+      <div class="api-grid">
+        <div class="api-group">
+          <div class="api-group-title">🔐 Авторизация</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/auth/login</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/auth/logout</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/auth/me</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📁 Папки</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/folders</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/folders</div>
+          <div class="api-endpoint"><span class="api-method put">PUT</span>/api/folders/:id</div>
+          <div class="api-endpoint"><span class="api-method del">DEL</span>/api/folders/:id</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📚 Темы</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/topics</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/topics</div>
+          <div class="api-endpoint"><span class="api-method put">PUT</span>/api/topics/:id</div>
+          <div class="api-endpoint"><span class="api-method del">DEL</span>/api/topics/:id</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/topics/bulk-delete</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/topics/:id/duplicate</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/topics/:topicId/courses</div>
+          <div class="api-endpoint"><span class="api-method del">DEL</span>/api/courses/:id</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">❓ Вопросы</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/questions</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/questions</div>
+          <div class="api-endpoint"><span class="api-method put">PUT</span>/api/questions/:id</div>
+          <div class="api-endpoint"><span class="api-method del">DEL</span>/api/questions/:id</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/questions/bulk-delete</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/questions/:id/duplicate</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/questions/import</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/questions/export</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/topics/:topicId/difficulty-distribution</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📝 Тесты</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/tests</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/tests</div>
+          <div class="api-endpoint"><span class="api-method put">PUT</span>/api/tests/:id</div>
+          <div class="api-endpoint"><span class="api-method del">DEL</span>/api/tests/:id</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/tests/:id/adaptive-settings</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/tests/:id/export/scorm</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">🖼️ Медиа</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/media/upload</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/uploads/media/:filename</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📡 SCORM Телеметрия</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/scorm-telemetry/start</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/scorm-telemetry/answer</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/scorm-telemetry/finish</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📦 SCORM Пакеты</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/scorm-packages</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/scorm-packages/:id</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/scorm-packages/:id/regenerate-key</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/scorm-packages/:id/deactivate</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/scorm-packages/:id/activate</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📊 Аналитика</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/tests/:testId</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/combined</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/combined-full</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/scorm-attempts</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/scorm-attempts/:attemptId</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/tests/:testId/attempts</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/attempts/:attemptId</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">📥 Экспорт</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/export/filters</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/export/excel</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/export/excel-lms</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/analytics/tests/:testId/export/excel</div>
+        </div>
+        
+        <div class="api-group">
+          <div class="api-group-title">🎓 Learner</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/learner/tests</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/tests/:testId/attempts/start</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/tests/:testId/attempts/start-adaptive</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/attempts/:attemptId/answer-adaptive</div>
+          <div class="api-endpoint"><span class="api-method post">POST</span>/api/attempts/:attemptId/finish</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/attempts/:attemptId/result</div>
+          <div class="api-endpoint"><span class="api-method get">GET</span>/api/learner/attempts</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 9. DATA FLOWS -->
+    <div class="section">
+      <div class="section-title">
+        <span class="section-title-icon">📡</span>
+        Потоки данных
+      </div>
+      <div class="flow-list">
+        <div class="flow-item">
+          <div class="flow-num">1</div>
+          <div class="flow-from">Автор</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">Frontend</div>
+          <div class="flow-desc">Создание контента через UI</div>
+          <div class="flow-protocol">HTTPS</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">2</div>
+          <div class="flow-from">Frontend</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">Backend</div>
+          <div class="flow-desc">REST API запросы</div>
+          <div class="flow-protocol">JSON</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">3</div>
+          <div class="flow-from">Backend</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">PostgreSQL</div>
+          <div class="flow-desc">Drizzle ORM queries</div>
+          <div class="flow-protocol">SQL</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">4</div>
+          <div class="flow-from">Backend</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">SCORM ZIP</div>
+          <div class="flow-desc">Генерация пакета</div>
+          <div class="flow-protocol">Binary</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">5</div>
+          <div class="flow-from">Автор</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">LMS</div>
+          <div class="flow-desc">Upload SCORM пакета</div>
+          <div class="flow-protocol">Upload</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">6</div>
+          <div class="flow-from">Learner</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">LMS</div>
+          <div class="flow-desc">Запуск курса</div>
+          <div class="flow-protocol">HTTPS</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">7</div>
+          <div class="flow-from">LMS</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">SCORM</div>
+          <div class="flow-desc">Загрузка в iframe</div>
+          <div class="flow-protocol">iframe</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">8</div>
+          <div class="flow-from">SCORM</div>
+          <div class="flow-arrow">↔</div>
+          <div class="flow-to">LMS API</div>
+          <div class="flow-desc">SCORM 2004 API calls</div>
+          <div class="flow-protocol">JS API</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">9</div>
+          <div class="flow-from">SCORM</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">Backend</div>
+          <div class="flow-desc">Телеметрия с HMAC</div>
+          <div class="flow-protocol">HMAC</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">10</div>
+          <div class="flow-from">SCORM</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">Learner</div>
+          <div class="flow-desc">Результаты, feedback, PDF</div>
+          <div class="flow-protocol">UI</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">11</div>
+          <div class="flow-from">Админ</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">Frontend</div>
+          <div class="flow-desc">Просмотр аналитики</div>
+          <div class="flow-protocol">HTTPS</div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-num">12</div>
+          <div class="flow-from">Backend</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-to">Админ</div>
+          <div class="flow-desc">Excel отчёты</div>
+          <div class="flow-protocol">XLSX</div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="footer">
+    <p>SCORM Test Constructor — Полная архитектура v2.0</p>
+    <p style="margin-top: 5px;">Документ сгенерирован: <script>document.write(new Date().toLocaleString('ru-RU'));</script></p>
+  </div>
+</body>
+</html>

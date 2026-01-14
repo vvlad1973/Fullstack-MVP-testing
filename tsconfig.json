@@ -18,6 +18,8 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
-    }
+    },
+    "target": "ES2015",
+    "downlevelIteration": true
   }
 }

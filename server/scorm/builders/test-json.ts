@@ -13,6 +13,13 @@ interface ExportData {
   test: Test;
   sections: (TestSection & { topic: Topic; questions: Question[]; courses: TopicCourse[] })[];
   adaptiveSettings?: AdaptiveSettingsExport | null;
+  // Telemetry config
+  telemetry?: {
+    enabled: boolean;
+    packageId: string;
+    secretKey: string;
+    apiBaseUrl: string;
+  } | null;
 }
 
 export function buildTestJson(data: ExportData): string {
@@ -120,6 +127,15 @@ export function buildTestJson(data: ExportData): string {
         })),
       };
     });
+  }
+  // Add telemetry config if present
+  if (data.telemetry && data.telemetry.enabled) {
+    test.telemetry = {
+      enabled: true,
+      packageId: data.telemetry.packageId,
+      secretKey: data.telemetry.secretKey,
+      apiBaseUrl: data.telemetry.apiBaseUrl,
+    };
   }
 
   return JSON.stringify(test, null, 2);

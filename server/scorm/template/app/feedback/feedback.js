@@ -9,6 +9,43 @@ function confirmAnswer() {
   var scoreRatio = checkAnswer(q, answer);
   var isCorrect = scoreRatio === 1;
   
+  // Подготавливаем данные о вариантах ответов
+  var answerOptions = null;
+  var leftItems = null;
+  var rightItems = null;
+  var rankingItems = null;
+  
+  if (q.type === 'single' || q.type === 'multiple') {
+    answerOptions = q.data && q.data.options ? q.data.options : null;
+  } else if (q.type === 'matching') {
+    leftItems = q.data && q.data.left ? q.data.left : null;
+    rightItems = q.data && q.data.right ? q.data.right : null;
+  } else if (q.type === 'ranking') {
+    rankingItems = q.data && q.data.items ? q.data.items : null;
+  }
+  
+  // Send answer to telemetry
+  Telemetry.answer({
+    questionId: q.id,
+    questionPrompt: q.prompt,
+    questionType: q.type,
+    topicId: fq.topicId,
+    topicName: fq.topicName,
+    difficulty: q.difficulty || 50,
+    userAnswer: answer,
+    correctAnswer: q.correct,
+    isCorrect: isCorrect,
+    points: isCorrect ? (q.points || 1) : (scoreRatio * (q.points || 1)),
+    maxPoints: q.points || 1,
+    levelIndex: null,
+    levelName: null,
+    // Добавляем варианты ответов для отображения в аналитике
+    options: answerOptions,
+    leftItems: leftItems,
+    rightItems: rightItems,
+    items: rankingItems
+  });
+  
   // Блокируем варианты ответов (добавляем disabled и меняем курсор)
   lockAnswerOptions(q);
   

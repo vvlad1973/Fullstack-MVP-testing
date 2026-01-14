@@ -103,6 +103,14 @@ function renderViewResults() {
       html += '<div class="topic-required">Требуется: ' + section.topicPassRule.value + '%</div>';
     }
 
+    // Обратная связь по теме
+    if (tr.topicFeedback && tr.topicFeedback.trim()) {
+      html += '<div class="topic-feedback">';
+      html += '<div class="topic-feedback-icon">💬</div>';
+      html += '<div class="topic-feedback-text">' + escapeHtml(tr.topicFeedback) + '</div>';
+      html += '</div>';
+    }
+
     html += '</div>';
   });
 

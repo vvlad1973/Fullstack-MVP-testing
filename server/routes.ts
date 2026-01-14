@@ -11,6 +11,7 @@ import { storage } from "./storage";
 import { generateScormPackage } from "./scorm-exporter";
 import type { TestVariant, AttemptResult, TopicResult, PassRule, Question } from "@shared/schema";
 
+
 const upload = multer({ storage: multer.memoryStorage() });
 const mediaDir = path.resolve(process.cwd(), "uploads", "media");
 fs.mkdirSync(mediaDir, { recursive: true });
@@ -96,6 +97,17 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // CORS для телеметрии SCORM (временно для тестирования)
+  app.use("/api/scorm-telemetry", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   app.use(
     session({
       store: new MemStore({ checkPeriod: 86400000 }),
@@ -249,8 +261,8 @@ export async function registerRoutes(
 
   app.put("/api/topics/:id", requireAuthor, async (req, res) => {
     try {
-      const { name, description, folderId } = req.body;
-      const topic = await storage.updateTopic(req.params.id, { name, description, folderId });
+      const { name, description, feedback, folderId } = req.body;
+      const topic = await storage.updateTopic(req.params.id, { name, description, feedback, folderId });
       if (!topic) {
         return res.status(404).json({ error: "Topic not found" });
       }
@@ -957,66 +969,101 @@ export async function registerRoutes(
     }
   });
 
-  // SCORM export
+
+  // Export SCORM with optional telemetry
+  // GET /api/tests/:id/export/scorm?telemetry=true
   app.get("/api/tests/:id/export/scorm", requireAuthor, async (req, res) => {
-  try {
-    const test = await storage.getTest(req.params.id);
-    if (!test) {
-      return res.status(404).json({ error: "Test not found" });
-    }
+    try {
+      const test = await storage.getTest(req.params.id);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
 
-    const sections = await storage.getTestSections(test.id);
-    const exportSections = await Promise.all(
-      sections.map(async (s) => {
-        const topic = await storage.getTopic(s.topicId);
-        const questions = await storage.getQuestionsByTopic(s.topicId);
-        const courses = await storage.getTopicCourses(s.topicId);
-        return {
-          ...s,
-          topic: topic!,
-          questions,
-          courses,
-        };
-      })
-    );
-
-    // Load adaptive settings if test is adaptive
-    let adaptiveSettings = null;
-    if (test.mode === "adaptive") {
-      const topicSettings = await storage.getAdaptiveTopicSettingsByTest(test.id);
-      const levels = await storage.getAdaptiveLevelsByTest(test.id);
-      
-      // Load links for each level
-      const levelsWithLinks = await Promise.all(
-        levels.map(async (level) => {
-          const links = await storage.getAdaptiveLevelLinks(level.id);
-          return { ...level, links };
+      const sections = await storage.getTestSections(test.id);
+      const exportSections = await Promise.all(
+        sections.map(async (s) => {
+          const topic = await storage.getTopic(s.topicId);
+          const questions = await storage.getQuestionsByTopic(s.topicId);
+          const courses = await storage.getTopicCourses(s.topicId);
+          return {
+            ...s,
+            topic: topic!,
+            questions,
+            courses,
+          };
         })
       );
 
-      adaptiveSettings = {
-        topicSettings,
-        levels: levelsWithLinks,
-      };
+      // Load adaptive settings if test is adaptive
+      let adaptiveSettings = null;
+      if (test.mode === "adaptive") {
+        const topicSettings = await storage.getAdaptiveTopicSettingsByTest(test.id);
+        const levels = await storage.getAdaptiveLevelsByTest(test.id);
+        
+        // Load links for each level
+        const levelsWithLinks = await Promise.all(
+          levels.map(async (level) => {
+            const links = await storage.getAdaptiveLevelLinks(level.id);
+            return { ...level, links };
+          })
+        );
+
+        adaptiveSettings = {
+          topicSettings,
+          levels: levelsWithLinks,
+        };
+      }
+
+      // Telemetry configuration
+      let telemetryConfig = null;
+      const enableTelemetry = req.query.telemetry === "true";
+      
+      if (enableTelemetry) {
+        const packageId = crypto.randomUUID();
+        const secretKey = crypto.randomBytes(32).toString("hex");
+        const apiBaseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5001}`;
+        
+        // Create scorm_package record
+        await storage.createScormPackage({
+          id: packageId,
+          testId: test.id,
+          testTitle: test.title,
+          testMode: test.mode || "standard",
+          secretKey: secretKey,
+          apiBaseUrl: apiBaseUrl,
+          exportedAt: new Date(),
+          createdBy: req.session.userId!,
+          isActive: true,
+        });
+        
+        telemetryConfig = {
+          enabled: true,
+          packageId: packageId,
+          secretKey: secretKey,
+          apiBaseUrl: apiBaseUrl,
+        };
+        
+        console.log(`[SCORM] Created telemetry package: ${packageId} for test: ${test.id}`);
+      }
+
+      const buffer = await generateScormPackage({ 
+        test, 
+        sections: exportSections,
+        adaptiveSettings,
+        telemetry: telemetryConfig,
+      });
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="test_${test.id}_scorm.zip"`
+      );
+      res.send(buffer);
+    } catch (error) {
+      console.error("SCORM export error:", error);
+      res.status(500).json({ error: "Failed to export SCORM package" });
     }
-
-    const buffer = await generateScormPackage({ 
-      test, 
-      sections: exportSections,
-      adaptiveSettings,
-    });
-
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="test_${test.id}_scorm.zip"`
-    );
-    res.send(buffer);
-  } catch (error) {
-    console.error("SCORM export error:", error);
-    res.status(500).json({ error: "Failed to export SCORM package" });
-  }
-});
+  });
 
   // Learner tests - Learner only
   app.get("/api/learner/tests", requireLearner, async (req, res) => {
@@ -2374,6 +2421,283 @@ app.get("/api/analytics/tests/:testId", requireAuthor, async (req: Request, res:
   }
 });
 
+// GET /api/analytics/scorm-attempts - Все SCORM попытки для аналитики
+app.get("/api/analytics/scorm-attempts", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const attempts = await storage.getAllScormAttempts();
+    const packages = await storage.getScormPackages();
+    
+    // Создаем map пакетов для быстрого доступа
+    const packageMap = new Map(packages.map(p => [p.id, p]));
+    
+    // Обогащаем попытки данными пакета
+    const enrichedAttempts = await Promise.all(attempts.map(async (attempt) => {
+      const pkg = packageMap.get(attempt.packageId);
+      const answers = await storage.getScormAnswersByAttempt(attempt.id);
+      
+      return {
+        id: attempt.id,
+        packageId: attempt.packageId,
+        sessionId: attempt.sessionId,
+        
+        // Данные теста из пакета
+        testId: pkg?.testId || null,
+        testTitle: pkg?.testTitle || "Удалённый тест",
+        testMode: pkg?.testMode || "standard",
+        
+        // Данные пользователя LMS
+        lmsUserId: attempt.lmsUserId,
+        lmsUserName: attempt.lmsUserName,
+        lmsUserEmail: attempt.lmsUserEmail,
+        lmsUserOrg: attempt.lmsUserOrg,
+        
+        // Временные метки
+        startedAt: attempt.startedAt,
+        finishedAt: attempt.finishedAt,
+        
+        // Результаты
+        resultPercent: attempt.resultPercent,
+        resultPassed: attempt.resultPassed,
+        totalPoints: attempt.totalPoints,
+        maxPoints: attempt.maxPoints,
+        totalQuestions: attempt.totalQuestions,
+        correctAnswers: attempt.correctAnswers,
+        
+        // Для адаптивных
+        achievedLevels: attempt.achievedLevelsJson,
+        
+        // Количество ответов
+        answersCount: answers.length,
+        
+        // Источник
+        source: "lms" as const,
+      };
+    }));
+    
+    res.json(enrichedAttempts);
+  } catch (error) {
+    console.error("Get SCORM attempts error:", error);
+    res.status(500).json({ error: "Failed to get SCORM attempts" });
+  }
+});
+
+// GET /api/analytics/scorm-attempts/:attemptId - Детали SCORM попытки
+app.get("/api/analytics/scorm-attempts/:attemptId", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const attempt = await storage.getScormAttempt(req.params.attemptId);
+    if (!attempt) {
+      return res.status(404).json({ error: "Attempt not found" });
+    }
+    
+    const pkg = await storage.getScormPackage(attempt.packageId);
+    const answers = await storage.getScormAnswersByAttempt(attempt.id);
+    
+    // Вычисляем duration
+    const duration = attempt.startedAt && attempt.finishedAt
+      ? (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000
+      : null;
+    
+    // Группируем ответы по темам для topicResults
+    const topicResultsMap = new Map<string, {
+      topicId: string;
+      topicName: string;
+      earnedPoints: number;
+      possiblePoints: number;
+      correct: number;
+      total: number;
+    }>();
+    
+    const detailedAnswers = answers.map(a => {
+      // Собираем статистику по темам
+      if (a.topicId) {
+        const existing = topicResultsMap.get(a.topicId) || {
+          topicId: a.topicId,
+          topicName: a.topicName || "Unknown",
+          earnedPoints: 0,
+          possiblePoints: 0,
+          correct: 0,
+          total: 0,
+        };
+        existing.total++;
+        existing.possiblePoints += a.maxPoints || 1;
+        if (a.isCorrect) {
+          existing.correct++;
+          existing.earnedPoints += a.points || 0;
+        }
+        topicResultsMap.set(a.topicId, existing);
+      }
+      
+      return {
+        questionId: a.questionId,
+        questionPrompt: a.questionPrompt,
+        questionType: a.questionType,
+        topicId: a.topicId,
+        topicName: a.topicName,
+        difficulty: a.difficulty,
+        userAnswer: a.userAnswerJson,
+        correctAnswer: a.correctAnswerJson,
+        isCorrect: a.isCorrect,
+        earnedPoints: a.points,
+        possiblePoints: a.maxPoints,
+        // Варианты ответов для отображения
+        options: a.optionsJson,
+        leftItems: a.leftItemsJson,
+        rightItems: a.rightItemsJson,
+        items: a.itemsJson,
+        levelIndex: a.levelIndex,
+        levelName: a.levelName,
+        answeredAt: a.answeredAt,
+      };
+    });
+    
+    const topicResults = Array.from(topicResultsMap.values()).map(tr => ({
+      topicId: tr.topicId,
+      topicName: tr.topicName,
+      percent: tr.possiblePoints > 0 ? (tr.earnedPoints / tr.possiblePoints) * 100 : 0,
+      passed: null, // LMS не знает о pass rules
+      earnedPoints: tr.earnedPoints,
+      possiblePoints: tr.possiblePoints,
+    }));
+    
+    // Парсим achievedLevels если есть
+    let achievedLevels = null;
+    if (attempt.achievedLevelsJson) {
+      try {
+        achievedLevels = typeof attempt.achievedLevelsJson === 'string'
+          ? JSON.parse(attempt.achievedLevelsJson as string)
+          : attempt.achievedLevelsJson;
+      } catch (e) {
+        achievedLevels = null;
+      }
+    }
+    
+    res.json({
+      attemptId: attempt.id,
+      lmsUserId: attempt.lmsUserId,
+      lmsUserName: attempt.lmsUserName,
+      lmsUserEmail: attempt.lmsUserEmail,
+      testId: pkg?.testId || null,
+      testTitle: pkg?.testTitle || "Удалённый тест",
+      testMode: pkg?.testMode || "standard",
+      startedAt: attempt.startedAt?.toISOString() || null,
+      finishedAt: attempt.finishedAt?.toISOString() || null,
+      duration,
+      overallPercent: attempt.resultPercent || 0,
+      earnedPoints: attempt.totalPoints || 0,
+      possiblePoints: attempt.maxPoints || 0,
+      passed: attempt.resultPassed || false,
+      answers: detailedAnswers,
+      topicResults,
+      achievedLevels,
+      source: "lms",
+    });
+  } catch (error) {
+    console.error("Get SCORM attempt details error:", error);
+    res.status(500).json({ error: "Failed to get attempt details" });
+  }
+});
+
+// GET /api/analytics/combined - Комбинированная аналитика (Web + LMS)
+app.get("/api/analytics/combined", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const source = req.query.source as string || "all"; // "all" | "web" | "lms"
+    const testId = req.query.testId as string || null;
+    
+    let webAttempts: any[] = [];
+    let lmsAttempts: any[] = [];
+    
+    // Web attempts
+    if (source === "all" || source === "web") {
+      const attempts = await storage.getAllAttempts();
+      const users = await Promise.all(
+        [...new Set(attempts.map(a => a.userId))].map(id => storage.getUser(id))
+      );
+      const userMap = new Map(users.filter(Boolean).map(u => [u!.id, u!]));
+      
+      webAttempts = attempts
+        .filter(a => !testId || a.testId === testId)
+        .filter(a => a.finishedAt) // Только завершённые
+        .map(a => {
+          const user = userMap.get(a.userId);
+          const result = a.resultJson as any;
+          return {
+            id: a.id,
+            testId: a.testId,
+            userId: a.userId,
+            username: user?.username || "Unknown",
+            startedAt: a.startedAt,
+            finishedAt: a.finishedAt,
+            resultPercent: result?.overallPercent || 0,
+            resultPassed: result?.passed || false,
+            totalPoints: result?.earnedPoints || 0,
+            maxPoints: result?.possiblePoints || 0,
+            source: "web" as const,
+          };
+        });
+    }
+    
+    // LMS attempts
+    if (source === "all" || source === "lms") {
+      const attempts = await storage.getAllScormAttempts();
+      const packages = await storage.getScormPackages();
+      const packageMap = new Map(packages.map(p => [p.id, p]));
+      
+      lmsAttempts = attempts
+        .filter(a => {
+          if (!testId) return true;
+          const pkg = packageMap.get(a.packageId);
+          return pkg?.testId === testId;
+        })
+        .filter(a => a.finishedAt) // Только завершённые
+        .map(a => {
+          const pkg = packageMap.get(a.packageId);
+          return {
+            id: a.id,
+            testId: pkg?.testId || null,
+            testTitle: pkg?.testTitle || "Удалённый тест",
+            lmsUserId: a.lmsUserId,
+            lmsUserName: a.lmsUserName,
+            lmsUserEmail: a.lmsUserEmail,
+            startedAt: a.startedAt,
+            finishedAt: a.finishedAt,
+            resultPercent: a.resultPercent || 0,
+            resultPassed: a.resultPassed || false,
+            totalPoints: a.totalPoints || 0,
+            maxPoints: a.maxPoints || 0,
+            source: "lms" as const,
+          };
+        });
+    }
+    
+    // Combine and sort by date
+    const combined = [...webAttempts, ...lmsAttempts].sort((a, b) => 
+      new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    );
+    
+    // Summary
+    const totalAttempts = combined.length;
+    const passedAttempts = combined.filter(a => a.resultPassed).length;
+    const avgPercent = totalAttempts > 0 
+      ? combined.reduce((sum, a) => sum + (a.resultPercent || 0), 0) / totalAttempts 
+      : 0;
+    
+    res.json({
+      summary: {
+        totalAttempts,
+        passedAttempts,
+        passRate: totalAttempts > 0 ? (passedAttempts / totalAttempts) * 100 : 0,
+        avgPercent,
+        webAttempts: webAttempts.length,
+        lmsAttempts: lmsAttempts.length,
+      },
+      attempts: combined,
+    });
+  } catch (error) {
+    console.error("Get combined analytics error:", error);
+    res.status(500).json({ error: "Failed to get combined analytics" });
+  }
+});
+
 // Список попыток по тесту
 app.get("/api/analytics/tests/:testId/attempts", requireAuthor, async (req: Request, res: Response) => {
   try {
@@ -3103,11 +3427,6 @@ function formatUserAnswerText(type: string, dataJson: any, userAnswer: unknown):
   return String(userAnswer);
 }
 
-// ============================================
-// ИСПРАВЛЕНИЕ: Эндпоинт фильтров экспорта
-// ЗАМЕНИ старый app.get("/api/export/filters"...) на этот
-// ============================================
-
 // Получить данные для фильтров экспорта (тесты и пользователи)
 app.get("/api/export/filters", requireAuthor, async (req: Request, res: Response) => {
   try {
@@ -3132,9 +3451,20 @@ app.get("/api/export/filters", requireAuthor, async (req: Request, res: Response
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
     
+    // SCORM пакеты
+    const scormPackages = await storage.getScormPackages();
+    const scormOptions = scormPackages.map(p => ({
+      id: p.id,
+      testId: p.testId,
+      testTitle: p.testTitle,
+      exportedAt: p.exportedAt,
+      isActive: p.isActive,
+    }));
+    
     res.json({
       tests: testOptions,
       users: userOptions,
+      scormPackages: scormOptions,
     });
   } catch (error) {
     console.error("Export filters error:", error);
@@ -3416,6 +3746,982 @@ app.post("/api/export/excel", requireAuthor, async (req: Request, res: Response)
   } catch (e) {
     console.error("POST /api/export/excel error:", e);
     res.status(500).json({ error: "Failed to export Excel" });
+  }
+});
+
+// ============================================
+// POST /api/export/excel-lms - Экспорт LMS данных в Excel
+// ДОБАВЬ в routes.ts ПОСЛЕ строки 3674 (после закрывающей скобки /api/export/excel)
+// ============================================
+
+app.post("/api/export/excel-lms", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const config = req.body as any;
+
+    const testIds: string[] = Array.isArray(config?.testIds) ? config.testIds : [];
+    const dateFrom: string = config?.dateFrom || "";
+    const dateTo: string = config?.dateTo || "";
+    const bestAttemptOnly: boolean = !!config?.bestAttemptOnly;
+    const includeSheets = config?.includeSheets || {
+      summary: true, attempts: true, answers: true, questionStats: true, levelStats: true,
+    };
+
+    if (!testIds.length) {
+      return res.status(400).json({ error: "testIds is required" });
+    }
+
+    // Загружаем данные
+    const tests = await storage.getTests();
+    const selectedTests = tests.filter(t => testIds.includes(t.id));
+    const testTitleMap = new Map(selectedTests.map(t => [t.id, t.title]));
+    const testModeMap = new Map(selectedTests.map(t => [t.id, t.mode || "standard"]));
+
+    const topics = await storage.getTopics();
+    const topicMap = new Map(topics.map(t => [t.id, t.name]));
+
+    // Загружаем SCORM пакеты и попытки
+    const packages = await storage.getScormPackages();
+    const packageMap = new Map(packages.map(p => [p.id, p]));
+    
+    // Фильтруем пакеты по выбранным тестам
+    const relevantPackages = packages.filter(p => testIds.includes(p.testId));
+    const relevantPackageIds = new Set(relevantPackages.map(p => p.id));
+
+    const allAttempts = await storage.getAllScormAttempts();
+    
+    // Фильтруем попытки
+    let attempts = allAttempts.filter(a => relevantPackageIds.has(a.packageId));
+
+    // Фильтр по датам
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
+
+    if (from || to) {
+      attempts = attempts.filter(a => {
+        const dt = a.finishedAt ? new Date(a.finishedAt) : (a.startedAt ? new Date(a.startedAt) : null);
+        if (!dt) return false;
+        if (from && dt < from) return false;
+        if (to && dt > to) return false;
+        return true;
+      });
+    }
+
+    // Только завершённые
+    let completed = attempts.filter(a => a.finishedAt !== null);
+
+    // Best attempt only
+    if (bestAttemptOnly) {
+      const best = new Map<string, any>();
+      
+      for (const a of completed) {
+        const pkg = packageMap.get(a.packageId);
+        if (!pkg) continue;
+        
+        const userId = a.lmsUserId || a.sessionId;
+        const k = `${pkg.testId}:${userId}`;
+        const prev = best.get(k);
+        
+        if (!prev) { 
+          best.set(k, a); 
+          continue; 
+        }
+
+        const aPercent = a.resultPercent || 0;
+        const pPercent = prev.resultPercent || 0;
+        const aTime = a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+        const pTime = prev.finishedAt ? new Date(prev.finishedAt).getTime() : 0;
+
+        if (aPercent > pPercent) best.set(k, a);
+        else if (aPercent === pPercent && aTime > pTime) best.set(k, a);
+      }
+
+      completed = Array.from(best.values());
+    }
+
+    // Загружаем ответы для всех попыток
+    const attemptAnswers = new Map<string, any[]>();
+    for (const attempt of completed) {
+      const answers = await storage.getScormAnswersByAttempt(attempt.id);
+      attemptAnswers.set(attempt.id, answers);
+    }
+
+    // Загружаем вопросы
+    const allQuestionIds = new Set<string>();
+    for (const answers of attemptAnswers.values()) {
+      for (const ans of answers) {
+        if (ans.questionId) allQuestionIds.add(ans.questionId);
+      }
+    }
+    const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+
+    const wb = XLSX.utils.book_new();
+
+    // ===== Sheet: Summary =====
+    if (includeSheets.summary) {
+      const rows: any[][] = [
+        ["Отчёт по LMS аналитике"],
+        ["Дата экспорта", new Date().toLocaleString("ru-RU")],
+        ["Источник", "LMS (SCORM)"],
+        ["Тестов", selectedTests.length],
+        ["Попыток (завершённых)", completed.length],
+        ["Уникальных пользователей", new Set(completed.map(a => a.lmsUserId || a.sessionId)).size],
+        ["bestAttemptOnly", bestAttemptOnly ? "Да" : "Нет"],
+        ["Период", `${dateFrom || "—"} .. ${dateTo || "—"}`],
+        [],
+        ["Тест", "Попыток", "Средний %", "Процент сдачи"],
+      ];
+
+      for (const t of selectedTests) {
+        const relevantPkgIds = relevantPackages.filter(p => p.testId === t.id).map(p => p.id);
+        const ta = completed.filter(a => relevantPkgIds.includes(a.packageId));
+        const avg = ta.length ? (ta.reduce((s, a) => s + (a.resultPercent || 0), 0) / ta.length) : 0;
+        const passed = ta.filter(a => a.resultPassed).length;
+        rows.push([
+          t.title, 
+          ta.length, 
+          `${avg.toFixed(1)}%`, 
+          ta.length ? `${(passed / ta.length * 100).toFixed(1)}%` : "0%"
+        ]);
+      }
+
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Сводка");
+    }
+
+    // ===== Sheet: Attempts =====
+    if (includeSheets.attempts) {
+      const rows: any[][] = [[
+        "Тест", "ID попытки", "LMS User ID", "ФИО", "Email", "Организация",
+        "Дата начала", "Дата завершения", "Время (сек)", 
+        "Результат (%)", "Баллы", "Макс. баллы", "Статус",
+      ]];
+
+      for (const a of completed) {
+        const pkg = packageMap.get(a.packageId);
+        const dur = a.startedAt && a.finishedAt
+          ? Math.round((new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000)
+          : "";
+
+        rows.push([
+          pkg?.testTitle || "—",
+          a.id,
+          a.lmsUserId || "—",
+          a.lmsUserName || "—",
+          a.lmsUserEmail || "—",
+          a.lmsUserOrg || "—",
+          a.startedAt ? new Date(a.startedAt).toLocaleString("ru-RU") : "",
+          a.finishedAt ? new Date(a.finishedAt).toLocaleString("ru-RU") : "",
+          dur,
+          a.resultPercent?.toFixed(1) ?? "",
+          a.totalPoints ?? "",
+          a.maxPoints ?? "",
+          a.resultPassed ? "Сдан" : "Не сдан",
+        ]);
+      }
+
+      const sh = XLSX.utils.aoa_to_sheet(rows);
+      sh["!cols"] = [
+        { wch: 24 }, { wch: 36 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 20 },
+        { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }
+      ];
+      XLSX.utils.book_append_sheet(wb, sh, "Попытки");
+    }
+
+    // ===== Sheet: Answers =====
+    if (includeSheets.answers) {
+      const rows: any[][] = [[
+        "Тест", "ID попытки", "ФИО", "Email", "Время начала",
+        "Вопрос", "Тема", "Тип", "Сложность",
+        "Варианты ответа", "Правильный ответ", "Ответ пользователя", 
+        "Результат", "Баллы", "Уровень (адапт.)",
+      ]];
+
+      for (const attempt of completed) {
+        const pkg = packageMap.get(attempt.packageId);
+        const answers = attemptAnswers.get(attempt.id) || [];
+        const startStr = attempt.startedAt ? new Date(attempt.startedAt).toLocaleString("ru-RU") : "";
+
+        for (const ans of answers) {
+          const q = questionMap.get(ans.questionId);
+          const dataJson = q?.dataJson as any;
+
+          rows.push([
+            pkg?.testTitle || "—",
+            attempt.id,
+            attempt.lmsUserName || "—",
+            attempt.lmsUserEmail || "—",
+            startStr,
+            ans.questionPrompt || q?.prompt || "—",
+            ans.topicName || topicMap.get(ans.topicId || "") || "—",
+            formatQuestionType(ans.questionType || q?.type || "unknown"),
+            ans.difficulty || q?.difficulty || 50,
+            formatAllOptions(ans.questionType || q?.type, dataJson),
+            formatCorrectAnswerText(ans.questionType || q?.type, dataJson, ans.correctAnswerJson || q?.correctJson),
+            formatUserAnswerText(ans.questionType || q?.type, dataJson, ans.userAnswerJson),
+            ans.isCorrect ? "Верно" : "Неверно",
+            ans.points || 0,
+            ans.levelName || "—",
+          ]);
+        }
+      }
+
+      const sh = XLSX.utils.aoa_to_sheet(rows);
+      sh["!cols"] = [
+        { wch: 24 }, { wch: 36 }, { wch: 25 }, { wch: 25 }, { wch: 18 },
+        { wch: 50 }, { wch: 20 }, { wch: 15 }, { wch: 10 },
+        { wch: 50 }, { wch: 30 }, { wch: 30 },
+        { wch: 10 }, { wch: 8 }, { wch: 15 },
+      ];
+      XLSX.utils.book_append_sheet(wb, sh, "Ответы");
+    }
+
+    // ===== Sheet: Question stats =====
+    if (includeSheets.questionStats) {
+      const stat = new Map<string, { prompt: string; testId: string; total: number; correct: number; topicName: string; type: string; difficulty: number }>();
+
+      for (const attempt of completed) {
+        const pkg = packageMap.get(attempt.packageId);
+        if (!pkg) continue;
+        
+        const answers = attemptAnswers.get(attempt.id) || [];
+        for (const ans of answers) {
+          const q = questionMap.get(ans.questionId);
+          const key = `${pkg.testId}:${ans.questionId}`;
+          const s = stat.get(key) || { 
+            prompt: ans.questionPrompt || q?.prompt || "—",
+            testId: pkg.testId,
+            total: 0, 
+            correct: 0,
+            topicName: ans.topicName || topicMap.get(ans.topicId || q?.topicId || "") || "—",
+            type: ans.questionType || q?.type || "—",
+            difficulty: ans.difficulty || q?.difficulty || 50,
+          };
+          s.total++;
+          if (ans.isCorrect) s.correct++;
+          stat.set(key, s);
+        }
+      }
+
+      const rows: any[][] = [["Тест", "Вопрос", "Тема", "Тип", "Сложность", "Всего", "Правильных", "% правильных"]];
+      for (const [_, s] of stat.entries()) {
+        rows.push([
+          testTitleMap.get(s.testId) || s.testId,
+          s.prompt,
+          s.topicName,
+          formatQuestionType(s.type),
+          s.difficulty,
+          s.total,
+          s.correct,
+          s.total ? `${((s.correct / s.total) * 100).toFixed(1)}%` : "0%",
+        ]);
+      }
+
+      const sh = XLSX.utils.aoa_to_sheet(rows);
+      sh["!cols"] = [{ wch: 24 }, { wch: 50 }, { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, sh, "Статистика вопросов");
+    }
+
+    // ===== Sheet: Level stats (для адаптивных) =====
+    if (includeSheets.levelStats) {
+      const levelStat = new Map<string, { testTitle: string; topicName: string; levelName: string; total: number; correct: number }>();
+
+      for (const attempt of completed) {
+        const pkg = packageMap.get(attempt.packageId);
+        if (!pkg || pkg.testMode !== "adaptive") continue;
+        
+        const answers = attemptAnswers.get(attempt.id) || [];
+        for (const ans of answers) {
+          if (!ans.levelName) continue;
+          
+          const key = `${pkg.testId}:${ans.topicId}:${ans.levelIndex}`;
+          const s = levelStat.get(key) || {
+            testTitle: pkg.testTitle,
+            topicName: ans.topicName || "—",
+            levelName: ans.levelName,
+            total: 0,
+            correct: 0,
+          };
+          s.total++;
+          if (ans.isCorrect) s.correct++;
+          levelStat.set(key, s);
+        }
+      }
+
+      if (levelStat.size > 0) {
+        const rows: any[][] = [["Тест", "Тема", "Уровень", "Всего ответов", "Правильных", "% правильных"]];
+        for (const [_, s] of levelStat.entries()) {
+          rows.push([
+            s.testTitle,
+            s.topicName,
+            s.levelName,
+            s.total,
+            s.correct,
+            s.total ? `${((s.correct / s.total) * 100).toFixed(1)}%` : "0%",
+          ]);
+        }
+
+        const sh = XLSX.utils.aoa_to_sheet(rows);
+        sh["!cols"] = [{ wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 14 }, { wch: 12 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, sh, "Статистика уровней");
+      }
+    }
+
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    const filename = `report_lms_${new Date().toISOString().split("T")[0]}.xlsx`;
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.send(buffer);
+
+  } catch (e) {
+    console.error("POST /api/export/excel-lms error:", e);
+    res.status(500).json({ error: "Failed to export LMS Excel" });
+  }
+});
+
+// ============================================
+// SCORM Telemetry API
+// Добавить в routes.ts ПЕРЕД return httpServer;
+// ============================================
+
+// Rate limiting state (in-memory)
+const rateLimits = {
+  packages: new Map<string, { count: number; resetAt: number }>(),
+  sessions: new Map<string, { count: number; resetAt: number }>(),
+};
+
+function checkRateLimit(type: "package" | "session", key: string, limit: number): boolean {
+  const map = type === "package" ? rateLimits.packages : rateLimits.sessions;
+  const now = Date.now();
+  const entry = map.get(key);
+  
+  if (!entry || entry.resetAt < now) {
+    map.set(key, { count: 1, resetAt: now + 60000 });
+    return true;
+  }
+  
+  if (entry.count >= limit) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
+
+function verifyTelemetrySignature(
+  secretKey: string, 
+  packageId: string, 
+  sessionId: string, 
+  timestamp: string, 
+  data: any, 
+  signature: string
+): boolean {
+  const ts = parseInt(timestamp, 10);
+  const now = Date.now();
+  
+  // Check timestamp freshness (5 minutes)
+  if (isNaN(ts) || Math.abs(now - ts) > 5 * 60 * 1000) {
+    console.log("[Telemetry] Timestamp expired:", { ts, now, diff: Math.abs(now - ts) });
+    return false;
+  }
+  
+  // Compute expected signature
+  const dataToSign = `${packageId}:${sessionId}:${timestamp}:${JSON.stringify(data || {})}`;
+  const expectedSignature = crypto
+    .createHmac("sha256", secretKey)
+    .update(dataToSign)
+    .digest("hex");
+  
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, "hex"),
+      Buffer.from(expectedSignature, "hex")
+    );
+  } catch {
+    return false;
+  }
+}
+
+// POST /api/scorm-telemetry/start
+app.post("/api/scorm-telemetry/start", async (req: Request, res: Response) => {
+  try {
+    const { packageId, sessionId, signature, timestamp, data } = req.body;
+    
+    if (!packageId || !sessionId || !signature || !timestamp) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    
+    const pkg = await storage.getScormPackage(packageId);
+    if (!pkg || !pkg.isActive) {
+      return res.status(404).json({ error: "Package not found or inactive" });
+    }
+    
+    if (!verifyTelemetrySignature(pkg.secretKey, packageId, sessionId, timestamp, data, signature)) {
+      return res.status(401).json({ error: "Invalid signature or expired timestamp" });
+    }
+    
+    if (!checkRateLimit("package", packageId, 1000)) {
+      return res.status(429).json({ error: "Package rate limit exceeded" });
+    }
+    if (!checkRateLimit("session", `${packageId}:${sessionId}`, 60)) {
+      return res.status(429).json({ error: "Session rate limit exceeded" });
+    }
+    
+    // НОВОЕ: attemptNumber из клиента или следующий номер
+    const attemptNumber = data?.attemptNumber || await storage.getNextAttemptNumber(packageId, sessionId);
+    
+    // Ищем конкретную попытку по номеру
+    let attempt = await storage.getScormAttemptBySession(packageId, sessionId, attemptNumber);
+    
+    if (!attempt) {
+      // Создаём новую попытку
+      attempt = await storage.createScormAttempt({
+        id: crypto.randomUUID(),
+        packageId: pkg.id,
+        sessionId,
+        attemptNumber, // <-- НОВОЕ ПОЛЕ
+        lmsUserId: data?.lmsUserId || null,
+        lmsUserName: data?.lmsUserName || null,
+        lmsUserEmail: data?.lmsUserEmail || null,
+        lmsUserOrg: data?.lmsUserOrg || null,
+        startedAt: new Date(),
+        lastActivityAt: new Date(),
+      });
+      console.log("[Telemetry] New attempt created:", attempt.id, "attemptNumber:", attemptNumber);
+    } else {
+      await storage.updateScormAttempt(attempt.id, { lastActivityAt: new Date() });
+      console.log("[Telemetry] Existing attempt resumed:", attempt.id, "attemptNumber:", attemptNumber);
+    }
+    
+    res.json({ success: true, attemptId: attempt.id, attemptNumber });
+  } catch (error) {
+    console.error("Telemetry start error:", error);
+    res.status(500).json({ error: "Failed to start attempt" });
+  }
+});
+
+
+// POST /api/scorm-telemetry/answer
+app.post("/api/scorm-telemetry/answer", async (req: Request, res: Response) => {
+  try {
+    const { packageId, sessionId, signature, timestamp, data } = req.body;
+    
+    if (!packageId || !sessionId || !signature || !timestamp) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    
+    const pkg = await storage.getScormPackage(packageId);
+    if (!pkg || !pkg.isActive) {
+      return res.status(404).json({ error: "Package not found or inactive" });
+    }
+    
+    if (!verifyTelemetrySignature(pkg.secretKey, packageId, sessionId, timestamp, data, signature)) {
+      return res.status(401).json({ error: "Invalid signature or expired timestamp" });
+    }
+    
+    if (!checkRateLimit("package", packageId, 1000)) {
+      return res.status(429).json({ error: "Package rate limit exceeded" });
+    }
+    if (!checkRateLimit("session", `${packageId}:${sessionId}`, 60)) {
+      return res.status(429).json({ error: "Session rate limit exceeded" });
+    }
+    
+    // НОВОЕ: attemptNumber для правильной привязки ответа
+    const attemptNumber = data?.attemptNumber;
+    const attempt = attemptNumber 
+      ? await storage.getScormAttemptBySession(packageId, sessionId, attemptNumber)
+      : await storage.getScormAttemptBySession(packageId, sessionId);
+    
+    if (!attempt) {
+      return res.status(404).json({ error: "Attempt not found. Call /start first." });
+    }
+    
+    await storage.createScormAnswer({
+      id: crypto.randomUUID(),
+      attemptId: attempt.id,
+      questionId: data.questionId,
+      questionPrompt: data.questionPrompt || "",
+      questionType: data.questionType || "single",
+      topicId: data.topicId || null,
+      topicName: data.topicName || null,
+      difficulty: data.difficulty ?? null,
+      userAnswerJson: data.userAnswer,
+      correctAnswerJson: data.correctAnswer,
+      isCorrect: !!data.isCorrect,
+      points: data.points || 0,
+      maxPoints: data.maxPoints || 1,
+      // Варианты ответов для отображения в аналитике
+      optionsJson: data.options || null,
+      leftItemsJson: data.leftItems || null,
+      rightItemsJson: data.rightItems || null,
+      itemsJson: data.items || null,
+      levelIndex: data.levelIndex ?? null,
+      levelName: data.levelName || null,
+      answeredAt: new Date(),
+    });
+    
+    await storage.updateScormAttempt(attempt.id, { lastActivityAt: new Date() });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Telemetry answer error:", error);
+    res.status(500).json({ error: "Failed to save answer" });
+  }
+});
+
+
+// POST /api/scorm-telemetry/finish
+app.post("/api/scorm-telemetry/finish", async (req: Request, res: Response) => {
+  try {
+    const { packageId, sessionId, signature, timestamp, data } = req.body;
+    
+    if (!packageId || !sessionId || !signature || !timestamp) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    
+    const pkg = await storage.getScormPackage(packageId);
+    if (!pkg || !pkg.isActive) {
+      return res.status(404).json({ error: "Package not found or inactive" });
+    }
+    
+    if (!verifyTelemetrySignature(pkg.secretKey, packageId, sessionId, timestamp, data, signature)) {
+      return res.status(401).json({ error: "Invalid signature or expired timestamp" });
+    }
+    
+    if (!checkRateLimit("package", packageId, 1000)) {
+      return res.status(429).json({ error: "Package rate limit exceeded" });
+    }
+    
+    // НОВОЕ: attemptNumber для завершения правильной попытки
+    const attemptNumber = data?.attemptNumber;
+    const attempt = attemptNumber
+      ? await storage.getScormAttemptBySession(packageId, sessionId, attemptNumber)
+      : await storage.getScormAttemptBySession(packageId, sessionId);
+    
+    if (!attempt) {
+      return res.status(404).json({ error: "Attempt not found" });
+    }
+    
+    await storage.updateScormAttempt(attempt.id, {
+      finishedAt: new Date(),
+      lastActivityAt: new Date(),
+      resultPercent: Math.round(data?.percent || 0),
+      resultPassed: !!data?.passed,
+      totalPoints: data?.earnedPoints || 0,
+      maxPoints: data?.possiblePoints || 0,
+      totalQuestions: data?.totalQuestions || 0,
+      correctAnswers: data?.correctAnswers || 0,
+      achievedLevelsJson: data?.achievedLevels || null,
+    });
+    
+    console.log("[Telemetry] Attempt finished:", attempt.id, "attemptNumber:", attemptNumber, {
+      percent: data?.percent,
+      passed: data?.passed,
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Telemetry finish error:", error);
+    res.status(500).json({ error: "Failed to finish attempt" });
+  }
+});
+// ============================================
+// SCORM Package Management (for authors)
+// ============================================
+
+// GET /api/scorm-packages - Список пакетов автора
+app.get("/api/scorm-packages", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const packages = await storage.getScormPackages();
+    
+    // Добавляем статистику к каждому пакету
+    const packagesWithStats = await Promise.all(packages.map(async (pkg) => {
+      const attempts = await storage.getScormAttemptsByPackage(pkg.id);
+      const completedAttempts = attempts.filter(a => a.finishedAt);
+      
+      return {
+        ...pkg,
+        stats: {
+          totalAttempts: attempts.length,
+          completedAttempts: completedAttempts.length,
+          uniqueUsers: new Set(attempts.map(a => a.lmsUserId).filter(Boolean)).size,
+        },
+      };
+    }));
+    
+    res.json(packagesWithStats);
+  } catch (error) {
+    console.error("Get SCORM packages error:", error);
+    res.status(500).json({ error: "Failed to get packages" });
+  }
+});
+
+// GET /api/scorm-packages/:id - Детали пакета
+app.get("/api/scorm-packages/:id", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const pkg = await storage.getScormPackage(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ error: "Package not found" });
+    }
+    
+    const attempts = await storage.getScormAttemptsByPackage(pkg.id);
+    
+    res.json({
+      ...pkg,
+      attempts,
+    });
+  } catch (error) {
+    console.error("Get SCORM package error:", error);
+    res.status(500).json({ error: "Failed to get package" });
+  }
+});
+
+// POST /api/scorm-packages/:id/regenerate-key - Перегенерация ключа
+app.post("/api/scorm-packages/:id/regenerate-key", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const pkg = await storage.getScormPackage(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ error: "Package not found" });
+    }
+    
+    const newSecretKey = crypto.randomBytes(32).toString("hex");
+    
+    await storage.updateScormPackage(pkg.id, {
+      secretKey: newSecretKey,
+    });
+    
+    res.json({ 
+      success: true, 
+      message: "Secret key regenerated. Old SCORM packages will no longer work.",
+    });
+  } catch (error) {
+    console.error("Regenerate key error:", error);
+    res.status(500).json({ error: "Failed to regenerate key" });
+  }
+});
+
+// POST /api/scorm-packages/:id/deactivate - Деактивация пакета
+app.post("/api/scorm-packages/:id/deactivate", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const pkg = await storage.getScormPackage(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ error: "Package not found" });
+    }
+    
+    await storage.updateScormPackage(pkg.id, {
+      isActive: false,
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Deactivate package error:", error);
+    res.status(500).json({ error: "Failed to deactivate package" });
+  }
+});
+
+// POST /api/scorm-packages/:id/activate - Активация пакета
+app.post("/api/scorm-packages/:id/activate", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const pkg = await storage.getScormPackage(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ error: "Package not found" });
+    }
+    
+    await storage.updateScormPackage(pkg.id, {
+      isActive: true,
+    });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Activate package error:", error);
+    res.status(500).json({ error: "Failed to activate package" });
+  }
+});
+
+// ============================================
+// Обновлённый API для комбинированной аналитики
+// ЗАМЕНИ предыдущий /api/analytics/combined-full
+// ============================================
+
+// GET /api/analytics/combined-full - Полная комбинированная аналитика
+app.get("/api/analytics/combined-full", requireAuthor, async (req: Request, res: Response) => {
+  try {
+    const source = (req.query.source as string) || "all";
+    const testIdFilter = req.query.testId as string | undefined;
+
+    let webAttempts: any[] = [];
+    let lmsAttempts: any[] = [];
+    const allTests = await storage.getTests();
+    const testMap = new Map(allTests.map(t => [t.id, t]));
+    const topics = await storage.getTopics();
+    const topicMap = new Map(topics.map(t => [t.id, t.name]));
+
+    // ===== WEB ATTEMPTS =====
+    if (source === "all" || source === "web") {
+      const attempts = await storage.getAllAttempts();
+      const users = await Promise.all(
+        [...new Set(attempts.map(a => a.userId))].map(id => storage.getUser(id))
+      );
+      const userMap = new Map(users.filter(Boolean).map(u => [u!.id, u!]));
+
+      webAttempts = attempts
+        .filter(a => !testIdFilter || a.testId === testIdFilter)
+        .filter(a => a.finishedAt)
+        .map(a => {
+          const user = userMap.get(a.userId);
+          const test = testMap.get(a.testId);
+          const result = a.resultJson as any;
+          const duration = a.startedAt && a.finishedAt
+            ? (new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000
+            : null;
+          return {
+            id: a.id,
+            testId: a.testId,
+            testTitle: test?.title || "Удалённый тест",
+            testMode: test?.mode || "standard",
+            userId: a.userId,
+            username: user?.username || "Unknown",
+            startedAt: a.startedAt,
+            finishedAt: a.finishedAt,
+            duration,
+            resultPercent: result?.overallPercent || 0,
+            resultPassed: result?.passed || false,
+            totalPoints: result?.earnedPoints || result?.totalEarnedPoints || 0,
+            maxPoints: result?.possiblePoints || result?.totalPossiblePoints || 0,
+            source: "web" as const,
+          };
+        });
+    }
+
+    // ===== LMS ATTEMPTS =====
+    if (source === "all" || source === "lms") {
+      const attempts = await storage.getAllScormAttempts();
+      const packages = await storage.getScormPackages();
+      const packageMap = new Map(packages.map(p => [p.id, p]));
+
+      lmsAttempts = attempts
+        .filter(a => {
+          if (!testIdFilter) return true;
+          const pkg = packageMap.get(a.packageId);
+          return pkg?.testId === testIdFilter;
+        })
+        .filter(a => a.finishedAt)
+        .map(a => {
+          const pkg = packageMap.get(a.packageId);
+          const duration = a.startedAt && a.finishedAt
+            ? (new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000
+            : null;
+          return {
+            id: a.id,
+            testId: pkg?.testId || null,
+            testTitle: pkg?.testTitle || "Удалённый тест",
+            testMode: pkg?.testMode || "standard",
+            lmsUserId: a.lmsUserId,
+            lmsUserName: a.lmsUserName,
+            lmsUserEmail: a.lmsUserEmail,
+            startedAt: a.startedAt,
+            finishedAt: a.finishedAt,
+            duration,
+            resultPercent: a.resultPercent || 0,
+            resultPassed: a.resultPassed || false,
+            totalPoints: a.totalPoints || 0,
+            maxPoints: a.maxPoints || 0,
+            source: "lms" as const,
+          };
+        });
+    }
+
+    // ===== COMBINE & SORT =====
+    const combined = [...webAttempts, ...lmsAttempts].sort(
+      (a, b) => new Date(b.finishedAt!).getTime() - new Date(a.finishedAt!).getTime()
+    );
+
+    // ===== SUMMARY =====
+    const totalAttempts = combined.length;
+    const passedAttempts = combined.filter(a => a.resultPassed).length;
+    const avgPercent = totalAttempts > 0
+      ? combined.reduce((sum, a) => sum + (a.resultPercent || 0), 0) / totalAttempts
+      : 0;
+
+    const uniqueWebUsers = new Set(webAttempts.map(a => a.userId)).size;
+    const uniqueLmsUsers = new Set(lmsAttempts.map(a => a.lmsUserId).filter(Boolean)).size;
+
+    // ===== TEST STATS =====
+    const testStatsMap = new Map<string, {
+      testId: string;
+      testTitle: string;
+      totalAttempts: number;
+      webAttempts: number;
+      lmsAttempts: number;
+      passedCount: number;
+      totalPercent: number;
+    }>();
+
+    combined.forEach(a => {
+      if (!a.testId) return;
+      const existing = testStatsMap.get(a.testId) || {
+        testId: a.testId,
+        testTitle: a.testTitle,
+        totalAttempts: 0,
+        webAttempts: 0,
+        lmsAttempts: 0,
+        passedCount: 0,
+        totalPercent: 0,
+      };
+      existing.totalAttempts++;
+      if (a.source === "web") existing.webAttempts++;
+      else existing.lmsAttempts++;
+      if (a.resultPassed) existing.passedCount++;
+      existing.totalPercent += a.resultPercent || 0;
+      testStatsMap.set(a.testId, existing);
+    });
+
+    const testStats = Array.from(testStatsMap.values()).map(ts => ({
+      testId: ts.testId,
+      testTitle: ts.testTitle,
+      totalAttempts: ts.totalAttempts,
+      webAttempts: ts.webAttempts,
+      lmsAttempts: ts.lmsAttempts,
+      passRate: ts.totalAttempts > 0 ? (ts.passedCount / ts.totalAttempts) * 100 : 0,
+      avgPercent: ts.totalAttempts > 0 ? ts.totalPercent / ts.totalAttempts : 0,
+    }));
+
+    // ===== TOPIC STATS (из ответов) =====
+    const topicStatsMap = new Map<string, {
+      topicId: string;
+      topicName: string;
+      totalAnswers: number;
+      correctAnswers: number;
+      totalPercent: number;
+      failureCount: number;
+    }>();
+
+    // Собираем статистику из LMS ответов
+    for (const attempt of lmsAttempts) {
+      const answers = await storage.getScormAnswersByAttempt(attempt.id);
+      for (const ans of answers) {
+        if (!ans.topicId) continue;
+        const existing = topicStatsMap.get(ans.topicId) || {
+          topicId: ans.topicId,
+          topicName: ans.topicName || topicMap.get(ans.topicId) || "Unknown",
+          totalAnswers: 0,
+          correctAnswers: 0,
+          totalPercent: 0,
+          failureCount: 0,
+        };
+        existing.totalAnswers++;
+        if (ans.isCorrect) existing.correctAnswers++;
+        else existing.failureCount++;
+        topicStatsMap.set(ans.topicId, existing);
+      }
+    }
+
+    // Собираем статистику из Web ответов
+    for (const attempt of webAttempts) {
+      const fullAttempt = await storage.getAttempt(attempt.id);
+      if (!fullAttempt?.answersJson) continue;
+      const answers = fullAttempt.answersJson as Record<string, any>;
+      const variant = fullAttempt.variantJson as any;
+      
+      // Получаем вопросы
+      const questionIds = Object.keys(answers);
+      const questions = await storage.getQuestionsByIds(questionIds);
+      
+      for (const q of questions) {
+        const existing = topicStatsMap.get(q.topicId) || {
+          topicId: q.topicId,
+          topicName: topicMap.get(q.topicId) || "Unknown",
+          totalAnswers: 0,
+          correctAnswers: 0,
+          totalPercent: 0,
+          failureCount: 0,
+        };
+        existing.totalAnswers++;
+        const isCorrect = checkAnswer(q, answers[q.id]) === 1;
+        if (isCorrect) existing.correctAnswers++;
+        else existing.failureCount++;
+        topicStatsMap.set(q.topicId, existing);
+      }
+    }
+
+    const topicStats = Array.from(topicStatsMap.values()).map(ts => ({
+      ...ts,
+      avgPercent: ts.totalAnswers > 0 ? (ts.correctAnswers / ts.totalAnswers) * 100 : 0,
+    }));
+
+    // ===== TRENDS (30 days) =====
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const trendsMap = new Map<string, {
+      date: string;
+      attempts: number;
+      webAttempts: number;
+      lmsAttempts: number;
+      passedCount: number;
+      totalPercent: number;
+    }>();
+
+    for (let i = 0; i < 30; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split("T")[0];
+      trendsMap.set(dateStr, {
+        date: dateStr,
+        attempts: 0,
+        webAttempts: 0,
+        lmsAttempts: 0,
+        passedCount: 0,
+        totalPercent: 0,
+      });
+    }
+
+    combined
+      .filter(a => a.finishedAt && new Date(a.finishedAt) >= thirtyDaysAgo)
+      .forEach(a => {
+        const dateStr = new Date(a.finishedAt!).toISOString().split("T")[0];
+        const existing = trendsMap.get(dateStr);
+        if (existing) {
+          existing.attempts++;
+          if (a.source === "web") existing.webAttempts++;
+          else existing.lmsAttempts++;
+          if (a.resultPassed) existing.passedCount++;
+          existing.totalPercent += a.resultPercent || 0;
+        }
+      });
+
+    const trends = Array.from(trendsMap.values())
+      .map(t => ({
+        date: t.date,
+        attempts: t.attempts,
+        webAttempts: t.webAttempts,
+        lmsAttempts: t.lmsAttempts,
+        avgPercent: t.attempts > 0 ? t.totalPercent / t.attempts : 0,
+        passRate: t.attempts > 0 ? (t.passedCount / t.attempts) * 100 : 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    res.json({
+      summary: {
+        totalAttempts,
+        passedAttempts,
+        passRate: totalAttempts > 0 ? (passedAttempts / totalAttempts) * 100 : 0,
+        avgPercent,
+        webAttempts: webAttempts.length,
+        lmsAttempts: lmsAttempts.length,
+        uniqueWebUsers,
+        uniqueLmsUsers,
+      },
+      attempts: combined,
+      testStats,
+      topicStats,
+      trends,
+    });
+  } catch (error) {
+    console.error("Combined analytics error:", error);
+    res.status(500).json({ error: "Failed to get analytics" });
   }
 });
 
