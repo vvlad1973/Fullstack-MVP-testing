@@ -4,9 +4,60 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: text("email").notNull(), // Зашифрованный email
+  emailHash: varchar("email_hash", { length: 64 }).unique(), // SHA-256 хеш для поиска
+  passwordHash: text("password_hash").notNull(), // bcrypt hash
+  name: text("name"), // заполняется при первом входе
   role: text("role", { enum: ["author", "learner"] }).notNull().default("learner"),
+  status: text("status", { enum: ["pending", "active", "inactive"] }).notNull().default("pending"),
+  mustChangePassword: boolean("must_change_password").notNull().default(true),
+  gdprConsent: boolean("gdpr_consent").notNull().default(false),
+  gdprConsentAt: timestamp("gdpr_consent_at"),
+  lastLoginAt: timestamp("last_login_at"),
+  expiresAt: timestamp("expires_at"), // срок действия учётки
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: varchar("created_by", { length: 36 }), // кто создал
+});
+
+// Группы пользователей
+export const groups = pgTable("groups", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: varchar("created_by", { length: 36 }),
+});
+
+// Связь пользователей с группами (многие-ко-многим)
+export const userGroups = pgTable("user_groups", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  groupId: varchar("group_id", { length: 36 }).notNull(),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+}, (table) => ({
+  userGroupIdx: uniqueIndex("user_groups_user_group_idx").on(table.userId, table.groupId),
+}));
+
+// Назначение тестов пользователям/группам
+export const testAssignments = pgTable("test_assignments", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 }).notNull(),
+  userId: varchar("user_id", { length: 36 }), // nullable - если назначено группе
+  groupId: varchar("group_id", { length: 36 }), // nullable - если назначено пользователю
+  dueDate: timestamp("due_date"), // срок выполнения
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  assignedBy: varchar("assigned_by", { length: 36 }).notNull(),
+});
+
+// Токены сброса пароля
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  tokenHash: text("token_hash").notNull(), // HMAC-SHA256
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  requestIp: text("request_ip"),
 });
 
 export const folders = pgTable("folders", {
@@ -125,6 +176,10 @@ export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true 
 export const insertAdaptiveTopicSettingsSchema = createInsertSchema(adaptiveTopicSettings).omit({ id: true });
 export const insertAdaptiveLevelSchema = createInsertSchema(adaptiveLevels).omit({ id: true });
 export const insertAdaptiveLevelLinkSchema = createInsertSchema(adaptiveLevelLinks).omit({ id: true });
+export const insertGroupSchema = createInsertSchema(groups).omit({ id: true });
+export const insertUserGroupSchema = createInsertSchema(userGroups).omit({ id: true });
+export const insertTestAssignmentSchema = createInsertSchema(testAssignments).omit({ id: true });
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -158,6 +213,18 @@ export type AdaptiveLevel = typeof adaptiveLevels.$inferSelect;
 
 export type InsertAdaptiveLevelLink = z.infer<typeof insertAdaptiveLevelLinkSchema>;
 export type AdaptiveLevelLink = typeof adaptiveLevelLinks.$inferSelect;
+
+export type InsertGroup = z.infer<typeof insertGroupSchema>;
+export type Group = typeof groups.$inferSelect;
+
+export type InsertUserGroup = z.infer<typeof insertUserGroupSchema>;
+export type UserGroup = typeof userGroups.$inferSelect;
+
+export type InsertTestAssignment = z.infer<typeof insertTestAssignmentSchema>;
+export type TestAssignment = typeof testAssignments.$inferSelect;
+
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 
 export const passRuleSchema = z.object({
   type: z.enum(["percent", "absolute"]),
@@ -249,7 +316,7 @@ export type TopicResult = z.infer<typeof topicResultSchema>;
 export type AttemptResult = z.infer<typeof attemptResultSchema>;
 
 export const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  email: z.string().min(1, "Email is required").email("Invalid email format"),
   password: z.string().min(1, "Password is required"),
 });
 

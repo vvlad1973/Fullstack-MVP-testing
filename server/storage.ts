@@ -2,9 +2,11 @@ import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { eq, inArray, and, sql, desc } from "drizzle-orm";
 import { db } from "./db";
+import { encryptEmail, decryptEmail, hashEmail } from "./utils/crypto";
 import {
   users, topics, topicCourses, questions, tests, testSections, attempts, folders,
   adaptiveTopicSettings, adaptiveLevels, adaptiveLevelLinks, scormPackages, scormAttempts, scormAnswers,
+  groups, userGroups, testAssignments, passwordResetTokens,
   type User, type InsertUser,
   type Folder, type InsertFolder,
   type Topic, type InsertTopic,
@@ -19,13 +21,51 @@ import {
   type ScormPackage, type InsertScormPackage,
   type ScormAttempt, type InsertScormAttempt,
   type ScormAnswer, type InsertScormAnswer,
+  type Group, type InsertGroup,
+  type UserGroup, type InsertUserGroup,
+  type TestAssignment, type InsertTestAssignment,
+  type PasswordResetToken, type InsertPasswordResetToken,
 } from "@shared/schema";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  validatePassword(username: string, password: string): Promise<User | null>;
+  validatePassword(email: string, password: string): Promise<User | null>;
+  updateUserLastLogin(id: string): Promise<void>;
+  getUsers(): Promise<User[]>;
+  updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
+  updateUserPassword(id: string, newPasswordHash: string): Promise<void>;
+  deactivateUser(id: string): Promise<User | undefined>;
+  activateUser(id: string): Promise<User | undefined>;
+
+  // Groups
+  getGroups(): Promise<Group[]>;
+  getGroup(id: string): Promise<Group | undefined>;
+  createGroup(group: InsertGroup & { createdBy?: string }): Promise<Group>;
+  updateGroup(id: string, data: Partial<Group>): Promise<Group | undefined>;
+  deleteGroup(id: string): Promise<boolean>;
+
+  // User-Group relations
+  getUserGroups(userId: string): Promise<Group[]>;
+  getGroupUsers(groupId: string): Promise<User[]>;
+  addUserToGroup(userId: string, groupId: string): Promise<UserGroup>;
+  removeUserFromGroup(userId: string, groupId: string): Promise<boolean>;
+  setUserGroups(userId: string, groupIds: string[]): Promise<void>;
+
+  // Test Assignments
+  getTestAssignments(testId: string): Promise<TestAssignment[]>;
+  getUserAssignments(userId: string): Promise<TestAssignment[]>;
+  getGroupAssignments(groupId: string): Promise<TestAssignment[]>;
+  createTestAssignment(assignment: InsertTestAssignment & { assignedBy: string }): Promise<TestAssignment>;
+  deleteTestAssignment(id: string): Promise<boolean>;
+  getAssignedTestsForUser(userId: string): Promise<Test[]>;
+
+  // Password Reset Tokens
+  createPasswordResetToken(userId: string, tokenHash: string, requestIp: string): Promise<PasswordResetToken>;
+  getPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | undefined>;
+  markTokenAsUsed(id: string): Promise<void>;
+  getRecentTokensCount(userId: string, hours: number): Promise<number>;
 
   getFolders(): Promise<Folder[]>;
   getFolder(id: string): Promise<Folder | undefined>;
@@ -64,6 +104,8 @@ export interface IStorage {
   getAttempt(id: string): Promise<Attempt | undefined>;
   updateAttempt(id: string, updates: Partial<Attempt>): Promise<Attempt | undefined>;
   getAttemptsByUser(userId: string): Promise<Attempt[]>;
+  getAttemptsByUserAndTest(userId: string, testId: string): Promise<Attempt[]>;
+  deleteAttemptsByUserAndTest(userId: string, testId: string): Promise<void>;
   getAllAttempts(): Promise<Attempt[]>;
 
   // Adaptive testing
@@ -104,31 +146,308 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    if (user) {
+      return { ...user, email: decryptEmail(user.email) };
+    }
+    return undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const emailHashValue = hashEmail(email);
+    const [user] = await db.select().from(users).where(eq(users.emailHash, emailHashValue));
+    if (user) {
+      // Дешифруем email для возврата
+      return { ...user, email: decryptEmail(user.email) };
+    }
+    return undefined;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async createUser(insertUser: InsertUser & { createdBy?: string }): Promise<User> {
     const id = randomUUID();
-    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
+    const hashedPassword = await bcrypt.hash(insertUser.passwordHash, 10);
+    const emailEncrypted = encryptEmail(insertUser.email);
+    const emailHashValue = hashEmail(insertUser.email);
+    
     const [user] = await db.insert(users).values({
       id,
-      username: insertUser.username,
-      password: hashedPassword,
+      email: emailEncrypted,
+      emailHash: emailHashValue,
+      passwordHash: hashedPassword,
+      name: insertUser.name || null,
       role: insertUser.role || "learner",
+      status: insertUser.status || "pending",
+      mustChangePassword: insertUser.mustChangePassword ?? true,
+      gdprConsent: false,
+      createdAt: new Date(),
+      createdBy: insertUser.createdBy || null,
     }).returning();
-    return user;
+    
+    // Возвращаем с расшифрованным email
+    return { ...user, email: decryptEmail(user.email) };
   }
 
-  async validatePassword(username: string, password: string): Promise<User | null> {
-    const user = await this.getUserByUsername(username);
+  async validatePassword(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
     if (!user) return null;
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcrypt.compare(password, user.passwordHash);
     return valid ? user : null;
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
+  }
+
+  async getUsers(): Promise<User[]> {
+    const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+    // Дешифруем email для каждого пользователя
+    return allUsers.map(user => ({ ...user, email: decryptEmail(user.email) }));
+  }
+
+  async updateUser(id: string, data: Partial<User>): Promise<User | undefined> {
+    // Если обновляется email — шифруем его
+    const updateData: any = { ...data };
+    if (data.email) {
+      updateData.email = encryptEmail(data.email);
+      updateData.emailHash = hashEmail(data.email);
+    }
+    
+    const [updated] = await db.update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    
+    if (updated) {
+      return { ...updated, email: decryptEmail(updated.email) };
+    }
+    return undefined;
+  }
+
+  async updateUserPassword(id: string, newPasswordHash: string): Promise<void> {
+    const hashed = await bcrypt.hash(newPasswordHash, 10);
+    await db.update(users).set({ 
+      passwordHash: hashed,
+      mustChangePassword: false,
+    }).where(eq(users.id, id));
+  }
+
+  async deactivateUser(id: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ status: "inactive" })
+      .where(eq(users.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async activateUser(id: string): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ status: "active" })
+      .where(eq(users.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // ============================================
+  // Groups
+  // ============================================
+
+  async getGroups(): Promise<Group[]> {
+    return db.select().from(groups).orderBy(desc(groups.createdAt));
+  }
+
+  async getGroup(id: string): Promise<Group | undefined> {
+    const [group] = await db.select().from(groups).where(eq(groups.id, id));
+    return group || undefined;
+  }
+
+  async createGroup(group: InsertGroup & { createdBy?: string }): Promise<Group> {
+    const id = randomUUID();
+    const [created] = await db.insert(groups).values({
+      id,
+      name: group.name,
+      description: group.description || null,
+      createdAt: new Date(),
+      createdBy: group.createdBy || null,
+    }).returning();
+    return created;
+  }
+
+  async updateGroup(id: string, data: Partial<Group>): Promise<Group | undefined> {
+    const [updated] = await db.update(groups).set(data).where(eq(groups.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteGroup(id: string): Promise<boolean> {
+    // Сначала удаляем связи с пользователями
+    await db.delete(userGroups).where(eq(userGroups.groupId, id));
+    // Затем удаляем саму группу
+    const result = await db.delete(groups).where(eq(groups.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============================================
+  // User-Group relations
+  // ============================================
+
+  async getUserGroups(userId: string): Promise<Group[]> {
+    const result = await db
+      .select({ group: groups })
+      .from(userGroups)
+      .innerJoin(groups, eq(userGroups.groupId, groups.id))
+      .where(eq(userGroups.userId, userId));
+    return result.map(r => r.group);
+  }
+
+  async getGroupUsers(groupId: string): Promise<User[]> {
+    const result = await db
+      .select({ user: users })
+      .from(userGroups)
+      .innerJoin(users, eq(userGroups.userId, users.id))
+      .where(eq(userGroups.groupId, groupId));
+    return result.map(r => ({ ...r.user, email: decryptEmail(r.user.email) }));
+  }
+
+  async addUserToGroup(userId: string, groupId: string): Promise<UserGroup> {
+    const id = randomUUID();
+    const [created] = await db.insert(userGroups).values({
+      id,
+      userId,
+      groupId,
+      addedAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async removeUserFromGroup(userId: string, groupId: string): Promise<boolean> {
+    const result = await db.delete(userGroups)
+      .where(and(eq(userGroups.userId, userId), eq(userGroups.groupId, groupId)));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async setUserGroups(userId: string, groupIds: string[]): Promise<void> {
+    // Удаляем все текущие связи
+    await db.delete(userGroups).where(eq(userGroups.userId, userId));
+    
+    // Добавляем новые
+    if (groupIds.length > 0) {
+      const values = groupIds.map(groupId => ({
+        id: randomUUID(),
+        userId,
+        groupId,
+        addedAt: new Date(),
+      }));
+      await db.insert(userGroups).values(values);
+    }
+  }
+
+  // ============================================
+  // Test Assignments
+  // ============================================
+
+  async getTestAssignments(testId: string): Promise<TestAssignment[]> {
+    return db.select().from(testAssignments).where(eq(testAssignments.testId, testId));
+  }
+
+  async getUserAssignments(userId: string): Promise<TestAssignment[]> {
+    return db.select().from(testAssignments).where(eq(testAssignments.userId, userId));
+  }
+
+  async getGroupAssignments(groupId: string): Promise<TestAssignment[]> {
+    return db.select().from(testAssignments).where(eq(testAssignments.groupId, groupId));
+  }
+
+  async createTestAssignment(assignment: InsertTestAssignment & { assignedBy: string }): Promise<TestAssignment> {
+    const id = randomUUID();
+    const [created] = await db.insert(testAssignments).values({
+      id,
+      testId: assignment.testId,
+      userId: assignment.userId || null,
+      groupId: assignment.groupId || null,
+      dueDate: assignment.dueDate || null,
+      assignedAt: new Date(),
+      assignedBy: assignment.assignedBy,
+    }).returning();
+    return created;
+  }
+
+  async deleteTestAssignment(id: string): Promise<boolean> {
+    const result = await db.delete(testAssignments).where(eq(testAssignments.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getAssignedTestsForUser(userId: string): Promise<Test[]> {
+    // Получаем группы пользователя
+    const userGroupsList = await this.getUserGroups(userId);
+    const groupIds = userGroupsList.map(g => g.id);
+
+    // Получаем назначения напрямую пользователю
+    const directAssignments = await db
+      .select({ testId: testAssignments.testId })
+      .from(testAssignments)
+      .where(eq(testAssignments.userId, userId));
+
+    // Получаем назначения через группы
+    let groupAssignments: { testId: string }[] = [];
+    if (groupIds.length > 0) {
+      groupAssignments = await db
+        .select({ testId: testAssignments.testId })
+        .from(testAssignments)
+        .where(inArray(testAssignments.groupId, groupIds));
+    }
+
+    // Собираем уникальные testId
+    const testIds = [...new Set([
+      ...directAssignments.map(a => a.testId),
+      ...groupAssignments.map(a => a.testId),
+    ])];
+
+    if (testIds.length === 0) {
+      return [];
+    }
+
+    // Получаем тесты
+    return db.select().from(tests).where(inArray(tests.id, testIds));
+  }
+
+  // ============================================
+  // Password Reset Tokens
+  // ============================================
+
+  async createPasswordResetToken(userId: string, tokenHash: string, requestIp: string): Promise<PasswordResetToken> {
+    const id = randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 минут
+    const [token] = await db.insert(passwordResetTokens).values({
+      id,
+      userId,
+      tokenHash,
+      expiresAt,
+      requestIp,
+      createdAt: new Date(),
+    }).returning();
+    return token;
+  }
+
+  async getPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | undefined> {
+    const [token] = await db.select().from(passwordResetTokens)
+      .where(eq(passwordResetTokens.tokenHash, tokenHash));
+    return token || undefined;
+  }
+
+  async markTokenAsUsed(id: string): Promise<void> {
+    await db.update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.id, id));
+  }
+
+  async getRecentTokensCount(userId: string, hours: number): Promise<number> {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(passwordResetTokens)
+      .where(and(
+        eq(passwordResetTokens.userId, userId),
+        sql`${passwordResetTokens.createdAt} > ${since}`
+      ));
+    return Number(result[0]?.count || 0);
   }
 
   async getFolders(): Promise<Folder[]> {
@@ -462,6 +781,18 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(attempts).where(eq(attempts.userId, userId));
   }
 
+  async getAttemptsByUserAndTest(userId: string, testId: string): Promise<Attempt[]> {
+    return db.select().from(attempts).where(
+      and(eq(attempts.userId, userId), eq(attempts.testId, testId))
+    );
+  }
+
+  async deleteAttemptsByUserAndTest(userId: string, testId: string): Promise<void> {
+    await db.delete(attempts).where(
+      and(eq(attempts.userId, userId), eq(attempts.testId, testId))
+    );
+  }
+
   async getAllAttempts(): Promise<Attempt[]> {
     return db.select().from(attempts);
   }
@@ -666,8 +997,30 @@ export async function seedDatabase() {
   const learnerId = randomUUID();
 
   await db.insert(users).values([
-    { id: adminId, username: "admin", password: adminPassword, role: "author" },
-    { id: learnerId, username: "learner", password: learnerPassword, role: "learner" },
+    { 
+      id: adminId, 
+      email: "admin@test.com", 
+      passwordHash: adminPassword, 
+      name: "Администратор",
+      role: "author",
+      status: "active",
+      mustChangePassword: false,
+      gdprConsent: true,
+      gdprConsentAt: new Date(),
+      createdAt: new Date(),
+    },
+    { 
+      id: learnerId, 
+      email: "learner@test.com", 
+      passwordHash: learnerPassword, 
+      name: "Тестовый ученик",
+      role: "learner",
+      status: "active",
+      mustChangePassword: false,
+      gdprConsent: true,
+      gdprConsentAt: new Date(),
+      createdAt: new Date(),
+    },
   ]);
 
   const iptvTopicId = randomUUID();

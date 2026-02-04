@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ClipboardList, Clock, BookOpen, ArrowRight } from "lucide-react";
+import { ClipboardList, Clock, BookOpen, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import type { Test, TestSection } from "@shared/schema";
 
 interface TestWithSections extends Test {
   sections: (TestSection & { topicName: string })[];
+  completedAttempts: number;
+  inProgressAttemptId: string | null;
 }
 
 export default function LearnerTestListPage() {
@@ -19,6 +21,8 @@ export default function LearnerTestListPage() {
 
   const { data: tests, isLoading } = useQuery<TestWithSections[]>({
     queryKey: ["/api/learner/tests"],
+    refetchInterval: 30000, // Обновлять каждые 30 секунд
+    refetchOnWindowFocus: true, // Обновлять при возврате на вкладку
   });
 
   if (isLoading) {
@@ -43,6 +47,12 @@ export default function LearnerTestListPage() {
           {tests.map((test) => {
             const totalQuestions = test.sections.reduce((sum, s) => sum + s.drawCount, 0);
             const estimatedMinutes = Math.ceil(totalQuestions * 1.5);
+            
+            // Проверяем ограничение попыток
+            const maxAttempts = test.maxAttempts || null;
+            const completedAttempts = test.completedAttempts || 0;
+            const attemptsExhausted = maxAttempts !== null && completedAttempts >= maxAttempts;
+            const hasInProgress = test.inProgressAttemptId !== null;
 
             return (
               <Card key={test.id} data-testid={`card-learner-test-${test.id}`}>
@@ -66,6 +76,18 @@ export default function LearnerTestListPage() {
                     </div>
                   </div>
 
+                  {/* Информация о попытках */}
+                  {maxAttempts !== null && (
+                    <div className="mt-3">
+                      <div className={`text-sm ${attemptsExhausted ? "text-red-500" : "text-muted-foreground"}`}>
+                        Попыток: {completedAttempts} / {maxAttempts}
+                        {attemptsExhausted && (
+                          <span className="ml-2 font-medium">— Попытки закончились</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-4">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                       Темы
@@ -80,14 +102,34 @@ export default function LearnerTestListPage() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button
-                    className="w-full"
-                    onClick={() => navigate(`/learner/test/${test.id}`)}
-                    data-testid={`button-start-test-${test.id}`}
-                  >
-                    {t.learnerTests.startTest}
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  {attemptsExhausted ? (
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      disabled
+                    >
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Попытки закончились
+                    </Button>
+                  ) : hasInProgress ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => navigate(`/learner/test/${test.id}`)}
+                      data-testid={`button-continue-test-${test.id}`}
+                    >
+                      Продолжить тест
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      onClick={() => navigate(`/learner/test/${test.id}`)}
+                      data-testid={`button-start-test-${test.id}`}
+                    >
+                      {t.learnerTests.startTest}
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             );

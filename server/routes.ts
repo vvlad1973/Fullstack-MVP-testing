@@ -10,6 +10,8 @@ import crypto from "node:crypto";
 import { storage } from "./storage";
 import { generateScormPackage } from "./scorm-exporter";
 import type { TestVariant, AttemptResult, TopicResult, PassRule, Question } from "@shared/schema";
+import { sendPasswordResetEmail } from "./email";
+import { maskEmail } from "./utils/mask-email";
 
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -124,18 +126,36 @@ export async function registerRoutes(
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { username, password } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password required" });
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
       }
 
-      const user = await storage.validatePassword(username, password);
+      const user = await storage.validatePassword(email, password);
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
+      // Проверяем статус пользователя
+      if (user.status === "inactive") {
+        return res.status(403).json({ error: "Account is deactivated. Please contact administrator." });
+      }
+
+      // Обновляем lastLoginAt
+      await storage.updateUserLastLogin(user.id);
+
       req.session.userId = user.id;
-      res.json({ user: { id: user.id, username: user.username, role: user.role } });
+      res.json({ 
+        user: { 
+          id: user.id, 
+          email: user.email, 
+          name: user.name,
+          role: user.role,
+          status: user.status,
+          mustChangePassword: user.mustChangePassword,
+          gdprConsent: user.gdprConsent,
+        } 
+      });
     } catch (error) {
       res.status(500).json({ error: "Login failed" });
     }
@@ -174,7 +194,828 @@ export async function registerRoutes(
       return res.status(401).json({ error: "User not found" });
     }
 
-    res.json({ user: { id: user.id, username: user.username, role: user.role } });
+    // Проверяем статус
+    if (user.status === "inactive") {
+      req.session.destroy(() => {});
+      return res.status(403).json({ error: "Account is deactivated" });
+    }
+
+    res.json({ 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        mustChangePassword: user.mustChangePassword,
+        gdprConsent: user.gdprConsent,
+      } 
+    });
+ });
+
+  // ============================================
+  // Password Reset routes (Public)
+  // ============================================
+
+  // Проверка email для подсказки (без отправки письма)
+  app.post("/api/auth/check-email", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.json({ exists: false, maskedEmail: null });
+      }
+
+      return res.json({ 
+        exists: true, 
+        maskedEmail: maskEmail(user.email) 
+      });
+    } catch (error) {
+      console.error("Check email error:", error);
+      res.status(500).json({ error: "Failed to check email" });
+    }
+  });
+
+  
+  // Запрос сброса пароля
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      // Всегда возвращаем успех, чтобы не раскрывать существование email
+      if (!user) {
+        return res.json({ 
+          success: true, 
+          message: "If the email exists, a reset link has been sent.",
+          maskedEmail: null 
+        });
+      }
+
+      // Проверяем лимит запросов (3 в час)
+      const recentCount = await storage.getRecentTokensCount(user.id, 1);
+      if (recentCount >= 3) {
+        return res.status(429).json({ error: "Too many reset requests. Please try again later." });
+      }
+
+      // Генерируем токен
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHmac("sha256", process.env.SESSION_SECRET || "secret")
+        .update(rawToken)
+        .digest("hex");
+
+      // Получаем IP
+      const requestIp = req.ip || req.socket.remoteAddress || "unknown";
+
+      // Сохраняем токен
+      await storage.createPasswordResetToken(user.id, tokenHash, requestIp);
+
+      // Формируем ссылку для сброса пароля
+      const resetLink = `${req.protocol}://${req.get("host")}/reset-password?token=${rawToken}`;
+
+      // Отправляем email (или выводим в консоль если SMTP не настроен)
+      await sendPasswordResetEmail(user.email, resetLink, user.name || undefined);
+
+      res.json({ 
+        success: true, 
+        message: "If the email exists, a reset link has been sent.",
+        maskedEmail: maskEmail(user.email)
+      });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  // Проверка токена (для отображения формы)
+  app.get("/api/auth/verify-reset-token", async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ error: "Token is required", valid: false });
+      }
+
+      const tokenHash = crypto.createHmac("sha256", process.env.SESSION_SECRET || "secret")
+        .update(token)
+        .digest("hex");
+
+      const resetToken = await storage.getPasswordResetToken(tokenHash);
+
+      if (!resetToken) {
+        return res.json({ valid: false, error: "Invalid token" });
+      }
+
+      if (resetToken.usedAt) {
+        return res.json({ valid: false, error: "Token already used" });
+      }
+
+      if (new Date(resetToken.expiresAt) < new Date()) {
+        return res.json({ valid: false, error: "Token expired" });
+      }
+
+      res.json({ valid: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify token", valid: false });
+    }
+  });
+
+  // Сброс пароля с токеном
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: "Token and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      const passwordRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]+$/;
+      if (!passwordRegex.test(newPassword)) {
+        return res.status(400).json({ error: "Password can only contain Latin letters, numbers and special characters" });
+      }
+
+      const tokenHash = crypto.createHmac("sha256", process.env.SESSION_SECRET || "secret")
+        .update(token)
+        .digest("hex");
+
+      const resetToken = await storage.getPasswordResetToken(tokenHash);
+
+      if (!resetToken) {
+        return res.status(400).json({ error: "Invalid token" });
+      }
+
+      if (resetToken.usedAt) {
+        return res.status(400).json({ error: "Token already used" });
+      }
+
+      if (new Date(resetToken.expiresAt) < new Date()) {
+        return res.status(400).json({ error: "Token expired" });
+      }
+
+      // Обновляем пароль
+      await storage.updateUserPassword(resetToken.userId, newPassword);
+      
+      // Помечаем токен как использованный
+      await storage.markTokenAsUsed(resetToken.id);
+
+      res.json({ success: true, message: "Password has been reset successfully" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  // ============================================
+  // First Login Flow routes
+  // ============================================
+
+  // Завершение первого входа (GDPR + смена пароля + имя)
+  app.post("/api/auth/complete-first-login", requireAuth, async (req, res) => {
+    try {
+      const { gdprConsent, newPassword, name } = req.body;
+      const userId = req.session.userId!;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Проверяем GDPR согласие
+      if (!gdprConsent) {
+        return res.status(400).json({ error: "GDPR consent is required" });
+      }
+
+      // Проверяем пароль если требуется смена
+      if (user.mustChangePassword) {
+        if (!newPassword) {
+          return res.status(400).json({ error: "New password is required" });
+        }
+        if (newPassword.length < 8) {
+          return res.status(400).json({ error: "Password must be at least 8 characters" });
+        }
+
+        const passwordRegex = /^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]+$/;
+        if (!passwordRegex.test(newPassword)) {
+          return res.status(400).json({ error: "Password can only contain Latin letters, numbers and special characters" });
+        }
+        await storage.updateUserPassword(userId, newPassword);
+      }
+
+      // Обновляем данные пользователя
+      const updateData: any = {
+        gdprConsent: true,
+        gdprConsentAt: new Date(),
+        mustChangePassword: false,
+        status: "active",
+      };
+
+      if (name && name.trim()) {
+        updateData.name = name.trim();
+      }
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+
+      res.json({
+        user: {
+          id: updatedUser!.id,
+          email: updatedUser!.email,
+          name: updatedUser!.name,
+          role: updatedUser!.role,
+          status: updatedUser!.status,
+          mustChangePassword: updatedUser!.mustChangePassword,
+          gdprConsent: updatedUser!.gdprConsent,
+        },
+      });
+    } catch (error) {
+      console.error("Complete first login error:", error);
+      res.status(500).json({ error: "Failed to complete first login" });
+    }
+  });
+
+  // ============================================
+  // Users Management routes (Author only)
+  // ============================================
+  
+  // Получить всех пользователей
+  app.get("/api/users", requireAuthor, async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      // Не отправляем passwordHash клиенту
+      const safeUsers = users.map(({ passwordHash, ...user }) => user);
+      res.json(safeUsers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Получить одного пользователя
+  app.get("/api/users/:id", requireAuthor, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const { passwordHash, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  // Создать пользователя
+  app.post("/api/users", requireAuthor, async (req, res) => {
+    try {
+      const { email, password, name, role, status, mustChangePassword, expiresAt } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      // Проверяем, не существует ли уже пользователь с таким email
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(409).json({ error: "User with this email already exists" });
+      }
+
+      const user = await storage.createUser({
+        email,
+        passwordHash: password, // будет захэширован в createUser
+        name: name || null,
+        role: role || "learner",
+        status: status || "pending",
+        mustChangePassword: mustChangePassword ?? true,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        createdBy: req.session.userId,
+      });
+
+      const { passwordHash, ...safeUser } = user;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      console.error("Create user error:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  // Обновить пользователя
+  app.put("/api/users/:id", requireAuthor, async (req, res) => {
+    try {
+      const { email, name, role, status, mustChangePassword, expiresAt } = req.body;
+      
+      // Если меняется email, проверяем уникальность
+      if (email) {
+        const existing = await storage.getUserByEmail(email);
+        if (existing && existing.id !== req.params.id) {
+          return res.status(409).json({ error: "User with this email already exists" });
+        }
+      }
+
+      const updateData: any = {};
+      if (email !== undefined) updateData.email = email;
+      if (name !== undefined) updateData.name = name;
+      if (role !== undefined) updateData.role = role;
+      if (status !== undefined) updateData.status = status;
+      if (mustChangePassword !== undefined) updateData.mustChangePassword = mustChangePassword;
+      if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
+
+      const user = await storage.updateUser(req.params.id, updateData);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { passwordHash, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Сбросить пароль пользователя (админ устанавливает новый)
+  app.post("/api/users/:id/reset-password", requireAuthor, async (req, res) => {
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword) {
+        return res.status(400).json({ error: "New password is required" });
+      }
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      await storage.updateUserPassword(req.params.id, newPassword);
+      
+      // Устанавливаем флаг "сменить при входе"
+      await storage.updateUser(req.params.id, { mustChangePassword: true });
+
+      res.json({ success: true, message: "Password reset successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  // Деактивировать пользователя
+  app.post("/api/users/:id/deactivate", requireAuthor, async (req, res) => {
+    try {
+      // Нельзя деактивировать себя
+      if (req.params.id === req.session.userId) {
+        return res.status(400).json({ error: "Cannot deactivate yourself" });
+      }
+
+      const user = await storage.deactivateUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { passwordHash, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to deactivate user" });
+    }
+  });
+
+  // Активировать пользователя
+  app.post("/api/users/:id/activate", requireAuthor, async (req, res) => {
+    try {
+      const user = await storage.activateUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { passwordHash, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to activate user" });
+    }
+  });
+
+  // Reset user attempts for a specific test
+  app.post("/api/users/:id/reset-attempts", requireAuthor, async (req, res) => {
+    try {
+      const { testId } = req.body;
+      
+      if (!testId) {
+        return res.status(400).json({ error: "testId is required" });
+      }
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const test = await storage.getTest(testId);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      // Удаляем все попытки пользователя для этого теста
+      await storage.deleteAttemptsByUserAndTest(req.params.id, testId);
+
+      res.json({ success: true, message: "Attempts reset successfully" });
+    } catch (error) {
+      console.error("Reset attempts error:", error);
+      res.status(500).json({ error: "Failed to reset attempts" });
+    }
+  });
+
+  // Get user attempts summary (for reset dialog)
+  app.get("/api/users/:id/attempts-summary", requireAuthor, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const attempts = await storage.getAttemptsByUser(req.params.id);
+      const tests = await storage.getTests();
+      const testMap = new Map(tests.map(t => [t.id, t]));
+
+      // Группируем попытки по тестам
+      const attemptsByTest: Record<string, { 
+        testId: string; 
+        testTitle: string;
+        maxAttempts: number | null;
+        completedAttempts: number;
+        inProgressAttempts: number;
+      }> = {};
+
+      for (const attempt of attempts) {
+        const test = testMap.get(attempt.testId);
+        if (!test) continue;
+
+        if (!attemptsByTest[attempt.testId]) {
+          attemptsByTest[attempt.testId] = {
+            testId: attempt.testId,
+            testTitle: test.title,
+            maxAttempts: test.maxAttempts,
+            completedAttempts: 0,
+            inProgressAttempts: 0,
+          };
+        }
+
+        if (attempt.finishedAt) {
+          attemptsByTest[attempt.testId].completedAttempts++;
+        } else {
+          attemptsByTest[attempt.testId].inProgressAttempts++;
+        }
+      }
+
+      res.json(Object.values(attemptsByTest));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch attempts summary" });
+    }
+  });
+
+  // ============================================
+  // Groups Management routes (Author only)
+  // ============================================
+
+  // Получить все группы
+  app.get("/api/groups", requireAuthor, async (req, res) => {
+    try {
+      const allGroups = await storage.getGroups();
+      
+      // Добавляем количество пользователей в каждой группе
+      const groupsWithCount = await Promise.all(
+        allGroups.map(async (group) => {
+          const users = await storage.getGroupUsers(group.id);
+          return {
+            ...group,
+            userCount: users.length,
+          };
+        })
+      );
+      
+      res.json(groupsWithCount);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch groups" });
+    }
+  });
+
+  // Получить одну группу с пользователями
+  app.get("/api/groups/:id", requireAuthor, async (req, res) => {
+    try {
+      const group = await storage.getGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      const users = await storage.getGroupUsers(req.params.id);
+      const safeUsers = users.map(({ passwordHash, ...user }) => user);
+
+      res.json({ ...group, users: safeUsers });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch group" });
+    }
+  });
+
+  // Создать группу
+  app.post("/api/groups", requireAuthor, async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const group = await storage.createGroup({
+        name,
+        description: description || null,
+        createdBy: req.session.userId,
+      });
+
+      res.status(201).json({ ...group, userCount: 0 });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create group" });
+    }
+  });
+
+  // Обновить группу
+  app.put("/api/groups/:id", requireAuthor, async (req, res) => {
+    try {
+      const { name, description } = req.body;
+
+      const group = await storage.updateGroup(req.params.id, { name, description });
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      const users = await storage.getGroupUsers(req.params.id);
+      res.json({ ...group, userCount: users.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update group" });
+    }
+  });
+
+  // Удалить группу
+  app.delete("/api/groups/:id", requireAuthor, async (req, res) => {
+    try {
+      const success = await storage.deleteGroup(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete group" });
+    }
+  });
+
+  // Добавить пользователя в группу
+  app.post("/api/groups/:id/users", requireAuthor, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+
+      // Проверяем существование группы и пользователя
+      const group = await storage.getGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      try {
+        await storage.addUserToGroup(userId, req.params.id);
+      } catch (e: any) {
+        // Если пользователь уже в группе (unique constraint)
+        if (e.code === '23505') {
+          return res.status(409).json({ error: "User already in group" });
+        }
+        throw e;
+      }
+
+      res.status(201).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add user to group" });
+    }
+  });
+
+  // Удалить пользователя из группы
+  app.delete("/api/groups/:id/users/:userId", requireAuthor, async (req, res) => {
+    try {
+      const success = await storage.removeUserFromGroup(req.params.userId, req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "User not in group" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove user from group" });
+    }
+  });
+
+  // Получить группы пользователя
+  app.get("/api/users/:id/groups", requireAuthor, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const userGroupsList = await storage.getUserGroups(req.params.id);
+      res.json(userGroupsList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user groups" });
+    }
+  });
+
+  // Установить группы пользователя (заменяет все)
+  app.put("/api/users/:id/groups", requireAuthor, async (req, res) => {
+    try {
+      const { groupIds } = req.body;
+      
+      if (!Array.isArray(groupIds)) {
+        return res.status(400).json({ error: "groupIds must be an array" });
+      }
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      await storage.setUserGroups(req.params.id, groupIds);
+      
+      const updatedGroups = await storage.getUserGroups(req.params.id);
+      res.json(updatedGroups);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user groups" });
+    }
+  });
+
+  // ============================================
+  // Test Assignments routes (Author only)
+  // ============================================
+
+  // Получить все назначения для теста
+  app.get("/api/tests/:id/assignments", requireAuthor, async (req, res) => {
+    try {
+      const test = await storage.getTest(req.params.id);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      const assignments = await storage.getTestAssignments(req.params.id);
+      
+      // Добавляем информацию о пользователях и группах
+      const enrichedAssignments = await Promise.all(
+        assignments.map(async (assignment) => {
+          let user = null;
+          let group = null;
+          
+          if (assignment.userId) {
+            const u = await storage.getUser(assignment.userId);
+            if (u) {
+              const { passwordHash, ...safeUser } = u;
+              user = safeUser;
+            }
+          }
+          
+          if (assignment.groupId) {
+            group = await storage.getGroup(assignment.groupId);
+          }
+          
+          return { ...assignment, user, group };
+        })
+      );
+
+      res.json(enrichedAssignments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch assignments" });
+    }
+  });
+
+  // Назначить тест пользователю или группе
+  app.post("/api/tests/:id/assignments", requireAuthor, async (req, res) => {
+    try {
+      const { userId, groupId, dueDate } = req.body;
+      
+      if (!userId && !groupId) {
+        return res.status(400).json({ error: "userId or groupId is required" });
+      }
+
+      const test = await storage.getTest(req.params.id);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+      }
+
+      if (groupId) {
+        const group = await storage.getGroup(groupId);
+        if (!group) {
+          return res.status(404).json({ error: "Group not found" });
+        }
+      }
+
+      const assignment = await storage.createTestAssignment({
+        testId: req.params.id,
+        userId: userId || null,
+        groupId: groupId || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        assignedBy: req.session.userId!,
+      });
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create assignment" });
+    }
+  });
+
+  // Массовое назначение теста
+  app.post("/api/tests/:id/assignments/bulk", requireAuthor, async (req, res) => {
+    try {
+      const { userIds, groupIds, dueDate } = req.body;
+      
+      if ((!userIds || userIds.length === 0) && (!groupIds || groupIds.length === 0)) {
+        return res.status(400).json({ error: "userIds or groupIds is required" });
+      }
+
+      const test = await storage.getTest(req.params.id);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      const assignments: any[] = [];
+
+      // Назначаем пользователям
+      if (userIds && userIds.length > 0) {
+        for (const userId of userIds) {
+          const assignment = await storage.createTestAssignment({
+            testId: req.params.id,
+            userId,
+            groupId: null,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            assignedBy: req.session.userId!,
+          });
+          assignments.push(assignment);
+        }
+      }
+
+      // Назначаем группам
+      if (groupIds && groupIds.length > 0) {
+        for (const groupId of groupIds) {
+          const assignment = await storage.createTestAssignment({
+            testId: req.params.id,
+            userId: null,
+            groupId,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            assignedBy: req.session.userId!,
+          });
+          assignments.push(assignment);
+        }
+      }
+
+      res.status(201).json(assignments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create assignments" });
+    }
+  });
+
+  // Удалить назначение
+  app.delete("/api/assignments/:id", requireAuthor, async (req, res) => {
+    try {
+      const success = await storage.deleteTestAssignment(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete assignment" });
+    }
+  });
+
+  // Получить назначенные тесты для текущего learner
+  app.get("/api/learner/assigned-tests", requireLearner, async (req, res) => {
+    try {
+      const assignedTests = await storage.getAssignedTestsForUser(req.session.userId!);
+      res.json(assignedTests);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch assigned tests" });
+    }
   });
 
   // Folders routes
@@ -1068,18 +1909,33 @@ export async function registerRoutes(
   // Learner tests - Learner only
   app.get("/api/learner/tests", requireLearner, async (req, res) => {
     try {
-      const tests = await storage.getTests();
+      // Получаем только назначенные тесты для текущего пользователя
+      const assignedTests = await storage.getAssignedTestsForUser(req.session.userId!);
+      
       const topics = await storage.getTopics();
       const topicMap = new Map(topics.map((t) => [t.id, t.name]));
 
       const testsWithSections = await Promise.all(
-        tests.map(async (test) => {
+        assignedTests.map(async (test) => {
           const sections = await storage.getTestSections(test.id);
           const sectionsWithNames = sections.map((s) => ({
             ...s,
             topicName: topicMap.get(s.topicId) || "Unknown",
           }));
-          return { ...test, sections: sectionsWithNames };
+          
+          // Получаем количество завершённых попыток пользователя для этого теста
+          const userAttempts = await storage.getAttemptsByUserAndTest(req.session.userId!, test.id);
+          const completedAttempts = userAttempts.filter(a => a.finishedAt !== null).length;
+          
+          // Проверяем есть ли незавершённая попытка
+          const inProgressAttempt = userAttempts.find(a => a.finishedAt === null);
+          
+          return { 
+            ...test, 
+            sections: sectionsWithNames,
+            completedAttempts,
+            inProgressAttemptId: inProgressAttempt?.id || null,
+          };
         })
       );
 
@@ -1097,6 +1953,16 @@ export async function registerRoutes(
       const test = await storage.getTest(req.params.testId);
       if (!test) {
         return res.status(404).json({ error: "Test not found" });
+      }
+
+      // Проверяем ограничение попыток
+      if (test.maxAttempts !== null) {
+        const userAttempts = await storage.getAttemptsByUserAndTest(req.session.userId!, test.id);
+        const completedAttempts = userAttempts.filter(a => a.finishedAt !== null).length;
+        
+        if (completedAttempts >= test.maxAttempts) {
+          return res.status(403).json({ error: "Attempts exhausted", code: "ATTEMPTS_EXHAUSTED" });
+        }
       }
 
       if (test.mode !== "adaptive") {
@@ -1206,6 +2072,8 @@ export async function registerRoutes(
         attemptId: attempt.id,
         testTitle: test.title,
         showDifficultyLevel: test.showDifficultyLevel,
+        showCorrectAnswers: test.showCorrectAnswers,
+        timeLimitMinutes: test.timeLimitMinutes || null,
         currentQuestion: firstQuestion ? {
           id: firstQuestion.id,
           question: firstQuestion,
@@ -1310,42 +2178,92 @@ export async function registerRoutes(
       if (alreadyPassed || (allAnswered && correctCount >= requiredCorrect)) {
         // Level passed!
         currentLevel.status = "passed";
+        
+        // Record this as achieved level (even if not the highest)
+        currentTopic.finalLevelIndex = currentTopic.currentLevelIndex;
 
         // Check if there's a higher level
         const nextLevelIndex = currentTopic.currentLevelIndex + 1;
         if (nextLevelIndex < currentTopic.levelsState.length) {
-          // Move to higher level
-          levelTransition = {
-            type: "up",
-            fromLevel: currentLevel.levelName,
-            toLevel: currentTopic.levelsState[nextLevelIndex].levelName,
-            message: `Уровень "${currentLevel.levelName}" пройден! Переход на уровень "${currentTopic.levelsState[nextLevelIndex].levelName}"`,
-          };
+          const nextLevel = currentTopic.levelsState[nextLevelIndex];
+          
+          // Only move up if next level is pending (not already failed/passed)
+          if (nextLevel.status === "pending") {
+            // Move to higher level
+            levelTransition = {
+              type: "up",
+              fromLevel: currentLevel.levelName,
+              toLevel: nextLevel.levelName,
+              message: `Уровень "${currentLevel.levelName}" пройден! Переход на уровень "${nextLevel.levelName}"`,
+            };
 
-          currentTopic.currentLevelIndex = nextLevelIndex;
-          const newLevel = currentTopic.levelsState[nextLevelIndex];
-          newLevel.status = "in_progress";
+            currentTopic.currentLevelIndex = nextLevelIndex;
+            nextLevel.status = "in_progress";
 
-          // Get first question of new level
-          const nextQuestionId = newLevel.questionIds[0];
-          variant.currentQuestionId = nextQuestionId;
+            // Get first question of new level
+            const nextQuestionId = nextLevel.questionIds[0];
+            variant.currentQuestionId = nextQuestionId;
 
-          if (nextQuestionId) {
-            const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
-            if (nextQuestions[0]) {
-              nextQuestionData = {
-                id: nextQuestionId,
-                question: nextQuestions[0],
-                topicName: currentTopic.topicName,
-                levelName: newLevel.levelName,
-                questionNumber: 1,
-                totalInLevel: newLevel.questionIds.length,
+            if (nextQuestionId) {
+              const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+              if (nextQuestions[0]) {
+                nextQuestionData = {
+                  id: nextQuestionId,
+                  question: nextQuestions[0],
+                  topicName: currentTopic.topicName,
+                  levelName: nextLevel.levelName,
+                  questionNumber: 1,
+                  totalInLevel: nextLevel.questionIds.length,
+                };
+              }
+            }
+          } else {
+            // Next level is failed/passed - cannot skip, topic complete
+            currentTopic.status = "completed";
+            levelTransition = {
+              type: "complete",
+              fromLevel: currentLevel.levelName,
+              toLevel: null,
+              message: `Тема завершена. Достигнутый уровень: "${currentLevel.levelName}"`,
+            };
+
+            // Check if there's another topic
+            const nextTopicIndex = variant.currentTopicIndex + 1;
+            if (nextTopicIndex < variant.topics.length) {
+              topicTransition = {
+                fromTopic: currentTopic.topicName,
+                toTopic: variant.topics[nextTopicIndex].topicName,
               };
+
+              variant.currentTopicIndex = nextTopicIndex;
+              const nextTopic = variant.topics[nextTopicIndex];
+              const startLevel = nextTopic.levelsState[nextTopic.currentLevelIndex];
+              startLevel.status = "in_progress";
+
+              const nextQuestionId = startLevel.questionIds[0];
+              variant.currentQuestionId = nextQuestionId;
+
+              if (nextQuestionId) {
+                const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+                if (nextQuestions[0]) {
+                  nextQuestionData = {
+                    id: nextQuestionId,
+                    question: nextQuestions[0],
+                    topicName: nextTopic.topicName,
+                    levelName: startLevel.levelName,
+                    questionNumber: 1,
+                    totalInLevel: startLevel.questionIds.length,
+                  };
+                }
+              }
+            } else {
+              // All topics complete
+              isFinished = true;
+              variant.currentQuestionId = null;
             }
           }
         } else {
           // Highest level passed - topic complete!
-          currentTopic.finalLevelIndex = currentTopic.currentLevelIndex;
           currentTopic.status = "completed";
 
           levelTransition = {
@@ -1395,48 +2313,14 @@ export async function registerRoutes(
         // Level failed!
         currentLevel.status = "failed";
 
-        // Check if there's a lower level
-        const prevLevelIndex = currentTopic.currentLevelIndex - 1;
-        if (prevLevelIndex >= 0) {
-          // Move to lower level
-          levelTransition = {
-            type: "down",
-            fromLevel: currentLevel.levelName,
-            toLevel: currentTopic.levelsState[prevLevelIndex].levelName,
-            message: `Уровень "${currentLevel.levelName}" не пройден. Переход на уровень "${currentTopic.levelsState[prevLevelIndex].levelName}"`,
-          };
-
-          currentTopic.currentLevelIndex = prevLevelIndex;
-          const newLevel = currentTopic.levelsState[prevLevelIndex];
-          newLevel.status = "in_progress";
-
-          // Get first question of new level
-          const nextQuestionId = newLevel.questionIds[0];
-          variant.currentQuestionId = nextQuestionId;
-
-          if (nextQuestionId) {
-            const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
-            if (nextQuestions[0]) {
-              nextQuestionData = {
-                id: nextQuestionId,
-                question: nextQuestions[0],
-                topicName: currentTopic.topicName,
-                levelName: newLevel.levelName,
-                questionNumber: 1,
-                totalInLevel: newLevel.questionIds.length,
-              };
-            }
-          }
-        } else {
-          // Lowest level failed - topic complete with failure
-          currentTopic.finalLevelIndex = null; // No level achieved
+        // If we already achieved a level, topic is complete with that level
+        if (currentTopic.finalLevelIndex !== null) {
           currentTopic.status = "completed";
-
           levelTransition = {
             type: "complete",
             fromLevel: currentLevel.levelName,
             toLevel: null,
-            message: `К сожалению, базовый уровень "${currentLevel.levelName}" не пройден.`,
+            message: `Тема завершена. Достигнутый уровень: "${currentTopic.levelsState[currentTopic.finalLevelIndex].levelName}"`,
           };
 
           // Check if there's another topic
@@ -1472,6 +2356,136 @@ export async function registerRoutes(
             // All topics complete
             isFinished = true;
             variant.currentQuestionId = null;
+          }
+        } else {
+          // No level achieved yet, check if there's a lower level
+          const prevLevelIndex = currentTopic.currentLevelIndex - 1;
+          if (prevLevelIndex >= 0) {
+            const prevLevel = currentTopic.levelsState[prevLevelIndex];
+            
+            // Only move down if previous level is pending (not already failed/passed)
+            if (prevLevel.status === "pending") {
+              // Move to lower level
+              levelTransition = {
+                type: "down",
+                fromLevel: currentLevel.levelName,
+                toLevel: prevLevel.levelName,
+                message: `Уровень "${currentLevel.levelName}" не пройден. Переход на уровень "${prevLevel.levelName}"`,
+              };
+
+              currentTopic.currentLevelIndex = prevLevelIndex;
+              prevLevel.status = "in_progress";
+
+              // Get first question of new level
+              const nextQuestionId = prevLevel.questionIds[0];
+              variant.currentQuestionId = nextQuestionId;
+
+              if (nextQuestionId) {
+                const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+                if (nextQuestions[0]) {
+                  nextQuestionData = {
+                    id: nextQuestionId,
+                    question: nextQuestions[0],
+                    topicName: currentTopic.topicName,
+                    levelName: prevLevel.levelName,
+                    questionNumber: 1,
+                    totalInLevel: prevLevel.questionIds.length,
+                  };
+                }
+              }
+            } else {
+              // Previous level is also failed/passed - topic complete with no achievement
+              currentTopic.finalLevelIndex = null;
+              currentTopic.status = "completed";
+
+              levelTransition = {
+                type: "complete",
+                fromLevel: currentLevel.levelName,
+                toLevel: null,
+                message: `К сожалению, уровень "${currentLevel.levelName}" не пройден.`,
+              };
+
+              // Check if there's another topic
+              const nextTopicIndex = variant.currentTopicIndex + 1;
+              if (nextTopicIndex < variant.topics.length) {
+                topicTransition = {
+                  fromTopic: currentTopic.topicName,
+                  toTopic: variant.topics[nextTopicIndex].topicName,
+                };
+
+                variant.currentTopicIndex = nextTopicIndex;
+                const nextTopic = variant.topics[nextTopicIndex];
+                const startLevel = nextTopic.levelsState[nextTopic.currentLevelIndex];
+                startLevel.status = "in_progress";
+
+                const nextQuestionId = startLevel.questionIds[0];
+                variant.currentQuestionId = nextQuestionId;
+
+                if (nextQuestionId) {
+                  const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+                  if (nextQuestions[0]) {
+                    nextQuestionData = {
+                      id: nextQuestionId,
+                      question: nextQuestions[0],
+                      topicName: nextTopic.topicName,
+                      levelName: startLevel.levelName,
+                      questionNumber: 1,
+                      totalInLevel: startLevel.questionIds.length,
+                    };
+                  }
+                }
+              } else {
+                // All topics complete
+                isFinished = true;
+                variant.currentQuestionId = null;
+              }
+            }
+          } else {
+            // Lowest level failed - topic complete with failure
+            currentTopic.finalLevelIndex = null;
+            currentTopic.status = "completed";
+
+            levelTransition = {
+              type: "complete",
+              fromLevel: currentLevel.levelName,
+              toLevel: null,
+              message: `К сожалению, базовый уровень "${currentLevel.levelName}" не пройден.`,
+            };
+
+            // Check if there's another topic
+            const nextTopicIndex = variant.currentTopicIndex + 1;
+            if (nextTopicIndex < variant.topics.length) {
+              topicTransition = {
+                fromTopic: currentTopic.topicName,
+                toTopic: variant.topics[nextTopicIndex].topicName,
+              };
+
+              variant.currentTopicIndex = nextTopicIndex;
+              const nextTopic = variant.topics[nextTopicIndex];
+              const startLevel = nextTopic.levelsState[nextTopic.currentLevelIndex];
+              startLevel.status = "in_progress";
+
+              const nextQuestionId = startLevel.questionIds[0];
+              variant.currentQuestionId = nextQuestionId;
+
+              if (nextQuestionId) {
+                const nextQuestions = await storage.getQuestionsByIds([nextQuestionId]);
+                if (nextQuestions[0]) {
+                  nextQuestionData = {
+                    id: nextQuestionId,
+                    question: nextQuestions[0],
+                    topicName: nextTopic.topicName,
+                    levelName: startLevel.levelName,
+                    questionNumber: 1,
+                    totalInLevel: startLevel.questionIds.length,
+                  };
+                }
+              }
+            } else {
+              // All topics complete
+              isFinished = true;
+              variant.currentQuestionId = null;
+            }
           }
         }
       } else {
@@ -1620,6 +2634,16 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Test not found" });
       }
 
+      // Проверяем ограничение попыток
+      if (test.maxAttempts !== null) {
+        const userAttempts = await storage.getAttemptsByUserAndTest(req.session.userId!, test.id);
+        const completedAttempts = userAttempts.filter(a => a.finishedAt !== null).length;
+        
+        if (completedAttempts >= test.maxAttempts) {
+          return res.status(403).json({ error: "Attempts exhausted", code: "ATTEMPTS_EXHAUSTED" });
+        }
+      }
+
       const sections = await storage.getTestSections(test.id);
       const topics = await storage.getTopics();
       const topicMap = new Map(topics.map((t) => [t.id, t.name]));
@@ -1655,14 +2679,110 @@ export async function registerRoutes(
         finishedAt: null,
       });
 
+      // If showCorrectAnswers is enabled, include correctJson, otherwise strip it
+      const questionsForClient = test.showCorrectAnswers 
+        ? allQuestions 
+        : allQuestions.map(q => ({
+            ...q,
+            correctJson: undefined,
+          }));
+
       res.status(201).json({
         ...attempt,
         testTitle: test.title,
-        questions: allQuestions,
+        showCorrectAnswers: test.showCorrectAnswers || false,
+        timeLimitMinutes: test.timeLimitMinutes || null,
+        questions: questionsForClient,
       });
     } catch (error) {
       console.error("Start attempt error:", error);
       res.status(500).json({ error: "Failed to start attempt" });
+    }
+  });
+
+  // Save progress for standard test (auto-save)
+  app.post("/api/attempts/:attemptId/save-progress", requireLearner, async (req, res) => {
+    try {
+      const attempt = await storage.getAttempt(req.params.attemptId);
+      if (!attempt) {
+        return res.status(404).json({ error: "Attempt not found" });
+      }
+
+      if (attempt.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      // Не сохраняем если попытка уже завершена
+      if (attempt.finishedAt) {
+        return res.status(400).json({ error: "Attempt already finished" });
+      }
+
+      const { answers, currentIndex, shuffleMappings } = req.body;
+
+      const updatedVariant = {
+        ...(attempt.variantJson as any),
+        currentIndex,
+      };
+      
+      // Сохраняем shuffleMappings только если переданы
+      if (shuffleMappings) {
+        updatedVariant.shuffleMappings = shuffleMappings;
+      }
+
+      await storage.updateAttempt(attempt.id, {
+        answersJson: answers,
+        variantJson: updatedVariant,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Save progress error:", error);
+      res.status(500).json({ error: "Failed to save progress" });
+    }
+  });
+
+  // Resume in-progress attempt
+  app.get("/api/tests/:testId/resume", requireLearner, async (req, res) => {
+    try {
+      const test = await storage.getTest(req.params.testId);
+      if (!test) {
+        return res.status(404).json({ error: "Test not found" });
+      }
+
+      const userAttempts = await storage.getAttemptsByUserAndTest(req.session.userId!, test.id);
+      const inProgressAttempt = userAttempts.find(a => a.finishedAt === null);
+
+      if (!inProgressAttempt) {
+        return res.json({ hasInProgress: false });
+      }
+
+      const variant = inProgressAttempt.variantJson as any;
+      const allQuestionIds = variant.sections.flatMap((s: any) => s.questionIds);
+      const allQuestions = await storage.getQuestionsByIds(allQuestionIds);
+
+      // Для режима showCorrectAnswers передаём correctJson
+      const questionsForClient = test.showCorrectAnswers 
+        ? allQuestions 
+        : allQuestions.map(q => ({
+            ...q,
+            correctJson: undefined,
+          }));
+
+      res.json({
+        hasInProgress: true,
+        attempt: {
+          ...inProgressAttempt,
+          testTitle: test.title,
+          showCorrectAnswers: test.showCorrectAnswers || false,
+          timeLimitMinutes: test.timeLimitMinutes || null,
+          questions: questionsForClient,
+        },
+        savedAnswers: inProgressAttempt.answersJson || {},
+        currentIndex: variant.currentIndex || 0,
+      });
+    } catch (error) {
+      console.error("Resume attempt error:", error);
+      res.status(500).json({ error: "Failed to resume attempt" });
     }
   });
 
@@ -1810,11 +2930,22 @@ export async function registerRoutes(
       }
 
       const test = await storage.getTest(attempt.testId);
+      
+      // Получаем информацию о попытках
+      const userAttempts = await storage.getAttemptsByUserAndTest(req.session.userId!, attempt.testId);
+      const completedAttempts = userAttempts.filter(a => a.finishedAt !== null).length;
+      const maxAttempts = test?.maxAttempts || null;
+      const canRetake = maxAttempts === null || completedAttempts < maxAttempts;
 
       res.json({
         ...attempt,
         testTitle: test?.title || "Unknown Test",
         result: attempt.resultJson as AttemptResult,
+        canRetake,
+        attemptsInfo: maxAttempts !== null ? {
+          completed: completedAttempts,
+          max: maxAttempts,
+        } : null,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch result" });
@@ -2614,23 +3745,29 @@ app.get("/api/analytics/combined", requireAuthor, async (req: Request, res: Resp
       );
       const userMap = new Map(users.filter(Boolean).map(u => [u!.id, u!]));
       
+      // Загружаем тесты для названий
+      const tests = await storage.getTests();
+      const testMap = new Map(tests.map(t => [t.id, t]));
+
       webAttempts = attempts
         .filter(a => !testId || a.testId === testId)
         .filter(a => a.finishedAt) // Только завершённые
         .map(a => {
           const user = userMap.get(a.userId);
           const result = a.resultJson as any;
+          const test = testMap.get(a.testId);
           return {
             id: a.id,
             testId: a.testId,
+            testTitle: test?.title || "Удалённый тест",
             userId: a.userId,
-            username: user?.username || "Unknown",
+            username: user?.name || user?.email || "Unknown",
             startedAt: a.startedAt,
             finishedAt: a.finishedAt,
             resultPercent: result?.overallPercent || 0,
-            resultPassed: result?.passed || false,
-            totalPoints: result?.earnedPoints || 0,
-            maxPoints: result?.possiblePoints || 0,
+            resultPassed: result?.overallPassed || false,
+            totalPoints: result?.totalEarnedPoints || 0,
+            maxPoints: result?.totalPossiblePoints || 0,
             source: "web" as const,
           };
         });
@@ -2715,7 +3852,7 @@ app.get("/api/analytics/tests/:testId/attempts", requireAuthor, async (req: Requ
     const users = await Promise.all(userIds.map(id => storage.getUser(id)));
     const userMap = new Map<string, string>();
     for (const u of users) {
-      if (u) userMap.set(u.id, u.username);
+      if (u) userMap.set(u.id, u.name || u.email || "Unknown");
     }
     
     const attemptsList = testAttempts.map(attempt => {
@@ -2814,13 +3951,16 @@ app.get("/api/analytics/attempts/:attemptId", requireAuthor, async (req: Request
       topicId: string;
       topicName: string;
       userAnswer: unknown;
+      userAnswerRaw: unknown;
       correctAnswer: unknown;
+      correctAnswerRaw: unknown;
       isCorrect: boolean;
       earnedPoints: number;
       possiblePoints: number;
       difficulty: number;
       levelName?: string;
       levelIndex?: number;
+      questionData?: unknown;
     }
     
     const detailedAnswers: DetailedAnswerItem[] = [];
@@ -2846,20 +3986,53 @@ app.get("/api/analytics/attempts/:attemptId", requireAuthor, async (req: Request
         }
       }
       
+      // Форматируем ответы для отображения
+      const dataJson = question.dataJson as any;
+      const correctJson = question.correctJson as any;
+      
+      let formattedUserAnswer: any = userAnswer;
+      let formattedCorrectAnswer: any = correctJson;
+      
+      if (question.type === "single" && dataJson?.options) {
+        formattedUserAnswer = dataJson.options[userAnswer as number] || userAnswer;
+        formattedCorrectAnswer = dataJson.options[correctJson?.correctIndex] || correctJson;
+      } else if (question.type === "multiple" && dataJson?.options) {
+        const userIndices = (userAnswer as number[]) || [];
+        formattedUserAnswer = userIndices.map(i => dataJson.options[i]).filter(Boolean);
+        formattedCorrectAnswer = (correctJson?.correctIndices || []).map((i: number) => dataJson.options[i]).filter(Boolean);
+      } else if (question.type === "matching" && dataJson?.left && dataJson?.right) {
+        const userPairs = userAnswer as Record<number, number> || {};
+        formattedUserAnswer = Object.entries(userPairs).map(([l, r]) => ({
+          left: dataJson.left[parseInt(l)],
+          right: dataJson.right[r as number],
+        }));
+        formattedCorrectAnswer = (correctJson?.pairs || []).map((p: {left: number, right: number}) => ({
+          left: dataJson.left[p.left],
+          right: dataJson.right[p.right],
+        }));
+      } else if (question.type === "ranking" && dataJson?.items) {
+        const userOrder = (userAnswer as number[]) || [];
+        formattedUserAnswer = userOrder.map(i => dataJson.items[i]).filter(Boolean);
+        formattedCorrectAnswer = (correctJson?.correctOrder || []).map((i: number) => dataJson.items[i]).filter(Boolean);
+      }
+
       detailedAnswers.push({
         questionId: qId,
         questionPrompt: question.prompt,
         questionType: question.type,
         topicId: question.topicId,
         topicName: topicMap.get(question.topicId) || "Unknown",
-        userAnswer,
-        correctAnswer: question.correctJson,
+        userAnswer: formattedUserAnswer,
+        userAnswerRaw: userAnswer,
+        correctAnswer: formattedCorrectAnswer,
+        correctAnswerRaw: correctJson,
         isCorrect,
         earnedPoints: isCorrect ? (question.points || 1) : 0,
         possiblePoints: question.points || 1,
         difficulty: question.difficulty || 50,
         levelName,
         levelIndex,
+        questionData: dataJson, // Добавляем данные вопроса для отображения
       });
     }
     
@@ -2918,7 +4091,7 @@ app.get("/api/analytics/attempts/:attemptId", requireAuthor, async (req: Request
     res.json({
       attemptId: attempt.id,
       userId: attempt.userId,
-      username: user?.username || "Unknown",
+      username: user?.name || user?.email || "Unknown",
       testId: test.id,
       testTitle: test.title,
       testMode: test.mode,
@@ -2965,7 +4138,7 @@ app.get("/api/analytics/tests/:testId/export/excel", requireAuthor, async (req: 
     const users = await Promise.all(userIds.map(id => storage.getUser(id)));
     const userMap = new Map<string, string>();
     for (const u of users) {
-      if (u) userMap.set(u.id, u.username);
+      if (u) userMap.set(u.id, u.name || u.email || "Unknown");
     }
     
     // Загружаем темы
@@ -3432,27 +4605,84 @@ app.get("/api/export/filters", requireAuthor, async (req: Request, res: Response
   try {
     const tests = await storage.getTests();
     const allAttempts = await storage.getAllAttempts();
+    const allScormAttempts = await storage.getAllScormAttempts();
+    const scormPackages = await storage.getScormPackages();
+    
+    // Создаём карту testId -> packageId для SCORM
+    const scormTestIds = new Set(scormPackages.map(p => p.testId));
+    
+    // Определяем какие тесты имеют Web и/или LMS попытки
+    const webTestIds = new Set(allAttempts.filter(a => a.finishedAt).map(a => a.testId));
+    const lmsTestIds = new Set<string>();
+    for (const attempt of allScormAttempts) {
+      if (attempt.finishedAt) {
+        const pkg = scormPackages.find(p => p.id === attempt.packageId);
+        if (pkg?.testId) lmsTestIds.add(pkg.testId);
+      }
+    }
     
     const testOptions = tests.map(t => ({
       id: t.id,
       title: t.title,
       mode: t.mode || "standard",
+      hasWebAttempts: webTestIds.has(t.id),
+      hasLmsAttempts: lmsTestIds.has(t.id),
     }));
     
-    // Получаем уникальных пользователей из попыток
+    // Получаем уникальных Web-пользователей из попыток
     const userIds = Array.from(new Set(allAttempts.map(a => a.userId)));
     const users = await Promise.all(userIds.map(id => storage.getUser(id)));
     
-    const userOptions = users
+    const webUserOptions = users
       .filter((u): u is NonNullable<typeof u> => u !== undefined)
       .map(u => ({
         id: u.id,
-        username: u.username,
-      }))
-      .sort((a, b) => a.username.localeCompare(b.username));
+        username: u.name || u.email || "Unknown",
+        source: "web" as const,
+      }));
+
+    // Получаем уникальных LMS-пользователей из SCORM попыток
+    const lmsUserMap = new Map<string, { id: string; username: string; email?: string }>();
+    for (const attempt of allScormAttempts) {
+      if (!attempt.finishedAt) continue; // Только завершённые попытки
+      const odataUserId = attempt.lmsUserId || attempt.sessionId;
+      if (odataUserId && !lmsUserMap.has(odataUserId)) {
+        // Формируем понятное имя: Имя > Email > сокращённый ID
+        let displayName = attempt.lmsUserName || attempt.lmsUserEmail;
+        if (!displayName) {
+          displayName = `LMS User (${odataUserId.slice(0, 8)}...)`;
+        }
+        lmsUserMap.set(odataUserId, {
+          id: odataUserId,
+          username: displayName,
+          email: attempt.lmsUserEmail || undefined,
+        });
+      }
+    }
+    
+    const lmsUserOptions = Array.from(lmsUserMap.values()).map(u => ({
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      source: "lms" as const,
+    }));
+
+    const userOptions = [...webUserOptions, ...lmsUserOptions]
+      .sort((a, b) => (a.username || "").localeCompare(b.username || ""));
+    
+    // Получаем группы
+    const groups = await storage.getGroups();
+    const groupOptions = await Promise.all(groups.map(async g => {
+      const groupUsers = await storage.getGroupUsers(g.id);
+      return {
+        id: g.id,
+        name: g.name,
+        userCount: groupUsers.length,
+        userIds: groupUsers.map(u => u.id),
+      };
+    }));
     
     // SCORM пакеты
-    const scormPackages = await storage.getScormPackages();
     const scormOptions = scormPackages.map(p => ({
       id: p.id,
       testId: p.testId,
@@ -3464,6 +4694,7 @@ app.get("/api/export/filters", requireAuthor, async (req: Request, res: Response
     res.json({
       tests: testOptions,
       users: userOptions,
+      groups: groupOptions,
       scormPackages: scormOptions,
     });
   } catch (error) {
@@ -3506,8 +4737,29 @@ app.post("/api/export/excel", requireAuthor, async (req: Request, res: Response)
     // --- filter attempts by testIds/userIds/dates ---
     let attempts = allAttempts.filter(a => testIds.includes(a.testId));
 
-    if (userIds.length) {
-      const set = new Set(userIds);
+    // Фильтрация по группам
+    const groupIds: string[] = Array.isArray(config?.groupIds) ? config.groupIds : [];
+    let effectiveUserIds = [...userIds];
+    
+    if (groupIds.length > 0) {
+      // Получаем пользователей из выбранных групп
+      const groupUserIds = new Set<string>();
+      for (const groupId of groupIds) {
+        const groupUsers = await storage.getGroupUsers(groupId);
+        groupUsers.forEach(u => groupUserIds.add(u.id));
+      }
+      
+      if (userIds.length > 0) {
+        // Если выбраны и группы и пользователи — пересечение
+        effectiveUserIds = userIds.filter(id => groupUserIds.has(id));
+      } else {
+        // Если только группы — все пользователи из групп
+        effectiveUserIds = Array.from(groupUserIds);
+      }
+    }
+
+    if (effectiveUserIds.length > 0) {
+      const set = new Set(effectiveUserIds);
       attempts = attempts.filter(a => set.has(a.userId));
     }
 
@@ -3572,7 +4824,7 @@ app.post("/api/export/excel", requireAuthor, async (req: Request, res: Response)
     const uniqUserIds = Array.from(new Set(completed.map(a => a.userId)));
     const users = await Promise.all(uniqUserIds.map(id => storage.getUser(id)));
     const userMap = new Map<string, string>();
-    for (const u of users) if (u) userMap.set(u.id, u.username);
+    for (const u of users) if (u) userMap.set(u.id, u.name || u.email || "Unknown");
 
     // --- collect questions from variants ---
     const allQuestionIds = new Set<string>();
@@ -3808,6 +5060,16 @@ app.post("/api/export/excel-lms", requireAuthor, async (req: Request, res: Respo
 
     // Только завершённые
     let completed = attempts.filter(a => a.finishedAt !== null);
+
+    // Фильтрация по LMS пользователям
+    const userIds: string[] = Array.isArray(config?.userIds) ? config.userIds : [];
+    if (userIds.length > 0) {
+      const userSet = new Set(userIds);
+      completed = completed.filter(a => {
+        const odataUserId = a.lmsUserId || a.sessionId;
+        return userSet.has(odataUserId);
+      });
+    }
 
     // Best attempt only
     if (bestAttemptOnly) {
@@ -4482,12 +5744,12 @@ app.get("/api/analytics/combined-full", requireAuthor, async (req: Request, res:
             testTitle: test?.title || "Удалённый тест",
             testMode: test?.mode || "standard",
             userId: a.userId,
-            username: user?.username || "Unknown",
+            username: user?.name || user?.email || "Unknown",
             startedAt: a.startedAt,
             finishedAt: a.finishedAt,
             duration,
             resultPercent: result?.overallPercent || 0,
-            resultPassed: result?.passed || false,
+            resultPassed: result?.overallPassed || false,
             totalPoints: result?.earnedPoints || result?.totalEarnedPoints || 0,
             maxPoints: result?.possiblePoints || result?.totalPossiblePoints || 0,
             source: "web" as const,

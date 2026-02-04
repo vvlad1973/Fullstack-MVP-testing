@@ -184,8 +184,9 @@ interface AttemptDetail {
 }
 
 interface ExportFilters {
-  tests: { id: string; title: string; mode: string }[];
-  users: { id: string; username: string }[];
+  tests: { id: string; title: string; mode: string; hasWebAttempts: boolean; hasLmsAttempts: boolean }[];
+  users: { id: string; username: string; source?: "web" | "lms"; email?: string }[];
+  groups: { id: string; name: string; userCount: number; userIds: string[] }[];
   scormPackages?: { id: string; testId: string; testTitle: string }[];
 }
 
@@ -193,6 +194,7 @@ interface ExportConfig {
   source: "all" | "web" | "lms";
   testIds: string[];
   userIds: string[];
+  groupIds: string[];
   dateFrom: string;
   dateTo: string;
   testMode: "all" | "standard" | "adaptive";
@@ -213,52 +215,104 @@ interface ExportConfig {
 // ============================================
 
 function formatUserAnswer(answer: DetailedAnswer): string {
-  const { questionType, userAnswer, options, leftItems, rightItems, items } = answer;
+  const { questionType, userAnswer } = answer;
+  
+  // Получаем данные вопроса из questionData
+  const questionData = (answer as any).questionData || {};
+  const options = questionData.options || (answer as any).options;
+  const leftItems = questionData.left || (answer as any).leftItems;
+  const rightItems = questionData.right || (answer as any).rightItems;
+  const items = questionData.items || (answer as any).items;
 
-  if (userAnswer === null || userAnswer === undefined) return "Нет ответа";
+  if (userAnswer === undefined || userAnswer === null) return "Нет ответа";
 
   switch (questionType) {
     case "single":
       if (typeof userAnswer === "number" && options) {
         return options[userAnswer] || `Вариант ${userAnswer + 1}`;
       }
+      if (typeof userAnswer === "string" && options) {
+        return userAnswer;
+      }
       return String(userAnswer);
 
     case "multiple":
-      if (Array.isArray(userAnswer) && options) {
-        return userAnswer.map(i => options[i] || `Вариант ${i + 1}`).join(", ");
+      if (Array.isArray(userAnswer)) {
+        if (options) {
+          return userAnswer.map(i => options[i] || `Вариант ${i + 1}`).join(", ");
+        }
+        // Если userAnswer уже отформатирован как массив строк
+        if (typeof userAnswer[0] === "string") {
+          return userAnswer.join(", ");
+        }
+        return userAnswer.join(", ");
       }
-      return Array.isArray(userAnswer) ? userAnswer.join(", ") : String(userAnswer);
+      return String(userAnswer);
 
     case "matching":
-      if (typeof userAnswer === "object" && leftItems && rightItems) {
+      if (typeof userAnswer === "object" && !Array.isArray(userAnswer) && leftItems && rightItems) {
         return Object.entries(userAnswer)
           .map(([left, right]) => `${leftItems[+left]} → ${rightItems[+right as number]}`)
           .join("; ");
       }
+      // Если уже отформатирован
+      if (Array.isArray(userAnswer)) {
+        return userAnswer.map((p: any) => `${p.left} → ${p.right}`).join("; ");
+      }
       return JSON.stringify(userAnswer);
 
     case "ranking":
-      if (Array.isArray(userAnswer) && items) {
-        return userAnswer.map((i, pos) => `${pos + 1}. ${items[i]}`).join("; ");
+      if (Array.isArray(userAnswer)) {
+        if (items && typeof userAnswer[0] === "number") {
+          return userAnswer.map((i, pos) => `${pos + 1}. ${items[i]}`).join("; ");
+        }
+        // Если уже отформатирован как массив строк
+        if (typeof userAnswer[0] === "string") {
+          return userAnswer.map((item, pos) => `${pos + 1}. ${item}`).join("; ");
+        }
+        return userAnswer.join(" → ");
       }
-      return Array.isArray(userAnswer) ? userAnswer.join(" → ") : String(userAnswer);
+      return String(userAnswer);
 
     default:
-      return JSON.stringify(userAnswer);
+      return typeof userAnswer === "object" ? JSON.stringify(userAnswer) : String(userAnswer);
   }
 }
 
 function formatCorrectAnswer(answer: DetailedAnswer): string {
-  const { questionType, correctAnswer, options, leftItems, rightItems, items } = answer;
+  const { questionType, correctAnswer } = answer;
+  
+  // Получаем данные вопроса из questionData
+  const questionData = (answer as any).questionData || {};
+  const options = questionData.options || (answer as any).options;
+  const leftItems = questionData.left || (answer as any).leftItems;
+  const rightItems = questionData.right || (answer as any).rightItems;
+  const items = questionData.items || (answer as any).items;
 
   if (!correctAnswer) return "—";
+
+  // Если correctAnswer уже отформатирован (массив строк или объекты с текстом)
+  if (Array.isArray(correctAnswer)) {
+    if (questionType === "multiple" && typeof correctAnswer[0] === "string") {
+      return correctAnswer.join(", ");
+    }
+    if (questionType === "matching" && correctAnswer[0]?.left) {
+      return correctAnswer.map((p: any) => `${p.left} → ${p.right}`).join("; ");
+    }
+    if (questionType === "ranking" && typeof correctAnswer[0] === "string") {
+      return correctAnswer.map((item, pos) => `${pos + 1}. ${item}`).join("; ");
+    }
+  }
 
   switch (questionType) {
     case "single":
       const idx = correctAnswer.correctIndex;
       if (typeof idx === "number" && options) {
         return options[idx] || `Вариант ${idx + 1}`;
+      }
+      // Если уже отформатирован как строка
+      if (typeof correctAnswer === "string") {
+        return correctAnswer;
       }
       return String(idx);
 
@@ -284,7 +338,7 @@ function formatCorrectAnswer(answer: DetailedAnswer): string {
       return Array.isArray(order) ? order.join(" → ") : String(order);
 
     default:
-      return JSON.stringify(correctAnswer);
+      return typeof correctAnswer === "object" ? JSON.stringify(correctAnswer) : String(correctAnswer);
   }
 }
 
@@ -854,7 +908,7 @@ function AttemptDetailsDialog({
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="text-2xl font-bold">{topic.percent.toFixed(0)}%</p>
+                              <p className="text-2xl font-bold">{(topic.percent ?? 0).toFixed(0)}%</p>
                             </div>
                             {topic.passed !== null && (
                               topic.passed ? (
@@ -873,7 +927,7 @@ function AttemptDetailsDialog({
                                   ? "bg-green-500"
                                   : "bg-red-500"
                               }`}
-                            style={{ width: `${Math.min(topic.percent, 100)}%` }}
+                            style={{ width: `${Math.min(topic.percent ?? 0, 100)}%` }}
                           />
                         </div>
                       </CardContent>
@@ -994,6 +1048,7 @@ function ExportSection() {
     source: "all",
     testIds: [],
     userIds: [],
+    groupIds: [],
     dateFrom: "",
     dateTo: "",
     testMode: "all",
@@ -1010,6 +1065,7 @@ function ExportSection() {
 
   const [testSearch, setTestSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
 
   const handleTestToggle = (testId: string) => {
     setConfig(prev => ({
@@ -1068,6 +1124,39 @@ function ExportSection() {
     setConfig(prev => ({
       ...prev,
       userIds: allSelected ? [] : usersToSelect.map(u => u.id),
+    }));
+  };
+
+  const handleGroupToggle = (groupId: string) => {
+    setConfig(prev => {
+      const newGroupIds = prev.groupIds.includes(groupId)
+        ? prev.groupIds.filter(id => id !== groupId)
+        : [...prev.groupIds, groupId];
+      
+      // При изменении групп сбрасываем выбор пользователей
+      return {
+        ...prev,
+        groupIds: newGroupIds,
+        userIds: [],
+      };
+    });
+  };
+
+  const handleSelectAllGroups = () => {
+    if (!filters) return;
+    let groupsToSelect = filters.groups;
+
+    if (groupSearch) {
+      groupsToSelect = groupsToSelect.filter(g =>
+        g.name.toLowerCase().includes(groupSearch.toLowerCase())
+      );
+    }
+
+    const allSelected = groupsToSelect.every(g => config.groupIds.includes(g.id));
+    setConfig(prev => ({
+      ...prev,
+      groupIds: allSelected ? [] : groupsToSelect.map(g => g.id),
+      userIds: [], // Сбрасываем выбор пользователей
     }));
   };
 
@@ -1143,17 +1232,44 @@ function ExportSection() {
     document.body.removeChild(a);
   };
 
-  // Фильтруем тесты по режиму и поиску
+  // Фильтруем тесты по источнику, режиму и поиску
   const filteredTests = filters?.tests.filter(test => {
+    // Фильтр по источнику данных
+    if (config.source === "web" && !test.hasWebAttempts) return false;
+    if (config.source === "lms" && !test.hasLmsAttempts) return false;
+    // Фильтр по режиму теста
     if (config.testMode === "standard" && test.mode === "adaptive") return false;
     if (config.testMode === "adaptive" && test.mode !== "adaptive") return false;
+    // Фильтр по поиску
     if (testSearch && !test.title.toLowerCase().includes(testSearch.toLowerCase())) return false;
     return true;
   }) || [];
 
-  // Фильтруем пользователей по поиску
+  // Получаем userIds из выбранных групп
+  const groupUserIds = new Set<string>();
+  if (config.groupIds.length > 0 && filters?.groups) {
+    for (const groupId of config.groupIds) {
+      const group = filters.groups.find(g => g.id === groupId);
+      if (group) {
+        group.userIds.forEach(id => groupUserIds.add(id));
+      }
+    }
+  }
+
+  // Фильтруем пользователей по источнику, поиску и группам
   const filteredUsers = filters?.users.filter(user => {
+    // Фильтр по источнику данных
+    if (config.source === "web" && user.source === "lms") return false;
+    if (config.source === "lms" && user.source === "web") return false;
+    // Если выбраны группы (только для Web), показываем только пользователей из этих групп
+    if (config.source !== "lms" && config.groupIds.length > 0 && !groupUserIds.has(user.id)) return false;
     if (userSearch && !user.username.toLowerCase().includes(userSearch.toLowerCase())) return false;
+    return true;
+  }) || [];
+
+  // Фильтруем группы по поиску
+  const filteredGroups = filters?.groups.filter(group => {
+    if (groupSearch && !group.name.toLowerCase().includes(groupSearch.toLowerCase())) return false;
     return true;
   }) || [];
 
@@ -1300,12 +1416,56 @@ function ExportSection() {
                   </div>
                 </div>
 
+               {/* Группы (только для Web) */}
+                {config.source !== "lms" && filters?.groups && filters.groups.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">
+                        Группы ({config.groupIds.length > 0 ? config.groupIds.length : "все"})
+                      </Label>
+                      <Button variant="ghost" size="sm" onClick={handleSelectAllGroups}>
+                        {filteredGroups.every(g => config.groupIds.includes(g.id)) && filteredGroups.length > 0
+                          ? "Снять все"
+                          : "Выбрать все"}
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Поиск групп..."
+                      value={groupSearch}
+                      onChange={(e) => setGroupSearch(e.target.value)}
+                    />
+                    <div className="max-h-[120px] overflow-y-auto space-y-1 border rounded-lg p-2">
+                      {filteredGroups.map((group) => (
+                        <div key={group.id} className="flex items-center gap-2 py-1">
+                          <Checkbox
+                            checked={config.groupIds.includes(group.id)}
+                            onCheckedChange={() => handleGroupToggle(group.id)}
+                          />
+                          <span className="text-sm">{group.name}</span>
+                          <span className="text-xs text-muted-foreground">({group.userCount})</span>
+                        </div>
+                      ))}
+                      {filteredGroups.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">Нет групп</p>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Если группы не выбраны — будут доступны все пользователи
+                    </p>
+                  </div>
+                )}
+
                 {/* Пользователи (только для Web) */}
-                {config.source !== "lms" && (
+                {(
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">
                         Пользователи ({config.userIds.length > 0 ? config.userIds.length : "все"})
+                        {config.groupIds.length > 0 && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            (из выбранных групп: {filteredUsers.length})
+                          </span>
+                        )}
                       </Label>
                       <Button variant="ghost" size="sm" onClick={handleSelectAllUsers}>
                         {filteredUsers.every(u => config.userIds.includes(u.id)) && filteredUsers.length > 0
@@ -1328,6 +1488,9 @@ function ExportSection() {
                           <span className="text-sm">{user.username}</span>
                         </div>
                       ))}
+                      {filteredUsers.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">Нет пользователей</p>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Если никто не выбран — будут включены все пользователи

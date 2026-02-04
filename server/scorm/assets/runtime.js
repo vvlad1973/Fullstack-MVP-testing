@@ -124,7 +124,7 @@ var SCORM = (function() {
       this.setCompletion('completed');
       this.setSuccess(passed ? 'passed' : 'failed');
       if (passed) this.setValue('cmi.progress_measure', '1');
-      this.setValue('cmi.exit', '');
+      this.setValue('cmi.exit', 'normal');
       this.setValue('cmi.location', '');
 
 

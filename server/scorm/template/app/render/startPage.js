@@ -4,6 +4,24 @@ function renderStartPage() {
   var hasLimit = !!TEST_DATA.maxAttempts;
   var left = hasLimit ? Math.max(0, TEST_DATA.maxAttempts - used) : null;
 
+  function pluralizeTopics(n) {
+    var mod10 = n % 10;
+    var mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 19) return 'тем';
+    if (mod10 === 1) return 'тема';
+    if (mod10 >= 2 && mod10 <= 4) return 'темы';
+    return 'тем';
+  }
+
+  function pluralizeLevels(n) {
+    var mod10 = n % 10;
+    var mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 19) return 'уровней';
+    if (mod10 === 1) return 'уровень';
+    if (mod10 >= 2 && mod10 <= 4) return 'уровня';
+    return 'уровней';
+  }
+
   var iconQuestions = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>';
   var iconPass = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
   var iconTime = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
@@ -25,17 +43,25 @@ function renderStartPage() {
 
   html += '<div style="display:grid;gap:12px;">';
 
-  // Количество вопросов
+  // Количество вопросов / тем
   html += '<div style="display:flex;align-items:center;gap:12px;padding:16px;background:hsl(var(--muted));border-radius:12px;border:1px solid hsl(var(--border));">';
   html += '<div style="flex-shrink:0;color:#4f46e5;">' + iconQuestions + '</div>';
-  html += '<div style="flex:1;"><div style="font-weight:600;color:hsl(var(--foreground));font-size:14px;">Количество вопросов</div><div style="color:hsl(var(--muted-foreground));font-size:13px;margin-top:2px;">' + TEST_DATA.totalQuestions + '</div></div>';
+  if (TEST_DATA.mode === 'adaptive' && TEST_DATA.adaptiveTopics) {
+    var topicCount = TEST_DATA.adaptiveTopics.length;
+    var levelCount = TEST_DATA.adaptiveTopics.reduce(function (sum, t) { return sum + (t.levels ? t.levels.length : 0); }, 0);
+    html += '<div style="flex:1;"><div style="font-weight:600;color:hsl(var(--foreground));font-size:14px;">Адаптивный тест</div><div style="color:hsl(var(--muted-foreground));font-size:13px;margin-top:2px;">' + topicCount + ' ' + pluralizeTopics(topicCount) + ', ' + levelCount + ' ' + pluralizeLevels(levelCount) + '</div></div>';
+  } else {
+    html += '<div style="flex:1;"><div style="font-weight:600;color:hsl(var(--foreground));font-size:14px;">Количество вопросов</div><div style="color:hsl(var(--muted-foreground));font-size:13px;margin-top:2px;">' + TEST_DATA.totalQuestions + '</div></div>';
+  }
   html += '</div>';
 
-  // Проходной балл
-  html += '<div style="display:flex;align-items:center;gap:12px;padding:16px;background:hsl(var(--muted));border-radius:12px;border:1px solid hsl(var(--border));">';
-  html += '<div style="flex-shrink:0;color:#16a34a;">' + iconPass + '</div>';
-  html += '<div style="flex:1;"><div style="font-weight:600;color:hsl(var(--foreground));font-size:14px;">Проходной балл</div><div style="color:hsl(var(--muted-foreground));font-size:13px;margin-top:2px;">' + TEST_DATA.passPercent + '%</div></div>';
-  html += '</div>';
+  // Проходной балл (только для стандартного теста)
+  if (TEST_DATA.mode !== 'adaptive') {
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:16px;background:hsl(var(--muted));border-radius:12px;border:1px solid hsl(var(--border));">';
+    html += '<div style="flex-shrink:0;color:#16a34a;">' + iconPass + '</div>';
+    html += '<div style="flex:1;"><div style="font-weight:600;color:hsl(var(--foreground));font-size:14px;">Проходной балл</div><div style="color:hsl(var(--muted-foreground));font-size:13px;margin-top:2px;">' + TEST_DATA.passPercent + '%</div></div>';
+    html += '</div>';
+  }
 
   // Ограничение времени
   if (TEST_DATA.timeLimitMinutes) {
@@ -123,19 +149,19 @@ function startTest() {
   // 1. Есть вопросы в текущем варианте
   // 2. Пользователь прошёл хотя бы один вопрос (currentIndex > 0)
   // 3. Была зарегистрирована попытка (attemptsUsed > 0)
-  var hasRealProgress = state.flatQuestions && 
-                        state.flatQuestions.length > 0 && 
-                        state.currentIndex > 0 &&
-                        getAttemptsUsed() > 0;
-  
+  var hasRealProgress = state.flatQuestions &&
+    state.flatQuestions.length > 0 &&
+    state.currentIndex > 0 &&
+    getAttemptsUsed() > 0;
+
   if (hasRealProgress) {
     console.log('💾 Сохраняем предыдущую попытку перед новым стартом');
     var results = calculateResults();
     saveAttemptResult(results);
-    
+
     // Сохраняем текущий номер попытки ДО любых изменений
     var currentAttemptNum = Telemetry.getAttemptNumber();
-    
+
     // ===== ОТПРАВЛЯЕМ ТЕЛЕМЕТРИЮ FINISH ДЛЯ ЭТОЙ ПОПЫТКИ =====
     Telemetry.finish({
       percent: results.percent,
@@ -147,7 +173,7 @@ function startTest() {
       achievedLevels: results.achievedLevels || null
     }, currentAttemptNum);
     console.log('📤 Телеметрия finish отправлена для попытки:', currentAttemptNum);
-    
+
     // Сбрасываем state для новой попытки
     state.answers = {};
     state.currentIndex = 0;
@@ -157,7 +183,7 @@ function startTest() {
     state.variant = null;
     state.flatQuestions = [];
     state.shuffleMappings = {};
-    
+
     // Генерируем новый вариант
     generateVariant();
   }
@@ -188,19 +214,19 @@ function restart() {
   }
 
   // ===== СОХРАНЯЕМ ТЕКУЩУЮ ПОПЫТКУ ЕСЛИ ПОЛЬЗОВАТЕЛЬ РЕАЛЬНО ОТВЕЧАЛ =====
-  var hasRealProgress = state.flatQuestions && 
-                        state.flatQuestions.length > 0 && 
-                        state.currentIndex > 0 &&
-                        getAttemptsUsed() > 0;
-  
+  var hasRealProgress = state.flatQuestions &&
+    state.flatQuestions.length > 0 &&
+    state.currentIndex > 0 &&
+    getAttemptsUsed() > 0;
+
   if (hasRealProgress) {
     console.log('💾 Сохраняем текущую попытку перед перезапуском');
     var results = calculateResults();
     saveAttemptResult(results);
-    
+
     // Сохраняем текущий номер попытки ДО увеличения
     var currentAttemptNum = Telemetry.getAttemptNumber();
-    
+
     // Отправляем телеметрию finish с явным номером попытки
     Telemetry.finish({
       percent: results.percent,
@@ -225,36 +251,36 @@ function restart() {
   state.flatQuestions = [];
   state.shuffleMappings = {};
   state.matchingPools = {};
-  
+
   // Сброс таймера
   if (state.timerInterval) {
     clearInterval(state.timerInterval);
     state.timerInterval = null;
   }
   state.remainingSeconds = null;
-  
+
   // Сброс adaptive state если есть
   if (state.adaptiveState) {
     state.adaptiveState = null;
   }
-  
+
   // ===== ОЧИСТКА DOM от старого фидбека =====
   var feedbackBlock = document.querySelector('.feedback-block');
   if (feedbackBlock) {
     feedbackBlock.remove();
   }
-  
+
   // Удаляем классы подсветки ответов
-  document.querySelectorAll('.correct-answer, .incorrect-answer').forEach(function(el) {
+  document.querySelectorAll('.correct-answer, .incorrect-answer').forEach(function (el) {
     el.classList.remove('correct-answer', 'incorrect-answer');
   });
-  
+
   // ===== ГЕНЕРАЦИЯ НОВОГО ВАРИАНТА =====
   generateVariant();
-  
+
   // ===== ТЕЛЕМЕТРИЯ: НОВАЯ ПОПЫТКА =====
   Telemetry.startNewAttempt();
-  
+
   // ===== РЕГИСТРАЦИЯ ПОПЫТКИ В SCORM =====
   var ok = registerAttemptStart();
   if (!ok) {
@@ -277,9 +303,9 @@ function viewSavedResults() {
     showToast('Нет завершённых попыток', 'warn');
     return;
   }
-  
+
   console.log('📊 Просмотр лучшей попытки:', Math.round(bestAttempt.percent) + '%');
-  
+
   state.phase = 'viewResults';
   state.viewedAttempt = bestAttempt;
   render();

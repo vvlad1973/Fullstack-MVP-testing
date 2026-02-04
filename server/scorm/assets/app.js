@@ -224,9 +224,31 @@ function renderResults() {
 
 
 function downloadPDF() {
-  // ✅ Если есть сохраненные попытки - берем лучшую, иначе текущий результат
-  var bestAttempt = getBestAttempt();
-  var resultsToExport = bestAttempt || calculateResults();
+  var resultsToExport;
+  
+  if (TEST_DATA.mode === 'adaptive' && state.adaptiveState && state.adaptiveState.result) {
+    // Адаптивный режим - берём результаты из adaptiveState
+    var adaptiveResult = state.adaptiveState.result;
+    resultsToExport = {
+      topicResults: adaptiveResult.topicResults.map(function(tr) {
+        return {
+          topicName: tr.topicName,
+          topicId: tr.topicId,
+          achievedLevelIndex: tr.achievedLevelIndex,
+          achievedLevelName: tr.achievedLevelName,
+          totalQuestionsAnswered: tr.totalQuestionsAnswered,
+          totalCorrect: tr.totalCorrect,
+          feedback: tr.feedback,
+          recommendedLinks: tr.recommendedLinks || []
+        };
+      })
+    };
+  } else {
+    // Стандартный режим - берём лучшую попытку или текущий результат
+    var bestAttempt = getBestAttempt();
+    resultsToExport = bestAttempt || calculateResults();
+  }
+  
   exportResultsToPDF(resultsToExport, TEST_DATA.title || 'Результаты теста');
 }
 

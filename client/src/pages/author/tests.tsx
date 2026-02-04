@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ClipboardList, Download, Settings, ChevronRight, BarChart3 } from "lucide-react";
+import { Plus, Pencil, Trash2, ClipboardList, Download, Settings, ChevronRight, BarChart3, UserPlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,6 +23,7 @@ import { LoadingState, LoadingSpinner } from "@/components/loading-state";
 import { t, formatQuestions, formatTopics } from "@/lib/i18n";
 import type { Test, TestSection, Topic } from "@shared/schema";
 import { Link } from "wouter";
+import { AssignTestDialog } from "@/components/assign-test-dialog";
 
 interface TopicWithQuestionCount extends Topic {
   questionCount: number;
@@ -38,7 +39,7 @@ const testFormSchema = z.object({
   description: z.string().optional(),
   feedback: z.string().optional(),
   webhookUrl: z.string().url().optional().or(z.literal("")),
-  overallPassType: z.enum(["percent", "absolute"]),
+  overallPassType: z.enum(["percent", "absolute", "none"]),
   overallPassValue: z.coerce.number().min(0, "Должно быть не менее 0"),
   timeLimitMinutes: z.coerce.number().min(0).optional().nullable(),
   maxAttempts: z.coerce.number().min(1).optional().nullable(),
@@ -107,6 +108,11 @@ export default function TestsPage() {
   const [exportTestId, setExportTestId] = useState<string | null>(null);
   const [enableTelemetry, setEnableTelemetry] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Assignment dialog state
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignTestId, setAssignTestId] = useState<string | null>(null);
+  const [assignTestTitle, setAssignTestTitle] = useState<string>("");
 
   const { data: tests, isLoading: testsLoading } = useQuery<TestWithSections[]>({
     queryKey: ["/api/tests"],
@@ -526,10 +532,13 @@ export default function TestsPage() {
       maxAttempts: formData.maxAttempts || null,
       showCorrectAnswers: formData.showCorrectAnswers,
       startPageContent: formData.startPageContent || null,
-      overallPassRuleJson: {
-        type: formData.overallPassType,
-        value: formData.overallPassValue,
-      },
+      // Для адаптивного теста проходной балл не используется
+      overallPassRuleJson: testMode === "adaptive"
+        ? { type: "none", value: 0 }  // Специальный маркер "не используется"
+        : {
+          type: formData.overallPassType,
+          value: formData.overallPassValue,
+        },
       mode: testMode,
       showDifficultyLevel: showDifficultyLevel,
     };
@@ -625,6 +634,19 @@ export default function TestsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Назначить"
+                      onClick={() => {
+                        setAssignTestId(test.id);
+                        setAssignTestTitle(test.title);
+                        setAssignDialogOpen(true);
+                      }}
+                      data-testid={`button-assign-test-${test.id}`}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
                     <Link href={`/author/tests/${test.id}/analytics`}>
                       <Button
                         variant="ghost"
@@ -655,16 +677,23 @@ export default function TestsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">
-                      {formatQuestions(totalQuestions)}
-                    </Badge>
+                    {test.mode === "adaptive" ? (
+                      <Badge variant="secondary">Адаптивный</Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        {formatQuestions(totalQuestions)}
+                      </Badge>
+                    )}
                     <Badge variant="secondary">
                       {formatTopics(test.sections.length)}
                     </Badge>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      {t.tests.pass} {passRule?.value}
-                      {passRule?.type === "percent" ? "%" : ` из ${totalQuestions}`}
-                    </Badge>
+                    {/* Проходной балл - только для стандартного режима */}
+                    {test.mode !== "adaptive" && passRule && passRule.type !== "none" && (
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        {t.tests.pass} {passRule?.value}
+                        {passRule?.type === "percent" ? "%" : ` из ${totalQuestions}`}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="text-sm text-muted-foreground">
@@ -1261,7 +1290,10 @@ export default function TestsPage() {
 
           {step === 3 && (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                console.log("=== ОШИБКИ ВАЛИДАЦИИ ===");
+                console.log(errors);
+              })} className="space-y-6">
                 <h3 className="font-semibold">{t.tests.testDetails}</h3>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1393,54 +1425,59 @@ export default function TestsPage() {
                   />
                 </div>
 
-                <Separator />
+                {/* Проходной балл - только для стандартного режима */}
+                {testMode !== "adaptive" && (
+                  <>
+                    <Separator />
 
-                <div className="space-y-4">
-                  <h4 className="font-medium">{t.tests.overallPassCriteria}</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="overallPassType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.tests.overallPassType}</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-overall-pass-type">
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="percent">{t.tests.percentage}</SelectItem>
-                              <SelectItem value="absolute">{t.tests.absolute}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-4">
+                      <h4 className="font-medium">{t.tests.overallPassCriteria}</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="overallPassType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t.tests.overallPassType}</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-overall-pass-type">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="percent">{t.tests.percentage}</SelectItem>
+                                  <SelectItem value="absolute">{t.tests.absolute}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                    <FormField
-                      control={form.control}
-                      name="overallPassValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.tests.overallPassValue}</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={form.watch("overallPassType") === "percent" ? 100 : getTotalQuestions()}
-                              data-testid="input-overall-pass-value"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
+                        <FormField
+                          control={form.control}
+                          name="overallPassValue"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t.tests.overallPassValue}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={form.watch("overallPassType") === "percent" ? 100 : getTotalQuestions()}
+                                  data-testid="input-overall-pass-value"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <Separator />
 
@@ -1542,6 +1579,16 @@ export default function TestsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Test Dialog */}
+      {assignTestId && (
+        <AssignTestDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          testId={assignTestId}
+          testTitle={assignTestTitle}
+        />
+      )}
     </div>
   );
 }

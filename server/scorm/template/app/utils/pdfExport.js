@@ -212,6 +212,120 @@ function generatePdfHtml(results, testName, bgDataUrl, logoDataUrl) {
   return html;
 }
 
+// Генерация HTML для PDF адаптивного теста
+function generateAdaptivePdfHtml(results, testName, bgDataUrl, logoDataUrl) {
+  // Определяем количество колонок для тем (макс 3)
+  var topicCount = results.topicResults ? results.topicResults.length : 0;
+  var gridColumns = topicCount === 1 ? 1 : (topicCount === 2 ? 2 : 3);
+
+  // Фон
+  var bgStyle = bgDataUrl
+    ? 'background-image: url(' + bgDataUrl + '); background-size: cover; background-position: center;'
+    : 'background: linear-gradient(180deg, #1c1c2b 0%, #7700ff 100%);';
+
+  var html = '';
+  html += '<div style="' + bgStyle + ' width: 595px; min-height: 842px; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; color: #ffffff; position: relative;">';
+  html += '<div style="padding: 20px 25px;">';
+
+  // Логотип
+  if (logoDataUrl) {
+    html += '<div style="margin-bottom: 15px;">';
+    html += '<img src="' + logoDataUrl + '" style="height: 32px;" />';
+    html += '</div>';
+  }
+
+  // Главный заголовок (нейтральный)
+  html += '<div style="font-size: 42px; font-weight: 900; margin-bottom: 4px; line-height: 1; color: #ffffff;">Результаты теста</div>';
+  html += '<div style="font-size: 14px; font-weight: 300; color: #aca9a9; margin-bottom: 15px;">Адаптивное тестирование</div>';
+
+  // Карточка с названием теста
+  html += '<div style="background: rgba(31, 33, 41, 0.68); border-radius: 18px; padding: 18px 20px; margin-bottom: 15px;">';
+  html += '<div style="font-size: 22px; font-weight: 500;">' + escapeHtml(testName || 'Тест') + '</div>';
+  html += '</div>';
+
+  // Результаты по темам
+  if (topicCount > 0) {
+    html += '<div style="background: rgba(31, 33, 41, 0.68); border-radius: 18px; padding: 18px 20px; margin-bottom: 15px;">';
+    html += '<div style="font-size: 22px; font-weight: 400; margin-bottom: 15px;">Результаты по темам</div>';
+
+    html += '<div style="display: grid; grid-template-columns: repeat(' + gridColumns + ', 1fr); gap: 10px;">';
+
+    results.topicResults.forEach(function (topic) {
+      var achieved = topic.achievedLevelIndex !== null;
+      var levelName = achieved ? topic.achievedLevelName : 'Не достигнут';
+      var levelColor = achieved ? '#3b82f6' : '#6b7280';
+      var levelBg = achieved ? 'rgba(59, 130, 246, 0.2)' : 'rgba(107, 114, 128, 0.2)';
+
+      html += '<div style="background: linear-gradient(135deg, #2a2a3d 0%, #1f1f2e 100%); border-radius: 10px; padding: 12px; position: relative; overflow: hidden;">';
+
+      // Верхняя полоса (нейтральный синий)
+      html += '<div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: ' + levelColor + ';"></div>';
+
+      // Заголовок темы
+      html += '<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 5px;">';
+      html += '<div style="font-size: 13px; font-weight: 700; line-height: 1.2; flex: 1;">' + escapeHtml(topic.topicName || 'Тема') + '</div>';
+      html += '<div style="font-size: 9px; font-weight: 500; padding: 3px 8px; border-radius: 4px; white-space: nowrap; background: ' + levelBg + '; color: ' + levelColor + ';">' + escapeHtml(levelName) + '</div>';
+      html += '</div>';
+
+      // Статистика
+      html += '<div style="font-size: 11px; color: #aca9a9; margin-bottom: 6px;">';
+      html += 'Вопросов: ' + topic.totalQuestionsAnswered + ' | Правильных: ' + topic.totalCorrect;
+      html += '</div>';
+
+      // Обратная связь к теме
+      if (topic.feedback && topic.feedback.trim()) {
+        html += '<div style="font-size: 10px; font-weight: 300; color: rgba(255, 255, 255, 0.8); line-height: 1.4; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">' + escapeHtml(topic.feedback) + '</div>';
+      }
+
+      html += '</div>'; // topic-card
+    });
+
+    html += '</div>'; // topics-grid
+    html += '</div>'; // section-card
+  }
+
+  // Рекомендации по курсам
+  var recommendations = [];
+  if (results.topicResults) {
+    results.topicResults.forEach(function (topic) {
+      if (topic.recommendedLinks && topic.recommendedLinks.length > 0) {
+        topic.recommendedLinks.forEach(function (link) {
+          recommendations.push({
+            topicName: topic.topicName,
+            linkTitle: link.title,
+            linkUrl: link.url
+          });
+        });
+      }
+    });
+  }
+
+  if (recommendations.length > 0) {
+    html += '<div style="background: rgba(31, 33, 41, 0.68); border-radius: 18px; padding: 18px 20px; margin-bottom: 15px;">';
+    html += '<div style="font-size: 22px; font-weight: 400; margin-bottom: 8px;">Рекомендуемые материалы</div>';
+    html += '<div style="font-size: 11px; font-weight: 300; color: #aca9a9; margin-bottom: 15px; line-height: 1.5;">Изучите эти материалы для улучшения знаний.</div>';
+    
+    recommendations.forEach(function(rec, index) {
+      html += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">';
+      html += '<div style="font-size: 14px; font-weight: 700;">' + escapeHtml(rec.topicName) + '</div>';
+      html += '<div class="pdf-link-btn" data-url="' + escapeHtml(rec.linkUrl) + '" data-index="' + index + '" style="background: #1e40af; border-radius: 8px; padding: 10px 25px; font-size: 12px; font-weight: 300; color: #fafafa;">' + escapeHtml(rec.linkTitle) + '</div>';
+      html += '</div>';
+    });
+    
+    html += '</div>'; // recommendations
+  }
+
+  // Футер
+  html += '<div style="text-align: center; padding-top: 15px; font-size: 9px; color: rgba(255, 255, 255, 0.3);">';
+  html += 'Документ сформирован: ' + new Date().toLocaleString('ru-RU');
+  html += '</div>';
+
+  html += '</div>'; // padding
+  html += '</div>'; // page
+
+  return html;
+}
+
 function createMetric(value, label) {
   return '<div style="text-align: center;">' +
     '<div style="font-size: 28px; font-weight: 900;">' + value + '</div>' +
@@ -282,9 +396,11 @@ async function exportResultsToPDF(results, testName) {
 
     var logoDataUrl = pdfAssets.logo ? pdfAssets.logo.dataUrl : null;
 
-    // Генерируем HTML
-    var htmlContent = generatePdfHtml(results, testName, bgDataUrl, logoDataUrl);
-
+    // Генерируем HTML (выбираем функцию в зависимости от режима)
+    var isAdaptive = TEST_DATA.mode === 'adaptive';
+    var htmlContent = isAdaptive 
+      ? generateAdaptivePdfHtml(results, testName, bgDataUrl, logoDataUrl)
+      : generatePdfHtml(results, testName, bgDataUrl, logoDataUrl);
     // Создаём временный контейнер
     var container = document.createElement('div');
     container.innerHTML = htmlContent;

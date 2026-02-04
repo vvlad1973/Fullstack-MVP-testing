@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BookOpen, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/password-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -22,21 +23,27 @@ export default function LoginPage() {
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
 
   const onSubmit = async (data: LoginData) => {
+    if (isLoading) return;
+    console.log("=== LOGIN START ===");
     setIsLoading(true);
     try {
-      const success = await login(data.username, data.password);
+      console.log("Calling login...");
+      const success = await login(data.email, data.password);
+      console.log("Login result:", success);
       if (success) {
         toast({
           title: t.auth.welcomeBack,
           description: t.auth.loginSuccess,
         });
+        console.log("Navigating to /...");
         navigate("/");
+        console.log("Navigate called");
       } else {
         toast({
           variant: "destructive",
@@ -44,7 +51,8 @@ export default function LoginPage() {
           description: t.auth.invalidCredentials,
         });
       }
-    } catch {
+    } catch (err) {
+      console.error("Login error:", err);
       toast({
         variant: "destructive",
         title: t.common.error,
@@ -52,6 +60,7 @@ export default function LoginPage() {
       });
     } finally {
       setIsLoading(false);
+      console.log("=== LOGIN END ===");
     }
   };
 
@@ -78,23 +87,23 @@ export default function LoginPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="username"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t.auth.username}</FormLabel>
+                      <FormLabel>{t.auth.email}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={t.auth.usernamePlaceholder}
-                          data-testid="input-username"
-                          autoComplete="username"
+                          type="email"
+                          placeholder={t.auth.emailPlaceholder}
+                          data-testid="input-email"
+                          autoComplete="email"
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="password"
@@ -102,9 +111,8 @@ export default function LoginPage() {
                     <FormItem>
                       <FormLabel>{t.auth.password}</FormLabel>
                       <FormControl>
-                        <Input
+                        <PasswordInput
                           {...field}
-                          type="password"
                           placeholder={t.auth.passwordPlaceholder}
                           data-testid="input-password"
                           autoComplete="current-password"
@@ -114,7 +122,6 @@ export default function LoginPage() {
                     </FormItem>
                   )}
                 />
-
                 <Button
                   type="submit"
                   className="w-full"
@@ -128,6 +135,15 @@ export default function LoginPage() {
                   )}
                   {t.auth.signInButton}
                 </Button>
+
+                <div className="text-center">
+                  <Link 
+                    href={`/forgot-password${form.getValues("email") ? `?email=${encodeURIComponent(form.getValues("email"))}` : ""}`} 
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {t.auth.forgotPassword}
+                  </Link>
+                </div>
               </form>
             </Form>
 

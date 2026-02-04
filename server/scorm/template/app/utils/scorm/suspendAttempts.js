@@ -18,19 +18,10 @@ function writeSuspendObj(obj) {
     var raw = JSON.stringify(obj || {});
     SCORM.setValue('cmi.suspend_data', raw);
     SCORM.commit();
-    console.log('🔵 writeSuspendObj: сохранено', obj.attempts ? obj.attempts.length : 0, 'попыток');
+    console.log('🔵 writeSuspendObj: сохранено', obj.attempts ? obj.attempts.length : 0, 'попыток, attemptsUsed:', obj.attemptsUsed);
   } catch (e) {
     console.log('⚠️ Ошибка writeSuspendObj:', e);
   }
-}
-
-function writeSuspendObj(obj) {
-  try {
-    var raw = JSON.stringify(obj || {});
-    // SCORM 2004 suspend_data обычно до ~64KB, нам хватит
-    SCORM.setValue('cmi.suspend_data', raw);
-    SCORM.commit();
-  } catch (e) {}
 }
 
 function getAttemptsUsed() {
@@ -54,12 +45,23 @@ function hasAttemptsLeft() {
 
 // Увеличиваем попытку 1 раз на запуск теста
 function registerAttemptStart() {
-  if (!TEST_DATA.maxAttempts) return true;
+  console.log('🔵 registerAttemptStart вызван, maxAttempts:', TEST_DATA.maxAttempts);
+  
+  if (!TEST_DATA.maxAttempts) {
+    console.log('🔵 maxAttempts не задан, лимит не применяется');
+    return true;
+  }
 
   var used = getAttemptsUsed();
-  if (used >= TEST_DATA.maxAttempts) return false;
+  console.log('🔵 Использовано попыток:', used, 'из', TEST_DATA.maxAttempts);
+  
+  if (used >= TEST_DATA.maxAttempts) {
+    console.log('🔴 Попытки исчерпаны!');
+    return false;
+  }
 
   setAttemptsUsed(used + 1);
+  console.log('🔵 Попытка зарегистрирована, новое значение:', used + 1);
   return true;
 }
 

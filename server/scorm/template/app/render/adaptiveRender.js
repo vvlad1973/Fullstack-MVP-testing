@@ -100,10 +100,15 @@ function renderAdaptiveQuestion() {
 
   // Navigation
   html += '<div class="navigation" style="justify-content:flex-end">';
-  if (TEST_DATA.showCorrectAnswers && !state.feedbackShown) {
-    html += '<button class="btn" onclick="confirmAdaptiveAnswer()">Принять</button>';
+  if (TEST_DATA.showCorrectAnswers) {
+    if (!state.feedbackShown) {
+      html += '<button class="btn" onclick="confirmAdaptiveAnswer()">Принять</button>';
+    } else {
+      html += '<button class="btn" onclick="continueAfterFeedback()">Далее</button>';
+    }
   } else {
-    html += '<button class="btn" onclick="continueAfterFeedback()">Далее</button>';
+    // Без показа правильных ответов - сразу переходим (с валидацией)
+    html += '<button class="btn" onclick="submitAdaptiveAnswerAndContinue()">Далее</button>';
   }
   html += '</div>';
 
@@ -319,50 +324,45 @@ function renderAdaptiveResults() {
     state.adaptiveState.result = result;
   }
 
-  var passed = result.overallPassed;
-
   var html = '<div class="results-page">';
 
   // Hero section
   html += '<div class="results-hero">';
-  html += '<div class="results-hero-icon ' + (passed ? 'is-pass' : 'is-fail') + '">';
-  if (passed) {
-    html += '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10"/><path d="M17 4v5a5 5 0 0 1-10 0V4"/><path d="M5 6h2"/><path d="M17 6h2"/></svg>';
-  } else {
-    html += '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
-  }
+  html += '<div class="results-hero-icon" style="background:#1e40af;border-color:#3b82f6;">';
+  html += '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M12 3c7.2 0 9 1.8 9 9s-1.8 9-9 9-9-1.8-9-9 1.8-9 9-9z"/></svg>';
   html += '</div>';
-  html += '<div class="results-hero-title">' + (passed ? 'Тест завершён!' : 'Тест завершён') + '</div>';
+  html += '<div class="results-hero-title">Результаты теста</div>';
   html += '<div class="results-hero-sub">Адаптивное тестирование</div>';
   html += '</div>';
 
   // Topic results
   html += '<div class="results-section-title">Результаты по темам</div>';
-  html += '<div class="results-topics-grid">';
+  var topicCount = result.topicResults.length;
+  var gridStyle = 'display:grid;gap:16px;';
+  if (topicCount === 1) {
+    gridStyle += 'grid-template-columns:1fr;';
+  } else if (topicCount === 2) {
+    gridStyle += 'grid-template-columns:repeat(2,1fr);';
+  } else {
+    gridStyle += 'grid-template-columns:repeat(3,1fr);';
+  }
+  gridStyle += 'max-width:100%;';
+  html += '<div style="' + gridStyle + '" class="results-topics-adaptive">';
 
   result.topicResults.forEach(function(tr) {
     var achieved = tr.achievedLevelIndex !== null;
 
     html += '<div class="card topic-card">';
     
-    // Topic header
+    // Topic header (без иконки)
     html += '<div class="topic-head">';
-    html += '<div class="topic-left">';
-    html += '<div class="topic-icon ' + (achieved ? 'is-pass' : 'is-fail') + '">';
-    if (achieved) {
-      html += '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>';
-    } else {
-      html += '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
-    }
-    html += '</div>';
-    html += '<div class="topic-name">' + escapeHtml(tr.topicName) + '</div>';
-    html += '</div>';
+    html += '<div class="topic-name" style="font-weight:600;font-size:16px;">' + escapeHtml(tr.topicName) + '</div>';
     
-    // Achieved level badge
+    // Achieved level badge (нейтральный стиль)
     if (achieved) {
-      html += '<div class="results-pill is-pass">' + escapeHtml(tr.achievedLevelName) + '</div>';
+      html += '<div class="results-pill" style="background:#1e40af;color:#bfdbfe;">' + escapeHtml(tr.achievedLevelName) + '</div>';
     } else {
-      html += '<div class="results-pill is-fail">Не достигнут</div>';
+      html += '<div class="results-pill" style="background:#374151;color:#9ca3af;">Не достигнут</div>';
     }
     html += '</div>';
 
@@ -375,11 +375,6 @@ function renderAdaptiveResults() {
     html += '<div class="topic-row">';
     html += '<div class="k">Правильных</div>';
     html += '<div class="val">' + tr.totalCorrect + ' (' + Math.round(tr.levelPercent) + '%)</div>';
-    html += '</div>';
-
-    // Progress bar
-    html += '<div class="topic-bar ' + (achieved ? 'is-pass' : 'is-fail') + '">';
-    html += '<div style="width:' + Math.min(100, Math.max(0, tr.levelPercent)) + '%"></div>';
     html += '</div>';
 
     // Feedback
@@ -410,10 +405,65 @@ function renderAdaptiveResults() {
   // Actions
   html += '<div class="results-actions">';
   html += '<button class="btn btn-outline" onclick="downloadPDF()">📄 Скачать PDF</button>';
-  html += '<button class="btn" onclick="finishAndClose()">Завершить тест</button>';
-  html += '</div>';
-
+  
+  var hasLimit = !!TEST_DATA.maxAttempts;
+  var canRetry = hasAttemptsLeft();
+  
+  if (!hasLimit) {
+    // Нет лимита - обе кнопки
+    html += '<button class="btn btn-outline" onclick="restartAdaptive()">Пройти заново</button>';
+    html += '<button class="btn" onclick="finishAndClose()">Завершить тест</button>';
+  } else if (canRetry) {
+    // Есть лимит и есть попытки - только "Пройти заново"
+    html += '<button class="btn" onclick="restartAdaptive()">Пройти заново</button>';
+  } else {
+    // Попытки исчерпаны - только "Завершить"
+    html += '<button class="btn" onclick="finishAndClose()">Завершить тест</button>';
+  }
   html += '</div>';
 
   app.innerHTML = html;
 }
+
+// Restart adaptive test
+function restartAdaptive() {
+  if (!hasAttemptsLeft()) {
+    showToast('Попытки закончились', 'warn');
+    return;
+  }
+
+  // Сохраняем текущую попытку если ещё не сохранена
+  if (state.adaptiveState && state.adaptiveState.result) {
+    var results = getAdaptiveResultForScorm();
+    results.achievedLevels = state.adaptiveState.result.topicResults.map(function(tr) {
+      return {
+        topicId: tr.topicId,
+        topicName: tr.topicName,
+        levelIndex: tr.achievedLevelIndex,
+        levelName: tr.achievedLevelName
+      };
+    });
+    
+    // Телеметрия finish для текущей попытки
+    Telemetry.finish(results);
+  }
+
+  // Сброс adaptive state
+  state.adaptiveState = null;
+  state.answers = {};
+  
+  // Новая попытка в телеметрии
+  Telemetry.startNewAttempt();
+  
+  // Регистрация попытки в SCORM
+  registerAttemptStart();
+  
+  // Переинициализация адаптивного теста
+  initAdaptiveTest();
+  
+  // Запуск
+  state.phase = 'question';
+  render();
+}
+
+window.restartAdaptive = restartAdaptive;

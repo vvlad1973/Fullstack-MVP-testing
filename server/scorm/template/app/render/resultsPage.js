@@ -4,9 +4,32 @@ function finishAndClose() {
   if (scormFinished) return;
   scormFinished = true;
 
-  var results = calculateResults();
+  // Определяем режим и получаем результаты
+  var isAdaptive = TEST_DATA.mode === 'adaptive' && state.adaptiveState;
+  var results;
   
-  console.log('🎯 Завершение теста, процент:', Math.round(results.percent));
+  if (isAdaptive) {
+    // Адаптивный режим - строим результат если ещё не построен
+    if (!state.adaptiveState.result) {
+      state.adaptiveState.result = buildAdaptiveResult();
+    }
+    results = getAdaptiveResultForScorm();
+    
+    // Добавляем achievedLevels для телеметрии
+    results.achievedLevels = state.adaptiveState.result.topicResults.map(function(tr) {
+      return {
+        topicId: tr.topicId,
+        topicName: tr.topicName,
+        levelIndex: tr.achievedLevelIndex,
+        levelName: tr.achievedLevelName
+      };
+    });
+  } else {
+    // Стандартный режим
+    results = calculateResults();
+  }
+  
+  console.log('🎯 Завершение теста (' + (isAdaptive ? 'адаптивный' : 'стандартный') + '), процент:', Math.round(results.percent));
 
   saveAttemptResult(results);
   
@@ -61,26 +84,68 @@ function finishAndClose() {
   
   console.log('📤 Отправляем в LMS:', Math.round(resultsForLms.percent) + '%, passed:', bestPassed);
 
-  // Отправляем в LMS лучшую попытку (без телеметрии - она уже отправлена выше)
-  if (bestAttempt && bestAttempt !== results) {
-    console.log('🔄 Восстанавливаем state из лучшей попытки для LMS');
-    var savedAnswers = state.answers;
-    var savedFlatQuestions = state.flatQuestions;
-    
-    state.answers = bestAttempt.answers || {};
-    state.flatQuestions = bestAttempt.flatQuestions || [];
-    
-    finishScormLmsOnly(resultsForLms, bestPassed);
-    
-    state.answers = savedAnswers;
-    state.flatQuestions = savedFlatQuestions;
+  // Отправляем в LMS
+  if (isAdaptive) {
+    // Для адаптивного режима всегда завершаем как passed (для корректного закрытия в LMS)
+    // Реальный результат уже отправлен в телеметрию
+    console.log('🔵 Адаптивный тест: принудительно passed=true для LMS');
+    finishScormAdaptive(resultsForLms, true);
   } else {
-    finishScormLmsOnly(resultsForLms, bestPassed);
+    // Для стандартного режима - с детальными interactions
+    if (bestAttempt && bestAttempt !== results) {
+      console.log('🔄 Восстанавливаем state из лучшей попытки для LMS');
+      var savedAnswers = state.answers;
+      var savedFlatQuestions = state.flatQuestions;
+      
+      state.answers = bestAttempt.answers || {};
+      state.flatQuestions = bestAttempt.flatQuestions || [];
+      
+      finishScormLmsOnly(resultsForLms, bestPassed);
+      
+      state.answers = savedAnswers;
+      state.flatQuestions = savedFlatQuestions;
+    } else {
+      finishScormLmsOnly(resultsForLms, bestPassed);
+    }
   }
 
   try { SCORM.commit(); } catch (e) {}
   try { SCORM.terminate(); } catch (e) {}
   try { window.close(); } catch (e) {}
+}
+
+/**
+ * Finish SCORM for adaptive mode (simplified - no detailed interactions)
+ */
+function finishScormAdaptive(results, passedForLms) {
+  var objectives = results.topicResults.map(function(tr) {
+    return {
+      id: 'topic_' + tr.topicId,
+      score: Math.round(tr.percent),
+      status: tr.passed ? 'passed' : 'failed'
+    };
+  });
+
+  var percentScore = Math.round(results.percent);
+  
+  // Вычисляем максимальный достигнутый уровень (числом)
+  var maxAchievedLevel = 0;
+  if (state.adaptiveState && state.adaptiveState.result) {
+    state.adaptiveState.result.topicResults.forEach(function(tr) {
+      if (tr.achievedLevelIndex !== null && tr.achievedLevelIndex + 1 > maxAchievedLevel) {
+        maxAchievedLevel = tr.achievedLevelIndex + 1; // +1 чтобы уровни были 1,2,3 а не 0,1,2
+      }
+    });
+  }
+  
+  // Отправляем в LMS
+  SCORM.finish(percentScore, 100, passedForLms, objectives, []);
+  
+  // Записываем уровень ПОСЛЕ finish (т.к. finish очищает location)
+  try {
+    SCORM.setValue('cmi.location', 'level:' + maxAchievedLevel);
+    SCORM.commit();
+  } catch (e) {}
 }
 
 window.finishAndClose = finishAndClose;

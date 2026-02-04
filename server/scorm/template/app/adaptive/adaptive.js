@@ -200,8 +200,7 @@ function submitAdaptiveAnswer(questionId, answer) {
   }
 
   // Send answer to telemetry (adaptive)
-  var currentTopic = state.adaptiveState.currentTopic;
-  var currentLevel = state.adaptiveState.currentLevel;
+  // НЕ переопределяем currentTopic и currentLevel - используем те, что получили в начале функции
   Telemetry.answer({
     questionId: question.id,
     questionPrompt: question.prompt,

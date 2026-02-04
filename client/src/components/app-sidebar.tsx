@@ -7,6 +7,8 @@ import {
   BarChart3,
   LogOut,
   User,
+  Users,
+  UsersRound,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +32,8 @@ const authorNavItems = [
   { title: t.navigation.questions, href: "/author/questions", icon: FileQuestion },
   { title: t.navigation.tests, href: "/author/tests", icon: ClipboardList },
   { title: t.navigation.analytics, href: "/author/analytics", icon: BarChart3 },
+  { title: t.navigation.users, href: "/author/users", icon: Users },
+  { title: t.navigation.groups, href: "/author/groups", icon: UsersRound },
 ];
 
 export function AppSidebar() {
@@ -80,7 +84,7 @@ export function AppSidebar() {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.username}</p>
+            <p className="text-sm font-medium truncate">{user?.name || user?.email}</p>
             <p className="text-xs text-muted-foreground capitalize">
               {user?.role === "author" ? t.auth.author : t.auth.learner}
             </p>

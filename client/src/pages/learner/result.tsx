@@ -13,6 +13,11 @@ import type { Attempt, AttemptResult, TopicResult } from "@shared/schema";
 interface AttemptWithResult extends Attempt {
   testTitle: string;
   result: AttemptResult;
+  canRetake: boolean;
+  attemptsInfo: {
+    completed: number;
+    max: number | null;
+  } | null;
 }
 
 export default function ResultPage() {
@@ -195,13 +200,24 @@ export default function ResultPage() {
             {t.result.backToTests}
           </Link>
         </Button>
-        <Button asChild>
-          <Link href={`/learner/test/${attempt.testId}`}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            {t.common.retakeTest}
-          </Link>
-        </Button>
+        {attempt.canRetake && (
+          <Button asChild>
+            <Link href={`/learner/test/${attempt.testId}`}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              {t.common.retakeTest}
+            </Link>
+          </Button>
+        )}
       </div>
+
+      {attempt.attemptsInfo && (
+        <div className="text-center mt-4 text-sm text-muted-foreground">
+          Использовано попыток: {attempt.attemptsInfo.completed} / {attempt.attemptsInfo.max}
+          {!attempt.canRetake && attempt.attemptsInfo.max !== null && (
+            <span className="block text-red-500 mt-1">Попытки закончились</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

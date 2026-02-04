@@ -286,3 +286,15 @@
     inset: -1px;
   }
 }
+
+@media (max-width: 900px) {
+  .results-topics-adaptive {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .results-topics-adaptive {
+    grid-template-columns: 1fr !important;
+  }
+}

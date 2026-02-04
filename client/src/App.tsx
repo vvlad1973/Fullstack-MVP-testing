@@ -8,11 +8,16 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { LoadingState } from "@/components/loading-state";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
+import FirstLoginPage from "@/pages/first-login";
 import TopicsPage from "@/pages/author/topics";
 import QuestionsPage from "@/pages/author/questions";
 import TestsPage from "@/pages/author/tests";
 import AnalyticsPage from "@/pages/author/analytics";
 import TestAnalyticsPage from "@/pages/author/test-analytics";
+import UsersPage from "@/pages/author/users";
+import GroupsPage from "@/pages/author/groups";
 import { AuthorLayout } from "@/pages/author/layout";
 import LearnerTestListPage from "@/pages/learner/test-list";
 import TakeTestPage from "@/pages/learner/take-test";
@@ -20,9 +25,9 @@ import ResultPage from "@/pages/learner/result";
 import HistoryPage from "@/pages/learner/history";
 import { LearnerLayout } from "@/pages/learner/layout";
 
+
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { user, isLoading } = useAuth();
-  const [, navigate] = useLocation();
 
   if (isLoading) {
     return <LoadingState message="Loading..." />;
@@ -30,6 +35,11 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
   if (!user) {
     return <Redirect to="/login" />;
+  }
+
+  // Проверка первого входа: нужно согласие GDPR или смена пароля
+  if (!user.gdprConsent || user.mustChangePassword) {
+    return <FirstLoginPage mustChangePassword={user.mustChangePassword ?? false} />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -66,6 +76,8 @@ function Router() {
     <Switch>
       <Route path="/" component={HomeRedirect} />
       <Route path="/login" component={LoginPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
 
       <Route path="/author/topics">
         <ProtectedRoute allowedRoles={["author"]}>
@@ -103,6 +115,22 @@ function Router() {
         <ProtectedRoute allowedRoles={["author"]}>
           <AuthorLayout>
             <TestAnalyticsPage />
+          </AuthorLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/author/users">
+        <ProtectedRoute allowedRoles={["author"]}>
+          <AuthorLayout>
+            <UsersPage />
+          </AuthorLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/author/groups">
+        <ProtectedRoute allowedRoles={["author"]}>
+          <AuthorLayout>
+            <GroupsPage />
           </AuthorLayout>
         </ProtectedRoute>
       </Route>
