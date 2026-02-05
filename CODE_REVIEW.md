@@ -25,7 +25,7 @@
 ### 1.1 Технологический стек
 
 | Слой | Технологии |
-|------|-----------|
+| ---- | ---------- |
 | Frontend | React 18, Vite 5, Wouter, TanStack Query, Tailwind CSS, Radix UI |
 | Backend | Express 4, TypeScript 5.6, Drizzle ORM, PostgreSQL |
 | Shared | Zod validation schemas, Drizzle-Zod integration |
