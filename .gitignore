@@ -10,3 +10,7 @@ components.zip
 .env
 CLAUDE.md
 tmp/
+
+# Docker deploy
+docker/config/deploy.env
+docker/build/
