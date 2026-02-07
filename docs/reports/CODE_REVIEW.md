@@ -53,7 +53,7 @@ project/
 ### 1.3 Статистика кодовой базы
 
 | Компонент | Файлов | Строк кода | Проблемных файлов |
-|-----------|--------|------------|-------------------|
+| --------- | ------ | ---------- | ----------------- |
 | Backend | 18 | ~8000 | routes.ts (6054 lines) |
 | Frontend | 60+ | ~15000 | take-test.tsx (2111), tests.tsx (1593), questions.tsx (1470) |
 | Shared | 1 | ~750 | schema.ts (без JSON validation) |
@@ -2245,7 +2245,7 @@ function App() {
 ### 8.1 Сводная таблица
 
 | Категория | Оценка | Описание |
-|-----------|--------|----------|
+| --------- | ------ | -------- |
 | **Безопасность** | 5/10 | Default secrets, CORS, insecure cookies |
 | **Архитектура Backend** | 4/10 | Monolithic routes.ts, no layered architecture |
 | **Архитектура Frontend** | 4/10 | God components, duplicated logic |
@@ -2259,7 +2259,7 @@ function App() {
 ### 8.2 Критические файлы для рефакторинга
 
 | Файл | Строк | Приоритет | Рекомендация |
-|------|-------|-----------|--------------|
+| ---- | ----- | --------- | ------------ |
 | server/routes.ts | 6054 | P0 | Split into 10+ modules |
 | client/src/pages/learner/take-test.tsx | 2111 | P1 | Extract hooks and components |
 | client/src/pages/author/tests.tsx | 1593 | P1 | Extract TestBuilder, AdaptiveConfig |
