@@ -2074,6 +2074,7 @@ function RankingQuestion({ question, answer, onAnswer, shuffleMapping, disabled 
                   onClick={() => moveItem(position, position - 1)}
                   disabled={disabled || position === 0}
                   className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                  aria-label="Move up"
                 >
                   <ArrowUp className="h-4 w-4" />
                 </button>
@@ -2082,6 +2083,7 @@ function RankingQuestion({ question, answer, onAnswer, shuffleMapping, disabled 
                   onClick={() => moveItem(position, position + 1)}
                   disabled={disabled || position === order.length - 1}
                   className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                  aria-label="Move down"
                 >
                   <ArrowDown className="h-4 w-4" />
                 </button>
