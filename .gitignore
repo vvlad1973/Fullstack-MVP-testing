@@ -14,3 +14,4 @@ tmp/
 # Docker deploy
 docker/config/deploy.env
 docker/build/
+coverage/
