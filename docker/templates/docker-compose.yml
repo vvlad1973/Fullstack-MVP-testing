@@ -10,7 +10,7 @@ services:
     env_file:
       - ${ENV_DIR}/.env
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/api/me"]
+      test: ["CMD", "sh", "-c", "wget -q --spider http://127.0.0.1:${PORT}/api/me"]
       interval: 30s
       timeout: 10s
       retries: 3
