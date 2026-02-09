@@ -43,9 +43,9 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Set execute permissions
+:: Fix line endings (CRLF->LF) and set execute permissions
 echo Setting permissions...
-ssh %SERVER_USER%@%SERVER_HOST% "chmod +x %SERVER_PATH%/deploy.sh %SERVER_PATH%/rollback.sh"
+ssh %SERVER_USER%@%SERVER_HOST% "sed -i 's/\r$//' %SERVER_PATH%/deploy.sh %SERVER_PATH%/rollback.sh && chmod +x %SERVER_PATH%/deploy.sh %SERVER_PATH%/rollback.sh"
 
 echo.
 echo === Done ===
