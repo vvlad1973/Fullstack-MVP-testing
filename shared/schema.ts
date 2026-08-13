@@ -1266,6 +1266,27 @@ export const topicResultSchema = z.object({
   // recommendations block de-duplicates on. `.default([])` keeps attempts graded before
   // this work valid.
   feedbackTexts: z.array(z.string()).default([]),
+  // PRD-50: breakdown records of THIS section's scope, stored WITH the attempt like the
+  // recommendations above — the results screen renders from the saved result, and
+  // recomputing from live content would hand a past attempt today's tags.
+  // `.default([])` keeps attempts graded before PRD-50 valid.
+  breakdown: z
+    .array(
+      z.object({
+        scope: z.string(),
+        axis: z.string(),
+        key: z.string(),
+        items: z.number(),
+        answered: z.number(),
+        earned: z.number(),
+        possible: z.number(),
+        unitEarned: z.number(),
+        unitPossible: z.number(),
+        percentPoints: z.number(),
+        percentUnits: z.number(),
+      }),
+    )
+    .default([]),
 });
 
 export const attemptResultSchema = z.object({

@@ -1346,6 +1346,9 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
           scoring: effective.scoring,
           points: effective.points,
           answer: (answers ?? {})[q.id] as Answer,
+          // PRD-50 FR-15: ключи разреза этого вопроса. Пустой список не кладём,
+          // чтобы результат теста без тегов не менялся ни на байт.
+          ...(Array.isArray(q.tags) && q.tags.length ? { axisKeys: { tag: q.tags } } : {}),
         };
       }),
     };
@@ -1451,6 +1454,9 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
             scoring: effective.scoring,
             points: effective.points,
             answer: answers?.[q.id] as Answer,
+            // PRD-50 FR-15: ключи разреза этого вопроса. Пустой список не кладём,
+            // чтобы результат теста без тегов не менялся ни на байт.
+            ...(Array.isArray(q.tags) && q.tags.length ? { axisKeys: { tag: q.tags } } : {}),
           };
         }),
         extra: {
@@ -1494,6 +1500,7 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       recommendedEvents: t.extra!.recommendedEvents,
       recommendedAssets: t.extra!.recommendedAssets,
       feedbackTexts: t.extra!.feedbackTexts,
+      breakdown: t.breakdown,
     }));
 
     // PRD-12: graded namespaces (scales PRD-5 + result variables PRD-2) via the
