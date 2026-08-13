@@ -553,7 +553,9 @@ function calculateResults() {
       scoring: q.scoring,
       points: q.points != null ? q.points : 1,
       // PRD-19 Block E (FR-07/FR-13): drafts/skipped/unanswered score 0 in flexible mode.
-      answer: gradedAnswerFor(q)
+      answer: gradedAnswerFor(q),
+      // PRD-50 FR-15: this question's breakdown axis keys; baked into TEST_DATA as q.tags.
+      axisKeys: q.tags && q.tags.length ? { tag: q.tags } : null
     });
   });
 

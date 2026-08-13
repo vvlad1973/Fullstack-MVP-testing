@@ -481,6 +481,9 @@ export function buildTestJson(data: ExportData): string {
             ...(baked.scoring ? { scoring: baked.scoring } : {}),
             // PRD-16 FR-41 (see standard-section map above).
             ...(q.shuffleAnswers === false ? { shuffleAnswers: false } : {}),
+            // PRD-50 FR-17: axis keys are needed in adaptive mode too. Include only
+            // a non-empty list so packages without tags stay byte-identical (FR-02).
+            ...(Array.isArray(q.tags) && q.tags.length ? { tags: q.tags } : {}),
           };
         }),
       };
