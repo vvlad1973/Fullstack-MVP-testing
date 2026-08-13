@@ -1,7 +1,7 @@
 /**
  * @module tests/breakdown-web-host
- * @description PRD-50 FR-15: сохраняемый результат попытки несёт разрезы, а старый
- * результат без них остаётся валидным.
+ * @description PRD-50 FR-15: the stored attempt result carries breakdown records, and a
+ * result saved before PRD-50 stays valid (the field defaults to an empty list).
  */
 import { describe, it, expect } from "vitest";
 import { topicResultSchema } from "../shared/schema";

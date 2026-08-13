@@ -1,7 +1,8 @@
 /**
  * @module tests/breakdown-aggregate
- * @description PRD-50 FR-14 - FR-18: `aggregateStandardResult` раскладывает записи разреза
- * по темам и по тесту. Golden-тест: тем же кодом считает рантайм пакета SCORM.
+ * @description PRD-50 FR-14 - FR-18: `aggregateStandardResult` splits breakdown records
+ * between the topics and the test. A golden test: the SCORM runtime computes them with
+ * this very code, through the `TBTemplate` bundle.
  */
 import { describe, it, expect } from "vitest";
 import { aggregateStandardResult, type AggregateSection } from "../shared/scoring/aggregate";

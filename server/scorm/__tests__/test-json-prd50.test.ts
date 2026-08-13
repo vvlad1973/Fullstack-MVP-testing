@@ -1,8 +1,9 @@
 // @vitest-environment node
 /**
  * @module server/scorm/__tests__/test-json-prd50
- * @description PRD-50 FR-15/FR-17: теги вопроса доезжают до пакета и для адаптивных
- * разделов — без них разрез в адаптивном режиме посчитать нечем.
+ * @description PRD-50 FR-15/FR-17: a question's tags reach the package for ADAPTIVE
+ * sections too. Standard sections have baked them since PRD-11 (the stratified draw needs
+ * them); without the adaptive ones there is nothing to compute an adaptive breakdown from.
  */
 import { describe, it, expect } from "vitest";
 import { buildTestJson } from "../builders/test-json";
