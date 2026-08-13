@@ -122,8 +122,12 @@ export function validate(
       if (n.fn === "tag" && n.arg.includes("::")) {
         // PRD-50 FR-36: composite key «<section>::<key>». The section part is checked
         // strictly — a typo there yields an eternal zero; the key itself only warns,
-        // since it may well have been added to the questions afterwards.
-        const [scopeKey, tagKey] = n.arg.split("::");
+        // since it may well have been added to the questions afterwards. Split on the
+        // FIRST separator only: the section id never contains one, while a breakdown key
+        // may, and `split("::")[1]` would then check a truncated key.
+        const sep = n.arg.indexOf("::");
+        const scopeKey = n.arg.slice(0, sep);
+        const tagKey = n.arg.slice(sep + 2);
         if (refs.sectionKeys && !refs.sectionKeys.has(scopeKey)) {
           errors.push({ code: "unknown-section", message: `Неизвестная секция «${scopeKey}»` });
         }

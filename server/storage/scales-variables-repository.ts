@@ -111,7 +111,18 @@ export class ScalesVariablesRepository {
     const priorVarNames = new Set([...prior.map((rv) => rv.name), ...(opts.extraVarNames ?? [])]);
     const scaleRows = await db.select().from(scales).where(eq(scales.testId, testId));
     const scaleKeys = new Set([...scaleRows.map((s) => s.key), ...(opts.extraScaleKeys ?? [])]);
-    return validate(formula, type, { topicIds, topicNames, priorVarNames, scaleKeys });
+    // PRD-50 FR-36: the delivered SECTION is the test's topic, addressed by the very same
+    // two spellings (UUID or the author's code) — so `topicIds` IS the section key set.
+    // Without passing it, both the `sectionById(...)` gate and the section part of a
+    // composite `tag("<section>::<key>")` stay disabled and a typo reaches the learner as
+    // an eternal zero.
+    return validate(formula, type, {
+      topicIds,
+      topicNames,
+      sectionKeys: topicIds,
+      priorVarNames,
+      scaleKeys,
+    });
   }
 
   // ─── Scales (PRD-5) ─────────────────────────────────────────────────────────

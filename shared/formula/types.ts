@@ -115,6 +115,23 @@ export interface EvalContext {
    * an absent map resolves `topicByName` to neutral defaults.
    */
   topicsByName?: Record<string, TopicResult>;
+  /**
+   * PRD-50 breakdown records of the attempt, the source of `tag("...")`. TWO key forms
+   * live in this ONE map (FR-36 — the DSL grammar has no scope argument):
+   *
+   * - `"<key>"` — the whole-test scope, e.g. `tag("ПДн")`;
+   * - `"<section>::<key>"` — the scope of one delivered section, e.g. `tag("law::ПДн")`,
+   *   where the left part accepts the same two spellings {@link topics} does: the
+   *   section's UUID and the author's code, both keyed when a code is set.
+   *
+   * `TagResult.percent` is the POINTS-based ratio (`earned / possible`) — the verdict
+   * currency — and never the unit-based one a host may have chosen to display.
+   *
+   * Both hosts MUST fill this map identically: `buildEvalBase`
+   * (server/services/result-compute.ts) and its plain-JS twin `buildResultVarContext`
+   * (server/scorm/template/app/render/resultsPage.js); the parity is pinned by
+   * `tests/breakdown-formula-context.test.ts`.
+   */
   tags: Record<string, TagResult>;
   scales: Record<string, ScaleResult>;
   /**
@@ -125,6 +142,14 @@ export interface EvalContext {
    * key order surviving every host's serialisation.
    */
   scaleOrder?: string[];
+  /**
+   * The delivered sections, the source of `sectionById("...")`. A section IS the test's
+   * topic here, so it is keyed by its UUID AND the author's code (when set) — the same
+   * pair {@link topics} uses and the same one the left part of a composite `tag` key
+   * accepts. `completed` is `true` by construction: a section that produced a result was
+   * played to its end in the standard flow. Filled identically by both hosts (see
+   * {@link tags}).
+   */
   sections: Record<string, SectionResult>;
   vars: Record<string, FormulaValue>;
 }
