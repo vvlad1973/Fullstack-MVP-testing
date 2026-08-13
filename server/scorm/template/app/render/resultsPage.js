@@ -83,9 +83,10 @@ function buildScaleInteractions(scaleComputation) {
 
 // ─── PRD-2 (A7): result variables ────────────────────────────────────────────
 // Build the formula evaluation context from standard scoring. Этап A wires
-// percent + per-topic results; PRD-5 scales now fill `scales` (B5);
-// tags/sections resolve to neutral defaults (tag aggregation and PRD-4 section
-// keys come later).
+// percent + per-topic results; PRD-5 scales fill `scales` (B5); PRD-50 fills
+// `tags` from the attempt's breakdown records and `sections` from the topic
+// results. Mirrors server/services/result-compute.ts key for key — the two hosts
+// must hand the evaluator the SAME maps.
 function buildResultVarContext(results, scaleComputation) {
   // Topic name/code come from TEST_DATA.sections so `topicByName("<name>")` and
   // `topicById("<code>")` resolve (PRD-2 §4.2); fall back to topicResult fields.
@@ -94,6 +95,8 @@ function buildResultVarContext(results, scaleComputation) {
   for (var i = 0; i < secs.length; i++) meta[secs[i].topicId] = secs[i];
   var topics = {};
   var topicsByName = {};
+  var sections = {};
+  var sectionAliases = {};
   var totalScore = 0;
   (results.topicResults || []).forEach(function (tr) {
     var r = { percent: tr.percent || 0, passed: tr.passed === true, score: tr.earnedPoints || 0 };
@@ -104,7 +107,35 @@ function buildResultVarContext(results, scaleComputation) {
     var name = m.topicName || tr.topicName || null;
     if (code) topics[code] = r;
     if (name) topicsByName[name] = r;
+    // `sectionById(...)` is the delivered section = the topic result, keyed by UUID and
+    // by the author's code. `completed` is true by construction: a section that produced
+    // a result was played to its end in the standard flow.
+    var sec = { percent: tr.percent || 0, passed: tr.passed === true, completed: true };
+    sections[tr.topicId] = sec;
+    if (code) sections[code] = sec;
+    sectionAliases[tr.topicId] = code ? [tr.topicId, code] : [tr.topicId];
   });
+  // PRD-50 FR-35/FR-36: `tag(...)` reads this attempt's breakdown records. The test scope
+  // keeps the plain key; a section scope is addressed by the COMPOSITE key
+  // «<section>::<key>», whose left part accepts the same two spellings `topicById` does.
+  // The DSL grammar is untouched.
+  var tags = {};
+  var entries = results.breakdowns || [];
+  for (var b = 0; b < entries.length; b++) {
+    var e = entries[b];
+    // `percent` is the POINTS-based ratio: it is the verdict currency (FR-21) and must
+    // not depend on which basis the author chose to display on screen.
+    var value = { percent: e.percentPoints, score: e.earned, maxScore: e.possible, count: e.items };
+    if (e.scope === 'test') {
+      tags[e.key] = value;
+      continue;
+    }
+    var sectionId = e.scope.slice('section:'.length);
+    var aliases = Object.prototype.hasOwnProperty.call(sectionAliases, sectionId)
+      ? sectionAliases[sectionId]
+      : [sectionId];
+    for (var a = 0; a < aliases.length; a++) tags[aliases[a] + '::' + e.key] = value;
+  }
   var scales = (scaleComputation && scaleComputation.values) || {};
   // Overall earned points across the test = Σ of per-topic earned points.
   return {
@@ -112,9 +143,9 @@ function buildResultVarContext(results, scaleComputation) {
     score: totalScore,
     topics: topics,
     topicsByName: topicsByName,
-    tags: {},
+    tags: tags,
     scales: scales,
-    sections: {},
+    sections: sections,
   };
 }
 
@@ -568,6 +599,16 @@ function calculateResults() {
     passDecisionPolicy: TEST_DATA.passDecisionPolicy
   });
 
+  // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the shared engine returns the
+  // test-scope records on `breakdowns` and the section-scope ones on each topic result,
+  // and `tag()` must reach either. Kept off the topic results on purpose: `saveAttemptResult`
+  // persists those verbatim into suspend_data, which is a scarce 64K budget.
+  var breakdowns = (agg.breakdowns || []).slice();
+  for (var bi = 0; bi < agg.topicResults.length; bi++) {
+    var secEntries = agg.topicResults[bi].breakdown || [];
+    for (var bj = 0; bj < secEntries.length; bj++) breakdowns.push(secEntries[bj]);
+  }
+
   return {
     correct: agg.correct,
     totalQuestions: agg.totalQuestions,
@@ -575,6 +616,7 @@ function calculateResults() {
     possiblePoints: agg.possiblePoints,
     percent: agg.percent,
     passed: agg.passed,
+    breakdowns: breakdowns,
     topicResults: agg.topicResults.map(function (t) {
       return {
         topicId: t.topicId,

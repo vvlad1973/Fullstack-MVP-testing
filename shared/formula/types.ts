@@ -143,6 +143,8 @@ export interface ValidationRefs {
   topicNames?: Set<string>;
   scaleKeys?: Set<string>;
   sectionKeys?: Set<string>;
+  /** PRD-50: all breakdown keys of the test (today: its questions' tags). Empty/absent disables the check. */
+  tagKeys?: Set<string>;
   /** Variables with a SMALLER sort_order — the only ones `var()` may reference. */
   priorVarNames?: Set<string>;
   /** Per-scale band levels; used to warn on `countScales` level arguments. */

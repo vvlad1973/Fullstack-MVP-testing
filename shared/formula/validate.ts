@@ -8,6 +8,8 @@
  * `sort_order` (error, guarantees an acyclic indicator graph — scoring-model
  * §10.9), `scaleById` resolves to warnings while scales are unavailable (Этап A),
  * and `countScales` level arguments that fall outside a scale's band levels warn.
+ * PRD-50 FR-36: a `tag("<section>::<key>")` composite key checks its section part
+ * strictly and its key part as a warning.
  */
 
 import {
@@ -116,6 +118,18 @@ export function validate(
       }
       if (n.fn === "sectionById" && refs.sectionKeys && !refs.sectionKeys.has(n.arg)) {
         errors.push({ code: "unknown-section", message: `Неизвестная секция «${n.arg}»` });
+      }
+      if (n.fn === "tag" && n.arg.includes("::")) {
+        // PRD-50 FR-36: composite key «<section>::<key>». The section part is checked
+        // strictly — a typo there yields an eternal zero; the key itself only warns,
+        // since it may well have been added to the questions afterwards.
+        const [scopeKey, tagKey] = n.arg.split("::");
+        if (refs.sectionKeys && !refs.sectionKeys.has(scopeKey)) {
+          errors.push({ code: "unknown-section", message: `Неизвестная секция «${scopeKey}»` });
+        }
+        if (refs.tagKeys && refs.tagKeys.size > 0 && !refs.tagKeys.has(tagKey)) {
+          warnings.push({ code: "tag-unresolved", message: `Ключ «${tagKey}» не найден в вопросах теста` });
+        }
       }
       if (n.fn === "scaleById") {
         const known = refs.scaleKeys && refs.scaleKeys.size > 0 && refs.scaleKeys.has(n.arg);

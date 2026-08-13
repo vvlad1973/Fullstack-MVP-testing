@@ -1522,6 +1522,13 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         {
           percent: overallPercent,
           topicResults: topicResults.map((t) => ({ ...t, code: topicCodeById.get(t.topicId) ?? null })),
+          // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the engine returns the
+          // test-scope records on `breakdowns` and the section-scope ones on each topic
+          // result, and `tag()` needs to reach either.
+          breakdowns: [
+            ...agg.breakdowns,
+            ...agg.topicResults.flatMap((t) => t.breakdown),
+          ],
         },
       );
       if (Object.keys(computation.scaleResults).length > 0) scaleResults = computation.scaleResults;
