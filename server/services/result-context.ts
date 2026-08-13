@@ -390,6 +390,11 @@ function reportFeedbackMeta(measures?: MeasuresSource): Partial<ReportMeta> {
     ...(measures ? { hasPassThreshold: measures.hasPassThreshold } : {}),
     // Переключатель «как на экране итогов» разрешается ОДНИМ правилом на все хосты.
     ...(resolveReportIntro(measures?.intro) ? { intro: resolveReportIntro(measures?.intro) } : {}),
+    // PRD-50 FR-13: та же настройка, что читает `buildResultContext` (см.
+    // `breakdownDisplay: measures?.breakdownDisplayJson ?? null` в этом же файле) —
+    // отчёт печатает полосы разреза ровно тогда же, когда их печатает экран, с
+    // которого его скачали (§5.2).
+    ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
   };
 }
 

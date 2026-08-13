@@ -15,7 +15,12 @@
  * Чистый модуль: ни DOM, ни Node, ни PDF-библиотек.
  */
 
-import type { ResultInput, AdaptiveResultInput, AdaptiveTopicInput } from "../template/result-context";
+import type {
+  ResultInput,
+  AdaptiveResultInput,
+  AdaptiveTopicInput,
+  BreakdownDisplaySetting,
+} from "../template/result-context";
 import type { FeedbackBlock } from "../scales/interpretation";
 
 /** What the report prints besides the result itself. */
@@ -62,6 +67,18 @@ export interface ReportMeta {
    * вводное слово у него своё. Отсутствие = блока в отчёте нет.
    */
   intro?: { text?: string | null; format?: "plain" | "richText" | "html" | null } | null;
+  /**
+   * PRD-50 FR-13: the test's breakdown display setting (`tests.breakdown_display_json`) —
+   * the SAME class of fact as {@link feedback} and {@link hasPassThreshold} above: a
+   * property of the test's results screen, which the report must show identically to the
+   * screen it was downloaded from (§5.2), not something the report layer re-derives.
+   *
+   * Absent = the byte-identical report a test built before PRD-50 has always produced: no
+   * topic in {@link ResultInput.topicResults} gains a `breakdown` view even when its raw
+   * `breakdown` records are present (see {@link module:shared/template/result-context}'s
+   * `topicView`, which gates the rows on this flag first).
+   */
+  breakdownDisplay?: BreakdownDisplaySetting | null;
 }
 
 /** Standard-mode report input — the SAME normalized result the results screen takes. */

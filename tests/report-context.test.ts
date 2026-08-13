@@ -158,6 +158,54 @@ describe("контекст обычного отчёта", () => {
     expect((ctx.result.topicResults as any[])?.[0].pointsLabel).toBe("3 / 5");
   });
 
+  describe("PRD-50 FR-13: полосы разреза по ключам", () => {
+    // Тема с записями разреза — тот же вид данных, что хранит попытка (см.
+    // `shared/template/__tests__/result-context-breakdown.test.ts`).
+    const topicWithBreakdown = () =>
+      topic({
+        breakdown: [
+          {
+            scope: "section:t1",
+            axis: "tag",
+            key: "ПДн",
+            items: 2,
+            answered: 2,
+            earned: 1,
+            possible: 2,
+            unitEarned: 1,
+            unitPossible: 2,
+            percentPoints: 50,
+            percentUnits: 40,
+          },
+        ],
+      });
+
+    it("при включённой настройке строки полос доезжают до вида темы", () => {
+      const ctx = buildReportContext(
+        input({
+          result: { ...input().result, topicResults: [topicWithBreakdown()] },
+          breakdownDisplay: { visibility: "bar_and_value", basis: "points" },
+        }),
+      );
+      const rows = (ctx.result.topicResults as Array<{ breakdown?: Array<Record<string, unknown>> }>)[0].breakdown;
+      expect(rows).toMatchObject([{ key: "ПДн", barPercent: 50, showValue: true, valueLabel: "50 %" }]);
+    });
+
+    it("при выключенной настройке (или её отсутствии) полос в виде темы нет", () => {
+      const withTopics = { result: { ...input().result, topicResults: [topicWithBreakdown()] } };
+
+      // Настройка вовсе не передана — байт-в-байт то же, что до PRD-50.
+      const noSetting = buildReportContext(input(withTopics));
+      expect((noSetting.result.topicResults as Array<{ breakdown?: unknown }>)[0].breakdown).toBeUndefined();
+
+      // Настройка передана, но автор выключил показ.
+      const hidden = buildReportContext(
+        input({ ...withTopics, breakdownDisplay: { visibility: "hidden", basis: "units" } }),
+      );
+      expect((hidden.result.topicResults as Array<{ breakdown?: unknown }>)[0].breakdown).toBeUndefined();
+    });
+  });
+
   it("измерительному тесту отчёт не выносит вердикта, которого нет на экране (PRD-29 §6.7)", () => {
     // Опросник без правильных ответов: возможных баллов ноль, а порог 70 % стоит просто
     // потому, что он умолчание любого нового теста. Экран по этой паре признаков снимает
