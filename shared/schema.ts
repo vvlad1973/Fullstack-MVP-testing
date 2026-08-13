@@ -566,6 +566,15 @@ export const tests = pgTable("tests", {
    * складывать их вместе значило бы связать два независимых черновика редактора.
    */
   introJson: jsonb("intro_json").$type<TestIntro>(),
+  /**
+   * PRD-50 FR-13: breakdown display setting. `hidden` (default) means this test behaves
+   * exactly as it did before PRD-50. `basis` picks the NUMBER shown on screen, not the
+   * verdict's currency — the pass threshold is always evaluated in points.
+   */
+  breakdownDisplayJson: jsonb("breakdown_display_json").$type<{
+    visibility: "hidden" | "bar" | "bar_and_value";
+    basis: "units" | "points";
+  }>(),
 }, (table) => ({
   // Test lists filter by lifecycle status (draft/published/archived).
   statusIdx: index("tests_status_idx").on(table.status),

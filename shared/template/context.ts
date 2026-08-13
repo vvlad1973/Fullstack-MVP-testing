@@ -79,6 +79,23 @@ export interface CtxTopicResultView extends CtxTopicFeedback {
   pointsLabel?: string;
   /** SCORM-extra: per-topic pass threshold, e.g. "Требуется: 70%". */
   requiredLabel?: string;
+  /**
+   * PRD-50: breakdown rows of this topic, Core-prepared. Absent when the author never
+   * turned them on, or when the topic carries no key at all — an empty array is falsy in
+   * the DSL, so the whole block (including its heading) disappears from the layout with it.
+   */
+  breakdown?: CtxBreakdownRow[];
+}
+
+/** One breakdown row, prepared by the core: the layout only prints it. */
+export interface CtxBreakdownRow {
+  key: string;
+  /** Bar width in percent, rounded. */
+  barPercent: number;
+  /** Whether to print the number alongside the bar. */
+  showValue: boolean;
+  /** Ready-made value label, e.g. "50 %". Empty when showValue is false. */
+  valueLabel: string;
 }
 
 /** A per-topic row for the adaptive results layout (level-based, no score). */

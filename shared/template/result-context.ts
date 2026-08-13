@@ -24,7 +24,9 @@ import type {
   CtxTopicResultView,
   CtxAdaptiveTopicView,
   CtxRecommendation,
+  CtxBreakdownRow,
 } from "./context";
+import type { BreakdownEntry } from "../breakdown/types";
 import { resolveBlockOrder, DEFAULT_BLOCK_ORDER, type ResultsBlockKey } from "./results-order";
 import { labelsTree } from "./labels";
 import { buildMeasureView, type RenderKind } from "./measure-view";
@@ -124,6 +126,17 @@ export interface TopicFeedbackInput {
   feedbackTexts?: string[] | null;
 }
 
+/**
+ * PRD-50 FR-13 display setting for the topic breakdown rows (`tests.breakdown_display_json`).
+ * `hidden` (the default when the column is null) means the topic card prints no breakdown at
+ * all, byte-identical to a test built before PRD-50. `basis` picks the NUMBER shown, not the
+ * pass verdict's currency — the threshold is always evaluated in points.
+ */
+export interface BreakdownDisplaySetting {
+  visibility: "hidden" | "bar" | "bar_and_value";
+  basis: "units" | "points";
+}
+
 /** Normalized per-topic input (host adapts its own field names into this). */
 export interface TopicInput extends TopicFeedbackInput {
   topicId?: string;
@@ -136,6 +149,8 @@ export interface TopicInput extends TopicFeedbackInput {
   passed: boolean | null;
   /** SCORM-extra: per-topic pass threshold label, e.g. "Требуется: 70%". */
   requiredLabel?: string;
+  /** PRD-50: breakdown records of this topic, as the host stored them. */
+  breakdown?: BreakdownEntry[] | null;
 }
 
 /**
@@ -517,6 +532,15 @@ export interface ResultContextOptions {
    */
   testFeedback?: FeedbackBlock | null;
   /**
+   * PRD-50 FR-13: the test's breakdown display setting (`tests.breakdown_display_json`).
+   * Absent/`null` (no setting saved) leaves every topic's {@link CtxTopicResultView.breakdown}
+   * unset — the byte-identical context a test built before PRD-50 produces. Lives OUTSIDE
+   * {@link measures}, like {@link testFeedback}: it is a property of the test's results
+   * screen, not of whether the test measures anything, and a control test must be able to
+   * turn it on too.
+   */
+  breakdownDisplay?: BreakdownDisplaySetting | null;
+  /**
    * Whether the TEST declares a pass threshold at all (`tests.overall_pass_rule_json`
    * with a `type` other than `none`). It answers ONE question the builder cannot answer
    * from {@link ResultInput.passed}, which is a plain `boolean`: was a verdict actually
@@ -624,7 +648,11 @@ export function topicHasContent(t: TopicInput): boolean {
 }
 
 /** Map a normalized topic to its presentational view (Core-prepared class + label). */
-function topicView(t: TopicInput, withPoints: boolean): CtxTopicResultView {
+function topicView(
+  t: TopicInput,
+  withPoints: boolean,
+  breakdownDisplay?: BreakdownDisplaySetting | null,
+): CtxTopicResultView {
   const passed = t.passed;
   const view: CtxTopicResultView = {
     topicId: t.topicId,
@@ -649,6 +677,22 @@ function topicView(t: TopicInput, withPoints: boolean): CtxTopicResultView {
   // down; the layout drops the sibling «Правильно» row on the same `total` check.
   if (withPoints && t.total > 0) view.pointsLabel = round1(t.earnedPoints) + " / " + round1(t.possiblePoints);
   if (t.requiredLabel) view.requiredLabel = t.requiredLabel;
+  // PRD-50: the breakdown rows print only when the author turned them on AND the topic
+  // actually carries at least one key — a list of keys, not a decomposition of the topic
+  // into parts, so keys are not required to partition its questions.
+  const display = breakdownDisplay;
+  if (display && display.visibility !== "hidden" && t.breakdown?.length) {
+    const showValue = display.visibility === "bar_and_value";
+    view.breakdown = t.breakdown.map((e): CtxBreakdownRow => {
+      const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
+      return {
+        key: e.key,
+        barPercent: Math.round(value),
+        showValue,
+        valueLabel: showValue ? Math.round(value) + " %" : "",
+      };
+    });
+  }
   return view;
 }
 
@@ -798,7 +842,9 @@ export function buildResultContext(
     // A topic with nothing to report brings no card — see {@link topicHasContent}. The
     // filter runs BEFORE the mapping so the array can end up empty, which is what takes
     // the whole «Результаты по темам» section down with it.
-    topicResults: (input.topicResults || []).filter(topicHasContent).map((t) => topicView(t, withTopicPoints)),
+    topicResults: (input.topicResults || [])
+      .filter(topicHasContent)
+      .map((t) => topicView(t, withTopicPoints, opts.breakdownDisplay)),
   };
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.

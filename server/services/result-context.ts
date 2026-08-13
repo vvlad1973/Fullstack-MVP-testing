@@ -116,6 +116,14 @@ export interface MeasuresSource {
    * every other field here, so a finished attempt shows the content it was taken on.
    */
   design?: DesignSettings | null;
+  /**
+   * PRD-50 FR-13: the test's breakdown display setting (`tests.breakdown_display_json`).
+   * Absent/`null` (no setting saved) leaves every topic's breakdown rows unset — the
+   * byte-identical results screen a test built before PRD-50 has always shown. Travels
+   * alongside {@link testFeedback}/{@link hasPassThreshold}: it is a property of the
+   * test's results screen, not of whether the test measures anything.
+   */
+  breakdownDisplayJson?: { visibility: "hidden" | "bar" | "bar_and_value"; basis: "units" | "points" } | null;
 }
 
 /**
@@ -267,6 +275,10 @@ function toTopicInput(t: TopicResult): TopicInput {
     // dedup keeps the widest copy — so a sentence the test also carries shows once.
     // Absent on attempts graded before this work — the block then simply lacks them.
     feedbackTexts: t.feedbackTexts ?? [],
+    // PRD-50: breakdown records of this section's scope, stored WITH the attempt like the
+    // recommendations above. Absent on attempts graded before PRD-50 — the schema default
+    // then leaves an empty list, and the shared builder simply prints no rows for it.
+    breakdown: t.breakdown ?? [],
   };
 }
 
@@ -343,6 +355,11 @@ export function buildResultContext(
       // `undefined` when the material could not be read at all; the builder then treats
       // it as unknown and shows the feedback.
       ...(measures ? { hasPassThreshold: measures.hasPassThreshold } : {}),
+      // PRD-50 FR-13: the author's breakdown display setting. `?? null` so a test with the
+      // column absent (every test predating this PRD) resolves to the builder's own
+      // «hidden» default and prints no rows, matching {@link ResultInput.breakdown}'s
+      // built-in default of an empty list.
+      breakdownDisplay: measures?.breakdownDisplayJson ?? null,
       // Вводный блок ЭКРАНА: у отчёта свой текст, и путать их нельзя — адресаты разные.
       ...(measures?.intro?.results ? { intro: measures.intro.results } : {}),
       ...(hasMeasures ? { measures: buildMeasuresInput(measures as MeasuresSource) } : {}),
