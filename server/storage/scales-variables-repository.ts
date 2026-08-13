@@ -112,14 +112,20 @@ export class ScalesVariablesRepository {
     const scaleRows = await db.select().from(scales).where(eq(scales.testId, testId));
     const scaleKeys = new Set([...scaleRows.map((s) => s.key), ...(opts.extraScaleKeys ?? [])]);
     // PRD-50 FR-36: the delivered SECTION is the test's topic, addressed by the very same
-    // two spellings (UUID or the author's code) — so `topicIds` IS the section key set.
-    // Without passing it, both the `sectionById(...)` gate and the section part of a
-    // composite `tag("<section>::<key>")` stay disabled and a typo reaches the learner as
-    // an eternal zero.
+    // two spellings (UUID or the author's code) — so `topicIds` IS the scope key set for
+    // a composite `tag("<section>::<key>")`. This is passed as `scopeKeys`, NOT
+    // `sectionKeys`: the two checks are independent (see `ValidationRefs.scopeKeys`
+    // JSDoc), and the plain `sectionById(...)` accessor has never been strict-checked
+    // here — turning that on is a separate decision, out of scope for FR-36.
+    //
+    // `tagKeys` (breakdown keys from the test's questions) is intentionally NOT passed:
+    // collecting them here would need extra queries this method doesn't otherwise make,
+    // and an absent set simply leaves the (already warning-only) `tag-unresolved` check
+    // disabled, same as before.
     return validate(formula, type, {
       topicIds,
       topicNames,
-      sectionKeys: topicIds,
+      scopeKeys: topicIds,
       priorVarNames,
       scaleKeys,
     });

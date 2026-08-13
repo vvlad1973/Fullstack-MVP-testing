@@ -168,6 +168,16 @@ export interface ValidationRefs {
   topicNames?: Set<string>;
   scaleKeys?: Set<string>;
   sectionKeys?: Set<string>;
+  /**
+   * PRD-50 FR-36: valid scope (left) parts of a composite `tag("<scope>::<key>")` key —
+   * the same UUID/code set as {@link sectionKeys}, but tracked SEPARATELY on purpose.
+   * The composite-key scope check is strict (a typo there yields an eternal zero, so a
+   * bad formula should not save), while the plain `sectionById(...)` check stays
+   * opt-in via `sectionKeys` alone. Reusing one set for both would mean turning on
+   * the composite check silently turns on the `sectionById` one too, breaking
+   * re-validation of any pre-existing formula that uses the plain accessor.
+   */
+  scopeKeys?: Set<string>;
   /** PRD-50: all breakdown keys of the test (today: its questions' tags). Empty/absent disables the check. */
   tagKeys?: Set<string>;
   /** Variables with a SMALLER sort_order — the only ones `var()` may reference. */

@@ -71,7 +71,10 @@ describe("контекст формул", () => {
   });
 });
 
-const refs = { sectionKeys: new Set(["law", "law-id"]), tagKeys: new Set(["ПДн"]) };
+// `scopeKeys` (not `sectionKeys`): the composite `tag("<scope>::<key>")` scope check runs
+// off its OWN reference set, independent of the plain `sectionById(...)` gate — see the
+// `ValidationRefs.scopeKeys` JSDoc for why the two must not share one set.
+const refs = { scopeKeys: new Set(["law", "law-id"]), tagKeys: new Set(["ПДн"]) };
 
 describe("валидатор составного ключа", () => {
   it("опечатка в разделе — ошибка", () => {
@@ -101,7 +104,7 @@ describe("валидатор составного ключа", () => {
   it("ключ с двумя разделителями режется по первому", () => {
     // «law::a::b» = раздел law, ключ «a::b» — не «a».
     const out = validate('tag("law::a::b").percent', "number", {
-      sectionKeys: new Set(["law"]),
+      scopeKeys: new Set(["law"]),
       tagKeys: new Set(["a::b"]),
     });
     expect(out.errors).toEqual([]);

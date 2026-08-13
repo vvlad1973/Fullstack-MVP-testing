@@ -125,10 +125,12 @@ export function validate(
         // since it may well have been added to the questions afterwards. Split on the
         // FIRST separator only: the section id never contains one, while a breakdown key
         // may, and `split("::")[1]` would then check a truncated key.
+        // Checked against `refs.scopeKeys`, NOT `refs.sectionKeys` — see the JSDoc on
+        // `ValidationRefs.scopeKeys` for why the two must stay independent.
         const sep = n.arg.indexOf("::");
         const scopeKey = n.arg.slice(0, sep);
         const tagKey = n.arg.slice(sep + 2);
-        if (refs.sectionKeys && !refs.sectionKeys.has(scopeKey)) {
+        if (refs.scopeKeys && !refs.scopeKeys.has(scopeKey)) {
           errors.push({ code: "unknown-section", message: `Неизвестная секция «${scopeKey}»` });
         }
         if (refs.tagKeys && refs.tagKeys.size > 0 && !refs.tagKeys.has(tagKey)) {
