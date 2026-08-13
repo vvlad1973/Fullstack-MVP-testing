@@ -280,6 +280,11 @@ async function resultsMaterialForAttempt(
       // Вводные блоки: экрана и отчёта. Берутся из ВЫДАННОЙ версии теста, как и всё
       // остальное здесь, — попытка показывает то содержание, на котором её проходили.
       intro: (deliveredTest?.introJson as TestIntro | null) ?? null,
+      // PRD-50 FR-13: subtotal-by-key display setting, read from the SAME delivered
+      // version as everything else here. Absent (test predates PRD-50, or the column
+      // was never set) leaves it `null`, which `buildResultContext` resolves to
+      // «hidden» — the byte-identical results screen this test has always shown.
+      breakdownDisplayJson: deliveredTest?.breakdownDisplayJson ?? null,
     };
   } catch (error) {
     // The results screen must not fail because this material could not be read: the

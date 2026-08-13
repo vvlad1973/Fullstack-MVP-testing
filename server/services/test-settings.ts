@@ -17,7 +17,7 @@ import {
   contentPages,
   templates,
 } from "@shared/schema";
-import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet } from "@shared/schema";
+import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet, BreakdownDisplaySetting } from "@shared/schema";
 import {
   planSystemPages,
   SYSTEM_KINDS,
@@ -170,6 +170,12 @@ export interface TestPayload {
   reportSettingsJson?: unknown;
   /** Вводные блоки экрана итогов и отчёта (`tests.intro_json`). */
   introJson?: unknown;
+  /**
+   * PRD-50 FR-13: subtotal-by-key display setting (`tests.breakdown_display_json`).
+   * `null`/absent = hidden — the byte-identical results screen a test built before
+   * PRD-50 has always shown.
+   */
+  breakdownDisplayJson?: BreakdownDisplaySetting | null;
   telemetryEnabled?: boolean;
   timeLimitMinutes?: number | null;
   maxAttempts?: number | null;
@@ -276,6 +282,7 @@ export class TestSettingsService {
         retakePolicyJson: (payload.test.retakePolicyJson as never) ?? null,
         reportSettingsJson: (payload.test.reportSettingsJson as never) ?? null,
         introJson: (payload.test.introJson as never) ?? null,
+        breakdownDisplayJson: payload.test.breakdownDisplayJson ?? null,
         showCorrectAnswers: payload.test.showCorrectAnswers ?? false,
         // PRD-19 (Блок A): новый тест — возврат ВКЛ по умолчанию (FR-01).
         allowReturnToUnanswered: payload.test.allowReturnToUnanswered ?? true,

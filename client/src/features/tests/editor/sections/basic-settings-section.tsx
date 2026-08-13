@@ -64,6 +64,7 @@ import type {
   TestEditorModel,
   TopicPassRule,
 } from "../test-editor.types";
+import { DEFAULT_BREAKDOWN_DISPLAY } from "../test-editor.types";
 import { EMPTY_FIELD_ERRORS, type FieldErrorIndex } from "../field-errors";
 import type { UseDesignSettingsResult } from "../use-design-settings";
 import { ReportSettingsCard } from "./report-settings-card";
@@ -1139,6 +1140,63 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
               }));
             }}
             data-testid="settings-show-section-results-checkbox"
+          />
+        </div>
+      )}
+
+      <div className="ou-formfield">
+        <Select<"hidden" | "bar" | "bar_and_value">
+          id="settings-breakdown-visibility"
+          size="m"
+          fullWidth
+          label="Подытоги по ключам"
+          hint="Полосы по подтемам (тегам вопросов) на карточке темы: итоги раздела, итоги теста и отчёт."
+          value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility}
+          options={[
+            { value: "hidden", label: "Не показывать" },
+            { value: "bar", label: "Полоса" },
+            { value: "bar_and_value", label: "Полоса и число" },
+          ]}
+          onChange={(value) =>
+            updateModel((m) => ({
+              ...m,
+              runtime: {
+                ...m.runtime,
+                breakdownDisplay: {
+                  ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
+                  visibility: value,
+                },
+              },
+            }))
+          }
+          data-testid="settings-breakdown-visibility-select"
+        />
+      </div>
+      {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
+        <div className="ou-formfield">
+          <Select<"units" | "points">
+            id="settings-breakdown-basis"
+            size="m"
+            fullWidth
+            label="База подытогов"
+            value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).basis}
+            options={[
+              { value: "units", label: "Доля вопросов" },
+              { value: "points", label: "Доля баллов" },
+            ]}
+            onChange={(value) =>
+              updateModel((m) => ({
+                ...m,
+                runtime: {
+                  ...m.runtime,
+                  breakdownDisplay: {
+                    ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
+                    basis: value,
+                  },
+                },
+              }))
+            }
+            data-testid="settings-breakdown-basis-select"
           />
         </div>
       )}

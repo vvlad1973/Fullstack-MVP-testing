@@ -1092,6 +1092,20 @@ export type IntroBlock = z.infer<typeof introBlockSchema>;
 export type TestIntro = z.infer<typeof testIntroSchema>;
 
 /**
+ * `tests.breakdown_display_json` (PRD-50 FR-13). `visibility` gates whether the
+ * key-breakdown rows (tag subtotals) print on the topic card at all; `hidden`
+ * (absent column) reproduces the byte-identical screen a test built before PRD-50
+ * has always shown. `basis` picks the NUMBER the bar carries, never the pass
+ * verdict's currency — the threshold is always evaluated in points.
+ */
+export const breakdownDisplaySchema = z.object({
+  visibility: z.enum(["hidden", "bar", "bar_and_value"]),
+  basis: z.enum(["units", "points"]),
+});
+
+export type BreakdownDisplaySetting = z.infer<typeof breakdownDisplaySchema>;
+
+/**
  * Вводный блок ОТЧЁТА с учётом переключателя «как на экране итогов».
  *
  * Реэкспорт: само правило живёт в чистом `shared/report/report-intro`, потому что тот же

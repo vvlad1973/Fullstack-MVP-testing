@@ -19,7 +19,7 @@
  *   - FR-25h adaptive payload excluded when `mode === "standard"`
  */
 import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy } from "@shared/schema";
-import type { ReportSettings, TestIntro } from "@shared/schema";
+import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
 import { formSetSchema } from "@shared/schema";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
@@ -58,6 +58,7 @@ import type {
   TestStatus,
   TopicPassRule,
 } from "./test-editor.types";
+import { DEFAULT_BREAKDOWN_DISPLAY } from "./test-editor.types";
 import { makeQuestionOverride, type QuestionScoringOverride } from "./scoring-api";
 
 // ─── API response shape ───────────────────────────────────────────────────────
@@ -104,6 +105,8 @@ export type ApiTestResponse = {
   retakePolicyJson?: unknown;
   reportSettingsJson?: unknown;
   introJson?: unknown;
+  /** PRD-50 FR-13: subtotal-by-key display setting. */
+  breakdownDisplayJson?: unknown;
   /** PRD-15 block D (FR-31): test-wide default price; null = system (1). */
   defaultQuestionPoints?: number | null;
   /** PRD-15 block D (FR-30): per-(test, question) scoring overrides. */
@@ -909,6 +912,22 @@ function readIntroFromApi(api: ApiTestResponse): TestIntro {
   return out;
 }
 
+/**
+ * PRD-50 FR-13: `tests.breakdown_display_json`. Read defensively like the other
+ * author jsonb fields — a malformed or absent branch resolves to
+ * {@link DEFAULT_BREAKDOWN_DISPLAY} («Не показывать»), the setting every test built
+ * before this PRD implicitly has.
+ */
+function readBreakdownDisplayFromApi(api: ApiTestResponse): BreakdownDisplaySetting {
+  const raw = api.breakdownDisplayJson;
+  if (!isPlainObject(raw)) return DEFAULT_BREAKDOWN_DISPLAY;
+  const r = raw as Record<string, unknown>;
+  const visibility =
+    r.visibility === "bar" || r.visibility === "bar_and_value" ? r.visibility : "hidden";
+  const basis = r.basis === "points" ? "points" : "units";
+  return { visibility, basis };
+}
+
 function readReportSettingsFromApi(api: ApiTestResponse): ReportSettings {
   const raw = api.reportSettingsJson;
   if (!isPlainObject(raw)) return {};
@@ -1024,6 +1043,8 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       quickAdvance: false,
       showSectionResults: true,
       skipReviewWhenComplete: false,
+      // PRD-50 FR-13: новый тест — подытоги скрыты, как у любого теста без настройки.
+      breakdownDisplay: DEFAULT_BREAKDOWN_DISPLAY,
       // PRD-34 (FR-03): новый тест — защита ВКЛ.
       copyProtection: true,
       protectionWatermark: false,
@@ -1139,6 +1160,8 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
         typeof src.showSectionResults === "boolean" ? src.showSectionResults : true,
       skipReviewWhenComplete:
         typeof src.skipReviewWhenComplete === "boolean" ? src.skipReviewWhenComplete : false,
+      // PRD-50 FR-13: поля нет (тест до PRD-50) → подытоги скрыты.
+      breakdownDisplay: readBreakdownDisplayFromApi(src),
       // PRD-34 (FR-05): поля нет (тест до PRD-34) → умолчание, то есть защита ВКЛ.
       copyProtection:
         typeof src.copyProtection === "boolean" ? src.copyProtection : true,
@@ -1217,6 +1240,9 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     quickAdvance: model.runtime.quickAdvance,
     showSectionResults: model.runtime.showSectionResults,
     skipReviewWhenComplete: model.runtime.skipReviewWhenComplete,
+    // PRD-50 FR-13: a draft persisted before this PRD carries no slice yet — resolves
+    // to the same «Не показывать» the missing column has always meant.
+    breakdownDisplayJson: model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY,
     copyProtection: model.runtime.copyProtection,
     protectionWatermark: model.runtime.protectionWatermark,
     protectionHideOnBlur: model.runtime.protectionHideOnBlur,

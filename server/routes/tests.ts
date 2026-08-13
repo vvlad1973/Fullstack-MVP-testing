@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -132,6 +132,8 @@ const testBodyBaseSchema = z.object({
   // PRD-27: выбранный вариант отчёта и значения его полей, по режиму теста.
   reportSettingsJson: reportSettingsSchema.nullish(),
   introJson: testIntroSchema.nullish(),
+  // PRD-50 FR-13: subtotal-by-key display setting; null = hidden (system default).
+  breakdownDisplayJson: breakdownDisplaySchema.nullish(),
   // PRD-15 block D (FR-31): test-wide default price; null = system default (1).
   defaultQuestionPoints: z.number().int().min(0).nullable().optional(),
 
@@ -641,6 +643,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       retakePolicyJson,
       reportSettingsJson,
       introJson,
+      breakdownDisplayJson,
       defaultQuestionPoints,
       folderId,
     } = parsed.data;
@@ -699,6 +702,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         retakePolicyJson: retakePolicyJson ?? null,
         reportSettingsJson: reportSettingsJson ?? null,
         introJson: introJson ?? null,
+        breakdownDisplayJson: breakdownDisplayJson ?? null,
         defaultQuestionPoints: defaultQuestionPoints ?? null,
         folderId: folderId ?? null,
         // PRD-13: creator owns the test atomically in the INSERT (the post-insert
@@ -1065,6 +1069,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       retakePolicyJson,
       reportSettingsJson,
       introJson,
+      breakdownDisplayJson,
       defaultQuestionPoints,
     } = parsed.data;
 
@@ -1128,6 +1133,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         retakePolicyJson: retakePolicyJson ?? undefined,
         reportSettingsJson: reportSettingsJson ?? undefined,
         introJson: introJson ?? undefined,
+        breakdownDisplayJson: breakdownDisplayJson ?? undefined,
         defaultQuestionPoints,
       },
       // PRD-7 §6.3: sections live with the standard mode only. For adaptive,
