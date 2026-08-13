@@ -27,6 +27,8 @@ import {
   type PassDecisionPolicy,
   type ResolvedRule,
 } from "./pass-rule";
+import { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
+import type { BreakdownEntry, BreakdownItem } from "../breakdown/types";
 
 export interface AggregateQuestion {
   type: QuestionType;
@@ -35,6 +37,11 @@ export interface AggregateQuestion {
   /** Effective per-question points (resolved by the caller / baked into TEST_DATA). */
   points: number;
   answer: Answer;
+  /**
+   * PRD-50 FR-15: keys of this question per breakdown axis, e.g. `{ tag: [...] }`.
+   * Absent = the question groups into no breakdown; the verdict is unaffected.
+   */
+  axisKeys?: Record<string, string[]> | null;
 }
 
 export interface AggregateSection<E = unknown> {
@@ -89,6 +96,8 @@ export interface AggregateTopicResult<E = unknown> {
    * also survives being persisted with the attempt.
    */
   resolvedPassRule: ResolvedRule | null;
+  /** PRD-50: breakdown records in THIS section's scope (empty when nothing is keyed). */
+  breakdown: BreakdownEntry[];
   extra?: E;
 }
 
@@ -110,6 +119,8 @@ export interface AggregateResult<E = unknown> {
   /** Final: overall rule AND every gated topic. */
   passed: boolean;
   topicResults: AggregateTopicResult<E>[];
+  /** PRD-50: breakdown records in the TEST scope (empty when nothing is keyed). */
+  breakdowns: BreakdownEntry[];
 }
 
 export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): AggregateResult<E> {
@@ -122,6 +133,7 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
   let allTopicsPassed = true;
   let requiredTopicsPassed = true;
   const policy = resolvePassDecisionPolicy(input.passDecisionPolicy);
+  const breakdownItems: BreakdownItem[] = [];
 
   const topicResults: AggregateTopicResult<E>[] = input.sections.map((sec) => {
     let earned = 0;
@@ -143,6 +155,13 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
           : scoreAnswer({ type: q.type, correct: q.correct || {}, answer: q.answer, scoring: q.scoring }).ratio;
       possible += q.points;
       earned += q.points * ratio;
+      breakdownItems.push({
+        sectionId: sec.topicId,
+        axisKeys: q.axisKeys ?? null,
+        earned: q.points * ratio,
+        possible: q.points,
+        answered: q.answer !== undefined && q.answer !== null,
+      });
       if (ratio === 1) correct++;
     }
     const total = scored;
@@ -174,9 +193,18 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       passed,
       passRule: sec.topicPassRule,
       resolvedPassRule: resolved,
+      breakdown: [],
       extra: sec.extra,
     };
   });
+
+  // ONE pass over the delivered items, then split by scope: the test-scope records are
+  // NOT a sum of the section ones (FR-04).
+  const entries = computeBreakdowns(breakdownItems);
+  for (const topic of topicResults) {
+    const scope = sectionScope(topic.topicId);
+    topic.breakdown = entries.filter((e) => e.scope === scope);
+  }
 
   const percent = tPossible > 0 ? (tEarned / tPossible) * 100 : 0;
   // FR-09: a test made entirely of measurement questions (an opinion inventory such as
@@ -195,6 +223,7 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     overallPassed,
     passed: decideVerdict(policy, { overallPassed, requiredTopicsPassed, allTopicsPassed }),
     topicResults,
+    breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
   };
 }
 
