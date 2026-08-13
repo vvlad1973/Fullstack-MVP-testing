@@ -658,6 +658,16 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-topic-card__req { font: var(--ou-text-body-m); color: var(--ou-fg-muted); }
 .tb-stat-rows { display: flex; flex-direction: column; width: 100%; }
 .tb-stat-val { font: var(--ou-text-body-m); color: var(--ou-fg-default); }
+/* PRD-50: подытоги по ключам разреза. Тот же род полосы, что `tb-topic-card__bar`
+   выше, но своя дорожка — разрез не несёт вердикта темы (нет `is-pass`/`is-fail`),
+   поэтому заливка всегда нейтральная. Ширину задаёт инлайн-стиль макета
+   (`barPercent`), здесь только дорожка, заливка и типографика. */
+.tb-topic__breakdown { display: flex; flex-direction: column; gap: var(--ou-space-1); width: 100%; margin-top: var(--ou-space-1); }
+.tb-breakdown__row { width: 100%; }
+.tb-breakdown__name { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-bottom: 2px; }
+.tb-breakdown__bar { height: 4px; background: var(--ou-bg-hover); border-radius: 999px; overflow: hidden; }
+.tb-breakdown__bar span { display: block; height: 100%; border-radius: 999px; background: var(--ou-fg-muted); }
+.tb-breakdown__val { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: 2px; }
 /* Per-topic feedback block — feedback text + recommendation chips, divided off. */
 .tb-topic-card__fb {
   display: flex; flex-direction: column; gap: var(--ou-space-2); width: 100%;

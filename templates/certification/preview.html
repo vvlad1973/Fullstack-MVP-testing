@@ -8416,9 +8416,9 @@ var TBTemplate = (() => {
     if (typeof r.value === "number") return { type: "count", value: r.value };
     return null;
   }
-  function checkPassRule(rule, percent2, earnedScore) {
+  function checkPassRule(rule, percent3, earnedScore) {
     if (!rule) return true;
-    if (rule.type === "percent") return percent2 >= rule.value;
+    if (rule.type === "percent") return percent3 >= rule.value;
     return earnedScore >= rule.value;
   }
   function round13(n) {
@@ -8556,7 +8556,8 @@ var TBTemplate = (() => {
     var _a, _b, _c, _d;
     return t.total > 0 || t.passed != null || ((_b = (_a = t.recommendedCourses) == null ? void 0 : _a.length) != null ? _b : 0) > 0 || ((_d = (_c = t.recommendedEvents) == null ? void 0 : _c.length) != null ? _d : 0) > 0;
   }
-  function topicView(t, withPoints) {
+  function topicView(t, withPoints, breakdownDisplay) {
+    var _a;
     const passed = t.passed;
     const view = {
       topicId: t.topicId,
@@ -8576,6 +8577,19 @@ var TBTemplate = (() => {
     };
     if (withPoints && t.total > 0) view.pointsLabel = round14(t.earnedPoints) + " / " + round14(t.possiblePoints);
     if (t.requiredLabel) view.requiredLabel = t.requiredLabel;
+    const display = breakdownDisplay;
+    if (display && display.visibility !== "hidden" && ((_a = t.breakdown) == null ? void 0 : _a.length)) {
+      const showValue = display.visibility === "bar_and_value";
+      view.breakdown = t.breakdown.map((e) => {
+        const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
+        return {
+          key: e.key,
+          barPercent: Math.round(value),
+          showValue,
+          valueLabel: showValue ? Math.round(value) + " %" : ""
+        };
+      });
+    }
     return view;
   }
   function attachBlocksAndLabels(result, opts, hasSummary) {
@@ -8602,7 +8616,7 @@ var TBTemplate = (() => {
   function buildResultContext(input, title, opts = {}) {
     var _a, _b, _c, _d, _e;
     const passed = !!input.passed;
-    const percent2 = Math.round(input.percent || 0);
+    const percent3 = Math.round(input.percent || 0);
     const thresholdDeclared = (_b = opts.hasPassThreshold) != null ? _b : (_a = opts.measures) == null ? void 0 : _a.hasPassThreshold;
     const hasGradedScore2 = hasGradedScore(thresholdDeclared, input.possiblePoints);
     const noVerdict = !hasPronouncedVerdict(thresholdDeclared, input.possiblePoints);
@@ -8613,8 +8627,8 @@ var TBTemplate = (() => {
       passed,
       passClass: passed ? "is-pass" : "is-fail",
       statusLabel: passed ? "\u041F\u0440\u043E\u0439\u0434\u0435\u043D" : "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D",
-      scorePercent: percent2,
-      ringDashoffset: Math.round(RING_CIRCUMFERENCE2 * (1 - percent2 / 100)),
+      scorePercent: percent3,
+      ringDashoffset: Math.round(RING_CIRCUMFERENCE2 * (1 - percent3 / 100)),
       totalQuestions: input.totalQuestions,
       correct: input.correct,
       earnedPoints: round14(input.earnedPoints),
@@ -8622,7 +8636,7 @@ var TBTemplate = (() => {
       // A topic with nothing to report brings no card — see {@link topicHasContent}. The
       // filter runs BEFORE the mapping so the array can end up empty, which is what takes
       // the whole «Результаты по темам» section down with it.
-      topicResults: (input.topicResults || []).filter(topicHasContent).map((t) => topicView(t, withTopicPoints))
+      topicResults: (input.topicResults || []).filter(topicHasContent).map((t) => topicView(t, withTopicPoints, opts.breakdownDisplay))
     };
     const introHtml = richTextToHtml((_c = opts.intro) == null ? void 0 : _c.text, (_e = (_d = opts.intro) == null ? void 0 : _d.format) != null ? _e : void 0);
     if (introHtml) result.introHtml = introHtml;
@@ -8651,18 +8665,18 @@ var TBTemplate = (() => {
     return { course: { title }, result, ...labelsTreeOut ? { labels: labelsTreeOut } : {} };
   }
   function buildSectionResultContext(input, opts = {}) {
-    const percent2 = Math.round(input.percent || 0);
+    const percent3 = Math.round(input.percent || 0);
     const hasVerdict = input.passed === true || input.passed === false;
     const sectionResult = {
       topicName: input.topicName || "",
-      scorePercent: percent2,
-      ringDashoffset: Math.round(RING_CIRCUMFERENCE2 * (1 - percent2 / 100)),
+      scorePercent: percent3,
+      ringDashoffset: Math.round(RING_CIRCUMFERENCE2 * (1 - percent3 / 100)),
       passClass: input.passed === true ? "is-pass" : input.passed === false ? "is-fail" : "",
       statusLabel: input.passed === true ? "\u0420\u0430\u0437\u0434\u0435\u043B \u043F\u0440\u043E\u0439\u0434\u0435\u043D" : input.passed === false ? "\u0420\u0430\u0437\u0434\u0435\u043B \u043D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D" : "",
       hasVerdict,
       correct: input.correct != null ? input.correct : 0,
       total: input.total,
-      summaryLabel: (input.correct != null ? input.correct : 0) + " \u0438\u0437 " + input.total + " \u0432\u0435\u0440\u043D\u043E \xB7 " + percent2 + "%",
+      summaryLabel: (input.correct != null ? input.correct : 0) + " \u0438\u0437 " + input.total + " \u0432\u0435\u0440\u043D\u043E \xB7 " + percent3 + "%",
       continueLabel: input.continueLabel || "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C"
     };
     if (input.sectionsTotal && input.sectionsTotal > 0 && input.sectionIndex) {
@@ -8917,8 +8931,66 @@ var TBTemplate = (() => {
     return { score, sMax: 1, ratio: score };
   }
 
+  // shared/breakdown/compute.ts
+  var TEST_SCOPE = "test";
+  function sectionScope(sectionId) {
+    return "section:" + sectionId;
+  }
+  function percent(part, whole) {
+    return whole > 0 ? part / whole * 100 : 0;
+  }
+  function computeBreakdowns(items) {
+    const order = [];
+    const acc = /* @__PURE__ */ new Map();
+    const bump = (scope, axis, key, item) => {
+      const id = scope + " " + axis + " " + key;
+      let row = acc.get(id);
+      if (!row) {
+        row = { scope, axis, key, items: 0, answered: 0, earned: 0, possible: 0, unitEarned: 0 };
+        acc.set(id, row);
+        order.push(id);
+      }
+      row.items += 1;
+      if (item.answered) row.answered += 1;
+      row.earned += item.earned;
+      row.possible += item.possible;
+      row.unitEarned += item.possible > 0 ? item.earned / item.possible : 0;
+    };
+    for (const item of items) {
+      if (!(item.possible > 0)) continue;
+      const keys = item.axisKeys;
+      if (!keys) continue;
+      for (const axis of Object.keys(keys)) {
+        const seen = /* @__PURE__ */ new Set();
+        for (const key of keys[axis] || []) {
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          bump(sectionScope(item.sectionId), axis, key, item);
+          bump(TEST_SCOPE, axis, key, item);
+        }
+      }
+    }
+    return order.map((id) => {
+      const row = acc.get(id);
+      return {
+        scope: row.scope,
+        axis: row.axis,
+        key: row.key,
+        items: row.items,
+        answered: row.answered,
+        earned: row.earned,
+        possible: row.possible,
+        unitEarned: row.unitEarned,
+        unitPossible: row.items,
+        percentPoints: percent(row.earned, row.possible),
+        percentUnits: percent(row.unitEarned, row.items)
+      };
+    });
+  }
+
   // shared/scoring/aggregate.ts
   function aggregateStandardResult(input) {
+    var _a;
     const overall = resolveOverallRule(input.overallPassRule);
     let tEarned = 0;
     let tPossible = 0;
@@ -8928,8 +9000,9 @@ var TBTemplate = (() => {
     let allTopicsPassed = true;
     let requiredTopicsPassed = true;
     const policy = resolvePassDecisionPolicy(input.passDecisionPolicy);
+    const breakdownItems = [];
     const topicResults = input.sections.map((sec) => {
-      var _a;
+      var _a2, _b;
       let earned = 0;
       let possible = 0;
       let correct = 0;
@@ -8938,14 +9011,23 @@ var TBTemplate = (() => {
         if (isMeasurementOnly(q)) continue;
         scored++;
         const ratio = q.answer === void 0 || q.answer === null ? 0 : scoreAnswer({ type: q.type, correct: q.correct || {}, answer: q.answer, scoring: q.scoring }).ratio;
+        const questionEarned = q.points * ratio;
+        const answered = q.answer !== void 0 && q.answer !== null;
         possible += q.points;
-        earned += q.points * ratio;
+        earned += questionEarned;
+        breakdownItems.push({
+          sectionId: sec.topicId,
+          axisKeys: (_a2 = q.axisKeys) != null ? _a2 : null,
+          earned: questionEarned,
+          possible: q.points,
+          answered
+        });
         if (ratio === 1) correct++;
       }
       const total = scored;
-      const percent3 = possible > 0 ? earned / possible * 100 : 0;
-      const resolved = resolveTopicRule(sec.topicPassRule, overall, { formId: (_a = sec.formId) != null ? _a : null });
-      const passed = resolved && scored > 0 ? checkPassRule(resolved, percent3, earned) : null;
+      const percent4 = possible > 0 ? earned / possible * 100 : 0;
+      const resolved = resolveTopicRule(sec.topicPassRule, overall, { formId: (_b = sec.formId) != null ? _b : null });
+      const passed = resolved && scored > 0 ? checkPassRule(resolved, percent4, earned) : null;
       if (passed === false) {
         allTopicsPassed = false;
         if (sec.required !== false) requiredTopicsPassed = false;
@@ -8962,25 +9044,37 @@ var TBTemplate = (() => {
         total,
         earnedPoints: earned,
         possiblePoints: possible,
-        percent: percent3,
+        percent: percent4,
         passed,
         passRule: sec.topicPassRule,
         resolvedPassRule: resolved,
+        breakdown: [],
         extra: sec.extra
       };
     });
-    const percent2 = tPossible > 0 ? tEarned / tPossible * 100 : 0;
-    const overallPassed = tScored > 0 ? checkPassRule(overall, percent2, tEarned) : true;
+    const entries = computeBreakdowns(breakdownItems);
+    const bySection = /* @__PURE__ */ new Map();
+    for (const e of entries) {
+      const list = bySection.get(e.scope);
+      if (list) list.push(e);
+      else bySection.set(e.scope, [e]);
+    }
+    for (const topic of topicResults) {
+      topic.breakdown = (_a = bySection.get(sectionScope(topic.topicId))) != null ? _a : [];
+    }
+    const percent3 = tPossible > 0 ? tEarned / tPossible * 100 : 0;
+    const overallPassed = tScored > 0 ? checkPassRule(overall, percent3, tEarned) : true;
     return {
       correct: tCorrect,
       totalQuestions: tQuestions,
       scoredQuestions: tScored,
       earnedPoints: tEarned,
       possiblePoints: tPossible,
-      percent: percent2,
+      percent: percent3,
       overallPassed,
       passed: decideVerdict(policy, { overallPassed, requiredTopicsPassed, allTopicsPassed }),
-      topicResults
+      topicResults,
+      breakdowns: entries.filter((e) => e.scope === TEST_SCOPE)
     };
   }
   function decideVerdict(policy, gates) {
@@ -9585,7 +9679,7 @@ var TBTemplate = (() => {
   }
 
   // shared/template/allocation-dom.ts
-  function percent(value, budget) {
+  function percent2(value, budget) {
     const pct = budget > 0 ? Math.min(100, Math.max(0, value / budget * 100)) : 0;
     return `${Math.round(pct * 10) / 10}%`;
   }
@@ -9615,15 +9709,15 @@ var TBTemplate = (() => {
       const ceiling = optionCeiling(spec, values, index);
       row.classList.toggle("is-weighted", value > spec.minPerOption);
       const fill = row.querySelector(".ou-slider__fill");
-      if (fill) fill.style.setProperty("right", percent(spec.budget - value, spec.budget));
+      if (fill) fill.style.setProperty("right", percent2(spec.budget - value, spec.budget));
       const thumb = row.querySelector(".ou-slider__thumb");
       if (thumb) {
-        thumb.style.setProperty("left", percent(value, spec.budget));
+        thumb.style.setProperty("left", percent2(value, spec.budget));
         thumb.setAttribute("aria-valuenow", String(value));
         thumb.setAttribute("aria-valuemax", String(ceiling));
       }
       const cap = row.querySelector(".ou-alloc__cap");
-      if (cap) cap.style.setProperty("left", percent(ceiling, spec.budget));
+      if (cap) cap.style.setProperty("left", percent2(ceiling, spec.budget));
       const input = row.querySelector(".ou-number__input");
       if (input) input.value = String(value);
       const buttons = row.querySelectorAll(".ou-number__btn");
@@ -10183,8 +10277,8 @@ var TBTemplate = (() => {
   // shared/template/review-context.ts
   function buildReviewContext(input) {
     var _a, _b;
-    const sectionScope = input.commitScope === "section";
-    const scopeTopicId = sectionScope ? (_a = input.scopeTopicId) != null ? _a : null : null;
+    const sectionScope2 = input.commitScope === "section";
+    const scopeTopicId = sectionScope2 ? (_a = input.scopeTopicId) != null ? _a : null : null;
     const currentIndex = typeof input.currentIndex === "number" ? input.currentIndex : -1;
     const questionsProgress = buildQuestionProgress({
       questions: input.questions,
@@ -10192,7 +10286,7 @@ var TBTemplate = (() => {
       // «К обзору» mid-flow highlights the origin question; end-of-flow has no current.
       currentIndex,
       commitScope: input.commitScope,
-      scopeTopicId: sectionScope ? scopeTopicId : void 0,
+      scopeTopicId: sectionScope2 ? scopeTopicId : void 0,
       allIssued: true,
       allowReturn: true,
       scopeLabel: input.scopeLabel
@@ -10203,7 +10297,7 @@ var TBTemplate = (() => {
     input.questions.forEach((q, index) => {
       var _a2, _b2;
       if (q.delivered === false) return;
-      if (sectionScope && ((_a2 = q.topicId) != null ? _a2 : null) !== scopeTopicId) return;
+      if (sectionScope2 && ((_a2 = q.topicId) != null ? _a2 : null) !== scopeTopicId) return;
       pos += 1;
       const status = (_b2 = input.statuses[q.id]) != null ? _b2 : "unanswered";
       if (status === "answered") answeredCount++;
@@ -10870,7 +10964,7 @@ var TBTemplate = (() => {
     });
     const topics = ((_a = input.result.topicResults) != null ? _a : []).filter(topicHasContent);
     const passed = !!input.result.passed;
-    const percent2 = (_b = base.result.scorePercent) != null ? _b : 0;
+    const percent3 = (_b = base.result.scorePercent) != null ? _b : 0;
     const circumference = 2 * Math.PI * REPORT_RING_RADIUS;
     const rec = unmasteredRecommendations(topics);
     const hasVerdict = base.result.statusLabel !== "";
@@ -10882,7 +10976,7 @@ var TBTemplate = (() => {
     report.correctLabel = `${input.result.correct}/${input.result.totalQuestions}`;
     report.earnedPointsLabel = fixed1(input.result.earnedPoints);
     report.ringDasharray = circumference;
-    report.ringDashoffset = circumference - circumference * percent2 / 100;
+    report.ringDashoffset = circumference - circumference * percent3 / 100;
     report.courses = rec.courses;
     report.hasCourses = rec.courses.length > 0;
     report.events = rec.events;

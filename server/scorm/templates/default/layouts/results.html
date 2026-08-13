@@ -180,6 +180,17 @@
               {{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}
               {{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}
             </div>
+            {{#if breakdown}}
+            <div class="tb-topic__breakdown">
+              {{#each breakdown}}
+              <div class="tb-breakdown__row" data-item="{{ key }}">
+                <div class="tb-breakdown__name">{{ key }}</div>
+                <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+                {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
+              </div>
+              {{/each}}
+            </div>
+            {{/if}}
             {{#if requiredLabel}}<span class="tb-topic-card__req">{{requiredLabel}}</span>{{/if}}
             {{#if hasRecommendations}}
             <div class="tb-topic-card__fb">

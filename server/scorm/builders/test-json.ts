@@ -231,6 +231,14 @@ export function buildTestJson(data: ExportData): string {
     // Вводные блоки экрана и отчёта (PRD-27 §7.1). Едут одним полем: рантайм сам берёт
     // свою ветвь — экран печатает свой текст, конвейер отчёта свой.
     ...(data.test.introJson ? { introJson: data.test.introJson } : {}),
+    // PRD-50 FR-13: key-breakdown display setting. Baked ONLY when the author saved
+    // one AND turned it on (`visibility !== "hidden"`), so packages of tests that
+    // never touched the setting stay byte-identical (FR-02); the runtime reads
+    // TEST_DATA.breakdownDisplay and an absent value means «no breakdown rows»,
+    // exactly the behaviour every package had before this PRD.
+    ...(data.test.breakdownDisplayJson && data.test.breakdownDisplayJson.visibility !== "hidden"
+      ? { breakdownDisplay: data.test.breakdownDisplayJson }
+      : {}),
     timeLimitMinutes: data.test.timeLimitMinutes || null,
     maxAttempts: data.test.maxAttempts || null,
     showCorrectAnswers: data.test.showCorrectAnswers || false,
