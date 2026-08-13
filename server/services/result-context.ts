@@ -19,7 +19,7 @@ import {
   type TopicInput,
   type AdaptiveTopicInput,
 } from "@shared/template/result-context";
-import type { MeasureInput, MeasuresInput } from "@shared/template/result-context";
+import type { BreakdownDisplaySetting, MeasureInput, MeasuresInput } from "@shared/template/result-context";
 import type { ReportInput, AdaptiveReportInput, ReportMeta } from "@shared/report/report-html";
 import { LEVEL_SCHEMES, type LevelRamp } from "@shared/template/level-ramp";
 import { withResolvedScaleIcons } from "./scale-icons";
@@ -123,7 +123,7 @@ export interface MeasuresSource {
    * alongside {@link testFeedback}/{@link hasPassThreshold}: it is a property of the
    * test's results screen, not of whether the test measures anything.
    */
-  breakdownDisplayJson?: { visibility: "hidden" | "bar" | "bar_and_value"; basis: "units" | "points" } | null;
+  breakdownDisplayJson?: BreakdownDisplaySetting | null;
 }
 
 /**
@@ -357,8 +357,7 @@ export function buildResultContext(
       ...(measures ? { hasPassThreshold: measures.hasPassThreshold } : {}),
       // PRD-50 FR-13: the author's breakdown display setting. `?? null` so a test with the
       // column absent (every test predating this PRD) resolves to the builder's own
-      // «hidden» default and prints no rows, matching {@link ResultInput.breakdown}'s
-      // built-in default of an empty list.
+      // «hidden» default and prints no rows, whatever {@link TopicInput.breakdown} carries.
       breakdownDisplay: measures?.breakdownDisplayJson ?? null,
       // Вводный блок ЭКРАНА: у отчёта свой текст, и путать их нельзя — адресаты разные.
       ...(measures?.intro?.results ? { intro: measures.intro.results } : {}),
