@@ -15,6 +15,12 @@
  * points-based; the final verdict combines the overall rule with the topic gates
  * per the authored `passDecisionPolicy` (see {@link decideVerdict}) — data written
  * before that policy existed keeps the old `overallPassed && every gated topic`.
+ *
+ * PRD-50: this is also the SOLE entry point into `shared/breakdown/` — every
+ * delivered, graded question is fed to {@link computeBreakdowns} here, so the
+ * per-topic (`AggregateTopicResult.breakdown`) and per-test (`AggregateResult.breakdowns`)
+ * records are computed once, in this one place, for both hosts. They are purely
+ * additive: absent `axisKeys` never affects `earned`/`possible`/the verdict above.
  */
 import { scoreAnswer, type Answer, type CorrectData, type QuestionType } from "./engine";
 import type { QuestionScoring } from "../schema";
@@ -153,14 +159,16 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
         q.answer === undefined || q.answer === null
           ? 0
           : scoreAnswer({ type: q.type, correct: q.correct || {}, answer: q.answer, scoring: q.scoring }).ratio;
+      const questionEarned = q.points * ratio;
+      const answered = q.answer !== undefined && q.answer !== null;
       possible += q.points;
-      earned += q.points * ratio;
+      earned += questionEarned;
       breakdownItems.push({
         sectionId: sec.topicId,
         axisKeys: q.axisKeys ?? null,
-        earned: q.points * ratio,
+        earned: questionEarned,
         possible: q.points,
-        answered: q.answer !== undefined && q.answer !== null,
+        answered,
       });
       if (ratio === 1) correct++;
     }
@@ -199,11 +207,17 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
   });
 
   // ONE pass over the delivered items, then split by scope: the test-scope records are
-  // NOT a sum of the section ones (FR-04).
+  // NOT a sum of the section ones (FR-04). Group once instead of filtering the whole
+  // array per topic — this runs on every attempt finish, on both hosts.
   const entries = computeBreakdowns(breakdownItems);
+  const bySection = new Map<string, BreakdownEntry[]>();
+  for (const e of entries) {
+    const list = bySection.get(e.scope);
+    if (list) list.push(e);
+    else bySection.set(e.scope, [e]);
+  }
   for (const topic of topicResults) {
-    const scope = sectionScope(topic.topicId);
-    topic.breakdown = entries.filter((e) => e.scope === scope);
+    topic.breakdown = bySection.get(sectionScope(topic.topicId)) ?? [];
   }
 
   const percent = tPossible > 0 ? (tEarned / tPossible) * 100 : 0;
