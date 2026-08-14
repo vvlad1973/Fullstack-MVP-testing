@@ -30,6 +30,11 @@
  * The adaptive mode reaches the same engine through {@link adaptiveResultAsStandard},
  * which takes the delivered items from its host (FR-17) — the ladder result alone does
  * not know which questions were asked.
+ *
+ * PRD-50 Э3 adds the group counters (FR-24 - FR-27): the sections' verdicts are folded per
+ * group into «пройдено N из M» by `./section-groups`, LAST — after the second pass, so the
+ * counter counts the verdict the key thresholds could still have flipped. Absent groups
+ * leave both the topic results and the result itself byte-identical.
  */
 import { scoreAnswer, type Answer, type CorrectData, type QuestionType } from "./engine";
 import type { QuestionScoring } from "../schema";
@@ -45,6 +50,7 @@ import {
 } from "./pass-rule";
 import { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
 import type { BreakdownEntry, BreakdownItem } from "../breakdown/types";
+import { groupSections } from "./section-groups";
 
 export interface AggregateQuestion {
   type: QuestionType;
@@ -83,6 +89,11 @@ export interface AggregateSection<E = unknown> {
    * like `topicPassRule`). Absent = the topic is gated exactly as before this PRD.
    */
   breakdownRules?: unknown;
+  /**
+   * PRD-50 FR-11: `test_sections.group_key` — the group this section belongs to. Absent /
+   * null / a key the test does not declare all mean the same thing: no group (FR-12).
+   */
+  groupKey?: string | null;
   questions: AggregateQuestion[];
   /** Host-specific passthrough echoed verbatim into the topic result (feedback/recommendations). */
   extra?: E;
@@ -97,6 +108,12 @@ export interface AggregateInput<E = unknown> {
    * Absent/unrecognised keeps the pre-policy verdict (see {@link resolvePassDecisionPolicy}).
    */
   passDecisionPolicy?: unknown;
+  /**
+   * PRD-50 FR-11: the test's declared groups (`tests.section_groups_json`), any shape —
+   * normalised here like `topicPassRule`. Absent = no groups, and the result keeps exactly
+   * the shape it had before this PRD (FR-27, решение 6).
+   */
+  sectionGroups?: unknown;
 }
 
 export interface AggregateTopicResult<E = unknown> {
@@ -119,6 +136,13 @@ export interface AggregateTopicResult<E = unknown> {
   resolvedPassRule: ResolvedRule | null;
   /** PRD-50: breakdown records in THIS section's scope (empty when nothing is keyed). */
   breakdown: BreakdownEntry[];
+  /**
+   * PRD-50 FR-11: the group this section was delivered in. Set ONLY when the section
+   * carried a key, so a test without groups stores the very same result JSON it always
+   * did — and an attempt keeps the membership it was graded under even if the author
+   * regroups the test afterwards.
+   */
+  groupKey?: string;
   extra?: E;
 }
 
@@ -142,6 +166,32 @@ export interface AggregateResult<E = unknown> {
   topicResults: AggregateTopicResult<E>[];
   /** PRD-50: breakdown records in the TEST scope (empty when nothing is keyed). */
   breakdowns: BreakdownEntry[];
+  /**
+   * PRD-50 FR-24 - FR-26: the test's groups that actually hold a section, in author order,
+   * each with the counter of the counters («пройдено N из M»). ABSENT — not empty — when
+   * the test declares no groups or none of them is referenced: a test built before this
+   * stage must produce the byte-identical result it always did (решение 6).
+   */
+  sectionGroups?: AggregateSectionGroup[];
+}
+
+/**
+ * One printable group of sections in the aggregated result (PRD-50 FR-26).
+ *
+ * It carries topic IDs and not the topic results themselves: the result is stored in
+ * `attempts.result_json`, and repeating whole topic objects inside the groups would store
+ * every number twice and let the two copies disagree. The render context joins them back
+ * by ID (`shared/template/result-context`).
+ */
+export interface AggregateSectionGroup {
+  key: string;
+  label: string;
+  /** `topicId` of every section of this group, in delivery order. */
+  topicIds: string[];
+  /** Sections of the group with a PASSED verdict. */
+  passedCount: number;
+  /** Sections with ANY pronounced verdict — a section without one is not counted (FR-26). */
+  totalCount: number;
 }
 
 export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): AggregateResult<E> {
@@ -229,6 +279,8 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       passRule: sec.topicPassRule,
       resolvedPassRule: resolved,
       breakdown: [],
+      // Only when the section actually declares one — see `AggregateTopicResult.groupKey`.
+      ...(sec.groupKey ? { groupKey: sec.groupKey } : {}),
       extra: sec.extra,
     };
   });
@@ -265,6 +317,18 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     }
   }
 
+  // FR-26, ПОСЛЕ второго прохода и только после него: счётчик блока складывает вердикты,
+  // которые цикл выше вынес с учётом порогов ключей. Считать его раньше — значит считать
+  // пройденным раздел, который ещё не судили.
+  const groupedSections = groupSections(input.sectionGroups, topicResults).groups;
+  const sectionGroups: AggregateSectionGroup[] = groupedSections.map((g) => ({
+    key: g.key,
+    label: g.label,
+    topicIds: g.sections.map((t) => t.topicId),
+    passedCount: g.passedCount,
+    totalCount: g.totalCount,
+  }));
+
   const percent = tPossible > 0 ? (tEarned / tPossible) * 100 : 0;
   // FR-09: a test made entirely of measurement questions (an opinion inventory such as
   // MBI) has nothing to grade, so there is no threshold to miss — it cannot be «not
@@ -283,6 +347,8 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     passed: decideVerdict(policy, { overallPassed, requiredTopicsPassed, allTopicsPassed }),
     topicResults,
     breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
+    // Absent, not empty: a test without groups keeps the result shape it always had.
+    ...(sectionGroups.length ? { sectionGroups } : {}),
   };
 }
 
