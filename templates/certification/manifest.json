@@ -1,7 +1,7 @@
 {
   "id": "certification",
   "name": "Сертификация (РТК)",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "templateApiVersion": "1.0",
   "description": "Сертификационный тест РТК: брендовая палитра Ростелекома (светлая и тёмная) с переопределяемыми цветами, оранжевый акцент, страница-роутер, кнопки навигации, пропуск и возврат к неотвеченным, экран обзора. Набор вариантов страниц совпадает со стандартным шаблоном — тест переключается между ними без переназначения страниц.",
   "themes": [
@@ -257,8 +257,8 @@
     { "key": "section.eyebrow", "group": "Итоги раздела", "label": "Надпись над итогами раздела", "default": "Итоги раздела" }
   ],
   "resultsBlockOrder": {
-    "default": ["summary", "indicators", "scales", "topics"],
-    "results.adaptive": ["topics", "indicators", "scales"]
+    "default": ["summary", "scales", "indicators", "topics"],
+    "results.adaptive": ["topics", "scales", "indicators"]
   },
   "contentTemplates": [
     {
@@ -291,6 +291,42 @@
       "pageKind": "results",
       "layoutFile": "layouts/results.html",
       "settings": [
+        {
+          "key": "scoreSummary",
+          "type": "select",
+          "label": "Сводка баллов",
+          "default": "auto",
+          "options": ["auto", "show", "hide"],
+          "optionLabels": {
+            "auto": "Автоматически",
+            "show": "Показывать",
+            "hide": "Скрывать"
+          }
+        },
+        {
+          "key": "indicators",
+          "type": "select",
+          "label": "Показатели",
+          "default": "auto",
+          "options": ["auto", "show", "hide"],
+          "optionLabels": {
+            "auto": "Автоматически",
+            "show": "Показывать",
+            "hide": "Скрывать"
+          }
+        },
+        {
+          "key": "scales",
+          "type": "select",
+          "label": "Шкалы",
+          "default": "auto",
+          "options": ["auto", "show", "hide"],
+          "optionLabels": {
+            "auto": "Автоматически",
+            "show": "Показывать",
+            "hide": "Скрывать"
+          }
+        },
         {
           "key": "scalesChartKind",
           "type": "select",
@@ -481,12 +517,6 @@
             "defaultFontSize": 16,
             "overflow": "warn"
           }
-        },
-        {
-          "key": "illustration",
-          "type": "image",
-          "label": "Иллюстрация раздела",
-          "required": false
         }
       ]
     },
@@ -1496,6 +1526,11 @@
         "route": "question.ranking",
         "questionId": "demo-ranking",
         "label": "Вопрос: ранжирование"
+      },
+      {
+        "route": "question.scale",
+        "questionId": "demo-scale",
+        "label": "Вопрос: шкала"
       },
       {
         "route": "content.summary",

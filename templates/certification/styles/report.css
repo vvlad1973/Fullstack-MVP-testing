@@ -215,6 +215,28 @@
 .tb-report__topic.is-fail .tb-report__topic-bar-fill { background: #ef4444; }
 .tb-report__topic.is-pass .tb-report__topic-bar-fill { background: #22c55e; }
 
+/* PRD-50: полосы разреза по ключам. Тот же род, что полоса темы выше, — узкая дорожка
+   с закруглением, — но НЕЙТРАЛЬНАЯ всегда: разрез своего вердикта не несёт. Ширину
+   заливки задаёт инлайн-стиль из макета (`barPercent`). Правило держится в паритете с
+   шаблоном «Стандартный». */
+.tb-report__breakdown { margin-bottom: 6px; }
+.tb-report__breakdown-row { margin-bottom: 4px; }
+.tb-report__breakdown-row:last-child { margin-bottom: 0; }
+.tb-report__breakdown-name {
+  font-size: 7px;
+  color: #aca9a9;
+  margin-bottom: 2px;
+  overflow-wrap: anywhere;
+}
+.tb-report__breakdown-bar {
+  height: 2px;
+  background: #2f2f2f;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tb-report__breakdown-bar span { display: block; height: 100%; border-radius: 2px; background: #6b7280; }
+.tb-report__breakdown-val { font-size: 7px; color: #aca9a9; margin-top: 2px; }
+
 .tb-report__topic-fb {
   font-size: 10px;
   font-weight: 300;

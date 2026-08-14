@@ -469,6 +469,30 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-scene .feedback-block.ou-banner--warning .ou-banner__ico { color: var(--ou-warning-default); }
 .tb-scene .feedback-block.ou-banner--error .ou-banner__ico { color: var(--ou-error-default); }
 
+/* ── Scale (PRD-26): the DS Stepper in choice mode is the answer control ────────
+   The component itself lives in the DS bundle; the SCENE only decides where it sits
+   and when it flips to the vertical layout. The count-based half of the rule (more
+   than seven graduations) is applied by renderScale; this is the WIDTH half: a narrow
+   answer column cannot fit a row of labelled points, so the scale stands up. The flip
+   rides the S2 step (700), the same breakpoint the standard template uses — the answer
+   column is 7/12 of the scene, so a scene of 700 is already the point where a labelled
+   row stops fitting. Both hosts read this one file, so the web run and the LMS package
+   cannot flip at different widths. */
+.tb-scene .ou-stepper--choice { width: 100%; margin-block: var(--ou-space-4); }
+@container tbscene (max-width: 700px) {
+  .tb-scene .ou-stepper--choice { flex-direction: column; align-items: stretch; }
+  .tb-scene .ou-stepper--choice .ou-stepper__step {
+    flex: 0 0 auto; flex-direction: row; align-items: center;
+    gap: var(--ou-space-4); padding: 0; min-height: 44px;
+  }
+  .tb-scene .ou-stepper--choice .ou-stepper__bullet { width: 28px; height: 28px; }
+  .tb-scene .ou-stepper--choice .ou-stepper__step:not(:last-child)::after {
+    top: 28px; bottom: -8px; left: 13px; right: auto; width: 4px; height: auto;
+  }
+  .tb-scene .ou-stepper--choice .ou-stepper__label { text-align: left; padding-top: 0; }
+  .tb-scene .ou-stepper--choice .ou-stepper__title { text-align: left; }
+}
+
 /* ── Answers: comfortable, top-aligned; each option card grows to fit its text ── */
 .tb-scene .ou-radio-group,
 .tb-scene .ou-rank { width: 100%; }
@@ -617,6 +641,18 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-topic-card__req { font: var(--ou-text-body-m); color: var(--ou-fg-muted); }
 .tb-stat-rows { display: flex; flex-direction: column; width: 100%; }
 .tb-stat-val { font: var(--ou-text-body-m); color: var(--ou-fg-default); }
+/* PRD-50: per-key breakdown bars inside a topic card. Same kind of bar as
+   `.tb-topic-card__bar` above, but with its own track and ALWAYS neutral: a breakdown
+   carries no verdict of its own, so there is no is-pass/is-fail toning. The fill width
+   comes inline from the layout (`barPercent`); only the track, the fill and the
+   typography live here. Colours are the template's own tokens — on the dark
+   «Сертификация» palette `--ou-bg-hover` resolves to a light film over the card. */
+.tb-topic__breakdown { display: flex; flex-direction: column; gap: var(--ou-space-1); width: 100%; margin-top: var(--ou-space-1); }
+.tb-breakdown__row { width: 100%; }
+.tb-breakdown__name { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-bottom: 2px; }
+.tb-breakdown__bar { height: 4px; background: var(--ou-bg-hover); border-radius: 999px; overflow: hidden; }
+.tb-breakdown__bar span { display: block; height: 100%; border-radius: 999px; background: var(--ou-fg-muted); }
+.tb-breakdown__val { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: 2px; }
 /* Per-topic feedback block — feedback text + recommendation chips, divided off. */
 .tb-topic-card__fb {
   display: flex; flex-direction: column; gap: var(--ou-space-2); width: 100%;

@@ -85,38 +85,26 @@
           <span>{{ pointsFixedLabel }}</span>
         </div>
         <div class="tb-report__topic-bar"><div class="tb-report__topic-bar-fill" style="width: {{ barPercent }}%;"></div></div>
+        {{#if breakdown}}
+        <div class="tb-report__breakdown">
+          {{#each breakdown}}
+          <div class="tb-report__breakdown-row" data-item="{{ key }}">
+            <div class="tb-report__breakdown-name">{{ key }}</div>
+            <div class="tb-report__breakdown-bar"><span style="width: {{ barPercent }}%;"></span></div>
+            {{#if showValue}}<div class="tb-report__breakdown-val">{{ valueLabel }}</div>{{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{/if}}
       </div>
       {{/each}}
     </div>
   </section>
   {{/if}}
 
-  <!-- ПОКАЗАТЕЛЬ — СВОЯ карточка, а не строка внутри общей. Раскладка режет документ
-       между блоками верхнего уровня, и одна карточка на все показатели становилась
-       «переростком» в полтора листа: её приходилось резать растром, а хвост в полторы
-       сотни пикселей открывал почти пустую страницу. Отдельными карточками они ложатся
-       плотно. Заголовок несёт первая — иначе он остался бы карточкой из одной строки. -->
-  {{#each result.indicators}}
-  <section class="tb-report__card">
-    {{#if @first}}{{#if @root.labels.results.indicators}}<div class="tb-report__title tb-report__title--tight">{{ @root.labels.results.indicators }}</div>{{/if}}{{/if}}
-    <div class="tb-report__scales">
-      <div class="tb-report__scale-list">
-        <div class="tb-report__scale">
-          <!-- PRD-49: тумблеры слотов карточки гасят показ и в документе — ученик уносит
-               его с собой. Признаки инвертированы, поэтому проверка через unless: контекст,
-               собранный вручную (превью шаблонов, фикстуры), их не ставит вовсе. -->
-          {{#unless hideName}}<div class="tb-report__scale-name">{{name}}</div>{{/unless}}
-          <div class="tb-report__scale-meta">
-            {{#if showValue}}<span class="tb-report__scale-val">{{valueLabel}}</span>{{/if}}
-            {{#unless hideLevel}}{{#if levelLabel}}<span class="tb-report__scale-lvl {{toneClass}}">{{levelLabel}}</span>{{/if}}{{/unless}}
-          </div>
-          {{#if text}}<div class="tb-report__scale-text">{{& textHtml }}</div>{{/if}}
-        </div>
-      </div>
-    </div>
-  </section>
-  {{/each}}
-
+  <!-- ШКАЛЫ идут ПЕРЕД показателями — тот же порядок, что на экране итогов: шкала —
+       измерение, показатель — вывод из измерений, и вывод читается после того, из чего
+       он сделан. -->
   {{#if result.scales}}
   <section class="tb-report__card">
     {{#if labels.results.scales}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.scales }}</div>{{/if}}
@@ -192,6 +180,33 @@
     </div>
   </section>
   {{/if}}
+
+  <!-- ПОКАЗАТЕЛЬ — СВОЯ карточка, а не строка внутри общей. Раскладка режет документ
+       между блоками верхнего уровня, и одна карточка на все показатели становилась
+       «переростком» в полтора листа: её приходилось резать растром, а хвост в полторы
+       сотни пикселей открывал почти пустую страницу. Отдельными карточками они ложатся
+       плотно. Заголовок несёт первая — иначе он остался бы карточкой из одной строки. -->
+  {{#each result.indicators}}
+  <section class="tb-report__card">
+    {{#if @first}}{{#if @root.labels.results.indicators}}<div class="tb-report__title tb-report__title--tight">{{ @root.labels.results.indicators }}</div>{{/if}}{{/if}}
+    <div class="tb-report__scales">
+      <div class="tb-report__scale-list">
+        <div class="tb-report__scale">
+          <!-- PRD-49: тумблеры слотов карточки гасят показ и в документе — ученик уносит
+               его с собой. Признаки инвертированы, поэтому проверка через unless: контекст,
+               собранный вручную (превью шаблонов, фикстуры), их не ставит вовсе. -->
+          {{#unless hideName}}<div class="tb-report__scale-name">{{name}}</div>{{/unless}}
+          <div class="tb-report__scale-meta">
+            {{#if showValue}}<span class="tb-report__scale-val">{{valueLabel}}</span>{{/if}}
+            {{#unless hideLevel}}{{#if levelLabel}}<span class="tb-report__scale-lvl {{toneClass}}">{{levelLabel}}</span>{{/if}}{{/unless}}
+          </div>
+          {{#if text}}<div class="tb-report__scale-text">{{& textHtml }}</div>{{/if}}
+        </div>
+      </div>
+    </div>
+  </section>
+  {{/each}}
+
   {{#if result.recommendations.hasAny}}
   <section class="tb-report__card">
     {{#if labels.results.recommendations}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.recommendations }}</div>{{/if}}

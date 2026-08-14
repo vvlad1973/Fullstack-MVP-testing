@@ -325,8 +325,7 @@
         "templateKey": "intro.standard",
         "topicId": "topic-1",
         "values": {
-          "instruction": "<p>Ответьте на все вопросы раздела в отведённое время. Вернуться к пропущенным вопросам можно до завершения раздела.</p>",
-          "illustration": "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20420'%3E%3Cg%20transform='translate%2840,180%29%20scale%280.8%29'%3E%3Cpolygon%20points='100,30%20170,70%20170,150%20100,190%2030,150%2030,70'%20fill='%232f8f8f'/%3E%3Cpolygon%20points='100,30%20170,70%20100,110%2030,70'%20fill='%2355b3b3'/%3E%3Cpolygon%20points='100,110%20170,70%20170,150%20100,190'%20fill='%231f6666'/%3E%3C/g%3E%3Cg%20transform='translate%28150,90%29%20scale%280.95%29'%3E%3Cpolygon%20points='100,30%20170,70%20170,150%20100,190%2030,150%2030,70'%20fill='%236C4AA6'/%3E%3Cpolygon%20points='100,30%20170,70%20100,110%2030,70'%20fill='%23926fca'/%3E%3Cpolygon%20points='100,110%20170,70%20170,150%20100,190'%20fill='%234e3480'/%3E%3C/g%3E%3Cg%20transform='translate%2890,10%29%20scale%281.1%29'%3E%3Cpolygon%20points='100,30%20170,70%20170,150%20100,190%2030,150%2030,70'%20fill='%23E33A00'/%3E%3Cpolygon%20points='100,30%20170,70%20100,110%2030,70'%20fill='%23ff7a4d'/%3E%3Cpolygon%20points='100,110%20170,70%20170,150%20100,190'%20fill='%23c22f00'/%3E%3C/g%3E%3C/svg%3E"
+          "instruction": "<p>Ответьте на все вопросы раздела в отведённое время. Вернуться к пропущенным вопросам можно до завершения раздела.</p>"
         }
       },
       {
@@ -462,6 +461,34 @@
           "r3",
           "r4"
         ]
+      },
+      {
+        "id": "demo-scale",
+        "topicId": "topic-1",
+        "type": "scale",
+        "prompt": "Насколько уверенно вы даёте развивающую обратную связь руководителю смежного подразделения?",
+        "options": [
+          {
+            "id": "g1",
+            "text": "Совсем не уверен"
+          },
+          {
+            "id": "g2",
+            "text": "Скорее не уверен"
+          },
+          {
+            "id": "g3",
+            "text": "Затрудняюсь ответить"
+          },
+          {
+            "id": "g4",
+            "text": "Скорее уверен"
+          },
+          {
+            "id": "g5",
+            "text": "Полностью уверен"
+          }
+        ]
       }
     ]
   },
@@ -541,6 +568,127 @@
       "currentPageId": "demo-intro",
       "canStart": true,
       "startLabel": "Начать тестирование"
+    },
+    "measures": {
+      "ramp": {
+        "favorable": "142 76% 36%",
+        "mid": "38 92% 50%",
+        "unfavorable": "0 84% 60%"
+      },
+      "scaleKind": "band_ruler",
+      "indicatorKind": "label",
+      "hasPassThreshold": true,
+      "ipsativeScales": false,
+      "chartSettings": {
+        "scalesChartKind": "radar",
+        "radarAxisLimit": "domain"
+      },
+      "scales": [
+        {
+          "key": "cert_leadership",
+          "name": "Управленческая зрелость",
+          "value": 41,
+          "visibility": "level_and_value",
+          "interpretation": {
+            "domainMin": 0,
+            "domainMax": 50,
+            "displayMax": null,
+            "valence": "higher_is_better",
+            "bands": [
+              {
+                "min": 0,
+                "max": 24,
+                "level": "low",
+                "label": "Базовый"
+              },
+              {
+                "min": 25,
+                "max": 50,
+                "level": "high",
+                "label": "Уверенный"
+              }
+            ]
+          }
+        },
+        {
+          "key": "cert_partnership",
+          "name": "Кросс-функциональное партнёрство",
+          "value": 23,
+          "visibility": "level_and_value",
+          "interpretation": {
+            "domainMin": 0,
+            "domainMax": 50,
+            "displayMax": null,
+            "valence": "higher_is_better",
+            "bands": [
+              {
+                "min": 0,
+                "max": 24,
+                "level": "low",
+                "label": "Базовый"
+              },
+              {
+                "min": 25,
+                "max": 50,
+                "level": "high",
+                "label": "Уверенный"
+              }
+            ]
+          }
+        },
+        {
+          "key": "cert_tech",
+          "name": "Технологии компании",
+          "value": 46,
+          "visibility": "level_and_value",
+          "interpretation": {
+            "domainMin": 0,
+            "domainMax": 50,
+            "displayMax": null,
+            "valence": "higher_is_better",
+            "bands": [
+              {
+                "min": 0,
+                "max": 24,
+                "level": "low",
+                "label": "Базовый"
+              },
+              {
+                "min": 25,
+                "max": 50,
+                "level": "high",
+                "label": "Уверенный"
+              }
+            ]
+          }
+        }
+      ],
+      "indicators": [
+        {
+          "key": "certification",
+          "name": "Готовность к сертификации",
+          "value": "Готов с оговорками",
+          "visibility": "level_and_value",
+          "interpretation": {
+            "domainMin": null,
+            "domainMax": null,
+            "valence": "none",
+            "bands": [],
+            "outcomes": [
+              {
+                "code": "ready",
+                "label": "Готов",
+                "tone": "favorable"
+              },
+              {
+                "code": "partly",
+                "label": "Готов с оговорками",
+                "tone": "attention"
+              }
+            ]
+          }
+        }
+      ]
     }
   }
 }
