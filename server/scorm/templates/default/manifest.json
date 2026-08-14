@@ -245,6 +245,7 @@
     { "key": "results.scales", "group": "Второй уровень", "label": "Подзаголовок шкал", "default": "По шкалам" },
     { "key": "results.indicators", "group": "Второй уровень", "label": "Подзаголовок показателей", "default": "По показателям" },
     { "key": "results.topics", "group": "Второй уровень", "label": "Подзаголовок тем", "default": "По темам", "defaults": { "report": "Результаты по темам" } },
+    { "key": "results.breakdown", "group": "Второй уровень", "label": "Заголовок блока разреза", "default": "Разрез результата" },
     { "key": "recommendations.courses", "group": "Группы рекомендаций", "label": "Подпись группы курсов", "default": "Пройти обучение", "defaults": { "report": "Рекомендации по курсам" } },
     { "key": "recommendations.events", "group": "Группы рекомендаций", "label": "Подпись группы мероприятий", "default": "Мероприятия", "defaults": { "report": "Рекомендуемые мероприятия" } },
     { "key": "recommendations.assets", "group": "Группы рекомендаций", "label": "Подпись группы материалов", "default": "Материалы" },
@@ -253,6 +254,10 @@
     { "key": "facts.points", "group": "Числа сводки", "label": "Подпись числа баллов", "default": "баллов" },
     { "key": "topic.correct", "group": "Карточка темы", "label": "Строка «Правильно»", "default": "Правильно" },
     { "key": "topic.points", "group": "Карточка темы", "label": "Строка «Баллов»", "default": "Баллов" },
+    { "key": "topic.verdict.passed", "group": "Карточка темы", "label": "Вердикт: пройдено", "default": "Пройдено" },
+    { "key": "topic.verdict.failed", "group": "Карточка темы", "label": "Вердикт: не пройдено", "default": "Не пройдено" },
+    { "key": "topic.verdict.unknown", "group": "Карточка темы", "label": "Вердикт: нет порога", "default": "" },
+    { "key": "group.counter", "group": "Группы разделов", "label": "Формат счётчика блока", "default": "{passed} / {total}" },
     { "key": "section.eyebrow", "group": "Итоги раздела", "label": "Надпись над итогами раздела", "default": "Итоги раздела" }
   ],
   "resultsBlockOrder": {

@@ -413,7 +413,7 @@ describe("certification measure-card slot gates (PRD-49 section 6)", () => {
 });
 
 describe("certification manifest (PRD-49 task 15, results-heading parity)", () => {
-  it("declares all 15 label keys, each with a non-empty default", () => {
+  it("declares all 20 label keys, each with a non-empty default (PRD-50 FR-34 exception noted)", () => {
     const expectedKeys = [
       "results.heading",
       "results.recommendations",
@@ -421,6 +421,7 @@ describe("certification manifest (PRD-49 task 15, results-heading parity)", () =
       "results.scales",
       "results.indicators",
       "results.topics",
+      "results.breakdown",
       "recommendations.courses",
       "recommendations.events",
       "recommendations.assets",
@@ -429,13 +430,21 @@ describe("certification manifest (PRD-49 task 15, results-heading parity)", () =
       "facts.points",
       "topic.correct",
       "topic.points",
+      "topic.verdict.passed",
+      "topic.verdict.failed",
+      "topic.verdict.unknown",
+      "group.counter",
       "section.eyebrow",
     ];
     expect(MANIFEST.labels).toBeTruthy();
     const declaredKeys = MANIFEST.labels.map((label) => label.key);
     expect([...declaredKeys].sort()).toEqual([...expectedKeys].sort());
+    // `topic.verdict.unknown` is the ONE label allowed an empty default (PRD-50 FR-34):
+    // a topic with no pronounced verdict shows no tag today, and a non-empty default
+    // would change that for every test that never opens this field.
     for (const label of MANIFEST.labels) {
       expect(typeof label.default).toBe("string");
+      if (label.key === "topic.verdict.unknown") continue;
       expect(label.default.length).toBeGreaterThan(0);
     }
   });

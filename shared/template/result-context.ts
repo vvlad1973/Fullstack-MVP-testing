@@ -670,11 +670,41 @@ export function topicHasContent(t: TopicInput): boolean {
   );
 }
 
+/**
+ * PRD-50 FR-34 fallback wording — the words this file has always printed for the topic
+ * verdict tag. A caller that hands over no `labels` (or a template whose manifest has
+ * not declared the `topic.verdict.*` keys) must keep seeing exactly these, so today's
+ * test keeps today's screen the day this stage ships.
+ */
+const DEFAULT_TOPIC_VERDICT_LABEL: Record<"passed" | "failed" | "unknown", string> = {
+  passed: "Пройдено",
+  failed: "Не пройдено",
+  unknown: "",
+};
+
+/**
+ * The topic verdict's own wording, resolved against the PRD-49 dictionary (FR-34).
+ *
+ * ONE function for both places that speak a topic's verdict — the card's own tag
+ * ({@link topicView}) and the breakdown row inside it (§8.1): the methodology names its
+ * verdict once, and a row must not disagree with the card that holds it about what word
+ * that verdict is. `labels` is the flat resolved map the caller already built
+ * ({@link module:shared/template/labels.resolveLabels}); `??` (not `||`) so an author who
+ * switched a label OFF (an explicit `""`) is honoured rather than papered over with the
+ * fallback — only an ABSENT key (the caller passed no `labels`, or an older template
+ * manifest never declared this one) falls back to the hard-coded word.
+ */
+function topicVerdictLabel(passed: boolean | null, labels?: Record<string, string>): string {
+  const state = passed === true ? "passed" : passed === false ? "failed" : "unknown";
+  return labels?.[`topic.verdict.${state}`] ?? DEFAULT_TOPIC_VERDICT_LABEL[state];
+}
+
 /** Map a normalized topic to its presentational view (Core-prepared class + label). */
 function topicView(
   t: TopicInput,
   withPoints: boolean,
   breakdownDisplay?: BreakdownDisplaySetting | null,
+  labels?: Record<string, string>,
 ): CtxTopicResultView {
   const passed = t.passed;
   const view: CtxTopicResultView = {
@@ -684,7 +714,7 @@ function topicView(
     total: t.total,
     percent: Math.round(t.percent || 0),
     passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
-    statusLabel: passed === true ? "Пройдено" : passed === false ? "Не пройдено" : "",
+    statusLabel: topicVerdictLabel(passed, labels),
     // Courses and events only. The topic's feedback TEXT is deliberately absent: it
     // reaches the learner through the consolidated «Рекомендации» block (fed by
     // `feedbackTexts` above), and the standard layouts no longer carry a per-topic slot
@@ -724,12 +754,12 @@ function topicView(
         barPercent: Math.round(value),
         showValue,
         valueLabel: showValue ? Math.round(value) + " %" : "",
-        // Same three fields and the same pair of words as the topic verdict. The
-        // methodology's own wording is Э3 (FR-34): the PRD-49 dictionary gets
-        // `topic.verdict.*` keys there, not here.
+        // Same three fields and the same pair of words as the topic verdict — resolved
+        // through the very same helper, so a row can never disagree with the card that
+        // holds it about what its own verdict is called (FR-34).
         passed,
         passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
-        statusLabel: passed === true ? "Пройдено" : passed === false ? "Не пройдено" : "",
+        statusLabel: topicVerdictLabel(passed, labels),
       };
     });
   }
@@ -737,15 +767,24 @@ function topicView(
 }
 
 /**
+ * Default format of {@link groupCounterLabel} — the spec's own `{passed} / {total}`
+ * (§8.1), printed until the author writes their own via the `group.counter` label.
+ */
+const DEFAULT_GROUP_COUNTER_FORMAT = "{passed} / {total}";
+
+/**
  * The group counter as the layout receives it (PRD-50 §8.1 `counterLabel`).
  *
  * The wording is the CORE's job, not the layout's — same reason `statusLabel` is. The
- * format is the one the spec writes down for the `group.counter` label, `{passed} / {total}`;
- * the author's own wording arrives with the PRD-49 dictionary in the next task of this
- * stage (FR-34), and this function is the single place it will be resolved from.
+ * format is resolved from the `group.counter` label of the PRD-49 dictionary (FR-34):
+ * `{passed}`/`{total}` are substituted wherever the author's own wording places them, so
+ * "пройдено {passed} из {total}" is as valid a format as the default. `??`, not `||`: an
+ * author who switched the label OFF (an explicit `""`) gets a silent counter rather than
+ * the fallback text papering over the switch.
  */
-function groupCounterLabel(passedCount: number, totalCount: number): string {
-  return `${passedCount} / ${totalCount}`;
+function groupCounterLabel(passedCount: number, totalCount: number, labels?: Record<string, string>): string {
+  const format = labels?.["group.counter"] ?? DEFAULT_GROUP_COUNTER_FORMAT;
+  return format.replace(/\{passed\}/g, String(passedCount)).replace(/\{total\}/g, String(totalCount));
 }
 
 /** PRD-49 input {@link attachBlocksAndLabels} takes from either results builder's `opts`. */
@@ -890,7 +929,11 @@ export function buildResultContext(
   // (it holds a class and a label instead — deliberately, so the layout cannot judge).
   const topicCards = (input.topicResults || [])
     .filter(topicHasContent)
-    .map((t) => ({ groupKey: t.groupKey ?? null, passed: t.passed, view: topicView(t, withTopicPoints, opts.breakdownDisplay) }));
+    .map((t) => ({
+      groupKey: t.groupKey ?? null,
+      passed: t.passed,
+      view: topicView(t, withTopicPoints, opts.breakdownDisplay, opts.labels),
+    }));
   const result: CtxResult = {
     passed,
     passClass: passed ? "is-pass" : "is-fail",
@@ -917,7 +960,7 @@ export function buildResultContext(
         topics: g.sections.map((c) => c.view),
         passedCount: g.passedCount,
         totalCount: g.totalCount,
-        counterLabel: groupCounterLabel(g.passedCount, g.totalCount),
+        counterLabel: groupCounterLabel(g.passedCount, g.totalCount, opts.labels),
       }),
     );
     if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);

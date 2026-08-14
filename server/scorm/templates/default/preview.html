@@ -2291,6 +2291,12 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       }
     },
     {
+      "key": "results.breakdown",
+      "group": "Второй уровень",
+      "label": "Заголовок блока разреза",
+      "default": "Разрез результата"
+    },
+    {
       "key": "recommendations.courses",
       "group": "Группы рекомендаций",
       "label": "Подпись группы курсов",
@@ -2343,6 +2349,30 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       "group": "Карточка темы",
       "label": "Строка «Баллов»",
       "default": "Баллов"
+    },
+    {
+      "key": "topic.verdict.passed",
+      "group": "Карточка темы",
+      "label": "Вердикт: пройдено",
+      "default": "Пройдено"
+    },
+    {
+      "key": "topic.verdict.failed",
+      "group": "Карточка темы",
+      "label": "Вердикт: не пройдено",
+      "default": "Не пройдено"
+    },
+    {
+      "key": "topic.verdict.unknown",
+      "group": "Карточка темы",
+      "label": "Вердикт: нет порога",
+      "default": ""
+    },
+    {
+      "key": "group.counter",
+      "group": "Группы разделов",
+      "label": "Формат счётчика блока",
+      "default": "{passed} / {total}"
     },
     {
       "key": "section.eyebrow",
@@ -8457,6 +8487,52 @@ var TBTemplate = (() => {
     return verdict;
   }
 
+  // shared/scoring/section-groups.ts
+  function normalizeSectionGroups(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = /* @__PURE__ */ new Set();
+    const out = [];
+    raw.forEach((entry, position) => {
+      if (!entry || typeof entry !== "object") return;
+      const g = entry;
+      const key = typeof g.key === "string" ? g.key.trim() : "";
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      const order = typeof g.order === "number" && Number.isFinite(g.order) ? g.order : void 0;
+      out.push({
+        group: { key, label: typeof g.label === "string" ? g.label.trim() : "", ...order === void 0 ? {} : { order } },
+        // No `order` = the position in the list, which is what «упорядоченный список» means
+        // for data written by an importer that never filled the number in.
+        sortKey: order === void 0 ? position : order,
+        position
+      });
+    });
+    out.sort((a, b) => a.sortKey - b.sortKey || a.position - b.position);
+    return out.map((o) => o.group);
+  }
+  function groupSections(groups, sections) {
+    const declared = normalizeSectionGroups(groups);
+    const ungrouped = [];
+    if (declared.length === 0) return { groups: [], ungrouped: sections.slice() };
+    const buckets = /* @__PURE__ */ new Map();
+    for (const g of declared) {
+      buckets.set(g.key, { key: g.key, label: g.label, sections: [], passedCount: 0, totalCount: 0 });
+    }
+    for (const section of sections) {
+      const bucket = section.groupKey ? buckets.get(section.groupKey) : void 0;
+      if (!bucket) {
+        ungrouped.push(section);
+        continue;
+      }
+      bucket.sections.push(section);
+      if (section.passed !== null && section.passed !== void 0) {
+        bucket.totalCount++;
+        if (section.passed === true) bucket.passedCount++;
+      }
+    }
+    return { groups: declared.map((g) => buckets.get(g.key)).filter((b) => b.sections.length > 0), ungrouped };
+  }
+
   // shared/template/result-context.ts
   var BLOCK_FLAG = {
     summary: "isSummary",
@@ -8579,7 +8655,17 @@ var TBTemplate = (() => {
     var _a, _b, _c, _d;
     return t.total > 0 || t.passed != null || ((_b = (_a = t.recommendedCourses) == null ? void 0 : _a.length) != null ? _b : 0) > 0 || ((_d = (_c = t.recommendedEvents) == null ? void 0 : _c.length) != null ? _d : 0) > 0;
   }
-  function topicView(t, withPoints, breakdownDisplay) {
+  var DEFAULT_TOPIC_VERDICT_LABEL = {
+    passed: "\u041F\u0440\u043E\u0439\u0434\u0435\u043D\u043E",
+    failed: "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E",
+    unknown: ""
+  };
+  function topicVerdictLabel(passed, labels) {
+    var _a;
+    const state = passed === true ? "passed" : passed === false ? "failed" : "unknown";
+    return (_a = labels == null ? void 0 : labels[`topic.verdict.${state}`]) != null ? _a : DEFAULT_TOPIC_VERDICT_LABEL[state];
+  }
+  function topicView(t, withPoints, breakdownDisplay, labels) {
     var _a;
     const passed = t.passed;
     const view = {
@@ -8589,7 +8675,7 @@ var TBTemplate = (() => {
       total: t.total,
       percent: Math.round(t.percent || 0),
       passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
-      statusLabel: passed === true ? "\u041F\u0440\u043E\u0439\u0434\u0435\u043D\u043E" : passed === false ? "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E" : "",
+      statusLabel: topicVerdictLabel(passed, labels),
       // Courses and events only. The topic's feedback TEXT is deliberately absent: it
       // reaches the learner through the consolidated «Рекомендации» block (fed by
       // `feedbackTexts` above), and the standard layouts no longer carry a per-topic slot
@@ -8622,16 +8708,22 @@ var TBTemplate = (() => {
           barPercent: Math.round(value),
           showValue,
           valueLabel: showValue ? Math.round(value) + " %" : "",
-          // Same three fields and the same pair of words as the topic verdict. The
-          // methodology's own wording is Э3 (FR-34): the PRD-49 dictionary gets
-          // `topic.verdict.*` keys there, not here.
+          // Same three fields and the same pair of words as the topic verdict — resolved
+          // through the very same helper, so a row can never disagree with the card that
+          // holds it about what its own verdict is called (FR-34).
           passed: passed2,
           passClass: passed2 === true ? "is-pass" : passed2 === false ? "is-fail" : "",
-          statusLabel: passed2 === true ? "\u041F\u0440\u043E\u0439\u0434\u0435\u043D\u043E" : passed2 === false ? "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E" : ""
+          statusLabel: topicVerdictLabel(passed2, labels)
         };
       });
     }
     return view;
+  }
+  var DEFAULT_GROUP_COUNTER_FORMAT = "{passed} / {total}";
+  function groupCounterLabel(passedCount, totalCount, labels) {
+    var _a;
+    const format = (_a = labels == null ? void 0 : labels["group.counter"]) != null ? _a : DEFAULT_GROUP_COUNTER_FORMAT;
+    return format.replace(/\{passed\}/g, String(passedCount)).replace(/\{total\}/g, String(totalCount));
   }
   function attachBlocksAndLabels(result, opts, hasSummary) {
     var _a, _b, _c, _d, _e;
@@ -8664,6 +8756,14 @@ var TBTemplate = (() => {
     const resolvedMeasures = opts.measures ? resolveMeasures(opts.measures, hasGradedScore2) : void 0;
     const blocks = resolvedMeasures == null ? void 0 : resolvedMeasures.blocks;
     const withTopicPoints = !!opts.withTopicPoints && (opts.topicPointsIgnoreScoreSummary || !blocks || blocks.scoreSummary);
+    const topicCards = (input.topicResults || []).filter(topicHasContent).map((t) => {
+      var _a2;
+      return {
+        groupKey: (_a2 = t.groupKey) != null ? _a2 : null,
+        passed: t.passed,
+        view: topicView(t, withTopicPoints, opts.breakdownDisplay, opts.labels)
+      };
+    });
     const result = {
       passed,
       passClass: passed ? "is-pass" : "is-fail",
@@ -8674,11 +8774,22 @@ var TBTemplate = (() => {
       correct: input.correct,
       earnedPoints: round14(input.earnedPoints),
       possiblePoints: round14(input.possiblePoints),
-      // A topic with nothing to report brings no card — see {@link topicHasContent}. The
-      // filter runs BEFORE the mapping so the array can end up empty, which is what takes
-      // the whole «Результаты по темам» section down with it.
-      topicResults: (input.topicResults || []).filter(topicHasContent).map((t) => topicView(t, withTopicPoints, opts.breakdownDisplay))
+      topicResults: topicCards.map((c) => c.view)
     };
+    const grouped = groupSections(input.sectionGroups, topicCards);
+    if (grouped.groups.length) {
+      result.topicGroups = grouped.groups.map(
+        (g) => ({
+          key: g.key,
+          label: g.label,
+          topics: g.sections.map((c) => c.view),
+          passedCount: g.passedCount,
+          totalCount: g.totalCount,
+          counterLabel: groupCounterLabel(g.passedCount, g.totalCount, opts.labels)
+        })
+      );
+      if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);
+    }
     const introHtml = richTextToHtml((_c = opts.intro) == null ? void 0 : _c.text, (_e = (_d = opts.intro) == null ? void 0 : _d.format) != null ? _e : void 0);
     if (introHtml) result.introHtml = introHtml;
     if (opts.recommendedCourses && opts.recommendedCourses.length) result.recommendedCourses = opts.recommendedCourses;
@@ -9098,6 +9209,8 @@ var TBTemplate = (() => {
         passRule: sec.topicPassRule,
         resolvedPassRule: resolved,
         breakdown: [],
+        // Only when the section actually declares one — see `AggregateTopicResult.groupKey`.
+        ...sec.groupKey ? { groupKey: sec.groupKey } : {},
         extra: sec.extra
       };
     });
@@ -9121,6 +9234,14 @@ var TBTemplate = (() => {
         if (gate.required) requiredTopicsPassed = false;
       }
     }
+    const groupedSections = groupSections(input.sectionGroups, topicResults).groups;
+    const sectionGroups = groupedSections.map((g) => ({
+      key: g.key,
+      label: g.label,
+      topicIds: g.sections.map((t) => t.topicId),
+      passedCount: g.passedCount,
+      totalCount: g.totalCount
+    }));
     const percent3 = tPossible > 0 ? tEarned / tPossible * 100 : 0;
     const overallPassed = tScored > 0 ? checkPassRule(overall, percent3, tEarned) : true;
     return {
@@ -9133,7 +9254,9 @@ var TBTemplate = (() => {
       overallPassed,
       passed: decideVerdict(policy, { overallPassed, requiredTopicsPassed, allTopicsPassed }),
       topicResults,
-      breakdowns: entries.filter((e) => e.scope === TEST_SCOPE)
+      breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
+      // Absent, not empty: a test without groups keeps the result shape it always had.
+      ...sectionGroups.length ? { sectionGroups } : {}
     };
   }
   function decideVerdict(policy, gates) {
