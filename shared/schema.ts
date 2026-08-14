@@ -457,6 +457,43 @@ export function isReportEnabled(settings: ReportSettings | null | undefined): bo
 export type ReportModeSettings = z.infer<typeof reportModeSettingsSchema>;
 export type ReportSettings = z.infer<typeof reportSettingsSchema>;
 
+/**
+ * PRD-50 §4 (FR-11): ONE named group of sections, stored in `tests.section_groups_json`.
+ * A section joins it by `test_sections.group_key`; a key nothing points at is legal (an
+ * empty group simply does not print — FR-12).
+ *
+ * `order` is OPTIONAL although the list is called ordered: the list already carries its
+ * order in the position of its elements, and demanding the number would reject perfectly
+ * meaningful data written by an importer or baked into a SCORM package. The core sorts by
+ * `order` where it is present and falls back to the position where it is not
+ * (`shared/scoring/section-groups`).
+ */
+export const sectionGroupSchema = z.object({
+  key: z.string().trim().min(1).max(64),
+  label: z.string().trim().max(200),
+  order: z.number().int().min(0).optional(),
+});
+
+/**
+ * `tests.section_groups_json` — the test's groups in author order. Absent column = no
+ * groups at all, i.e. exactly today's flat list of topic cards (FR-27).
+ *
+ * Duplicate keys are rejected: two groups with one key make a section's membership
+ * ambiguous, and the resolver would have to pick one silently.
+ */
+export const sectionGroupsSchema = z.array(sectionGroupSchema).superRefine((groups, ctx) => {
+  const seen = new Set<string>();
+  for (const g of groups) {
+    if (seen.has(g.key)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Повторяющийся ключ блока: ${g.key}` });
+      return;
+    }
+    seen.add(g.key);
+  }
+});
+
+export type SectionGroup = z.infer<typeof sectionGroupSchema>;
+
 export const tests = pgTable("tests", {
   id: varchar("id", { length: 36 }).primaryKey(),
   folderId: varchar("folder_id", { length: 36 }),
@@ -576,6 +613,12 @@ export const tests = pgTable("tests", {
     visibility: "hidden" | "bar" | "bar_and_value";
     basis: "units" | "points";
   }>(),
+  /**
+   * PRD-50 FR-11: named groups of sections, in author order (see {@link sectionGroupSchema}).
+   * Null/empty = no groups, and the results screen prints exactly the flat list of topic
+   * cards every test has printed so far (FR-27).
+   */
+  sectionGroupsJson: jsonb("section_groups_json").$type<SectionGroup[]>(),
 }, (table) => ({
   // Test lists filter by lifecycle status (draft/published/archived).
   statusIdx: index("tests_status_idx").on(table.status),
@@ -706,6 +749,15 @@ export const testSections = pgTable("test_sections", {
    * from `draw_blueprint_json` by decision: quota = delivery, threshold = grading.
    */
   breakdownRulesJson: jsonb("breakdown_rules_json").$type<BreakdownRules>(),
+  /**
+   * PRD-50 FR-11/FR-12: the group this section belongs to — a `key` of the test's
+   * `section_groups_json`. Null = the section belongs to no group and prints after all
+   * groups, in its own order (FR-25); a key no group declares means the SAME thing, so a
+   * deleted group never hides a section (FR-12). No FK: the groups live in a JSON column,
+   * and the resolver in `shared/scoring/section-groups` is where the reference is made
+   * good — on both hosts, over stored attempts and baked packages alike.
+   */
+  groupKey: text("group_key"),
   /**
    * PRD-30 FR-02/FR-18: how this topic's questions are ordered on delivery.
    * `random` shuffles the drawn set (today's behaviour), `fixed` orders it by
@@ -885,8 +937,12 @@ export const insertQuestionSchema = createInsertSchema(questions)
   });
 export const insertTestSchema = createInsertSchema(tests)
   .omit({ id: true })
-  // drizzle-zod types jsonb loosely; validate the retake policy explicitly (PRD-6).
-  .extend({ retakePolicyJson: retakePolicySchema.nullish() });
+  // drizzle-zod types jsonb loosely; validate the retake policy (PRD-6) and the
+  // section groups (PRD-50 FR-11) explicitly.
+  .extend({
+    retakePolicyJson: retakePolicySchema.nullish(),
+    sectionGroupsJson: sectionGroupsSchema.nullish(),
+  });
 export const insertTestSectionSchema = createInsertSchema(testSections)
   .omit({ id: true })
   // drizzle-zod types jsonb loosely; validate the draw blueprint + variant set explicitly.

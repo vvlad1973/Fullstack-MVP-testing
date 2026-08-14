@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -63,6 +63,10 @@ const sectionBodySchema = z
     // formSetJson above — Zod strips an unlisted key, and the author's thresholds would
     // vanish on save with a cheerful 200 OK.
     breakdownRulesJson: breakdownRulesSchema.nullish(),
+    // PRD-50 FR-11: the group this section belongs to. MUST be listed here for the same
+    // reason as formSetJson above — an unlisted key is stripped, and the author's choice
+    // of block would never reach the column. null = no group (FR-25).
+    groupKey: z.string().trim().min(1).max(64).nullish(),
     // PRD-15 block D (FR-31): per-section default price; null = inherit test.
     defaultPoints: z.number().int().min(0).nullable().optional(),
     // PRD-30 FR-02/FR-18: the topic's OVERRIDE of the test-wide order; null =
@@ -139,6 +143,8 @@ const testBodyBaseSchema = z.object({
   introJson: testIntroSchema.nullish(),
   // PRD-50 FR-13: subtotal-by-key display setting; null = hidden (system default).
   breakdownDisplayJson: breakdownDisplaySchema.nullish(),
+  // PRD-50 FR-11: named groups of sections; null/empty = today's flat list (FR-27).
+  sectionGroupsJson: sectionGroupsSchema.nullish(),
   // PRD-15 block D (FR-31): test-wide default price; null = system default (1).
   defaultQuestionPoints: z.number().int().min(0).nullable().optional(),
 
@@ -649,6 +655,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       reportSettingsJson,
       introJson,
       breakdownDisplayJson,
+      sectionGroupsJson,
       defaultQuestionPoints,
       folderId,
     } = parsed.data;
@@ -708,6 +715,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         reportSettingsJson: reportSettingsJson ?? null,
         introJson: introJson ?? null,
         breakdownDisplayJson: breakdownDisplayJson ?? null,
+        sectionGroupsJson: sectionGroupsJson ?? null,
         defaultQuestionPoints: defaultQuestionPoints ?? null,
         folderId: folderId ?? null,
         // PRD-13: creator owns the test atomically in the INSERT (the post-insert
@@ -1075,6 +1083,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       reportSettingsJson,
       introJson,
       breakdownDisplayJson,
+      sectionGroupsJson,
       defaultQuestionPoints,
     } = parsed.data;
 
@@ -1139,6 +1148,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         reportSettingsJson: reportSettingsJson ?? undefined,
         introJson: introJson ?? undefined,
         breakdownDisplayJson: breakdownDisplayJson ?? undefined,
+        sectionGroupsJson: sectionGroupsJson ?? undefined,
         defaultQuestionPoints,
       },
       // PRD-7 §6.3: sections live with the standard mode only. For adaptive,

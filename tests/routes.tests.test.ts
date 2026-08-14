@@ -457,6 +457,43 @@ describe("PUT /api/tests/:id — section formSetJson (PRD-17)", () => {
     expect(res.status).toBe(400);
     expect(serviceMock.save).not.toHaveBeenCalled();
   });
+
+  // PRD-50 FR-11: блоки разделов — тот же класс срезания Zod. Без объявления в схеме
+  // тела автор сохранил бы структуру блоков и не узнал бы, что её нет.
+  it("проводит блоки разделов и ссылку раздела на блок до сервиса сохранения", async () => {
+    const sectionGroups = [
+      { key: "competencies", label: "Управленческие компетенции", order: 0 },
+      { key: "knowledge", label: "Знания", order: 1 },
+    ];
+    const res = await asAuthor(
+      request(app).put("/api/tests/test1").send({
+        title: "My Test",
+        mode: "standard",
+        sectionGroupsJson: sectionGroups,
+        sections: [{ topicId: "t1", drawCount: 2, groupKey: "knowledge" }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const savePayload = serviceMock.save.mock.calls[0][1];
+    expect(savePayload.test.sectionGroupsJson).toEqual(sectionGroups);
+    expect(savePayload.sections[0].groupKey).toBe("knowledge");
+  });
+
+  it("отбивает два блока с одним ключом: принадлежность раздела была бы неоднозначной", async () => {
+    const res = await asAuthor(
+      request(app).put("/api/tests/test1").send({
+        title: "My Test",
+        mode: "standard",
+        sectionGroupsJson: [
+          { key: "k", label: "Первый" },
+          { key: "k", label: "Второй" },
+        ],
+        sections: [{ topicId: "t1", drawCount: 2 }],
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(serviceMock.save).not.toHaveBeenCalled();
+  });
 });
 
 // ─── Backward compat: POST / and PUT /:id unchanged ──────────────────────────

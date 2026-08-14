@@ -17,7 +17,7 @@ import {
   contentPages,
   templates,
 } from "@shared/schema";
-import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet, BreakdownDisplaySetting } from "@shared/schema";
+import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet, BreakdownDisplaySetting, SectionGroup } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import {
   planSystemPages,
@@ -118,6 +118,11 @@ export interface SectionPayload {
   formSetJson?: FormSet | null;
   /** PRD-50 §4: per-key thresholds of this section; null/absent = keys are informational. */
   breakdownRulesJson?: BreakdownRules | null;
+  /**
+   * PRD-50 FR-11: `key` of the test's group this section belongs to; `null`/absent = no
+   * group, and the section prints after all groups in its own order (FR-25).
+   */
+  groupKey?: string | null;
   /** PRD-15 block D (FR-31): per-section default price; null = inherit test. */
   defaultPoints?: number | null;
   /**
@@ -179,6 +184,11 @@ export interface TestPayload {
    * PRD-50 has always shown.
    */
   breakdownDisplayJson?: BreakdownDisplaySetting | null;
+  /**
+   * PRD-50 FR-11: named groups of sections (`tests.section_groups_json`). `null`/absent =
+   * no groups, i.e. the flat list of topic cards every test has printed so far (FR-27).
+   */
+  sectionGroupsJson?: SectionGroup[] | null;
   telemetryEnabled?: boolean;
   timeLimitMinutes?: number | null;
   maxAttempts?: number | null;
@@ -286,6 +296,7 @@ export class TestSettingsService {
         reportSettingsJson: (payload.test.reportSettingsJson as never) ?? null,
         introJson: (payload.test.introJson as never) ?? null,
         breakdownDisplayJson: payload.test.breakdownDisplayJson ?? null,
+        sectionGroupsJson: payload.test.sectionGroupsJson ?? null,
         showCorrectAnswers: payload.test.showCorrectAnswers ?? false,
         // PRD-19 (Блок A): новый тест — возврат ВКЛ по умолчанию (FR-01).
         allowReturnToUnanswered: payload.test.allowReturnToUnanswered ?? true,
@@ -730,6 +741,7 @@ export class TestSettingsService {
         drawBlueprintJson: s.drawBlueprintJson ?? null,
         formSetJson: s.formSetJson ?? null,
         breakdownRulesJson: s.breakdownRulesJson ?? null,
+        groupKey: s.groupKey ?? null,
         defaultPoints: s.defaultPoints ?? null,
         // FR-18: `null` = тема наследует правило теста.
         questionOrder: s.questionOrder ?? null,

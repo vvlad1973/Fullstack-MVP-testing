@@ -321,6 +321,7 @@ CREATE TABLE "test_sections" (
 	"draw_blueprint_json" jsonb,
 	"form_set_json" jsonb,
 	"breakdown_rules_json" jsonb,
+	"group_key" text,
 	"question_order" text,
 	"default_points" integer,
 	"sort_order" integer DEFAULT 0 NOT NULL
@@ -373,7 +374,8 @@ CREATE TABLE "tests" (
 	"protection_hide_on_blur" boolean DEFAULT false NOT NULL,
 	"report_settings_json" jsonb,
 	"intro_json" jsonb,
-	"breakdown_display_json" jsonb
+	"breakdown_display_json" jsonb,
+	"section_groups_json" jsonb
 );
 
 CREATE TABLE "topic_access_grants" (
