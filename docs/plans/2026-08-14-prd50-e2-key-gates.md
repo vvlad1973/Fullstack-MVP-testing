@@ -44,7 +44,8 @@ FR-19 - FR-23, FR-42, FR-45 - FR-47. Опорные разделы спеки: �
    подтемы), а не регрессия: без новой колонки поведение прежнее.
 5. **Предупреждения публикации — предупреждения.** Публикация проходит, снимок создаётся, ответ
    роута несёт список; диалог показывается ПОСЛЕ успешной публикации.
-6. **Аналитика SCORM чинится здесь** — см. Task 7 и обоснование в нём.
+6. **Аналитика SCORM чинится НЕ здесь** — задача перенесена в «Э1-доделку», где тот же долг
+   расписан и выходит раньше; см. Task 7 этого плана и обоснование переноса в нём.
 
 ---
 
@@ -1846,157 +1847,19 @@ git commit -m "feat(prd-50): предупреждения публикации �
 
 ---
 
-## Task 7: аналитика SCORM видит разрезы
+## Task 7: аналитика SCORM — ПЕРЕНЕСЕНА в «Э1-доделку»
 
-**Files:**
+Задача исключена из этого этапа сознательно. Тот же долг расписан в
+[плане Э1-доделки](2026-08-14-prd50-e1-fix.md), задача «аналитика SCORM видит разрезы», и
+выходит раньше: это долг, порождённый Э1, источник данных (`scorm_answers`) уже определён, и
+ничего в Э2 на это место не влияет.
 
-- Modify: `server/routes/analytics/scorm.ts`
-- Test: `tests/breakdown-analytics-scorm.test.ts`
+Оба плана писались параллельно и независимо пришли к одному решению — вплоть до одинакового
+имени тест-файла `tests/breakdown-analytics-scorm.test.ts`. Дубликат снят здесь, а не там,
+чтобы работа не была сделана дважды и двумя разными способами.
 
-Долг Э1 закрывается здесь, а не откладывается. Обоснование: `server/routes/analytics/scorm.ts:183`
-ВСЕГДА пересчитывает показатели телеметрийной попытки и подаёт `gradedBase` без разрезов, поэтому
-формула с `tag()` даёт в аналитике ноль там, где пакет посчитал настоящее значение — два разных
-числа об одной попытке в двух местах сервиса. «Показывать сохранённое пакетом» невозможно:
-телеметрия разрезов не несёт и по FR-41 не будет нести. Зато она несёт всё, из чего разрез
-считается: `topicId` (это и есть идентификатор раздела, которым `aggregateStandardResult` метит
-область — в агрегате `sectionScope(sec.topicId)`), `points`, `maxPoints` и `questionId`. Ключи
-берутся из живого банка вопросов — ровно тем же приёмом и с той же оговоркой о дрейфе, с какой
-этот роут уже пересчитывает вклады в шкалы («Recomputed from the test's CURRENT config … may
-drift if the test changed after the attempt»). Заодно подаются коды тем, иначе составной ключ
-`tag("law::ПДн")` (FR-36) в аналитике остаётся нулевым.
-
-- [ ] **Шаг 1. Написать падающий тест**
-
-`tests/breakdown-analytics-scorm.test.ts`:
-
-```ts
-/**
- * @module tests/breakdown-analytics-scorm
- * @description PRD-50 FR-35: аналитика SCORM собирает разрезы из телеметрии, иначе формула
- * с `tag()` даёт там ноль при том, что пакет посчитал настоящее значение.
- */
-import { describe, it, expect } from "vitest";
-import { breakdownItemsFromTelemetry } from "../server/routes/analytics/scorm";
-import { computeBreakdowns } from "../shared/breakdown/compute";
-
-describe("breakdownItemsFromTelemetry", () => {
-  const answers = [
-    { questionId: "q1", topicId: "law", points: 1, maxPoints: 2, userAnswerJson: 0 },
-    { questionId: "q2", topicId: "law", points: 0, maxPoints: 1, userAnswerJson: null },
-    { questionId: "q3", topicId: null, points: 1, maxPoints: 1, userAnswerJson: 1 },
-  ];
-  const tags = new Map([["q1", ["ПДн"]], ["q2", ["ПДн"]], ["q3", ["ПДн"]]]);
-
-  it("строит элементы разреза по ответам с разделом", () => {
-    const items = breakdownItemsFromTelemetry(answers as never, tags);
-    expect(items).toEqual([
-      { sectionId: "law", axisKeys: { tag: ["ПДн"] }, earned: 1, possible: 2, answered: true },
-      { sectionId: "law", axisKeys: { tag: ["ПДн"] }, earned: 0, possible: 1, answered: false },
-    ]);
-  });
-
-  it("даёт те же числа, что посчитал бы пакет", () => {
-    const entries = computeBreakdowns(breakdownItemsFromTelemetry(answers as never, tags));
-    const test = entries.find((e) => e.scope === "test")!;
-    expect(test).toMatchObject({ items: 2, earned: 1, possible: 3, percentPoints: (1 / 3) * 100 });
-  });
-});
-```
-
-Команда: `npm test -- tests/breakdown-analytics-scorm.test.ts`
-Ожидание: FAIL, `breakdownItemsFromTelemetry` не экспортируется.
-
-- [ ] **Шаг 2. Написать реализацию**
-
-В `server/routes/analytics/scorm.ts` добавить импорты:
-
-```ts
-import { computeBreakdowns } from "@shared/breakdown/compute";
-import type { BreakdownItem } from "@shared/breakdown/types";
-```
-
-и экспортируемую чистую функцию рядом с роутами:
-
-```ts
-/**
- * PRD-50 FR-35: rebuild this attempt's breakdown items from SCORM telemetry.
- *
- * Telemetry carries no keys (FR-41 keeps it that way), but it carries everything a key
- * needs: the DELIVERING topic, the question id and the points as delivered. The keys come
- * from the live question bank — the same reconstruction, with the same drift caveat, this
- * route already applies to scale contributions. An answer without a topic (a legacy row)
- * belongs to no section scope and is skipped.
- *
- * @param answers Telemetry rows of one attempt.
- * @param tagsByQuestion Live tags of the answered questions, keyed by question id.
- */
-export function breakdownItemsFromTelemetry(
-  answers: ReadonlyArray<{
-    questionId: string;
-    topicId: string | null;
-    points: number | null;
-    maxPoints: number | null;
-    userAnswerJson: unknown;
-  }>,
-  tagsByQuestion: Map<string, string[]>,
-): BreakdownItem[] {
-  const items: BreakdownItem[] = [];
-  for (const a of answers) {
-    if (!a.topicId) continue;
-    const tags = tagsByQuestion.get(a.questionId) ?? [];
-    items.push({
-      sectionId: a.topicId,
-      axisKeys: tags.length > 0 ? { tag: tags } : null,
-      earned: a.points ?? 0,
-      possible: a.maxPoints ?? 0,
-      answered: a.userAnswerJson !== null && a.userAnswerJson !== undefined,
-    });
-  }
-  return items;
-}
-```
-
-В обработчике `GET /scorm-attempts/:attemptId` перед сборкой `gradedBase` добавить:
-
-```ts
-    // PRD-50 FR-35/FR-36: разрезы этой попытки — иначе показатель с `tag()` в аналитике даёт
-    // ноль там, где пакет посчитал настоящее значение. Коды тем нужны составному ключу
-    // `tag("<код раздела>::<ключ>")`: без них он резолвится только по UUID.
-    const bankQuestions = answers.length > 0
-      ? await storage.getQuestionsByIds([...new Set(answers.map((a) => a.questionId))])
-      : [];
-    const tagsByQuestion = new Map(bankQuestions.map((q) => [q.id, q.tags ?? []]));
-    const breakdowns = computeBreakdowns(breakdownItemsFromTelemetry(answers, tagsByQuestion));
-    const topicCodes = new Map<string, string | null>();
-    for (const topicId of new Set(topicResults.map((t) => t.topicId))) {
-      topicCodes.set(topicId, (await storage.getTopic(topicId))?.code ?? null);
-    }
-```
-
-и в `gradedBase` заменить `code: null` на `code: topicCodes.get(tr.topicId) ?? null,`, добавив
-рядом:
-
-```ts
-      breakdowns,
-```
-
-- [ ] **Шаг 3. Прогнать тесты**
-
-```bash
-npm test -- tests/breakdown-analytics-scorm.test.ts
-npm run check
-```
-
-Ожидание: PASS.
-
-- [ ] **Шаг 4. Коммит**
-
-```bash
-git add server/routes/analytics/scorm.ts tests/breakdown-analytics-scorm.test.ts
-git commit -m "fix(prd-50): аналитика SCORM считает разрезы, и tag() перестаёт быть нулём"
-```
-
----
+Если к моменту Э2 «Э1-доделка» ещё не влита, задачу надо перенести сюда целиком — но тогда
+из плана Э1-доделки её следует вычеркнуть тем же движением.
 
 ## Долг, оставленный этапом сознательно
 
