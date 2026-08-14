@@ -599,10 +599,8 @@ function calculateResults() {
     passDecisionPolicy: TEST_DATA.passDecisionPolicy
   });
 
-  // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the shared engine returns the
-  // test-scope records on `breakdowns` and the section-scope ones on each topic result,
-  // and `tag()` must reach either. Kept off the topic results on purpose: `saveAttemptResult`
-  // persists those verbatim into suspend_data, which is a scarce 64K budget.
+  // PRD-50 FR-35/FR-36: both scopes in ONE flat array — its and only its `buildResultVarContext`
+  // reads, so `tag()` can reach any scope.
   var breakdowns = (agg.breakdowns || []).slice();
   for (var bi = 0; bi < agg.topicResults.length; bi++) {
     var secEntries = agg.topicResults[bi].breakdown || [];
@@ -634,7 +632,21 @@ function calculateResults() {
         // the label — including for past attempts.
         resolvedPassRule: t.resolvedPassRule,
         recommendedCourses: t.extra.recommendedCourses,
-        recommendedEvents: t.extra.recommendedEvents
+        recommendedEvents: t.extra.recommendedEvents,
+        // PRD-50: this topic's breakdown records. Kept ON the topic on purpose:
+        // `saveAttemptResult` persists `topicResults` verbatim, and this is the ONLY
+        // path a breakdown record has into a saved attempt — without it, «Мой результат»
+        // and the report downloaded from it would print nothing where the web host on
+        // the same attempt prints bars (§14, item 5). Cost: ~3KB per attempt against the
+        // 30-55KB `flatQuestions` already weighs.
+        //
+        // Omitted (not `[]`) when empty: `aggregateStandardResult` always returns an
+        // array on `t.breakdown`, even for a topic with no keyed questions, so writing
+        // it unconditionally would put `"breakdown":[]` on every topic of every attempt
+        // — a few bytes each, on every test, whether or not it uses PRD-50 at all.
+        // `JSON.stringify` drops an `undefined` value's key outright, which is the one
+        // way to add nothing for a test that carries no keys.
+        breakdown: (t.breakdown && t.breakdown.length) ? t.breakdown : undefined
       };
     })
   };

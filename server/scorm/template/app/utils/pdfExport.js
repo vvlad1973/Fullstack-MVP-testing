@@ -145,10 +145,11 @@ function pdfStandardInput(results) {
         recommendedEvents: rec.events,
         feedbackTexts: fb.feedbackTexts,
         recommendedAssets: fb.recommendedAssets,
-        // PRD-50: this topic's breakdown records, the SAME reader and the SAME flat
-        // list (`results.breakdowns`) the results screen filters (`viewResults.js`).
-        // Absent on a SAVED past attempt — degrades to no rows, matching the screen.
-        breakdown: (typeof vrTopicBreakdown === 'function') ? vrTopicBreakdown(tr.topicId, results.breakdowns) : []
+        // PRD-50: this topic's breakdown records — the SAME reader as the results
+        // screen (`viewResults.js`): §5.2 forbids the report from showing anything
+        // other than the screen it was downloaded from, and before this the report of
+        // a saved attempt printed no breakdown rows at all.
+        breakdown: (typeof vrTopicBreakdown === 'function') ? vrTopicBreakdown(tr, results.breakdowns) : []
       };
     })
   };
