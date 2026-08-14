@@ -62,3 +62,28 @@ export interface PublishInfeasibleError {
   message: string;
   findings: PublishCheckFinding[];
 }
+
+/**
+ * PRD-50 FR-45 - FR-47: one delivery trap reported AFTER a successful publication
+ * (server `BreakdownWarningCode`). A warning, never a block — the mirror image of
+ * {@link PublishInfeasibleError}, which is a 409.
+ */
+export type BreakdownWarningCode =
+  | "quota_sum_mismatch"
+  | "questions_without_key"
+  | "threshold_key_never_delivered"
+  | "question_outside_variants"
+  | "quotas_ignored_in_variants";
+
+/** One publication warning (server `BreakdownWarning`). */
+export interface BreakdownWarning {
+  code: BreakdownWarningCode;
+  topicId: string;
+  topicName: string;
+  /** The key the warning speaks about (`threshold_key_never_delivered`). */
+  key?: string;
+  /** The number the message quotes: Σ quotas, or how many questions are affected. */
+  count?: number;
+  /** What `count` is compared against (the section's sample size). */
+  total?: number;
+}

@@ -18,6 +18,7 @@ import { requireTestScope } from "../middleware/test-scope";
 import { readableTestScope, canGrantAccess } from "../services/test-access";
 import { visibleTopic } from "../services/topic-access";
 import { assessTestPublish } from "../services/draw-feasibility";
+import { assessBreakdownPublish } from "../services/breakdown-warnings";
 import { createTestSnapshot, getPublicationState } from "../services/test-snapshot";
 import { countUnmappedPages } from "../services/page-variant-audit";
 import { generateScormPackage } from "../scorm-exporter";
@@ -1256,7 +1257,10 @@ router.patch("/:id/status", requirePermission("tests.publish"), requireTestScope
       await createTestSnapshot(req.params.id, req.currentUser?.id ?? null);
     }
 
-    res.json(updated);
+    // PRD-50 FR-45 - FR-47: предупреждения, а не запреты. Считаются ПОСЛЕ успешной
+    // публикации и снимка: они ни на что не влияют, кроме того, что автор о них узнаёт.
+    const breakdownWarnings = status === "published" ? await assessBreakdownPublish(req.params.id) : [];
+    res.json(breakdownWarnings.length > 0 ? { ...updated, breakdownWarnings } : updated);
   } catch (error) {
     logger.error("PATCH status error: " + (error as Error).message, "tests");
     res.status(500).json({ error: "Failed to update test status" });
