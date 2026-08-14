@@ -91,6 +91,34 @@ function vrTopicFeedbackTexts(tr) {
 }
 
 /**
+ * PRD-50: this topic's breakdown records, from whichever of the two places has them.
+ *
+ * A SAVED attempt carries them ON the topic: `saveAttemptResult` persists `topicResults`
+ * verbatim, so the records ride along with everything else the topic keeps. The CURRENT
+ * attempt additionally has the ONE flat list `calculateResults` returns (`results.breakdowns`
+ * — both scopes in a single array, built for `tag()`), and the topic's own field is filled
+ * there too; the flat list stays as the fallback for a record written by an older package,
+ * which had the list but no per-topic field.
+ *
+ * The scope string is the shared convention `"section:" + topicId`
+ * (`shared/breakdown/compute.ts`'s `sectionScope`), reproduced here rather than imported:
+ * this is a flat ES5 runtime file, and the prefix is stable data, not an algorithm.
+ *
+ * @param {object} tr The topic result being rendered.
+ * @param {Array|undefined} breakdowns The flat list, when the caller has one.
+ * @returns {Array} This topic's section-scope breakdown records, in order.
+ */
+function vrTopicBreakdown(tr, breakdowns) {
+  if (tr && tr.breakdown && tr.breakdown.length) return tr.breakdown;
+  var scope = 'section:' + (tr && tr.topicId);
+  var out = [];
+  (breakdowns || []).forEach(function (e) {
+    if (e && e.scope === scope) out.push(e);
+  });
+  return out;
+}
+
+/**
  * The test's OWN feedback block (`tests.feedback_json`, baked as `TEST_DATA.testFeedbackJson`),
  * normalised for the recommendations block — the widest source, and the first one.
  *
@@ -439,7 +467,10 @@ function renderViewResultsTemplated(app, results) {
         feedbackTexts: vrTopicFeedbackTexts(tr),
         // PRD-32 attachments of the topic and of the section, for the ONE «Материалы»
         // block; gated by the same verdict rule inside the shared builder.
-        recommendedAssets: vrTopicAssets(tr)
+        recommendedAssets: vrTopicAssets(tr),
+        // PRD-50: this topic's breakdown records — from the topic itself on a saved
+        // attempt, from the flat list on a current one. See `vrTopicBreakdown`.
+        breakdown: vrTopicBreakdown(tr, results.breakdowns)
       };
     })
   };
@@ -458,6 +489,10 @@ function renderViewResultsTemplated(app, results) {
     // copy inside `measures`, which a test without measurements never sends.
     hasPassThreshold: vrHasPassThreshold()
   };
+  // PRD-50 FR-13: the author's breakdown display setting, baked into TEST_DATA only
+  // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
+  // byte-identical to what it was before this PRD.
+  if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
   var measures = buildResultsMeasures(
     { values: results.scaleValues || {} },
     { values: results.resultValues || {} }
@@ -534,7 +569,11 @@ function renderResultsTemplated(app, results) {
         feedbackTexts: vrTopicFeedbackTexts(tr),
         // PRD-32 attachments of the topic and of the section, for the ONE «Материалы»
         // block; gated by the same verdict rule inside the shared builder.
-        recommendedAssets: vrTopicAssets(tr)
+        recommendedAssets: vrTopicAssets(tr),
+        // PRD-50: this topic's breakdown records, out of the fresh in-memory result —
+        // this screen renders BEFORE persistence, so it is the one results screen that
+        // always has them when the test carries keys. See `vrTopicBreakdown`.
+        breakdown: vrTopicBreakdown(tr, results.breakdowns)
       };
     })
   };
@@ -550,6 +589,10 @@ function renderResultsTemplated(app, results) {
     // copy inside `measures`, which a test without measurements never sends.
     hasPassThreshold: vrHasPassThreshold()
   };
+  // PRD-50 FR-13: the author's breakdown display setting, baked into TEST_DATA only
+  // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
+  // byte-identical to what it was before this PRD.
+  if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
   // PRD-29: scales and indicators of THIS attempt (null for a test that declares none,
   // which leaves the context byte-identical to what it has always been).
   var measures = currentAttemptMeasures(results);

@@ -354,6 +354,7 @@ describe("diffTransfer: the test row, which three parts write into", () => {
     // The pass rule belongs to «Оценивание», the intro block and appearance to «Итоги».
     expect(test.omitFields).toEqual([
       "overallPassRuleJson",
+      "passDecisionPolicy",
       "defaultQuestionPoints",
       "introJson",
       "designSettingsJson",

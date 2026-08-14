@@ -109,7 +109,10 @@ function materials(app: HTMLElement): Array<{ title: string; href: string }> {
 
 /** Тексты консолидированного блока в порядке показа. */
 function recTexts(app: HTMLElement): string[] {
-  return Array.from(app.querySelectorAll("p.tb-recs-group__text")).map((p) => p.textContent?.trim() ?? "");
+  // Selector is tag-free on purpose: the layout carries the author's own markup, so the
+  // wrapper is a <div> since `f3833fcf` — a <p> inside a <p> was closed early by the
+  // browser and the author's paragraphs escaped the block's rules.
+  return Array.from(app.querySelectorAll(".tb-recs-group__text")).map((p) => p.textContent?.trim() ?? "");
 }
 
 const sectionWithBoth = [

@@ -6,7 +6,7 @@
  * and tests.
  */
 
-import type { FeasibilityIssue } from "./types";
+import type { BreakdownWarning, FeasibilityIssue } from "./types";
 
 /** One short sentence describing why a dependent test is affected. */
 export function describeIssue(issue: FeasibilityIssue): string {
@@ -31,5 +31,21 @@ export function describeIssue(issue: FeasibilityIssue): string {
       return `Тест выдаёт все вопросы темы — выдача сократится на ${issue.removed}`;
     default:
       return "Затрагивается выдача или оценивание теста";
+  }
+}
+
+/** Одно предупреждение публикации (PRD-50 FR-45 - FR-47) человеческим языком. */
+export function describeBreakdownWarning(w: BreakdownWarning): string {
+  switch (w.code) {
+    case "quota_sum_mismatch":
+      return `Тема «${w.topicName}»: сумма квот ${w.count} не равна выборке ${w.total} — подтемы не разбивают выдачу целиком.`;
+    case "questions_without_key":
+      return `Тема «${w.topicName}»: вопросов без подтемы — ${w.count}. Они попадут в выдачу, но не войдут ни в одну полосу.`;
+    case "threshold_key_never_delivered":
+      return `Тема «${w.topicName}»: порог задан для подтемы «${w.key}», которой нет ни в одной выдаче — порог недостижим.`;
+    case "question_outside_variants":
+      return `Тема «${w.topicName}»: вопросов вне вариантов — ${w.count}. Они не будут выданы никогда.`;
+    case "quotas_ignored_in_variants":
+      return `Тема «${w.topicName}»: заданы и квоты, и варианты. В режиме вариантов квоты не применяются.`;
   }
 }

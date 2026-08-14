@@ -23,11 +23,11 @@
 
       <!-- PRD-49. ЗОНТИК итогов: та же схема, что у обычного экрана (`results.html`), с
            ОДНИМ отличием, которое несёт само ядро — сводки баллов на адаптивном экране нет
-           никогда, поэтому ветки isSummary здесь не существует. Состав и порядок подблоков
-           для этого шаблона объявлены в его собственном манифесте
-           (`resultsBlockOrder["results.adaptive"]`): у «Сертификации» это темы, показатели,
-           шкалы — макет их не решает повторно, он только печатает то, что пришло. Внутри
-           цикла контекст — ЭЛЕМЕНТ массива, поэтому данные экрана адресуются через @root. -->
+           никогда, поэтому ветки isSummary здесь не существует, а `result.blocks`
+           физически не может содержать такой подблок (см. `attachBlocksAndLabels` в
+           `shared/template/result-context.ts`). Состав и порядок подблоков макет не решает
+           — он приходит из контекста. Внутри цикла контекст — ЭЛЕМЕНТ массива, поэтому
+           данные экрана адресуются через @root. -->
       {{#if result.blocks}}
       {{#if labels.results.heading}}
       <h2 class="tb-scene__hero tb-scene__hero--s">{{ labels.results.heading }}</h2>
@@ -60,28 +60,9 @@
       </div>
       {{/if}}
 
-      {{#if isIndicators}}
-      <div class="tb-measures">
-        {{#each @root.result.indicators}}
-        <div class="ou-formsection tb-measure">
-          <div class="ou-formsection__intro">
-            {{#unless hideName}}<h4 class="ou-formsection__title">{{name}}</h4>{{/unless}}
-          </div>
-          <div class="ou-formsection__body">
-            {{#unless hideBanner}}
-            <div class="ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}">
-              <div class="ou-banner__body">
-                {{#unless hideLevel}}{{#if levelLabel}}<div class="ou-banner__title">{{levelLabel}}</div>{{/if}}{{/unless}}
-                {{#if text}}<div class="ou-banner__desc">{{& textHtml }}</div>{{/if}}
-              </div>
-            </div>
-            {{/unless}}
-          </div>
-        </div>
-        {{/each}}
-      </div>
-      {{/if}}
-
+      <!-- ШКАЛЫ и ПОКАЗАТЕЛИ: место каждого в цикле задаёт порядок подблоков, а не
+           разметка. Внутренние циклы уже работают в контексте своего элемента — трогать
+           их нельзя, меняются только внешние пути. -->
       {{#if isScales}}
       <div class="{{@root.result.scalesBlockClass}}">
         {{#if @root.result.scalesChart}}
@@ -149,6 +130,28 @@
         </div>
         {{/each}}
         </div>
+      </div>
+      {{/if}}
+
+      {{#if isIndicators}}
+      <div class="tb-measures">
+        {{#each @root.result.indicators}}
+        <div class="ou-formsection tb-measure">
+          <div class="ou-formsection__intro">
+            {{#unless hideName}}<h4 class="ou-formsection__title">{{name}}</h4>{{/unless}}
+          </div>
+          <div class="ou-formsection__body">
+            {{#unless hideBanner}}
+            <div class="ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}">
+              <div class="ou-banner__body">
+                {{#unless hideLevel}}{{#if levelLabel}}<div class="ou-banner__title">{{levelLabel}}</div>{{/if}}{{/unless}}
+                {{#if text}}<div class="ou-banner__desc">{{& textHtml }}</div>{{/if}}
+              </div>
+            </div>
+            {{/unless}}
+          </div>
+        </div>
+        {{/each}}
       </div>
       {{/if}}
       {{/each}}

@@ -8,7 +8,8 @@
  */
 
 import type { DrawBlueprint, FormSet, RetakePolicy } from "@shared/schema";
-import type { ReportSettings, TestIntro } from "@shared/schema";
+import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
+import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
 import type { TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import type { QuestionScoringOverride } from "./scoring-api";
@@ -210,6 +211,11 @@ export type EditorSection = {
    * legacy draw.
    */
   formSet?: FormSet | null;
+  /**
+   * PRD-50 §4 (FR-09): пороги ключей разреза этого раздела. `null`/absent = ключи
+   * информационные, вердикт темы считается ровно как до PRD-50.
+   */
+  breakdownRules?: BreakdownRules | null;
   /**
    * PRD-30 FR-02/FR-18: this topic's OVERRIDE of the test-wide delivery order.
    * `null`/absent = «как в тесте» (the default), `random` = today's shuffle,
@@ -439,6 +445,17 @@ export type QuestionMeasurementModel = {
   weight: number;
 };
 
+// ─── Breakdown display (PRD-50 FR-13) ──────────────────────────────────────────
+
+export type { BreakdownDisplaySetting };
+
+/** Default when the test carries no `breakdownDisplayJson` yet — same as an
+ *  absent DB column: subtotal rows stay hidden, «Доля вопросов» pre-selected. */
+export const DEFAULT_BREAKDOWN_DISPLAY: BreakdownDisplaySetting = {
+  visibility: "hidden",
+  basis: "units",
+};
+
 // ─── Editor model ─────────────────────────────────────────────────────────────
 
 /**
@@ -490,6 +507,12 @@ export type TestEditorModel = {
     showSectionResults: boolean; // FR-05a (секционные)
     // Обзор при полностью отвеченном объёме — авторское решение (см. `review-gate`).
     skipReviewWhenComplete: boolean;
+    /**
+     * PRD-50 FR-13: subtotal-by-key display on the topic card (section results, test
+     * results, report). Absent = a draft built before this PRD — every reader falls
+     * back to {@link DEFAULT_BREAKDOWN_DISPLAY} («Не показывать»).
+     */
+    breakdownDisplay?: BreakdownDisplaySetting;
     // PRD-34: защита текста задания. Три НЕЗАВИСИМЫХ переключателя (FR-02).
     copyProtection: boolean; // FR-01, умолчание ВКЛ
     protectionWatermark: boolean; // FR-16, умолчание ВЫКЛ
@@ -595,6 +618,9 @@ export type TestSettingsPayload = {
   reportSettingsJson?: ReportSettings | null;
   /** Вводные блоки экрана итогов и отчёта; `null` — ни одного не задано. */
   introJson?: TestIntro | null;
+  /** PRD-50 FR-13: subtotal-by-key display setting. Always sent — the editor resolves
+   *  the missing-model case to {@link DEFAULT_BREAKDOWN_DISPLAY} before building the payload. */
+  breakdownDisplayJson: BreakdownDisplaySetting;
   /** PRD-15 block D (FR-31): test-wide default price; `null` = system (1). */
   defaultQuestionPoints: number | null;
   expectedVersion: number;
@@ -616,6 +642,8 @@ export type TestSectionPayload = {
   drawBlueprintJson: DrawBlueprint | null;
   /** PRD-17 (BR-12): fixed-variant set; `null` = legacy draw. */
   formSetJson: FormSet | null;
+  /** PRD-50 §4: пороги ключей; `null` = ключи информационные. */
+  breakdownRulesJson: BreakdownRules | null;
   /** PRD-15 block D (FR-31): per-section default price; `null` = inherit test. */
   defaultPoints: number | null;
   /** PRD-30 FR-02/FR-18: the topic's override; `null` = «как в тесте». */

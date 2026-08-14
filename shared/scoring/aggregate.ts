@@ -15,6 +15,21 @@
  * points-based; the final verdict combines the overall rule with the topic gates
  * per the authored `passDecisionPolicy` (see {@link decideVerdict}) — data written
  * before that policy existed keeps the old `overallPassed && every gated topic`.
+ * Since PRD-50 the TOPIC verdict is decided in a SECOND pass, after the breakdown
+ * records exist (FR-16), because it now combines the section's own rule with the
+ * thresholds of its breakdown keys (FR-19, `applyBreakdownGate`). The first pass
+ * still computes every value it always did — `percent`, `earnedPoints`,
+ * `resolvedPassRule` — and the second one only reads them, so a section without key
+ * thresholds is gated exactly as before.
+ *
+ * PRD-50: this module is also the ONLY entry point into `shared/breakdown/` — every
+ * delivered, graded question is fed to {@link computeBreakdowns} here, so the
+ * per-topic (`AggregateTopicResult.breakdown`) and per-test (`AggregateResult.breakdowns`)
+ * records are computed once, in this one place, for both hosts. They are purely
+ * additive: absent `axisKeys` never affects `earned`/`possible`/the verdict above.
+ * The adaptive mode reaches the same engine through {@link adaptiveResultAsStandard},
+ * which takes the delivered items from its host (FR-17) — the ladder result alone does
+ * not know which questions were asked.
  */
 import { scoreAnswer, type Answer, type CorrectData, type QuestionType } from "./engine";
 import type { QuestionScoring } from "../schema";
@@ -24,9 +39,12 @@ import {
   resolveTopicRule,
   checkPassRule,
   resolvePassDecisionPolicy,
+  applyBreakdownGate,
   type PassDecisionPolicy,
   type ResolvedRule,
 } from "./pass-rule";
+import { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
+import type { BreakdownEntry, BreakdownItem } from "../breakdown/types";
 
 export interface AggregateQuestion {
   type: QuestionType;
@@ -35,6 +53,11 @@ export interface AggregateQuestion {
   /** Effective per-question points (resolved by the caller / baked into TEST_DATA). */
   points: number;
   answer: Answer;
+  /**
+   * PRD-50 FR-15: keys of this question per breakdown axis, e.g. `{ tag: [...] }`.
+   * Absent = the question groups into no breakdown; the verdict is unaffected.
+   */
+  axisKeys?: Record<string, string[]> | null;
 }
 
 export interface AggregateSection<E = unknown> {
@@ -55,6 +78,11 @@ export interface AggregateSection<E = unknown> {
    * state) counts as REQUIRED, matching the DB default.
    */
   required?: boolean;
+  /**
+   * PRD-50 §4: stored `test_sections.breakdown_rules_json` (any shape — normalised here,
+   * like `topicPassRule`). Absent = the topic is gated exactly as before this PRD.
+   */
+  breakdownRules?: unknown;
   questions: AggregateQuestion[];
   /** Host-specific passthrough echoed verbatim into the topic result (feedback/recommendations). */
   extra?: E;
@@ -89,6 +117,8 @@ export interface AggregateTopicResult<E = unknown> {
    * also survives being persisted with the attempt.
    */
   resolvedPassRule: ResolvedRule | null;
+  /** PRD-50: breakdown records in THIS section's scope (empty when nothing is keyed). */
+  breakdown: BreakdownEntry[];
   extra?: E;
 }
 
@@ -110,6 +140,8 @@ export interface AggregateResult<E = unknown> {
   /** Final: overall rule AND every gated topic. */
   passed: boolean;
   topicResults: AggregateTopicResult<E>[];
+  /** PRD-50: breakdown records in the TEST scope (empty when nothing is keyed). */
+  breakdowns: BreakdownEntry[];
 }
 
 export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): AggregateResult<E> {
@@ -122,6 +154,19 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
   let allTopicsPassed = true;
   let requiredTopicsPassed = true;
   const policy = resolvePassDecisionPolicy(input.passDecisionPolicy);
+  const breakdownItems: BreakdownItem[] = [];
+  /**
+   * Per-section inputs the SECOND pass needs, positionally aligned with `topicResults`.
+   * The verdict cannot be decided in the first pass any more: FR-16 puts the breakdown
+   * records BEFORE the topic verdict, and those records exist only once every section has
+   * contributed its delivered items.
+   */
+  const gates: Array<{
+    rule: ResolvedRule | null;
+    scored: number;
+    required: boolean;
+    breakdownRules: unknown;
+  }> = [];
 
   const topicResults: AggregateTopicResult<E>[] = input.sections.map((sec) => {
     let earned = 0;
@@ -141,21 +186,29 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
         q.answer === undefined || q.answer === null
           ? 0
           : scoreAnswer({ type: q.type, correct: q.correct || {}, answer: q.answer, scoring: q.scoring }).ratio;
+      const questionEarned = q.points * ratio;
+      const answered = q.answer !== undefined && q.answer !== null;
       possible += q.points;
-      earned += q.points * ratio;
+      earned += questionEarned;
+      breakdownItems.push({
+        sectionId: sec.topicId,
+        axisKeys: q.axisKeys ?? null,
+        earned: questionEarned,
+        possible: q.points,
+        answered,
+      });
       if (ratio === 1) correct++;
     }
     const total = scored;
     const percent = possible > 0 ? (earned / possible) * 100 : 0;
     const resolved = resolveTopicRule(sec.topicPassRule, overall, { formId: sec.formId ?? null });
-    // FR-09: a section with nothing to grade has no percent to compare, so it stays
-    // UNGATED (`null`) instead of failing its rule at 0%.
-    const passed: boolean | null = resolved && scored > 0 ? checkPassRule(resolved, percent, earned) : null;
-    if (passed === false) {
-      allTopicsPassed = false;
+    gates.push({
+      rule: resolved,
+      scored,
       // FR: absent flag = required (DB default `test_sections.required = true`).
-      if (sec.required !== false) requiredTopicsPassed = false;
-    }
+      required: sec.required !== false,
+      breakdownRules: sec.breakdownRules ?? null,
+    });
 
     tEarned += earned;
     tPossible += possible;
@@ -171,12 +224,46 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       earnedPoints: earned,
       possiblePoints: possible,
       percent,
-      passed,
+      // Filled by the second pass below (FR-16): the key gate needs this topic's records.
+      passed: null,
       passRule: sec.topicPassRule,
       resolvedPassRule: resolved,
+      breakdown: [],
       extra: sec.extra,
     };
   });
+
+  // ONE pass over the delivered items, then split by scope: the test-scope records are
+  // NOT a sum of the section ones (FR-04). Group once instead of filtering the whole
+  // array per topic — this runs on every attempt finish, on both hosts.
+  const entries = computeBreakdowns(breakdownItems);
+  const bySection = new Map<string, BreakdownEntry[]>();
+  for (const e of entries) {
+    const list = bySection.get(e.scope);
+    if (list) list.push(e);
+    else bySection.set(e.scope, [e]);
+  }
+  // FR-16, шаги 2 и 3: сперва записи в области раздела, ПОТОМ вердикт темы, который на них
+  // опирается. Накопители `allTopicsPassed`/`requiredTopicsPassed` — конъюнкции, поэтому
+  // перенос их сложения в этот проход не может изменить ни один существующий вердикт.
+  for (let i = 0; i < topicResults.length; i++) {
+    const topic = topicResults[i];
+    const gate = gates[i];
+    topic.breakdown = bySection.get(sectionScope(topic.topicId)) ?? [];
+    // FR-09: a section with nothing to grade has no percent to compare, so it stays UNGATED
+    // (`null`) instead of failing its rule at 0%.
+    const byRule =
+      gate.rule && gate.scored > 0 ? checkPassRule(gate.rule, topic.percent, topic.earnedPoints) : null;
+    // FR-19: … AND every declared key threshold. Either half may be absent: a section with
+    // key thresholds and no rule of its own is gated by the keys alone.
+    const byKeys = applyBreakdownGate(topic.breakdown, gate.breakdownRules);
+    const passed = byRule === null && byKeys === null ? null : byRule !== false && byKeys !== false;
+    topic.passed = passed;
+    if (passed === false) {
+      allTopicsPassed = false;
+      if (gate.required) requiredTopicsPassed = false;
+    }
+  }
 
   const percent = tPossible > 0 ? (tEarned / tPossible) * 100 : 0;
   // FR-09: a test made entirely of measurement questions (an opinion inventory such as
@@ -195,6 +282,7 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     overallPassed,
     passed: decideVerdict(policy, { overallPassed, requiredTopicsPassed, allTopicsPassed }),
     topicResults,
+    breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
   };
 }
 
@@ -380,6 +468,11 @@ export interface AdaptiveAsStandardTopic {
   passed: boolean;
   achievedLevelName: string | null;
   recommendedCourses: Array<{ title: string; url: string }>;
+  /**
+   * PRD-50 FR-17: breakdown records in THIS topic's scope. Empty when the caller passed
+   * no items — an adaptive host that knows nothing of the axis keeps its old result shape.
+   */
+  breakdown: BreakdownEntry[];
 }
 
 /** {@link adaptiveResultAsStandard}: an adaptive result told in standard-result words. */
@@ -390,6 +483,8 @@ export interface AdaptiveAsStandard {
   possiblePoints: number;
   percent: number;
   passed: boolean;
+  /** PRD-50 FR-17: breakdown records in the TEST scope (empty without items). */
+  breakdowns: BreakdownEntry[];
   topicResults: AdaptiveAsStandardTopic[];
 }
 
@@ -412,16 +507,37 @@ export interface AdaptiveAsStandard {
  * copy would surface as the same formula returning different values in the browser and
  * in the LMS.
  *
- * NOT a substitute for the adaptive result itself: nothing here is stored or shown.
- * The learner's screen renders confirmed LEVELS, and this shape never reaches it.
+ * NOT a substitute for the adaptive result itself: the counts and the verdict here are
+ * neither stored nor shown — the learner's screen renders confirmed LEVELS, and this
+ * shape never reaches it. The one exception is PRD-50: the breakdown records computed
+ * from `breakdownItems` DO travel back onto the stored adaptive result (FR-39), because
+ * the axis is a property of the delivered questions, not of the ladder.
  */
-export function adaptiveResultAsStandard<E = unknown>(result: AdaptiveResult<E>): AdaptiveAsStandard {
+export function adaptiveResultAsStandard<E = unknown>(
+  result: AdaptiveResult<E>,
+  breakdownItems: readonly BreakdownItem[] = [],
+): AdaptiveAsStandard {
   let totalQuestions = 0;
   let correct = 0;
   for (const tr of result.topicResults) {
     totalQuestions += tr.totalQuestionsAnswered;
     correct += tr.totalCorrect;
   }
+
+  // PRD-50 FR-17: the SAME engine the standard aggregate calls — the ladder does not get
+  // its own arithmetic. The items cannot be derived here: an adaptive result carries only
+  // per-level tallies, while a breakdown is computed over DELIVERED questions, so the host
+  // that knows which questions were asked assembles them (web: `buildAdaptiveResult`,
+  // package: `adaptiveBreakdownItems`). No items = no records, and the result keeps
+  // exactly the shape it had before this work (FR-18).
+  const entries = computeBreakdowns(breakdownItems);
+  const bySection = new Map<string, BreakdownEntry[]>();
+  for (const e of entries) {
+    const list = bySection.get(e.scope);
+    if (list) list.push(e);
+    else bySection.set(e.scope, [e]);
+  }
+
   return {
     correct,
     totalQuestions,
@@ -431,6 +547,7 @@ export function adaptiveResultAsStandard<E = unknown>(result: AdaptiveResult<E>)
     possiblePoints: totalQuestions,
     percent: totalQuestions > 0 ? (correct / totalQuestions) * 100 : 0,
     passed: result.overallPassed,
+    breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
     topicResults: result.topicResults.map((tr) => ({
       topicId: tr.topicId,
       topicName: tr.topicName,
@@ -442,6 +559,7 @@ export function adaptiveResultAsStandard<E = unknown>(result: AdaptiveResult<E>)
       passed: tr.achievedLevelIndex !== null,
       achievedLevelName: tr.achievedLevelName,
       recommendedCourses: tr.recommendedLinks,
+      breakdown: bySection.get(sectionScope(tr.topicId)) ?? [],
     })),
   };
 }

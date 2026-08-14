@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -18,6 +18,7 @@ import { requireTestScope } from "../middleware/test-scope";
 import { readableTestScope, canGrantAccess } from "../services/test-access";
 import { visibleTopic } from "../services/topic-access";
 import { assessTestPublish } from "../services/draw-feasibility";
+import { assessBreakdownPublish } from "../services/breakdown-warnings";
 import { createTestSnapshot, getPublicationState } from "../services/test-snapshot";
 import { countUnmappedPages } from "../services/page-variant-audit";
 import { generateScormPackage } from "../scorm-exporter";
@@ -58,6 +59,10 @@ const sectionBodySchema = z
     // keys, so without this the editor's saved form set is silently dropped before
     // it reaches the storage layer (200 OK, but nothing persisted). null = legacy draw.
     formSetJson: formSetSchema.nullish(),
+    // PRD-50 §4 (FR-09): per-key thresholds. MUST be listed here for the same reason as
+    // formSetJson above — Zod strips an unlisted key, and the author's thresholds would
+    // vanish on save with a cheerful 200 OK.
+    breakdownRulesJson: breakdownRulesSchema.nullish(),
     // PRD-15 block D (FR-31): per-section default price; null = inherit test.
     defaultPoints: z.number().int().min(0).nullable().optional(),
     // PRD-30 FR-02/FR-18: the topic's OVERRIDE of the test-wide order; null =
@@ -132,6 +137,8 @@ const testBodyBaseSchema = z.object({
   // PRD-27: выбранный вариант отчёта и значения его полей, по режиму теста.
   reportSettingsJson: reportSettingsSchema.nullish(),
   introJson: testIntroSchema.nullish(),
+  // PRD-50 FR-13: subtotal-by-key display setting; null = hidden (system default).
+  breakdownDisplayJson: breakdownDisplaySchema.nullish(),
   // PRD-15 block D (FR-31): test-wide default price; null = system default (1).
   defaultQuestionPoints: z.number().int().min(0).nullable().optional(),
 
@@ -641,6 +648,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       retakePolicyJson,
       reportSettingsJson,
       introJson,
+      breakdownDisplayJson,
       defaultQuestionPoints,
       folderId,
     } = parsed.data;
@@ -699,6 +707,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         retakePolicyJson: retakePolicyJson ?? null,
         reportSettingsJson: reportSettingsJson ?? null,
         introJson: introJson ?? null,
+        breakdownDisplayJson: breakdownDisplayJson ?? null,
         defaultQuestionPoints: defaultQuestionPoints ?? null,
         folderId: folderId ?? null,
         // PRD-13: creator owns the test atomically in the INSERT (the post-insert
@@ -1065,6 +1074,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       retakePolicyJson,
       reportSettingsJson,
       introJson,
+      breakdownDisplayJson,
       defaultQuestionPoints,
     } = parsed.data;
 
@@ -1128,6 +1138,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         retakePolicyJson: retakePolicyJson ?? undefined,
         reportSettingsJson: reportSettingsJson ?? undefined,
         introJson: introJson ?? undefined,
+        breakdownDisplayJson: breakdownDisplayJson ?? undefined,
         defaultQuestionPoints,
       },
       // PRD-7 §6.3: sections live with the standard mode only. For adaptive,
@@ -1246,7 +1257,20 @@ router.patch("/:id/status", requirePermission("tests.publish"), requireTestScope
       await createTestSnapshot(req.params.id, req.currentUser?.id ?? null);
     }
 
-    res.json(updated);
+    // PRD-50 FR-45 - FR-47: предупреждения, а не запреты. Считаются ПОСЛЕ успешной
+    // публикации и снимка: они ни на что не влияют, кроме того, что автор о них узнаёт.
+    // The publication itself has ALREADY succeeded above, so a failure to gather advisory
+    // notes must not turn that success into a 500 for the author: it is swallowed, logged
+    // and the response stays exactly what it was before this PRD.
+    let breakdownWarnings: Awaited<ReturnType<typeof assessBreakdownPublish>> = [];
+    if (status === "published") {
+      try {
+        breakdownWarnings = await assessBreakdownPublish(req.params.id);
+      } catch (error) {
+        logger.error("breakdown publish warnings failed: " + (error as Error).message, "tests");
+      }
+    }
+    res.json(breakdownWarnings.length > 0 ? { ...updated, breakdownWarnings } : updated);
   } catch (error) {
     logger.error("PATCH status error: " + (error as Error).message, "tests");
     res.status(500).json({ error: "Failed to update test status" });

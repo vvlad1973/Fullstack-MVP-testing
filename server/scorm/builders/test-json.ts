@@ -231,6 +231,14 @@ export function buildTestJson(data: ExportData): string {
     // Вводные блоки экрана и отчёта (PRD-27 §7.1). Едут одним полем: рантайм сам берёт
     // свою ветвь — экран печатает свой текст, конвейер отчёта свой.
     ...(data.test.introJson ? { introJson: data.test.introJson } : {}),
+    // PRD-50 FR-13: key-breakdown display setting. Baked ONLY when the author saved
+    // one AND turned it on (`visibility !== "hidden"`), so packages of tests that
+    // never touched the setting stay byte-identical (FR-02); the runtime reads
+    // TEST_DATA.breakdownDisplay and an absent value means «no breakdown rows»,
+    // exactly the behaviour every package had before this PRD.
+    ...(data.test.breakdownDisplayJson && data.test.breakdownDisplayJson.visibility !== "hidden"
+      ? { breakdownDisplay: data.test.breakdownDisplayJson }
+      : {}),
     timeLimitMinutes: data.test.timeLimitMinutes || null,
     maxAttempts: data.test.maxAttempts || null,
     showCorrectAnswers: data.test.showCorrectAnswers || false,
@@ -306,6 +314,10 @@ export function buildTestJson(data: ExportData): string {
         // degrades to a random pick (R-6). The whole bank ships (every variant's
         // questions+keys, R-7) — selection happens client-side.
         ...(s.formSetJson ? { formSet: s.formSetJson } : {}),
+        // PRD-50 §4 (FR-09): per-key thresholds of this section. Baked only when the author
+        // set them, so packages of tests without thresholds stay byte-identical; the runtime
+        // reads `section.breakdownRules` and an absent value means «keys are informational».
+        ...(s.breakdownRulesJson ? { breakdownRules: s.breakdownRulesJson } : {}),
         // PRD-30 FR-02/FR-18/FR-23: the topic's OVERRIDE of the test-wide order.
         // Baked only when the topic actually overrides (a null column = «как в
         // тесте»), so packages of tests that never touched the setting stay
@@ -481,6 +493,9 @@ export function buildTestJson(data: ExportData): string {
             ...(baked.scoring ? { scoring: baked.scoring } : {}),
             // PRD-16 FR-41 (see standard-section map above).
             ...(q.shuffleAnswers === false ? { shuffleAnswers: false } : {}),
+            // PRD-50 FR-17: axis keys are needed in adaptive mode too. Include only
+            // a non-empty list so packages without tags stay byte-identical (FR-02).
+            ...(Array.isArray(q.tags) && q.tags.length ? { tags: q.tags } : {}),
           };
         }),
       };

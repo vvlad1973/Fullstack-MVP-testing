@@ -134,6 +134,20 @@
       "when": 1786612879081,
       "tag": "0018_prd28_external_participant",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786657520098,
+      "tag": "0019_prd50_breakdown_display",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786714823811,
+      "tag": "0020_prd50_breakdown_rules",
+      "breakpoints": true
     }
   ]
 }

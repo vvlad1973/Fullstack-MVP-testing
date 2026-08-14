@@ -21,11 +21,11 @@
       {{#if result.introHtml}}<div class="tb-intro">{{& result.introHtml }}</div>{{/if}}
 
       <!-- PRD-49. ЗОНТИК итогов: одна надпись первого уровня и цикл по подблокам, которые
-           ядро уже отобрало и упорядочило (`result.blocks`). Состав и порядок для этого
-           шаблона объявлены в его собственном манифесте (`resultsBlockOrder.default`), где
-           у «Сертификации» показатели идут ПЕРЕД шкалами — макет их не решает повторно.
-           Пустая надпись = автор её выключил, блок при этом остаётся. Внутри цикла контекст
-           — ЭЛЕМЕНТ массива, поэтому данные экрана адресуются через `@root.`. -->
+           ядро уже отобрало и упорядочило (`result.blocks`). Состав и порядок макет не
+           решает — вторая копия этого решения в разметке и есть тот расход, ради которого
+           PRD-49 существует. Пустая надпись = автор её выключил, блок при этом остаётся.
+           Внутри цикла контекст — ЭЛЕМЕНТ массива, поэтому данные экрана адресуются
+           через `@root.`. -->
       {{#if result.blocks}}
       {{#if labels.results.heading}}
       <h2 class="tb-scene__hero tb-scene__hero--s">{{ labels.results.heading }}</h2>
@@ -54,29 +54,9 @@
       </div>
       {{/if}}
 
-      {{#if isIndicators}}
-      <div class="tb-measures">
-        {{#each @root.result.indicators}}
-        <div class="ou-formsection tb-measure" data-render="{{renderKind}}">
-          <div class="ou-formsection__intro">
-            {{#unless hideName}}<h4 class="ou-formsection__title">{{name}}</h4>{{/unless}}
-          </div>
-          <div class="ou-formsection__body">
-            {{#if showValue}}<span class="ou-slider__val"><strong>{{valueLabel}}</strong></span>{{/if}}
-            {{#unless hideBanner}}
-            <div class="ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}">
-              <div class="ou-banner__body">
-                {{#unless hideLevel}}{{#if levelLabel}}<div class="ou-banner__title">{{levelLabel}}</div>{{/if}}{{/unless}}
-                {{#if text}}<div class="ou-banner__desc">{{& textHtml }}</div>{{/if}}
-              </div>
-            </div>
-            {{/unless}}
-          </div>
-        </div>
-        {{/each}}
-      </div>
-      {{/if}}
-
+      <!-- ШКАЛЫ и ПОКАЗАТЕЛИ: место каждого в цикле задаёт порядок подблоков, а не
+           разметка. Внутренние циклы уже работают в контексте своего элемента — трогать
+           их нельзя, меняются только внешние пути. -->
       {{#if isScales}}
       <div class="{{@root.result.scalesBlockClass}}">
         {{#if @root.result.scalesChart}}
@@ -165,6 +145,29 @@
       </div>
       {{/if}}
 
+      {{#if isIndicators}}
+      <div class="tb-measures">
+        {{#each @root.result.indicators}}
+        <div class="ou-formsection tb-measure" data-render="{{renderKind}}">
+          <div class="ou-formsection__intro">
+            {{#unless hideName}}<h4 class="ou-formsection__title">{{name}}</h4>{{/unless}}
+          </div>
+          <div class="ou-formsection__body">
+            {{#if showValue}}<span class="ou-slider__val"><strong>{{valueLabel}}</strong></span>{{/if}}
+            {{#unless hideBanner}}
+            <div class="ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}">
+              <div class="ou-banner__body">
+                {{#unless hideLevel}}{{#if levelLabel}}<div class="ou-banner__title">{{levelLabel}}</div>{{/if}}{{/unless}}
+                {{#if text}}<div class="ou-banner__desc">{{& textHtml }}</div>{{/if}}
+              </div>
+            </div>
+            {{/unless}}
+          </div>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
       {{#if isTopics}}
       <div class="tb-topics-grid">
         {{#each @root.result.topicResults}}
@@ -177,6 +180,17 @@
               {{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}
               {{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}
             </div>
+            {{#if breakdown}}
+            <div class="tb-topic__breakdown">
+              {{#each breakdown}}
+              <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
+                <div class="tb-breakdown__name">{{ key }}{{#if statusLabel}}<span class="tb-breakdown__status">{{ statusLabel }}</span>{{/if}}</div>
+                <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+                {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
+              </div>
+              {{/each}}
+            </div>
+            {{/if}}
             {{#if requiredLabel}}<span class="tb-topic-card__req">{{requiredLabel}}</span>{{/if}}
             {{#if hasRecommendations}}
             <div class="tb-topic-card__fb">

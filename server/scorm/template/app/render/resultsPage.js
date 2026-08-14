@@ -83,9 +83,10 @@ function buildScaleInteractions(scaleComputation) {
 
 // ─── PRD-2 (A7): result variables ────────────────────────────────────────────
 // Build the formula evaluation context from standard scoring. Этап A wires
-// percent + per-topic results; PRD-5 scales now fill `scales` (B5);
-// tags/sections resolve to neutral defaults (tag aggregation and PRD-4 section
-// keys come later).
+// percent + per-topic results; PRD-5 scales fill `scales` (B5); PRD-50 fills
+// `tags` from the attempt's breakdown records and `sections` from the topic
+// results. Mirrors server/services/result-compute.ts key for key — the two hosts
+// must hand the evaluator the SAME maps.
 function buildResultVarContext(results, scaleComputation) {
   // Topic name/code come from TEST_DATA.sections so `topicByName("<name>")` and
   // `topicById("<code>")` resolve (PRD-2 §4.2); fall back to topicResult fields.
@@ -94,6 +95,8 @@ function buildResultVarContext(results, scaleComputation) {
   for (var i = 0; i < secs.length; i++) meta[secs[i].topicId] = secs[i];
   var topics = {};
   var topicsByName = {};
+  var sections = {};
+  var sectionAliases = {};
   var totalScore = 0;
   (results.topicResults || []).forEach(function (tr) {
     var r = { percent: tr.percent || 0, passed: tr.passed === true, score: tr.earnedPoints || 0 };
@@ -104,7 +107,35 @@ function buildResultVarContext(results, scaleComputation) {
     var name = m.topicName || tr.topicName || null;
     if (code) topics[code] = r;
     if (name) topicsByName[name] = r;
+    // `sectionById(...)` is the delivered section = the topic result, keyed by UUID and
+    // by the author's code. `completed` is true by construction: a section that produced
+    // a result was played to its end in the standard flow.
+    var sec = { percent: tr.percent || 0, passed: tr.passed === true, completed: true };
+    sections[tr.topicId] = sec;
+    if (code) sections[code] = sec;
+    sectionAliases[tr.topicId] = code ? [tr.topicId, code] : [tr.topicId];
   });
+  // PRD-50 FR-35/FR-36: `tag(...)` reads this attempt's breakdown records. The test scope
+  // keeps the plain key; a section scope is addressed by the COMPOSITE key
+  // «<section>::<key>», whose left part accepts the same two spellings `topicById` does.
+  // The DSL grammar is untouched.
+  var tags = {};
+  var entries = results.breakdowns || [];
+  for (var b = 0; b < entries.length; b++) {
+    var e = entries[b];
+    // `percent` is the POINTS-based ratio: it is the verdict currency (FR-21) and must
+    // not depend on which basis the author chose to display on screen.
+    var value = { percent: e.percentPoints, score: e.earned, maxScore: e.possible, count: e.items };
+    if (e.scope === 'test') {
+      tags[e.key] = value;
+      continue;
+    }
+    var sectionId = e.scope.slice('section:'.length);
+    var aliases = Object.prototype.hasOwnProperty.call(sectionAliases, sectionId)
+      ? sectionAliases[sectionId]
+      : [sectionId];
+    for (var a = 0; a < aliases.length; a++) tags[aliases[a] + '::' + e.key] = value;
+  }
   var scales = (scaleComputation && scaleComputation.values) || {};
   // Overall earned points across the test = Σ of per-topic earned points.
   return {
@@ -112,9 +143,9 @@ function buildResultVarContext(results, scaleComputation) {
     score: totalScore,
     topics: topics,
     topicsByName: topicsByName,
-    tags: {},
+    tags: tags,
     scales: scales,
-    sections: {},
+    sections: sections,
   };
 }
 
@@ -468,6 +499,7 @@ function computeSectionResult(topicId) {
   var possiblePoints = 0;
   var fullyCorrect = 0;
   var total = 0;
+  var breakdownItems = [];
   var section = TEST_DATA.sections.find(function (s) { return s.topicId === topicId; }) || null;
 
   state.flatQuestions.forEach(function (fq) {
@@ -482,6 +514,17 @@ function computeSectionResult(topicId) {
     possiblePoints += qPoints;
     earnedPoints += qPoints * scoreRatio;
     if (scoreRatio === 1) fullyCorrect++;
+    // PRD-50 FR-19: тот же гейт, что у итогов теста. Измерительный вопрос в разрез не
+    // попадает — то же исключение, что делает `aggregateStandardResult` (FR-02).
+    if (!(typeof TBQType !== 'undefined' && TBQType.isMeasurementOnly(q))) {
+      breakdownItems.push({
+        sectionId: topicId,
+        axisKeys: q.tags && q.tags.length ? { tag: q.tags } : null,
+        earned: qPoints * scoreRatio,
+        possible: qPoints,
+        answered: answer !== undefined && answer !== null
+      });
+    }
   });
 
   var percent = possiblePoints > 0 ? (earnedPoints / possiblePoints) * 100 : 0;
@@ -496,6 +539,17 @@ function computeSectionResult(topicId) {
     { formId: deliveredFormId(topicId) }
   );
   var passed = resolvedRule ? window.TBTemplate.checkPassRule(resolvedRule, percent, earnedPoints) : null;
+
+  // PRD-50 FR-19/FR-22: пороги ключей раздела. `applyBreakdownGate` возвращает null, когда
+  // ни один порог не применился, и тогда вердикт остаётся тем, что дал порог раздела.
+  var sectionEntries = window.TBTemplate.computeBreakdowns(breakdownItems).filter(function (e) {
+    return e.scope !== 'test';
+  });
+  var keysVerdict = window.TBTemplate.applyBreakdownGate(
+    sectionEntries,
+    section ? (section.breakdownRules || null) : null
+  );
+  if (keysVerdict !== null) passed = passed === null ? keysVerdict : passed && keysVerdict;
 
   var result = {
     topicId: topicId,
@@ -512,6 +566,7 @@ function computeSectionResult(topicId) {
     resolvedPassRule: resolvedRule,
     recommendedCourses: section ? (section.recommendedCourses || []) : [],
     recommendedEvents: section ? (section.recommendedEvents || []) : [],
+    breakdown: sectionEntries,
   };
 
   if (!state.sectionResults) state.sectionResults = {};
@@ -539,6 +594,9 @@ function calculateResults() {
         formId: deliveredFormId(fq.topicId),
         // «Тест пройден, если»: the `*_required_topics*` policies gate on this flag.
         required: section ? section.required !== false : true,
+        // PRD-50 FR-19: пороги ключей этого раздела; выпечены в TEST_DATA как
+        // section.breakdownRules. Отсутствие = ключи информационные, вердикт как до PRD-50.
+        breakdownRules: section ? (section.breakdownRules || null) : null,
         questions: [],
         extra: {
           recommendedCourses: (section && section.recommendedCourses) || [],
@@ -553,7 +611,9 @@ function calculateResults() {
       scoring: q.scoring,
       points: q.points != null ? q.points : 1,
       // PRD-19 Block E (FR-07/FR-13): drafts/skipped/unanswered score 0 in flexible mode.
-      answer: gradedAnswerFor(q)
+      answer: gradedAnswerFor(q),
+      // PRD-50 FR-15: this question's breakdown axis keys; baked into TEST_DATA as q.tags.
+      axisKeys: q.tags && q.tags.length ? { tag: q.tags } : null
     });
   });
 
@@ -566,6 +626,14 @@ function calculateResults() {
     passDecisionPolicy: TEST_DATA.passDecisionPolicy
   });
 
+  // PRD-50 FR-35/FR-36: both scopes in ONE flat array — its and only its `buildResultVarContext`
+  // reads, so `tag()` can reach any scope.
+  var breakdowns = (agg.breakdowns || []).slice();
+  for (var bi = 0; bi < agg.topicResults.length; bi++) {
+    var secEntries = agg.topicResults[bi].breakdown || [];
+    for (var bj = 0; bj < secEntries.length; bj++) breakdowns.push(secEntries[bj]);
+  }
+
   return {
     correct: agg.correct,
     totalQuestions: agg.totalQuestions,
@@ -573,6 +641,7 @@ function calculateResults() {
     possiblePoints: agg.possiblePoints,
     percent: agg.percent,
     passed: agg.passed,
+    breakdowns: breakdowns,
     topicResults: agg.topicResults.map(function (t) {
       return {
         topicId: t.topicId,
@@ -590,7 +659,21 @@ function calculateResults() {
         // the label — including for past attempts.
         resolvedPassRule: t.resolvedPassRule,
         recommendedCourses: t.extra.recommendedCourses,
-        recommendedEvents: t.extra.recommendedEvents
+        recommendedEvents: t.extra.recommendedEvents,
+        // PRD-50: this topic's breakdown records. Kept ON the topic on purpose:
+        // `saveAttemptResult` persists `topicResults` verbatim, and this is the ONLY
+        // path a breakdown record has into a saved attempt — without it, «Мой результат»
+        // and the report downloaded from it would print nothing where the web host on
+        // the same attempt prints bars (§14, item 5). Cost: ~3KB per attempt against the
+        // 30-55KB `flatQuestions` already weighs.
+        //
+        // Omitted (not `[]`) when empty: `aggregateStandardResult` always returns an
+        // array on `t.breakdown`, even for a topic with no keyed questions, so writing
+        // it unconditionally would put `"breakdown":[]` on every topic of every attempt
+        // — a few bytes each, on every test, whether or not it uses PRD-50 at all.
+        // `JSON.stringify` drops an `undefined` value's key outright, which is the one
+        // way to add nothing for a test that carries no keys.
+        breakdown: (t.breakdown && t.breakdown.length) ? t.breakdown : undefined
       };
     })
   };

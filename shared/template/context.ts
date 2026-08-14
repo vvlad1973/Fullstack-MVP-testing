@@ -79,6 +79,64 @@ export interface CtxTopicResultView extends CtxTopicFeedback {
   pointsLabel?: string;
   /** SCORM-extra: per-topic pass threshold, e.g. "Требуется: 70%". */
   requiredLabel?: string;
+  /**
+   * PRD-50: breakdown rows of this topic, Core-prepared. Absent when the author never
+   * turned them on, or when the topic carries no key at all — an empty array is falsy in
+   * the DSL, so the whole block (including its heading) disappears from the layout with it.
+   */
+  breakdown?: CtxBreakdownRow[];
+}
+
+/**
+ * One breakdown row, prepared by the core: the layout only prints it (PRD-50 §8.1).
+ *
+ * The counts and the points are here from the FIRST release, not from the release that
+ * first prints them. A third-party template из реестра PRD-3 cannot show «верно 4 из 7»
+ * out of a bar width, and adding a field later is a contract change that has to be
+ * carried across both hosts and every shipped package.
+ *
+ * Three verdict fields — `passed`, `passClass`, `statusLabel` — arrived with Э2, filled
+ * from the key's threshold (`shared/scoring/pass-rule.ts` `applyBreakdownGate`). `passed`
+ * is `null` (and the other two are `""`) whenever the key carries no threshold verdict at
+ * all — no rule applied, or the key never appeared in the delivery (FR-22) — so a row never
+ * ASSERTS a failure the gate did not pronounce.
+ */
+export interface CtxBreakdownRow {
+  key: string;
+  /** Delivered questions carrying this key (FR-01). */
+  items: number;
+  /** How many of those the learner answered. */
+  answered: number;
+  /** Points earned on them, one decimal (as `pointsLabel` rounds). */
+  earned: number;
+  /** Points they could bring, one decimal. */
+  possible: number;
+  /**
+   * The value of the basis the AUTHOR chose (`units` / `points`), one decimal —
+   * the unrounded twin of {@link barPercent}. A layout that wants a number prints
+   * this one and does not have to know which basis is in force.
+   */
+  percent: number;
+  /** Normalized share — every question weighs 1 (решение 4), one decimal. */
+  percentUnits: number;
+  /** Points share, one decimal. The verdict currency (FR-21), whatever is displayed. */
+  percentPoints: number;
+  /** Bar width in percent, rounded. */
+  barPercent: number;
+  /** Whether to print the number alongside the bar. */
+  showValue: boolean;
+  /** Ready-made value label, e.g. "50 %". Empty when showValue is false. */
+  valueLabel: string;
+  /**
+   * PRD-50 FR-19 (§8.1, «с Э2»): key verdict. `null` = no threshold applied, and the row
+   * asserts nothing about the key: no class, no label. Three fields, not one, for the
+   * same reason the topic verdict is three: the layout must not compute or translate.
+   */
+  passed: boolean | null;
+  /** Core-prepared class, e.g. `is-pass` / `is-fail` / `""`. */
+  passClass: string;
+  /** Core-prepared label, e.g. `Пройдено` / `Не пройдено` / `""`. */
+  statusLabel: string;
 }
 
 /** A per-topic row for the adaptive results layout (level-based, no score). */

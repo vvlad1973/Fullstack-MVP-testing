@@ -13,7 +13,13 @@
  * attempts.ts (correct-COUNT basis, no source handling) — both of which mis-graded
  * `inherit_overall` / `none` (treated as an unsatisfiable `value:undefined` count
  * rule, so the topic always failed) and disagreed on the count basis.
+ *
+ * PRD-50 adds the SECOND half of the topic gate here: the thresholds of the section's
+ * breakdown keys ({@link applyBreakdownGate}). It lives next to the section rule for the
+ * same reason the section rule lives here — one implementation for both hosts.
  */
+
+import type { BreakdownEntry, BreakdownRules } from "../breakdown/types";
 
 /** A resolved, runtime-ready pass rule. `null` means "no gate" (topic informational). */
 export type ResolvedRule = { type: "percent" | "count"; value: number };
@@ -174,4 +180,88 @@ export function hasGradedScore(thresholdDeclared: boolean | undefined, possibleP
  */
 export function hasPronouncedVerdict(thresholdDeclared: boolean | undefined, possiblePoints: number): boolean {
   return !(nothingToGrade(possiblePoints) || thresholdDeclared === false);
+}
+
+// ─── PRD-50: gate by breakdown keys ──────────────────────────────────────────
+
+/**
+ * Normalised, runtime-ready key thresholds of ONE section. `fallback` is the threshold every
+ * key without an own entry falls back to; `byKey` holds explicit entries, where a `null`
+ * VALUE means «declared informational» and therefore WINS over the fallback (FR-20).
+ */
+export interface ResolvedBreakdownRules {
+  axis: string;
+  fallback: number | null;
+  byKey: Map<string, number | null>;
+}
+
+/** One stored threshold → its percent value, or `null` for «none» / anything unrecognised. */
+function breakdownThresholdValue(raw: unknown): number | null {
+  if (!raw || typeof raw !== "object") return null;
+  const t = raw as { type?: string; value?: unknown };
+  if (t.type !== "percent") return null;
+  const value = Number(t.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Normalise stored `test_sections.breakdown_rules_json` (any shape — validated on write, but
+ * a legacy snapshot or an old SCORM package may carry none at all). Returns `null` when
+ * NOTHING is declared: no fallback and no explicit key. `null` is the pre-PRD-50 state and
+ * must leave the topic verdict exactly as it was.
+ */
+export function resolveBreakdownRules(raw: unknown): ResolvedBreakdownRules | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Partial<BreakdownRules>;
+  const byKey = new Map<string, number | null>();
+  const keys = r.keys;
+  if (keys && typeof keys === "object") {
+    for (const key of Object.keys(keys)) byKey.set(key, breakdownThresholdValue(keys[key]));
+  }
+  const fallback = breakdownThresholdValue(r.default);
+  if (fallback === null && byKey.size === 0) return null;
+  return { axis: typeof r.axis === "string" && r.axis ? r.axis : "tag", fallback, byKey };
+}
+
+/** The threshold that applies to one key, or `null` when the key is informational (FR-20). */
+export function breakdownThresholdFor(
+  rules: ResolvedBreakdownRules | null,
+  axis: string,
+  key: string,
+): number | null {
+  if (!rules || axis !== rules.axis) return null;
+  const own = rules.byKey.get(key);
+  // `undefined` = no entry at all → fall back; an entry holding `null` is a deliberate «none».
+  return own === undefined ? rules.fallback : own;
+}
+
+/**
+ * Apply the key thresholds to ONE section's breakdown records (FR-19 - FR-22).
+ *
+ * Stamps `passed` on every record and answers the section's key verdict: `true` when every
+ * applied threshold holds, `false` when at least one is missed, `null` when NO threshold
+ * applied at all — no rules, only informational keys, or nothing delivered under the keys
+ * that have one (FR-22). `null` must not be read as «passed»: the caller distinguishes «the
+ * keys say nothing» from «the keys say yes».
+ *
+ * The records are mutated on purpose. They are the very objects both hosts persist with the
+ * attempt and render from, so returning copies would mean threading a second array through
+ * two hosts, the stored result and the report.
+ */
+export function applyBreakdownGate(entries: BreakdownEntry[], rawRules: unknown): boolean | null {
+  const rules = resolveBreakdownRules(rawRules);
+  let verdict: boolean | null = null;
+  for (const e of entries) {
+    const threshold = breakdownThresholdFor(rules, e.axis, e.key);
+    // FR-22: a key nothing was delivered under cannot be missed, so it is not judged.
+    if (threshold === null || e.items <= 0) {
+      e.passed = null;
+      continue;
+    }
+    // FR-21: ALWAYS the points share — the display basis must not move the verdict.
+    const ok = e.percentPoints >= threshold;
+    e.passed = ok;
+    verdict = verdict === null ? ok : verdict && ok;
+  }
+  return verdict;
 }

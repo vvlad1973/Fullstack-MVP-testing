@@ -90,7 +90,12 @@ import {
   type TestFilterValue,
 } from "./tests-filters";
 import { ContentImpactDialog } from "@/features/content-protection/content-impact-dialog";
-import type { PublishCheckFinding, PublishInfeasibleError } from "@/features/content-protection/types";
+import type {
+  BreakdownWarning,
+  PublishCheckFinding,
+  PublishInfeasibleError,
+} from "@/features/content-protection/types";
+import { describeBreakdownWarning } from "@/features/content-protection/issue-text";
 import { TestEditor } from "@/features/tests/editor/test-editor";
 import type { EditorTabKey } from "@/features/tests/editor/use-test-editor";
 import { TestAccessPanel } from "@/features/tests/access/test-access-panel";
@@ -352,12 +357,22 @@ export function TestsListPage(): React.JSX.Element {
   // PRD-15 FR-14: emergency-republish confirm target.
   const [forceRepublish, setForceRepublish] = useState<{ id: string; title: string } | null>(null);
 
+  // PRD-50 FR-45 - FR-47: замечания УСПЕШНОЙ публикации. null = диалога нет; тест без
+  // единого замечания публикуется ровно как раньше, без лишнего экрана.
+  const [publishNotes, setPublishNotes] = useState<string[] | null>(null);
+
   // ─── Mutations ───────────────────────────────────────────────────────────
   const statusMutation = useMutation({
     mutationFn: async (args: { id: string; status: "draft" | "published" | "archived" }) => {
-      return apiRequest("PATCH", `/api/tests/${args.id}/status`, { status: args.status });
+      const res = await apiRequest("PATCH", `/api/tests/${args.id}/status`, { status: args.status });
+      // PRD-50: тело публикации может нести предупреждения (FR-45 - FR-47); их показывает
+      // onSuccess. Разбор здесь, а не там, потому что onSuccess получает то, что вернул mutationFn.
+      return (await res.json()) as { breakdownWarnings?: BreakdownWarning[] };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tests"] }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tests"] });
+      if (data.breakdownWarnings?.length) setPublishNotes(data.breakdownWarnings.map(describeBreakdownWarning));
+    },
     onError: (error: Error, args) => {
       // apiRequest throws "409: <json>"; surface a publish-infeasible 409 as the
       // content-impact dialog (PRD-15 FR-06), otherwise a generic toast.
@@ -843,6 +858,15 @@ export function TestsListPage(): React.JSX.Element {
           if (publishImpact) setEditorTarget({ kind: "edit", testId: publishImpact.testId });
           setPublishImpact(null);
         }}
+      />
+
+      {/* PRD-50 FR-45 - FR-47: замечания к УЖЕ опубликованному тесту ---------- */}
+      <ContentImpactDialog
+        open={publishNotes !== null}
+        mode="advisory"
+        title="Тест опубликован с замечаниями"
+        notes={publishNotes ?? []}
+        onClose={() => setPublishNotes(null)}
       />
 
       {/* PRD-15 FR-14: emergency re-publish confirm ------------------------- */}

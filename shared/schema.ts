@@ -6,6 +6,7 @@ import { normalizeTag, normalizeTags, TAG_MAX_LENGTH } from "./tags";
 import { isAllocationFeasible } from "./questions/allocation";
 import { STORED_ROLES } from "./access/roles";
 import { PLACEHOLDER_TYPES, SETTING_TYPES } from "./template/field-types";
+import type { BreakdownRules } from "./breakdown/types";
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -566,6 +567,15 @@ export const tests = pgTable("tests", {
    * складывать их вместе значило бы связать два независимых черновика редактора.
    */
   introJson: jsonb("intro_json").$type<TestIntro>(),
+  /**
+   * PRD-50 FR-13: breakdown display setting. `hidden` (default) means this test behaves
+   * exactly as it did before PRD-50. `basis` picks the NUMBER shown on screen, not the
+   * verdict's currency — the pass threshold is always evaluated in points.
+   */
+  breakdownDisplayJson: jsonb("breakdown_display_json").$type<{
+    visibility: "hidden" | "bar" | "bar_and_value";
+    basis: "units" | "points";
+  }>(),
 }, (table) => ({
   // Test lists filter by lifecycle status (draft/published/archived).
   statusIdx: index("tests_status_idx").on(table.status),
@@ -650,6 +660,25 @@ export const formSetSchema = z.object({
 export type Form = z.infer<typeof formSchema>;
 export type FormSet = z.infer<typeof formSetSchema>;
 
+/**
+ * PRD-50 §4 (FR-09/FR-10): thresholds of a section's breakdown keys. GRADING only — the
+ * composition of the delivery by key stays in `draw_blueprint_json` and is never duplicated
+ * here. `none` is an explicit «informational» that WINS over `default`; an absent key falls
+ * back to `default`; an absent structure leaves every key informational (сегодняшнее поведение).
+ */
+export const breakdownThresholdSchema = z.union([
+  z.object({ type: z.literal("percent"), value: z.number().min(0).max(100) }),
+  z.object({ type: z.literal("none") }),
+]);
+
+export const breakdownRulesSchema = z.object({
+  // One registered axis in this edition (FR-06). A literal, not a free string: an unknown
+  // axis would be stored, never read, and silently gate nothing.
+  axis: z.literal("tag"),
+  default: breakdownThresholdSchema.optional(),
+  keys: z.record(z.string(), breakdownThresholdSchema).optional(),
+});
+
 export const testSections = pgTable("test_sections", {
   id: varchar("id", { length: 36 }).primaryKey(),
   testId: varchar("test_id", { length: 36 }).notNull(),
@@ -671,6 +700,12 @@ export const testSections = pgTable("test_sections", {
   // draw_count/draw_all/draw_blueprint are then not applied (FR-03). Null = legacy
   // draw (uniform / quotas), backward-compatible.
   formSetJson: jsonb("form_set_json").$type<FormSet>(),
+  /**
+   * PRD-50 §4 (FR-09/FR-10): per-key pass thresholds of THIS section. Null = every key is
+   * informational, i.e. exactly the behaviour of every test built before this PRD. Separate
+   * from `draw_blueprint_json` by decision: quota = delivery, threshold = grading.
+   */
+  breakdownRulesJson: jsonb("breakdown_rules_json").$type<BreakdownRules>(),
   /**
    * PRD-30 FR-02/FR-18: how this topic's questions are ordered on delivery.
    * `random` shuffles the drawn set (today's behaviour), `fixed` orders it by
@@ -858,6 +893,7 @@ export const insertTestSectionSchema = createInsertSchema(testSections)
   .extend({
     drawBlueprintJson: drawBlueprintSchema.nullish(),
     formSetJson: formSetSchema.nullish(),
+    breakdownRulesJson: breakdownRulesSchema.nullish(),
   });
 export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true });
 
@@ -1083,6 +1119,20 @@ export type IntroBlock = z.infer<typeof introBlockSchema>;
 export type TestIntro = z.infer<typeof testIntroSchema>;
 
 /**
+ * `tests.breakdown_display_json` (PRD-50 FR-13). `visibility` gates whether the
+ * key-breakdown rows (tag subtotals) print on the topic card at all; `hidden`
+ * (absent column) reproduces the byte-identical screen a test built before PRD-50
+ * has always shown. `basis` picks the NUMBER the bar carries, never the pass
+ * verdict's currency — the threshold is always evaluated in points.
+ */
+export const breakdownDisplaySchema = z.object({
+  visibility: z.enum(["hidden", "bar", "bar_and_value"]),
+  basis: z.enum(["units", "points"]),
+});
+
+export type BreakdownDisplaySetting = z.infer<typeof breakdownDisplaySchema>;
+
+/**
  * Вводный блок ОТЧЁТА с учётом переключателя «как на экране итогов».
  *
  * Реэкспорт: само правило живёт в чистом `shared/report/report-intro`, потому что тот же
@@ -1236,6 +1286,32 @@ export type TestVariant = z.infer<typeof testVariantSchema>;
 export const attemptAnswerSchema = z.record(z.string(), z.unknown());
 export type AttemptAnswers = z.infer<typeof attemptAnswerSchema>;
 
+/**
+ * One PRD-50 breakdown record as it is STORED with an attempt — the mirror of
+ * `shared/breakdown/types`'s `BreakdownEntry`. Declared once because three places keep
+ * the very same record (a topic's own scope, the test scope, an adaptive topic's scope),
+ * and three hand-written copies would drift the moment the record gains a field.
+ */
+export const breakdownEntrySchema = z.object({
+  scope: z.string(),
+  axis: z.string(),
+  key: z.string(),
+  items: z.number(),
+  answered: z.number(),
+  earned: z.number(),
+  possible: z.number(),
+  unitEarned: z.number(),
+  unitPossible: z.number(),
+  percentPoints: z.number(),
+  percentUnits: z.number(),
+  // PRD-50 Э2: the key's own verdict, stamped by `applyBreakdownGate` when the section
+  // declares a threshold for it. `null` = the key is ungated or was not delivered at all
+  // (`items = 0`); absent = written before thresholds existed. Declared here and not only
+  // on the TS type because zod STRIPS undeclared keys: without this line the verdict would
+  // be computed, stored into the object, and silently dropped on the way through the schema.
+  passed: z.boolean().nullable().optional(),
+});
+
 export const topicResultSchema = z.object({
   topicId: z.string(),
   topicName: z.string(),
@@ -1266,6 +1342,11 @@ export const topicResultSchema = z.object({
   // recommendations block de-duplicates on. `.default([])` keeps attempts graded before
   // this work valid.
   feedbackTexts: z.array(z.string()).default([]),
+  // PRD-50: breakdown records of THIS section's scope, stored WITH the attempt like the
+  // recommendations above — the results screen renders from the saved result, and
+  // recomputing from live content would hand a past attempt today's tags.
+  // `.default([])` keeps attempts graded before PRD-50 valid.
+  breakdown: z.array(breakdownEntrySchema).default([]),
 });
 
 export const attemptResultSchema = z.object({
@@ -1276,6 +1357,12 @@ export const attemptResultSchema = z.object({
   totalPossiblePoints: z.number(),
   overallPassed: z.boolean(),
   topicResults: z.array(topicResultSchema),
+  // PRD-50 FR-39: records of the TEST scope. Section-scope records live on their own
+  // topics and are NOT duplicated here — one record, one place. `optional()`, not
+  // `.default([])`: an absent field means "attempt finished before this work", and
+  // analytics needs to tell that apart from "test has no tags" to know whether it can
+  // trust an empty list.
+  breakdowns: z.array(breakdownEntrySchema).optional(),
   // PRD-12 (web parity): graded namespaces computed via @shared engines, present
   // only when the test defines scales (PRD-5) / result variables (PRD-2). Absence
   // keeps the legacy result shape and old stored results valid (back-compat).
@@ -1359,6 +1446,10 @@ export const adaptiveTopicResultSchema = z.object({
   // carry nothing.
   recommendedAssets: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
   feedbackTexts: z.array(z.string()).default([]),
+  // PRD-50 FR-17/FR-39: записи разреза области ЭТОЙ темы, по той же причине и по той же
+  // схеме, что у стандартного результата. `.default([])` держит валидными адаптивные
+  // попытки, завершённые до этой работы.
+  breakdown: z.array(breakdownEntrySchema).default([]),
 });
 
 export const adaptiveAttemptResultSchema = z.object({
@@ -1377,6 +1468,9 @@ export const adaptiveAttemptResultSchema = z.object({
   // verdict — that one is pronounced by the confirmed levels (see `buildAdaptiveResult`).
   scaleResults: z.record(z.string(), z.unknown()).optional(),
   resultVariables: z.record(z.string(), z.unknown()).optional(),
+  // PRD-50 FR-39: записи области ТЕСТА. Как и у стандартного результата — `optional()`,
+  // и секционные здесь не дублируются: они лежат на своих темах.
+  breakdowns: z.array(breakdownEntrySchema).optional(),
 });
 
 export type AdaptiveTopicResult = z.infer<typeof adaptiveTopicResultSchema>;

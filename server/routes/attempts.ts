@@ -55,6 +55,8 @@ import {
 import type { QuestionType } from "@shared/scales/engine";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
 import { isMeasurementOnly } from "@shared/questions/question-type";
+// PRD-50 FR-17: элементы разреза адаптивного прогона собирает хост — движок их вывести не может.
+import type { BreakdownItem } from "@shared/breakdown/types";
 // PRD-32: ONE address rule for a feedback attachment, and ONE source-priority rule for
 // the topic's feedback text — the same helpers the SCORM bake runs.
 import { feedbackAssets, topicFeedbackTexts } from "@shared/template/result-context";
@@ -280,6 +282,11 @@ async function resultsMaterialForAttempt(
       // Вводные блоки: экрана и отчёта. Берутся из ВЫДАННОЙ версии теста, как и всё
       // остальное здесь, — попытка показывает то содержание, на котором её проходили.
       intro: (deliveredTest?.introJson as TestIntro | null) ?? null,
+      // PRD-50 FR-13: subtotal-by-key display setting, read from the SAME delivered
+      // version as everything else here. Absent (test predates PRD-50, or the column
+      // was never set) leaves it `null`, which `buildResultContext` resolves to
+      // «hidden» — the byte-identical results screen this test has always shown.
+      breakdownDisplayJson: deliveredTest?.breakdownDisplayJson ?? null,
     };
   } catch (error) {
     // The results screen must not fail because this material could not be read: the
@@ -1338,6 +1345,9 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
       topicPassRule: section?.topicPassRuleJson ?? null,
       // PRD-24: the variant delivered for this topic decides which threshold gates it.
       formId: variantSection.formId ?? null,
+      // PRD-50 FR-19: тот же гейт, что на итогах теста — иначе экран итогов раздела
+      // объявил бы пройденным то, что финальный экран не пройдёт.
+      breakdownRules: section?.breakdownRulesJson ?? null,
       questions: questions.map((q) => {
         const effective = scoring.resolve(q);
         return {
@@ -1346,6 +1356,9 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
           scoring: effective.scoring,
           points: effective.points,
           answer: (answers ?? {})[q.id] as Answer,
+          // PRD-50 FR-15: ключи разреза этого вопроса. Пустой список не кладём,
+          // чтобы результат теста без тегов не менялся ни на байт.
+          ...(Array.isArray(q.tags) && q.tags.length ? { axisKeys: { tag: q.tags } } : {}),
         };
       }),
     };
@@ -1442,6 +1455,10 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         formId: variantSection.formId ?? null,
         // «Тест пройден, если»: the `*_required_topics*` policies gate on this flag.
         required: section?.required ?? true,
+        // PRD-50 FR-19: пороги ключей ЭТОГО раздела — из того же источника, из которого
+        // попытка выдавалась (снимок или живой тест), поэтому закреплённая за снимком
+        // попытка судится порогами, с которыми её опубликовали.
+        breakdownRules: section?.breakdownRulesJson ?? null,
         questions: questions.map((q) => {
           questionTypes[q.id] = q.type as QuestionType;
           const effective = scoring.resolve(q);
@@ -1451,6 +1468,9 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
             scoring: effective.scoring,
             points: effective.points,
             answer: answers?.[q.id] as Answer,
+            // PRD-50 FR-15: ключи разреза этого вопроса. Пустой список не кладём,
+            // чтобы результат теста без тегов не менялся ни на байт.
+            ...(Array.isArray(q.tags) && q.tags.length ? { axisKeys: { tag: q.tags } } : {}),
           };
         }),
         extra: {
@@ -1494,7 +1514,13 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       recommendedEvents: t.extra!.recommendedEvents,
       recommendedAssets: t.extra!.recommendedAssets,
       feedbackTexts: t.extra!.feedbackTexts,
+      breakdown: t.breakdown,
     }));
+
+    // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the engine returns the
+    // test-scope records on `breakdowns` and the section-scope ones on each topic
+    // result, and `tag()` needs to reach either.
+    const allBreakdowns = [...agg.breakdowns, ...agg.topicResults.flatMap((t) => t.breakdown)];
 
     // PRD-12: graded namespaces (scales PRD-5 + result variables PRD-2) via the
     // shared engines, mirroring the SCORM runtime. No-op when the test has none.
@@ -1515,6 +1541,7 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         {
           percent: overallPercent,
           topicResults: topicResults.map((t) => ({ ...t, code: topicCodeById.get(t.topicId) ?? null })),
+          breakdowns: allBreakdowns,
         },
       );
       if (Object.keys(computation.scaleResults).length > 0) scaleResults = computation.scaleResults;
@@ -1540,6 +1567,11 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       ...(scaleResults ? { scaleResults } : {}),
       ...(resultVariables ? { resultVariables } : {}),
       ...(status ? { status } : {}),
+      // PRD-50 FR-39: records of the TEST scope travel with the attempt. Section-scope
+      // ones already live on the topics (`topicResults[].breakdown`), so only the test
+      // scope goes here — an empty list is not stored at all, so a tag-less test's result
+      // does not change by a single byte.
+      ...(agg.breakdowns.length ? { breakdowns: agg.breakdowns } : {}),
     };
 
     await storage.updateAttempt(attempt.id, {
@@ -2047,6 +2079,39 @@ async function buildAdaptiveResult(
     recommendedAssets: { title: string; url: string }[];
   }>({ topics });
 
+  // PRD-50 FR-17: выданные элементы адаптивного прогона — каждый вопрос, который лестница
+  // действительно задала, отнесённый к теме, которая его задала. Читаются БЕЗУСЛОВНО, а не
+  // только под шкалы: записи сохраняются вместе с попыткой (FR-39), а экран итогов рисуется
+  // из сохранённого результата.
+  const answeredIds = Object.keys(answers);
+  const answeredQuestions = answeredIds.length > 0 ? await storage.getQuestionsByIds(answeredIds) : [];
+  const questionById = new Map<string, any>(answeredQuestions.map((q: any) => [q.id, q]));
+  // PRD-15 block D: тем же разрешением цены/ступеней, что и стандартная выдача, — иначе
+  // «верно» здесь и «верно» в счётчике уровня разошлись бы на ступенчатом вопросе.
+  const adaptiveScoring = await loadTestScoringContext(testId, storage);
+  const breakdownItems: BreakdownItem[] = [];
+  for (const topic of variant.topics as any[]) {
+    for (const level of topic.levelsState as any[]) {
+      for (const qId of level.answeredQuestionIds as string[]) {
+        const q = questionById.get(qId);
+        if (!q || !Array.isArray(q.tags) || q.tags.length === 0) continue;
+        // Цена вопроса в адаптиве равна единице — тот же пересказ, что делает
+        // `adaptiveResultAsStandard` для итогов (earnedPoints = correct), и тот же
+        // двоичный признак, каким лестница наращивает `correctCount`.
+        const correct = checkAnswer(q, (answers as Record<string, unknown>)[qId], adaptiveScoring.resolve(q).scoring) === 1;
+        breakdownItems.push({
+          sectionId: topic.topicId,
+          axisKeys: { tag: q.tags },
+          earned: correct ? 1 : 0,
+          possible: 1,
+          answered: true,
+        });
+      }
+    }
+  }
+  const flat = adaptiveResultAsStandard(aggregated, breakdownItems);
+  const breakdownByTopic = new Map(flat.topicResults.map((t) => [t.topicId, t.breakdown]));
+
   // issue #33: scales and indicators of THIS attempt, through the SAME shared engines the
   // standard `/finish` runs. No-op for a test that declares neither — an adaptive result
   // then keeps exactly the shape it has always had, and attempts finished before this
@@ -2058,14 +2123,13 @@ async function buildAdaptiveResult(
     // Types of the questions actually ANSWERED: the scale engine needs them to decide
     // which measurement units fired, and it bounds `percent` normalization by the
     // DELIVERED set — which in the adaptive mode is precisely what the ladder asked.
-    const answeredIds = Object.keys(answers);
-    const answeredQuestions = answeredIds.length > 0 ? await storage.getQuestionsByIds(answeredIds) : [];
+    // The rows themselves are the ones already read above for the breakdown items.
     const questionTypes: Record<string, QuestionType> = {};
     for (const q of answeredQuestions) questionTypes[q.id] = q.type as QuestionType;
     // The formulas of PRD-2 speak percent / score / topicById(...).passed — words the
     // level ladder does not have. The shared restatement gives them those words, and it
-    // is the very one the package feeds them through (`getAdaptiveResultForScorm`).
-    const flat = adaptiveResultAsStandard(aggregated);
+    // is the very one the package feeds them through (`getAdaptiveResultForScorm`) — see
+    // `flat` above, computed once with the breakdown items.
     const topicCodeById = new Map(
       ((await storage.getTopics()) as Array<{ id: string; code?: string | null }>).map(
         (t) => [t.id, t.code ?? null] as const,
@@ -2074,6 +2138,8 @@ async function buildAdaptiveResult(
     const computation = computeAttemptResult(scoringConfig, answers as Record<string, Answer>, questionTypes, {
       percent: flat.percent,
       topicResults: flat.topicResults.map((t) => ({ ...t, code: topicCodeById.get(t.topicId) ?? null })),
+      // PRD-50 FR-35/FR-36: обе области одним массивом, как в стандартной ветке.
+      breakdowns: [...flat.breakdowns, ...flat.topicResults.flatMap((t) => t.breakdown)],
     });
     if (Object.keys(computation.scaleResults).length > 0) scaleResults = computation.scaleResults;
     if (Object.keys(computation.resultVariables).length > 0) resultVariables = computation.resultVariables;
@@ -2092,9 +2158,14 @@ async function buildAdaptiveResult(
       ...t,
       feedbackTexts: extra?.feedbackTexts ?? [],
       recommendedAssets: extra?.recommendedAssets ?? [],
+      // PRD-50 FR-17/FR-39: записи области этой темы — тем же путём, каким сюда попадают
+      // тексты и вложения: они едут ВМЕСТЕ с попыткой, потому что экран рисуется из
+      // сохранённого результата.
+      breakdown: breakdownByTopic.get(t.topicId) ?? [],
     })),
     ...(scaleResults ? { scaleResults } : {}),
     ...(resultVariables ? { resultVariables } : {}),
+    ...(flat.breakdowns.length ? { breakdowns: flat.breakdowns } : {}),
   };
 }
 

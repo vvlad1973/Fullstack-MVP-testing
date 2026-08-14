@@ -87,7 +87,7 @@ function pdfTopicFeedback(topicResult) {
  * Both come from the same readers the results screen goes through, for the same reason
  * {@link pdfTopicFeedback} does.
  *
- * @returns {{feedback?: Object, hasPassThreshold?: boolean}} Report-input fields.
+ * @returns {{feedback?: Object, hasPassThreshold?: boolean, breakdownDisplay?: Object}} Report-input fields.
  */
 function pdfReportMeta() {
   var meta = {};
@@ -96,6 +96,13 @@ function pdfReportMeta() {
     if (feedback) meta.feedback = feedback;
   }
   if (typeof vrHasPassThreshold === 'function') meta.hasPassThreshold = vrHasPassThreshold();
+  // PRD-50 FR-13: та же настройка, что читает экран итогов (`viewResults.js`, baked into
+  // `TEST_DATA.breakdownDisplay` only when the author turned it on — see `test-json.ts`).
+  // Без неё общий построитель держит строки полос погашенными, даже когда темы ниже несут
+  // сырые записи разреза.
+  if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.breakdownDisplay) {
+    meta.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  }
   // Вводный блок ОТЧЁТА — своя ветвь `intro_json`: у документа вводное слово не то же,
   // что на экране, и подмена одного другим была бы молчаливой ошибкой (PRD-27 §7.1).
   var intro = (typeof TEST_DATA !== 'undefined' && TEST_DATA) ? TEST_DATA.introJson : null;
@@ -137,7 +144,12 @@ function pdfStandardInput(results) {
         recommendedCourses: rec.courses,
         recommendedEvents: rec.events,
         feedbackTexts: fb.feedbackTexts,
-        recommendedAssets: fb.recommendedAssets
+        recommendedAssets: fb.recommendedAssets,
+        // PRD-50: this topic's breakdown records — the SAME reader as the results
+        // screen (`viewResults.js`): §5.2 forbids the report from showing anything
+        // other than the screen it was downloaded from, and before this the report of
+        // a saved attempt printed no breakdown rows at all.
+        breakdown: (typeof vrTopicBreakdown === 'function') ? vrTopicBreakdown(tr, results.breakdowns) : []
       };
     })
   };

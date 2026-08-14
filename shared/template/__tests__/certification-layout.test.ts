@@ -441,11 +441,13 @@ describe("certification manifest (PRD-49 task 15, results-heading parity)", () =
   });
 
   it("declares resultsBlockOrder matching the ACTUAL composition and order of its own layouts", () => {
-    // Read straight from the shipped results.html / results.adaptive.html (task
-    // description, "проверь это сам по файлам") — not copied from the default
-    // template's own order, which differs (indicators/scales are swapped here).
-    expect(MANIFEST.resultsBlockOrder.default).toEqual(["summary", "indicators", "scales", "topics"]);
-    expect(MANIFEST.resultsBlockOrder["results.adaptive"]).toEqual(["topics", "indicators", "scales"]);
+    // The order is the track decision, the SAME one the standard template carries: a
+    // scale is a measurement, an indicator is a conclusion drawn from measurements, and
+    // a conclusion is read after what it was made from. Until this template caught up it
+    // declared indicators before scales — a divergence nothing asked for, and one the
+    // byte-parity guard could not see, because the order lives in the manifest.
+    expect(MANIFEST.resultsBlockOrder.default).toEqual(["summary", "scales", "indicators", "topics"]);
+    expect(MANIFEST.resultsBlockOrder["results.adaptive"]).toEqual(["topics", "scales", "indicators"]);
   });
 
   it("cross-checks the declared order against the branch order actually present in results.html", () => {
