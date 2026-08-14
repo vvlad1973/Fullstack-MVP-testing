@@ -343,6 +343,7 @@ CREATE TABLE "tests" (
 	"mode" text DEFAULT 'standard' NOT NULL,
 	"show_difficulty_level" boolean DEFAULT true NOT NULL,
 	"overall_pass_rule_json" jsonb NOT NULL,
+	"pass_decision_policy" text DEFAULT 'overall_only' NOT NULL,
 	"webhook_url" text,
 	"published" boolean DEFAULT false,
 	"status" text DEFAULT 'draft' NOT NULL,
@@ -370,7 +371,8 @@ CREATE TABLE "tests" (
 	"protection_watermark" boolean DEFAULT false NOT NULL,
 	"protection_hide_on_blur" boolean DEFAULT false NOT NULL,
 	"report_settings_json" jsonb,
-	"intro_json" jsonb
+	"intro_json" jsonb,
+	"breakdown_display_json" jsonb
 );
 
 CREATE TABLE "topic_access_grants" (

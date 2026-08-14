@@ -39,6 +39,11 @@ vi.mock("../server/storage", () => ({ storage: storageMock }));
 vi.mock("../server/middleware/upload", () => ({
   memoryUpload: { single: () => (_req: any, _res: any, next: any) => next() },
   rejectBase64MediaUrl: () => false,
+  // The routers moved their workbook endpoints onto these two helpers (size limit +
+  // a uniform reader error). The mock has to carry every export the router imports:
+  // a missing one fails the whole FILE at collection, not the test that uses it.
+  workbookUploadSingle: () => (_req: any, _res: any, next: any) => next(),
+  respondWorkbookReadError: () => false,
 }));
 
 import questionsRouter from "../server/routes/questions";
