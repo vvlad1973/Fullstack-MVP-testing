@@ -22,6 +22,7 @@ import type {
   CtxSectionResult,
   CtxSectionIntro,
   CtxTopicResultView,
+  CtxTopicGroup,
   CtxAdaptiveTopicView,
   CtxRecommendation,
   CtxBreakdownRow,
@@ -38,6 +39,9 @@ import { resolveResultsBlocks, type ResultsBlocks, type ResultsBlockSettings } f
 // PRD-29 §6.7 lives in the scoring layer, not here: the results screen was its first
 // reader, not its owner (see the two gates in `buildResultContext`).
 import { hasGradedScore as isGradedRun, hasPronouncedVerdict } from "../scoring/pass-rule";
+// PRD-50 FR-26: the counter rule lives with the verdict it counts, not with the layout —
+// `aggregateStandardResult` stamps the same numbers onto the stored result through it.
+import { groupSections } from "../scoring/section-groups";
 import type {
   FeedbackBlock,
   IndicatorInterpretation,
@@ -151,6 +155,12 @@ export interface TopicInput extends TopicFeedbackInput {
   requiredLabel?: string;
   /** PRD-50: breakdown records of this topic, as the host stored them. */
   breakdown?: BreakdownEntry[] | null;
+  /**
+   * PRD-50 FR-11: the group this section belongs to (`test_sections.group_key`, echoed by
+   * the aggregate onto the stored topic result). Absent/null, or a key the test does not
+   * declare, all mean the same: no group (FR-12).
+   */
+  groupKey?: string | null;
 }
 
 /**
@@ -193,6 +203,19 @@ export interface ResultInput {
   earnedPoints: number;
   possiblePoints: number;
   topicResults: TopicInput[];
+  /**
+   * PRD-50 FR-11: the test's declared groups (`tests.section_groups_json`), in any shape —
+   * they are normalised by `shared/scoring/section-groups`, so a host may hand over the
+   * jsonb column, a snapshot's copy or the value baked into `TEST_DATA` as it is. Absent /
+   * empty = no groups, and the built context is byte-identical to what it was before this
+   * stage (FR-27).
+   *
+   * Named `sectionGroups` on the INPUT and `topicGroups` on the OUTPUT on purpose: the
+   * input speaks the words of the test's structure (a group of SECTIONS, which is what the
+   * author edits), the output the words of the render contract, where FR-29 fixes the name
+   * `result.topicGroups` because `result.blocks` is already taken by PRD-49.
+   */
+  sectionGroups?: unknown;
 }
 
 /** One scale or indicator as the host hands it over, before presentational shaping. */
@@ -713,6 +736,18 @@ function topicView(
   return view;
 }
 
+/**
+ * The group counter as the layout receives it (PRD-50 §8.1 `counterLabel`).
+ *
+ * The wording is the CORE's job, not the layout's — same reason `statusLabel` is. The
+ * format is the one the spec writes down for the `group.counter` label, `{passed} / {total}`;
+ * the author's own wording arrives with the PRD-49 dictionary in the next task of this
+ * stage (FR-34), and this function is the single place it will be resolved from.
+ */
+function groupCounterLabel(passedCount: number, totalCount: number): string {
+  return `${passedCount} / ${totalCount}`;
+}
+
 /** PRD-49 input {@link attachBlocksAndLabels} takes from either results builder's `opts`. */
 interface BlockLabelOptions {
   labels?: Record<string, string>;
@@ -846,6 +881,16 @@ export function buildResultContext(
   // out via {@link ResultContextOptions.topicPointsIgnoreScoreSummary}.
   const withTopicPoints =
     !!opts.withTopicPoints && (opts.topicPointsIgnoreScoreSummary || !blocks || blocks.scoreSummary);
+  // A topic with nothing to report brings no card — see {@link topicHasContent}. The
+  // filter runs BEFORE the mapping so the array can end up empty, which is what takes
+  // the whole «Результаты по темам» section down with it.
+  //
+  // The card is kept PAIRED with the input it came from: the groups below are resolved off
+  // the input's `groupKey` and `passed`, which the presentational view no longer carries
+  // (it holds a class and a label instead — deliberately, so the layout cannot judge).
+  const topicCards = (input.topicResults || [])
+    .filter(topicHasContent)
+    .map((t) => ({ groupKey: t.groupKey ?? null, passed: t.passed, view: topicView(t, withTopicPoints, opts.breakdownDisplay) }));
   const result: CtxResult = {
     passed,
     passClass: passed ? "is-pass" : "is-fail",
@@ -856,13 +901,27 @@ export function buildResultContext(
     correct: input.correct,
     earnedPoints: round1(input.earnedPoints),
     possiblePoints: round1(input.possiblePoints),
-    // A topic with nothing to report brings no card — see {@link topicHasContent}. The
-    // filter runs BEFORE the mapping so the array can end up empty, which is what takes
-    // the whole «Результаты по темам» section down with it.
-    topicResults: (input.topicResults || [])
-      .filter(topicHasContent)
-      .map((t) => topicView(t, withTopicPoints, opts.breakdownDisplay)),
+    topicResults: topicCards.map((c) => c.view),
   };
+  // PRD-50 FR-24 - FR-27. Counting over the FILTERED cards gives the same numbers as
+  // `aggregateStandardResult` does over all of them: `topicHasContent` only ever drops a
+  // topic whose verdict is `null`, and such a topic counts in neither half of the counter
+  // (FR-26). Both fields stay ABSENT unless a group actually holds a card, so a test
+  // without groups produces the byte-identical context it always did.
+  const grouped = groupSections(input.sectionGroups, topicCards);
+  if (grouped.groups.length) {
+    result.topicGroups = grouped.groups.map(
+      (g): CtxTopicGroup => ({
+        key: g.key,
+        label: g.label,
+        topics: g.sections.map((c) => c.view),
+        passedCount: g.passedCount,
+        totalCount: g.totalCount,
+        counterLabel: groupCounterLabel(g.passedCount, g.totalCount),
+      }),
+    );
+    if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);
+  }
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.
   const introHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);

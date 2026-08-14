@@ -88,6 +88,34 @@ export interface CtxTopicResultView extends CtxTopicFeedback {
 }
 
 /**
+ * PRD-50 FR-24 - FR-27 (§8.1): ONE named group of topic cards, with the counter the core
+ * has already counted and phrased.
+ *
+ * Named `topicGroups` on the result and not `blocks`: `result.blocks` is taken by the list
+ * of the results umbrella's sub-blocks (PRD-49), a different thing at a different level —
+ * FR-29 makes the choice explicit precisely because the two would be easy to confuse.
+ *
+ * The nesting is exactly ONE level deep (FR-24): a test holds groups, a group holds
+ * sections, and there is no tree. A group that no section joined is not here at all
+ * (FR-12), and a test that declares no groups gets no field at all — the layout then
+ * prints `result.topicResults` exactly as it always has (FR-27).
+ */
+export interface CtxTopicGroup {
+  /** Author key of the group (`tests.section_groups_json[].key`). */
+  key: string;
+  /** Heading of the group; may be empty if the author left it so. */
+  label: string;
+  /** The group's topic cards, in delivery order — the SAME objects as in `topicResults`. */
+  topics: CtxTopicResultView[];
+  /** Sections of the group with a PASSED verdict. */
+  passedCount: number;
+  /** Sections with ANY pronounced verdict — a section without one is not counted (FR-26). */
+  totalCount: number;
+  /** Ready-made counter, e.g. «1 / 2». Core-prepared: the layout computes nothing. */
+  counterLabel: string;
+}
+
+/**
  * One breakdown row, prepared by the core: the layout only prints it (PRD-50 §8.1).
  *
  * The counts and the points are here from the FIRST release, not from the release that
@@ -192,6 +220,25 @@ export interface CtxResult {
   earnedPoints?: number;
   possiblePoints?: number;
   topicResults?: Array<CtxTopicResultView | CtxAdaptiveTopicView>;
+  /**
+   * PRD-50 FR-24 - FR-27: the topic cards grouped into the author's named blocks, each with
+   * its counter. Present ONLY when the test declares groups AND at least one section joined
+   * one; absent otherwise, so a test without groups keeps today's screen (FR-27) and a
+   * third-party template from the PRD-3 registry that knows nothing of groups keeps
+   * printing the flat {@link topicResults} (FR-30, same principle).
+   *
+   * `topicResults` stays COMPLETE next to it — grouped and ungrouped cards alike. A layout
+   * that prints groups therefore gates on this field and prints
+   * `topicGroups` + {@link ungroupedTopics} INSTEAD of the flat list, never both.
+   */
+  topicGroups?: CtxTopicGroup[];
+  /**
+   * PRD-50 FR-25: the cards that belong to no group, in their own order — printed AFTER
+   * all groups, as they are printed today. Travels beside {@link topicGroups} because the
+   * DSL cannot filter a list: without it a group-aware layout has no way to tell which of
+   * `topicResults` are already inside a group. Absent when every card found a group.
+   */
+  ungroupedTopics?: CtxTopicResultView[];
   // Adaptive variant:
   adaptive?: boolean;
   // SCORM-extras (web omits → gated layout blocks render nothing):
