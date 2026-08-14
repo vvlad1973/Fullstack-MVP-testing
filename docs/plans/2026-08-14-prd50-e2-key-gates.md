@@ -1887,7 +1887,8 @@ git commit -m "feat(prd-50): предупреждения публикации �
 npm test -- tests/breakdown-rules-schema.test.ts tests/breakdown-gate.test.ts
 npm test -- tests/scoring-aggregate.test.ts tests/breakdown-aggregate.test.ts
 npm test -- shared/breakdown shared/template/__tests__ tests/template-layout-parity.test.ts
-npm test -- server/scorm/__tests__/test-json-prd50.test.ts tests/breakdown-analytics-scorm.test.ts
+npm test -- server/scorm/__tests__/test-json-prd50.test.ts
+npm test -- tests/breakdown-analytics-scorm.test.ts   # регресс: файл приходит с «Э1-доделкой»
 npm test -- client/src/features/tests/editor/sections/__tests__ client/src/features/tests/list/__tests__
 ```
 
