@@ -314,6 +314,10 @@ export function buildTestJson(data: ExportData): string {
         // degrades to a random pick (R-6). The whole bank ships (every variant's
         // questions+keys, R-7) — selection happens client-side.
         ...(s.formSetJson ? { formSet: s.formSetJson } : {}),
+        // PRD-50 §4 (FR-09): per-key thresholds of this section. Baked only when the author
+        // set them, so packages of tests without thresholds stay byte-identical; the runtime
+        // reads `section.breakdownRules` and an absent value means «keys are informational».
+        ...(s.breakdownRulesJson ? { breakdownRules: s.breakdownRulesJson } : {}),
         // PRD-30 FR-02/FR-18/FR-23: the topic's OVERRIDE of the test-wide order.
         // Baked only when the topic actually overrides (a null column = «как в
         // тесте»), so packages of tests that never touched the setting stay

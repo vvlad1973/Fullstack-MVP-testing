@@ -499,6 +499,7 @@ function computeSectionResult(topicId) {
   var possiblePoints = 0;
   var fullyCorrect = 0;
   var total = 0;
+  var breakdownItems = [];
   var section = TEST_DATA.sections.find(function (s) { return s.topicId === topicId; }) || null;
 
   state.flatQuestions.forEach(function (fq) {
@@ -513,6 +514,17 @@ function computeSectionResult(topicId) {
     possiblePoints += qPoints;
     earnedPoints += qPoints * scoreRatio;
     if (scoreRatio === 1) fullyCorrect++;
+    // PRD-50 FR-19: тот же гейт, что у итогов теста. Измерительный вопрос в разрез не
+    // попадает — то же исключение, что делает `aggregateStandardResult` (FR-02).
+    if (!(typeof TBQType !== 'undefined' && TBQType.isMeasurementOnly(q))) {
+      breakdownItems.push({
+        sectionId: topicId,
+        axisKeys: q.tags && q.tags.length ? { tag: q.tags } : null,
+        earned: qPoints * scoreRatio,
+        possible: qPoints,
+        answered: answer !== undefined && answer !== null
+      });
+    }
   });
 
   var percent = possiblePoints > 0 ? (earnedPoints / possiblePoints) * 100 : 0;
@@ -527,6 +539,17 @@ function computeSectionResult(topicId) {
     { formId: deliveredFormId(topicId) }
   );
   var passed = resolvedRule ? window.TBTemplate.checkPassRule(resolvedRule, percent, earnedPoints) : null;
+
+  // PRD-50 FR-19/FR-22: пороги ключей раздела. `applyBreakdownGate` возвращает null, когда
+  // ни один порог не применился, и тогда вердикт остаётся тем, что дал порог раздела.
+  var sectionEntries = window.TBTemplate.computeBreakdowns(breakdownItems).filter(function (e) {
+    return e.scope !== 'test';
+  });
+  var keysVerdict = window.TBTemplate.applyBreakdownGate(
+    sectionEntries,
+    section ? (section.breakdownRules || null) : null
+  );
+  if (keysVerdict !== null) passed = passed === null ? keysVerdict : passed && keysVerdict;
 
   var result = {
     topicId: topicId,
@@ -543,6 +566,7 @@ function computeSectionResult(topicId) {
     resolvedPassRule: resolvedRule,
     recommendedCourses: section ? (section.recommendedCourses || []) : [],
     recommendedEvents: section ? (section.recommendedEvents || []) : [],
+    breakdown: sectionEntries,
   };
 
   if (!state.sectionResults) state.sectionResults = {};
@@ -570,6 +594,9 @@ function calculateResults() {
         formId: deliveredFormId(fq.topicId),
         // «Тест пройден, если»: the `*_required_topics*` policies gate on this flag.
         required: section ? section.required !== false : true,
+        // PRD-50 FR-19: пороги ключей этого раздела; выпечены в TEST_DATA как
+        // section.breakdownRules. Отсутствие = ключи информационные, вердикт как до PRD-50.
+        breakdownRules: section ? (section.breakdownRules || null) : null,
         questions: [],
         extra: {
           recommendedCourses: (section && section.recommendedCourses) || [],

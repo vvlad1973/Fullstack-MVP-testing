@@ -66,3 +66,50 @@ describe("buildTestJson: теги адаптивных разделов", () => 
     expect(json.adaptiveTopics[0].questions[0].tags).toEqual(["ПДн"]);
   });
 });
+
+/** Стандартный тест с ОДНОЙ секцией, несущей `breakdownRulesJson`. */
+function fixtureWithSectionRules(rules: unknown) {
+  return {
+    test: { ...baseTest, mode: "standard" },
+    sections: [
+      {
+        id: "sec-1",
+        topicId: "t1",
+        drawCount: 1,
+        required: true,
+        feedbackJson: null,
+        breakdownRulesJson: rules,
+        topic: { id: "t1", name: "Право", feedback: null, feedbackJson: null },
+        questions: [
+          {
+            id: "q1",
+            type: "single",
+            prompt: "?",
+            dataJson: {},
+            correctJson: { correctIndex: 0 },
+            points: 1,
+            difficulty: 50,
+            tags: ["ПДн"],
+          },
+        ],
+        courses: [],
+        events: [],
+      },
+    ],
+  } as never;
+}
+
+describe("buildTestJson: пороги ключей в пакете", () => {
+  it("выпекает breakdownRules секции, когда автор их задал", () => {
+    const json = bake(fixtureWithSectionRules({ axis: "tag", keys: { "ПДн": { type: "percent", value: 80 } } }));
+    expect(json.sections[0].breakdownRules).toEqual({
+      axis: "tag",
+      keys: { "ПДн": { type: "percent", value: 80 } },
+    });
+  });
+
+  it("не выпекает ничего, когда порогов нет — пакет остаётся байт-идентичным", () => {
+    const json = bake(fixtureWithSectionRules(null));
+    expect("breakdownRules" in json.sections[0]).toBe(false);
+  });
+});

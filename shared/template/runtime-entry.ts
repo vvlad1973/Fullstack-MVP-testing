@@ -53,7 +53,16 @@ export { parseScaleInterpretation, parseIndicatorInterpretation } from "../scale
 // PRD-18: the SINGLE standard result-aggregation + pass-rule engine shared by the
 // SCORM runtime (resultsPage.js) and the web grader (attempts.ts).
 export { aggregateStandardResult, aggregateAdaptiveResult, adaptiveResultAsStandard } from "../scoring/aggregate";
-export { resolveOverallRule, resolveTopicRule, checkPassRule } from "../scoring/pass-rule";
+export {
+  resolveOverallRule,
+  resolveTopicRule,
+  checkPassRule,
+  // PRD-50 FR-19: экран итогов РАЗДЕЛА считает вердикт своей веткой (`computeSectionResult`),
+  // мимо `aggregateStandardResult`, поэтому гейт по ключам нужен ему отдельной функцией.
+  resolveBreakdownRules,
+  applyBreakdownGate,
+} from "../scoring/pass-rule";
+export { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
 export { buildStartState } from "./start-state";
 // PRD-22: the start illustration is a property of the START PAGE, with the branding
 // param as the fallback. Exported so the package resolves it through the SAME rule

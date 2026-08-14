@@ -1345,6 +1345,9 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
       topicPassRule: section?.topicPassRuleJson ?? null,
       // PRD-24: the variant delivered for this topic decides which threshold gates it.
       formId: variantSection.formId ?? null,
+      // PRD-50 FR-19: тот же гейт, что на итогах теста — иначе экран итогов раздела
+      // объявил бы пройденным то, что финальный экран не пройдёт.
+      breakdownRules: section?.breakdownRulesJson ?? null,
       questions: questions.map((q) => {
         const effective = scoring.resolve(q);
         return {
@@ -1452,6 +1455,10 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         formId: variantSection.formId ?? null,
         // «Тест пройден, если»: the `*_required_topics*` policies gate on this flag.
         required: section?.required ?? true,
+        // PRD-50 FR-19: пороги ключей ЭТОГО раздела — из того же источника, из которого
+        // попытка выдавалась (снимок или живой тест), поэтому закреплённая за снимком
+        // попытка судится порогами, с которыми её опубликовали.
+        breakdownRules: section?.breakdownRulesJson ?? null,
         questions: questions.map((q) => {
           questionTypes[q.id] = q.type as QuestionType;
           const effective = scoring.resolve(q);
