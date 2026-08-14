@@ -1259,7 +1259,17 @@ router.patch("/:id/status", requirePermission("tests.publish"), requireTestScope
 
     // PRD-50 FR-45 - FR-47: предупреждения, а не запреты. Считаются ПОСЛЕ успешной
     // публикации и снимка: они ни на что не влияют, кроме того, что автор о них узнаёт.
-    const breakdownWarnings = status === "published" ? await assessBreakdownPublish(req.params.id) : [];
+    // The publication itself has ALREADY succeeded above, so a failure to gather advisory
+    // notes must not turn that success into a 500 for the author: it is swallowed, logged
+    // and the response stays exactly what it was before this PRD.
+    let breakdownWarnings: Awaited<ReturnType<typeof assessBreakdownPublish>> = [];
+    if (status === "published") {
+      try {
+        breakdownWarnings = await assessBreakdownPublish(req.params.id);
+      } catch (error) {
+        logger.error("breakdown publish warnings failed: " + (error as Error).message, "tests");
+      }
+    }
     res.json(breakdownWarnings.length > 0 ? { ...updated, breakdownWarnings } : updated);
   } catch (error) {
     logger.error("PATCH status error: " + (error as Error).message, "tests");
