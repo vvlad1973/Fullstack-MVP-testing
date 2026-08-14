@@ -550,6 +550,48 @@ function buildAdaptiveResult() {
 }
 
 /**
+ * PRD-50 FR-17: the delivered items of an adaptive run, in the shape the shared breakdown
+ * engine takes.
+ *
+ * The ladder has no per-question price — one asked question is worth one point, the very
+ * restatement `adaptiveResultAsStandard` performs for the totals — so `possible` is 1 and
+ * `earned` is 1 only on a fully correct answer, the same binary the level's `correctCount`
+ * is grown by. Untagged questions are skipped, so a package whose adaptive topics carry no
+ * tags produces an empty list and nothing downstream changes (FR-18).
+ *
+ * `checkAnswer` lives in `render/resultsPage.js` — a sibling in the same flat bundle. The
+ * `typeof` guard is not decoration: the concatenation order is not a contract, and a missing
+ * grader must cost the breakdown, not the whole results screen.
+ *
+ * @returns {Array} Breakdown items for `TBTemplate.adaptiveResultAsStandard`.
+ */
+function adaptiveBreakdownItems() {
+  var items = [];
+  if (!state.adaptiveState || !state.adaptiveState.topics) return items;
+  if (typeof checkAnswer !== 'function') return items;
+  state.adaptiveState.topics.forEach(function (topic) {
+    var topicData = TEST_DATA.adaptiveTopics.find(function (t) {
+      return t.topicId === topic.topicId;
+    });
+    if (!topicData) return;
+    topic.levelsState.forEach(function (level) {
+      (level.answeredQuestionIds || []).forEach(function (qId) {
+        var question = topicData.questions.find(function (q) { return q.id === qId; });
+        if (!question || !question.tags || !question.tags.length) return;
+        items.push({
+          sectionId: topic.topicId,
+          axisKeys: { tag: question.tags },
+          earned: checkAnswer(question, state.answers[qId]) === 1 ? 1 : 0,
+          possible: 1,
+          answered: true
+        });
+      });
+    });
+  });
+  return items;
+}
+
+/**
  * The adaptive result restated in the STANDARD result's words — for the LMS report and
  * for the PRD-2 result-variable formulas, neither of which knows what a level is.
  *
@@ -564,5 +606,19 @@ function getAdaptiveResultForScorm() {
   if (!state.adaptiveState || !state.adaptiveState.result) {
     return null;
   }
-  return window.TBTemplate.adaptiveResultAsStandard(state.adaptiveState.result);
+  var flat = window.TBTemplate.adaptiveResultAsStandard(
+    state.adaptiveState.result,
+    adaptiveBreakdownItems()
+  );
+  // PRD-50 FR-35/FR-36: ONE flat array for `tag()`, assembled exactly as `calculateResults`
+  // assembles it in the standard mode — the shared engine returns the test scope on
+  // `breakdowns` and the section scopes on each topic result, and the accessor must reach
+  // either. `buildResultVarContext` reads this one field and nothing else.
+  var breakdowns = (flat.breakdowns || []).slice();
+  for (var i = 0; i < flat.topicResults.length; i++) {
+    var secEntries = flat.topicResults[i].breakdown || [];
+    for (var j = 0; j < secEntries.length; j++) breakdowns.push(secEntries[j]);
+  }
+  flat.breakdowns = breakdowns;
+  return flat;
 }

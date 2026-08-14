@@ -5,10 +5,28 @@
  * каждый пакет и никем не читались.
  */
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { adaptiveResultAsStandard, type AdaptiveResult } from "../shared/scoring/aggregate";
 import { TEST_SCOPE, sectionScope } from "../shared/breakdown/compute";
 import type { BreakdownItem } from "../shared/breakdown/types";
 import { adaptiveAttemptResultSchema } from "../shared/schema";
+
+const adaptiveSrc = readFileSync(
+  resolve(process.cwd(), "server/scorm/template/app/adaptive/adaptive.js"),
+  "utf8",
+);
+
+/** Lift the package's plain-JS `adaptiveBreakdownItems` and bind it to injected globals. */
+function makeAdaptiveBreakdownItems(state: unknown, testData: unknown, checkAnswer: unknown) {
+  const match = adaptiveSrc.match(/function adaptiveBreakdownItems\(\)[\s\S]*?\n\}/);
+  if (!match) throw new Error("adaptiveBreakdownItems not found in adaptive.js");
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  return new Function(
+    "state", "TEST_DATA", "checkAnswer",
+    `${match[0]}\n;return adaptiveBreakdownItems;`,
+  )(state, testData, checkAnswer) as () => unknown[];
+}
 
 const topic = (topicId: string, answered: number, correct: number) => ({
   topicId,
@@ -91,5 +109,41 @@ describe("хранение адаптивного результата", () => {
     });
     expect(parsed.topicResults[0].breakdown).toEqual([]);
     expect(parsed.breakdowns).toBeUndefined();
+  });
+});
+
+describe("рантайм пакета: сборка элементов адаптивного разреза", () => {
+  const state = {
+    answers: { q1: 0, q2: 1, q3: 0 },
+    adaptiveState: {
+      topics: [
+        { topicId: "law", levelsState: [{ answeredQuestionIds: ["q1", "q2"] }] },
+        { topicId: "sec", levelsState: [{ answeredQuestionIds: ["q3"] }] },
+      ],
+    },
+  };
+  const TEST_DATA = {
+    adaptiveTopics: [
+      { topicId: "law", questions: [
+        { id: "q1", tags: ["ПДн"], correct: { correctIndex: 0 } },
+        { id: "q2", tags: ["ПДн"], correct: { correctIndex: 0 } },
+      ] },
+      { topicId: "sec", questions: [{ id: "q3", correct: { correctIndex: 0 } }] },
+    ],
+  };
+  const checkAnswer = (q: any, a: unknown) => (a === q.correct.correctIndex ? 1 : 0);
+
+  it("берёт только вопросы с тегами и даёт им цену в один балл", () => {
+    const items = makeAdaptiveBreakdownItems(state, TEST_DATA, checkAnswer)();
+    expect(items).toEqual([
+      { sectionId: "law", axisKeys: { tag: ["ПДн"] }, earned: 1, possible: 1, answered: true },
+      { sectionId: "law", axisKeys: { tag: ["ПДн"] }, earned: 0, possible: 1, answered: true },
+    ]);
+  });
+
+  it("даёт те же записи, что и веб-хост на тех же данных", () => {
+    const items = makeAdaptiveBreakdownItems(state, TEST_DATA, checkAnswer)();
+    const flat = adaptiveResultAsStandard(result, items as never);
+    expect(flat.topicResults[0].breakdown[0]).toMatchObject({ items: 2, percentUnits: 50 });
   });
 });
