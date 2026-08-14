@@ -455,12 +455,21 @@ describe("certification manifest (PRD-49 task 15, results-heading parity)", () =
     // a conclusion is read after what it was made from. Until this template caught up it
     // declared indicators before scales — a divergence nothing asked for, and one the
     // byte-parity guard could not see, because the order lives in the manifest.
-    expect(MANIFEST.resultsBlockOrder.default).toEqual(["summary", "scales", "indicators", "topics"]);
+    // PRD-50 FR-28: `breakdown` замыкает список — сводный разрез читается после разделов,
+    // из которых он сведён, и ровно туда же его дописывает `resolveBlockOrder` тесту,
+    // сохранившему порядок до Э4.
+    expect(MANIFEST.resultsBlockOrder.default).toEqual([
+      "summary",
+      "scales",
+      "indicators",
+      "topics",
+      "breakdown",
+    ]);
     expect(MANIFEST.resultsBlockOrder["results.adaptive"]).toEqual(["topics", "scales", "indicators"]);
   });
 
   it("cross-checks the declared order against the branch order actually present in results.html", () => {
-    const order = ["isSummary", "isIndicators", "isScales", "isTopics"]
+    const order = ["isSummary", "isIndicators", "isScales", "isTopics", "isBreakdown"]
       .map((flag) => ({ key: flag.replace(/^is/, "").toLowerCase(), index: LAYOUT.indexOf(`{{#if ${flag}}}`) }))
       .filter((entry) => entry.index !== -1)
       .sort((a, b) => a.index - b.index)

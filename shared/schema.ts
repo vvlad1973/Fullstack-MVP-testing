@@ -612,6 +612,8 @@ export const tests = pgTable("tests", {
   breakdownDisplayJson: jsonb("breakdown_display_json").$type<{
     visibility: "hidden" | "bar" | "bar_and_value";
     basis: "units" | "points";
+    /** PRD-50 FR-44 (Э4): nested bars, the test-scope block, or both. Absent = nested. */
+    placement?: "topics" | "block" | "both";
   }>(),
   /**
    * PRD-50 FR-11: named groups of sections, in author order (see {@link sectionGroupSchema}).
@@ -1184,6 +1186,13 @@ export type TestIntro = z.infer<typeof testIntroSchema>;
 export const breakdownDisplaySchema = z.object({
   visibility: z.enum(["hidden", "bar", "bar_and_value"]),
   basis: z.enum(["units", "points"]),
+  /**
+   * PRD-50 FR-28/FR-44 (Э4): where the visible breakdown is printed — nested in the topic
+   * cards, as the test-scope summary block, or both. OPTIONAL on purpose: every setting
+   * saved before Э4 lacks it, and absence has to keep meaning exactly what those tests
+   * already print, i.e. `topics`.
+   */
+  placement: z.enum(["topics", "block", "both"]).optional(),
 });
 
 export type BreakdownDisplaySetting = z.infer<typeof breakdownDisplaySchema>;

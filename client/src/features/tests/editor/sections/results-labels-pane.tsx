@@ -74,6 +74,7 @@ const BLOCK_FALLBACK_NAMES: Record<ResultsBlockKey, string> = {
   scales: "По шкалам",
   indicators: "По показателям",
   topics: "По темам",
+  breakdown: "Разрез результата",
 };
 
 /** Ключ надписи второго уровня, подписывающей подблок. */
@@ -82,6 +83,7 @@ const BLOCK_LABEL_KEY: Record<ResultsBlockKey, string> = {
   scales: "results.scales",
   indicators: "results.indicators",
   topics: "results.topics",
+  breakdown: "results.breakdown",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -233,6 +233,21 @@ export interface CtxResult {
    */
   topicGroups?: CtxTopicGroup[];
   /**
+   * PRD-50 FR-28: the breakdown in the scope of the WHOLE TEST — one row per key, printed
+   * as its own sub-block of the results umbrella above (or beside) the topic cards.
+   *
+   * These rows are the records the core stored WITH the attempt, printed as they are. A
+   * key delivered in two sections has ALREADY been folded into a single test-scope record
+   * by `computeBreakdowns` (FR-04, a separate pass over the delivered items), so summing
+   * the per-topic rows here would produce a different — and wrong — number. That is the
+   * whole reason the block exists: one honest row for a key that lives in two sections.
+   *
+   * Present only when the author turned the block on ({@link CtxResult} is built from
+   * `tests.breakdown_display_json`) AND the attempt actually produced test-scope records;
+   * absent otherwise, so a test that never touched the setting keeps today's screen.
+   */
+  breakdown?: CtxBreakdownRow[];
+  /**
    * PRD-50 FR-25: the cards that belong to no group, in their own order — printed AFTER
    * all groups, as they are printed today. Travels beside {@link topicGroups} because the
    * DSL cannot filter a list: without it a group-aware layout has no way to tell which of
@@ -314,13 +329,15 @@ export interface CtxResult {
  * ask `{{#if key == "scales"}}`, only whether a path is truthy.
  */
 export interface CtxResultBlock {
-  key: "summary" | "scales" | "indicators" | "topics";
+  key: "summary" | "scales" | "indicators" | "topics" | "breakdown";
   /** Effective heading; an empty string means the author switched the heading off. */
   heading: string;
   isSummary?: boolean;
   isScales?: boolean;
   isIndicators?: boolean;
   isTopics?: boolean;
+  /** PRD-50 FR-28: the test-scope breakdown block (`result.breakdown`). */
+  isBreakdown?: boolean;
 }
 
 /** What the results layout binds its footer against (`result.nav`). */

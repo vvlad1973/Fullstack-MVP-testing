@@ -64,6 +64,7 @@ const BLOCK_FLAG: Record<ResultsBlockKey, keyof CtxResultBlock> = {
   scales: "isScales",
   indicators: "isIndicators",
   topics: "isTopics",
+  breakdown: "isBreakdown",
 };
 
 /** Ring geometry from `layouts/results.html` (`<circle r="63">`). */
@@ -139,6 +140,18 @@ export interface TopicFeedbackInput {
 export interface BreakdownDisplaySetting {
   visibility: "hidden" | "bar" | "bar_and_value";
   basis: "units" | "points";
+  /**
+   * PRD-50 FR-44 (Э4): WHERE the visible breakdown is printed — inside the topic cards
+   * (`topics`, the projection Э1 shipped), as the summary block of the whole test
+   * (`block`, {@link CtxResult.breakdown}), or both.
+   *
+   * OPTIONAL, and absence means `topics`: every setting saved before Э4 says nothing here,
+   * and such a test must keep printing exactly what it printed — nested bars and no block.
+   * The two projections answer different questions (a key inside ONE section vs. the same
+   * key across the whole test), so the author picks either, both, or neither — but
+   * {@link visibility} still governs them jointly: `hidden` prints none of them (FR-31).
+   */
+  placement?: "topics" | "block" | "both";
 }
 
 /** Normalized per-topic input (host adapts its own field names into this). */
@@ -216,6 +229,17 @@ export interface ResultInput {
    * `result.topicGroups` because `result.blocks` is already taken by PRD-49.
    */
   sectionGroups?: unknown;
+  /**
+   * PRD-50 FR-28/FR-39: the breakdown records of the TEST scope, as the host STORED them
+   * with the attempt (`attempts.result_json.breakdowns`, the package's saved attempt).
+   *
+   * Taken, never recomputed: the test scope is a separate pass over the delivered items
+   * (FR-04), so it cannot be derived from the per-topic records this input also carries —
+   * a question delivered in two sections counts twice there and once here. Absent/empty =
+   * the attempt produced none (a test without keys, or one graded before PRD-50), and the
+   * summary block simply does not appear.
+   */
+  breakdowns?: BreakdownEntry[] | null;
 }
 
 /** One scale or indicator as the host hands it over, before presentational shaping. */
@@ -699,6 +723,62 @@ function topicVerdictLabel(passed: boolean | null, labels?: Record<string, strin
   return labels?.[`topic.verdict.${state}`] ?? DEFAULT_TOPIC_VERDICT_LABEL[state];
 }
 
+/**
+ * One breakdown record as the LAYOUT receives it (§8.1) — the ONE mapping both projections
+ * run: the bars nested in a topic card and the summary block of the test scope (FR-28).
+ *
+ * A second copy of this shaping is exactly the drift PRD-50 §8.1 exists to prevent: the two
+ * projections show the same kind of fact, and a row that rounded or worded itself
+ * differently depending on where it is printed would read as two different measurements.
+ */
+function breakdownRow(
+  e: BreakdownEntry,
+  display: BreakdownDisplaySetting,
+  labels?: Record<string, string>,
+): CtxBreakdownRow {
+  const showValue = display.visibility === "bar_and_value";
+  const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
+  const passed = e.passed ?? null;
+  return {
+    key: e.key,
+    items: e.items,
+    answered: e.answered,
+    // One decimal everywhere a real number reaches the layout, exactly like
+    // `pointsLabel` does: these fields are bound DIRECTLY by templates, and a raw
+    // ratio prints as «73.33333333333333». The bar keeps its own integer.
+    earned: round1(e.earned),
+    possible: round1(e.possible),
+    percent: round1(value),
+    percentUnits: round1(e.percentUnits),
+    percentPoints: round1(e.percentPoints),
+    barPercent: Math.round(value),
+    showValue,
+    valueLabel: showValue ? Math.round(value) + " %" : "",
+    // Same three fields and the same pair of words as the topic verdict — resolved
+    // through the very same helper, so a row can never disagree with the card that
+    // holds it about what its own verdict is called (FR-34).
+    passed,
+    passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
+    statusLabel: topicVerdictLabel(passed, labels),
+  };
+}
+
+/**
+ * PRD-50 FR-44: does the setting ask for the bars NESTED in the topic cards?
+ *
+ * `visibility` is the joint gate of both projections (FR-31), and `placement` splits them.
+ * An ABSENT `placement` is `topics` — the projection Э1 shipped — so a setting saved before
+ * Э4 keeps its screen unchanged.
+ */
+function showsNestedBreakdown(display?: BreakdownDisplaySetting | null): boolean {
+  return !!display && display.visibility !== "hidden" && (display.placement ?? "topics") !== "block";
+}
+
+/** PRD-50 FR-28/FR-44: does the setting ask for the test-scope SUMMARY block? */
+function showsBreakdownBlock(display?: BreakdownDisplaySetting | null): boolean {
+  return !!display && display.visibility !== "hidden" && (display.placement ?? "topics") !== "topics";
+}
+
 /** Map a normalized topic to its presentational view (Core-prepared class + label). */
 function topicView(
   t: TopicInput,
@@ -730,38 +810,13 @@ function topicView(
   // down; the layout drops the sibling «Правильно» row on the same `total` check.
   if (withPoints && t.total > 0) view.pointsLabel = round1(t.earnedPoints) + " / " + round1(t.possiblePoints);
   if (t.requiredLabel) view.requiredLabel = t.requiredLabel;
-  // PRD-50: the breakdown rows print only when the author turned them on AND the topic
-  // actually carries at least one key — a list of keys, not a decomposition of the topic
-  // into parts, so keys are not required to partition its questions.
+  // PRD-50: the breakdown rows print only when the author turned them on FOR THIS
+  // PROJECTION (FR-44) AND the topic actually carries at least one key — a list of keys,
+  // not a decomposition of the topic into parts, so keys are not required to partition its
+  // questions.
   const display = breakdownDisplay;
-  if (display && display.visibility !== "hidden" && t.breakdown?.length) {
-    const showValue = display.visibility === "bar_and_value";
-    view.breakdown = t.breakdown.map((e): CtxBreakdownRow => {
-      const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
-      const passed = e.passed ?? null;
-      return {
-        key: e.key,
-        items: e.items,
-        answered: e.answered,
-        // One decimal everywhere a real number reaches the layout, exactly like
-        // `pointsLabel` above: these fields are bound DIRECTLY by templates, and a raw
-        // ratio prints as «73.33333333333333». The bar keeps its own integer.
-        earned: round1(e.earned),
-        possible: round1(e.possible),
-        percent: round1(value),
-        percentUnits: round1(e.percentUnits),
-        percentPoints: round1(e.percentPoints),
-        barPercent: Math.round(value),
-        showValue,
-        valueLabel: showValue ? Math.round(value) + " %" : "",
-        // Same three fields and the same pair of words as the topic verdict — resolved
-        // through the very same helper, so a row can never disagree with the card that
-        // holds it about what its own verdict is called (FR-34).
-        passed,
-        passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
-        statusLabel: topicVerdictLabel(passed, labels),
-      };
-    });
+  if (display && showsNestedBreakdown(display) && t.breakdown?.length) {
+    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, labels));
   }
   return view;
 }
@@ -835,6 +890,10 @@ function attachBlocksAndLabels(
     scales: !!result.scales?.length,
     indicators: !!result.indicators?.length,
     topics: !!result.topicResults?.length,
+    // PRD-50 FR-28: same principle as the three above — the sub-block is «visible» exactly
+    // when the field the layout gates its own markup on carries something. The author's
+    // switch and the attempt's records were both consulted where that field was built.
+    breakdown: !!result.breakdown?.length,
   };
   const labels = opts.labels ?? {};
   const order = resolveBlockOrder(opts.blockOrder, opts.templateBlockOrder ?? DEFAULT_BLOCK_ORDER);
@@ -964,6 +1023,18 @@ export function buildResultContext(
       }),
     );
     if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);
+  }
+  // PRD-50 FR-28: the summary block of the TEST scope. The records come from the attempt
+  // as stored — the block prints them, it does not add anything up. Summing the per-topic
+  // rows instead would silently double-count a question delivered in two sections and
+  // would be a SECOND answer to a question the core already answered (FR-04).
+  //
+  // Both halves of the gate matter: the author's own switch (`placement`) and the presence
+  // of records. Neither is a proxy for the other — a test may carry keys and want only the
+  // nested bars, and a test with the block on may deliver an attempt without a single key.
+  if (opts.breakdownDisplay && showsBreakdownBlock(opts.breakdownDisplay) && input.breakdowns?.length) {
+    const display = opts.breakdownDisplay;
+    result.breakdown = input.breakdowns.map((e) => breakdownRow(e, display, opts.labels));
   }
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.

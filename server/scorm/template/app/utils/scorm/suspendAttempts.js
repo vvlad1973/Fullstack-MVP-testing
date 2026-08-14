@@ -183,6 +183,30 @@ function registerAttemptStart() {
 
 // ===== НОВЫЕ ФУНКЦИИ ДЛЯ СОХРАНЕНИЯ РЕЗУЛЬТАТОВ =====
 
+/**
+ * PRD-50 FR-28/FR-39: test-scope breakdown records of a finished attempt, or `undefined`.
+ *
+ * The runtime hands over ONE flat array holding both scopes (`calculateResults` builds it
+ * for `tag()`); only the test scope belongs in the record, because the section scope is
+ * already stored inside `topicResults`. Storing both would duplicate every row in
+ * suspend_data, which is a budget, not a bucket.
+ *
+ * Written here rather than reused from `viewResults.js` on purpose: this file is a storage
+ * utility loaded long before any renderer, and a saved attempt must not depend on which
+ * screen happens to be on the air. The filter is a scope string, not an algorithm.
+ *
+ * @param {Array|undefined} entries The attempt's breakdown records, both scopes.
+ * @returns {Array|undefined} Test-scope records, or `undefined` when there are none.
+ */
+function testScopeBreakdowns(entries) {
+  var list = entries || [];
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].scope === 'test') out.push(list[i]);
+  }
+  return out.length ? out : undefined;
+}
+
 // Сохранить результат попытки
 function saveAttemptResult(resultData) {
   console.log('🔵 saveAttemptResult вызван, percent:', resultData.percent);
@@ -211,6 +235,13 @@ function saveAttemptResult(resultData) {
     scaleValues: (resultData.scaleComputation && resultData.scaleComputation.values) || {},
     scaleErrors: (resultData.scaleComputation && resultData.scaleComputation.errors) || [],
     topicResults: resultData.topicResults,
+    // PRD-50 FR-28/FR-39: записи разреза в области ТЕСТА. Секционные едут внутри
+    // `topicResults`, а эти жить там не могут: область теста — отдельный проход по
+    // выданным элементам (FR-04), и восстановить её сложением тем нельзя. Без них экран
+    // «Мой результат» и отчёт по СОХРАНЁННОЙ попытке печатали бы сводный блок пустым.
+    // Пусто = ключа нет вовсе: `JSON.stringify` гасит `undefined`, поэтому попытка теста
+    // без тегов весит ровно столько же, сколько весила.
+    breakdowns: testScopeBreakdowns(resultData.breakdowns),
     answers: JSON.parse(JSON.stringify(state.answers)),
     flatQuestions: JSON.parse(JSON.stringify(state.flatQuestions))
   };

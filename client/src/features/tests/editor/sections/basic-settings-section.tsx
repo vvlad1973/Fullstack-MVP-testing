@@ -1200,6 +1200,40 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
           />
         </div>
       )}
+      {/* PRD-50 FR-44 (Э4): ГДЕ показывать подытоги. Два места отвечают на разные вопросы —
+          ключ внутри одного раздела и тот же ключ по всему тесту, — поэтому автор выбирает
+          любое из них или оба. Поля нет в настройке, сохранённой до этого этапа: там оно
+          читается как «В карточках тем», то есть ровно то, что тест печатал. */}
+      {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
+        <div className="ou-formfield">
+          <Select<"topics" | "block" | "both">
+            id="settings-breakdown-placement"
+            size="m"
+            fullWidth
+            label="Где показывать подытоги"
+            hint="Сводный блок печатает ключ, живущий в нескольких разделах, ОДНОЙ строкой по всему тесту."
+            value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).placement ?? "topics"}
+            options={[
+              { value: "topics", label: "В карточках тем" },
+              { value: "block", label: "Сводным блоком по тесту" },
+              { value: "both", label: "И там, и там" },
+            ]}
+            onChange={(value) =>
+              updateModel((m) => ({
+                ...m,
+                runtime: {
+                  ...m.runtime,
+                  breakdownDisplay: {
+                    ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
+                    placement: value,
+                  },
+                },
+              }))
+            }
+            data-testid="settings-breakdown-placement-select"
+          />
+        </div>
+      )}
 
       <hr className="wf-sep" />
 

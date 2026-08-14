@@ -956,7 +956,12 @@ function readBreakdownDisplayFromApi(api: ApiTestResponse): BreakdownDisplaySett
   const visibility =
     r.visibility === "bar" || r.visibility === "bar_and_value" ? r.visibility : "hidden";
   const basis = r.basis === "points" ? "points" : "units";
-  return { visibility, basis };
+  // PRD-50 FR-44 (Э4): положение показа. Ключа нет (настройка сохранена до этого этапа) —
+  // поле НЕ подставляется: пустое значение и есть «в карточках тем», а дописать его здесь
+  // значило бы переписать настройку автора при первом же открытии редактора.
+  const placement =
+    r.placement === "block" || r.placement === "both" || r.placement === "topics" ? r.placement : undefined;
+  return { visibility, basis, ...(placement ? { placement } : {}) };
 }
 
 function readReportSettingsFromApi(api: ApiTestResponse): ReportSettings {

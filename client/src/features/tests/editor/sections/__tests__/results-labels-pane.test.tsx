@@ -177,6 +177,8 @@ describe("ResultsLabelsPane — порядок подблоков", () => {
       "results-block-order-scales",
       "results-block-order-indicators",
       "results-block-order-topics",
+      // PRD-50 FR-28: сводный разрез замыкает список умолчания.
+      "results-block-order-breakdown",
     ]);
   });
 
@@ -191,7 +193,7 @@ describe("ResultsLabelsPane — порядок подблоков", () => {
       />,
     );
     fireEvent.click(screen.getByLabelText("Переместить «По шкалам» выше"));
-    expect(onOrderChange).toHaveBeenCalledWith(["scales", "summary", "indicators", "topics"]);
+    expect(onOrderChange).toHaveBeenCalledWith(["scales", "summary", "indicators", "topics", "breakdown"]);
   });
 
   it("подписи подблоков берутся из формулировки автора", () => {
@@ -241,6 +243,7 @@ describe("ResultsLabelsPane — порядок подблоков", () => {
       "results-block-order-scales",
       "results-block-order-summary",
       "results-block-order-indicators",
+      "results-block-order-breakdown",
     ]);
   });
 });

@@ -119,6 +119,31 @@ function vrTopicBreakdown(tr, breakdowns) {
 }
 
 /**
+ * PRD-50 FR-28: the breakdown records of the TEST scope — what the summary block prints.
+ *
+ * ONE reader for both results screens and for the report, and it works on either shape of
+ * `results`: the CURRENT attempt carries the flat list `calculateResults` builds (both
+ * scopes in one array, for `tag()`), a SAVED attempt carries only the test-scope records
+ * `saveAttemptResult` persisted. Filtering by scope answers both without asking which one
+ * it was handed.
+ *
+ * Nothing is summed here, and nothing may be: the test scope is a separate pass over the
+ * delivered items (FR-04), so adding up the per-topic records would double-count a
+ * question delivered in two sections.
+ *
+ * @param {object} results The attempt being rendered (current or saved).
+ * @returns {Array} Test-scope records, in the order the engine produced them.
+ */
+function vrTestBreakdown(results) {
+  var out = [];
+  var list = (results && results.breakdowns) || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].scope === 'test') out.push(list[i]);
+  }
+  return out;
+}
+
+/**
  * PRD-50 FR-11: the group this topic was delivered in, from whichever of the two places
  * has it.
  *
@@ -505,6 +530,12 @@ function renderViewResultsTemplated(app, results) {
   // (`test-json.ts`). Absent leaves the input exactly as it was before this PRD, and the
   // shared builder then produces the flat list of topic cards the screen always showed.
   if (TEST_DATA.sectionGroups) input.sectionGroups = TEST_DATA.sectionGroups;
+  // PRD-50 FR-28: records of the TEST scope for the summary block. Of a SAVED attempt they
+  // are the ones persisted WITH it (`saveAttemptResult`) — never a recomputation, the same
+  // rule the measures below follow. An attempt saved by an older package carries none, and
+  // the input then stays exactly as it was.
+  var vrTestRows = vrTestBreakdown(results);
+  if (vrTestRows.length) input.breakdowns = vrTestRows;
   // PRD-29: a SAVED attempt renders from the values persisted WITH it and never from a
   // recomputation — regrading a finished attempt against today's interpretation would
   // change what the learner already scored (the rule the web host follows too).
@@ -613,6 +644,10 @@ function renderResultsTemplated(app, results) {
   // PRD-50 FR-11/FR-27: same groups as «Мой результат» — one screen, one layout, one
   // input. Absent when the test declares none, and the context stays as it was.
   if (TEST_DATA.sectionGroups) input.sectionGroups = TEST_DATA.sectionGroups;
+  // PRD-50 FR-28: the same test-scope records the saved-attempt screen prints, here out of
+  // the fresh in-memory result — this screen renders BEFORE persistence.
+  var frTestRows = vrTestBreakdown(results);
+  if (frTestRows.length) input.breakdowns = frTestRows;
   var opts = {
     withTopicPoints: true,
     recommendedCourses: rec.courses,

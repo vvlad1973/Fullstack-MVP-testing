@@ -966,6 +966,49 @@ describe("quickAdvance (PRD-43)", () => {
 
 // ─── PRD-50 FR-11/FR-12: section-group (block) round-trip ────────────────────
 
+describe("PRD-50 FR-44 положение показа разреза (Э4)", () => {
+  const apiTest = (breakdownDisplayJson?: unknown) => ({
+    id: "t",
+    title: "T",
+    mode: "standard",
+    status: "draft",
+    overallPassRuleJson: { type: "percent", value: 70 },
+    sections: [apiSection({ topicId: "a" })],
+    ...(breakdownDisplayJson === undefined ? {} : { breakdownDisplayJson }),
+  });
+
+  it("читает положение и возвращает его в тело запроса без изменений", () => {
+    const model = apiToEditorModel(
+      apiTest({ visibility: "bar", basis: "points", placement: "both" }),
+    );
+    expect(model.runtime.breakdownDisplay).toEqual({
+      visibility: "bar",
+      basis: "points",
+      placement: "both",
+    });
+    expect(editorModelToPayload(model).breakdownDisplayJson).toEqual({
+      visibility: "bar",
+      basis: "points",
+      placement: "both",
+    });
+  });
+
+  it("настройка, сохранённая до Э4, поля НЕ приобретает: пусто и есть «в карточках тем»", () => {
+    const model = apiToEditorModel(apiTest({ visibility: "bar", basis: "units" }));
+    expect(model.runtime.breakdownDisplay).toEqual({ visibility: "bar", basis: "units" });
+    // Открытие и сохранение теста не должно переписывать настройку автора.
+    expect(editorModelToPayload(model).breakdownDisplayJson).toEqual({
+      visibility: "bar",
+      basis: "units",
+    });
+  });
+
+  it("чужое значение положения игнорируется, а не уезжает на сервер", () => {
+    const model = apiToEditorModel(apiTest({ visibility: "bar", basis: "units", placement: "card" }));
+    expect(model.runtime.breakdownDisplay).toEqual({ visibility: "bar", basis: "units" });
+  });
+});
+
 describe("PRD-50 FR-11 section groups mapping", () => {
   const groups = [
     { key: "intro", label: "Вводный блок", order: 0 },

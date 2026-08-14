@@ -160,6 +160,10 @@ function pdfStandardInput(results) {
   if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.sectionGroups) {
     input.sectionGroups = TEST_DATA.sectionGroups;
   }
+  // PRD-50 FR-28: записи области ТЕСТА для сводного блока — тот же читатель, что у экрана
+  // итогов (§5.2: документ не вправе показать иное, чем экран, с которого его скачали).
+  var testRows = (typeof vrTestBreakdown === 'function') ? vrTestBreakdown(results) : [];
+  if (testRows.length) input.breakdowns = testRows;
   return input;
 }
 

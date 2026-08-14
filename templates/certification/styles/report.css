@@ -252,6 +252,17 @@
 .tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #ef4444; }
 .tb-report__breakdown-row.is-pass .tb-report__breakdown-status { color: #22c55e; }
 .tb-report__breakdown-row.is-fail .tb-report__breakdown-status { color: #ef4444; }
+/* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
+   в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на
+   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Цвет вердикта
+   не переопределяется: он приходит правилами выше и один на обе проекции. */
+.tb-report__breakdown--block { margin-bottom: 0; }
+.tb-report__breakdown--block .tb-report__breakdown-row { margin-bottom: 8px; }
+.tb-report__breakdown--block .tb-report__breakdown-name { font-size: 10px; margin-bottom: 4px; }
+.tb-report__breakdown--block .tb-report__breakdown-bar { height: 4px; border-radius: 3px; }
+.tb-report__breakdown--block .tb-report__breakdown-bar span { border-radius: 3px; }
+.tb-report__breakdown--block .tb-report__breakdown-val { font-size: 9px; }
+.tb-report__breakdown--block .tb-report__breakdown-status { font-size: 9px; }
 
 .tb-report__topic-fb {
   font-size: 10px;

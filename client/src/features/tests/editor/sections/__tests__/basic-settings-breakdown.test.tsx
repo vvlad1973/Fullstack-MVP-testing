@@ -138,3 +138,55 @@ describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-
     expect(screen.getByTestId("settings-breakdown-basis-select")).toBeInTheDocument();
   });
 });
+
+/**
+ * PRD-50 FR-28/FR-44 (Э4): положение показа — там же, где видимость, отдельным полем.
+ * Настройка, сохранённая до Э4, положения не несёт и обязана читаться как «В карточках
+ * тем», то есть ровно как сегодня.
+ */
+describe("<SettingsSection /> — где показывать подытоги (PRD-50 FR-44)", () => {
+  const withDisplay = (breakdownDisplay?: Record<string, string>) =>
+    baseModel({
+      runtime: {
+        timeLimitMinutes: null,
+        maxAttempts: null,
+        showCorrectAnswers: false,
+        allowReturnToUnanswered: true,
+        allowAnswerChange: false,
+        quickAdvance: false,
+        showSectionResults: true,
+        skipReviewWhenComplete: false,
+        copyProtection: true,
+        protectionWatermark: false,
+        protectionHideOnBlur: false,
+        ...(breakdownDisplay ? { breakdownDisplay } : {}),
+      },
+    } as Partial<TestEditorModel>);
+
+  it("селектора нет, пока разрез не показывается", () => {
+    render(<SettingsSection model={withDisplay()} updateModel={() => {}} />);
+    openPassRulesPane();
+    expect(screen.queryByTestId("settings-breakdown-placement-select")).not.toBeInTheDocument();
+  });
+
+  it("настройка без положения читается как «В карточках тем»", () => {
+    render(<SettingsSection model={withDisplay({ visibility: "bar", basis: "units" })} updateModel={() => {}} />);
+    openPassRulesPane();
+    expect(
+      within(screen.getByTestId("settings-breakdown-placement-select")).getByRole("button"),
+    ).toHaveTextContent("В карточках тем");
+  });
+
+  it("выбор сводного блока отдаёт наверх placement, не трогая остальное", () => {
+    const updateModel = vi.fn();
+    const model = withDisplay({ visibility: "bar_and_value", basis: "points" });
+    render(<SettingsSection model={model} updateModel={updateModel} />);
+    openPassRulesPane();
+    selectOption("settings-breakdown-placement-select", "Сводным блоком по тесту");
+    expect(runUpdater(updateModel, model).runtime.breakdownDisplay).toEqual({
+      visibility: "bar_and_value",
+      basis: "points",
+      placement: "block",
+    });
+  });
+});

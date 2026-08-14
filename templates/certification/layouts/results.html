@@ -285,6 +285,24 @@
       </div>
       {{/unless}}
       {{/if}}
+
+      <!-- PRD-50 (FR-28/FR-33): СВОДНЫЙ РАЗРЕЗ по всему тесту. Список ключей, и никогда не
+           разложение теста на части: ключи не обязаны разбивать выборку. Ключ, выданный в
+           нескольких разделах, стоит здесь ОДНОЙ строкой — ядро свело его отдельным
+           проходом по выданным элементам (FR-04), поэтому группировать строки по разделам
+           тут нельзя: это вернуло бы ровно ту дробность, ради снятия которой блок заведён.
+           Строка та же, что в карточке темы: разрез везде читается одинаково. -->
+      {{#if isBreakdown}}
+      <div class="tb-breakdown">
+        {{#each @root.result.breakdown}}
+        <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
+          <div class="tb-breakdown__name">{{ key }}{{#if statusLabel}}<span class="tb-breakdown__status">{{ statusLabel }}</span>{{/if}}</div>
+          <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+          {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
       {{/each}}
       {{/if}}
 

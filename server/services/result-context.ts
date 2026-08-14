@@ -357,6 +357,11 @@ export function buildResultContext(
       // разрезов, — из ВЫДАННОЙ версии теста. Пусто = блоков нет, и построитель не
       // добавляет к контексту ни одного нового поля (FR-27).
       ...(measures?.sectionGroupsJson?.length ? { sectionGroups: measures.sectionGroupsJson } : {}),
+      // PRD-50 FR-28/FR-39: записи разреза в области ТЕСТА — из СОХРАНЁННОГО результата
+      // попытки, а не пересчётом. Область теста считается отдельным проходом по выданным
+      // элементам (FR-04), и вывести её из секционных записей тем ниже нельзя. Попытка,
+      // оценённая до PRD-50, поля не несёт — контекст остаётся прежним.
+      ...(result.breakdowns?.length ? { breakdowns: result.breakdowns } : {}),
     },
     testTitle,
     {
@@ -456,6 +461,9 @@ export function buildReportInput(
       // не вправе показать иное, чем экран, с которого его скачали). Разбирает их общий
       // построитель контекста, который отчёт и экран зовут один и тот же.
       ...(measures?.sectionGroupsJson?.length ? { sectionGroups: measures.sectionGroupsJson } : {}),
+      // PRD-50 FR-28: те же сохранённые записи области теста, что у экрана, — документ
+      // печатает сводный блок ровно тогда же и ровно тот же (§5.2).
+      ...(result.breakdowns?.length ? { breakdowns: result.breakdowns } : {}),
     },
   };
 }
