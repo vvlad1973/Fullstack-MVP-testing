@@ -32,6 +32,11 @@ const { storageMock } = vi.hoisted(() => ({
     getResultVariables: vi.fn().mockResolvedValue([]),
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),
     getUserTestGrants: vi.fn().mockResolvedValue([]),
+    // PRD-50: the detail route rebuilds the attempt's breakdowns from the live question
+    // tags and reads topic codes for the composite «<section>::<key>» addressing. Absent
+    // stubs made every detail route answer 500 again.
+    getQuestionsByIds: vi.fn().mockResolvedValue([]),
+    getTopics: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -82,6 +87,8 @@ beforeEach(() => {
   storageMock.getTestIdsByOwner.mockResolvedValue([]);
   storageMock.getUserTestGrants.mockResolvedValue([]);
   storageMock.getUser.mockResolvedValue(authorUser);
+  storageMock.getQuestionsByIds.mockResolvedValue([]);
+  storageMock.getTopics.mockResolvedValue([]);
   app = makeApp();
 });
 
