@@ -28,6 +28,9 @@ const PRINTED = [
   "results.scales",
   "results.indicators",
   "results.topics",
+  // PRD-50 (Э4): документ печатает сводный блок разреза своим заголовком, поэтому
+  // надпись попадает в панель наравне с подзаголовками остальных подблоков.
+  "results.breakdown",
   "recommendations.courses",
   "recommendations.events",
 ];
