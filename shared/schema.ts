@@ -1304,6 +1304,12 @@ export const breakdownEntrySchema = z.object({
   unitPossible: z.number(),
   percentPoints: z.number(),
   percentUnits: z.number(),
+  // PRD-50 Э2: the key's own verdict, stamped by `applyBreakdownGate` when the section
+  // declares a threshold for it. `null` = the key is ungated or was not delivered at all
+  // (`items = 0`); absent = written before thresholds existed. Declared here and not only
+  // on the TS type because zod STRIPS undeclared keys: without this line the verdict would
+  // be computed, stored into the object, and silently dropped on the way through the schema.
+  passed: z.boolean().nullable().optional(),
 });
 
 export const topicResultSchema = z.object({
