@@ -108,6 +108,28 @@ async function buildAll() {
     logLevel: "info",
   });
 
+  // Same bundling for the ledger repair the deploy runs BEFORE `drizzle-kit migrate`:
+  // it reads drizzle/meta/_journal.json (copied into the image) and realigns the
+  // timestamps a regenerated migration leaves behind. See the module's own header.
+  await esbuild({
+    entryPoints: ["scripts/db/reconcile-migration-ledger.ts"],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: "dist/reconcile-migration-ledger.cjs",
+    banner: {
+      js: "const __importMetaUrl = require('url').pathToFileURL(__filename).href;",
+    },
+    define: {
+      "process.env.NODE_ENV": '"production"',
+      "import.meta.url": "__importMetaUrl",
+      "import.meta.dirname": "__dirname",
+    },
+    minify: false,
+    external: externals,
+    logLevel: "info",
+  });
+
   console.log("copying scorm assets...");
   await mkdir("dist/scorm/assets", { recursive: true });
   await cp("server/scorm/assets", "dist/scorm/assets", { recursive: true });

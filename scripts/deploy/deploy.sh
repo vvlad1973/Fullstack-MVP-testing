@@ -434,6 +434,22 @@ fi
 # container exits, losing the final stderr. The inner redirect-then-cat is what
 # makes a failure legible: drizzle-kit ends a failed run with process.exit(1),
 # truncating pending writes to a PIPE; writes to a FILE are synchronous.
+# Ledger repair FIRST. `migrate` decides what to apply by TIME (MAX(created_at) in
+# drizzle.__drizzle_migrations against `when` in the journal), never by hash — so a
+# migration that was REGENERATED after it had already been applied looks unapplied,
+# is run a second time and dies on "already exists", aborting the release before the
+# migrations that matter. The drift lives in each instance's DATABASE, so it cannot be
+# fixed in the repository: this step realigns the timestamps of rows whose hash is
+# already in the ledger, and never inserts one (see the script header).
+#
+# Non-fatal on purpose: if it cannot run, `migrate` below fails with its own legible
+# error, and one failure story is better than two.
+info "Reconciling the migration ledger with the journal..."
+if ! docker compose run --rm -T --no-deps --entrypoint sh app \
+    -c 'node dist/reconcile-migration-ledger.cjs > /tmp/reconcile.log 2>&1; ec=$?; cat /tmp/reconcile.log; exit $ec'; then
+    warn "ledger reconcile FAILED — continuing; the migration step below will report the real error."
+fi
+
 info "Applying DB migrations (drizzle-kit migrate)..."
 if ! docker compose run --rm -T --no-deps --entrypoint sh app \
     -c 'npx drizzle-kit migrate > /tmp/migrate.log 2>&1; ec=$?; cat /tmp/migrate.log; exit $ec'; then
