@@ -15,6 +15,12 @@
  * points-based; the final verdict combines the overall rule with the topic gates
  * per the authored `passDecisionPolicy` (see {@link decideVerdict}) — data written
  * before that policy existed keeps the old `overallPassed && every gated topic`.
+ * Since PRD-50 the TOPIC verdict is decided in a SECOND pass, after the breakdown
+ * records exist (FR-16), because it now combines the section's own rule with the
+ * thresholds of its breakdown keys (FR-19, `applyBreakdownGate`). The first pass
+ * still computes every value it always did — `percent`, `earnedPoints`,
+ * `resolvedPassRule` — and the second one only reads them, so a section without key
+ * thresholds is gated exactly as before.
  *
  * PRD-50: this module is also the ONLY entry point into `shared/breakdown/` — every
  * delivered, graded question is fed to {@link computeBreakdowns} here, so the
@@ -33,6 +39,7 @@ import {
   resolveTopicRule,
   checkPassRule,
   resolvePassDecisionPolicy,
+  applyBreakdownGate,
   type PassDecisionPolicy,
   type ResolvedRule,
 } from "./pass-rule";
@@ -71,6 +78,11 @@ export interface AggregateSection<E = unknown> {
    * state) counts as REQUIRED, matching the DB default.
    */
   required?: boolean;
+  /**
+   * PRD-50 §4: stored `test_sections.breakdown_rules_json` (any shape — normalised here,
+   * like `topicPassRule`). Absent = the topic is gated exactly as before this PRD.
+   */
+  breakdownRules?: unknown;
   questions: AggregateQuestion[];
   /** Host-specific passthrough echoed verbatim into the topic result (feedback/recommendations). */
   extra?: E;
@@ -143,6 +155,18 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
   let requiredTopicsPassed = true;
   const policy = resolvePassDecisionPolicy(input.passDecisionPolicy);
   const breakdownItems: BreakdownItem[] = [];
+  /**
+   * Per-section inputs the SECOND pass needs, positionally aligned with `topicResults`.
+   * The verdict cannot be decided in the first pass any more: FR-16 puts the breakdown
+   * records BEFORE the topic verdict, and those records exist only once every section has
+   * contributed its delivered items.
+   */
+  const gates: Array<{
+    rule: ResolvedRule | null;
+    scored: number;
+    required: boolean;
+    breakdownRules: unknown;
+  }> = [];
 
   const topicResults: AggregateTopicResult<E>[] = input.sections.map((sec) => {
     let earned = 0;
@@ -178,14 +202,13 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     const total = scored;
     const percent = possible > 0 ? (earned / possible) * 100 : 0;
     const resolved = resolveTopicRule(sec.topicPassRule, overall, { formId: sec.formId ?? null });
-    // FR-09: a section with nothing to grade has no percent to compare, so it stays
-    // UNGATED (`null`) instead of failing its rule at 0%.
-    const passed: boolean | null = resolved && scored > 0 ? checkPassRule(resolved, percent, earned) : null;
-    if (passed === false) {
-      allTopicsPassed = false;
+    gates.push({
+      rule: resolved,
+      scored,
       // FR: absent flag = required (DB default `test_sections.required = true`).
-      if (sec.required !== false) requiredTopicsPassed = false;
-    }
+      required: sec.required !== false,
+      breakdownRules: sec.breakdownRules ?? null,
+    });
 
     tEarned += earned;
     tPossible += possible;
@@ -201,7 +224,8 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       earnedPoints: earned,
       possiblePoints: possible,
       percent,
-      passed,
+      // Filled by the second pass below (FR-16): the key gate needs this topic's records.
+      passed: null,
       passRule: sec.topicPassRule,
       resolvedPassRule: resolved,
       breakdown: [],
@@ -219,8 +243,26 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     if (list) list.push(e);
     else bySection.set(e.scope, [e]);
   }
-  for (const topic of topicResults) {
+  // FR-16, шаги 2 и 3: сперва записи в области раздела, ПОТОМ вердикт темы, который на них
+  // опирается. Накопители `allTopicsPassed`/`requiredTopicsPassed` — конъюнкции, поэтому
+  // перенос их сложения в этот проход не может изменить ни один существующий вердикт.
+  for (let i = 0; i < topicResults.length; i++) {
+    const topic = topicResults[i];
+    const gate = gates[i];
     topic.breakdown = bySection.get(sectionScope(topic.topicId)) ?? [];
+    // FR-09: a section with nothing to grade has no percent to compare, so it stays UNGATED
+    // (`null`) instead of failing its rule at 0%.
+    const byRule =
+      gate.rule && gate.scored > 0 ? checkPassRule(gate.rule, topic.percent, topic.earnedPoints) : null;
+    // FR-19: … AND every declared key threshold. Either half may be absent: a section with
+    // key thresholds and no rule of its own is gated by the keys alone.
+    const byKeys = applyBreakdownGate(topic.breakdown, gate.breakdownRules);
+    const passed = byRule === null && byKeys === null ? null : byRule !== false && byKeys !== false;
+    topic.passed = passed;
+    if (passed === false) {
+      allTopicsPassed = false;
+      if (gate.required) requiredTopicsPassed = false;
+    }
   }
 
   const percent = tPossible > 0 ? (tEarned / tPossible) * 100 : 0;
