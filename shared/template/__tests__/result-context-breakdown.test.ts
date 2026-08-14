@@ -63,6 +63,10 @@ describe("полный состав строки (§8.1)", () => {
       barPercent: 40,
       showValue: true,
       valueLabel: "40 %",
+      // §8.1, с Э2: no threshold on this fixture's key → the row asserts nothing.
+      passed: null,
+      passClass: "",
+      statusLabel: "",
     });
   });
 
@@ -92,5 +96,36 @@ describe("полный состав строки (§8.1)", () => {
     expect(rows[0].earned).toBe(1.7);
     expect(rows[0].percentPoints).toBe(55.6);
     expect(rows[0].barPercent).toBe(56);
+  });
+});
+
+describe("вердикт ключа в строке разреза (§8.1, с Э2)", () => {
+  const withVerdict = (passed: boolean | null) => ({
+    ...result,
+    topicResults: [{ ...topic, breakdown: [{ ...topic.breakdown[0], passed }] }],
+  });
+
+  it("порог пройден — класс и подпись как у темы", () => {
+    const ctx = buildResultContext(withVerdict(true) as never, "Тест", {
+      breakdownDisplay: { visibility: "bar", basis: "units" },
+    } as never);
+    const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
+    expect(rows[0]).toMatchObject({ passed: true, passClass: "is-pass", statusLabel: "Пройдено" });
+  });
+
+  it("порог не пройден", () => {
+    const ctx = buildResultContext(withVerdict(false) as never, "Тест", {
+      breakdownDisplay: { visibility: "bar", basis: "units" },
+    } as never);
+    const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
+    expect(rows[0]).toMatchObject({ passed: false, passClass: "is-fail", statusLabel: "Не пройдено" });
+  });
+
+  it("порога нет — строка молчит о вердикте, а не утверждает «не пройдено»", () => {
+    const ctx = buildResultContext(withVerdict(null) as never, "Тест", {
+      breakdownDisplay: { visibility: "bar", basis: "units" },
+    } as never);
+    const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
+    expect(rows[0]).toMatchObject({ passed: null, passClass: "", statusLabel: "" });
   });
 });

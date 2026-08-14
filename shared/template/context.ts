@@ -95,10 +95,11 @@ export interface CtxTopicResultView extends CtxTopicFeedback {
  * out of a bar width, and adding a field later is a contract change that has to be
  * carried across both hosts and every shipped package.
  *
- * Three verdict fields the spec also names — `passed`, `passClass`, `statusLabel` —
- * are deliberately ABSENT until Э2: they are filled from the key's threshold, which
- * does not exist yet, and a field that can only ever be `null` teaches a template the
- * wrong shape.
+ * Three verdict fields — `passed`, `passClass`, `statusLabel` — arrived with Э2, filled
+ * from the key's threshold (`shared/scoring/pass-rule.ts` `applyBreakdownGate`). `passed`
+ * is `null` (and the other two are `""`) whenever the key carries no threshold verdict at
+ * all — no rule applied, or the key never appeared in the delivery (FR-22) — so a row never
+ * ASSERTS a failure the gate did not pronounce.
  */
 export interface CtxBreakdownRow {
   key: string;
@@ -126,6 +127,16 @@ export interface CtxBreakdownRow {
   showValue: boolean;
   /** Ready-made value label, e.g. "50 %". Empty when showValue is false. */
   valueLabel: string;
+  /**
+   * PRD-50 FR-19 (§8.1, «с Э2»): key verdict. `null` = no threshold applied, and the row
+   * asserts nothing about the key: no class, no label. Three fields, not one, for the
+   * same reason the topic verdict is three: the layout must not compute or translate.
+   */
+  passed: boolean | null;
+  /** Core-prepared class, e.g. `is-pass` / `is-fail` / `""`. */
+  passClass: string;
+  /** Core-prepared label, e.g. `Пройдено` / `Не пройдено` / `""`. */
+  statusLabel: string;
 }
 
 /** A per-topic row for the adaptive results layout (level-based, no score). */

@@ -685,6 +685,7 @@ function topicView(
     const showValue = display.visibility === "bar_and_value";
     view.breakdown = t.breakdown.map((e): CtxBreakdownRow => {
       const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
+      const passed = e.passed ?? null;
       return {
         key: e.key,
         items: e.items,
@@ -700,6 +701,12 @@ function topicView(
         barPercent: Math.round(value),
         showValue,
         valueLabel: showValue ? Math.round(value) + " %" : "",
+        // Same three fields and the same pair of words as the topic verdict. The
+        // methodology's own wording is Э3 (FR-34): the PRD-49 dictionary gets
+        // `topic.verdict.*` keys there, not here.
+        passed,
+        passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
+        statusLabel: passed === true ? "Пройдено" : passed === false ? "Не пройдено" : "",
       };
     });
   }

@@ -222,9 +222,8 @@
 .tb-report__topic.is-pass .tb-report__topic-bar-fill { background: #22c55e; }
 
 /* PRD-50: полосы разреза по ключам. Тот же род, что полоса карточки выше — узкая
-   дорожка с закруглением, — но НЕЙТРАЛЬНАЯ всегда: разрез не несёт своего вердикта,
-   ширина заливки задаётся инлайн-стилем из макета (`barPercent`), в CSS остаются
-   только дорожка, заливка и типографика. */
+   дорожка с закруглением. Заливка нейтральна, пока у ключа нет применившегося
+   порога; ширина всегда задаётся инлайн-стилем из макета (`barPercent`). */
 .tb-report__breakdown { margin-bottom: 6px; }
 .tb-report__breakdown-row { margin-bottom: 4px; }
 .tb-report__breakdown-row:last-child { margin-bottom: 0; }
@@ -242,6 +241,13 @@
 }
 .tb-report__breakdown-bar span { display: block; height: 100%; border-radius: 2px; background: #6b7280; }
 .tb-report__breakdown-val { font-size: 7px; color: #aca9a9; margin-top: 2px; }
+/* PRD-50 Э2: вердикт ключа. Те же оттенки, что у `.tb-report__topic.is-pass/is-fail`
+   выше в этом файле — вердикт разреза не заводит себе отдельную палитру. */
+.tb-report__breakdown-status { margin-left: 6px; font-size: 7px; color: #aca9a9; }
+.tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #22c55e; }
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #ef4444; }
+.tb-report__breakdown-row.is-pass .tb-report__breakdown-status { color: #22c55e; }
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-status { color: #ef4444; }
 
 .tb-report__topic-fb {
   font-size: 10px;
