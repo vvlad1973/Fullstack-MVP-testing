@@ -7,7 +7,7 @@
  * 6.2 and 6.3. Any change here must be reflected in decisions.md first.
  */
 
-import type { DrawBlueprint, FormSet, RetakePolicy } from "@shared/schema";
+import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
@@ -229,6 +229,14 @@ export type EditorSection = {
    * section row.
    */
   defaultPoints: number | null;
+  /**
+   * PRD-50 FR-11/FR-12: `key` of the test's block (`TestEditorModel.sectionGroups`)
+   * this section belongs to. `null`/absent = no block; the section prints after all
+   * blocks, in its own order (FR-25). A key no block declares means the same thing —
+   * deleting a block from the editor also clears it here so the UI never shows a
+   * dangling reference.
+   */
+  groupKey?: string | null;
 };
 
 /**
@@ -520,6 +528,14 @@ export type TestEditorModel = {
   };
   passRules: PassRules;
   sections: EditorSection[];
+  /**
+   * PRD-50 FR-11: named blocks of sections (`tests.section_groups_json`), in author
+   * order — a section joins one via `EditorSection.groupKey`. Absent/empty = no
+   * blocks, i.e. exactly today's flat list of topic cards every test has printed so
+   * far (FR-27). Edited next to the section list itself (`topics-structure-section`),
+   * since a block is a property of the test's STRUCTURE, not its scoring or display.
+   */
+  sectionGroups?: SectionGroup[];
   adaptive: {
     showDifficultyLevel: boolean;
     testSettings: AdaptiveTestSettings;
@@ -621,6 +637,11 @@ export type TestSettingsPayload = {
   /** PRD-50 FR-13: subtotal-by-key display setting. Always sent — the editor resolves
    *  the missing-model case to {@link DEFAULT_BREAKDOWN_DISPLAY} before building the payload. */
   breakdownDisplayJson: BreakdownDisplaySetting;
+  /**
+   * PRD-50 FR-11: named blocks of sections, in author order. `null`/absent = no
+   * blocks (FR-27).
+   */
+  sectionGroupsJson?: SectionGroup[] | null;
   /** PRD-15 block D (FR-31): test-wide default price; `null` = system (1). */
   defaultQuestionPoints: number | null;
   expectedVersion: number;
@@ -644,6 +665,8 @@ export type TestSectionPayload = {
   formSetJson: FormSet | null;
   /** PRD-50 §4: пороги ключей; `null` = ключи информационные. */
   breakdownRulesJson: BreakdownRules | null;
+  /** PRD-50 FR-11/FR-12: the test's block this section belongs to; `null` = no block. */
+  groupKey: string | null;
   /** PRD-15 block D (FR-31): per-section default price; `null` = inherit test. */
   defaultPoints: number | null;
   /** PRD-30 FR-02/FR-18: the topic's override; `null` = «как в тесте». */

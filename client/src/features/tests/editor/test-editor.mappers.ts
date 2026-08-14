@@ -18,10 +18,10 @@
  *   - §6.8  empty `description`/`webhookUrl` normalised to `null`
  *   - FR-25h adaptive payload excluded when `mode === "standard"`
  */
-import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy } from "@shared/schema";
+import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
-import { breakdownRulesSchema, formSetSchema } from "@shared/schema";
+import { breakdownRulesSchema, formSetSchema, sectionGroupsSchema } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 import type {
@@ -108,6 +108,8 @@ export type ApiTestResponse = {
   introJson?: unknown;
   /** PRD-50 FR-13: subtotal-by-key display setting. */
   breakdownDisplayJson?: unknown;
+  /** PRD-50 FR-11: named blocks of sections, in author order. */
+  sectionGroupsJson?: unknown;
   /** PRD-15 block D (FR-31): test-wide default price; null = system (1). */
   defaultQuestionPoints?: number | null;
   /** PRD-15 block D (FR-30): per-(test, question) scoring overrides. */
@@ -351,6 +353,18 @@ function readBreakdownRulesFromApi(raw: unknown): BreakdownRules | null {
 }
 
 /**
+ * Read the test's blocks of sections (PRD-50 FR-11) from the API jsonb. Validated
+ * with `sectionGroupsSchema`; absence or any malformed shape degrades to `[]` (no
+ * blocks) — the same thing an absent column has always meant (FR-27) — so a bad
+ * blob never breaks the editor.
+ */
+function readSectionGroupsFromApi(raw: unknown): SectionGroup[] {
+  if (raw == null) return [];
+  const parsed = sectionGroupsSchema.safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
+
+/**
  * Map editor `SectionTimeLimit` back to the DB integer.
  * Both `inherit_test` and `none` are encoded as `null`.
  */
@@ -416,6 +430,9 @@ function buildSectionsFromApi(src: ApiTestResponse): {
       formSet: readFormSetFromApi(raw.formSetJson),
       // PRD-50 §4: пороги ключей (валидируем; кривое/отсутствующее = null).
       breakdownRules: readBreakdownRulesFromApi(raw.breakdownRulesJson),
+      // PRD-50 FR-11/FR-12: this section's block, or null when it belongs to none —
+      // including a legacy section saved before this PRD.
+      groupKey: typeof raw.groupKey === "string" ? raw.groupKey : null,
       // PRD-15 block D (FR-31): per-section default price (null = inherit test).
       defaultPoints: typeof raw.defaultPoints === "number" ? raw.defaultPoints : null,
       // PRD-30 FR-18: only an explicit value is an override; anything else —
@@ -1070,6 +1087,8 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       byTopic: {},
     },
     sections: [],
+    // PRD-50 FR-11: новый тест — блоков нет, как у любого теста без настройки.
+    sectionGroups: [],
     adaptive: {
       showDifficultyLevel: true,
       testSettings: { showDifficultyLevel: true },
@@ -1190,6 +1209,8 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
       byTopic,
     },
     sections,
+    // PRD-50 FR-11: поля нет (тест до PRD-50) → блоков нет (FR-27).
+    sectionGroups: readSectionGroupsFromApi(src.sectionGroupsJson),
     adaptive: {
       showDifficultyLevel,
       testSettings: { showDifficultyLevel },
@@ -1283,6 +1304,10 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
       model.intro && (model.intro.results || model.intro.report || model.intro.reportSameAsResults)
         ? model.intro
         : null,
+    // PRD-50 FR-11: absent/empty persists as `null` — no blocks, same as a draft from
+    // before this PRD (FR-27).
+    sectionGroupsJson:
+      model.sectionGroups && model.sectionGroups.length > 0 ? model.sectionGroups : null,
     // PRD-15 block D (FR-31): test-wide default price (null = system default).
     // Defensive `?.` — drafts persisted before block D have no scoring slice.
     defaultQuestionPoints: model.scoring?.defaultQuestionPoints ?? null,
@@ -1389,6 +1414,8 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
       // PRD-50 §4: пороги ключей; пустой набор без умолчания шлём как null — пустая
       // структура и её отсутствие означают одно и то же, а null короче в базе.
       breakdownRulesJson: normalizeBreakdownRules(section.breakdownRules),
+      // PRD-50 FR-11/FR-12: the block this section belongs to; `null` = no block.
+      groupKey: section.groupKey ?? null,
       // PRD-15 block D (FR-31): per-section default price.
       defaultPoints: section.defaultPoints ?? null,
       // PRD-30 FR-18: the topic's override; `null` = «как в тесте».

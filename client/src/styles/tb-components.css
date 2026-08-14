@@ -720,6 +720,18 @@
 .tb-test-order-row .ou-select__trigger,
 .tb-question-order-row .ou-select__trigger { min-width: var(--tb-input-w-md); }
 
+/* PRD-50 FR-11/FR-43: the topic's block picker — same anatomy as
+   .tb-question-order-row (fixed-width label + Select), placed right below it. */
+.tb-group-row {
+  display: flex; align-items: center; gap: var(--ou-space-2);
+  margin-bottom: var(--ou-space-2);
+}
+.tb-group-row__lbl {
+  font: var(--ou-text-body-s);
+  width: var(--wf-size-150); flex-shrink: 0;
+}
+.tb-group-row .ou-select__trigger { min-width: var(--tb-input-w-md); }
+
 /* Draw-count row: «Вопросов в тест [ N ] из M» — standard mode. */
 .tb-draw-count-row {
   display: flex; align-items: center; gap: var(--ou-space-2);

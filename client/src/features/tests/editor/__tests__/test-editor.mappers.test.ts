@@ -963,3 +963,95 @@ describe("quickAdvance (PRD-43)", () => {
     expect(editorModelToPayload(model).quickAdvance).toBe(true);
   });
 });
+
+// ─── PRD-50 FR-11/FR-12: section-group (block) round-trip ────────────────────
+
+describe("PRD-50 FR-11 section groups mapping", () => {
+  const groups = [
+    { key: "intro", label: "Вводный блок", order: 0 },
+    { key: "core", label: "Основной блок", order: 1 },
+  ];
+
+  it("apiToEditorModel reads sectionGroupsJson into model.sectionGroups", () => {
+    const api = {
+      id: "t",
+      version: 1,
+      title: "T",
+      mode: "standard",
+      status: "draft",
+      overallPassRuleJson: { type: "percent", value: 70 },
+      sectionGroupsJson: groups,
+      sections: [apiSection({ topicId: "a", groupKey: "core" })],
+    };
+    const model = apiToEditorModel(api);
+    expect(model.sectionGroups).toEqual(groups);
+    expect(model.sections[0].groupKey).toBe("core");
+  });
+
+  it("apiToEditorModel defaults to an empty list for absent/malformed sectionGroupsJson", () => {
+    const withoutField = apiToEditorModel({
+      id: "t",
+      title: "T",
+      mode: "standard",
+      status: "draft",
+      overallPassRuleJson: { type: "percent", value: 70 },
+      sections: [apiSection({ topicId: "a" })],
+    });
+    expect(withoutField.sectionGroups).toEqual([]);
+    // A section without groupKey (legacy row) reads as "no block".
+    expect(withoutField.sections[0].groupKey).toBeNull();
+
+    const malformed = apiToEditorModel({
+      id: "t",
+      title: "T",
+      mode: "standard",
+      status: "draft",
+      overallPassRuleJson: { type: "percent", value: 70 },
+      sectionGroupsJson: [{ key: "", label: "Пустой ключ" }], // invalid: empty key
+      sections: [],
+    });
+    expect(malformed.sectionGroups).toEqual([]);
+  });
+
+  it("editorModelToPayload collapses an empty block list to null; a non-empty one round-trips", () => {
+    const empty = emptyEditorModel({ folderId: null });
+    expect(editorModelToPayload(empty).sectionGroupsJson).toBeNull();
+
+    const withGroups = emptyEditorModel({ folderId: null });
+    withGroups.sectionGroups = groups;
+    expect(editorModelToPayload(withGroups).sectionGroupsJson).toEqual(groups);
+  });
+
+  it("mapEditorSectionsToPayload sends groupKey, defaulting a missing value to null", () => {
+    const model = makeStandardModel({
+      sections: [
+        {
+          topicId: "a",
+          topicName: "A",
+          maxQuestions: 10,
+          drawCount: 5,
+          required: true,
+          timeLimit: { source: "inherit_test" },
+          feedback: { format: "plain", text: "" },
+          feedbackLinks: [],
+          feedbackAssets: [],
+          groupKey: "core",
+        } as never,
+        {
+          topicId: "b",
+          topicName: "B",
+          maxQuestions: 10,
+          drawCount: 5,
+          required: true,
+          timeLimit: { source: "inherit_test" },
+          feedback: { format: "plain", text: "" },
+          feedbackLinks: [],
+          feedbackAssets: [],
+        } as never,
+      ],
+    });
+    const payloads = mapEditorSectionsToPayload(model);
+    expect(payloads[0].groupKey).toBe("core");
+    expect(payloads[1].groupKey).toBeNull();
+  });
+});

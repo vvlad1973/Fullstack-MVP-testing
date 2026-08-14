@@ -22,7 +22,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layers, Plus, RotateCcw, Trash2, X } from "lucide-react";
-import type { DrawBlueprint, FormSet, Topic } from "@shared/schema";
+import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
 import type { BreakdownRules, BreakdownThreshold } from "@shared/breakdown/types";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import {
@@ -98,6 +98,22 @@ const TEST_ORDER_HINTS: Record<TestQuestionOrder, (flatFlow: boolean) => string>
 
 /** Значение «как в тесте» у темы — в модели это `null` (FR-18). */
 const INHERIT = "inherit";
+
+/** PRD-50 FR-11/FR-12: значение «Без блока» у раздела — в модели это `null`. */
+const NO_GROUP = "none";
+
+/**
+ * PRD-50 FR-11: the block's `key` is a housekeeping id the author never types —
+ * generate it from the ordinal position, skipping any key already in use (an
+ * earlier block may have been deleted and its number freed, or the model may
+ * already carry a key that collides for some other reason).
+ */
+function nextGroupKey(existing: SectionGroup[]): string {
+  const used = new Set(existing.map((g) => g.key));
+  let n = existing.length + 1;
+  while (used.has(`group-${n}`)) n += 1;
+  return `group-${n}`;
+}
 
 const TOPIC_ORDER_OPTIONS = [
   { value: INHERIT, label: "Как в тесте" },
@@ -196,10 +212,44 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           feedbackEvents: [],
           drawBlueprint: null,
           defaultPoints: null,
+          groupKey: null,
         },
       ],
     }));
     setPickerOpen(false);
+  };
+
+  // ─── PRD-50 FR-11: blocks of sections («Блоки итогов») ───────────────────────
+
+  const sectionGroups = model.sectionGroups ?? [];
+
+  const addGroup = () => {
+    updateModel((m) => {
+      const groups = m.sectionGroups ?? [];
+      const key = nextGroupKey(groups);
+      return {
+        ...m,
+        sectionGroups: [...groups, { key, label: `Блок ${groups.length + 1}` }],
+      };
+    });
+  };
+
+  const renameGroup = (key: string, label: string) => {
+    updateModel((m) => ({
+      ...m,
+      sectionGroups: (m.sectionGroups ?? []).map((g) => (g.key === key ? { ...g, label } : g)),
+    }));
+  };
+
+  // FR-12: a section referencing a deleted block is still legal for the core (it
+  // reads as "no block"), but the editor never leaves a dangling reference on
+  // screen — dropping the block also clears it from every section that had it.
+  const removeGroup = (key: string) => {
+    updateModel((m) => ({
+      ...m,
+      sectionGroups: (m.sectionGroups ?? []).filter((g) => g.key !== key),
+      sections: m.sections.map((s) => (s.groupKey === key ? { ...s, groupKey: null } : s)),
+    }));
   };
 
   // PRD-30 FR-16: absent = «перемешивание», today's behaviour of every test.
@@ -235,6 +285,47 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
         />
         <span className="tb-test-order-row__hint">{TEST_ORDER_HINTS[testOrder](flatFlow)}</span>
       </div>
+
+      {/* PRD-50 FR-11/FR-43: named blocks of sections, edited next to the test's
+          structure (a block is a property of the STRUCTURE, not scoring or display).
+          Each topic below picks one of these blocks or stays «Без блока» (FR-25). */}
+      <div className="tb-section-label">Блоки итогов</div>
+      {sectionGroups.length > 0 && (
+        <ul className="tb-feedback-editor__list" aria-label="Блоки итогов" data-testid="section-groups-list">
+          {sectionGroups.map((group, idx) => (
+            <li key={group.key} className="tb-feedback-editor__item">
+              <div className="tb-feedback-editor__item-fields">
+                <Input
+                  size="s"
+                  fullWidth
+                  aria-label={`Подпись блока ${idx + 1}`}
+                  value={group.label}
+                  placeholder="Название блока"
+                  onChange={(e) => renameGroup(group.key, e.target.value)}
+                  data-testid={`section-group-label-${group.key}`}
+                />
+              </div>
+              <IconButton
+                icon={<Trash2 size={14} aria-hidden="true" />}
+                aria-label={`Удалить блок «${group.label || `Блок ${idx + 1}`}»`}
+                variant="ghost"
+                size="s"
+                onClick={() => removeGroup(group.key)}
+                data-testid={`section-group-remove-${group.key}`}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button
+        variant="secondary"
+        size="s"
+        leadingIcon={<Plus size={16} aria-hidden="true" />}
+        onClick={addGroup}
+        data-testid="section-group-add"
+      >
+        Добавить блок
+      </Button>
 
       {model.sections.length === 0 && (
         <EmptyState
@@ -276,6 +367,8 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           }
           onChangeBlueprint={(bp) => updateSection(section.topicId, { drawBlueprint: bp })}
           onChangeBreakdownRules={(rules) => updateSection(section.topicId, { breakdownRules: rules })}
+          groups={sectionGroups}
+          onChangeGroup={(groupKey) => updateSection(section.topicId, { groupKey })}
           // PRD-24: changing the variant set also re-syncs the topic's per-variant
           // pass rule (seed added / drop removed / normalise when mode goes off).
           onChangeFormSet={(formSet) =>
@@ -341,6 +434,10 @@ function TopicRow(props: {
   onChangeBlueprint: (bp: DrawBlueprint | null) => void;
   /** PRD-50 §4 (FR-09): replace this section's key thresholds (`null` = informational). */
   onChangeBreakdownRules: (rules: BreakdownRules | null) => void;
+  /** PRD-50 FR-11: the test's blocks, for the «Блок» Select's option list. */
+  groups: SectionGroup[];
+  /** PRD-50 FR-11/FR-12: set this section's block (`null` = «Без блока»). */
+  onChangeGroup: (groupKey: string | null) => void;
   /** PRD-17 (BR-12): replace this section's variant set (`null` = variants off). */
   onChangeFormSet: (formSet: FormSet | null) => void;
   /** FR-20c: validation message for this section's variants. */
@@ -495,6 +592,27 @@ function TopicRow(props: {
               {questionOrderHint(effectiveOrder, section.questionOrder == null, variantsOn, props.testOrder)}
             </span>
           </div>
+
+          {/* PRD-50 FR-11/FR-43: which block of the results screen this topic
+              belongs to. Shown only once the test has at least one block — a test
+              with none behaves exactly as before (FR-27), so there is nothing to
+              pick here yet. */}
+          {props.groups.length > 0 && (
+            <div className="tb-group-row">
+              <span className="tb-group-row__lbl">Блок</span>
+              <Select
+                size="s"
+                value={section.groupKey ?? NO_GROUP}
+                onChange={(value) => props.onChangeGroup(value === NO_GROUP ? null : value)}
+                options={[
+                  { value: NO_GROUP, label: "Без блока" },
+                  ...props.groups.map((g) => ({ value: g.key, label: g.label })),
+                ]}
+                aria-label={`Блок итогов: ${section.topicName}`}
+                data-testid={`topic-group-${section.topicId}`}
+              />
+            </div>
+          )}
 
           <KeysTable
             topicId={section.topicId}
