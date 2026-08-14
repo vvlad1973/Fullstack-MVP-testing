@@ -8837,6 +8837,16 @@ var TBTemplate = (() => {
         const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
         return {
           key: e.key,
+          items: e.items,
+          answered: e.answered,
+          // One decimal everywhere a real number reaches the layout, exactly like
+          // `pointsLabel` above: these fields are bound DIRECTLY by templates, and a raw
+          // ratio prints as «73.33333333333333». The bar keeps its own integer.
+          earned: round14(e.earned),
+          possible: round14(e.possible),
+          percent: round14(value),
+          percentUnits: round14(e.percentUnits),
+          percentPoints: round14(e.percentPoints),
           barPercent: Math.round(value),
           showValue,
           valueLabel: showValue ? Math.round(value) + " %" : ""

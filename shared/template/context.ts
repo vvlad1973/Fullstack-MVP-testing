@@ -87,9 +87,39 @@ export interface CtxTopicResultView extends CtxTopicFeedback {
   breakdown?: CtxBreakdownRow[];
 }
 
-/** One breakdown row, prepared by the core: the layout only prints it. */
+/**
+ * One breakdown row, prepared by the core: the layout only prints it (PRD-50 §8.1).
+ *
+ * The counts and the points are here from the FIRST release, not from the release that
+ * first prints them. A third-party template из реестра PRD-3 cannot show «верно 4 из 7»
+ * out of a bar width, and adding a field later is a contract change that has to be
+ * carried across both hosts and every shipped package.
+ *
+ * Three verdict fields the spec also names — `passed`, `passClass`, `statusLabel` —
+ * are deliberately ABSENT until Э2: they are filled from the key's threshold, which
+ * does not exist yet, and a field that can only ever be `null` teaches a template the
+ * wrong shape.
+ */
 export interface CtxBreakdownRow {
   key: string;
+  /** Delivered questions carrying this key (FR-01). */
+  items: number;
+  /** How many of those the learner answered. */
+  answered: number;
+  /** Points earned on them, one decimal (as `pointsLabel` rounds). */
+  earned: number;
+  /** Points they could bring, one decimal. */
+  possible: number;
+  /**
+   * The value of the basis the AUTHOR chose (`units` / `points`), one decimal —
+   * the unrounded twin of {@link barPercent}. A layout that wants a number prints
+   * this one and does not have to know which basis is in force.
+   */
+  percent: number;
+  /** Normalized share — every question weighs 1 (решение 4), one decimal. */
+  percentUnits: number;
+  /** Points share, one decimal. The verdict currency (FR-21), whatever is displayed. */
+  percentPoints: number;
   /** Bar width in percent, rounded. */
   barPercent: number;
   /** Whether to print the number alongside the bar. */

@@ -687,6 +687,16 @@ function topicView(
       const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
       return {
         key: e.key,
+        items: e.items,
+        answered: e.answered,
+        // One decimal everywhere a real number reaches the layout, exactly like
+        // `pointsLabel` above: these fields are bound DIRECTLY by templates, and a raw
+        // ratio prints as «73.33333333333333». The bar keeps its own integer.
+        earned: round1(e.earned),
+        possible: round1(e.possible),
+        percent: round1(value),
+        percentUnits: round1(e.percentUnits),
+        percentPoints: round1(e.percentPoints),
         barPercent: Math.round(value),
         showValue,
         valueLabel: showValue ? Math.round(value) + " %" : "",
