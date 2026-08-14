@@ -1508,6 +1508,11 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       breakdown: t.breakdown,
     }));
 
+    // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the engine returns the
+    // test-scope records on `breakdowns` and the section-scope ones on each topic
+    // result, and `tag()` needs to reach either.
+    const allBreakdowns = [...agg.breakdowns, ...agg.topicResults.flatMap((t) => t.breakdown)];
+
     // PRD-12: graded namespaces (scales PRD-5 + result variables PRD-2) via the
     // shared engines, mirroring the SCORM runtime. No-op when the test has none.
     const scoringConfig = await loadScoringConfig(test.id, src);
@@ -1527,13 +1532,7 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         {
           percent: overallPercent,
           topicResults: topicResults.map((t) => ({ ...t, code: topicCodeById.get(t.topicId) ?? null })),
-          // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the engine returns the
-          // test-scope records on `breakdowns` and the section-scope ones on each topic
-          // result, and `tag()` needs to reach either.
-          breakdowns: [
-            ...agg.breakdowns,
-            ...agg.topicResults.flatMap((t) => t.breakdown),
-          ],
+          breakdowns: allBreakdowns,
         },
       );
       if (Object.keys(computation.scaleResults).length > 0) scaleResults = computation.scaleResults;
@@ -1559,6 +1558,11 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       ...(scaleResults ? { scaleResults } : {}),
       ...(resultVariables ? { resultVariables } : {}),
       ...(status ? { status } : {}),
+      // PRD-50 FR-39: records of the TEST scope travel with the attempt. Section-scope
+      // ones already live on the topics (`topicResults[].breakdown`), so only the test
+      // scope goes here — an empty list is not stored at all, so a tag-less test's result
+      // does not change by a single byte.
+      ...(agg.breakdowns.length ? { breakdowns: agg.breakdowns } : {}),
     };
 
     await storage.updateAttempt(attempt.id, {

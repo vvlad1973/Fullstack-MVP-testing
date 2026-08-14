@@ -1259,6 +1259,26 @@ export type TestVariant = z.infer<typeof testVariantSchema>;
 export const attemptAnswerSchema = z.record(z.string(), z.unknown());
 export type AttemptAnswers = z.infer<typeof attemptAnswerSchema>;
 
+/**
+ * One PRD-50 breakdown record as it is STORED with an attempt — the mirror of
+ * `shared/breakdown/types`'s `BreakdownEntry`. Declared once because three places keep
+ * the very same record (a topic's own scope, the test scope, an adaptive topic's scope),
+ * and three hand-written copies would drift the moment the record gains a field.
+ */
+export const breakdownEntrySchema = z.object({
+  scope: z.string(),
+  axis: z.string(),
+  key: z.string(),
+  items: z.number(),
+  answered: z.number(),
+  earned: z.number(),
+  possible: z.number(),
+  unitEarned: z.number(),
+  unitPossible: z.number(),
+  percentPoints: z.number(),
+  percentUnits: z.number(),
+});
+
 export const topicResultSchema = z.object({
   topicId: z.string(),
   topicName: z.string(),
@@ -1293,23 +1313,7 @@ export const topicResultSchema = z.object({
   // recommendations above — the results screen renders from the saved result, and
   // recomputing from live content would hand a past attempt today's tags.
   // `.default([])` keeps attempts graded before PRD-50 valid.
-  breakdown: z
-    .array(
-      z.object({
-        scope: z.string(),
-        axis: z.string(),
-        key: z.string(),
-        items: z.number(),
-        answered: z.number(),
-        earned: z.number(),
-        possible: z.number(),
-        unitEarned: z.number(),
-        unitPossible: z.number(),
-        percentPoints: z.number(),
-        percentUnits: z.number(),
-      }),
-    )
-    .default([]),
+  breakdown: z.array(breakdownEntrySchema).default([]),
 });
 
 export const attemptResultSchema = z.object({
@@ -1320,6 +1324,12 @@ export const attemptResultSchema = z.object({
   totalPossiblePoints: z.number(),
   overallPassed: z.boolean(),
   topicResults: z.array(topicResultSchema),
+  // PRD-50 FR-39: records of the TEST scope. Section-scope records live on their own
+  // topics and are NOT duplicated here — one record, one place. `optional()`, not
+  // `.default([])`: an absent field means "attempt finished before this work", and
+  // analytics needs to tell that apart from "test has no tags" to know whether it can
+  // trust an empty list.
+  breakdowns: z.array(breakdownEntrySchema).optional(),
   // PRD-12 (web parity): graded namespaces computed via @shared engines, present
   // only when the test defines scales (PRD-5) / result variables (PRD-2). Absence
   // keeps the legacy result shape and old stored results valid (back-compat).
