@@ -8942,6 +8942,14 @@ var TBTemplate = (() => {
       }
     });
   }
+  function firstMatchingTier(input) {
+    const { type, correct, answer, scoring } = input;
+    if (!scoring || scoring.kind !== "tiered") return null;
+    if (answer === null || answer === void 0) return null;
+    const counters = countTallies(type, correct, answer);
+    const index = scoring.tiers.findIndex((tier) => evalPredicate(tier.when, counters));
+    return index >= 0 ? index : null;
+  }
   function scoreAnswer(input) {
     var _a;
     const { type, correct, answer, scoring } = input;
@@ -8959,12 +8967,8 @@ var TBTemplate = (() => {
     if (kind === "tiered") {
       const tiers = scoring && scoring.kind === "tiered" ? scoring.tiers : [];
       const sMax = scoring && scoring.kind === "tiered" && scoring.sMax || maxOf(tiers.map((t) => t.score));
-      let score2 = 0;
-      if (answer !== null && answer !== void 0) {
-        const counters = countTallies(type, correct, answer);
-        const hit = tiers.find((tier) => evalPredicate(tier.when, counters));
-        if (hit) score2 = hit.score;
-      }
+      const hit = firstMatchingTier(input);
+      let score2 = hit !== null ? tiers[hit].score : 0;
       score2 = Math.max(0, score2);
       return { score: score2, sMax, ratio: sMax > 0 ? clamp013(score2 / sMax) : 0 };
     }
