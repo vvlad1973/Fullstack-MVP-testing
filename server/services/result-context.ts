@@ -39,7 +39,7 @@ import {
   type TemplateBlockOrder,
 } from "@shared/template/results-order";
 import { resolveReportIntro } from "@shared/schema";
-import type { DesignSettings, FeedbackContent, ResultVariable, Scale, TestIntro } from "@shared/schema";
+import type { DesignSettings, FeedbackContent, ResultVariable, Scale, SectionGroup, TestIntro } from "@shared/schema";
 import type { ScaleResult } from "@shared/formula/types";
 
 export type { ResultRenderContext };
@@ -124,6 +124,16 @@ export interface MeasuresSource {
    * test's results screen, not of whether the test measures anything.
    */
   breakdownDisplayJson?: BreakdownDisplaySetting | null;
+  /**
+   * PRD-50 FR-11: the test's declared section groups (`tests.section_groups_json`).
+   * Absent/`null` (no groups saved) leaves the context without `topicGroups` at all —
+   * the flat list of topic cards a test built before PRD-50 has always shown (FR-27).
+   *
+   * Travels the SAME path as {@link breakdownDisplayJson}, and for the same reason: it is
+   * a property of the TEST's results screen, read off the DELIVERED version of the test,
+   * not something the render layer re-derives from live sections.
+   */
+  sectionGroupsJson?: SectionGroup[] | null;
 }
 
 /**
@@ -279,6 +289,12 @@ function toTopicInput(t: TopicResult): TopicInput {
     // recommendations above. Absent on attempts graded before PRD-50 — the schema default
     // then leaves an empty list, and the shared builder simply prints no rows for it.
     breakdown: t.breakdown ?? [],
+    // PRD-50 FR-11: the group the section was DELIVERED in, stored with the attempt by
+    // the grader. Spread in only when there IS one — the same rule the grader and the
+    // bake follow, so a test without groups adds no key anywhere along the path,
+    // including the report input this very object is serialized into. What a key the test
+    // does not declare means is decided in ONE place, the shared builder (FR-12).
+    ...(t.groupKey ? { groupKey: t.groupKey } : {}),
   };
 }
 
@@ -337,6 +353,10 @@ export function buildResultContext(
       earnedPoints: result.totalEarnedPoints,
       possiblePoints: result.totalPossiblePoints,
       topicResults: (result.topicResults || []).map(toTopicInput),
+      // PRD-50 FR-11: список блоков разделов теста. Едет тем же путём, что и настройка
+      // разрезов, — из ВЫДАННОЙ версии теста. Пусто = блоков нет, и построитель не
+      // добавляет к контексту ни одного нового поля (FR-27).
+      ...(measures?.sectionGroupsJson?.length ? { sectionGroups: measures.sectionGroupsJson } : {}),
     },
     testTitle,
     {
@@ -432,6 +452,10 @@ export function buildReportInput(
       earnedPoints: result.totalEarnedPoints,
       possiblePoints: result.totalPossiblePoints,
       topicResults: (result.topicResults || []).map(toTopicInput),
+      // PRD-50 FR-11: те же блоки, что у экрана, и из того же материала (§5.2 — документ
+      // не вправе показать иное, чем экран, с которого его скачали). Разбирает их общий
+      // построитель контекста, который отчёт и экран зовут один и тот же.
+      ...(measures?.sectionGroupsJson?.length ? { sectionGroups: measures.sectionGroupsJson } : {}),
     },
   };
 }

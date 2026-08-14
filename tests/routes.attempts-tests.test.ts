@@ -1217,6 +1217,46 @@ describe("Attempts routes — finish attempt", () => {
     storageMock.getTopic.mockReset();
   });
 
+  // PRD-50 FR-11: блок раздела сохраняется ВМЕСТЕ с попыткой. Экран итогов рисуется из
+  // сохранённого результата, и без этого ключа он печатал бы плоский список тем даже
+  // тесту, у которого автор блоки завёл. Ключ ставится ТОЛЬКО у раздела с блоком:
+  // результат теста без блоков обязан остаться прежним.
+  it("POST /attempts/:id/finish — кладёт блок раздела в результат попытки", async () => {
+    storageMock.getAttempt.mockResolvedValue(dbAttempt);
+    storageMock.getTest.mockResolvedValue(dbTest);
+    storageMock.getTestSections.mockResolvedValue([{
+      topicId: "t1", topicPassRuleJson: null, groupKey: "knowledge",
+    }]);
+    storageMock.getQuestionsByIds.mockResolvedValue([dbQuestion]);
+    storageMock.getTopicCourses.mockResolvedValue([]);
+    storageMock.getTestQuestionScoring.mockResolvedValue([]);
+    storageMock.updateAttempt.mockResolvedValue(finishedAttempt);
+
+    const res = await asLearner(request(app).post("/api/attempts/atmp1/finish")
+      .send({ answers: { q1: 0 } }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.result.topicResults[0].groupKey).toBe("knowledge");
+    expect(storageMock.updateAttempt.mock.calls[0][1].resultJson.topicResults[0].groupKey)
+      .toBe("knowledge");
+  });
+
+  it("POST /attempts/:id/finish — раздел без блока не получает ключа вовсе", async () => {
+    storageMock.getAttempt.mockResolvedValue(dbAttempt);
+    storageMock.getTest.mockResolvedValue(dbTest);
+    storageMock.getTestSections.mockResolvedValue([{ topicId: "t1", topicPassRuleJson: null }]);
+    storageMock.getQuestionsByIds.mockResolvedValue([dbQuestion]);
+    storageMock.getTopicCourses.mockResolvedValue([]);
+    storageMock.getTestQuestionScoring.mockResolvedValue([]);
+    storageMock.updateAttempt.mockResolvedValue(finishedAttempt);
+
+    const res = await asLearner(request(app).post("/api/attempts/atmp1/finish")
+      .send({ answers: { q1: 0 } }));
+
+    expect(res.status).toBe(200);
+    expect("groupKey" in res.body.result.topicResults[0]).toBe(false);
+  });
+
   it("POST /attempts/:id/finish — одинаковые тексты схлопываются, пустые отбрасываются", async () => {
     storageMock.getAttempt.mockResolvedValue(dbAttempt);
     storageMock.getTest.mockResolvedValue(dbTest);

@@ -122,7 +122,7 @@ function pdfReportMeta() {
 
 /** Map the runtime's standard result onto the shared report input. */
 function pdfStandardInput(results) {
-  return {
+  var input = {
     passed: !!results.passed,
     percent: results.percent,
     totalQuestions: results.totalQuestions,
@@ -149,10 +149,18 @@ function pdfStandardInput(results) {
         // screen (`viewResults.js`): §5.2 forbids the report from showing anything
         // other than the screen it was downloaded from, and before this the report of
         // a saved attempt printed no breakdown rows at all.
-        breakdown: (typeof vrTopicBreakdown === 'function') ? vrTopicBreakdown(tr, results.breakdowns) : []
+        breakdown: (typeof vrTopicBreakdown === 'function') ? vrTopicBreakdown(tr, results.breakdowns) : [],
+        // PRD-50 FR-11: блок раздела — тот же читатель, что у экрана итогов (§5.2).
+        groupKey: (typeof vrTopicGroupKey === 'function') ? vrTopicGroupKey(tr) : null
       };
     })
   };
+  // PRD-50 FR-11/FR-27: блоки теста, выпеченные в пакет. Отсутствие оставляет вход
+  // отчёта прежним — тем же плоским списком тем, что печатался до этого PRD.
+  if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.sectionGroups) {
+    input.sectionGroups = TEST_DATA.sectionGroups;
+  }
+  return input;
 }
 
 /** Map the runtime's adaptive result onto the shared report input. */

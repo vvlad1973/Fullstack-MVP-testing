@@ -597,6 +597,9 @@ function calculateResults() {
         // PRD-50 FR-19: пороги ключей этого раздела; выпечены в TEST_DATA как
         // section.breakdownRules. Отсутствие = ключи информационные, вердикт как до PRD-50.
         breakdownRules: section ? (section.breakdownRules || null) : null,
+        // PRD-50 FR-11: блок разделов, в который автор поместил ЭТОТ раздел; выпечен в
+        // TEST_DATA как section.groupKey. Отсутствие = раздел вне блоков.
+        groupKey: section ? (section.groupKey || null) : null,
         questions: [],
         extra: {
           recommendedCourses: (section && section.recommendedCourses) || [],
@@ -673,7 +676,12 @@ function calculateResults() {
         // — a few bytes each, on every test, whether or not it uses PRD-50 at all.
         // `JSON.stringify` drops an `undefined` value's key outright, which is the one
         // way to add nothing for a test that carries no keys.
-        breakdown: (t.breakdown && t.breakdown.length) ? t.breakdown : undefined
+        breakdown: (t.breakdown && t.breakdown.length) ? t.breakdown : undefined,
+        // PRD-50 FR-11: блок раздела уходит в suspend_data вместе с темой — попытка
+        // помнит принадлежность, с которой её оценивали. `aggregateStandardResult`
+        // ставит поле ТОЛЬКО у раздела с блоком, а `JSON.stringify` гасит `undefined`,
+        // поэтому попытка теста без блоков не весит ни байтом больше.
+        groupKey: t.groupKey
       };
     })
   };

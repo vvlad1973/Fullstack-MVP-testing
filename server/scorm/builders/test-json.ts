@@ -239,6 +239,11 @@ export function buildTestJson(data: ExportData): string {
     ...(data.test.breakdownDisplayJson && data.test.breakdownDisplayJson.visibility !== "hidden"
       ? { breakdownDisplay: data.test.breakdownDisplayJson }
       : {}),
+    // PRD-50 FR-11: блоки разделов теста. Выпекаются ТОЛЬКО когда автор их завёл, поэтому
+    // пакет теста без блоков остаётся байт-в-байт прежним (FR-02); рантайм читает
+    // `TEST_DATA.sectionGroups`, а отсутствие значит «блоков нет» — тот самый плоский
+    // список тем, который печатал каждый пакет до этого PRD.
+    ...(data.test.sectionGroupsJson?.length ? { sectionGroups: data.test.sectionGroupsJson } : {}),
     timeLimitMinutes: data.test.timeLimitMinutes || null,
     maxAttempts: data.test.maxAttempts || null,
     showCorrectAnswers: data.test.showCorrectAnswers || false,
@@ -318,6 +323,10 @@ export function buildTestJson(data: ExportData): string {
         // set them, so packages of tests without thresholds stay byte-identical; the runtime
         // reads `section.breakdownRules` and an absent value means «keys are informational».
         ...(s.breakdownRulesJson ? { breakdownRules: s.breakdownRulesJson } : {}),
+        // PRD-50 FR-11: блок, в который автор поместил ЭТОТ раздел. Как и список блоков
+        // выше — только когда он есть, иначе пакет прежний до байта; ссылка на ключ,
+        // которого в списке нет, значит «без блока», и разрешает это ядро (FR-12).
+        ...(s.groupKey ? { groupKey: s.groupKey } : {}),
         // PRD-30 FR-02/FR-18/FR-23: the topic's OVERRIDE of the test-wide order.
         // Baked only when the topic actually overrides (a null column = «как в
         // тесте»), so packages of tests that never touched the setting stay

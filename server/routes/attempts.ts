@@ -287,6 +287,10 @@ async function resultsMaterialForAttempt(
       // was never set) leaves it `null`, which `buildResultContext` resolves to
       // «hidden» — the byte-identical results screen this test has always shown.
       breakdownDisplayJson: deliveredTest?.breakdownDisplayJson ?? null,
+      // PRD-50 FR-11: блоки разделов теста, из той же ВЫДАННОЙ версии, что и всё
+      // остальное здесь. Отсутствие (тест блоков не заводил) оставляет `null`, и экран
+      // печатает плоский список тем — ровно тот, что печатал до этого PRD (FR-27).
+      sectionGroupsJson: deliveredTest?.sectionGroupsJson ?? null,
     };
   } catch (error) {
     // The results screen must not fail because this material could not be read: the
@@ -1459,6 +1463,10 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         // попытка выдавалась (снимок или живой тест), поэтому закреплённая за снимком
         // попытка судится порогами, с которыми её опубликовали.
         breakdownRules: section?.breakdownRulesJson ?? null,
+        // PRD-50 FR-11: блок разделов, в котором раздел был ВЫДАН. Из того же источника,
+        // что и порог раздела: попытка обязана помнить принадлежность, с которой её
+        // оценивали, даже если автор перегруппирует тест завтра.
+        groupKey: section?.groupKey ?? null,
         questions: questions.map((q) => {
           questionTypes[q.id] = q.type as QuestionType;
           const effective = scoring.resolve(q);
@@ -1515,6 +1523,10 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       recommendedAssets: t.extra!.recommendedAssets,
       feedbackTexts: t.extra!.feedbackTexts,
       breakdown: t.breakdown,
+      // PRD-50 FR-11: ключ блока ставится ТОЛЬКО у раздела, который в блок попал —
+      // `aggregateStandardResult` возвращает поле лишь тогда. Результат теста без блоков
+      // поэтому остаётся прежним, вплоть до отсутствия ключа в JSON.
+      ...(t.groupKey ? { groupKey: t.groupKey } : {}),
     }));
 
     // PRD-50 FR-35/FR-36: both scopes in ONE flat array — the engine returns the

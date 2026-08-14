@@ -1403,6 +1403,15 @@ export const topicResultSchema = z.object({
   // recomputing from live content would hand a past attempt today's tags.
   // `.default([])` keeps attempts graded before PRD-50 valid.
   breakdown: z.array(breakdownEntrySchema).default([]),
+  // PRD-50 FR-11: the group (`test_sections.group_key`) this section was DELIVERED in.
+  // Stored WITH the attempt for the same reason as everything above it: the results
+  // screen renders from the saved result, so an attempt keeps the membership it was
+  // graded under even if the author regroups the test afterwards.
+  //
+  // `.optional()` and NOT `.default(null)`: a section outside every group must add no
+  // key at all, so the result JSON of a test that never used groups stays byte-identical
+  // to what it has always been (FR-27).
+  groupKey: z.string().optional(),
 });
 
 export const attemptResultSchema = z.object({

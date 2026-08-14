@@ -119,6 +119,31 @@ function vrTopicBreakdown(tr, breakdowns) {
 }
 
 /**
+ * PRD-50 FR-11: the group this topic was delivered in, from whichever of the two places
+ * has it.
+ *
+ * The topic itself is the first source: `calculateResults` stamps the key onto the topic
+ * result, and `saveAttemptResult` persists `topicResults` verbatim, so an attempt keeps
+ * the membership it was graded under. The baked section is the fallback — an attempt saved
+ * into suspend_data BEFORE the package was rebuilt carries no key at all, and without the
+ * fallback its «Мой результат» would print a flat list while the finish screen of the very
+ * same test prints groups. Both sources are frozen at bake time, so neither can hand the
+ * learner a grouping the package was not built with.
+ *
+ * @param {object} tr The topic result being rendered.
+ * @returns {string|null} The group key, or null when the topic belongs to no group.
+ */
+function vrTopicGroupKey(tr) {
+  if (tr && tr.groupKey) return tr.groupKey;
+  var sections = (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.sections) || [];
+  var section = null;
+  for (var i = 0; i < sections.length; i++) {
+    if (tr && sections[i] && sections[i].topicId === tr.topicId) { section = sections[i]; break; }
+  }
+  return (section && section.groupKey) || null;
+}
+
+/**
  * The test's OWN feedback block (`tests.feedback_json`, baked as `TEST_DATA.testFeedbackJson`),
  * normalised for the recommendations block — the widest source, and the first one.
  *
@@ -470,10 +495,16 @@ function renderViewResultsTemplated(app, results) {
         recommendedAssets: vrTopicAssets(tr),
         // PRD-50: this topic's breakdown records — from the topic itself on a saved
         // attempt, from the flat list on a current one. See `vrTopicBreakdown`.
-        breakdown: vrTopicBreakdown(tr, results.breakdowns)
+        breakdown: vrTopicBreakdown(tr, results.breakdowns),
+        // PRD-50 FR-11: the group this section was delivered in. See `vrTopicGroupKey`.
+        groupKey: vrTopicGroupKey(tr)
       };
     })
   };
+  // PRD-50 FR-11/FR-27: the test's declared groups, baked ONLY when the author made any
+  // (`test-json.ts`). Absent leaves the input exactly as it was before this PRD, and the
+  // shared builder then produces the flat list of topic cards the screen always showed.
+  if (TEST_DATA.sectionGroups) input.sectionGroups = TEST_DATA.sectionGroups;
   // PRD-29: a SAVED attempt renders from the values persisted WITH it and never from a
   // recomputation — regrading a finished attempt against today's interpretation would
   // change what the learner already scored (the rule the web host follows too).
@@ -573,10 +604,15 @@ function renderResultsTemplated(app, results) {
         // PRD-50: this topic's breakdown records, out of the fresh in-memory result —
         // this screen renders BEFORE persistence, so it is the one results screen that
         // always has them when the test carries keys. See `vrTopicBreakdown`.
-        breakdown: vrTopicBreakdown(tr, results.breakdowns)
+        breakdown: vrTopicBreakdown(tr, results.breakdowns),
+        // PRD-50 FR-11: the group this section was delivered in. See `vrTopicGroupKey`.
+        groupKey: vrTopicGroupKey(tr)
       };
     })
   };
+  // PRD-50 FR-11/FR-27: same groups as «Мой результат» — one screen, one layout, one
+  // input. Absent when the test declares none, and the context stays as it was.
+  if (TEST_DATA.sectionGroups) input.sectionGroups = TEST_DATA.sectionGroups;
   var opts = {
     withTopicPoints: true,
     recommendedCourses: rec.courses,
