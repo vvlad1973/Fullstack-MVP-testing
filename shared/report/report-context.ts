@@ -348,8 +348,23 @@ export function buildReportContext(input: ReportInput, opts: ReportContextOption
       // экран не утверждает ничего: у неё нет ни порога, ни оцениваемых вопросов.
       // Пустая метка гасится макетом — плашка несёт фон и отступы, поэтому пустой
       // строки мало, нужен именно пропуск узла.
+      // Своя формулировка у документа только ПОКА автор молчит. Как только он назвал
+      // вердикт темы сам (PRD-50 FR-34, ключи `topic.verdict.*`), карточка обязана
+      // повторить это слово: строка разреза внутри той же карточки уже печатает его
+      // (`statusLabel` идёт через словарь), и жёсткий «Не пройден» над «Не зачтено»
+      // заставлял одну карточку говорить на двух языках. Различие «Пройден»/«Пройдено»
+      // задумывалось для двух зашитых строк и на авторские не распространяется.
+      const verdictKey =
+        src.passed === true ? "topic.verdict.passed" : src.passed === false ? "topic.verdict.failed" : null;
+      const authored = verdictKey ? opts.labels?.[verdictKey] : undefined;
       target.verdictLabel =
-        src.passed === true ? "Пройден" : src.passed === false ? "Не пройден" : "";
+        authored !== undefined
+          ? authored
+          : src.passed === true
+            ? "Пройден"
+            : src.passed === false
+              ? "Не пройден"
+              : "";
       target.barPercent = topicPercent;
       target.countsLabel = `${src.correct} из ${src.total} (${topicPercent}%)`;
       target.pointsFixedLabel = `${fixed1(src.earnedPoints)}/${fixed1(src.possiblePoints)}`;

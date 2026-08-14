@@ -120,6 +120,30 @@ describe("контекст обычного отчёта", () => {
     expect(rows({ passed: null }).passClass).toBe("");
   });
 
+  it("авторское слово вердикта побеждает формулировку документа (PRD-50 FR-34)", () => {
+    // Строка разреза ВНУТРИ карточки печатает `statusLabel` через словарь надписей.
+    // Пока плашка темы держала жёсткий «Не пройден», одна карточка отчёта говорила
+    // двумя словарями сразу: «Не пройден» над «Не зачтено».
+    const labels = { "topic.verdict.passed": "Зачтено", "topic.verdict.failed": "Не зачтено" };
+    const row = (over: Record<string, unknown>) =>
+      (buildReportContext(input({ result: { ...input().result, topicResults: [topic(over)] } }), { labels })
+        .result.topicResults as any[])[0];
+    expect(row({ passed: true }).verdictLabel).toBe("Зачтено");
+    expect(row({ passed: false }).verdictLabel).toBe("Не зачтено");
+    // Выключенная надпись (пустая строка) — тоже решение автора, а не отсутствие ключа:
+    // плашка гаснет, а не подставляет умолчание документа.
+    expect(
+      (buildReportContext(input({ result: { ...input().result, topicResults: [topic({ passed: false })] } }), {
+        labels: { "topic.verdict.failed": "" },
+      }).result.topicResults as any[])[0].verdictLabel,
+    ).toBe("");
+    // Молчание автора не трогает собственную формулировку документа.
+    expect(
+      (buildReportContext(input({ result: { ...input().result, topicResults: [topic({ passed: false })] } }))
+        .result.topicResults as any[])[0].verdictLabel,
+    ).toBe("Не пройден");
+  });
+
   it("в отчёте всегда есть строка баллов по теме", () => {
     // Отчёт — документ: досчитать баллы по теме читателю потом нечем.
     expect((buildReportContext(input()).result.topicResults as any[])?.[0].pointsLabel).toBe("3 / 5");
