@@ -632,6 +632,16 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 /* Score strip: ring + facts side by side. */
 .tb-score-strip { display: flex; align-items: center; gap: var(--ou-space-8); flex-wrap: wrap; }
 /* Per-topic cards — responsive grid. */
+/* PRD-50: БЛОК РАЗДЕЛОВ — заголовок со счётчиком «пройдено N из M» над собственной
+   сеткой тем. Счётчик прижат вправо и набран приглушённо: это подпись к заголовку, а
+   не второй заголовок. Отступы заданы соседними селекторами (`+`), поэтому плоский
+   список тем — тест без блоков — не получает ни одного лишнего пикселя. */
+.tb-topic-group { display: flex; flex-direction: column; gap: var(--ou-space-2); }
+.tb-topic-group__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--ou-space-2); }
+.tb-topic-group__title { font: var(--ou-text-heading-s); color: var(--ou-fg-default); margin: 0; }
+.tb-topic-group__counter { font: var(--ou-text-body-m); color: var(--ou-fg-muted); white-space: nowrap; }
+.tb-topic-group + .tb-topic-group { margin-top: var(--ou-space-6); }
+.tb-topic-group + .tb-topics-grid { margin-top: var(--ou-space-6); }
 .tb-topics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: var(--ou-space-4); }
 .tb-topic-card .ou-card__body { display: flex; flex-direction: column; gap: var(--ou-space-2); align-items: flex-start; }
 .tb-topic-card__name { font: var(--ou-text-heading-s); color: var(--ou-fg-default); }

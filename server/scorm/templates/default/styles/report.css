@@ -127,6 +127,15 @@
   color: #22c55e;
 }
 
+/* PRD-50: БЛОК РАЗДЕЛОВ — заголовок со счётчиком «пройдено N из M» над собственной
+   сеткой тем. Отступ несёт сам блок, поэтому документ теста БЕЗ блоков не сдвигается
+   ни на пиксель: узла `.tb-report__topic-group` в нём просто нет. */
+.tb-report__topic-group { margin-bottom: 12px; }
+.tb-report__topic-group:last-child { margin-bottom: 0; }
+.tb-report__topic-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.tb-report__topic-group-title { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.tb-report__topic-group-counter { font-size: 11px; color: #aca9a9; white-space: nowrap; }
+
 /* Темы: сетка, число колонок ставит хост инлайном по `report.gridColumns`. */
 .tb-report__topics { display: grid; gap: 10px; }
 
