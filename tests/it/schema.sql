@@ -320,6 +320,7 @@ CREATE TABLE "test_sections" (
 	"feedback_json" jsonb,
 	"draw_blueprint_json" jsonb,
 	"form_set_json" jsonb,
+	"breakdown_rules_json" jsonb,
 	"question_order" text,
 	"default_points" integer,
 	"sort_order" integer DEFAULT 0 NOT NULL

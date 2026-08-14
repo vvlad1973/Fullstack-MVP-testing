@@ -18,6 +18,7 @@ import {
   templates,
 } from "@shared/schema";
 import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet, BreakdownDisplaySetting } from "@shared/schema";
+import type { BreakdownRules } from "@shared/breakdown/types";
 import {
   planSystemPages,
   SYSTEM_KINDS,
@@ -115,6 +116,8 @@ export interface SectionPayload {
   drawBlueprintJson?: DrawBlueprint | null;
   /** PRD-17 (BR-12): optional fixed-variant set; null/absent = legacy draw. */
   formSetJson?: FormSet | null;
+  /** PRD-50 §4: per-key thresholds of this section; null/absent = keys are informational. */
+  breakdownRulesJson?: BreakdownRules | null;
   /** PRD-15 block D (FR-31): per-section default price; null = inherit test. */
   defaultPoints?: number | null;
   /**
@@ -726,6 +729,7 @@ export class TestSettingsService {
         feedbackJson: s.feedbackJson ?? null,
         drawBlueprintJson: s.drawBlueprintJson ?? null,
         formSetJson: s.formSetJson ?? null,
+        breakdownRulesJson: s.breakdownRulesJson ?? null,
         defaultPoints: s.defaultPoints ?? null,
         // FR-18: `null` = тема наследует правило теста.
         questionOrder: s.questionOrder ?? null,

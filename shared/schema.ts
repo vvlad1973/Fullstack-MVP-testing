@@ -6,6 +6,7 @@ import { normalizeTag, normalizeTags, TAG_MAX_LENGTH } from "./tags";
 import { isAllocationFeasible } from "./questions/allocation";
 import { STORED_ROLES } from "./access/roles";
 import { PLACEHOLDER_TYPES, SETTING_TYPES } from "./template/field-types";
+import type { BreakdownRules } from "./breakdown/types";
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -659,6 +660,25 @@ export const formSetSchema = z.object({
 export type Form = z.infer<typeof formSchema>;
 export type FormSet = z.infer<typeof formSetSchema>;
 
+/**
+ * PRD-50 §4 (FR-09/FR-10): thresholds of a section's breakdown keys. GRADING only — the
+ * composition of the delivery by key stays in `draw_blueprint_json` and is never duplicated
+ * here. `none` is an explicit «informational» that WINS over `default`; an absent key falls
+ * back to `default`; an absent structure leaves every key informational (сегодняшнее поведение).
+ */
+export const breakdownThresholdSchema = z.union([
+  z.object({ type: z.literal("percent"), value: z.number().min(0).max(100) }),
+  z.object({ type: z.literal("none") }),
+]);
+
+export const breakdownRulesSchema = z.object({
+  // One registered axis in this edition (FR-06). A literal, not a free string: an unknown
+  // axis would be stored, never read, and silently gate nothing.
+  axis: z.literal("tag"),
+  default: breakdownThresholdSchema.optional(),
+  keys: z.record(z.string(), breakdownThresholdSchema).optional(),
+});
+
 export const testSections = pgTable("test_sections", {
   id: varchar("id", { length: 36 }).primaryKey(),
   testId: varchar("test_id", { length: 36 }).notNull(),
@@ -680,6 +700,12 @@ export const testSections = pgTable("test_sections", {
   // draw_count/draw_all/draw_blueprint are then not applied (FR-03). Null = legacy
   // draw (uniform / quotas), backward-compatible.
   formSetJson: jsonb("form_set_json").$type<FormSet>(),
+  /**
+   * PRD-50 §4 (FR-09/FR-10): per-key pass thresholds of THIS section. Null = every key is
+   * informational, i.e. exactly the behaviour of every test built before this PRD. Separate
+   * from `draw_blueprint_json` by decision: quota = delivery, threshold = grading.
+   */
+  breakdownRulesJson: jsonb("breakdown_rules_json").$type<BreakdownRules>(),
   /**
    * PRD-30 FR-02/FR-18: how this topic's questions are ordered on delivery.
    * `random` shuffles the drawn set (today's behaviour), `fixed` orders it by
@@ -867,6 +893,7 @@ export const insertTestSectionSchema = createInsertSchema(testSections)
   .extend({
     drawBlueprintJson: drawBlueprintSchema.nullish(),
     formSetJson: formSetSchema.nullish(),
+    breakdownRulesJson: breakdownRulesSchema.nullish(),
   });
 export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true });
 

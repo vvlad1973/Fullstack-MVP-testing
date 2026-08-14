@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -58,6 +58,10 @@ const sectionBodySchema = z
     // keys, so without this the editor's saved form set is silently dropped before
     // it reaches the storage layer (200 OK, but nothing persisted). null = legacy draw.
     formSetJson: formSetSchema.nullish(),
+    // PRD-50 §4 (FR-09): per-key thresholds. MUST be listed here for the same reason as
+    // formSetJson above — Zod strips an unlisted key, and the author's thresholds would
+    // vanish on save with a cheerful 200 OK.
+    breakdownRulesJson: breakdownRulesSchema.nullish(),
     // PRD-15 block D (FR-31): per-section default price; null = inherit test.
     defaultPoints: z.number().int().min(0).nullable().optional(),
     // PRD-30 FR-02/FR-18: the topic's OVERRIDE of the test-wide order; null =

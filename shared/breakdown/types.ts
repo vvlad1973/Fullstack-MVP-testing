@@ -37,4 +37,32 @@ export interface BreakdownEntry {
   percentPoints: number;
   /** `unitEarned / unitPossible`, 0…100. The display default (решение 4). */
   percentUnits: number;
+  /**
+   * PRD-50 FR-19 - FR-23: verdict of this key. `true`/`false` when a threshold applied,
+   * `null`/absent when the key is informational, nothing was delivered under it (FR-22),
+   * or the record is test-scoped (FR-23 — there is no gate there). Stamped by
+   * `applyBreakdownGate`, never by {@link computeBreakdowns}, which knows no rules.
+   */
+  passed?: boolean | null;
+}
+
+/**
+ * One key threshold. `none` says the key is INFORMATIONAL on purpose — it is not the same
+ * as an absent entry, which falls back to {@link BreakdownRules.default} (FR-20).
+ */
+export type BreakdownThreshold = { type: "percent"; value: number } | { type: "none" };
+
+/**
+ * PRD-50 §4 (FR-09/FR-10): the grading rules of one section's breakdown axis, stored in
+ * `test_sections.breakdown_rules_json`. Kept apart from `draw_blueprint_json` on purpose
+ * (решение 5): a quota is about DELIVERY, a threshold about GRADING, and either is
+ * meaningful without the other. Absent structure = every key is informational.
+ */
+export interface BreakdownRules {
+  /** Axis the rules speak about. Only `"tag"` is registered in this edition (FR-06). */
+  axis: string;
+  /** Threshold for every key without an own entry (FR-20). Absent = no fallback gate. */
+  default?: BreakdownThreshold;
+  /** Per-key thresholds; a key absent here falls back to {@link BreakdownRules.default}. */
+  keys?: Record<string, BreakdownThreshold>;
 }
