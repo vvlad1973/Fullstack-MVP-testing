@@ -9,6 +9,7 @@
 
 import type { DrawBlueprint, FormSet, RetakePolicy } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
+import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
 import type { TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import type { QuestionScoringOverride } from "./scoring-api";
@@ -210,6 +211,11 @@ export type EditorSection = {
    * legacy draw.
    */
   formSet?: FormSet | null;
+  /**
+   * PRD-50 §4 (FR-09): пороги ключей разреза этого раздела. `null`/absent = ключи
+   * информационные, вердикт темы считается ровно как до PRD-50.
+   */
+  breakdownRules?: BreakdownRules | null;
   /**
    * PRD-30 FR-02/FR-18: this topic's OVERRIDE of the test-wide delivery order.
    * `null`/absent = «как в тесте» (the default), `random` = today's shuffle,
@@ -636,6 +642,8 @@ export type TestSectionPayload = {
   drawBlueprintJson: DrawBlueprint | null;
   /** PRD-17 (BR-12): fixed-variant set; `null` = legacy draw. */
   formSetJson: FormSet | null;
+  /** PRD-50 §4: пороги ключей; `null` = ключи информационные. */
+  breakdownRulesJson: BreakdownRules | null;
   /** PRD-15 block D (FR-31): per-section default price; `null` = inherit test. */
   defaultPoints: number | null;
   /** PRD-30 FR-02/FR-18: the topic's override; `null` = «как в тесте». */

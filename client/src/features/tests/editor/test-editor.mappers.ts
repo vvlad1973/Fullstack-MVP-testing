@@ -21,7 +21,8 @@
 import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
-import { formSetSchema } from "@shared/schema";
+import { breakdownRulesSchema, formSetSchema } from "@shared/schema";
+import type { BreakdownRules } from "@shared/breakdown/types";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 import type {
   AdaptiveLevelConfig,
@@ -339,6 +340,17 @@ function readFormSetFromApi(raw: unknown): FormSet | null {
 }
 
 /**
+ * Read the per-key thresholds (PRD-50 §4) from the API jsonb. Validated with
+ * `breakdownRulesSchema`; absence or any malformed shape degrades to `null` (keys are
+ * informational), so a bad blob never breaks the editor.
+ */
+function readBreakdownRulesFromApi(raw: unknown): BreakdownRules | null {
+  if (raw == null) return null;
+  const parsed = breakdownRulesSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
  * Map editor `SectionTimeLimit` back to the DB integer.
  * Both `inherit_test` and `none` are encoded as `null`.
  */
@@ -402,6 +414,8 @@ function buildSectionsFromApi(src: ApiTestResponse): {
       drawBlueprint: readDrawBlueprintFromApi(raw.drawBlueprintJson),
       // PRD-17 (BR-12): fixed-variant set (validate; invalid/absent = null).
       formSet: readFormSetFromApi(raw.formSetJson),
+      // PRD-50 §4: пороги ключей (валидируем; кривое/отсутствующее = null).
+      breakdownRules: readBreakdownRulesFromApi(raw.breakdownRulesJson),
       // PRD-15 block D (FR-31): per-section default price (null = inherit test).
       defaultPoints: typeof raw.defaultPoints === "number" ? raw.defaultPoints : null,
       // PRD-30 FR-18: only an explicit value is an override; anything else —
@@ -1372,12 +1386,24 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
       drawBlueprintJson,
       // PRD-17 (BR-12): fixed-variant set (null = legacy draw).
       formSetJson: section.formSet ?? null,
+      // PRD-50 §4: пороги ключей; пустой набор без умолчания шлём как null — пустая
+      // структура и её отсутствие означают одно и то же, а null короче в базе.
+      breakdownRulesJson: normalizeBreakdownRules(section.breakdownRules),
       // PRD-15 block D (FR-31): per-section default price.
       defaultPoints: section.defaultPoints ?? null,
       // PRD-30 FR-18: the topic's override; `null` = «как в тесте».
       questionOrder: section.questionOrder ?? null,
     };
   });
+}
+
+/** Empty rules (no default, no keys, or only `none` keys) collapse to `null`. */
+function normalizeBreakdownRules(rules: BreakdownRules | null | undefined): BreakdownRules | null {
+  if (!rules) return null;
+  const keys = rules.keys ?? {};
+  const meaningful = Object.keys(keys).filter((k) => keys[k].type === "percent");
+  if (!rules.default && meaningful.length === 0) return null;
+  return rules;
 }
 
 /**

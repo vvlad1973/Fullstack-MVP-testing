@@ -23,6 +23,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layers, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import type { DrawBlueprint, FormSet, Topic } from "@shared/schema";
+import type { BreakdownRules, BreakdownThreshold } from "@shared/breakdown/types";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import {
   Banner,
@@ -132,6 +133,13 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
     queryKey: ["/api/questions"],
   });
   const tagsByTopic = useMemo(() => buildTagsByTopic(allQuestions), [allQuestions]);
+  // PRD-50 FR-42: «сколько вопросов с этим ключом попадает в каждый вариант» считается по
+  // составу вариантов, а состав хранится идентификаторами — значит нужна карта id -> теги.
+  const tagsByQuestion = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const q of allQuestions) if (q.id) map.set(q.id, Array.isArray(q.tags) ? q.tags : []);
+    return map;
+  }, [allQuestions]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const usedTopicIds = useMemo(
@@ -250,6 +258,7 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           variantsError={fieldErrors.get(`sections[${index}].formSetJson`)}
           topicTags={tagsByTopic.get(section.topicId)?.tags ?? []}
           availByKey={tagsByTopic.get(section.topicId)?.availByKey ?? {}}
+          tagsByQuestion={tagsByQuestion}
           onChangeDrawCount={(n) => updateSection(section.topicId, { drawCount: n })}
           onToggleDrawAll={(drawAll) =>
             updateSection(section.topicId, {
@@ -266,6 +275,7 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
             updateSection(section.topicId, { required })
           }
           onChangeBlueprint={(bp) => updateSection(section.topicId, { drawBlueprint: bp })}
+          onChangeBreakdownRules={(rules) => updateSection(section.topicId, { breakdownRules: rules })}
           // PRD-24: changing the variant set also re-syncs the topic's per-variant
           // pass rule (seed added / drop removed / normalise when mode goes off).
           onChangeFormSet={(formSet) =>
@@ -317,6 +327,8 @@ function TopicRow(props: {
   topicTags: string[];
   /** How many questions carry each tag key (shortfall indicator). */
   availByKey: Record<string, number>;
+  /** PRD-50 FR-42: question id -> its tags, to count key hits per variant. */
+  tagsByQuestion: Map<string, string[]>;
   onChangeDrawCount: (n: number) => void;
   /** Toggle the manual "draw the whole topic" flag. */
   onToggleDrawAll: (drawAll: boolean) => void;
@@ -327,6 +339,8 @@ function TopicRow(props: {
   onToggleRequired: (required: boolean) => void;
   /** Replace this section's draw blueprint (`null` = uniform draw). */
   onChangeBlueprint: (bp: DrawBlueprint | null) => void;
+  /** PRD-50 §4 (FR-09): replace this section's key thresholds (`null` = informational). */
+  onChangeBreakdownRules: (rules: BreakdownRules | null) => void;
   /** PRD-17 (BR-12): replace this section's variant set (`null` = variants off). */
   onChangeFormSet: (formSet: FormSet | null) => void;
   /** FR-20c: validation message for this section's variants. */
@@ -482,7 +496,7 @@ function TopicRow(props: {
             </span>
           </div>
 
-          <QuotaEditor
+          <KeysTable
             topicId={section.topicId}
             topicName={section.topicName}
             drawCount={section.drawCount}
@@ -492,6 +506,10 @@ function TopicRow(props: {
             onChange={props.onChangeBlueprint}
             disabled={partialDrawLocked}
             disabledReason={quotaReason}
+            rules={section.breakdownRules ?? null}
+            onChangeRules={props.onChangeBreakdownRules}
+            formSet={variantsOn ? (section.formSet ?? null) : null}
+            tagsByQuestion={props.tagsByQuestion}
           />
 
           {/* PRD-17 (BR-12): fixed variants. In adaptive mode the section draws by
@@ -541,15 +559,25 @@ function TopicRow(props: {
 }
 
 /**
- * PRD-11 draw-quota editor inside a topic row. A switch enables an inline per-tag
- * quota table (no modal — the config is small). The tag Select offers the topic's
- * REAL question tags (FR-07); `count` is a NumberInput capped at `drawCount`; the
- * per-tag mode is a SegmentedControl (Ровно=exact / Не менее=min). Σ quota counts
- * must not exceed `drawCount` (FR-05 → error, blocks save); a per-tag shortfall
- * (available < count) is a non-blocking warning (FR-06). Absence of a blueprint =
- * uniform draw (FR-02). Mirrors docs/wireframes/prd11-draw-quotas.html (approved).
+ * PRD-11 + PRD-50 FR-42: ONE «раздел × ключ» table inside a topic row, driven by two
+ * independent switches — draw quotas (PRD-11) and key thresholds (PRD-50).
+ *
+ * A row is a KEY of the section (a sub-topic tag). Rows are the union of the quota strata
+ * and the threshold keys, so quota and threshold — stored apart on purpose (решение 5:
+ * a quota is about DELIVERY, a threshold about GRADING) — read as one line for the author.
+ *
+ * Quota columns: the tag Select offers the topic's REAL question tags (FR-07); `count` is a
+ * NumberInput capped at `drawCount`; the per-tag mode is a SegmentedControl (Ровно=exact /
+ * Не менее=min). Σ quota counts must not exceed `drawCount` (FR-05 → error, blocks save); a
+ * per-tag shortfall (available < count) is a non-blocking warning (FR-06). Absence of a
+ * blueprint = uniform draw (FR-02). Mirrors docs/wireframes/prd11-draw-quotas.html (approved).
+ *
+ * The quota columns go dead exactly where they went dead before (whole-topic draw / variants
+ * mode), but the «Порог» column stays live there: the variant sections are precisely where
+ * thresholds are needed. `В вариантах` counts, per variant, how many of its questions carry
+ * the row's key — the author sees the delivery of a key BEFORE publishing.
  */
-function QuotaEditor(props: {
+function KeysTable(props: {
   topicId: string;
   topicName: string;
   drawCount: number;
@@ -557,19 +585,47 @@ function QuotaEditor(props: {
   topicTags: string[];
   availByKey: Record<string, number>;
   onChange: (bp: DrawBlueprint | null) => void;
-  /** Force the whole editor disabled (drawing the whole topic / variants mode). */
+  /** Force the QUOTA half disabled (drawing the whole topic / variants mode). */
   disabled?: boolean;
-  /** Why the editor is force-disabled — shown in place of the off-state hint. */
+  /** Why the quota half is force-disabled — shown in place of the off-state hint. */
   disabledReason?: string;
+  /** PRD-50 §4: stored key thresholds; `null` = keys are informational. */
+  rules: BreakdownRules | null;
+  onChangeRules: (rules: BreakdownRules | null) => void;
+  /** PRD-17 variant set when variants mode is ON — feeds the «В вариантах» column. */
+  formSet: FormSet | null;
+  /** PRD-50 FR-42: question id -> its tags. */
+  tagsByQuestion: Map<string, string[]>;
 }) {
   const { topicId, topicName, drawCount, blueprint, topicTags, availByKey, onChange } = props;
   const forcedDisabled = props.disabled ?? false;
   const enabled = blueprint != null;
   const noTags = topicTags.length === 0;
-  // When force-disabled the toggle stays visible (greyed) but the editing table
-  // collapses — its config is preserved in the draft, just not applied here.
-  const expanded = enabled && !forcedDisabled;
   const strata = blueprint?.strata ?? [];
+  const rules = props.rules;
+  const rulesOn = rules != null;
+  // Quota editing is live only when quotas are on AND applicable — the same condition that
+  // used to collapse the whole table.
+  const quotasLive = enabled && !forcedDisabled;
+  // Строки таблицы — ОБЪЕДИНЕНИЕ ключей квот и ключей порогов, в порядке появления: квота и
+  // порог живут в разных структурах (решение 5), но автор видит их одной строкой (FR-42).
+  // При включённых порогах добираем остальные теги темы: порог задаётся ключу, а ключами
+  // раздела являются все его теги — иначе задать порог было бы негде.
+  const rowKeys: string[] = [];
+  for (const s of strata) if (!rowKeys.some((t) => tagKey(t) === tagKey(s.tag))) rowKeys.push(s.tag);
+  for (const k of Object.keys(rules?.keys ?? {})) if (!rowKeys.some((t) => tagKey(t) === tagKey(k))) rowKeys.push(k);
+  if (rulesOn) {
+    for (const t of topicTags) if (!rowKeys.some((x) => tagKey(x) === tagKey(t))) rowKeys.push(t);
+  }
+  // Таблица раскрыта, когда есть что показывать: квоты включены и применимы ЛИБО включены
+  // пороги. Прежнее условие (только квоты) прятало пороги в вариантном режиме, где они
+  // как раз и нужны — вариантные разделы это весь разобранный сертификационный тест.
+  const expanded = quotasLive || rulesOn;
+  const variants = props.formSet?.forms ?? null;
+  const variantCounts = (key: string): number[] =>
+    (variants ?? []).map(
+      (f) => f.questionIds.filter((id) => (props.tagsByQuestion.get(id) ?? []).some((t) => tagKey(t) === tagKey(key))).length,
+    );
 
   const usedKeys = new Set(strata.map((s) => tagKey(s.tag)));
   const unusedTags = topicTags.filter((t) => !usedKeys.has(tagKey(t)));
@@ -586,6 +642,8 @@ function QuotaEditor(props: {
     return t.length < 1 || t.length > TAG_MAX_LENGTH;
   };
   const anyBadTag = strata.some((s) => badTag(s.tag));
+  // The «Доступно» column only ever spoke about a live quota.
+  const showAvail = quotasLive && anyShortfall;
 
   const setStrata = (next: DrawBlueprint["strata"]) => onChange({ strata: next });
   const toggle = (on: boolean) => {
@@ -617,6 +675,22 @@ function QuotaEditor(props: {
         </span>
       </label>
 
+      {/* PRD-50 §4 (FR-09): второй, независимый переключатель — порог по ключу. Он не гаснет
+          в вариантном режиме: там квота неприменима, а порог применим. */}
+      <label className="tb-quota-toggle">
+        <Switch
+          checked={rulesOn}
+          disabled={noTags}
+          onChange={(e) => props.onChangeRules(e.target.checked ? { axis: "tag", keys: {} } : null)}
+          aria-label={`Пороги по подтемам: ${topicName}`}
+          data-testid={`topic-rules-toggle-${topicId}`}
+        />
+        <span className="tb-section-label">
+          <Layers size={14} aria-hidden="true" />
+          Пороги по подтемам (тегам)
+        </span>
+      </label>
+
       {forcedDisabled ? (
         <div className="tb-card-desc" data-testid={`topic-quota-locked-${topicId}`}>
           {props.disabledReason}
@@ -633,7 +707,7 @@ function QuotaEditor(props: {
 
       {expanded && (
         <div className="tb-quota-block" data-testid={`topic-quota-block-${topicId}`}>
-          {anyBadTag && (
+          {quotasLive && anyBadTag && (
             <Banner
               tone="error"
               variant="subtle"
@@ -642,7 +716,7 @@ function QuotaEditor(props: {
               data-testid={`topic-quota-tag-error-${topicId}`}
             />
           )}
-          {overflow && (
+          {quotasLive && overflow && (
             <Banner
               tone="error"
               variant="subtle"
@@ -651,7 +725,7 @@ function QuotaEditor(props: {
               data-testid={`topic-quota-error-${topicId}`}
             />
           )}
-          {!overflow && !anyBadTag && anyShortfall && (
+          {quotasLive && !overflow && !anyBadTag && anyShortfall && (
             <Banner
               tone="warning"
               variant="subtle"
@@ -667,56 +741,80 @@ function QuotaEditor(props: {
                 <th>Подтема (тег вопроса)</th>
                 <th>Сколько</th>
                 <th>Режим</th>
-                {anyShortfall && <th>Доступно</th>}
+                {showAvail && <th>Доступно</th>}
+                <th>Порог</th>
+                {variants && <th>В вариантах</th>}
                 <th aria-label="Действия" />
               </tr>
             </thead>
             <tbody>
-              {strata.map((s, i) => {
-                const avail = availOf(s.tag);
-                const short = s.count > avail;
+              {rowKeys.map((rowTag, i) => {
+                // Quota half of the row: the stratum with this key, if the author set one.
+                // Its index in `strata` (not the row index) keeps the quota test ids and the
+                // mutators addressing the very same stratum they addressed before.
+                const si = strata.findIndex((s) => tagKey(s.tag) === tagKey(rowTag));
+                const stratum = si >= 0 ? strata[si] : null;
+                const threshold: BreakdownThreshold =
+                  rules?.keys?.[rowTag] ?? { type: "none" as const };
+                const avail = availOf(rowTag);
+                const short = stratum != null && stratum.count > avail;
                 const options = topicTags
-                  .filter((t) => tagKey(t) === tagKey(s.tag) || !usedKeys.has(tagKey(t)))
+                  .filter((t) => tagKey(t) === tagKey(rowTag) || !usedKeys.has(tagKey(t)))
                   .map((t) => ({ value: t, label: t }));
                 return (
-                  <tr key={`${tagKey(s.tag)}-${i}`}>
+                  <tr key={`${tagKey(rowTag)}-${i}`}>
                     <td>
-                      <Select
-                        size="m"
-                        fullWidth
-                        value={s.tag}
-                        options={options}
-                        tone={badTag(s.tag) ? "error" : undefined}
-                        onChange={(v) => updateStratum(i, { tag: v })}
-                        aria-label={`Подтема для квоты ${i + 1}`}
-                        data-testid={`quota-tag-${topicId}-${i}`}
-                      />
+                      {stratum ? (
+                        <Select
+                          size="m"
+                          fullWidth
+                          value={stratum.tag}
+                          options={options}
+                          tone={badTag(stratum.tag) ? "error" : undefined}
+                          disabled={!quotasLive}
+                          onChange={(v) => updateStratum(si, { tag: v })}
+                          aria-label={`Подтема для квоты ${si + 1}`}
+                          data-testid={`quota-tag-${topicId}-${si}`}
+                        />
+                      ) : (
+                        <span className="tb-quota-block__avail">{rowTag}</span>
+                      )}
                     </td>
                     <td>
-                      <NumberInput
-                        size="s"
-                        value={s.count}
-                        min={1}
-                        max={drawCount}
-                        invalid={overflow}
-                        onChange={(n) => updateStratum(i, { count: n })}
-                        aria-label={`Сколько вопросов для подтемы «${s.tag}»`}
-                        data-testid={`quota-count-${topicId}-${i}`}
-                      />
+                      {stratum ? (
+                        <NumberInput
+                          size="s"
+                          value={stratum.count}
+                          min={1}
+                          max={drawCount}
+                          invalid={quotasLive && overflow}
+                          disabled={!quotasLive}
+                          onChange={(n) => updateStratum(si, { count: n })}
+                          aria-label={`Сколько вопросов для подтемы «${stratum.tag}»`}
+                          data-testid={`quota-count-${topicId}-${si}`}
+                        />
+                      ) : (
+                        <span className="tb-quota-block__avail">—</span>
+                      )}
                     </td>
                     <td>
-                      <SegmentedControl<"exact" | "min">
-                        size="s"
-                        value={s.mode ?? "exact"}
-                        items={[
-                          { value: "exact", label: "Ровно" },
-                          { value: "min", label: "Не менее" },
-                        ]}
-                        onChange={(v) => updateStratum(i, { mode: v })}
-                        aria-label={`Режим квоты для подтемы «${s.tag}»`}
-                      />
+                      {stratum ? (
+                        <SegmentedControl<"exact" | "min">
+                          size="s"
+                          value={stratum.mode ?? "exact"}
+                          items={[
+                            // SegmentedControl disables per item, not as a whole.
+                            { value: "exact", label: "Ровно", disabled: !quotasLive },
+                            { value: "min", label: "Не менее", disabled: !quotasLive },
+                          ]}
+                          onChange={(v) => updateStratum(si, { mode: v })}
+                          aria-label={`Режим квоты для подтемы «${stratum.tag}»`}
+                        />
+                      ) : (
+                        <span className="tb-quota-block__avail">—</span>
+                      )}
                     </td>
-                    {anyShortfall && (
+                    {showAvail && (
                       <td>
                         {short ? (
                           <Tag tone="warning" size="s">{avail}</Tag>
@@ -726,14 +824,58 @@ function QuotaEditor(props: {
                       </td>
                     )}
                     <td>
-                      <IconButton
-                        icon={<Trash2 size={14} aria-hidden="true" />}
-                        variant="ghost"
+                      <Select
                         size="s"
-                        aria-label={`Удалить квоту «${s.tag}»`}
-                        onClick={() => removeStratum(i)}
-                        data-testid={`quota-remove-${topicId}-${i}`}
+                        value={threshold.type}
+                        options={[
+                          { value: "none", label: "Не проверять" },
+                          { value: "percent", label: "Не менее, %" },
+                        ]}
+                        disabled={!rulesOn}
+                        onChange={(v) =>
+                          props.onChangeRules(
+                            withKeyThreshold(rules, rowTag, v === "percent" ? { type: "percent", value: 60 } : { type: "none" }),
+                          )
+                        }
+                        aria-label={`Порог для подтемы «${rowTag}»`}
+                        data-testid={`key-threshold-mode-${topicId}-${i}`}
                       />
+                      {threshold.type === "percent" && (
+                        <NumberInput
+                          size="s"
+                          value={threshold.value}
+                          min={0}
+                          max={100}
+                          disabled={!rulesOn}
+                          onChange={(n) =>
+                            props.onChangeRules(withKeyThreshold(rules, rowTag, { type: "percent", value: n }))
+                          }
+                          aria-label={`Значение порога для подтемы «${rowTag}», проценты`}
+                          data-testid={`key-threshold-value-${topicId}-${i}`}
+                        />
+                      )}
+                    </td>
+                    {variants && (
+                      <td data-testid={`key-variants-${topicId}-${i}`}>
+                        {variantCounts(rowTag).map((n, vi) => (
+                          <span key={vi} className="tb-quota-block__avail">
+                            {variants[vi].label}: {n}
+                            {vi < variants.length - 1 ? " · " : ""}
+                          </span>
+                        ))}
+                      </td>
+                    )}
+                    <td>
+                      {stratum && quotasLive && (
+                        <IconButton
+                          icon={<Trash2 size={14} aria-hidden="true" />}
+                          variant="ghost"
+                          size="s"
+                          aria-label={`Удалить квоту «${stratum.tag}»`}
+                          onClick={() => removeStratum(si)}
+                          data-testid={`quota-remove-${topicId}-${si}`}
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -741,37 +883,58 @@ function QuotaEditor(props: {
             </tbody>
           </table>
 
-          <div className="tb-quota-actions">
-            <Button
-              variant="ghost"
-              size="s"
-              leadingIcon={<Plus size={16} aria-hidden="true" />}
-              disabled={unusedTags.length === 0}
-              onClick={addStratum}
-              data-testid={`quota-add-${topicId}`}
-            >
-              Добавить квоту
-            </Button>
-          </div>
+          {quotasLive && (
+            <div className="tb-quota-actions">
+              <Button
+                variant="ghost"
+                size="s"
+                leadingIcon={<Plus size={16} aria-hidden="true" />}
+                disabled={unusedTags.length === 0}
+                onClick={addStratum}
+                data-testid={`quota-add-${topicId}`}
+              >
+                Добавить квоту
+              </Button>
+            </div>
+          )}
 
-          <div className={`tb-quota-sum${overflow ? " is-error" : ""}`}>
-            <span>
-              {overflow
-                ? `Σ квот: ${sum} из ${drawCount} — превышение на ${sum - drawCount}`
-                : `Σ квот: ${sum} из ${drawCount} · остаток ${remainder}`}
-            </span>
-            {overflow ? (
-              <Tag tone="error" size="s">ошибка</Tag>
-            ) : anyShortfall ? (
-              <Tag tone="warning" size="s">нехватка по тегу</Tag>
-            ) : (
-              <Tag tone="success" size="s">в пределах выборки</Tag>
-            )}
-          </div>
+          {quotasLive && (
+            <div className={`tb-quota-sum${overflow ? " is-error" : ""}`}>
+              <span>
+                {overflow
+                  ? `Σ квот: ${sum} из ${drawCount} — превышение на ${sum - drawCount}`
+                  : `Σ квот: ${sum} из ${drawCount} · остаток ${remainder}`}
+              </span>
+              {overflow ? (
+                <Tag tone="error" size="s">ошибка</Tag>
+              ) : anyShortfall ? (
+                <Tag tone="warning" size="s">нехватка по тегу</Tag>
+              ) : (
+                <Tag tone="success" size="s">в пределах выборки</Tag>
+              )}
+            </div>
+          )}
+
+          {rulesOn && (
+            <div className="tb-card-desc">
+              Порог сравнивается с долей БАЛЛОВ по подтеме, независимо от того, что выбрано для показа.
+              Подтема, не попавшая в выдачу, вердикт темы не роняет.
+            </div>
+          )}
         </div>
       )}
     </>
   );
+}
+
+/** Replace ONE key's threshold, keeping the rest of the rules untouched. */
+function withKeyThreshold(
+  rules: BreakdownRules | null,
+  key: string,
+  threshold: BreakdownThreshold,
+): BreakdownRules {
+  const base = rules ?? { axis: "tag" as const, keys: {} };
+  return { ...base, axis: "tag", keys: { ...(base.keys ?? {}), [key]: threshold } };
 }
 
 /**
@@ -879,8 +1042,8 @@ function TopicPickerModal(props: {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Minimal shape of `/api/questions` rows the quota editor needs. */
-type QuestionTagRow = { topicId: string; tags?: string[] };
+/** Minimal shape of `/api/questions` rows the key table needs. */
+type QuestionTagRow = { id?: string; topicId: string; tags?: string[] };
 
 /** Per-topic tag index: distinct display tags + how many questions carry each key. */
 type TopicTagInfo = { tags: string[]; availByKey: Record<string, number> };
