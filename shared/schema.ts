@@ -1413,6 +1413,10 @@ export const adaptiveTopicResultSchema = z.object({
   // carry nothing.
   recommendedAssets: z.array(z.object({ title: z.string(), url: z.string() })).default([]),
   feedbackTexts: z.array(z.string()).default([]),
+  // PRD-50 FR-17/FR-39: записи разреза области ЭТОЙ темы, по той же причине и по той же
+  // схеме, что у стандартного результата. `.default([])` держит валидными адаптивные
+  // попытки, завершённые до этой работы.
+  breakdown: z.array(breakdownEntrySchema).default([]),
 });
 
 export const adaptiveAttemptResultSchema = z.object({
@@ -1431,6 +1435,9 @@ export const adaptiveAttemptResultSchema = z.object({
   // verdict — that one is pronounced by the confirmed levels (see `buildAdaptiveResult`).
   scaleResults: z.record(z.string(), z.unknown()).optional(),
   resultVariables: z.record(z.string(), z.unknown()).optional(),
+  // PRD-50 FR-39: записи области ТЕСТА. Как и у стандартного результата — `optional()`,
+  // и секционные здесь не дублируются: они лежат на своих темах.
+  breakdowns: z.array(breakdownEntrySchema).optional(),
 });
 
 export type AdaptiveTopicResult = z.infer<typeof adaptiveTopicResultSchema>;

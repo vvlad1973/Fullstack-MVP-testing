@@ -16,11 +16,14 @@
  * per the authored `passDecisionPolicy` (see {@link decideVerdict}) — data written
  * before that policy existed keeps the old `overallPassed && every gated topic`.
  *
- * PRD-50: this is also the SOLE entry point into `shared/breakdown/` — every
+ * PRD-50: this module is also the ONLY entry point into `shared/breakdown/` — every
  * delivered, graded question is fed to {@link computeBreakdowns} here, so the
  * per-topic (`AggregateTopicResult.breakdown`) and per-test (`AggregateResult.breakdowns`)
  * records are computed once, in this one place, for both hosts. They are purely
  * additive: absent `axisKeys` never affects `earned`/`possible`/the verdict above.
+ * The adaptive mode reaches the same engine through {@link adaptiveResultAsStandard},
+ * which takes the delivered items from its host (FR-17) — the ladder result alone does
+ * not know which questions were asked.
  */
 import { scoreAnswer, type Answer, type CorrectData, type QuestionType } from "./engine";
 import type { QuestionScoring } from "../schema";
@@ -423,6 +426,11 @@ export interface AdaptiveAsStandardTopic {
   passed: boolean;
   achievedLevelName: string | null;
   recommendedCourses: Array<{ title: string; url: string }>;
+  /**
+   * PRD-50 FR-17: breakdown records in THIS topic's scope. Empty when the caller passed
+   * no items — an adaptive host that knows nothing of the axis keeps its old result shape.
+   */
+  breakdown: BreakdownEntry[];
 }
 
 /** {@link adaptiveResultAsStandard}: an adaptive result told in standard-result words. */
@@ -433,6 +441,8 @@ export interface AdaptiveAsStandard {
   possiblePoints: number;
   percent: number;
   passed: boolean;
+  /** PRD-50 FR-17: breakdown records in the TEST scope (empty without items). */
+  breakdowns: BreakdownEntry[];
   topicResults: AdaptiveAsStandardTopic[];
 }
 
@@ -455,16 +465,37 @@ export interface AdaptiveAsStandard {
  * copy would surface as the same formula returning different values in the browser and
  * in the LMS.
  *
- * NOT a substitute for the adaptive result itself: nothing here is stored or shown.
- * The learner's screen renders confirmed LEVELS, and this shape never reaches it.
+ * NOT a substitute for the adaptive result itself: the counts and the verdict here are
+ * neither stored nor shown — the learner's screen renders confirmed LEVELS, and this
+ * shape never reaches it. The one exception is PRD-50: the breakdown records computed
+ * from `breakdownItems` DO travel back onto the stored adaptive result (FR-39), because
+ * the axis is a property of the delivered questions, not of the ladder.
  */
-export function adaptiveResultAsStandard<E = unknown>(result: AdaptiveResult<E>): AdaptiveAsStandard {
+export function adaptiveResultAsStandard<E = unknown>(
+  result: AdaptiveResult<E>,
+  breakdownItems: readonly BreakdownItem[] = [],
+): AdaptiveAsStandard {
   let totalQuestions = 0;
   let correct = 0;
   for (const tr of result.topicResults) {
     totalQuestions += tr.totalQuestionsAnswered;
     correct += tr.totalCorrect;
   }
+
+  // PRD-50 FR-17: the SAME engine the standard aggregate calls — the ladder does not get
+  // its own arithmetic. The items cannot be derived here: an adaptive result carries only
+  // per-level tallies, while a breakdown is computed over DELIVERED questions, so the host
+  // that knows which questions were asked assembles them (web: `buildAdaptiveResult`,
+  // package: `adaptiveBreakdownItems`). No items = no records, and the result keeps
+  // exactly the shape it had before this work (FR-18).
+  const entries = computeBreakdowns(breakdownItems);
+  const bySection = new Map<string, BreakdownEntry[]>();
+  for (const e of entries) {
+    const list = bySection.get(e.scope);
+    if (list) list.push(e);
+    else bySection.set(e.scope, [e]);
+  }
+
   return {
     correct,
     totalQuestions,
@@ -474,6 +505,7 @@ export function adaptiveResultAsStandard<E = unknown>(result: AdaptiveResult<E>)
     possiblePoints: totalQuestions,
     percent: totalQuestions > 0 ? (correct / totalQuestions) * 100 : 0,
     passed: result.overallPassed,
+    breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
     topicResults: result.topicResults.map((tr) => ({
       topicId: tr.topicId,
       topicName: tr.topicName,
@@ -485,6 +517,7 @@ export function adaptiveResultAsStandard<E = unknown>(result: AdaptiveResult<E>)
       passed: tr.achievedLevelIndex !== null,
       achievedLevelName: tr.achievedLevelName,
       recommendedCourses: tr.recommendedLinks,
+      breakdown: bySection.get(sectionScope(tr.topicId)) ?? [],
     })),
   };
 }
