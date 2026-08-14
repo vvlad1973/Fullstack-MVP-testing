@@ -22,8 +22,10 @@ import { RotateCcw } from "lucide-react";
 import { Banner, Box, Button, Input, ModalDialog } from "@universityrt/ui-kit";
 
 import { distributesBudget } from "@shared/questions/question-type";
+import type { CorrectData } from "@shared/scoring/engine";
 import type { Question, QuestionScoring } from "@shared/schema";
 import type { QuestionScoringOverride, QuestionScoringPatch } from "../scoring-api";
+import { ScorePreviewModal } from "./score-preview-modal";
 import {
   ScoringBuilder,
   buildScoringJson,
@@ -82,6 +84,12 @@ export function QuestionScoringModal(props: QuestionScoringModalProps) {
   const [weights, setWeights] = useState<string[]>(initial.weights);
   const [tiers, setTiers] = useState<TierDraft[]>(initial.tiers);
   const [error, setError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // The preview scores the config as it stands in the constructor, not the saved
+  // one — the point is to see what an edit does BEFORE «Применить» (PRD-10 §7).
+  const draftScoring = buildScoringJson(type, options, mode, weights, tiers) as QuestionScoring | null;
+  const gradable = !distributesBudget(type);
 
   const stale =
     !!override?.pinnedContentHash &&
@@ -133,6 +141,15 @@ export function QuestionScoringModal(props: QuestionScoringModalProps) {
           <Button variant="ghost" onClick={onClose} data-testid="qscoring-cancel">
             Отмена
           </Button>
+          {gradable && (
+            <Button
+              variant="ghost"
+              onClick={() => setPreviewOpen(true)}
+              data-testid="qscoring-preview"
+            >
+              Предпросмотр балла
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={apply}
@@ -195,6 +212,16 @@ export function QuestionScoringModal(props: QuestionScoringModalProps) {
           градуированной цены у него нет — конструктор заменяется объяснением.
           Показать его отключённым значило бы намекнуть, что настройка существует,
           но чем-то заблокирована. */}
+      {previewOpen && (
+        <ScorePreviewModal
+          type={type}
+          options={options}
+          correct={(question.correctJson ?? {}) as CorrectData}
+          scoring={draftScoring}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
+
       {distributesBudget(type) ? (
         <Box border="dashed" radius="m" pad={4} style={{ color: "var(--ou-fg-muted)" }} data-testid="qscoring-allocation-note">
           Распределение баллов не проверяется и баллов не приносит: его результат — вклад в шкалы,

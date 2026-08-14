@@ -117,6 +117,23 @@ var ScoringEngine = (function () {
     return true;
   }
 
+  // Index of the first tier whose predicate holds — the row that pays, since the
+  // step table is priority-ordered. null when no row applies (non-tiered method,
+  // unanswered question, implicit «иначе → 0»). Mirrors firstMatchingTier in the
+  // TS source; the golden port test keeps the two bit-identical.
+  function firstMatchingTier(input) {
+    var scoring = input.scoring;
+    var answer = input.answer;
+    if (!scoring || scoring.kind !== 'tiered') return null;
+    if (answer === null || answer === undefined) return null;
+    var tiers = Array.isArray(scoring.tiers) ? scoring.tiers : [];
+    var counters = countTallies(input.type, input.correct || {}, answer);
+    for (var i = 0; i < tiers.length; i++) {
+      if (evalPredicate(tiers[i].when, counters)) return i;
+    }
+    return null;
+  }
+
   function scoreAnswer(input) {
     var type = input.type;
     var correct = input.correct || {};
@@ -138,13 +155,8 @@ var ScoringEngine = (function () {
     if (kind === 'tiered') {
       var tiers = (scoring && Array.isArray(scoring.tiers)) ? scoring.tiers : [];
       var tMax = (scoring && scoring.sMax) || maxOf(tiers.map(function (t) { return t.score; }));
-      var tScore = 0;
-      if (answer !== null && answer !== undefined) {
-        var counters = countTallies(type, correct, answer);
-        for (var i = 0; i < tiers.length; i++) {
-          if (evalPredicate(tiers[i].when, counters)) { tScore = tiers[i].score; break; }
-        }
-      }
+      var hit = firstMatchingTier(input);
+      var tScore = hit !== null ? tiers[hit].score : 0;
       tScore = Math.max(0, tScore);
       return { score: tScore, sMax: tMax, ratio: tMax > 0 ? clamp01(tScore / tMax) : 0 };
     }
@@ -170,6 +182,7 @@ var ScoringEngine = (function () {
     return {
       score: res.score, sMax: res.sMax, ratio: res.ratio, kind: kind,
       answered: isAnswered(input.type, input.answer), c: t.c, x: t.x, total: t.total,
+      tierIndex: firstMatchingTier(input),
     };
   }
 

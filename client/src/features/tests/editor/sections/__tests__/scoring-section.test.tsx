@@ -257,6 +257,28 @@ describe("<ScoringSection />", () => {
     );
   });
 
+  it("«Предпросмотр балла» scores a demo answer against the open config (issue #31)", async () => {
+    const model = baseModel({
+      sections: [buildSection()],
+      scoring: { defaultQuestionPoints: null, questionOverrides: dbOverrides },
+    });
+    renderWithClient(<ScoringSection model={model} testId="test-1" updateModel={() => {}} />);
+
+    fireEvent.click(await screen.findByTestId("scoring-edit-q1"));
+    fireEvent.click(await screen.findByTestId("qscoring-preview"));
+
+    // q1: ключ [0,1] из трёх вариантов, ступень «c = T» платит 2. Первый демо-ответ —
+    // полностью верный, поэтому строка срабатывает и балл максимальный.
+    const table = await screen.findByTestId("score-preview-table");
+    expect(table).toHaveTextContent("А, Б (T = 2)");
+    expect(screen.getByTestId("score-preview-verdict")).toHaveTextContent("Правильно");
+
+    // Возврат оставляет конструктор открытым — предпросмотр ничего не применяет.
+    fireEvent.click(screen.getByTestId("score-preview-back"));
+    await waitFor(() => expect(screen.queryByTestId("score-preview-table")).toBeNull());
+    expect(screen.getByTestId("qscoring-apply")).toBeInTheDocument();
+  });
+
   it("folds a section: the header toggle hides its question table", async () => {
     const model = baseModel({
       sections: [buildSection()],

@@ -74,6 +74,13 @@ export interface ScoreExplain extends ScoreResult {
   x: number;
   /** Per-type total (`T` options / `P` pairs / `N` items). */
   total: number;
+  /**
+   * Zero-based index of the tier that produced the score, or `null` when no tier
+   * applied — a non-tiered method, an unanswered question, or the implicit
+   * «иначе → 0» fall-through. The step table is ordered by priority, so «which
+   * row fired» is the answer to «why this score» (PRD-10 §7 preview).
+   */
+  tierIndex: number | null;
 }
 
 /** Answer tallies; `total` is the per-type T (options) / P (pairs) / N (items). */
@@ -186,6 +193,22 @@ function evalPredicate(pred: ScoringPredicate, t: Counters): boolean {
 }
 
 /**
+ * Index of the first tier whose predicate holds — the one that pays, since the
+ * step table is priority-ordered. `null` covers every case where no row applies:
+ * a non-tiered method, an unanswered question, or the implicit «иначе → 0».
+ * Both the score and its explanation read this, so «what was paid» and «which
+ * row paid it» can never disagree.
+ */
+function firstMatchingTier(input: ScoreInput): number | null {
+  const { type, correct, answer, scoring } = input;
+  if (!scoring || scoring.kind !== "tiered") return null;
+  if (answer === null || answer === undefined) return null;
+  const counters = countTallies(type, correct, answer);
+  const index = scoring.tiers.findIndex((tier) => evalPredicate(tier.when, counters));
+  return index >= 0 ? index : null;
+}
+
+/**
  * Score one answer. Absent/`exact` scoring keeps the legacy 0/1 result so old
  * tests stay bit-identical (FR-02). `answer == null` always scores 0.
  */
@@ -207,12 +230,8 @@ export function scoreAnswer(input: ScoreInput): ScoreResult {
   if (kind === "tiered") {
     const tiers = scoring && scoring.kind === "tiered" ? scoring.tiers : [];
     const sMax = (scoring && scoring.kind === "tiered" && scoring.sMax) || maxOf(tiers.map((t) => t.score));
-    let score = 0;
-    if (answer !== null && answer !== undefined) {
-      const counters = countTallies(type, correct, answer);
-      const hit = tiers.find((tier) => evalPredicate(tier.when, counters));
-      if (hit) score = hit.score;
-    }
+    const hit = firstMatchingTier(input);
+    let score = hit !== null ? tiers[hit].score : 0;
     score = Math.max(0, score);
     return { score, sMax, ratio: sMax > 0 ? clamp01(score / sMax) : 0 };
   }
@@ -241,5 +260,13 @@ export function explainAnswer(input: ScoreInput): ScoreExplain {
   const kind = scoring?.kind ?? "exact";
   const res = scoreAnswer(input);
   const t = countTallies(type, correct, answer);
-  return { ...res, kind, answered: isAnswered(type, answer), c: t.c, x: t.x, total: t.total };
+  return {
+    ...res,
+    kind,
+    answered: isAnswered(type, answer),
+    c: t.c,
+    x: t.x,
+    total: t.total,
+    tierIndex: firstMatchingTier(input),
+  };
 }
