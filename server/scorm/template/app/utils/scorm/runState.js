@@ -125,14 +125,35 @@ var TBRunState = (function () {
     return out;
   }
 
+  /** One permutation as a string of base36 positions. */
+  function permToString(list) {
+    var cell = '';
+    for (var i = 0; i < (list || []).length; i++) cell += b36(list[i]);
+    return cell;
+  }
+
+  function permFromString(cell) {
+    var out = [];
+    for (var i = 0; i < (cell || '').length; i++) out.push(unb36(cell[i]));
+    return out;
+  }
+
+  /**
+   * The option order the learner actually saw. Two shapes travel here: a plain permutation
+   * (single / multiple / ranking) and the matching pair `{ left, right }` — the matching
+   * question shuffles its two columns independently. A `~` separates the two columns; a cell
+   * without it is a plain permutation, so packages that never had matching stay unchanged.
+   */
   function encodeShuffle(maps) {
     var out = [];
     for (var i = 0; i < (maps || []).length; i++) {
       var m = maps[i];
       if (!m) { out.push(''); continue; }
-      var cell = '';
-      for (var j = 0; j < m.length; j++) cell += b36(m[j]);
-      out.push(cell);
+      if (Object.prototype.toString.call(m) !== '[object Array]') {
+        out.push(permToString(m.left) + '~' + permToString(m.right));
+        continue;
+      }
+      out.push(permToString(m));
     }
     return out.join(',');
   }
@@ -142,9 +163,12 @@ var TBRunState = (function () {
     var out = [];
     for (var i = 0; i < cells.length; i++) {
       if (!cells[i]) { out.push(null); continue; }
-      var m = [];
-      for (var j = 0; j < cells[i].length; j++) m.push(unb36(cells[i][j]));
-      out.push(m);
+      if (cells[i].indexOf('~') !== -1) {
+        var halves = cells[i].split('~');
+        out.push({ left: permFromString(halves[0]), right: permFromString(halves[1]) });
+        continue;
+      }
+      out.push(permFromString(cells[i]));
     }
     return out;
   }
