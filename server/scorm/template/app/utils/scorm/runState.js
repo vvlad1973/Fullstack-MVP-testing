@@ -266,6 +266,55 @@ var TBRunState = (function () {
     };
   }
 
+  // ── Budget: a limit that is CHECKED, not hoped for ────────────────────────
+
+  var BUDGET = 4096; // FR-15: the SCORM 1.2 limit; a 15x margin on 2004.
+
+  /**
+   * FR-14 / §6.2: fit the state into the budget by a DECLARED order of sacrifices, never by
+   * silently truncating the string. What goes first is what a learner loses least by: the LMS
+   * report's per-question interactions. What never goes is what the attempt limit and both
+   * eligibility barriers stand on — losing those reopens the limit and both barriers at once,
+   * which is exactly the failure this whole work exists to end.
+   */
+  function fitToBudget(stateObj, budget) {
+    var limit = budget || BUDGET;
+    var s = JSON.parse(JSON.stringify(stateObj || {}));
+    var sacrifices = [];
+    var fits = function () { return JSON.stringify(s).length <= limit; };
+    if (fits()) return { state: s, sacrifices: sacrifices };
+    if (s.best && s.best.d) { delete s.best.d; sacrifices.push('best.detail'); }
+    if (fits()) return { state: s, sacrifices: sacrifices };
+    if (s.currentSession && s.currentSession.sh) {
+      delete s.currentSession.sh; sacrifices.push('session.shuffle');
+    }
+    if (fits()) return { state: s, sacrifices: sacrifices };
+    if (s.best) {
+      s.best = { n: s.best.n, at: s.best.at, src: s.best.src, pc: s.best.pc, ok: s.best.ok };
+      sacrifices.push('best.summary');
+    }
+    if (fits()) return { state: s, sacrifices: sacrifices };
+    if (typeof s.last === 'object' && s.last) {
+      s.last = { n: s.last.n, at: s.last.at, src: s.last.src, pc: s.last.pc, ok: s.last.ok };
+      sacrifices.push('last.summary');
+    }
+    return { state: s, sacrifices: sacrifices };
+  }
+
+  /**
+   * FR-24: an unreadable state is NOT an empty one. Before this the two were indistinguishable
+   * — a string the LMS had truncated came back as «no state», silently reopening the attempt
+   * limit, the timer anchor and both barriers.
+   */
+  function parseState(raw) {
+    if (!raw) return { outcome: 'empty', state: { v: 2, attemptsUsed: 0 } };
+    try {
+      return { outcome: 'parsed', state: JSON.parse(raw) };
+    } catch (e) {
+      return { outcome: 'corrupt', state: { v: 2, attemptsUsed: 0 } };
+    }
+  }
+
   return {
     encodeDelivery: encodeDelivery,
     decodeDelivery: decodeDelivery,
@@ -283,5 +332,8 @@ var TBRunState = (function () {
     bestOf: bestOf,
     sectionIndexOf: sectionIndexOf,
     keyIndexOf: keyIndexOf,
+    fitToBudget: fitToBudget,
+    parseState: parseState,
+    BUDGET: BUDGET,
   };
 })();

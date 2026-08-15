@@ -37,15 +37,17 @@ function makeStore(initial = ""): { store: Store; cmi: { value: string } } {
     "TEST_DATA",
     "state",
     "console",
+    "TBRunState",
     `${src}
      return { readSuspendObj: readSuspendObj, writeSuspendObj: writeSuspendObj,
               getAttemptsUsed: getAttemptsUsed, setAttemptsUsed: setAttemptsUsed };`,
   );
   const store = factory(
     SCORM,
-    { maxAttempts: 3, retakePolicy: null },
+    { maxAttempts: 3, retakePolicy: null, sections: [], breakdownKeys: [] },
     { answers: {}, flatQuestions: [] },
     { log: () => undefined },
+    RS,
   ) as Store;
   return { store, cmi };
 }
@@ -149,5 +151,66 @@ describe("сводка попытки", () => {
     const s = RS.buildSummary(results, TEST_DATA, meta);
     expect(s.rv).toEqual({ risk: 12 });
     expect(s.sv).toEqual({ E: 7 });
+  });
+});
+
+describe("бюджет состояния", () => {
+  const bulky = (chars: number) => ({
+    v: 2,
+    attemptsUsed: 3,
+    best: {
+      n: 3, at: "2026-08-15T10:00:00.000Z", pc: 50, ok: false, t: [], bd: [], rv: {}, sv: {},
+      d: { dl: "x".repeat(chars), an: "", st: "" },
+    },
+    last: 0,
+    currentSession: { at: "2026-08-15T10:00:00.000Z", i: 1, dl: "0.0", an: "1", st: "a", sh: "01" },
+    timer: { limitMinutes: 30, baselineTotalSec: 60, sig: "abc" },
+    retake: { lastCompletedDate: "2026-08-15" },
+  });
+
+  it("состояние в бюджете не режется", () => {
+    const fitted = RS.fitToBudget(bulky(10), 4096);
+    expect(fitted.sacrifices).toEqual([]);
+    expect(fitted.state.best.d).toBeDefined();
+  });
+
+  it("первой жертвуется детализация лучшей попытки", () => {
+    const fitted = RS.fitToBudget(bulky(5000), 4096);
+    expect(fitted.sacrifices).toContain("best.detail");
+    expect(fitted.state.best.d).toBeUndefined();
+  });
+
+  it("счётчик, барьеры и таймер не жертвуются никогда", () => {
+    const fitted = RS.fitToBudget(bulky(500000), 4096);
+    expect(fitted.state.attemptsUsed).toBe(3);
+    expect(fitted.state.timer.sig).toBe("abc");
+    expect(fitted.state.retake.lastCompletedDate).toBe("2026-08-15");
+  });
+
+  it("ответы прогона в работе не жертвуются: это потеря попытки прямо на ходу", () => {
+    const fitted = RS.fitToBudget(bulky(500000), 4096);
+    expect(fitted.state.currentSession.an).toBe("1");
+    expect(fitted.state.currentSession.dl).toBe("0.0");
+    expect(fitted.state.currentSession.st).toBe("a");
+  });
+
+  it("исходное состояние не портится: режется копия", () => {
+    const original = bulky(5000);
+    RS.fitToBudget(original, 4096);
+    expect(original.best.d).toBeDefined();
+  });
+});
+
+describe("исход чтения состояния", () => {
+  it("пусто, разобрано и повреждено — три разных исхода", () => {
+    expect(RS.parseState("").outcome).toBe("empty");
+    expect(RS.parseState('{"v":2,"attemptsUsed":1}').outcome).toBe("parsed");
+    expect(RS.parseState('{"v":2,"attempts').outcome).toBe("corrupt");
+  });
+
+  it("повреждённое состояние не выдаётся за пустое, но и не роняет запуск", () => {
+    const parsed = RS.parseState('{"v":2,"attempts');
+    expect(parsed.outcome).toBe("corrupt");
+    expect(parsed.state).toEqual({ v: 2, attemptsUsed: 0 });
   });
 });

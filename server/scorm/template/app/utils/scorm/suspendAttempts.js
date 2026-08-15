@@ -64,27 +64,44 @@ function fmtInstantHuman(iso) {
     ' в ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 
+// PRD-36 FR-24: outcome of the last read ('empty' | 'parsed' | 'corrupt') and the sacrifices
+// applied by the last write (§6.2). Both are surfaced to the debug player: a state that had to
+// be cut, or one that came back unreadable, must be VISIBLE — the failure mode this work ends
+// is precisely the silent one.
+var lastReadOutcome = 'empty';
+var lastWriteSacrifices = [];
+
+function runStateDiagnostics() {
+  return { readOutcome: lastReadOutcome, sacrifices: lastWriteSacrifices.slice() };
+}
+
 function readSuspendObj() {
+  var raw = '';
   try {
-    var raw = SCORM.getValue('cmi.suspend_data') || '';
-    if (!raw) return { attemptsUsed: 0, attempts: [] };
-    var obj = JSON.parse(raw);
-    // Миграция со старого формата
-    if (!obj.attempts) {
-      obj.attempts = [];
-    }
-    return obj;
+    raw = SCORM.getValue('cmi.suspend_data') || '';
   } catch (e) {
-    return { attemptsUsed: 0, attempts: [] };
+    raw = '';
   }
+  var parsed = TBRunState.parseState(raw);
+  lastReadOutcome = parsed.outcome;
+  if (parsed.outcome === 'corrupt') {
+    console.log('⚠️ suspend_data повреждён (' + raw.length + ' симв.) — состояние не восстановлено');
+  }
+  // Приведение старого формата подключается задачей 6 — здесь состояние возвращается как есть.
+  return parsed.state;
 }
 
 function writeSuspendObj(obj) {
   try {
-    var raw = JSON.stringify(obj || {});
+    var fitted = TBRunState.fitToBudget(obj || {}, TBRunState.BUDGET);
+    lastWriteSacrifices = fitted.sacrifices;
+    if (fitted.sacrifices.length) {
+      console.log('⚠️ Бюджет suspend_data исчерпан, пожертвовано:', fitted.sacrifices.join(', '));
+    }
+    var raw = JSON.stringify(fitted.state);
     SCORM.setValue('cmi.suspend_data', raw);
     SCORM.commit();
-    console.log('🔵 writeSuspendObj: сохранено', obj.attempts ? obj.attempts.length : 0, 'попыток, attemptsUsed:', obj.attemptsUsed);
+    console.log('🔵 writeSuspendObj: ' + raw.length + ' из ' + TBRunState.BUDGET + ' симв.');
   } catch (e) {
     console.log('⚠️ Ошибка writeSuspendObj:', e);
   }
