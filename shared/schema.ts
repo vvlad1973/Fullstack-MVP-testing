@@ -1963,6 +1963,59 @@ export const contentPages = pgTable("content_pages", {
   topicIdIdx: index("content_pages_topic_id_idx").on(table.topicId),
 }));
 
+/**
+ * PRD-51 §4: ДОКУМЕНТ ОТЧЁТА одного теста — упорядоченный список блоков.
+ *
+ * Своя таблица, а не зона в {@link contentPages}, хотя форма совпадает почти дословно.
+ * Страница отчёта НЕ участвует в выдаче, а каждый потребитель `content_pages` (сборка
+ * выдачи, последовательности страниц, гард целостности, книга Excel, снимок публикации)
+ * обходит таблицу целиком: один пропущенный фильтр означал бы страницу отчёта посреди
+ * прохождения теста — отказ, который увидит ученик. Отдельная таблица делает эту ошибку
+ * невозможной, а не маловероятной.
+ *
+ * Пустой набор строк = документ по умолчанию, объявленный шаблоном (`reportDocument`).
+ * Строки материализуются при первой правке документа — так же, как страницы теста.
+ */
+export const reportBlocks = pgTable("report_blocks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  testId: varchar("test_id", { length: 36 })
+    .notNull()
+    .references(() => tests.id, { onDelete: "cascade" }),
+  /**
+   * Документ на РЕЖИМ теста: обе ветви живут одновременно, как в `report_settings_json`,
+   * чтобы смена режима не стирала уже собранный документ другого.
+   */
+  mode: text("mode", { enum: ["standard", "adaptive"] }).notNull(),
+  /**
+   * Ключ блока (`shared/report/report-blocks`). ТЕКСТ, а не enum: реестр принадлежит коду,
+   * и расширять CHECK-констрейнт при каждом новом блоке пришлось бы миграцией. Ключ,
+   * которого текущий шаблон не знает, разрешение документа пропускает, но строку не
+   * удаляет — смена шаблона обратима.
+   */
+  block: text("block").notNull(),
+  /** Выбранный вариант шаблона; NULL = вариант с `isDefault` этого блока. */
+  templateKey: text("template_key"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  /** Системный блок гасится этим признаком и ОСТАЁТСЯ в списке (PRD-51 §3.1). */
+  enabled: boolean("enabled").notNull().default(true),
+  /** Содержимое: значения `placeholders[]` варианта. */
+  valuesJson: jsonb("values_json").notNull().default({}),
+  /** Свойства: значения `settings[]` варианта. */
+  settingsJson: jsonb("settings_json").notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  // Документ читается целиком, одним запросом по (тест, режим), в порядке печати.
+  testModeSortIdx: index("report_blocks_test_mode_sort_idx")
+    .on(table.testId, table.mode, table.sortOrder),
+}));
+
+/** Строка документа отчёта, как её отдаёт база. */
+export type ReportBlockRow = typeof reportBlocks.$inferSelect;
+
+/** Строка документа отчёта на запись. */
+export type InsertReportBlockRow = typeof reportBlocks.$inferInsert;
+
 // Insert schemas
 export const insertScormPackageSchema = createInsertSchema(scormPackages).omit({ id: true });
 export const insertScormAttemptSchema = createInsertSchema(scormAttempts).omit({ id: true });
