@@ -309,8 +309,10 @@ export class TestSettingsService {
         showSectionResults: payload.test.showSectionResults ?? true,
         // Обзор при полностью отвеченном объёме: новый тест ведёт себя как прежде.
         skipReviewWhenComplete: payload.test.skipReviewWhenComplete ?? false,
-        // Результат в LMS: новый тест ведёт себя как уже выданные пакеты — лучшая попытка.
-        lmsAttemptResult: payload.test.lmsAttemptResult ?? "best",
+        // Результат в LMS: новый тест отчитывается за ТЕКУЩУЮ попытку, как того ждёт
+        // платформа; какую засчитать — решает LMS. Тесты, заведённые раньше, остались
+        // на «лучшей» (миграция 0022) и поведения не меняют.
+        lmsAttemptResult: payload.test.lmsAttemptResult ?? "last",
         // PRD-34 (FR-03): новый тест — защита ВКЛ по умолчанию.
         copyProtection: payload.test.copyProtection ?? true,
         // PRD-30 FR-16: новый тест — «перемешивание», сегодняшнее поведение.

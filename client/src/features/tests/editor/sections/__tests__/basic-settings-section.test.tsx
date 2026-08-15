@@ -334,7 +334,9 @@ describe("<SettingsSection /> — Ограничения pane", () => {
     expect(runUpdater(updateModel, model).runtime.lmsAttemptResult).toBe("last");
   });
 
-  it("по умолчанию показывает «лучшую» — поведение уже выданных пакетов", () => {
+  it("показывает значение теста, а не подставляет своё", () => {
+    // Тест, заведённый до появления настройки, остаётся на «лучшей» — редактор обязан
+    // показать именно её, иначе автор молча переключит поведение простым сохранением.
     render(<SettingsSection model={baseModel()} updateModel={vi.fn()} />);
     fireEvent.click(screen.getByTestId("settings-rail-limits"));
     expect(screen.getByTestId("settings-lms-attempt-result")).toHaveTextContent("Лучшая попытка");

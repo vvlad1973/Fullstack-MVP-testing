@@ -368,7 +368,7 @@ CREATE TABLE "tests" (
 	"allow_answer_change" boolean DEFAULT false NOT NULL,
 	"quick_advance" boolean DEFAULT false NOT NULL,
 	"show_section_results" boolean DEFAULT true NOT NULL,
-	"lms_attempt_result" text DEFAULT 'best' NOT NULL,
+	"lms_attempt_result" text DEFAULT 'last' NOT NULL,
 	"skip_review_when_complete" boolean DEFAULT false NOT NULL,
 	"copy_protection" boolean DEFAULT true NOT NULL,
 	"protection_watermark" boolean DEFAULT false NOT NULL,

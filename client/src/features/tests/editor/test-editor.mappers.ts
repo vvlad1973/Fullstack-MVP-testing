@@ -1080,7 +1080,7 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       quickAdvance: false,
       showSectionResults: true,
       skipReviewWhenComplete: false,
-      lmsAttemptResult: "best",
+      lmsAttemptResult: "last",
       // PRD-50 FR-13: новый тест — подытоги скрыты, как у любого теста без настройки.
       breakdownDisplay: DEFAULT_BREAKDOWN_DISPLAY,
       // PRD-34 (FR-03): новый тест — защита ВКЛ.
@@ -1200,7 +1200,9 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
         typeof src.showSectionResults === "boolean" ? src.showSectionResults : true,
       skipReviewWhenComplete:
         typeof src.skipReviewWhenComplete === "boolean" ? src.skipReviewWhenComplete : false,
-      // Поля нет (тест заведён до настройки) → «лучшая»: так ведут себя выданные пакеты.
+      // Поле пришло с сервера как есть. Его нет только у ответа, собранного до колонки:
+      // такой тест вёл себя как «лучшая», и читать его иначе значило бы менять поведение
+      // задним числом.
       lmsAttemptResult: src.lmsAttemptResult === "last" ? "last" : "best",
       // PRD-50 FR-13: поля нет (тест до PRD-50) → подытоги скрыты.
       breakdownDisplay: readBreakdownDisplayFromApi(src),
