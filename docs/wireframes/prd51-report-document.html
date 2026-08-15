@@ -8,7 +8,16 @@
     Файл: docs/wireframes/prd51-report-document.html
 
     Показывает карточку «Отчёт о результатах» вкладки «Настройки», в которой автор
-    СОБИРАЕТ документ — тем же способом, что структуру теста. Состояния:
+    СОБИРАЕТ документ — тем же способом, что структуру теста.
+
+    Вкладка «Настройки» — это `ou-drawer__split`: рейл подразделов слева и панель
+    справа. Карточка отчёта живёт в подразделе «Основное», ПОСЛЕ карточек «Общая
+    обратная связь теста» и «Вводный текст» (см. `basic-settings-section.tsx`), и
+    показана здесь вместе с ними: место карточки без соседей не прочитать. Пятый
+    пункт рейла, «Адаптивный режим», у обычного теста не рисуется — так же его
+    прячет и код.
+
+    Состояния:
       s-default      — документ: системные блоки, авторские страницы, разрыв листа
       s-row-expanded — раскрытая строка авторской страницы с полями PRD-22
       s-add-palette  — палитра добавления блока
@@ -178,6 +187,7 @@
   <symbol id="i-info"       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
   <symbol id="i-plus"       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
   <symbol id="i-trash"      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+  <symbol id="i-pencil"     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
   <symbol id="i-grip"       viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
   <symbol id="i-eye"        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-check"      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></symbol>
@@ -248,7 +258,66 @@
         <button class="ou-tabs__tab" role="tab" aria-selected="false" type="button">Оформление</button>
         <button class="ou-tabs__tab" role="tab" aria-selected="false" type="button">Структура</button>
       </div></nav>
-      <div class="ou-drawer__body" tabindex="0">
+      <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+        <div class="ou-drawer__split">
+          <!-- Рейл подразделов вкладки «Настройки». Пятый пункт «Адаптивный режим»
+               у обычного теста НЕ рисуется — так же его прячет и код
+               (`visibleRailItems` в basic-settings-section). -->
+          <nav class="ou-drawer__rail" aria-label="Подразделы настроек">
+            <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Основное</button>
+            <button type="button" class="ou-drawer__rail-item">Правила прохождения</button>
+            <button type="button" class="ou-drawer__rail-item">Ограничения</button>
+            <button type="button" class="ou-drawer__rail-item">Интеграция</button>
+          </nav>
+          <div class="tb-settings-content">
+            <!-- СОСЕДИ ПО ПАНЕЛИ. Карточка отчёта стоит не одна: выше неё в подразделе
+                 «Основное» идут обратная связь теста и вводный текст, и место карточки
+                 без них не прочитать. Поля «Название», «Описание» и «Сценарий
+                 прохождения», которые идут выше этих карточек, показаны в утверждённом
+                 эскизе approved/prd7-editor-settings-tab.html и здесь не дублируются. -->
+            <div class="ou-card ou-card--outlined">
+              <div class="ou-card__head"><h2 class="ou-card__title">Общая обратная связь теста</h2></div>
+              <div class="ou-card__body">
+                <div class="tb-feedback-preview">
+                  <div class="tb-feedback-preview__head">
+                    <span class="tb-feedback-preview__snippet">Спасибо за прохождение теста. Результаты придут на вашу почту.</span>
+                    <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" type="button" aria-label="Редактировать обратную связь"><svg width="13" height="13"><use href="#i-pencil"/></svg></button>
+                  </div>
+                </div>
+                <hr class="wf-sep">
+                <div class="ou-formfield">
+                  <label class="ou-switch-field"><span class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" /><span class="ou-switch__track"></span><span class="ou-switch__thumb"></span></span><span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать правильные ответы после прохождения</span></span></label>
+                </div>
+              </div>
+            </div>
+
+            <hr class="wf-sep">
+
+            <div class="ou-card ou-card--outlined">
+              <div class="ou-card__head"><h2 class="ou-card__title">Вводный текст</h2></div>
+              <div class="ou-card__body">
+                <label class="ou-formfield__lbl">На экране итогов</label>
+                <div class="tb-feedback-preview">
+                  <div class="tb-feedback-preview__head">
+                    <span class="tb-feedback-preview__snippet">Ниже — ваш результат по каждому разделу.</span>
+                    <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" type="button" aria-label="Редактировать: Вводный текст на экране итогов"><svg width="13" height="13"><use href="#i-pencil"/></svg></button>
+                  </div>
+                </div>
+                <hr class="wf-sep">
+                <div class="ou-formfield">
+                  <label class="ou-switch-field"><span class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" /><span class="ou-switch__track"></span><span class="ou-switch__thumb"></span></span><span class="ou-switch-field__text"><span class="ou-switch-field__label">В отчёте — тот же текст, что на экране итогов</span><span class="ou-switch-field__desc">Правится в одном месте. Выключите, чтобы задать отчёту своё вводное слово.</span></span></label>
+                </div>
+                <label class="ou-formfield__lbl">В отчёте</label>
+                <div class="tb-feedback-preview">
+                  <div class="tb-feedback-preview__head">
+                    <span class="tb-feedback-preview__snippet">Поздравляем с успешным прохождением тестирования!</span>
+                    <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" type="button" aria-label="Редактировать: Вводный текст в отчёте"><svg width="13" height="13"><use href="#i-pencil"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="wf-sep">
 
         <div class="ou-card ou-card--outlined ou-card--sm">
           <div class="ou-card__head"><h2 class="ou-card__title">Отчёт о результатах</h2></div>
@@ -400,6 +469,8 @@
         </div>
 
 
+          </div>
+        </div>
       </div>
       <footer class="ou-drawer__foot">
         <button class="ou-btn ou-btn--ghost ou-btn--m" type="button" disabled aria-disabled="true">Показать изменения</button>
@@ -446,7 +517,18 @@
         <button class="ou-tabs__tab" role="tab" aria-selected="false" type="button">Оформление</button>
         <button class="ou-tabs__tab" role="tab" aria-selected="false" type="button">Структура</button>
       </div></nav>
-      <div class="ou-drawer__body" tabindex="0">
+      <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+        <div class="ou-drawer__split">
+          <!-- Рейл подразделов вкладки «Настройки». Пятый пункт «Адаптивный режим»
+               у обычного теста НЕ рисуется — так же его прячет и код
+               (`visibleRailItems` в basic-settings-section). -->
+          <nav class="ou-drawer__rail" aria-label="Подразделы настроек">
+            <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Основное</button>
+            <button type="button" class="ou-drawer__rail-item">Правила прохождения</button>
+            <button type="button" class="ou-drawer__rail-item">Ограничения</button>
+            <button type="button" class="ou-drawer__rail-item">Интеграция</button>
+          </nav>
+          <div class="tb-settings-content">
 
         <div class="ou-card ou-card--outlined ou-card--sm">
           <div class="ou-card__head"><h2 class="ou-card__title">Отчёт о результатах</h2></div>
@@ -533,6 +615,8 @@
         </div>
 
 
+          </div>
+        </div>
       </div>
       <footer class="ou-drawer__foot">
         <button class="ou-btn ou-btn--ghost ou-btn--m" type="button">Показать изменения</button>
@@ -663,7 +747,18 @@
         <button class="ou-tabs__tab" role="tab" aria-selected="false" type="button">Оформление</button>
         <button class="ou-tabs__tab" role="tab" aria-selected="false" type="button">Структура</button>
       </div></nav>
-      <div class="ou-drawer__body" tabindex="0">
+      <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+        <div class="ou-drawer__split">
+          <!-- Рейл подразделов вкладки «Настройки». Пятый пункт «Адаптивный режим»
+               у обычного теста НЕ рисуется — так же его прячет и код
+               (`visibleRailItems` в basic-settings-section). -->
+          <nav class="ou-drawer__rail" aria-label="Подразделы настроек">
+            <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Основное</button>
+            <button type="button" class="ou-drawer__rail-item">Правила прохождения</button>
+            <button type="button" class="ou-drawer__rail-item">Ограничения</button>
+            <button type="button" class="ou-drawer__rail-item">Интеграция</button>
+          </nav>
+          <div class="tb-settings-content">
 
         <div class="ou-banner ou-banner--subtle ou-banner--info" role="status">
           <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-lock"/></svg></span>
@@ -715,6 +810,8 @@
         </div>
 
 
+          </div>
+        </div>
       </div>
       <footer class="ou-drawer__foot">
         <button class="ou-btn ou-btn--secondary ou-btn--m" type="button">Закрыть</button>
