@@ -257,14 +257,51 @@
     return rows;
   }
 
-  function buildAttemptRows(att) {
-    return (att.flatQuestions || []).map(function (fq) {
-      return { q: fq.question, topicName: fq.topicName, answer: (att.answers || {})[fq.question.id], levelName: null };
+  /**
+   * PRD-36: строки прошлой попытки. В формате 2 попытка несёт РЯДЫ, а вопросы разворачиваются
+   * из `TEST_DATA` пакета по позициям; запись пакета, собранного до PRD-36, по-прежнему несёт
+   * объекты вопросов, и обе формы показывает одна вкладка.
+   */
+  function buildAttemptRows(att, pkg) {
+    if (att.flatQuestions) {
+      return att.flatQuestions.map(function (fq) {
+        return { q: fq.question, topicName: fq.topicName, answer: (att.answers || {})[fq.question.id], levelName: null };
+      });
+    }
+    var detail = att.d;
+    var data = pkg && pkg.TEST_DATA;
+    // Кодек живёт в окне ПАКЕТА (плоский бандл рантайма), а инспектор — в окне плеера.
+    var RS = (pkg && pkg.w && pkg.w.TBRunState) || null;
+    if (!detail || !data || !RS) return [];
+    var positions = RS.decodeDelivery(detail.dl || "");
+    var questions = [], rows = [];
+    positions.forEach(function (p) {
+      var sec = (data.sections || [])[p.s];
+      var q = (sec && sec.questions) ? sec.questions[p.q] : null;
+      if (!q) return;
+      questions.push(q);
+      rows.push({ q: q, topicName: sec.topicName, answer: undefined, levelName: null });
     });
+    var answers = RS.decodeAnswers(detail.an || "", questions);
+    rows.forEach(function (row, i) { row.answer = answers[i]; });
+    return rows;
   }
 
+  /**
+   * PRD-36 FR-03: показываемые попытки. Списка в состоянии больше нет — есть лучшая и
+   * последняя; когда они совпали (`last: 0`), показывается одна. Легаси-состояние отдаёт
+   * свой массив как прежде.
+   */
   function getSuspendAttempts(cmi) {
-    try { var s = JSON.parse((cmi && cmi["cmi.suspend_data"]) || "null"); return (s && s.attempts) || []; } catch (e) { return []; }
+    try {
+      var s = JSON.parse((cmi && cmi["cmi.suspend_data"]) || "null");
+      if (!s) return [];
+      if (s.attempts) return s.attempts;
+      var out = [];
+      if (s.best) out.push(s.best);
+      if (s.last && typeof s.last === "object") out.push(s.last);
+      return out;
+    } catch (e) { return []; }
   }
 
   // ── Протокол: per-question structured records (drawn question, answer,
@@ -283,7 +320,7 @@
       total = (pst && pkg.mode !== "adaptive" && pst.flatQuestions) ? pst.flatQuestions.length : rows.length;
     } else {
       var att = getSuspendAttempts(cmi)[parseInt(mode.slice(4), 10)];
-      rows = att ? buildAttemptRows(att) : [];
+      rows = att ? buildAttemptRows(att, pkg) : [];
       total = rows.length;
       if (att && (!att.flatQuestions || !att.flatQuestions.length)) note = "Для этой попытки детальный состав не сохранён (адаптивный режим).";
     }
@@ -504,11 +541,25 @@
     if (id.indexOf("_course_") !== -1) return { kind: "status", text: "🔗 Рекомендованный курс (object_id " + resp + ")", sub: desc };
     return { kind: "muted", text: "• " + id + " → " + resp, sub: "" };
   }
+  /** PRD-36 FR-17: доля бюджета 4096 в подписи события записи состояния. */
+  function budgetSuffix(value) {
+    var used = String(value || "").length;
+    return " · " + Math.round((used / 4096) * 100) + "% бюджета";
+  }
+
+  /** Сводка ПОСЛЕДНЕЙ попытки формата 2: `last: 0` значит «та же, что лучшая». */
+  function lastSummaryOf(stateObj) {
+    if (!stateObj || !stateObj.best) return null;
+    return (stateObj.last === 0 || !stateObj.last) ? stateObj.best : stateObj.last;
+  }
+
   function describeSuspendWrite(value, prevRaw) {
     var sizeStr = fmtBytes(byteLen(value));
     var cur = null, prev = null;
     try { cur = JSON.parse(value || "null"); } catch (e) {}
     try { prev = JSON.parse(prevRaw || "null"); } catch (e) {}
+    // PRD-36: в формате 2 попытка не дописывается в список, а обновляет лучшую и последнюю,
+    // поэтому «сохранена попытка» видно по СМЕНЕ сводки, а не по росту длины массива.
     var pa = (prev && prev.attempts) ? prev.attempts.length : 0;
     var ca = (cur && cur.attempts) ? cur.attempts.length : 0;
     var pu = (prev && prev.attemptsUsed) || 0, cu = (cur && cur.attemptsUsed) || 0;
@@ -516,11 +567,19 @@
       var a = cur.attempts[ca - 1];
       return { kind: "suspend", text: "💾 Результат попытки #" + a.attemptNumber + " сохранён: " + Math.round(a.percent) + "% — " + (a.passed ? "зачёт" : "незачёт"), sub: "suspend_data: " + sizeStr };
     }
-    if (cur && cu > pu) return { kind: "suspend", text: "▶ Старт попытки " + cu + " зарегистрирован", sub: "suspend_data: " + sizeStr };
+    var curLast = lastSummaryOf(cur), prevLast = lastSummaryOf(prev);
+    if (curLast && (!prevLast || curLast.at !== prevLast.at)) {
+      return { kind: "suspend", text: "💾 Результат попытки #" + curLast.n + " сохранён: " + Math.round(curLast.pc) + "% — " + (curLast.ok ? "зачёт" : "незачёт"), sub: "suspend_data: " + sizeStr + budgetSuffix(value) };
+    }
+    if (cur && cu > pu) return { kind: "suspend", text: "▶ Старт попытки " + cu + " зарегистрирован", sub: "suspend_data: " + sizeStr + budgetSuffix(value) };
     if (cur && cur.currentSession) {
       var cs = cur.currentSession;
-      var n = cs.answers ? Object.keys(cs.answers).length : 0;
-      return { kind: "suspend", text: "💾 Прогресс сохранён: вопрос " + ((cs.currentIndex || 0) + 1) + " (ответов: " + n + ")", sub: "suspend_data: " + sizeStr };
+      // Формат 2 хранит ответы РЯДОМ, а не словарём: их число — непустые ячейки ряда.
+      var n = cs.answers
+        ? Object.keys(cs.answers).length
+        : String(cs.an || "").split(",").filter(function (c) { return c !== ""; }).length;
+      var at = (cs.currentIndex !== undefined ? cs.currentIndex : (cs.i || 0)) + 1;
+      return { kind: "suspend", text: "💾 Прогресс сохранён: вопрос " + at + " (ответов: " + n + ")", sub: "suspend_data: " + sizeStr + budgetSuffix(value) };
     }
     return { kind: "suspend", text: "💾 suspend_data записан", sub: "размер: " + sizeStr };
   }

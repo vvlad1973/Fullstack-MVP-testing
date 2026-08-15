@@ -380,6 +380,8 @@ function StatusBar({ snap }: { snap: InspectorSnapshot }) {
             )}
           </span>
         </div>
+        <span className="dbg__bar-sep" />
+        <RunStateStat run={snap.runState} />
         {s.alarm ? (
           <>
             <span className="dbg__bar-sep" />
@@ -390,6 +392,26 @@ function StatusBar({ snap }: { snap: InspectorSnapshot }) {
           </>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * PRD-36 FR-17: занятая доля бюджета `cmi.suspend_data`. Переполнение состояния проявляется
+ * молча — LMS обрезает строку, и разом теряются счётчик попыток, таймер и оба барьера, — поэтому
+ * запас показывается ДО того, как он кончится, а не диагностируется по последствиям.
+ */
+function RunStateStat({ run }: { run: InspectorSnapshot["runState"] }) {
+  const percent = Math.round(run.share * 100);
+  const tone = run.share >= 1 ? "error" : run.share >= 0.8 ? "warning" : "success";
+  return (
+    <div className="dbg__stat">
+      <span className="dbg__stat-lbl">Состояние прогона</span>
+      <span className="dbg__stat-val">
+        <span className="dbg__stat-num">{`${run.length} из ${run.budget}`}</span>
+        <Tag tone={tone} size="s">{`${percent}% бюджета`}</Tag>
+        {run.version === 1 ? <Tag variant="soft" size="s">формат 1</Tag> : null}
+      </span>
     </div>
   );
 }
