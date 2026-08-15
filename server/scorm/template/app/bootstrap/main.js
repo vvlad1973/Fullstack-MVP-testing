@@ -123,17 +123,15 @@
         if (TEST_DATA.timeLimitMinutes && typeof initTimer === 'function') initTimer();
         var _sess = recovery.session;
         var _resumed = false;
-        if (!state.submitted && _sess.currentRouterTopic && TEST_DATA.mode !== 'adaptive' &&
+        if (!state.submitted && _sess.crt && TEST_DATA.mode !== 'adaptive' &&
             typeof RouterFlow !== 'undefined' && RouterFlow.resumeRouterTopic) {
           // PRD-20 (2e): resume INSIDE the unfinished topic. Restore the saved
           // question pool + answers so the topic chunk and saved position line up.
-          if (_sess.flatQuestions && _sess.flatQuestions.length) {
-            state.flatQuestions = _sess.flatQuestions;
-          }
-          state.answers = _sess.answers || {};
-          state.questionStatuses = _sess.questionStatuses || {};
-          state.sectionCommitted = _sess.sectionCommitted || {};
-          _resumed = RouterFlow.resumeRouterTopic(_sess.currentRouterTopic, _sess.currentPageIndex);
+          // PRD-36: the pool comes back from the stored ROWS through the same hydration
+          // the linear resume uses — the checkpoint no longer carries question objects,
+          // and a second unpacking here would be a copy of that logic waiting to drift.
+          applySessionRows(_sess);
+          _resumed = RouterFlow.resumeRouterTopic(_sess.crt, _sess.cpi);
         }
         if (!_resumed && !state.submitted) {
           // Fall back to the router page (previous behaviour): completed topics
