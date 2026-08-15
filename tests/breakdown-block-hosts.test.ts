@@ -13,7 +13,13 @@ import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import type { AttemptResult, TopicResult } from "../shared/schema";
 import { breakdownDisplaySchema } from "../shared/schema";
-import { buildResultContext, buildReportInput, type MeasuresSource } from "../server/services/result-context";
+import {
+  buildResultContext,
+  buildReportInput,
+  buildAdaptiveResultContext,
+  buildAdaptiveReportInput,
+  type MeasuresSource,
+} from "../server/services/result-context";
 
 const sectionEntry = {
   scope: "section:law", axis: "tag", key: "ПДн", items: 2, answered: 2, earned: 1, possible: 2,
@@ -106,6 +112,49 @@ describe("веб-хост: сохранённые записи области т
   });
 });
 
+/**
+ * Э5: тот же путь для АДАПТИВНОЙ попытки. Записи для неё считались и хранились с
+ * FR-17/FR-39, но экран и документ их не читали — посчитанное молча не показывалось.
+ */
+describe("веб-хост: адаптивная попытка отдаёт записи области теста экрану и документу", () => {
+  const storedAdaptive = (breakdowns?: unknown[]) => ({
+    mode: "adaptive",
+    overallPassed: true,
+    topicResults: [
+      { topicName: "Право", achievedLevelIndex: 0, achievedLevelName: "Базовый", totalQuestionsAnswered: 4, totalCorrect: 3 },
+    ],
+    ...(breakdowns === undefined ? {} : { breakdowns }),
+  });
+
+  it("экран печатает сводный блок из записей попытки", () => {
+    const { result } = buildAdaptiveResultContext(storedAdaptive([testEntry]), "Тест", measures(BLOCK_ON));
+    const rows = (result as { breakdown?: Array<Record<string, unknown>> }).breakdown;
+    expect(rows).toHaveLength(1);
+    expect(rows![0]).toMatchObject({ key: "ПДн", items: 4, barPercent: 75 });
+    expect(result.blocks?.map((b) => b.key)).toContain("breakdown");
+  });
+
+  it("блок выключен — контекст адаптивного экрана остаётся прежним", () => {
+    const { result } = buildAdaptiveResultContext(
+      storedAdaptive([testEntry]),
+      "Тест",
+      measures({ visibility: "bar", basis: "units" }),
+    );
+    expect("breakdown" in result).toBe(false);
+  });
+
+  it("попытка, завершённая до PRD-50, записей не несёт — блока нет", () => {
+    const { result } = buildAdaptiveResultContext(storedAdaptive(), "Тест", measures(BLOCK_ON));
+    expect("breakdown" in result).toBe(false);
+  });
+
+  it("вход адаптивного отчёта везёт те же записи, что экран (§5.2)", () => {
+    const input = buildAdaptiveReportInput(storedAdaptive([testEntry]), "Тест", {}, measures(BLOCK_ON));
+    expect(input.result.breakdowns).toEqual([testEntry]);
+    expect(input.breakdownDisplay).toMatchObject({ placement: "block" });
+  });
+});
+
 // ─── Пакет SCORM ─────────────────────────────────────────────────────────────
 
 const runtime = (file: string) =>
@@ -158,6 +207,31 @@ describe("пакет SCORM: рантайм передаёт записи обл�
 
   it("запись попытки несёт поле, иначе «Мой результат» печатал бы пустой блок", () => {
     expect(suspendSrc).toMatch(/breakdowns: testScopeBreakdowns\(resultData\.breakdowns\)/);
+  });
+
+  /**
+   * Э5: адаптивная ветвь пакета. Источник записей у неё ОДИН — результат, восстановленный
+   * в стандартную форму (`getAdaptiveResultForScorm`); брать их из самой лестницы неоткуда,
+   * она несёт только потемные счётчики уровней.
+   */
+  it("адаптивный экран берёт записи из восстановленного результата и знает настройку показа", () => {
+    const adaptiveSrc = runtime("render/adaptiveRender.js");
+    expect(adaptiveSrc).toMatch(/vrTestBreakdown\(flatResult\)/);
+    expect(adaptiveSrc).toMatch(/input\.breakdowns = adaptiveTestRows/);
+    expect(adaptiveSrc).toMatch(/adaptiveOpts\.breakdownDisplay = TEST_DATA\.breakdownDisplay/);
+  });
+
+  it("адаптивный документ собирается из тех же записей, что адаптивный экран", () => {
+    // Оба входа отчёта — обычный и адаптивный — кладут записи одним и тем же читателем.
+    expect(pdfSrc.match(/vrTestBreakdown\(results\)/g)).toHaveLength(2);
+    expect(pdfSrc.match(/input\.breakdowns = testRows/g)).toHaveLength(2);
+  });
+
+  it("адаптивная выгрузка PDF доносит записи до входа отчёта", () => {
+    // `state.adaptiveState.result` их не несёт: экспорт пересобирает результат вручную,
+    // и без этой строки документ печатал бы пустой блок при живом блоке на экране.
+    const appSrc = readFileSync(resolve(process.cwd(), "server/scorm/assets/app.js"), "utf8");
+    expect(appSrc).toMatch(/resultsToExport\.breakdowns = adaptiveFlat\.breakdowns/);
   });
 });
 

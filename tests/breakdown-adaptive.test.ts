@@ -11,6 +11,7 @@ import { adaptiveResultAsStandard, type AdaptiveResult } from "../shared/scoring
 import { TEST_SCOPE, sectionScope } from "../shared/breakdown/compute";
 import type { BreakdownItem } from "../shared/breakdown/types";
 import { adaptiveAttemptResultSchema } from "../shared/schema";
+import { buildAdaptiveResultContext } from "../shared/template/result-context";
 
 const adaptiveSrc = readFileSync(
   resolve(process.cwd(), "server/scorm/template/app/adaptive/adaptive.js"),
@@ -145,5 +146,100 @@ describe("рантайм пакета: сборка элементов адап�
     const items = makeAdaptiveBreakdownItems(state, TEST_DATA, checkAnswer)();
     const flat = adaptiveResultAsStandard(result, items as never);
     expect(flat.topicResults[0].breakdown[0]).toMatchObject({ items: 2, percentUnits: 50 });
+  });
+});
+
+/**
+ * PRD-50 FR-28, Э5: сводный блок на АДАПТИВНОМ экране.
+ *
+ * Записи считались и хранились с FR-17/FR-39, но до этого этапа их никто не читал
+ * обратно: посчитанное молча не показывалось. Разрез РАЗДЕЛА сюда сознательно не
+ * приходит — карточка адаптивной темы говорит подтверждённым УРОВНЕМ, и полоса
+ * процентов рядом с «Уровень 2» предлагала бы смысл, которого у лестницы нет.
+ */
+describe("сводный блок разреза на адаптивном экране итогов", () => {
+  const entry = (key: string, percentUnits: number) => ({
+    scope: TEST_SCOPE,
+    axis: "tag" as const,
+    key,
+    items: 4,
+    answered: 4,
+    earned: percentUnits / 25,
+    possible: 4,
+    percentUnits,
+    percentPoints: percentUnits,
+  });
+
+  const adaptiveInput = {
+    passed: true,
+    topicResults: [
+      { topicName: "Право", achievedLevelIndex: 0, achievedLevelName: "Базовый" },
+    ],
+    breakdowns: [entry("ПДн", 75), entry("Крипто", 25)],
+  };
+
+  const display = { visibility: "bar_and_value" as const, basis: "units" as const, placement: "block" as const };
+
+  it("печатает строки и объявляет подблок, когда автор включил сводный блок", () => {
+    const ctx = buildAdaptiveResultContext(adaptiveInput, "Адаптивный", {
+      breakdownDisplay: display,
+      templateBlockOrder: ["topics", "scales", "indicators", "breakdown"],
+    });
+    expect(ctx.result.breakdown?.map((r) => [r.key, r.barPercent, r.valueLabel])).toEqual([
+      ["ПДн", 75, "75 %"],
+      ["Крипто", 25, "25 %"],
+    ]);
+    const block = ctx.result.blocks?.find((b) => b.key === "breakdown");
+    expect(block?.isBreakdown).toBe(true);
+    // Подблок стоит последним — тот же порядок, что объявляет манифест этого экрана.
+    expect(ctx.result.blocks?.map((b) => b.key)).toEqual(["topics", "breakdown"]);
+  });
+
+  it("молчит, пока автор просит полосы только в карточках тем", () => {
+    const ctx = buildAdaptiveResultContext(adaptiveInput, "Адаптивный", {
+      breakdownDisplay: { ...display, placement: "topics" },
+      templateBlockOrder: ["topics", "scales", "indicators", "breakdown"],
+    });
+    expect(ctx.result.breakdown).toBeUndefined();
+    expect(ctx.result.blocks?.map((b) => b.key)).toEqual(["topics"]);
+  });
+
+  it("без настройки показа контекст остаётся ровно прежним", () => {
+    const ctx = buildAdaptiveResultContext(adaptiveInput, "Адаптивный", {
+      templateBlockOrder: ["topics", "scales", "indicators", "breakdown"],
+    });
+    expect(ctx.result.breakdown).toBeUndefined();
+  });
+
+  it("попытка без записей не даёт пустого блока", () => {
+    const ctx = buildAdaptiveResultContext(
+      { ...adaptiveInput, breakdowns: [] },
+      "Адаптивный",
+      { breakdownDisplay: display, templateBlockOrder: ["topics", "scales", "indicators", "breakdown"] },
+    );
+    expect(ctx.result.breakdown).toBeUndefined();
+    expect(ctx.result.blocks?.map((b) => b.key)).toEqual(["topics"]);
+  });
+
+  it("карточка адаптивной темы полос не несёт — там подтверждённый уровень", () => {
+    const ctx = buildAdaptiveResultContext(adaptiveInput, "Адаптивный", {
+      breakdownDisplay: display,
+      templateBlockOrder: ["topics", "scales", "indicators", "breakdown"],
+    });
+    expect(ctx.result.topicResults?.[0]).not.toHaveProperty("breakdown");
+  });
+
+  it("надписи вердикта берутся из словаря — та же строка, что на обычном экране", () => {
+    const ctx = buildAdaptiveResultContext(
+      { ...adaptiveInput, breakdowns: [{ ...entry("ПДн", 75), passed: false }] },
+      "Адаптивный",
+      {
+        breakdownDisplay: display,
+        templateBlockOrder: ["topics", "scales", "indicators", "breakdown"],
+        labels: { "topic.verdict.failed": "Не зачтено", "results.breakdown": "Разрез результата" },
+      },
+    );
+    expect(ctx.result.breakdown?.[0].statusLabel).toBe("Не зачтено");
+    expect(ctx.result.blocks?.find((b) => b.key === "breakdown")?.heading).toBe("Разрез результата");
   });
 });

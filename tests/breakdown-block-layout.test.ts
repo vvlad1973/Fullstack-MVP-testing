@@ -125,4 +125,72 @@ for (const [templateId, dir] of Object.entries(TEMPLATES)) {
       expect(html).not.toContain("Разрез результата");
     });
   });
+
+  /**
+   * Э5: адаптивный режим печатает ОДИН разрез — сводный. Карточка темы там говорит
+   * подтверждённым уровнем, поэтому полос внутри неё нет ни на экране, ни в документе, а
+   * блок по области теста с лестницей не спорит.
+   */
+  describe(`${templateId}: адаптивный экран и документ печатают ТОЛЬКО сводный блок`, () => {
+    const screen = compileTemplate(fs.readFileSync(path.join(dir, "results.adaptive.html"), "utf-8"));
+    const report = compileTemplate(fs.readFileSync(path.join(dir, "report.adaptive.html"), "utf-8"));
+    const level = { topicName: "Право", levelLabel: "Базовый", levelClass: "is-pass", achievedClass: "is-pass" };
+    const adaptiveScreen = (result: Record<string, unknown>, withBlockSubblock: boolean) => ({
+      course: { title: "Тест" },
+      design: {},
+      labels: LABELS,
+      result: {
+        adaptive: true,
+        topicResults: [level],
+        blocks: [
+          { key: "topics", heading: "Результаты по темам", isTopics: true },
+          ...(withBlockSubblock ? [{ key: "breakdown", heading: "Разрез результата", isBreakdown: true }] : []),
+        ],
+        ...result,
+      },
+    });
+    const adaptiveReport = (result: Record<string, unknown>) => ({
+      design: {},
+      labels: LABELS,
+      report: { kind: "adaptive", hasTopics: true, gridColumns: 2 },
+      result: { adaptive: true, topicResults: [level], ...result },
+    });
+
+    it("экран печатает по одной строке на ключ", () => {
+      const html = screen(adaptiveScreen({ breakdown: ROWS }, true));
+      expect(html).toContain("Разрез результата");
+      expect(times(html, 'class="tb-breakdown"')).toBe(1);
+      expect(times(html, 'data-item="ПДн"')).toBe(1);
+      expect(times(html, 'data-item="Антикоррупция"')).toBe(1);
+    });
+
+    it("экран без включённого блока остаётся прежним", () => {
+      const html = screen(adaptiveScreen({}, false));
+      expect(html).not.toContain('class="tb-breakdown"');
+      expect(html).not.toContain("Разрез результата");
+    });
+
+    it("документ печатает свою карточку теми же строками", () => {
+      const html = report(adaptiveReport({ breakdown: ROWS }));
+      expect(html).toContain("Разрез результата");
+      expect(times(html, "tb-report__breakdown--block")).toBe(1);
+      expect(times(html, 'data-item="ПДн"')).toBe(1);
+    });
+
+    it("документ без блока остаётся прежним", () => {
+      const html = report(adaptiveReport({}));
+      expect(html).not.toContain("tb-report__breakdown--block");
+      expect(html).not.toContain("Разрез результата");
+    });
+
+    it("состав подблоков этого экрана объявлен манифестом и несёт разрез последним", () => {
+      const manifestPath = path.join(dir, "..", "manifest.json");
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+      expect(manifest.resultsBlockOrder["results.adaptive"]).toEqual([
+        "topics", "scales", "indicators", "breakdown",
+      ]);
+      // Сводки баллов у адаптивного экрана нет и быть не может — состав это и говорит.
+      expect(manifest.resultsBlockOrder["results.adaptive"]).not.toContain("summary");
+    });
+  });
 }
