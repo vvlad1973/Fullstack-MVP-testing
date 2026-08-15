@@ -266,6 +266,63 @@ var TBRunState = (function () {
     };
   }
 
+  // ── Migration: format 1 (a growing attempts[] array) -> format 2 ──────────
+
+  /** A legacy (format 1) attempt record as a format-2 summary; content is dropped. */
+  function summaryFromLegacy(record, testData) {
+    var topics = [];
+    var trs = (record && record.topicResults) || [];
+    for (var i = 0; i < trs.length; i++) {
+      topics.push({
+        s: sectionIndexOf(testData, trs[i].topicId),
+        c: trs[i].correct, q: trs[i].total,
+        e: trs[i].earnedPoints, p: trs[i].possiblePoints,
+        pc: trs[i].percent, ok: trs[i].passed,
+      });
+    }
+    return {
+      n: record.attemptNumber, at: record.completedAt, src: record.completedAtSource,
+      pc: record.percent, c: record.totalCorrect, q: record.totalQuestions,
+      e: record.earnedPoints, p: record.possiblePoints, ok: !!record.passed,
+      t: topics, rv: record.resultValues || {}, sv: record.scaleValues || {},
+    };
+  }
+
+  /**
+   * FR-12/FR-13: bring whatever the LMS hands back to format 2. Three inputs are possible —
+   * format 2 of THIS package (pass through), format 2 of ANOTHER package (its positions
+   * address other questions: keep the counter and both barriers, drop the addressed parts),
+   * and format 1 (fold the attempt array into counter + best + last).
+   */
+  function migrate(stateObj, testData) {
+    var s = stateObj || {};
+    if (s.v === 2) {
+      if (s.fp && !sameFingerprint(s.fp, testData)) {
+        if (s.best) delete s.best.d;
+        if (s.currentSession) s.currentSession = null;
+        s.fp = fingerprint(testData);
+      }
+      return s;
+    }
+    var attempts = s.attempts || [];
+    var best = null;
+    for (var i = 0; i < attempts.length; i++) {
+      best = pickBest(best, summaryFromLegacy(attempts[i], testData));
+    }
+    var last = attempts.length ? summaryFromLegacy(attempts[attempts.length - 1], testData) : null;
+    var out = {
+      v: 2,
+      fp: fingerprint(testData),
+      attemptsUsed: typeof s.attemptsUsed === 'number' ? s.attemptsUsed : 0,
+      best: best,
+      last: (best && last && best.n === last.n) ? 0 : last,
+    };
+    // FR-16: the barriers' own fields travel unchanged, shape and meaning both.
+    if (s.timer) out.timer = s.timer;
+    if (s.retake) out.retake = s.retake;
+    return out;
+  }
+
   // ── Budget: a limit that is CHECKED, not hoped for ────────────────────────
 
   var BUDGET = 4096; // FR-15: the SCORM 1.2 limit; a 15x margin on 2004.
@@ -334,6 +391,7 @@ var TBRunState = (function () {
     keyIndexOf: keyIndexOf,
     fitToBudget: fitToBudget,
     parseState: parseState,
+    migrate: migrate,
     BUDGET: BUDGET,
   };
 })();

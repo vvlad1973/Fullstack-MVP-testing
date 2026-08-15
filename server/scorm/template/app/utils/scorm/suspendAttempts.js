@@ -87,8 +87,9 @@ function readSuspendObj() {
   if (parsed.outcome === 'corrupt') {
     console.log('⚠️ suspend_data повреждён (' + raw.length + ' симв.) — состояние не восстановлено');
   }
-  // Приведение старого формата подключается задачей 6 — здесь состояние возвращается как есть.
-  return parsed.state;
+  // FR-12: whatever the LMS hands back is brought to format 2 before anyone reads it —
+  // one place, so no consumer ever branches on the format version.
+  return TBRunState.migrate(parsed.state, TEST_DATA);
 }
 
 function writeSuspendObj(obj) {
