@@ -1211,7 +1211,7 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
             size="m"
             fullWidth
             label="Где показывать подытоги"
-            hint="Сводный блок печатает ключ, живущий в нескольких разделах, ОДНОЙ строкой по всему тесту."
+            hint="Сводный блок печатает ключ, живущий в нескольких разделах, ОДНОЙ строкой по всему тесту. В адаптивном тесте карточка темы говорит подтверждённым уровнем и полос не печатает — там работает только сводный блок."
             value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).placement ?? "topics"}
             options={[
               { value: "topics", label: "В карточках тем" },
