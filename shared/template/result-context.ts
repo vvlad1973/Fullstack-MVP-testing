@@ -779,6 +779,35 @@ function showsBreakdownBlock(display?: BreakdownDisplaySetting | null): boolean 
   return !!display && display.visibility !== "hidden" && (display.placement ?? "topics") !== "topics";
 }
 
+/**
+ * Fill the test-scope summary block, for EITHER results screen (FR-28).
+ *
+ * ONE function for the standard and the adaptive builder, not because the code is short
+ * but because the block asks the same question in both modes — «как ты по подтемам по
+ * всему тесту» — and a second copy is how one mode would start rounding, wording or
+ * gating it differently. The adaptive screen speaks in confirmed LEVELS, so its topic
+ * cards carry no bars; this block does not compete with the ladder and shows the very
+ * records the engine already computed for an adaptive run (FR-17/FR-39).
+ *
+ * Both halves of the gate matter and neither is a proxy for the other: the author's own
+ * switch (`placement`) and the presence of records. A test may carry keys and want only
+ * the nested bars; a test with the block on may deliver an attempt without a single key.
+ *
+ * Nothing is summed here, and nothing may be: the records come from the attempt as
+ * stored. Adding up the per-topic rows instead would silently double-count a question
+ * delivered in two sections and would be a SECOND answer to a question the core already
+ * answered (FR-04).
+ */
+function fillBreakdownBlock(
+  result: CtxResult,
+  breakdowns: readonly BreakdownEntry[] | null | undefined,
+  display: BreakdownDisplaySetting | null | undefined,
+  labels?: Record<string, string>,
+): void {
+  if (!display || !showsBreakdownBlock(display) || !breakdowns?.length) return;
+  result.breakdown = breakdowns.map((e) => breakdownRow(e, display, labels));
+}
+
 /** Map a normalized topic to its presentational view (Core-prepared class + label). */
 function topicView(
   t: TopicInput,
@@ -1024,18 +1053,9 @@ export function buildResultContext(
     );
     if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);
   }
-  // PRD-50 FR-28: the summary block of the TEST scope. The records come from the attempt
-  // as stored — the block prints them, it does not add anything up. Summing the per-topic
-  // rows instead would silently double-count a question delivered in two sections and
-  // would be a SECOND answer to a question the core already answered (FR-04).
-  //
-  // Both halves of the gate matter: the author's own switch (`placement`) and the presence
-  // of records. Neither is a proxy for the other — a test may carry keys and want only the
-  // nested bars, and a test with the block on may deliver an attempt without a single key.
-  if (opts.breakdownDisplay && showsBreakdownBlock(opts.breakdownDisplay) && input.breakdowns?.length) {
-    const display = opts.breakdownDisplay;
-    result.breakdown = input.breakdowns.map((e) => breakdownRow(e, display, opts.labels));
-  }
+  // PRD-50 FR-28: the summary block of the TEST scope — see {@link fillBreakdownBlock},
+  // shared with the adaptive builder.
+  fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.
   const introHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);
@@ -1282,6 +1302,20 @@ export interface AdaptiveTopicInput extends TopicFeedbackInput {
 export interface AdaptiveResultInput {
   passed?: boolean;
   topicResults: AdaptiveTopicInput[];
+  /**
+   * PRD-50 FR-28/FR-39: records of the TEST scope, for the summary block.
+   *
+   * They exist for an adaptive attempt exactly as for a standard one — the axis is a
+   * property of the DELIVERED questions, not of the ladder, so `adaptiveResultAsStandard`
+   * computes them through the same engine (FR-17) and they are stored WITH the attempt
+   * (`adaptiveAttemptResultSchema.breakdowns`). Until this stage no screen read them back.
+   *
+   * SECTION-scope records are deliberately not taken: the adaptive topic card shows a
+   * confirmed LEVEL, and a percentage bar beside «Уровень 2» would invite a reading the
+   * ladder cannot support. Absent leaves the context byte-identical to what the adaptive
+   * screen produced before.
+   */
+  breakdowns?: BreakdownEntry[] | null;
 }
 
 /** Optional SCORM action flags for the adaptive results layout. */
@@ -1320,6 +1354,17 @@ export interface AdaptiveResultContextOptions {
   measures?: MeasuresInput;
   /** Вводный блок этой выдачи — тот же, что у стандартного экрана (см. там же). */
   intro?: { text?: string | null; format?: RichTextFormat | null } | null;
+  /**
+   * PRD-50 FR-13/FR-44: the author's display setting, read here for ONE thing — the
+   * summary block ({@link AdaptiveResultInput.breakdowns}).
+   *
+   * The `placement` half of the setting therefore behaves differently in this mode, and
+   * knowingly so: «В карточках тем» prints nothing on an adaptive screen, because the
+   * card there speaks in confirmed levels. The editor says so in the field's hint rather
+   * than silently promoting the choice to «блоком» — substituting the author's answer
+   * would be worse than telling them what the mode can do.
+   */
+  breakdownDisplay?: BreakdownDisplaySetting | null;
   /**
    * PRD-49: resolved labels of THIS screen, same flat map the standard builder takes
    * ({@link ResultContextOptions.labels}). Absent = no `labels` key on the returned
@@ -1430,6 +1475,10 @@ export function buildAdaptiveResultContext(
     adaptive: true,
     topicResults: (input.topicResults || []).map(adaptiveTopicView),
   };
+  // PRD-50 FR-28: сводный блок разреза — ТОТ ЖЕ заполнитель, что у стандартного экрана.
+  // Записи для адаптивной попытки считаются и хранятся давно (FR-17/FR-39), но до этого
+  // этапа их никто не читал обратно: посчитанное молча не показывалось.
+  fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
   // Вводный блок — первым, до уровней и измерений: правило общее для обоих режимов.
   const adaptiveIntroHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);
   if (adaptiveIntroHtml) result.introHtml = adaptiveIntroHtml;
