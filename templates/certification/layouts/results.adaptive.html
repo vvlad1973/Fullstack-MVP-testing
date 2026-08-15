@@ -154,6 +154,24 @@
         {{/each}}
       </div>
       {{/if}}
+
+      <!-- PRD-50 (FR-28/FR-33): СВОДНЫЙ РАЗРЕЗ по всему тесту — ТА ЖЕ разметка и та же
+           строка, что на обычном экране итогов. Он единственный разрез, который печатает
+           адаптивный режим: карточка темы здесь говорит подтверждённым УРОВНЕМ, и полоса
+           процентов рядом с «Уровень 2» предлагала бы читателю смысл, которого у лестницы
+           нет. Блок отвечает на другой вопрос — по подтемам ПО ВСЕМУ ТЕСТУ, — с уровнями
+           не спорит, а записи для него ядро считает и хранит давно (FR-17/FR-39). -->
+      {{#if isBreakdown}}
+      <div class="tb-breakdown">
+        {{#each @root.result.breakdown}}
+        <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
+          <div class="tb-breakdown__name">{{ key }}{{#if statusLabel}}<span class="tb-breakdown__status">{{ statusLabel }}</span>{{/if}}</div>
+          <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+          {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
       {{/each}}
       {{/if}}
 

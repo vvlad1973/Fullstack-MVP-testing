@@ -262,7 +262,7 @@
   ],
   "resultsBlockOrder": {
     "default": ["summary", "scales", "indicators", "topics", "breakdown"],
-    "results.adaptive": ["topics", "scales", "indicators"]
+    "results.adaptive": ["topics", "scales", "indicators", "breakdown"]
   },
   "contentTemplates": [
     {
