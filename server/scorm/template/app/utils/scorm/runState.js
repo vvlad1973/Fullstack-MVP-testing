@@ -174,14 +174,38 @@ var TBRunState = (function () {
   }
 
   // ── Package fingerprint: positions are valid only inside THIS package ─────
+
+  /** djb2 over a string (ES5-safe: no Math.imul / SubtleCrypto), as the timer anchor uses. */
+  function digest(text) {
+    var hash = 5381;
+    for (var i = 0; i < text.length; i++) {
+      hash = ((hash << 5) + hash + text.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(36);
+  }
+
+  /**
+   * The fingerprint answers ONE question: does a delivery position still address the same
+   * question it addressed when the state was written?
+   *
+   * Counting sections and questions is not enough for that. An author who REPLACES a question
+   * — or reorders the bank — keeps every count intact, so a count-only fingerprint would match
+   * and the stored positions would quietly point at other questions: the LMS report of a saved
+   * attempt would show questions the learner never saw. So the identity of the bank goes in
+   * too, as a digest over the question ids in their baked order.
+   */
   function fingerprint(testData) {
     var sections = (testData && testData.sections) || [];
     var counts = [];
+    var ids = [];
     for (var i = 0; i < sections.length; i++) {
-      counts.push((sections[i].questions || []).length);
+      var questions = sections[i].questions || [];
+      counts.push(questions.length);
+      ids.push(sections[i].topicId || '');
+      for (var j = 0; j < questions.length; j++) ids.push(questions[j].id || '');
     }
     var keys = ((testData && testData.breakdownKeys) || []).length;
-    return sections.length + ':' + counts.join(',') + ':' + keys;
+    return sections.length + ':' + counts.join(',') + ':' + keys + ':' + digest(ids.join('|'));
   }
 
   function sameFingerprint(fp, testData) {

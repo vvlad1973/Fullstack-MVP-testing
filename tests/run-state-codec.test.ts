@@ -177,11 +177,42 @@ describe("отпечаток состава", () => {
   };
 
   it("отпечаток собирается из состава пакета", () => {
-    expect(TBRunState.fingerprint(TEST_DATA)).toBe("2:2,1:2");
+    // Разделы, число вопросов в каждом, число ключей — и слепок состава банка: без него
+    // замена вопроса адрес не меняет, а содержимое по этому адресу меняет.
+    expect(TBRunState.fingerprint(TEST_DATA)).toMatch(/^2:2,1:2:[0-9a-z]+$/);
   });
 
-  it("состояние чужого пакета опознаётся по отпечатку", () => {
-    expect(TBRunState.sameFingerprint("2:2,1:2", TEST_DATA)).toBe(true);
-    expect(TBRunState.sameFingerprint("3:2,1,4:2", TEST_DATA)).toBe(false);
+  it("замена вопроса в банке меняет отпечаток", () => {
+    // Позиция — это адрес, и он валиден, только пока по адресу лежит ТОТ ЖЕ вопрос.
+    // Автор, заменивший вопрос, число вопросов не меняет: без учёта состава отпечаток
+    // совпал бы, и отчёт по сохранённой попытке показал бы чужие вопросы.
+    const before = { sections: [{ questions: [{ id: "a1" }, { id: "a2" }] }], breakdownKeys: [] };
+    const after = { sections: [{ questions: [{ id: "a1" }, { id: "a9" }] }], breakdownKeys: [] };
+    expect(TBRunState.fingerprint(after)).not.toBe(TBRunState.fingerprint(before));
+    expect(TBRunState.sameFingerprint(TBRunState.fingerprint(before), after)).toBe(false);
+  });
+
+  it("перестановка вопросов внутри раздела меняет отпечаток", () => {
+    // Тот же случай с другой стороны: состав прежний, а адреса разъехались.
+    const before = { sections: [{ questions: [{ id: "a1" }, { id: "a2" }] }], breakdownKeys: [] };
+    const after = { sections: [{ questions: [{ id: "a2" }, { id: "a1" }] }], breakdownKeys: [] };
+    expect(TBRunState.fingerprint(after)).not.toBe(TBRunState.fingerprint(before));
+  });
+
+  it("пересборка пакета из того же теста отпечаток не меняет", () => {
+    // Иначе каждый ре-экспорт объявлял бы состояние чужим и терял прогон ученика.
+    const data = { sections: [{ questions: [{ id: "a1" }, { id: "a2" }] }], breakdownKeys: ["k"] };
+    expect(TBRunState.fingerprint({ ...data })).toBe(TBRunState.fingerprint(data));
+  });
+
+  it("свой отпечаток признаётся своим, чужой — чужим", () => {
+    expect(TBRunState.sameFingerprint(TBRunState.fingerprint(TEST_DATA), TEST_DATA)).toBe(true);
+    expect(TBRunState.sameFingerprint("3:2,1,4:2:zzzz", TEST_DATA)).toBe(false);
+  });
+
+  it("короткий отпечаток без слепка состава признаётся чужим", () => {
+    // Осознанно: он ничего не говорит о составе банка, а принять его за свой значило бы
+    // доверить позиции пакету, состав которого не проверен.
+    expect(TBRunState.sameFingerprint("2:2,1:2", TEST_DATA)).toBe(false);
   });
 });
