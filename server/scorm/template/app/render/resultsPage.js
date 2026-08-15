@@ -313,18 +313,41 @@ function finishAndClose() {
     console.log('🔵 Адаптивный тест: принудительно passed=true для LMS');
     finishScormAdaptive(resultsForLms, true, resultComputation, scaleComputation);
   } else {
-    if (bestAttempt && bestAttempt !== results) {
-      console.log('🔄 Восстанавливаем state из лучшей попытки для LMS');
+    var bestDetail = (typeof getBestAttemptDetail === 'function') ? getBestAttemptDetail() : null;
+    if (bestAttempt && bestAttempt !== results && bestDetail) {
+      // PRD-36 FR-07/FR-08: the LMS report is built from the BEST attempt's OWN rows —
+      // delivery positions, answers AND statuses. Before this the attempt carried answers
+      // and question copies but no statuses, so `gradedAnswerFor` filtered a past attempt's
+      // interactions by the CURRENT run's statuses (§8, defect 1).
+      console.log('🔄 Восстанавливаем состояние лучшей попытки для LMS');
       var savedAnswers = state.answers;
       var savedFlatQuestions = state.flatQuestions;
+      var savedStatuses = state.questionStatuses;
 
-      state.answers = bestAttempt.answers || {};
-      state.flatQuestions = bestAttempt.flatQuestions || [];
+      var positions = TBRunState.decodeDelivery(bestDetail.dl || '');
+      var bestFlat = [], bestQuestions = [];
+      for (var bi = 0; bi < positions.length; bi++) {
+        var bsec = TEST_DATA.sections[positions[bi].s];
+        var bq = (bsec && bsec.questions) ? bsec.questions[positions[bi].q] : null;
+        if (!bq) continue;
+        bestQuestions.push(bq);
+        bestFlat.push({ question: bq, topicId: bsec.topicId, topicName: bsec.topicName });
+      }
+      var bestAnswers = TBRunState.decodeAnswers(bestDetail.an || '', bestQuestions);
+      var bestStatuses = TBRunState.decodeStatuses(bestDetail.st || '');
+      state.answers = {};
+      state.questionStatuses = {};
+      for (var bj = 0; bj < bestQuestions.length; bj++) {
+        if (bestAnswers[bj] !== undefined) state.answers[bestQuestions[bj].id] = bestAnswers[bj];
+        state.questionStatuses[bestQuestions[bj].id] = bestStatuses[bj] || 'unanswered';
+      }
+      state.flatQuestions = bestFlat;
 
       finishScormLmsOnly(resultsForLms, bestPassed, resultComputation, scaleComputation);
 
       state.answers = savedAnswers;
       state.flatQuestions = savedFlatQuestions;
+      state.questionStatuses = savedStatuses;
     } else {
       finishScormLmsOnly(resultsForLms, bestPassed, resultComputation, scaleComputation);
     }

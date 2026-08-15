@@ -57,7 +57,8 @@ function resolveStartLayout() {
 function buildScormStartContext() {
   var used = getAttemptsUsed();
   var hasLimit = !!TEST_DATA.maxAttempts;
-  var hasCompleted = !!getAllAttempts() && getAllAttempts().length > 0;
+  // PRD-36 FR-03: «есть завершённые» — это счётчик, а не длина списка: списка больше нет.
+  var hasCompleted = hasCompletedAttempts();
   // PRD-31 barrier B: the hour interval between attempts INSIDE this assignment.
   // Decided here, post-Initialize, because its source is suspend_data — the gate
   // could not read it before Initialize. An open interval leaves the screen exactly

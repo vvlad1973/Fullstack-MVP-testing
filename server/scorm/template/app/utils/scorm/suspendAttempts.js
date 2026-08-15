@@ -235,41 +235,31 @@ function saveAttemptResult(resultData) {
   console.log('🔵 Попытка #' + summary.n + ' сохранена: ' + Math.round(summary.pc) + '%');
 }
 
-// Получить все попытки
-function getAllAttempts() {
-  var s = readSuspendObj();
-  return s.attempts || [];
-}
-
-// Получить лучшую попытку (по %, потом по дате)
+/**
+ * PRD-36 FR-03/FR-09: the BEST attempt in the shape every screen and the LMS builder already
+ * speak. No list is scanned and no maximum recomputed — the best is decided once, when an
+ * attempt finishes (FR-05), and the summary is expanded back against TEST_DATA on read.
+ */
 function getBestAttempt() {
-  var attempts = getAllAttempts();
-  console.log('📊 Все попытки для выбора:', attempts.length);
-  attempts.forEach(function(a, i) {
-    console.log('  Попытка ' + (i+1) + ': ' + Math.round(a.percent) + '%');
-  });
-  
-  if (attempts.length === 0) return null;
-  
-  var sorted = attempts.slice().sort(function(a, b) {
-    if (a.percent !== b.percent) {
-      return b.percent - a.percent;
-    }
-    return new Date(b.completedAt) - new Date(a.completedAt);
-  });
-  
-  console.log('✅ Лучшая попытка: ' + Math.round(sorted[0].percent) + '%');
-  return sorted[0];
+  var s = readSuspendObj();
+  return s.best ? TBRunState.expandSummary(s.best, TEST_DATA) : null;
 }
 
-// Получить последнюю попытку
+/** FR-03: the LAST attempt; `last: 0` means it IS the best one (the common case). */
 function getLastAttempt() {
-  var attempts = getAllAttempts();
-  if (attempts.length === 0) return null;
-  return attempts[attempts.length - 1];
+  var s = readSuspendObj();
+  if (!s.best) return null;
+  var summary = (s.last === 0 || !s.last) ? s.best : s.last;
+  return TBRunState.expandSummary(summary, TEST_DATA);
+}
+
+/** The RAW best summary, rows included — the LMS interactions builder needs them. */
+function getBestAttemptDetail() {
+  var s = readSuspendObj();
+  return (s.best && s.best.d) || null;
 }
 
 // Есть ли завершенные попытки?
 function hasCompletedAttempts() {
-  return getAllAttempts().length > 0;
+  return getAttemptsUsed() > 0;
 }

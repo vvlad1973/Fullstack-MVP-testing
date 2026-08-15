@@ -247,6 +247,63 @@ var TBRunState = (function () {
     return (stateObj && stateObj.best) || null;
   }
 
+  /**
+   * FR-09: a stored summary as the RESULT shape every screen, the report and the LMS builder
+   * already speak. Everything the summary dropped — topic name, recommendations, the pass rule,
+   * the breakdown key — comes back from TEST_DATA by position. That is the whole trade: the
+   * package ships the content once, the state addresses it.
+   */
+  function expandSummary(summary, testData) {
+    if (!summary) return null;
+    var keys = (testData && testData.breakdownKeys) || [];
+    var sections = (testData && testData.sections) || [];
+    var unpackBd = function (rows, scope) {
+      var out = [];
+      for (var i = 0; i < (rows || []).length; i++) {
+        var r = rows[i];
+        out.push({
+          scope: scope, axis: 'tag', key: keys[r.k],
+          items: r.i, answered: r.a, earned: r.e, possible: r.p,
+          unitEarned: r.e, unitPossible: r.p,
+          percentPoints: r.pp, percentUnits: r.pu,
+        });
+      }
+      return out;
+    };
+    var topics = [];
+    for (var i = 0; i < (summary.t || []).length; i++) {
+      var t = summary.t[i];
+      var section = sections[t.s] || {};
+      topics.push({
+        topicId: section.topicId, topicName: section.topicName,
+        correct: t.c, total: t.q, earnedPoints: t.e, possiblePoints: t.p,
+        percent: t.pc, passed: (t.ok === null || t.ok === undefined) ? null : !!t.ok,
+        // PRD-24: the threshold that actually gated this topic back then. The rule TYPE is
+        // always a percentage here: that is the only shape the «Требуется…» label prints.
+        resolvedPassRule: (t.r != null) ? { type: 'percent', value: t.r } : null,
+        passRule: section.topicPassRule || null,
+        formId: t.f || null,
+        recommendedCourses: section.recommendedCourses || [],
+        recommendedEvents: section.recommendedEvents || [],
+        breakdown: unpackBd(t.bd, 'section:' + section.topicId),
+        groupKey: section.groupKey || null,
+      });
+    }
+    return {
+      attemptNumber: summary.n, completedAt: summary.at, completedAtSource: summary.src,
+      percent: summary.pc, correct: summary.c, totalCorrect: summary.c,
+      totalQuestions: summary.q,
+      earnedPoints: summary.e, possiblePoints: summary.p, passed: !!summary.ok,
+      topicResults: topics,
+      breakdowns: unpackBd(summary.bd, 'test'),
+      resultValues: summary.rv || {}, scaleValues: summary.sv || {},
+      formulaErrors: summary.fe || [], scaleErrors: summary.se || [],
+      // The rows travel unexpanded: only the LMS interactions builder reads them, and it
+      // needs the questions themselves, not this result shape.
+      d: summary.d,
+    };
+  }
+
   /** FR-06/FR-07: rows of the attempt being stored — delivery, answers, statuses. */
   function buildDetail(runtimeState) {
     if (!runtimeState || !runtimeState.flatQuestions || !runtimeState.flatQuestions.length) {
@@ -387,6 +444,7 @@ var TBRunState = (function () {
     buildSummary: buildSummary,
     buildDetail: buildDetail,
     bestOf: bestOf,
+    expandSummary: expandSummary,
     sectionIndexOf: sectionIndexOf,
     keyIndexOf: keyIndexOf,
     fitToBudget: fitToBudget,
