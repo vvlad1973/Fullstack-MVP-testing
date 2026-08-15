@@ -2897,6 +2897,12 @@ export default function TakeTestPage() {
           protection={questionProtection}
           testTitle={testTitle}
           counterLabel={counter}
+          // The adaptive screen used to pass no timers at all, so a learner on a timed
+          // adaptive test saw NO countdown anywhere — the limit only made itself known
+          // when the run ended. Same header timers as the standard screen and the
+          // package: the test limit plus the topic's own budget (the adaptive flow's
+          // section clock, PRD-4 v1.1 §3.2).
+          timers={{ testSeconds: remainingSeconds, sectionSeconds: adaptiveSectionRemaining }}
           progressPercent={(currentQuestion.questionNumber / currentQuestion.totalInLevel) * 100}
           question={currentQ}
           answer={adaptiveState.answer}
