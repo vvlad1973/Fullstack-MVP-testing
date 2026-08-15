@@ -39,6 +39,12 @@ export interface ContentImpactDialogProps {
   findings?: PublishCheckFinding[];
   /** Ready-made sentences (advisory mode) — one per publication warning. */
   notes?: string[];
+  /**
+   * Замыкающая строка advisory-режима. Умолчание говорит про публикацию, потому что
+   * режим родился на ней (PRD-50 FR-45 - FR-47); тот же диалог показывает замечания
+   * СОХРАНЕНИЯ (PRD-15 FR-05), где про публикацию писать нельзя — её не было.
+   */
+  advisoryFooter?: string;
   /** Current user is an administrator/superadmin → may force a blocked op. */
   canForce?: boolean;
   /** Label of the warn-mode confirm action, e.g. «Удалить вопрос». */
@@ -101,6 +107,7 @@ export function ContentImpactDialog({
   tests = [],
   findings = [],
   notes = [],
+  advisoryFooter,
   canForce = false,
   confirmLabel = "Продолжить",
   confirmVariant = "destructive",
@@ -241,7 +248,10 @@ export function ContentImpactDialog({
       {mode === "advisory" && (
         <Banner
           tone="info"
-          description="Тест опубликован. Перечисленное не мешает публикации, но меняет то, что увидит слушатель."
+          description={
+            advisoryFooter ??
+            "Тест опубликован. Перечисленное не мешает публикации, но меняет то, что увидит слушатель."
+          }
         />
       )}
     </ModalDialog>

@@ -28,6 +28,8 @@ const { storageMock, serviceMock } = vi.hoisted(() => ({
     getQuestionsByTopic: vi.fn(),
     getAdaptiveTopicSettingsByTest: vi.fn(),
     getAdaptiveLevelsByTest: vi.fn(),
+    // Per-topic levels — what the feasibility service reads (`assessTestPublish`).
+    getAdaptiveLevels: vi.fn().mockResolvedValue([]),
     getResultVariables: vi.fn().mockResolvedValue([]),
     getScales: vi.fn().mockResolvedValue([]),
     getQuestionMeasurements: vi.fn().mockResolvedValue([]),
@@ -288,6 +290,66 @@ describe("POST /api/tests/:id/republish-force", () => {
     expect(res.body.error).toBe("publish_infeasible");
     expect(storageMock.annulInProgressAttempts).not.toHaveBeenCalled();
     expect(storageMock.createTestSnapshot).not.toHaveBeenCalled();
+  });
+});
+
+// ─── GET /:id/feasibility ───────────────────────────────────────────────────
+//
+// PRD-15 FR-05 asks the feasibility service to run on EVERY change path, and its
+// policy for a draft is «предупреждение без блокировки». Authoring an adaptive
+// ladder was the one path that skipped it: a level whose difficulty range holds no
+// questions saved silently and only spoke up at publish (`409 publish_infeasible`)
+// — or not at all, if the test was played as a draft («Вопрос 1 из 0»).
+describe("GET /api/tests/:id/feasibility", () => {
+  let app: express.Express;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    storageMock.getUser.mockResolvedValue(authorUser);
+    app = makeApp();
+  });
+
+  it("reports an adaptive level whose difficulty range has no questions", async () => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive" });
+    storageMock.getTestSections.mockResolvedValue([
+      { id: "s1", testId: "test1", topicId: "tp1", drawCount: 0, drawAll: false, drawBlueprintJson: null },
+    ]);
+    storageMock.getAdaptiveLevels.mockResolvedValue([
+      { levelIndex: 0, levelName: "Базовый", minDifficulty: 0, maxDifficulty: 40, questionsCount: 3 },
+    ]);
+    storageMock.getQuestionsByTopic.mockResolvedValue([
+      { id: "q1", topicId: "tp1", tags: [], difficulty: 80 },
+    ]);
+    storageMock.getTopic.mockResolvedValue({ id: "tp1", name: "Тема" });
+    const res = await asAuthor(request(app).get("/api/tests/test1/feasibility"));
+    expect(res.status).toBe(200);
+    const issues = res.body.findings.flatMap((f: { issues: unknown[] }) => f.issues);
+    expect(issues).toContainEqual(
+      expect.objectContaining({ kind: "adaptive_shortfall", levelName: "Базовый", required: 3, available: 0 }),
+    );
+  });
+
+  it("returns an empty list when the ladder is fully stocked", async () => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive" });
+    storageMock.getTestSections.mockResolvedValue([
+      { id: "s1", testId: "test1", topicId: "tp1", drawCount: 0, drawAll: false, drawBlueprintJson: null },
+    ]);
+    storageMock.getAdaptiveLevels.mockResolvedValue([
+      { levelIndex: 0, levelName: "Базовый", minDifficulty: 0, maxDifficulty: 40, questionsCount: 1 },
+    ]);
+    storageMock.getQuestionsByTopic.mockResolvedValue([
+      { id: "q1", topicId: "tp1", tags: [], difficulty: 20 },
+    ]);
+    storageMock.getTopic.mockResolvedValue({ id: "tp1", name: "Тема" });
+    const res = await asAuthor(request(app).get("/api/tests/test1/feasibility"));
+    expect(res.status).toBe(200);
+    expect(res.body.findings).toEqual([]);
+  });
+
+  it("404 for a missing test", async () => {
+    storageMock.getTest.mockResolvedValue(undefined);
+    const res = await asAuthor(request(app).get("/api/tests/test1/feasibility"));
+    expect(res.status).toBe(404);
   });
 });
 

@@ -31,6 +31,7 @@ import {
   useState,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { PublishCheckFinding } from "@/features/content-protection/types";
 import {
   apiToEditorModel,
   editorModelToPayload,
@@ -132,6 +133,17 @@ export type UseTestEditorResult = {
    * silently closing — the previous "swallow" behaviour masked real bugs.
    */
   saveError: { status: number; message: string } | null;
+  /**
+   * PRD-15 FR-05: чем текущее состояние теста мешает выдаче — прочитано после
+   * последнего успешного сохранения. Пустой список = помех нет. Предупреждение,
+   * а не запрет: сохранение уже прошло, публикацию сторожит своя проверка (FR-06).
+   */
+  feasibility: PublishCheckFinding[];
+  /**
+   * То же самое, но читаемое сразу после `save()`: сохранение закрывает ящик
+   * редактора, и состояние React к этому моменту ещё не перерисовано.
+   */
+  getFeasibility: () => PublishCheckFinding[];
   /**
    * Set right after a successful create POST. The parent component watches
    * this to close the Drawer and (optionally) re-open it in edit mode.
@@ -479,6 +491,31 @@ export function useTestEditor(
 
   // Mutation: PUT /api/tests/:id (edit) or POST /api/tests (create).
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
+  /**
+   * PRD-15 FR-05: выполнимость выдачи ТЕКУЩЕГО состояния, прочитанная после
+   * успешного сохранения. Для черновика политика спеки — предупреждение без
+   * блокировки, поэтому это не мешает ни сохранить, ни закрыть редактор: автор
+   * просто узнаёт, что лестница не поедет, здесь, а не на публикации или на
+   * зависшем прогоне.
+   */
+  const [feasibility, setFeasibility] = useState<PublishCheckFinding[]>([]);
+
+  // Read through a ref as well as state: saving CLOSES the Drawer, so the caller
+  // reads the findings right after `save()` resolves — before React has re-rendered
+  // anything — and hands them to the list, which owns the surface that outlives the
+  // editor (the same advisory dialog the publication notes use).
+  const feasibilityRef = useRef<PublishCheckFinding[]>([]);
+  const refreshFeasibility = useCallback(async (testId: string) => {
+    try {
+      const res = await fetch(`/api/tests/${testId}/feasibility`, { credentials: "include" });
+      if (!res.ok) return;
+      const body = (await res.json()) as { findings?: PublishCheckFinding[] };
+      feasibilityRef.current = body.findings ?? [];
+      setFeasibility(feasibilityRef.current);
+    } catch {
+      // Advisory only: a failed check must never look like a failed save.
+    }
+  }, []);
   const [requiredFieldsMissing, setRequiredFieldsMissing] = useState<
     RequiredFieldsMissing[]
   >([]);
@@ -516,6 +553,9 @@ export function useTestEditor(
       if (isEdit) {
         if (!editTestId) throw new Error("save: edit mode without testId");
         const saved = await putTest(editTestId, fullPayload);
+        // Awaited on purpose: the Drawer closes the moment `save()` resolves, and the
+        // findings have to be in hand BEFORE that, or nobody is left to show them.
+        await refreshFeasibility(editTestId);
         const varsChanged = !shallowEqualJson(draft.resultVariables, snapVars);
         const scalesChanged = !shallowEqualJson(draft.scales, snapScales);
         const measChanged = !shallowEqualJson(draft.measurements, snapMeas);
@@ -684,6 +724,8 @@ export function useTestEditor(
     conflict,
     requiredFieldsMissing,
     saveError,
+    feasibility,
+    getFeasibility: () => feasibilityRef.current,
     createdId,
     updateModel,
     save,

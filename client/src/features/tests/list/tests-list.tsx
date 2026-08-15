@@ -360,6 +360,10 @@ export function TestsListPage(): React.JSX.Element {
   // PRD-50 FR-45 - FR-47: замечания УСПЕШНОЙ публикации. null = диалога нет; тест без
   // единого замечания публикуется ровно как раньше, без лишнего экрана.
   const [publishNotes, setPublishNotes] = useState<string[] | null>(null);
+  // PRD-15 FR-05: то же самое, но по итогу СОХРАНЕНИЯ — тест сохранён, а выдать
+  // вопросы по нему нечем. Отдельная строка состояния, потому что заголовок другой:
+  // публикации не было, и запрещать тут нечего.
+  const [saveNotes, setSaveNotes] = useState<string[] | null>(null);
 
   // ─── Mutations ───────────────────────────────────────────────────────────
   const statusMutation = useMutation({
@@ -841,6 +845,7 @@ export function TestsListPage(): React.JSX.Element {
         open={editorTarget !== null}
         onClose={() => setEditorTarget(null)}
         initialTab={editorTarget?.kind === "edit" ? editorTarget.tab : undefined}
+        onFeasibilityNotes={setSaveNotes}
       />
 
       {/* Access panel (PRD-13, WF-2) ---------------------------------------- */}
@@ -867,6 +872,16 @@ export function TestsListPage(): React.JSX.Element {
         title="Тест опубликован с замечаниями"
         notes={publishNotes ?? []}
         onClose={() => setPublishNotes(null)}
+      />
+
+      {/* PRD-15 FR-05: замечания к СОХРАНЁННОМУ тесту ---------------------- */}
+      <ContentImpactDialog
+        open={saveNotes !== null}
+        mode="advisory"
+        title="Тест сохранён, но выдать вопросы по нему нельзя"
+        notes={saveNotes ?? []}
+        advisoryFooter="Сохранению это не мешает. Но пока состав тем не поправлен, тест не выдаст вопросы: прогон встанет, а публикация будет отклонена."
+        onClose={() => setSaveNotes(null)}
       />
 
       {/* PRD-15 FR-14: emergency re-publish confirm ------------------------- */}

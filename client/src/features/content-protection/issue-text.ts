@@ -34,6 +34,29 @@ export function describeIssue(issue: FeasibilityIssue): string {
   }
 }
 
+/**
+ * The same issue read as the test's CURRENT state, not as the consequence of a
+ * mutation. `describeIssue` above says «останется» because it answers «что будет,
+ * если это удалить»; the editor's own check answers «что сейчас не так», where the
+ * future tense would be simply wrong — nothing is being deleted.
+ */
+export function describeFeasibilityState(issue: FeasibilityIssue): string {
+  switch (issue.kind) {
+    case "pool_shortfall":
+      return `Выдача вопросов: нужно ${issue.required}, в теме есть ${issue.available}`;
+    case "quota_shortfall":
+      return `Квота по тегу «${issue.tag}»: нужно ${issue.requested}, есть ${issue.available}`;
+    case "adaptive_shortfall": {
+      const level = issue.levelName ? `«${issue.levelName}»` : `№${issue.levelIndex + 1}`;
+      return issue.available === 0
+        ? `Уровень ${level}: под его диапазон сложности в теме нет ни одного вопроса (нужно ${issue.required})`
+        : `Уровень ${level}: нужно ${issue.required}, под его диапазон сложности есть ${issue.available}`;
+    }
+    default:
+      return describeIssue(issue);
+  }
+}
+
 /** Одно предупреждение публикации (PRD-50 FR-45 - FR-47) человеческим языком. */
 export function describeBreakdownWarning(w: BreakdownWarning): string {
   switch (w.code) {

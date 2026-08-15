@@ -761,6 +761,28 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
   }
 });
 
+// GET /api/tests/:id/feasibility — выполнимость выдачи ТЕКУЩЕГО состояния теста.
+//
+// PRD-15 FR-05: сервис выполнимости обязан работать на всех путях изменения, и для
+// черновика его политика — предупреждение без блокировки. Авторская правка самой
+// лестницы была единственным путём мимо этой проверки: уровень с диапазоном
+// сложности, под который в теме нет ни одного вопроса, сохранялся молча и подавал
+// голос только на публикации (FR-06, `409 publish_infeasible`) — а до неё прогон
+// вставал на «Вопрос 1 из 0», и автор не знал, почему.
+//
+// Тот же `assessTestPublish`, что закрывает публикацию: одна проверка, один язык
+// находок. Только чтение — ничего не блокирует и ничего не меняет.
+router.get("/:id/feasibility", requirePermission("tests.edit"), requireTestScope("edit"), async (req, res) => {
+  try {
+    const test = await storage.getTest(req.params.id);
+    if (!test) return res.status(404).json({ error: "Test not found" });
+    res.json({ findings: await assessTestPublish(req.params.id) });
+  } catch (error) {
+    logger.error("GET feasibility error: " + (error as Error).message, "tests");
+    res.status(500).json({ error: "Failed to assess feasibility" });
+  }
+});
+
 // GET /api/tests/:id/adaptive-settings - Адаптивные настройки теста
 router.get("/:id/adaptive-settings", requirePermission("tests.read"), requireTestScope("read"), async (req, res) => {
   try {

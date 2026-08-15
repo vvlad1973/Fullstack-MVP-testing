@@ -60,6 +60,7 @@ import { StructureSection } from "./sections/start-pages-section";
 import { ResultVariablesSection } from "./sections/result-variables-section";
 import { ScalesSection } from "./sections/scales-section";
 import { ScoringSection } from "./sections/scoring-section";
+import { describeFeasibilityState } from "@/features/content-protection/issue-text";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -82,6 +83,13 @@ export type TestEditorProps = {
    * pages need mapping (PRD-22, plan Э6). Defaults to «Состав».
    */
   initialTab?: EditorTabKey;
+  /**
+   * Замечания выполнимости выдачи, прочитанные после успешного сохранения
+   * (PRD-15 FR-05). Показывать их ВНУТРИ ящика нельзя: сохранение его закрывает,
+   * — поэтому строки уходят наверх, списку тестов, в тот же advisory-диалог, что
+   * и замечания публикации.
+   */
+  onFeasibilityNotes?: (notes: string[]) => void;
 };
 
 export type TestEditorViewProps = {
@@ -93,6 +101,8 @@ export type TestEditorViewProps = {
   editor: UseTestEditorResult;
   /** Tab to open on; defaults to «Состав». See {@link TestEditorProps.initialTab}. */
   initialTab?: EditorTabKey;
+  /** See {@link TestEditorProps.onFeasibilityNotes}. */
+  onFeasibilityNotes?: (notes: string[]) => void;
 };
 
 const TAB_ORDER: EditorTabKey[] = [
@@ -154,7 +164,15 @@ export function TestEditor(props: TestEditorProps): React.JSX.Element | null {
     }
   }, [editor.createdId, editor, onClose]);
 
-  return <TestEditorView open={open} onClose={onClose} editor={editor} initialTab={props.initialTab} />;
+  return (
+    <TestEditorView
+      open={open}
+      onClose={onClose}
+      editor={editor}
+      initialTab={props.initialTab}
+      onFeasibilityNotes={props.onFeasibilityNotes}
+    />
+  );
 }
 
 /**
@@ -350,6 +368,18 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     return true;
   }, [design, editor, contentPages, toast, queryClient]);
 
+  // PRD-15 FR-05: сохранили — и сразу сказали, если выдавать вопросы по этому
+  // составу нечем. Строки уходят наверх: ящик закрывается этим же обработчиком.
+  const reportFeasibility = useCallback(() => {
+    const findings = editor.getFeasibility();
+    if (findings.length === 0) return;
+    props.onFeasibilityNotes?.(
+      findings.map(
+        (finding) => `${finding.topicName}: ${finding.issues.map(describeFeasibilityState).join("; ")}`,
+      ),
+    );
+  }, [editor, props]);
+
   const handleSave = useCallback(async () => {
     if (saveDisabled) return;
     const ok = await saveAll();
@@ -362,14 +392,16 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
         editor.validation.warnings.length > 0,
       );
     }
+    reportFeasibility();
     onClose();
-  }, [saveAll, saveDisabled, onClose, editor.model?.id, editor.validation.warnings.length, queryClient]);
+  }, [saveAll, saveDisabled, onClose, editor.model?.id, editor.validation.warnings.length, queryClient, reportFeasibility]);
 
   const handleSaveAndExit = useCallback(async () => {
     if (hasErrors) return;
     const ok = await saveAll();
     if (!ok) return;
     setCloseDialogOpen(false);
+    reportFeasibility();
     onClose();
   }, [hasErrors, onClose, saveAll]);
 
