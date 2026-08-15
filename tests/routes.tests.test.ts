@@ -494,6 +494,62 @@ describe("PUT /api/tests/:id — section formSetJson (PRD-17)", () => {
     expect(res.status).toBe(400);
     expect(serviceMock.save).not.toHaveBeenCalled();
   });
+
+  /**
+   * Снятие настройки. Тело различает два состояния, и они значат разное: поля НЕТ —
+   * «не трогай», поле есть со значением `null` — «сними». Маршрут схлопывал второе в
+   * первое (`?? undefined`), поэтому снять настройку через API было нельзя вовсе:
+   * сервер отвечал 200, а колонка держала прежнее значение.
+   *
+   * Проверено на живом стенде до правки: включили кулдаун, прислали `null`, получили
+   * 200 и прежнюю политику в базе. Автор снимал галку «Интервал между попытками»,
+   * видел «Сохранено» и получал её обратно после перезагрузки.
+   *
+   * Поля перечислены поимённо: редактор снимает каждое из них именно нулём
+   * (`retakePolicyJson: enabled ? … : null`, `sectionGroupsJson: length ? … : null`,
+   * и так далее), и молчаливая потеря любого читается автором как «сервис не сохраняет».
+   */
+  const NULLABLE_TEST_FIELDS = [
+    "feedbackJson",
+    "flowPolicyJson",
+    "retakePolicyJson",
+    "reportSettingsJson",
+    "introJson",
+    "breakdownDisplayJson",
+    "sectionGroupsJson",
+    "webhookUrl",
+  ] as const;
+
+  for (const field of NULLABLE_TEST_FIELDS) {
+    it(`доводит явный null поля ${field} до сервиса — это «снять настройку»`, async () => {
+      const res = await asAuthor(
+        request(app).put("/api/tests/test1").send({
+          title: "My Test",
+          mode: "standard",
+          [field]: null,
+          sections: [{ topicId: "t1", drawCount: 2 }],
+        }),
+      );
+      expect(res.status).toBe(200);
+      const savePayload = serviceMock.save.mock.calls[0][1];
+      expect(savePayload.test[field], `${field} должно дойти как null`).toBeNull();
+    });
+
+    it(`не выдумывает значение полю ${field}, которого нет в теле`, async () => {
+      const res = await asAuthor(
+        request(app).put("/api/tests/test1").send({
+          title: "My Test",
+          mode: "standard",
+          sections: [{ topicId: "t1", drawCount: 2 }],
+        }),
+      );
+      expect(res.status).toBe(200);
+      const savePayload = serviceMock.save.mock.calls[0][1];
+      // `undefined` — единственное, что Drizzle выбрасывает из UPDATE: колонка не
+      // участвует в запросе и держит прежнее значение.
+      expect(savePayload.test[field], `${field} без поля в теле не должно менять колонку`).toBeUndefined();
+    });
+  }
 });
 
 // ─── Backward compat: POST / and PUT /:id unchanged ──────────────────────────

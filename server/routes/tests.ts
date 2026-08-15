@@ -1122,7 +1122,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         description,
         overallPassRuleJson,
         passDecisionPolicy,
-        webhookUrl: webhookUrl ?? undefined,
+        webhookUrl,
         showCorrectAnswers,
         allowReturnToUnanswered,
         allowAnswerChange,
@@ -1142,13 +1142,29 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         status,
         published,
         telemetryEnabled,
-        feedbackJson: feedbackJson ?? undefined,
-        flowPolicyJson: flowPolicyJson ?? undefined,
-        retakePolicyJson: retakePolicyJson ?? undefined,
-        reportSettingsJson: reportSettingsJson ?? undefined,
-        introJson: introJson ?? undefined,
-        breakdownDisplayJson: breakdownDisplayJson ?? undefined,
-        sectionGroupsJson: sectionGroupsJson ?? undefined,
+        // Настраиваемые поля идут ВЕРБАТИМ, без `?? undefined`. Два состояния, которые
+        // тело запроса различает, значат разное, и схлопывать их нельзя:
+        //   поля нет   -> `undefined` -> колонка не участвует в UPDATE, значение прежнее;
+        //   прислали null -> колонка становится NULL, то есть настройка СНЯТА.
+        // `?? undefined` переводил второе в первое, и снять настройку через API было
+        // нельзя вовсе: сервер отвечал 200, а колонка держала прежнее значение. Редактор
+        // шлёт `null` именно как «снято» — так он выключает кулдаун
+        // (`retakePolicyJson: enabled ? … : null`), удаляет последний блок разделов,
+        // стирает вводные тексты и настройки отчёта. Автор снимал галку, видел
+        // «Сохранено» и получал её обратно после перезагрузки.
+        //
+        // Схема это различие уже хранит (`.nullish()` / `.nullable().optional()`), а
+        // Drizzle выбрасывает из `.set()` только `undefined` — значит достаточно ничего
+        // не терять по дороге. Импорт книги сюда не попадает: он кладёт ключ в патч
+        // ТОЛЬКО когда лист несёт данные (`workbook-import.ts`), и `null` в смысле
+        // «не трогай» не шлёт.
+        feedbackJson,
+        flowPolicyJson,
+        retakePolicyJson,
+        reportSettingsJson,
+        introJson,
+        breakdownDisplayJson,
+        sectionGroupsJson,
         defaultQuestionPoints,
       },
       // PRD-7 §6.3: sections live with the standard mode only. For adaptive,
