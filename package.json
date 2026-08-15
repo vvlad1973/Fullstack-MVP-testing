@@ -9,6 +9,7 @@
     "start": "cross-env NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
     "create-admin": "tsx scripts/db/create-admin.ts",
     "seed": "tsx scripts/db/seed-db.ts",
     "reencrypt-emails": "tsx scripts/db/reencrypt-emails.ts",
