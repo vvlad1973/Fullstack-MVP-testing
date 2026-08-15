@@ -168,6 +168,41 @@ describe("1. apiToEditorModel — standard test with sections", () => {
     expect(payloads[0].topicPassRuleJson).toEqual({ source: "by_variant", byForm });
   });
 
+  // PRD-50 Э2, зафиксированный долг: явное «Не проверять» у ключа не переживало
+  // сохранения. Сегодня это незаметно — строка ключа без правила рисуется как «Не
+  // проверять», а движок считает отсутствие структуры информационным для всех ключей,
+  // — но как только у умолчания появится редактор, «отсутствует» станет значить
+  // «наследует умолчание», и потерянный `none` молча поменяет смысл гейта.
+  it("keeps an explicit «не проверять» on a key through the round-trip", () => {
+    const rules = { axis: "tag" as const, keys: { Коррупция: { type: "none" as const } } };
+    const model = apiToEditorModel({
+      id: "t",
+      title: "T",
+      mode: "standard",
+      status: "draft",
+      overallPassRuleJson: { type: "percent", value: 70 },
+      sections: [apiSection({ topicId: "topic-math", breakdownRulesJson: rules })],
+    });
+    expect(model.sections[0].breakdownRules).toEqual(rules);
+
+    const payloads = mapEditorSectionsToPayload(model);
+    expect(payloads[0].breakdownRulesJson).toEqual(rules);
+  });
+
+  // Обратная сторона того же правила: пустая структура — это не выбор автора, а мусор,
+  // и писать её вместо `null` незачем.
+  it("still drops a breakdown structure that carries no decisions at all", () => {
+    const model = apiToEditorModel({
+      id: "t",
+      title: "T",
+      mode: "standard",
+      status: "draft",
+      overallPassRuleJson: { type: "percent", value: 70 },
+      sections: [apiSection({ topicId: "topic-math", breakdownRulesJson: { axis: "tag", keys: {} } })],
+    });
+    expect(mapEditorSectionsToPayload(model)[0].breakdownRulesJson).toBeNull();
+  });
+
   it("drops malformed by_variant entries instead of trusting them", () => {
     const model = apiToEditorModel({
       id: "t",

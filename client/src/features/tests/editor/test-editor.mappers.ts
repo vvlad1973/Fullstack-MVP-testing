@@ -1433,8 +1433,14 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
 function normalizeBreakdownRules(rules: BreakdownRules | null | undefined): BreakdownRules | null {
   if (!rules) return null;
   const keys = rules.keys ?? {};
-  const meaningful = Object.keys(keys).filter((k) => keys[k].type === "percent");
-  if (!rules.default && meaningful.length === 0) return null;
+  // PRD-50 Э2: явное `none` — это РЕШЕНИЕ автора («этот ключ не гейтит»), а не пустое
+  // место, и оно переживает сохранение наравне с порогом. Раньше выбрасывалось всё,
+  // кроме `percent`, и это сходило с рук: строка ключа без правила рисуется как «Не
+  // проверять», а движок считает отсутствие структуры информационным для всех ключей.
+  // Сойдёт с рук ровно до появления редактора умолчания: тогда «отсутствует» станет
+  // значить «наследует умолчание», и потерянный `none` молча поменяет смысл гейта.
+  const decided = Object.keys(keys).length > 0;
+  if (!rules.default && !decided) return null;
   return rules;
 }
 
