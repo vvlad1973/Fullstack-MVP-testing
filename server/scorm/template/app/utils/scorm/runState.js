@@ -406,7 +406,20 @@ var TBRunState = (function () {
 
   // ── Budget: a limit that is CHECKED, not hoped for ────────────────────────
 
-  var BUDGET = 4096; // FR-15: the SCORM 1.2 limit; a 15x margin on 2004.
+  // FR-15: 4096 is the DESIGN budget — the SCORM 1.2 limit the state is shaped to fit, and
+  // what the acceptance test measures against. The budget actually ENFORCED at write time is
+  // the running profile's own limit: in 2004 the LMS takes 64000, and cutting a 20-topic
+  // summary down to a bare percentage there would throw away data the LMS was ready to keep.
+  // A package built for the 1.2 profile (PRD-37) bakes `TEST_DATA.stateBudget` and gets the
+  // tighter one.
+  var DESIGN_BUDGET = 4096;
+  var BUDGET = 64000;
+
+  /** The limit enforced for THIS package: baked profile budget, else the 2004 one. */
+  function budgetFor(testData) {
+    var baked = testData && testData.stateBudget;
+    return (typeof baked === 'number' && baked > 0) ? baked : BUDGET;
+  }
 
   /**
    * FR-14 / §6.2: fit the state into the budget by a DECLARED order of sacrifices, never by
@@ -474,6 +487,8 @@ var TBRunState = (function () {
     fitToBudget: fitToBudget,
     parseState: parseState,
     migrate: migrate,
+    budgetFor: budgetFor,
     BUDGET: BUDGET,
+    DESIGN_BUDGET: DESIGN_BUDGET,
   };
 })();

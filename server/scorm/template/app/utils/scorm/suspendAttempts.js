@@ -94,7 +94,8 @@ function readSuspendObj() {
 
 function writeSuspendObj(obj) {
   try {
-    var fitted = TBRunState.fitToBudget(obj || {}, TBRunState.BUDGET);
+    var budget = TBRunState.budgetFor(TEST_DATA);
+    var fitted = TBRunState.fitToBudget(obj || {}, budget);
     lastWriteSacrifices = fitted.sacrifices;
     if (fitted.sacrifices.length) {
       console.log('⚠️ Бюджет suspend_data исчерпан, пожертвовано:', fitted.sacrifices.join(', '));
@@ -102,7 +103,9 @@ function writeSuspendObj(obj) {
     var raw = JSON.stringify(fitted.state);
     SCORM.setValue('cmi.suspend_data', raw);
     SCORM.commit();
-    console.log('🔵 writeSuspendObj: ' + raw.length + ' из ' + TBRunState.BUDGET + ' симв.');
+    // Проектная цель 4096 печатается рядом: по ней судят, влезет ли тест в профиль 1.2.
+    console.log('🔵 writeSuspendObj: ' + raw.length + ' из ' + budget + ' симв. (цель ' +
+      TBRunState.DESIGN_BUDGET + ')');
   } catch (e) {
     console.log('⚠️ Ошибка writeSuspendObj:', e);
   }

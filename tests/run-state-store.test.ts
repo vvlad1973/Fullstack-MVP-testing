@@ -201,6 +201,36 @@ describe("бюджет состояния", () => {
   });
 });
 
+describe("бюджет зависит от профиля выгрузки", () => {
+  it("без выпеченного бюджета действует предел SCORM 2004", () => {
+    // Проектная цель 4096 — это предел SCORM 1.2, к которому подогнана ФОРМА состояния.
+    // Резать по ней в 2004, где LMS принимает 64000, значило бы выбрасывать данные,
+    // которые LMS готова хранить.
+    expect(RS.budgetFor({})).toBe(64000);
+    expect(RS.DESIGN_BUDGET).toBe(4096);
+  });
+
+  it("пакет профиля 1.2 получает свой, тесный бюджет", () => {
+    expect(RS.budgetFor({ stateBudget: 4096 })).toBe(4096);
+  });
+
+  it("тест на 20 тем в 2004 сохраняет сводку целиком", () => {
+    const big = {
+      v: 2, attemptsUsed: 3,
+      best: {
+        n: 3, at: "2026-08-15T10:00:00.000Z", pc: 68, ok: false,
+        t: Array.from({ length: 20 }, (_, i) => ({ s: i, c: 2, q: 3, e: 2, p: 3, pc: 66.7, ok: true })),
+        bd: Array.from({ length: 20 }, (_, k) => ({ k, i: 3, a: 3, e: 2, p: 3, pp: 66.7, pu: 66.7 })),
+        rv: {}, sv: {},
+      },
+      last: 0,
+    };
+    const fitted = RS.fitToBudget(big, RS.budgetFor({}));
+    expect(fitted.sacrifices).toEqual([]);
+    expect(fitted.state.best.t).toHaveLength(20);
+  });
+});
+
 describe("исход чтения состояния", () => {
   it("пусто, разобрано и повреждено — три разных исхода", () => {
     expect(RS.parseState("").outcome).toBe("empty");
