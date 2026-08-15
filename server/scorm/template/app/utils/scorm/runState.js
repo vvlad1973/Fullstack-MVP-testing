@@ -1,0 +1,179 @@
+/**
+ * @module utils/scorm/runState
+ * @description PRD-36: the run-state model of the SCORM package — the codec that keeps
+ * `cmi.suspend_data` inside its budget, the attempt summary builder and the migration of the
+ * legacy format. Pure functions only: nothing here touches the SCORM data model, so the whole
+ * module is testable from the sources (port-pattern) without a package build.
+ *
+ * A ROW is a homogeneous run of values whose length equals the number of delivered questions.
+ * A row is stored as ONE string and its elements are addressed by POSITION — names and ids cost
+ * more than the values themselves, and a UUID key alone would eat a quarter of the budget.
+ *
+ * Exposes the global `TBRunState`.
+ */
+var TBRunState = (function () {
+  var STATUS_CODES = { answered: 'a', skipped: 's', unanswered: 'u' };
+  var STATUS_BY_CODE = { a: 'answered', s: 'skipped', u: 'unanswered' };
+
+  /** Base36 keeps an index one character wide up to 35 — the common case for options. */
+  function b36(n) { return Number(n).toString(36); }
+  function unb36(s) { return parseInt(s, 36); }
+
+  // ── Delivery: «section.question» pairs in delivery order ──────────────────
+  function encodeDelivery(positions) {
+    var out = [];
+    for (var i = 0; i < (positions || []).length; i++) {
+      out.push(b36(positions[i].s) + '.' + b36(positions[i].q));
+    }
+    return out.join(',');
+  }
+
+  function decodeDelivery(row) {
+    if (!row) return [];
+    var parts = String(row).split(',');
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var pair = parts[i].split('.');
+      if (pair.length !== 2) continue;
+      var s = unb36(pair[0]);
+      var q = unb36(pair[1]);
+      // FR-23: a corrupted cell is an ABSENT one. Letting NaN through would address
+      // `sections[NaN]` and blank the question instead of the slot.
+      if (isNaN(s) || isNaN(q)) continue;
+      out.push({ s: s, q: q });
+    }
+    return out;
+  }
+
+  // ── Answers: one element per delivered question, shape decided by its type ──
+  function encodeAnswer(answer, question) {
+    var type = (question && question.type) || 'single';
+    if (answer === undefined || answer === null) return '';
+    if (type === 'allocation') {
+      // Amounts are unbounded, so they stay decimal with an explicit separator.
+      var keys = Object.keys(answer).sort(function (a, b) { return Number(a) - Number(b); });
+      var amounts = [];
+      for (var i = 0; i < keys.length; i++) amounts.push(String(answer[keys[i]]));
+      return amounts.join('.');
+    }
+    if (type === 'matching') {
+      // Position = left item index, value = the right index it was matched to.
+      var lefts = Object.keys(answer).sort(function (a, b) { return Number(a) - Number(b); });
+      var pairs = [];
+      for (var j = 0; j < lefts.length; j++) pairs.push(b36(lefts[j]) + b36(answer[lefts[j]]));
+      return pairs.join('');
+    }
+    if (Object.prototype.toString.call(answer) === '[object Array]') {
+      var idx = [];
+      for (var k = 0; k < answer.length; k++) idx.push(b36(answer[k]));
+      return idx.join('');
+    }
+    return b36(answer);
+  }
+
+  function decodeAnswer(cell, question) {
+    var type = (question && question.type) || 'single';
+    if (cell === '' || cell === undefined) return undefined;
+    if (type === 'allocation') {
+      var amounts = cell.split('.');
+      var alloc = {};
+      for (var i = 0; i < amounts.length; i++) alloc[i] = parseInt(amounts[i], 10);
+      return alloc;
+    }
+    if (type === 'matching') {
+      var map = {};
+      for (var j = 0; j + 1 < cell.length; j += 2) map[unb36(cell[j])] = unb36(cell[j + 1]);
+      return map;
+    }
+    if (type === 'multiple' || type === 'ranking') {
+      var list = [];
+      for (var k = 0; k < cell.length; k++) list.push(unb36(cell[k]));
+      return list;
+    }
+    return unb36(cell);
+  }
+
+  function encodeAnswers(answers, questions) {
+    var out = [];
+    for (var i = 0; i < (questions || []).length; i++) {
+      out.push(encodeAnswer((answers || [])[i], questions[i]));
+    }
+    return out.join(',');
+  }
+
+  function decodeAnswers(row, questions) {
+    var cells = row === '' || row === undefined || row === null ? [] : String(row).split(',');
+    var out = [];
+    for (var i = 0; i < (questions || []).length; i++) {
+      out.push(decodeAnswer(cells[i] === undefined ? '' : cells[i], questions[i]));
+    }
+    return out;
+  }
+
+  // ── Statuses (PRD-19) and option shuffling (PRD-16) ───────────────────────
+  function encodeStatuses(statuses) {
+    var out = '';
+    for (var i = 0; i < (statuses || []).length; i++) {
+      out += STATUS_CODES[statuses[i]] || 'u';
+    }
+    return out;
+  }
+
+  function decodeStatuses(row) {
+    var out = [];
+    for (var i = 0; i < (row || '').length; i++) out.push(STATUS_BY_CODE[row[i]] || 'unanswered');
+    return out;
+  }
+
+  function encodeShuffle(maps) {
+    var out = [];
+    for (var i = 0; i < (maps || []).length; i++) {
+      var m = maps[i];
+      if (!m) { out.push(''); continue; }
+      var cell = '';
+      for (var j = 0; j < m.length; j++) cell += b36(m[j]);
+      out.push(cell);
+    }
+    return out.join(',');
+  }
+
+  function decodeShuffle(row) {
+    var cells = row === '' || row === undefined || row === null ? [] : String(row).split(',');
+    var out = [];
+    for (var i = 0; i < cells.length; i++) {
+      if (!cells[i]) { out.push(null); continue; }
+      var m = [];
+      for (var j = 0; j < cells[i].length; j++) m.push(unb36(cells[i][j]));
+      out.push(m);
+    }
+    return out;
+  }
+
+  // ── Package fingerprint: positions are valid only inside THIS package ─────
+  function fingerprint(testData) {
+    var sections = (testData && testData.sections) || [];
+    var counts = [];
+    for (var i = 0; i < sections.length; i++) {
+      counts.push((sections[i].questions || []).length);
+    }
+    var keys = ((testData && testData.breakdownKeys) || []).length;
+    return sections.length + ':' + counts.join(',') + ':' + keys;
+  }
+
+  function sameFingerprint(fp, testData) {
+    return !!fp && fp === fingerprint(testData);
+  }
+
+  return {
+    encodeDelivery: encodeDelivery,
+    decodeDelivery: decodeDelivery,
+    encodeAnswers: encodeAnswers,
+    decodeAnswers: decodeAnswers,
+    encodeStatuses: encodeStatuses,
+    decodeStatuses: decodeStatuses,
+    encodeShuffle: encodeShuffle,
+    decodeShuffle: decodeShuffle,
+    fingerprint: fingerprint,
+    sameFingerprint: sameFingerprint,
+  };
+})();
