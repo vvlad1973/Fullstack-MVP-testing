@@ -96,6 +96,7 @@ export type ApiTestResponse = {
   quickAdvance?: boolean | null;
   showSectionResults?: boolean | null;
   skipReviewWhenComplete?: boolean | null;
+  lmsAttemptResult?: "best" | "last" | null;
   copyProtection?: boolean | null;
   protectionWatermark?: boolean | null;
   protectionHideOnBlur?: boolean | null;
@@ -1079,6 +1080,7 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       quickAdvance: false,
       showSectionResults: true,
       skipReviewWhenComplete: false,
+      lmsAttemptResult: "best",
       // PRD-50 FR-13: новый тест — подытоги скрыты, как у любого теста без настройки.
       breakdownDisplay: DEFAULT_BREAKDOWN_DISPLAY,
       // PRD-34 (FR-03): новый тест — защита ВКЛ.
@@ -1198,6 +1200,8 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
         typeof src.showSectionResults === "boolean" ? src.showSectionResults : true,
       skipReviewWhenComplete:
         typeof src.skipReviewWhenComplete === "boolean" ? src.skipReviewWhenComplete : false,
+      // Поля нет (тест заведён до настройки) → «лучшая»: так ведут себя выданные пакеты.
+      lmsAttemptResult: src.lmsAttemptResult === "last" ? "last" : "best",
       // PRD-50 FR-13: поля нет (тест до PRD-50) → подытоги скрыты.
       breakdownDisplay: readBreakdownDisplayFromApi(src),
       // PRD-34 (FR-05): поля нет (тест до PRD-34) → умолчание, то есть защита ВКЛ.
@@ -1280,6 +1284,7 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     quickAdvance: model.runtime.quickAdvance,
     showSectionResults: model.runtime.showSectionResults,
     skipReviewWhenComplete: model.runtime.skipReviewWhenComplete,
+    lmsAttemptResult: model.runtime.lmsAttemptResult,
     // PRD-50 FR-13: a draft persisted before this PRD carries no slice yet — resolves
     // to the same «Не показывать» the missing column has always meant.
     breakdownDisplayJson: model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY,

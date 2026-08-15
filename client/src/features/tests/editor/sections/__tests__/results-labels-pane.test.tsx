@@ -356,6 +356,7 @@ describe("«Оформление» → «Отчёт» → надписи док�
         allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true,
         skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true,
         protectionWatermark: false, protectionHideOnBlur: false,
+      lmsAttemptResult: "best" as const,
       },
       passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },
       sections: [],

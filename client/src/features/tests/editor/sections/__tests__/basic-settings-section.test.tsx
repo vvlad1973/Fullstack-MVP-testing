@@ -54,7 +54,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       webhookUrl: "",
       telemetryEnabled: false,
     },
-    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, quickAdvance: false, showSectionResults: true, skipReviewWhenComplete: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false },
+    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, quickAdvance: false, showSectionResults: true, skipReviewWhenComplete: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     passRules: {
       decisionPolicy: "overall_only",
       overall: { type: "percent", value: 70 },
@@ -314,13 +314,30 @@ describe("<SettingsSection /> — Ограничения pane", () => {
 
   it("sets timeLimitMinutes back to null when input is cleared", () => {
     const updateModel = vi.fn();
-    const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false } });
+    const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const } });
     render(<SettingsSection model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("settings-rail-limits"));
     fireEvent.change(screen.getByTestId("settings-time-limit-input"), {
       target: { value: "" },
     });
     expect(runUpdater(updateModel, model).runtime.timeLimitMinutes).toBeNull();
+  });
+
+  it("переключает результат для LMS на последнюю попытку", () => {
+    const updateModel = vi.fn();
+    const model = baseModel();
+    render(<SettingsSection model={model} updateModel={updateModel} />);
+    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    // Выбор «какая попытка уходит в LMS» — авторский: стандарт SCORM его не решает,
+    // а LMS, хранящая лишь снимок, при «последней» перекроет удачную попытку неудачной.
+    selectOption("settings-lms-attempt-result", "Последняя попытка");
+    expect(runUpdater(updateModel, model).runtime.lmsAttemptResult).toBe("last");
+  });
+
+  it("по умолчанию показывает «лучшую» — поведение уже выданных пакетов", () => {
+    render(<SettingsSection model={baseModel()} updateModel={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    expect(screen.getByTestId("settings-lms-attempt-result")).toHaveTextContent("Лучшая попытка");
   });
 
   // Note: S13.2-G8 (2026-05-28) moved «Показывать правильные ответы» from

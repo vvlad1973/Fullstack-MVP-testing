@@ -227,7 +227,12 @@ function saveAttemptResult(resultData) {
   summary.se = (resultData.scaleComputation && resultData.scaleComputation.errors) || undefined;
   if (summary.fe && !summary.fe.length) summary.fe = undefined;
   if (summary.se && !summary.se.length) summary.se = undefined;
-  summary.d = TBRunState.buildDetail(state);
+  // Повопросные ряды нужны РОВНО одному потребителю — сборке interactions по ЛУЧШЕЙ
+  // попытке. Когда тест настроен отдавать в LMS последнюю, отчёт строится по прогону,
+  // который ещё в памяти, и хранить детализацию не для кого.
+  if (TEST_DATA.lmsAttemptResult !== 'last') {
+    summary.d = TBRunState.buildDetail(state);
+  }
 
   var best = TBRunState.pickBest(TBRunState.bestOf(s), summary);
   // FR-06: only the best keeps its per-question rows; the last one is a summary alone.

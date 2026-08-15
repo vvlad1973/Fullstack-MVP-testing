@@ -48,6 +48,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       copyProtection: true,
       protectionWatermark: false,
       protectionHideOnBlur: false,
+      lmsAttemptResult: "best" as const,
     },
     passRules: {
       decisionPolicy: "overall_only",
@@ -128,6 +129,7 @@ describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-
             copyProtection: true,
             protectionWatermark: false,
             protectionHideOnBlur: false,
+            lmsAttemptResult: "best" as const,
             breakdownDisplay: { visibility: "bar", basis: "units" },
           },
         })}
@@ -159,6 +161,7 @@ describe("<SettingsSection /> — где показывать подытоги (
         copyProtection: true,
         protectionWatermark: false,
         protectionHideOnBlur: false,
+        lmsAttemptResult: "best" as const,
         ...(breakdownDisplay ? { breakdownDisplay } : {}),
       },
     } as Partial<TestEditorModel>);

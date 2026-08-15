@@ -577,6 +577,16 @@ export const tests = pgTable("tests", {
   // PRD-19 (FR-05a): show the section-results screen (optional system node, sectioned tests).
   // Default true; not applicable to linear_flat (no sections) — ignored by the runtime there.
   showSectionResults: boolean("show_section_results").notNull().default(true),
+  // Какой результат SCORM-пакет отдаёт в LMS, когда попыток несколько: лучшую по проценту
+  // или только что завершённую. Стандарт этого не решает — SCORM не предписывает LMS ничего
+  // о хранении истории, и платформы (Moodle, Blackboard, Teachbase) держат выбор у себя,
+  // ожидая от содержимого данные ТЕКУЩЕЙ попытки. Но LMS, хранящая лишь снимок, при выборе
+  // «последняя» безвозвратно перекроет удачную попытку неудачной, поэтому решает автор.
+  // Default 'best' — поведение, с которым живут уже выданные пакеты. В вебе настройка не
+  // применяется: внешней системы там нет, попытки показываются каждая сама по себе.
+  lmsAttemptResult: text("lms_attempt_result", { enum: ["best", "last"] })
+    .notNull()
+    .default("best"),
   // Обзор при полностью отвеченном объёме. `shouldShowReview` выводит показ из ПРАВ
   // навигации, и по ним обзор при разрешённой правке полезен всегда; нужен ли он тесту,
   // который проходят подряд и ни к чему не возвращаются, — суждение о методике, и вынести

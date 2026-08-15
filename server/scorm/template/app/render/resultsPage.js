@@ -280,8 +280,17 @@ function finishAndClose() {
     }
   }
 
-  var bestAttempt = getBestAttempt();
-  console.log('🏆 Лучшая попытка:', bestAttempt ? Math.round(bestAttempt.percent) + '%' : 'none');
+  // Какой результат уходит в LMS при нескольких попытках — решает АВТОР теста.
+  // Стандарт этого не задаёт: SCORM ничего не требует от LMS о хранении истории, и
+  // платформы (Moodle, Blackboard, Teachbase) держат выбор «лучшая / последняя» у себя,
+  // ожидая от содержимого данные ТЕКУЩЕЙ попытки. Но LMS, хранящая только снимок, при
+  // «последней» безвозвратно перекроет удачную попытку неудачной — поэтому выбор остаётся
+  // за автором. Отсутствие поля = «лучшая»: так ведут себя все уже выданные пакеты.
+  var lmsWantsLast = TEST_DATA.lmsAttemptResult === 'last';
+  var bestAttempt = lmsWantsLast ? null : getBestAttempt();
+  console.log(lmsWantsLast
+    ? '🏁 В LMS уходит текущая попытка (настройка теста)'
+    : '🏆 Лучшая попытка: ' + (bestAttempt ? Math.round(bestAttempt.percent) + '%' : 'none'));
 
   var resultsForLms = bestAttempt || results;
   var bestPassed = !!resultsForLms.passed;

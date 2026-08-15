@@ -515,6 +515,28 @@ function LimitsPane({ model, updateModel }: SettingsSectionProps) {
       </div>
 
       <div className="ou-formfield">
+        <Select<"best" | "last">
+          id="settings-lms-attempt-result"
+          size="m"
+          fullWidth
+          label="Результат для LMS при нескольких попытках"
+          hint="Действует только в SCORM-пакете. Многие LMS сами решают, какую попытку засчитать, — тогда выбирайте «последнюю»; если LMS хранит лишь последний результат, «лучшая» защитит удачную попытку от неудачной."
+          value={model.runtime.lmsAttemptResult}
+          options={[
+            { value: "best", label: "Лучшая попытка" },
+            { value: "last", label: "Последняя попытка" },
+          ]}
+          data-testid="settings-lms-attempt-result"
+          onChange={(next) =>
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, lmsAttemptResult: next },
+            }))
+          }
+        />
+      </div>
+
+      <div className="ou-formfield">
         <NumberInput
           id="settings-time-limit"
           size="m"

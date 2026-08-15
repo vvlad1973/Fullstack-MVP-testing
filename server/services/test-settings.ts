@@ -200,6 +200,8 @@ export interface TestPayload {
   quickAdvance?: boolean;
   showSectionResults?: boolean;
   skipReviewWhenComplete?: boolean;
+  /** Что SCORM-пакет отдаёт в LMS при нескольких попытках: лучшую или последнюю. */
+  lmsAttemptResult?: "best" | "last";
   // PRD-34 (FR-01): настройки защиты от копирования.
   copyProtection?: boolean;
   protectionWatermark?: boolean;
@@ -307,6 +309,8 @@ export class TestSettingsService {
         showSectionResults: payload.test.showSectionResults ?? true,
         // Обзор при полностью отвеченном объёме: новый тест ведёт себя как прежде.
         skipReviewWhenComplete: payload.test.skipReviewWhenComplete ?? false,
+        // Результат в LMS: новый тест ведёт себя как уже выданные пакеты — лучшая попытка.
+        lmsAttemptResult: payload.test.lmsAttemptResult ?? "best",
         // PRD-34 (FR-03): новый тест — защита ВКЛ по умолчанию.
         copyProtection: payload.test.copyProtection ?? true,
         // PRD-30 FR-16: новый тест — «перемешивание», сегодняшнее поведение.

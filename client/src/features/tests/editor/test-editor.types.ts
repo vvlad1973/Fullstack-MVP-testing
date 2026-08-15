@@ -516,6 +516,12 @@ export type TestEditorModel = {
     // Обзор при полностью отвеченном объёме — авторское решение (см. `review-gate`).
     skipReviewWhenComplete: boolean;
     /**
+     * Что SCORM-пакет отдаёт в LMS при нескольких попытках: лучшую по проценту или только
+     * что завершённую. В вебе не применяется — внешней системы там нет. Умолчание `best`:
+     * так ведут себя уже выданные пакеты.
+     */
+    lmsAttemptResult: "best" | "last";
+    /**
      * PRD-50 FR-13: subtotal-by-key display on the topic card (section results, test
      * results, report). Absent = a draft built before this PRD — every reader falls
      * back to {@link DEFAULT_BREAKDOWN_DISPLAY} («Не показывать»).
@@ -616,6 +622,7 @@ export type TestSettingsPayload = {
   quickAdvance: boolean;
   showSectionResults: boolean;
   skipReviewWhenComplete: boolean;
+  lmsAttemptResult: "best" | "last";
   // PRD-34: настройки защиты текста задания.
   copyProtection: boolean;
   protectionWatermark: boolean;

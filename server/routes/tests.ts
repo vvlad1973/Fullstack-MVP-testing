@@ -118,6 +118,8 @@ const testBodyBaseSchema = z.object({
   showSectionResults: z.boolean().optional(),
   // Обзор при полностью отвеченном объёме — авторское решение, см. `review-gate`.
   skipReviewWhenComplete: z.boolean().optional(),
+  // Что SCORM-пакет отдаёт в LMS при нескольких попытках (в вебе не применяется).
+  lmsAttemptResult: z.enum(["best", "last"]).optional(),
   // PRD-34 (FR-01): настройки защиты от копирования.
   copyProtection: z.boolean().optional(),
   // PRD-30 FR-16: the test-wide delivery order (the topics' default).
@@ -635,6 +637,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       quickAdvance,
       showSectionResults,
       skipReviewWhenComplete,
+      lmsAttemptResult,
       copyProtection,
       protectionWatermark,
       protectionHideOnBlur,
@@ -698,6 +701,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         quickAdvance,
         showSectionResults,
         skipReviewWhenComplete,
+        lmsAttemptResult,
         copyProtection,
         protectionWatermark,
         protectionHideOnBlur,
@@ -1085,6 +1089,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       quickAdvance,
       showSectionResults,
       skipReviewWhenComplete,
+      lmsAttemptResult,
       copyProtection,
       protectionWatermark,
       protectionHideOnBlur,
@@ -1151,6 +1156,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         quickAdvance,
         showSectionResults,
         skipReviewWhenComplete,
+        lmsAttemptResult,
         copyProtection,
         protectionWatermark,
         protectionHideOnBlur,
