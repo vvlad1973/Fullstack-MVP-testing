@@ -465,7 +465,12 @@ describe("certification manifest (PRD-49 task 15, results-heading parity)", () =
       "topics",
       "breakdown",
     ]);
-    expect(MANIFEST.resultsBlockOrder["results.adaptive"]).toEqual(["topics", "scales", "indicators"]);
+    expect(MANIFEST.resultsBlockOrder["results.adaptive"]).toEqual([
+      "topics",
+      "scales",
+      "indicators",
+      "breakdown",
+    ]);
   });
 
   it("cross-checks the declared order against the branch order actually present in results.html", () => {
@@ -478,7 +483,7 @@ describe("certification manifest (PRD-49 task 15, results-heading parity)", () =
   });
 
   it("cross-checks the declared order against the branch order actually present in results.adaptive.html", () => {
-    const order = ["isTopics", "isIndicators", "isScales"]
+    const order = ["isTopics", "isIndicators", "isScales", "isBreakdown"]
       .map((flag) => ({ key: flag.replace(/^is/, "").toLowerCase(), index: ADAPTIVE_LAYOUT.indexOf(`{{#if ${flag}}}`) }))
       .filter((entry) => entry.index !== -1)
       .sort((a, b) => a.index - b.index)

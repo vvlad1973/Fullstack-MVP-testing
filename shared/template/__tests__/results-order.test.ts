@@ -123,6 +123,7 @@ describe("templateBlockOrder", () => {
       "topics",
       "scales",
       "indicators",
+      "breakdown",
     ]);
   });
 });
