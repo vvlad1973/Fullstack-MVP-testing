@@ -422,6 +422,13 @@ function renderAdaptiveResultsTemplated(app, result) {
   // `finishAndClose` later persists and ships to the LMS. Null for a test that declares
   // no scales and no indicators — the context then stays exactly as it was.
   var flatResult = (typeof getAdaptiveResultForScorm === 'function') ? getAdaptiveResultForScorm() : null;
+  // PRD-50 FR-28: записи области ТЕСТА для сводного блока. Тот же читатель, что у обычного
+  // экрана итогов (`vrTestBreakdown`, viewResults.js — рантайм склеен плоско), и тот же
+  // источник, что уже дал измерения выше: `getAdaptiveResultForScorm` восстанавливает
+  // лестницу в стандартную форму и кладёт туда записи, посчитанные тем же движком (FR-17).
+  // Секционные записи блок не берёт сознательно — карточка адаптивной темы говорит УРОВНЕМ.
+  var adaptiveTestRows = (flatResult && typeof vrTestBreakdown === 'function') ? vrTestBreakdown(flatResult) : [];
+  if (adaptiveTestRows.length) input.breakdowns = adaptiveTestRows;
   var measures = (flatResult && typeof currentAttemptMeasures === 'function')
     ? currentAttemptMeasures(flatResult)
     : null;
@@ -448,6 +455,9 @@ function renderAdaptiveResultsTemplated(app, result) {
     canRetry: canRetry,
     showFinish: !canRetry
   };
+  // PRD-50 FR-13: настройка показа, выпеченная в TEST_DATA только когда автор её включил —
+  // тот же признак, что читает обычный экран (`viewResults.js`). Без неё блока нет.
+  if (TEST_DATA.breakdownDisplay) adaptiveOpts.breakdownDisplay = TEST_DATA.breakdownDisplay;
   // PRD-49: заголовки блоков + порядок подблоков, для THIS screen — `results.adaptive`
   // carries its OWN composition (no score summary), declared by the manifest and baked
   // into `designSettings.templateBlockOrder['results.adaptive']`. Passing the standard

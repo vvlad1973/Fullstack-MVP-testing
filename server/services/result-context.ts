@@ -507,6 +507,9 @@ export function buildAdaptiveReportInput(
           ? t.recommendedAssets.map((a: any) => ({ title: a?.title ?? "", url: a?.url }))
           : [],
       })),
+      // PRD-50 FR-28: те же сохранённые записи области теста, что у адаптивного ЭКРАНА, —
+      // документ печатает сводный блок ровно тогда же и ровно тот же (§5.2).
+      ...(Array.isArray(result?.breakdowns) ? { breakdowns: result.breakdowns } : {}),
     },
   };
 }
@@ -566,11 +569,18 @@ export function buildAdaptiveResultContext(
             : [],
         }),
       ),
+      // PRD-50 FR-28: записи области ТЕСТА, сохранённые ВМЕСТЕ с попыткой
+      // (`adaptiveAttemptResultSchema.breakdowns`) — никогда не пересчёт, то же правило,
+      // что у измерений ниже. Попытка, завершённая до PRD-50, их не несёт, и контекст
+      // тогда остаётся ровно прежним.
+      ...(Array.isArray(result?.breakdowns) ? { breakdowns: result.breakdowns } : {}),
     },
     testTitle,
     {
       ...(testFeedback ? { testFeedback } : {}),
       ...(hasMeasures ? { measures: buildMeasuresInput(measures as MeasuresSource) } : {}),
+      // PRD-50 FR-13: настройка показа — тот же источник, что у обычного экрана.
+      ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
       // PRD-49. Same wording, its OWN screen: the adaptive results screen may carry
       // per-screen defaults and, in the shipped manifest, a different sub-block list
       // (topics first, no score summary) — which is why the screen name is not shared.

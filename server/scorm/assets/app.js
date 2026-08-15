@@ -568,6 +568,12 @@ function downloadPDF(preferBest) {
         };
       })
     };
+    // PRD-50 FR-28: записи области ТЕСТА для сводного блока документа. Сама адаптивная
+    // структура их не несёт — их даёт результат, восстановленный в стандартную форму, тот
+    // же источник, из которого их берёт ЭКРАН итогов (`renderAdaptiveResultsTemplated`).
+    // §5.2: документ не вправе показать иное, чем экран, с которого его скачали.
+    var adaptiveFlat = (typeof getAdaptiveResultForScorm === 'function') ? getAdaptiveResultForScorm() : null;
+    if (adaptiveFlat && adaptiveFlat.breakdowns) resultsToExport.breakdowns = adaptiveFlat.breakdowns;
     timestamp = new Date().toISOString();
   } else {
     // Стандартный режим

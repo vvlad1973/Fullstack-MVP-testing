@@ -169,7 +169,7 @@ function pdfStandardInput(results) {
 
 /** Map the runtime's adaptive result onto the shared report input. */
 function pdfAdaptiveInput(results) {
-  return {
+  var input = {
     topicResults: (results.topicResults || []).map(function (tr) {
       var rec = pdfTopicRecommendations(tr);
       var fb = pdfTopicFeedback(tr);
@@ -187,6 +187,13 @@ function pdfAdaptiveInput(results) {
       };
     })
   };
+  // PRD-50 FR-28: записи области ТЕСТА — тот же читатель, что у адаптивного ЭКРАНА
+  // (§5.2: документ не вправе показать иное, чем экран, с которого его скачали).
+  // Приходят они здесь из результата, восстановленного в стандартную форму, — ровно то,
+  // что `renderAdaptiveResultsTemplated` отдаёт экрану.
+  var testRows = (typeof vrTestBreakdown === 'function') ? vrTestBreakdown(results) : [];
+  if (testRows.length) input.breakdowns = testRows;
+  return input;
 }
 
 /**
