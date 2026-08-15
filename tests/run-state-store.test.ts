@@ -50,6 +50,13 @@ function makeStore(initial = ""): { store: Store; cmi: { value: string } } {
   return { store, cmi };
 }
 
+const codecSrc = readFileSync(
+  resolve(process.cwd(), "server/scorm/template/app/utils/scorm/runState.js"),
+  "utf8",
+);
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const RS = new Function(`${codecSrc}\nreturn TBRunState;`)() as any;
+
 describe("состояние прогона: счётчик попыток", () => {
   it("пустое состояние читается как ноль попыток", () => {
     const { store } = makeStore("");
@@ -65,5 +72,82 @@ describe("состояние прогона: счётчик попыток", () 
   it("повреждённая строка не роняет чтение", () => {
     const { store } = makeStore('{"attemptsUsed":2,"attempts":[{"per');
     expect(store.getAttemptsUsed()).toBe(0);
+  });
+});
+
+const attempt = (n: number, pc: number, at: string) => ({
+  n, pc, at, c: 1, q: 2, e: 1, p: 2, ok: pc >= 60, t: [], bd: [], rv: {}, sv: {},
+});
+
+describe("выбор лучшей попытки", () => {
+  it("больший процент побеждает", () => {
+    expect(RS.pickBest(
+      attempt(1, 80, "2026-08-01T10:00:00.000Z"),
+      attempt(2, 50, "2026-08-02T10:00:00.000Z"),
+    ).n).toBe(1);
+  });
+
+  it("при равенстве побеждает более поздняя", () => {
+    expect(RS.pickBest(
+      attempt(1, 80, "2026-08-01T10:00:00.000Z"),
+      attempt(2, 80, "2026-08-02T10:00:00.000Z"),
+    ).n).toBe(2);
+  });
+
+  it("первая завершённая попытка становится лучшей без сравнения", () => {
+    expect(RS.pickBest(null, attempt(1, 10, "2026-08-01T10:00:00.000Z")).n).toBe(1);
+  });
+});
+
+describe("сводка попытки", () => {
+  const results = {
+    percent: 75, correct: 3, totalQuestions: 4, earnedPoints: 3, possiblePoints: 4, passed: true,
+    topicResults: [{
+      topicId: "t1", topicName: "Тема", correct: 3, total: 4, earnedPoints: 3, possiblePoints: 4,
+      percent: 75, passed: true, resolvedPassRule: { type: "percent", value: 70 },
+      recommendedCourses: [{ title: "Курс", url: "https://example.test" }],
+      breakdown: [{
+        scope: "section", axis: "tag", key: "ПДн", items: 2, answered: 2, earned: 1,
+        possible: 2, unitEarned: 1, unitPossible: 2, percentPoints: 50, percentUnits: 50,
+      }],
+    }],
+    breakdowns: [],
+    resultComputation: { values: { risk: 12 }, errors: [] },
+    scaleComputation: { values: { E: 7 }, errors: [] },
+  };
+  const TEST_DATA = {
+    sections: [{ topicId: "t1", questions: [{ id: "q1" }, { id: "q2" }] }],
+    breakdownKeys: ["ПДн"],
+  };
+  const meta = {
+    attemptNumber: 1, completedAt: "2026-08-15T10:00:00.000Z", source: "portal", deliveredForms: {},
+  };
+
+  it("в сводке нет ни названия темы, ни материалов, ни текста ключа", () => {
+    const raw = JSON.stringify(RS.buildSummary(results, TEST_DATA, meta));
+    expect(raw).not.toContain("Тема");
+    expect(raw).not.toContain("example.test");
+    expect(raw).not.toContain("ПДн");
+  });
+
+  it("тема адресуется номером раздела, ключ разреза — номером ключа", () => {
+    const s = RS.buildSummary(results, TEST_DATA, meta);
+    expect(s.t[0].s).toBe(0);
+    expect(s.t[0].bd[0].k).toBe(0);
+  });
+
+  it("разрешённый порог темы сохраняется: по нему печатается «Требуется…»", () => {
+    expect(RS.buildSummary(results, TEST_DATA, meta).t[0].r).toBe(70);
+  });
+
+  it("выданный вариант темы попадает в сводку", () => {
+    const s = RS.buildSummary(results, TEST_DATA, { ...meta, deliveredForms: { t1: "form-a" } });
+    expect(s.t[0].f).toBe("form-a");
+  });
+
+  it("значения показателей и шкал переезжают в сводку", () => {
+    const s = RS.buildSummary(results, TEST_DATA, meta);
+    expect(s.rv).toEqual({ risk: 12 });
+    expect(s.sv).toEqual({ E: 7 });
   });
 });

@@ -163,7 +163,6 @@ const runtime = (file: string) =>
 describe("пакет SCORM: рантайм передаёт записи области теста", () => {
   const viewSrc = runtime("render/viewResults.js");
   const pdfSrc = runtime("utils/pdfExport.js");
-  const suspendSrc = runtime("utils/scorm/suspendAttempts.js");
 
   /** Достаёт плоскую ES5-функцию из рантайма пакета. */
   const lift = (src: string, name: string) => {
@@ -196,17 +195,46 @@ describe("пакет SCORM: рантайм передаёт записи обл�
   });
 
   it("сохранённая попытка уносит записи области теста, и только их", () => {
-    const testScopeBreakdowns = lift(suspendSrc, "testScopeBreakdowns") as (e: unknown) => unknown;
-    expect(testScopeBreakdowns([sectionEntry, testEntry])).toEqual([testEntry]);
-    // Тест без ключей не должен утяжелять suspend_data ни на байт: `JSON.stringify`
-    // гасит `undefined`, а пустой массив писался бы в КАЖДУЮ попытку КАЖДОГО теста.
-    expect(testScopeBreakdowns([sectionEntry])).toBeUndefined();
-    expect(testScopeBreakdowns(undefined)).toBeUndefined();
-    expect(JSON.stringify({ breakdowns: testScopeBreakdowns([]) })).toBe("{}");
+    // PRD-36: отбор области и упаковка записи переехали в TBRunState.buildSummary — там же,
+    // где ключ разреза превращается в НОМЕР. Проверяется тот же смысл: секционные записи
+    // едут при своей теме, область теста — при сводке, и вторая копия не заводится.
+    const runStateSrc = runtime("utils/scorm/runState.js");
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const RS = new Function(`${runStateSrc}\nreturn TBRunState;`)() as {
+      buildSummary: (r: unknown, d: unknown, m: unknown) => { bd?: unknown[]; t: Array<{ bd?: unknown[] }> };
+    };
+    const TEST_DATA = { sections: [{ topicId: "t1", questions: [] }], breakdownKeys: ["ПДн"] };
+    const meta = { attemptNumber: 1, completedAt: "2026-08-15T10:00:00.000Z", source: "client", deliveredForms: {} };
+    const summary = RS.buildSummary(
+      {
+        percent: 50, correct: 1, totalQuestions: 2, earnedPoints: 1, possiblePoints: 2, passed: false,
+        breakdowns: [sectionEntry, testEntry],
+        topicResults: [{ topicId: "t1", correct: 1, total: 2, percent: 50, passed: false, breakdown: [sectionEntry] }],
+      },
+      TEST_DATA,
+      meta,
+    );
+    expect(summary.bd).toHaveLength(1);
+    expect(summary.t[0].bd).toHaveLength(1);
   });
 
-  it("запись попытки несёт поле, иначе «Мой результат» печатал бы пустой блок", () => {
-    expect(suspendSrc).toMatch(/breakdowns: testScopeBreakdowns\(resultData\.breakdowns\)/);
+  it("тест без ключей не тяжелеет ни на байт", () => {
+    const runStateSrc = runtime("utils/scorm/runState.js");
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const RS = new Function(`${runStateSrc}\nreturn TBRunState;`)() as {
+      buildSummary: (r: unknown, d: unknown, m: unknown) => Record<string, unknown>;
+    };
+    const summary = RS.buildSummary(
+      {
+        percent: 50, correct: 1, totalQuestions: 2, earnedPoints: 1, possiblePoints: 2, passed: false,
+        breakdowns: [], topicResults: [{ topicId: "t1", correct: 1, total: 2, percent: 50, passed: false }],
+      },
+      { sections: [{ topicId: "t1", questions: [] }], breakdownKeys: [] },
+      { attemptNumber: 1, completedAt: "2026-08-15T10:00:00.000Z", source: "client", deliveredForms: {} },
+    );
+    // `JSON.stringify` гасит `undefined`, а пустой массив писался бы в КАЖДУЮ попытку
+    // КАЖДОГО теста — в бюджете 4096 это заметная доля.
+    expect(JSON.stringify(summary)).not.toContain('"bd"');
   });
 
   /**

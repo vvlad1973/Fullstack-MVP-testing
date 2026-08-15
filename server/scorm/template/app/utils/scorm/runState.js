@@ -164,6 +164,108 @@ var TBRunState = (function () {
     return !!fp && fp === fingerprint(testData);
   }
 
+  // ── Attempt summary: the ONE shape a finished attempt is stored in ────────
+
+  /** FR-04: higher percent wins; on a tie the LATER attempt does. */
+  function pickBest(current, candidate) {
+    if (!current) return candidate;
+    if (!candidate) return current;
+    if (candidate.pc !== current.pc) return candidate.pc > current.pc ? candidate : current;
+    return new Date(candidate.at) >= new Date(current.at) ? candidate : current;
+  }
+
+  function sectionIndexOf(testData, topicId) {
+    var sections = (testData && testData.sections) || [];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].topicId === topicId) return i;
+    }
+    return -1;
+  }
+
+  function keyIndexOf(testData, key) {
+    var keys = (testData && testData.breakdownKeys) || [];
+    for (var i = 0; i < keys.length; i++) if (keys[i] === key) return i;
+    return -1;
+  }
+
+  /** FR-18: a breakdown row shrinks to its numbers; the key text lives in TEST_DATA. */
+  function packBreakdown(entries, testData) {
+    var out = [];
+    for (var i = 0; i < (entries || []).length; i++) {
+      var e = entries[i];
+      var ki = keyIndexOf(testData, e.key);
+      if (ki < 0) continue;
+      out.push({
+        k: ki, i: e.items, a: e.answered, e: e.earned, p: e.possible,
+        pp: e.percentPoints, pu: e.percentUnits,
+      });
+    }
+    return out.length ? out : undefined;
+  }
+
+  /**
+   * FR-22: the ONE place a finished attempt becomes a stored summary. Everything derivable
+   * from TEST_DATA (topic name, recommendations, pass-rule text, breakdown key) is dropped:
+   * the package already ships it, and a second copy is exactly what overflows the budget.
+   */
+  function buildSummary(results, testData, meta) {
+    var topics = [];
+    var trs = (results && results.topicResults) || [];
+    for (var i = 0; i < trs.length; i++) {
+      var t = trs[i];
+      topics.push({
+        s: sectionIndexOf(testData, t.topicId),
+        c: t.correct, q: t.total, e: t.earnedPoints, p: t.possiblePoints,
+        pc: t.percent, ok: t.passed,
+        // PRD-24: the variant that gated this topic, and the threshold it resolved to —
+        // the «Требуется…» label reads the latter, so dropping it would blank the label
+        // of every saved attempt.
+        f: (meta.deliveredForms || {})[t.topicId] || undefined,
+        r: (t.resolvedPassRule && t.resolvedPassRule.value != null) ? t.resolvedPassRule.value : undefined,
+        bd: packBreakdown(t.breakdown, testData),
+      });
+    }
+    var testScope = [];
+    var all = (results && results.breakdowns) || [];
+    for (var j = 0; j < all.length; j++) if (all[j].scope === 'test') testScope.push(all[j]);
+    return {
+      n: meta.attemptNumber,
+      at: meta.completedAt,
+      src: meta.source,
+      pc: results.percent, c: results.correct, q: results.totalQuestions,
+      e: parseFloat(results.earnedPoints) || 0, p: parseFloat(results.possiblePoints) || 0,
+      ok: !!results.passed,
+      t: topics,
+      bd: packBreakdown(testScope, testData),
+      rv: (results.resultComputation && results.resultComputation.values) || {},
+      sv: (results.scaleComputation && results.scaleComputation.values) || {},
+    };
+  }
+
+  /** The stored best summary, whatever format version the state came in. */
+  function bestOf(stateObj) {
+    return (stateObj && stateObj.best) || null;
+  }
+
+  /** FR-06/FR-07: rows of the attempt being stored — delivery, answers, statuses. */
+  function buildDetail(runtimeState) {
+    if (!runtimeState || !runtimeState.flatQuestions || !runtimeState.flatQuestions.length) {
+      return undefined;
+    }
+    var questions = [], answers = [], statuses = [];
+    for (var i = 0; i < runtimeState.flatQuestions.length; i++) {
+      var q = runtimeState.flatQuestions[i].question;
+      questions.push(q);
+      answers.push((runtimeState.answers || {})[q.id]);
+      statuses.push((runtimeState.questionStatuses || {})[q.id] || 'unanswered');
+    }
+    return {
+      dl: encodeDelivery(runtimeState.deliveryPositions || []),
+      an: encodeAnswers(answers, questions),
+      st: encodeStatuses(statuses),
+    };
+  }
+
   return {
     encodeDelivery: encodeDelivery,
     decodeDelivery: decodeDelivery,
@@ -175,5 +277,11 @@ var TBRunState = (function () {
     decodeShuffle: decodeShuffle,
     fingerprint: fingerprint,
     sameFingerprint: sameFingerprint,
+    pickBest: pickBest,
+    buildSummary: buildSummary,
+    buildDetail: buildDetail,
+    bestOf: bestOf,
+    sectionIndexOf: sectionIndexOf,
+    keyIndexOf: keyIndexOf,
   };
 })();

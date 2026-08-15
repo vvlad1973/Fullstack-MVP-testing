@@ -184,74 +184,37 @@ function registerAttemptStart() {
 // ===== НОВЫЕ ФУНКЦИИ ДЛЯ СОХРАНЕНИЯ РЕЗУЛЬТАТОВ =====
 
 /**
- * PRD-50 FR-28/FR-39: test-scope breakdown records of a finished attempt, or `undefined`.
- *
- * The runtime hands over ONE flat array holding both scopes (`calculateResults` builds it
- * for `tag()`); only the test scope belongs in the record, because the section scope is
- * already stored inside `topicResults`. Storing both would duplicate every row in
- * suspend_data, which is a budget, not a bucket.
- *
- * Written here rather than reused from `viewResults.js` on purpose: this file is a storage
- * utility loaded long before any renderer, and a saved attempt must not depend on which
- * screen happens to be on the air. The filter is a scope string, not an algorithm.
- *
- * @param {Array|undefined} entries The attempt's breakdown records, both scopes.
- * @returns {Array|undefined} Test-scope records, or `undefined` when there are none.
+ * PRD-36 FR-03/FR-05/FR-22: persist a FINISHED attempt. The state keeps a counter, the best
+ * summary and the last one — never a list: every consumer reads a maximum, a tail or a length,
+ * and the unbounded array is what silently blew the 64000-character limit on the third attempt
+ * of a long test. The summary itself is built in ONE place (TBRunState.buildSummary) no matter
+ * which of the five finish paths got here, so «лучшая» cannot depend on how the test ended.
  */
-function testScopeBreakdowns(entries) {
-  var list = entries || [];
-  var out = [];
-  for (var i = 0; i < list.length; i++) {
-    if (list[i] && list[i].scope === 'test') out.push(list[i]);
-  }
-  return out.length ? out : undefined;
-}
-
-// Сохранить результат попытки
 function saveAttemptResult(resultData) {
-  console.log('🔵 saveAttemptResult вызван, percent:', resultData.percent);
-  
   var s = readSuspendObj();
-  if (!s.attempts) s.attempts = [];
-  
-  var attemptRecord = {
+  var summary = TBRunState.buildSummary(resultData, TEST_DATA, {
     attemptNumber: s.attemptsUsed,
     // PRD-31: the portal clock, not the machine's — this mark is what barrier B
     // measures the next attempt against.
     completedAt: nowIso(),
-    completedAtSource: trustedNowSource(),
-    percent: resultData.percent,
-    totalCorrect: resultData.correct,
-    totalQuestions: resultData.totalQuestions,
-    earnedPoints: parseFloat(resultData.earnedPoints) || 0,
-    possiblePoints: parseFloat(resultData.possiblePoints) || 0,
-    passed: resultData.passed,
-    // PRD-2 (A7): persisted result.* values + per-formula errors for this attempt,
-    // so a recovered session restores the same computed variables (NFR-04).
-    resultValues: (resultData.resultComputation && resultData.resultComputation.values) || {},
-    formulaErrors: (resultData.resultComputation && resultData.resultComputation.errors) || [],
-    // PRD-5 (B5): persisted scale.* values + per-scale errors for this attempt
-    // (suspend_data.custom.scale, §8.1); recomputed deterministically on recovery.
-    scaleValues: (resultData.scaleComputation && resultData.scaleComputation.values) || {},
-    scaleErrors: (resultData.scaleComputation && resultData.scaleComputation.errors) || [],
-    topicResults: resultData.topicResults,
-    // PRD-50 FR-28/FR-39: записи разреза в области ТЕСТА. Секционные едут внутри
-    // `topicResults`, а эти жить там не могут: область теста — отдельный проход по
-    // выданным элементам (FR-04), и восстановить её сложением тем нельзя. Без них экран
-    // «Мой результат» и отчёт по СОХРАНЁННОЙ попытке печатали бы сводный блок пустым.
-    // Пусто = ключа нет вовсе: `JSON.stringify` гасит `undefined`, поэтому попытка теста
-    // без тегов весит ровно столько же, сколько весила.
-    breakdowns: testScopeBreakdowns(resultData.breakdowns),
-    answers: JSON.parse(JSON.stringify(state.answers)),
-    flatQuestions: JSON.parse(JSON.stringify(state.flatQuestions))
-  };
-  
-  s.attempts.push(attemptRecord);
-  console.log('🔵 Сохранена попытка #' + attemptRecord.attemptNumber + ', всего попыток:', s.attempts.length);
-  
+    source: trustedNowSource(),
+    deliveredForms: (typeof state !== 'undefined' && state.deliveredForms) || {},
+  });
+  // PRD-2 (A7) / PRD-5 (B5): formula and scale errors are diagnostic and belong with the
+  // result that is actually shown — i.e. only with the best attempt.
+  summary.fe = (resultData.resultComputation && resultData.resultComputation.errors) || undefined;
+  summary.se = (resultData.scaleComputation && resultData.scaleComputation.errors) || undefined;
+  if (summary.fe && !summary.fe.length) summary.fe = undefined;
+  if (summary.se && !summary.se.length) summary.se = undefined;
+  summary.d = TBRunState.buildDetail(state);
+
+  var best = TBRunState.pickBest(TBRunState.bestOf(s), summary);
+  // FR-06: only the best keeps its per-question rows; the last one is a summary alone.
+  if (best !== summary) delete summary.d;
+  s.best = best;
+  s.last = (best === summary) ? 0 : summary;
   writeSuspendObj(s);
-  
-  console.log('🔵 suspend_data обновлен. Текущие попытки:', s.attempts.map(function(a) { return Math.round(a.percent) + '%'; }));
+  console.log('🔵 Попытка #' + summary.n + ' сохранена: ' + Math.round(summary.pc) + '%');
 }
 
 // Получить все попытки
