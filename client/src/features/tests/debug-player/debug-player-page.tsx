@@ -24,6 +24,7 @@ import {
   type ScoreVM, type DrawSectionVM, type AdaptiveBar, type AdaptivePathTopic, type AdaptivePathStep,
   type LmsRow, type WatchNode,
 } from "./inspector-snapshot";
+import { describeFeasibilityState } from "@/features/content-protection/issue-text";
 import "./debug-player.css";
 
 type TabId = "score" | "protocol" | "draw" | "scales" | "results" | "state" | "lms";
@@ -199,6 +200,24 @@ export default function DebugPlayerPage() {
               <div className="dbg__overlay">
                 <ProgressBar value={0} size="m" indeterminate hideHeader />
                 <span className="dbg__overlay-text">Собираем пакет из живого состояния теста…</span>
+              </div>
+            ) : null}
+            {/*
+              PRD-15 FR-05: состав тем не даёт выдать вопросы. Не поверх сцены и не
+              вместо неё — прогон запускается, — но автор видит причину заранее, а не
+              гадает над «Вопрос 1 из 0» с молчащим экраном.
+            */}
+            {!building && !errored && (state.feasibility?.length ?? 0) > 0 ? (
+              <div className="dbg__notice">
+                <Banner
+                  tone="warning"
+                  title="Выдать вопросы по этому составу нельзя — прогон встанет"
+                  description={(state.feasibility ?? [])
+                    .map((f) => `${f.topicName}: ${f.issues.map(describeFeasibilityState).join("; ")}`)
+                    .join(". ")}
+                  actions={[{ label: "Открыть тест в редакторе", onClick: openEditor }]}
+                  data-testid="debug-player-feasibility"
+                />
               </div>
             ) : null}
             {errored ? (

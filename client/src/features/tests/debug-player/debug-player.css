@@ -285,3 +285,16 @@
 .dbg__lms--suspend { border-left-color: var(--ou-accent-default); }
 .dbg__lms--answer { border-left-color: var(--ou-accent-default); }
 .dbg__lms--warn { border-left-color: var(--ou-warning-default); }
+
+/*
+  Замечание о выполнимости выдачи (PRD-15 FR-05): лента НАД сценой, а не поверх неё —
+  прогон не блокируется, автор одновременно видит и причину, и сам экран, на котором
+  она проявится.
+*/
+.dbg__notice {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 3;
+  padding: var(--ou-space-3);
+}

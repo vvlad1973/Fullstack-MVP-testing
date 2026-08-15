@@ -21,6 +21,7 @@ import { generateScormPackage } from "../scorm-exporter";
 import { createDebugSession, getDebugSession, dropDebugSession } from "../scorm/debug-player/session-store";
 import { readShimJs, readInspectorComputeJs } from "../scorm/debug-player/assets";
 import { logger } from "../logger";
+import { assessTestPublish } from "../services/draw-feasibility";
 
 const router = Router();
 
@@ -79,12 +80,23 @@ router.post("/:id/debug/session", ...gate, async (req, res) => {
     logger.info(`Debug session opened: test=${req.params.id} token=${token} by user=${req.session.userId}`, "debug-player");
     // playUrl points straight at the launch file so the iframe requests a concrete
     // path (matches the CLI player); the empty-splat fallback below still serves it.
+    // PRD-15 FR-05: отладочный прогон — не публикация, поэтому НЕ отказ, а замечание.
+    // Без него непроходимая лестница (уровень с диапазоном сложности, под который в теме
+    // нет вопросов) выглядит как «Вопрос 1 из 0» и молчание: именно на этом встала
+    // приёмка Э5 PRD-50. Блокировать нельзя — в многотемном тесте сломан может быть один
+    // уровень, а отлаживать остальные автор вправе. Сбой самой проверки роняет
+    // замечание, а не сессию.
+    const feasibility = await assessTestPublish(req.params.id).catch((error: unknown) => {
+      logger.error("Debug feasibility check failed: " + (error as Error).message, "debug-player");
+      return [];
+    });
     res.json({
       token,
       launch,
       playUrl: `/api/tests/${req.params.id}/debug/play/${token}/${launch}`,
       title: data.test.title,
       template: data.designSettings?.templateId,
+      feasibility,
     });
   } catch (error) {
     if (error instanceof ScormBuildError) {

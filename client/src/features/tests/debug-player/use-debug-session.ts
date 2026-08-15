@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import type { PublishCheckFinding } from "@/features/content-protection/types";
 
 export type DebugSessionStatus = "loading" | "ready" | "forbidden" | "error";
 
@@ -23,6 +24,12 @@ export interface DebugSessionState {
   title?: string;
   /** Applied design-template id, for the stage ribbon. */
   template?: string;
+  /**
+   * PRD-15 FR-05: чем текущий состав тем мешает выдаче. Не отказ — прогон
+   * запускается, — но объясняет заранее, почему он встанет: адаптивный уровень, под
+   * диапазон сложности которого в теме нет вопросов, печатает «Вопрос 1 из 0».
+   */
+  feasibility?: PublishCheckFinding[];
 }
 
 /** Inject a server-served script into the player window and resolve once it ran. */
@@ -57,13 +64,14 @@ export function useDebugSession(testId: string) {
         const res = await apiRequest("POST", `/api/tests/${testId}/debug/session`);
         const data = (await res.json()) as {
           token: string; launch: string; playUrl: string; title?: string; template?: string;
+          feasibility?: PublishCheckFinding[];
         };
         if (cancelled) return;
         // Key the throwaway run's localStorage by token so reruns don't collide.
         window.__scorm?.restore(`debug:${data.token}`);
         setState({
           status: "ready", token: data.token, launch: data.launch, playUrl: data.playUrl,
-          title: data.title, template: data.template,
+          title: data.title, template: data.template, feasibility: data.feasibility ?? [],
         });
       } catch (e) {
         if (cancelled) return;
