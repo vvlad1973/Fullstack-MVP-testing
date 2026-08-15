@@ -80,6 +80,82 @@ describe("порча ряда (FR-23)", () => {
   });
 });
 
+describe("выдача пинится позициями при сборке варианта", () => {
+  const appSrc = readFileSync(resolve(process.cwd(), "server/scorm/assets/app.js"), "utf8");
+
+  /** Pull one function out of the shipped runtime source by name. */
+  const extract = (name: string): string => {
+    const match = appSrc.match(new RegExp(`function ${name}\\([^)]*\\)\\s*\\{[\\s\\S]*?\\n\\}`));
+    if (!match) throw new Error(`${name} not found in assets/app.js`);
+    return match[0];
+  };
+
+  const PORT = [
+    "drawSection", "orderQuestions", "effectiveSectionOrder", "orderDeliverySection",
+    "assembleDelivery", "selectForm", "tbDebugForcedForms", "generateVariant",
+  ].map(extract).join("\n");
+
+  const question = (id: string) => ({ id, type: "single", tags: [] });
+
+  /** Run the real generateVariant over a package shape and return the state it built. */
+  function runVariant(TEST_DATA: any): any {
+    const state: any = { answers: {}, flatQuestions: [], variant: null, shuffleMappings: {} };
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const factory = new Function(
+      "TEST_DATA", "state", "shuffle", "shuffleMappingFor", "console",
+      `${PORT}\nreturn generateVariant;`,
+    );
+    factory(
+      TEST_DATA,
+      state,
+      (arr: unknown[]) => arr, // deterministic: identity shuffle
+      () => null,
+      { log: () => undefined, warn: () => undefined },
+    )();
+    return state;
+  }
+
+  const TEST_DATA = {
+    questionOrder: "fixed",
+    flowPolicy: { mode: "linear_flat" },
+    sections: [
+      { topicId: "t1", topicName: "Первая", drawCount: 2, questions: [question("a1"), question("a2"), question("a3")] },
+      { topicId: "t2", topicName: "Вторая", drawCount: 1, questions: [question("b1"), question("b2")] },
+    ],
+  };
+
+  it("позиция каждого выданного вопроса указывает на него же в TEST_DATA", () => {
+    const state = runVariant(TEST_DATA);
+    expect(state.deliveryPositions).toHaveLength(state.flatQuestions.length);
+    state.flatQuestions.forEach((fq: any, i: number) => {
+      const pos = state.deliveryPositions[i];
+      const addressed = TEST_DATA.sections[pos.s].questions[pos.q];
+      // Адрес и содержимое обязаны сойтись: разъедутся — ученик увидит чужой вопрос.
+      expect(addressed.id).toBe(fq.question.id);
+    });
+  });
+
+  it("выданный вариант PRD-17 пинится по теме", () => {
+    const withForms = {
+      ...TEST_DATA,
+      sections: [
+        {
+          topicId: "t1", topicName: "Первая", drawCount: 2,
+          questions: [question("a1"), question("a2"), question("a3")],
+          formSet: { forms: [{ id: "form-a", questionIds: ["a1", "a3"] }] },
+        },
+        TEST_DATA.sections[1],
+      ],
+    };
+    const state = runVariant(withForms);
+    expect(state.deliveredForms).toEqual({ t1: "form-a" });
+  });
+
+  it("тема без вариантов в карту выданных вариантов не попадает", () => {
+    expect(runVariant(TEST_DATA).deliveredForms).toEqual({});
+  });
+});
+
 describe("отпечаток состава", () => {
   const TEST_DATA = {
     sections: [{ questions: [{}, {}] }, { questions: [{}] }],

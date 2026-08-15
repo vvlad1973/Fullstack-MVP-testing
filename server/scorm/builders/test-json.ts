@@ -160,6 +160,26 @@ export function buildTestJson(data: ExportData): string {
   const totalQuestions = data.sections.reduce((sum, s) => sum + effectiveDraw(s), 0);
   const overallPassRule = data.test.overallPassRuleJson as PassRule;
 
+  // PRD-36 FR-02/FR-18: канонический список ключей разреза пакета. Запись разреза в
+  // состоянии прогона адресует ключ НОМЕРОМ в этом списке, поэтому список обязан быть
+  // полным и детерминированным: порядок — первое появление при обходе разделов, состав —
+  // и теги вопросов (из них ключи и возникают, PRD-50 FR-15), и ключи порогов раздела,
+  // у которых собственного вопроса в банке может не оказаться вовсе.
+  const breakdownKeys: string[] = [];
+  const seenBreakdownKey = new Set<string>();
+  const noteBreakdownKey = (key: unknown): void => {
+    if (typeof key !== "string" || !key || seenBreakdownKey.has(key)) return;
+    seenBreakdownKey.add(key);
+    breakdownKeys.push(key);
+  };
+  for (const s of data.sections) {
+    for (const q of s.questions) for (const tag of q.tags ?? []) noteBreakdownKey(tag);
+    // Пороги хранятся картой «ключ -> правило» (PRD-50 §4), поэтому ключи здесь — имена
+    // свойств, а не поле записи.
+    const rules = s.breakdownRulesJson as { keys?: Record<string, unknown> } | null | undefined;
+    for (const key of Object.keys(rules?.keys ?? {})) noteBreakdownKey(key);
+  }
+
   const passPercent =
     overallPassRule.type === "percent"
       ? overallPassRule.value
@@ -282,6 +302,10 @@ export function buildTestJson(data: ExportData): string {
       ? {}
       : { hasGradedContent: false }),
     totalQuestions: totalQuestions,
+    // PRD-36 FR-02: адрес ключа разреза в состоянии прогона. Выпекается только когда ключи
+    // есть, поэтому пакет теста без тегов и порогов остаётся байт-в-байт прежним (FR-02
+    // стиля PRD-50), а рантайм читает отсутствие как «ключей нет».
+    ...(breakdownKeys.length ? { breakdownKeys } : {}),
     sections: data.sections.map((s) => {
       // PRD-32: attachments of the TOPIC and of THIS test's section over it, resolved
       // once per section (see where they are baked below).

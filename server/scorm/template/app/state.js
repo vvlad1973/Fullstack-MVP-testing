@@ -8,6 +8,12 @@ var state = {
   answers: {},
   variant: null,
   flatQuestions: [],
+  // PRD-36: address of each delivered question in TEST_DATA ({ s, q } per delivery slot)
+  // and the delivered PRD-17 variant per topic. Both are what suspend_data stores INSTEAD
+  // of the question objects themselves — the package already ships the content, and a
+  // second copy of it is exactly what used to overflow the 64000-character limit.
+  deliveryPositions: [],
+  deliveredForms: {},
   pageSequence: [],
   templateManifest: null,
   templateShell: null,
