@@ -26,6 +26,12 @@ const STRICT_INLINE = args.has('--strict-inline');
 const ignore = new Set([
   join(wireframesDir, 'ds', 'university-rt.css'),
   join(wireframesDir, 'approved', 'prd7-shared.css'),
+  // Эскиз ПЕЧАТНОГО ДОКУMЕНТА, а не экрана. Отчёт по контракту рендерится вне
+  // дизайн-системы, в служебном контейнере со своим CSS (PRD-27 §6.3), и его цвета —
+  // значения ШАБЛОНА, снятые с референса заказчика, а не токены ДС. Ровно так же
+  // устроен и настоящий `styles/report.css`. Требовать здесь токены значило бы
+  // требовать того, чего продукт в этом месте не делает.
+  join(wireframesDir, 'prd51-certification-report.html'),
 ]);
 // All reference / legacy documents live under docs/wireframes/legacy/ and are
 // skipped wholesale. Stage 5 of docs/wireframes-ds-fix-plan.md moved
