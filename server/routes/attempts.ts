@@ -1183,6 +1183,63 @@ router.post("/attempts/:attemptId/expire-topic-adaptive", requirePermission("att
   }
 });
 
+// POST /api/attempts/:attemptId/finish-adaptive — the WHOLE-TEST timer ran out.
+//
+// The standard flow ends such a run through `/finish`; the adaptive flow had no
+// server-side counterpart at all, so the host finished the run in its own state and
+// walked the learner to the result page of an attempt that was still open —
+// `finished_at` and `result_json` NULL, «Результаты не найдены», the run lost.
+//
+// Unlike `expire-topic-adaptive` this does NOT advance anything: the run is over, so
+// whatever topics and levels were not reached simply stay unplayed, and the result is
+// computed from the answers already stored (nothing new can arrive after the buzzer).
+// Idempotent: a duplicate/retried request on a finished attempt returns the stored result.
+router.post("/attempts/:attemptId/finish-adaptive", requirePermission("attempts.take"), async (req, res) => {
+  try {
+    const attempt = await storage.getAttempt(req.params.attemptId);
+    if (!attempt) {
+      return res.status(404).json({ error: "Attempt not found" });
+    }
+    if (attempt.userId !== req.session.userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const variant = attempt.variantJson as any;
+    if (variant?.mode !== "adaptive") {
+      return res.status(400).json({ error: "This is not an adaptive attempt" });
+    }
+
+    if (attempt.finishedAt) {
+      return res.json({ isFinished: true, result: attempt.resultJson ?? null });
+    }
+
+    // PRD-15 block B: measurements read questions/adaptive config from the pinned
+    // snapshot, the same source the attempt was delivered from.
+    const src = await dataSourceForAttempt(attempt.snapshotId);
+    const test = await src.getTest(attempt.testId);
+    if (!test) {
+      return res.status(404).json({ error: "Test not found" });
+    }
+
+    const result = await buildAdaptiveResult(
+      variant,
+      test.id,
+      src,
+      (attempt.answersJson ?? {}) as Record<string, unknown>,
+    );
+
+    await storage.updateAttempt(attempt.id, {
+      resultJson: result,
+      finishedAt: new Date(),
+    });
+
+    res.json({ isFinished: true, result });
+  } catch (error) {
+    logger.error("Finish adaptive attempt error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to finish attempt" });
+  }
+});
+
 // POST /api/attempts/:attemptId/section-timer — пинг «я в этом разделе».
 //
 // The SERVER owns the remaining time of a section (see services/section-timer):

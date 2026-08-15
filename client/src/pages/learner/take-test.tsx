@@ -854,13 +854,38 @@ export default function TakeTestPage() {
         };
         forceSubmit();
       } else if (testMode === "adaptive" && adaptiveState && !adaptiveState.isFinished) {
-        // Для адаптивного теста - принудительно завершаем
-        setAdaptiveState(prev => prev ? {
-          ...prev,
-          isFinished: true,
-          result: { topicResults: [], timeExpired: true },
-          currentQuestion: null,
-        } : null);
+        // The adaptive run ends on the SERVER too — the standard branch above is not a
+        // special case. Flipping only local state used to leave `finished_at` and
+        // `result_json` NULL while the effect below walked the learner to the result
+        // page of that still-open attempt: «Результаты не найдены», run lost.
+        const finishAdaptive = async () => {
+          setIsSubmitting(true);
+          try {
+            const res = await fetch(`/api/attempts/${adaptiveState.attemptId}/finish-adaptive`, {
+              method: "POST",
+              credentials: "include",
+            });
+            if (!res.ok) throw new Error("Failed to finish");
+            const data = await res.json();
+            setAdaptiveState(prev => prev ? {
+              ...prev,
+              isFinished: true,
+              result: data.result ?? { topicResults: [], timeExpired: true },
+              currentQuestion: null,
+            } : null);
+          } catch (err) {
+            // Leave the attempt OPEN on failure: it stays resumable, which beats
+            // sending the learner to a result page that has nothing to show.
+            toast({
+              variant: "destructive",
+              title: "Не удалось завершить тест",
+              description: "Время истекло, но результат не сохранён. Обновите страницу.",
+            });
+          } finally {
+            setIsSubmitting(false);
+          }
+        };
+        finishAdaptive();
       }
     }
   }, [remainingSeconds]);

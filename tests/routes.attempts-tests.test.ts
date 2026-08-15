@@ -609,6 +609,65 @@ describe("Attempts routes — adaptive topic timer", () => {
     expect(storageMock.updateAttempt.mock.calls[0][1].finishedAt).not.toBeNull();
   });
 
+  // The whole-test timer running out must END the adaptive attempt on the SERVER,
+  // exactly as `/finish` does for the standard flow. Before this route existed the
+  // web host only flipped its own state and walked the learner to the result page of
+  // an attempt that was still open: `finished_at` and `result_json` stayed NULL and
+  // the run was lost («Результаты не найдены»).
+  it("POST finish-adaptive — finishes the attempt from the answers already stored", async () => {
+    const variant = makeAdaptiveVariant();
+    storageMock.getAttempt.mockResolvedValue({
+      ...dbAttempt,
+      variantJson: variant,
+      answersJson: { q1: "a" },
+    });
+    storageMock.getTest.mockResolvedValue(adaptiveTest);
+    storageMock.getAdaptiveTopicSettingsByTest.mockResolvedValue([]);
+    storageMock.getAdaptiveLevelsByTest.mockResolvedValue([]);
+    storageMock.updateAttempt.mockResolvedValue({});
+    const res = await asLearner(request(app).post("/api/attempts/atmp1/finish-adaptive"));
+    expect(res.status).toBe(200);
+    expect(res.body.isFinished).toBe(true);
+    expect(res.body.result).toBeTruthy();
+    const saved = storageMock.updateAttempt.mock.calls[0][1];
+    expect(saved.finishedAt).not.toBeNull();
+    expect(saved.resultJson).toBeTruthy();
+  });
+
+  it("POST finish-adaptive — idempotent: a finished attempt keeps its stored result", async () => {
+    storageMock.getAttempt.mockResolvedValue({
+      ...dbAttempt,
+      variantJson: makeAdaptiveVariant(),
+      finishedAt: new Date("2026-08-15T09:00:00Z"),
+      resultJson: { topicResults: [{ topicId: "t1" }] },
+    });
+    storageMock.getTest.mockResolvedValue(adaptiveTest);
+    const res = await asLearner(request(app).post("/api/attempts/atmp1/finish-adaptive"));
+    expect(res.status).toBe(200);
+    expect(res.body.isFinished).toBe(true);
+    expect(res.body.result).toEqual({ topicResults: [{ topicId: "t1" }] });
+    expect(storageMock.updateAttempt).not.toHaveBeenCalled();
+  });
+
+  it("POST finish-adaptive — 400 on a standard attempt", async () => {
+    storageMock.getAttempt.mockResolvedValue({ ...dbAttempt, variantJson: { mode: "standard" } });
+    storageMock.getTest.mockResolvedValue(adaptiveTest);
+    const res = await asLearner(request(app).post("/api/attempts/atmp1/finish-adaptive"));
+    expect(res.status).toBe(400);
+    expect(storageMock.updateAttempt).not.toHaveBeenCalled();
+  });
+
+  it("POST finish-adaptive — 403 for another user's attempt", async () => {
+    storageMock.getAttempt.mockResolvedValue({
+      ...dbAttempt,
+      userId: "other",
+      variantJson: makeAdaptiveVariant(),
+    });
+    const res = await asLearner(request(app).post("/api/attempts/atmp1/finish-adaptive"));
+    expect(res.status).toBe(403);
+    expect(storageMock.updateAttempt).not.toHaveBeenCalled();
+  });
+
   it("POST expire-topic-adaptive — 403 for another user's attempt", async () => {
     storageMock.getAttempt.mockResolvedValue({ ...dbAttempt, userId: "other", variantJson: makeAdaptiveVariant() });
     const res = await asLearner(

@@ -55,6 +55,7 @@ export const MAGIC_SCOPE_RULES: MagicScopeRule[] = [
   { method: "POST", pattern: "/api/attempts/:attemptId/finish", bind: "attempt" },
   { method: "POST", pattern: "/api/attempts/:attemptId/answer-adaptive", bind: "attempt" },
   { method: "POST", pattern: "/api/attempts/:attemptId/expire-topic-adaptive", bind: "attempt" },
+  { method: "POST", pattern: "/api/attempts/:attemptId/finish-adaptive", bind: "attempt" },
   { method: "GET", pattern: "/api/attempts/:attemptId/result", bind: "attempt" },
   { method: "GET", pattern: "/api/report/lib/:file", bind: "none" },
   // PRD-27 FR-05: подложка и логотип отчёта — файлы ШАБЛОНА, а не ассеты продукта
