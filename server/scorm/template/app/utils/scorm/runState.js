@@ -401,6 +401,10 @@ var TBRunState = (function () {
     // FR-16: the barriers' own fields travel unchanged, shape and meaning both.
     if (s.timer) out.timer = s.timer;
     if (s.retake) out.retake = s.retake;
+    // PRD-4: остаток времени по разделам живёт в том же состоянии, но пишется таймером,
+    // а не учётом попыток. Потерять его при приведении формата значило бы подарить
+    // ученику полный лимит раздела заново — молча, ровно там, где идёт секционный тест.
+    if (s.sectionBudgets) out.sectionBudgets = s.sectionBudgets;
     return out;
   }
 

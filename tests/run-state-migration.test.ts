@@ -46,6 +46,8 @@ const legacy = {
   ],
   timer: { limitMinutes: 30, baselineTotalSec: 120, sig: "abc" },
   retake: { lastCompletedDate: "2026-08-02" },
+  // PRD-4: остаток времени по разделам пишет таймер, а не учёт попыток.
+  sectionBudgets: { "topic-1": { remainingMs: 420000 } },
 };
 
 describe("приведение формата 1 к формату 2", () => {
@@ -69,6 +71,12 @@ describe("приведение формата 1 к формату 2", () => {
     );
     expect(s.best.pc).toBe(90);
     expect(s.last.pc).toBe(40);
+  });
+
+  it("остаток времени по разделам переживает приведение", () => {
+    // Потеря этого поля подарила бы ученику полный лимит раздела заново — молча и
+    // ровно там, где идёт секционный тест с ограничением времени.
+    expect(RS.migrate(legacy, TEST_DATA).sectionBudgets).toEqual({ "topic-1": { remainingMs: 420000 } });
   });
 
   it("якорь таймера и дата кулдауна не трогаются", () => {
