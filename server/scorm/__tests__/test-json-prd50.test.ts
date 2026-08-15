@@ -113,3 +113,36 @@ describe("buildTestJson: пороги ключей в пакете", () => {
     expect("breakdownRules" in json.sections[0]).toBe(false);
   });
 });
+
+describe("buildTestJson: список ключей разреза (PRD-36 FR-02)", () => {
+  it("ключи собираются из тегов вопросов — их адресом станет НОМЕР в этом списке", () => {
+    const json = bake(fixtureWithSectionRules(null));
+    expect(json.breakdownKeys).toEqual(["ПДн"]);
+  });
+
+  it("порог по ключу, которого нет ни у одного вопроса, тоже получает адрес", () => {
+    const json = bake(
+      fixtureWithSectionRules({ axis: "tag", keys: { "Охрана труда": { type: "percent", value: 80 } } }),
+    );
+    // Иначе запись разреза по такому ключу потеряла бы адрес и молча выпала из сводки.
+    expect(json.breakdownKeys).toEqual(["ПДн", "Охрана труда"]);
+  });
+
+  it("тест без тегов и порогов списка не несёт — пакет остаётся прежним", () => {
+    const noTags = {
+      test: { ...baseTest, mode: "standard" },
+      sections: [
+        {
+          id: "sec-1", topicId: "t1", drawCount: 1, required: true, feedbackJson: null,
+          topic: { id: "t1", name: "Право", feedback: null, feedbackJson: null },
+          questions: [
+            { id: "q1", type: "single", prompt: "?", dataJson: {}, correctJson: { correctIndex: 0 },
+              points: 1, difficulty: 50, tags: [] },
+          ],
+          courses: [], events: [],
+        },
+      ],
+    } as never;
+    expect("breakdownKeys" in bake(noTags)).toBe(false);
+  });
+});

@@ -57,7 +57,8 @@ function resolveStartLayout() {
 function buildScormStartContext() {
   var used = getAttemptsUsed();
   var hasLimit = !!TEST_DATA.maxAttempts;
-  var hasCompleted = !!getAllAttempts() && getAllAttempts().length > 0;
+  // PRD-36 FR-03: «есть завершённые» — это счётчик, а не длина списка: списка больше нет.
+  var hasCompleted = hasCompletedAttempts();
   // PRD-31 barrier B: the hour interval between attempts INSIDE this assignment.
   // Decided here, post-Initialize, because its source is suspend_data — the gate
   // could not read it before Initialize. An open interval leaves the screen exactly
@@ -71,12 +72,16 @@ function buildScormStartContext() {
 
   var suspendObj = readSuspendObj();
   var pendingSession = suspendObj.currentSession;
+  // PRD-36 FR-10: the checkpoint stores the delivery as POSITIONS, so «есть что продолжать»
+  // is the length of that row — the question objects it used to carry are gone.
+  var pendingCount = pendingSession
+    ? TBRunState.decodeDelivery(pendingSession.dl || '').length
+    : 0;
   var canResume = !!(
     pendingSession &&
     !TEST_DATA.timeLimitMinutes &&
     TEST_DATA.mode !== 'adaptive' &&
-    pendingSession.flatQuestions &&
-    pendingSession.flatQuestions.length > 0 &&
+    pendingCount > 0 &&
     !isSessionStale(pendingSession)
   );
 
@@ -96,7 +101,7 @@ function buildScormStartContext() {
     },
     maxAttempts: hasLimit ? TEST_DATA.maxAttempts : null,
     completedAttempts: used,
-    resume: canResume ? { index: (pendingSession.currentIndex || 0), total: pendingSession.flatQuestions.length } : null,
+    resume: canResume ? { index: (pendingSession.i || 0), total: pendingCount } : null,
     hasCompletedResults: hasCompleted,
     canStartNew: canStartNew,
     // The shared builder renders the same cooldown card for both barriers; barrier B

@@ -463,6 +463,10 @@ var RetakeGate = (function () {
       // concatenation order would silently revert this to the old behaviour — and the
       // old behaviour is the defect.
       if (typeof obj.attemptsUsed === 'number' && obj.attemptsUsed > 0) return true;
+      // PRD-36: format 2 keeps the best summary instead of a list. The legacy array is
+      // still checked — packages built before PRD-36 keep writing it inside their own runs,
+      // and a learner re-entering one of those must not be sent back to the cooldown.
+      if (obj.best) return true;
       if (obj.attempts && obj.attempts.length > 0) return true;
       // A suspended session counts too: an attempt in progress means this assignment
       // is already in play. It is not covered by the two checks above — for a test

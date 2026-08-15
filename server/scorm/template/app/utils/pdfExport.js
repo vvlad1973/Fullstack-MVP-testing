@@ -293,7 +293,8 @@ async function exportResultsToPDF(results, testName, learnerName, timestamp) {
       testName: testName,
       learnerName: learnerName,
       timestamp: timestamp,
-      attemptsCount: (typeof getAllAttempts === 'function') ? getAllAttempts().length : 1
+      // PRD-36 FR-03: «попытка N» берётся из счётчика — истории попыток в состоянии нет.
+      attemptsCount: (typeof getAttemptsUsed === 'function') ? getAttemptsUsed() : 1
     }, pdfReportMeta());
     var opts = {
       design: (typeof scormDesignContext === 'function') ? scormDesignContext() : {},

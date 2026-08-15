@@ -275,6 +275,25 @@ function generateVariant() {
       topicName: section.topicName
     });
   });
+  // PRD-36 FR-02: the ADDRESS of every delivered question — its position in TEST_DATA
+  // (section index, index inside that section's bank). Collected here, next to the draw,
+  // because this is the only place that still knows which bank object each question came
+  // from; recovering it later by id would cost a scan per question on every save.
+  var positionOf = {};
+  TEST_DATA.sections.forEach(function (section, si) {
+    (section.questions || []).forEach(function (q, qi) { positionOf[q.id] = { s: si, q: qi }; });
+  });
+  state.deliveryPositions = [];
+  state.flatQuestions.forEach(function (fq) {
+    state.deliveryPositions.push(positionOf[fq.question.id] || { s: -1, q: -1 });
+  });
+  // PRD-36 FR-19: the delivered PRD-17 variant per topic travels with the state, so a
+  // resumed run resolves the SAME `by_variant` threshold a continuous run would.
+  state.deliveredForms = {};
+  state.variant.sections.forEach(function (vs) {
+    if (vs.formId) state.deliveredForms[vs.topicId] = vs.formId;
+  });
+
   // PRD-19 (Block B): seed per-question status for the freshly built variant.
   // Every delivered question starts 'unanswered'; confirmAnswer / skipQuestion
   // transition it. Done here (post-draw) so the keys match flatQuestions.

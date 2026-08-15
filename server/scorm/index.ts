@@ -266,6 +266,12 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     "app/utils/protection.js",
   ]);
 
+  // PRD-36: run-state model + row codec. Must precede every part that reads or writes
+  // suspend_data — suspendAttempts and sessionRecovery both call into TBRunState.
+  const runStateJs = readOneOf([
+    "app/utils/scorm/runState.js",
+  ]);
+
   const suspendAttemptsJs = readOneOf([
     "app/utils/scorm/suspendAttempts.js",
     "app/utils/suspendAttempts.js",
@@ -451,6 +457,7 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     protectionJs,
     telemetryJs,
     shuffleJs,
+    runStateJs,
     suspendAttemptsJs,
     sessionRecoveryJs,
     testDataJs,
