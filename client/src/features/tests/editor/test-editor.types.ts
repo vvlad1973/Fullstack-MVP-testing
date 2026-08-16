@@ -8,6 +8,7 @@
  */
 
 import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
+import type { DraftBlock } from "./use-report-document";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
@@ -564,6 +565,16 @@ export type TestEditorModel = {
    * до блока D. Потребители обязаны читать через `?? {}`.
    */
   report?: ReportSettings;
+  /**
+   * PRD-51: ДОКУМЕНТ ОТЧЁТА — состав и порядок блоков, по ветви режима. Ветви две и
+   * живут одновременно, как и у {@link report}: смена режима не должна стирать
+   * собранный документ другого.
+   *
+   * ОТСУТСТВУЕТ у теста, который документа не собирал, и это не то же самое, что пустой
+   * список: без строк печатается документ по умолчанию шаблона, а пустой список —
+   * осознанное «печатать нечего». Потребители обязаны различать эти два случая.
+   */
+  reportDocument?: { standard?: DraftBlock[]; adaptive?: DraftBlock[] };
   /** Вводные блоки экрана итогов и отчёта (`tests.intro_json`, PRD-27 §7.1). */
   intro?: TestIntro;
   /**
