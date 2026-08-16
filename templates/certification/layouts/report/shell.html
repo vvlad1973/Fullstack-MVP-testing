@@ -1,0 +1,8 @@
+<!-- ОБОЛОЧКА ДОКУМЕНТА (PRD-51 §5.2): корень, в который движок вкладывает блоки ПРЯМЫМИ
+     детьми. Своих разделов у неё нет и быть не может — оболочка, завернувшая блоки в
+     контейнер, сломала бы постраничную раскладку (FR-07).
+     Логотип и подложка — поля ОБОЛОЧКИ: чужие товарные знаки в шаблон не кладутся, автор
+     подставляет свои файлы (§10.2). -->
+<div class="tb-report {{ report.verdictClass }}" style="{{#if report.values.backgroundImage}}background-image: url({{ report.values.backgroundImage }});{{/if}}">
+{{#if report.values.logoImage}}<div class="tb-report__brand"><img src="{{ report.values.logoImage }}" alt=""></div>{{/if}}
+</div>
