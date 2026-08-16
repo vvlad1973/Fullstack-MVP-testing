@@ -15,7 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveReportBundle } from "@shared/report/report-document";
+import { resolveReportBundle, resolveReportDocument } from "@shared/report/report-document";
 import { REPORT_KINDS } from "@shared/report/report-variants";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -57,4 +57,27 @@ describe("поставляемые шаблоны: отчёт всегда ес�
       });
     }
   }
+});
+
+describe("«Сертификация» кладёт документ в сборку", () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), "templates", "certification", "manifest.json"), "utf8"),
+  );
+
+  for (const kind of ["report", "report.adaptive"] as const) {
+    it(`${kind}: у каждого блока документа есть раскладка`, () => {
+      const bundle = resolveReportBundle(manifest, kind, null, []);
+      expect(bundle.document, "документ не разрешился — шаблон объявил блоки?").not.toBeNull();
+      for (const b of bundle.document!.blocks) {
+        if (b.nature === "page-break") continue;
+        expect(b.layoutFile, `у блока ${b.block} нет раскладки`).not.toBe("");
+      }
+    });
+  }
+
+  it("документ начинается титулом и разбит двумя разрывами на три листа", () => {
+    const doc = resolveReportDocument(manifest, "report", []);
+    expect(doc.blocks[0].block).toBe("header");
+    expect(doc.blocks.filter((b) => b.nature === "page-break")).toHaveLength(2);
+  });
 });
