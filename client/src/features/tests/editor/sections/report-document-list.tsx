@@ -47,6 +47,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { reportBlockLabel, reportBlockNature } from "@shared/report/report-blocks";
+import type { ContentTemplatePlaceholder } from "../use-content-pages";
 import { moveBlock, removeBlock, toggleBlock, type DraftBlock } from "../use-report-document";
 
 /** Вариант блока активного шаблона в том виде, в каком его читает список. */
@@ -55,6 +56,8 @@ export interface ReportBlockVariantOption {
   block: string;
   label?: string;
   isDefault?: boolean;
+  /** Поля содержимого варианта: их показывает раскрытая строка авторской страницы. */
+  placeholders?: ContentTemplatePlaceholder[];
 }
 
 export interface ReportDocumentListProps {

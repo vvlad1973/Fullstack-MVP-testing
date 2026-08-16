@@ -1641,6 +1641,43 @@
 }
 
 /* Variant picker list inside the «Добавить страницу» modal. */
+/* PRD-51 §7.3: поиск над списком палитры блоков. Иконка положена в поле, а не рядом:
+   строка поиска в модале узкая, и подпись съела бы её половину. */
+.variant-search { position: relative; margin-bottom: var(--ou-space-3); }
+.variant-search__icon {
+  position: absolute;
+  left: var(--ou-space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ou-fg-muted);
+  pointer-events: none;
+}
+.variant-search__input {
+  width: 100%;
+  height: var(--ou-size-control-m);
+  padding: 0 var(--ou-space-3) 0 var(--ou-space-7);
+  border: var(--wf-border-w) solid var(--ou-border-default);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-input);
+  font: var(--ou-text-body-m);
+  color: var(--ou-fg-default);
+  outline: none;
+}
+.variant-search__input:focus {
+  border-color: var(--ou-accent-default);
+  box-shadow: var(--ou-shadow-focus);
+}
+
+/* Заголовок группы внутри списка вариантов. */
+.variant-group {
+  font: var(--ou-text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ou-fg-muted);
+  padding: var(--ou-space-2) var(--ou-space-3) var(--wf-space-tiny, 2px);
+}
+
 .variant-list {
   list-style: none;
   padding: var(--ou-space-1);
