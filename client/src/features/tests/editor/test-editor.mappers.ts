@@ -61,7 +61,7 @@ import type {
 } from "./test-editor.types";
 import { DEFAULT_BREAKDOWN_DISPLAY } from "./test-editor.types";
 import { makeQuestionOverride, type QuestionScoringOverride } from "./scoring-api";
-import { toRowInputs, type DraftBlock } from "./use-report-document";
+import type { DraftBlock } from "./use-report-document";
 
 // ─── API response shape ───────────────────────────────────────────────────────
 
@@ -1366,7 +1366,23 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     // PRD-51: документ уходит на сервер ТОЛЬКО если автор его правил. Отсутствие поля
     // означает «не трогать», и это не то же, что пустой список: пустой список стёр бы
     // документ теста, документа не собиравшего, — сохранением с чужой вкладки.
-    ...(documentDraft ? { reportBlocks: toRowInputs(documentDraft) } : {}),
+    //
+    // Раскладка полей — КОНТРАКТ МАРШРУТА (`values`/`settings`), а не имена колонок:
+    // `toRowInputs` здесь звать нельзя, он готовит строку для РАЗРЕШЕНИЯ документа. Однажды
+    // его сюда уже подставили, и текст авторских страниц молча терялся: zod выбрасывает
+    // незаявленные ключи, ничего об этом не сказав. Порядок тело не несёт вовсе — сервер
+    // выводит его из позиции.
+    ...(documentDraft
+      ? {
+          reportBlocks: documentDraft.map((b) => ({
+            block: b.block,
+            templateKey: b.templateKey,
+            enabled: b.enabled,
+            values: b.values,
+            settings: b.settings,
+          })),
+        }
+      : {}),
     expectedVersion: model.version,
     folderId: model.folderId,
   };

@@ -102,14 +102,28 @@ describe("документ отчёта в модели редактора", () 
     expect(payload).not.toHaveProperty("reportBlocks");
   });
 
-  it("шлёт правленый документ, выводя порядок из позиции", () => {
+  it("шлёт правленый документ ИМЕНАМИ КОНТРАКТА МАРШРУТА, сохраняя порядок списка", () => {
+    // Имена полей проверяются буквально. Тело запроса разбирает zod, и незаявленный ключ
+    // он выбрасывает молча: подстановка формы строки разрешения (`valuesJson`) уже стоила
+    // молча потерянного текста авторских страниц — поймано только живой приёмкой.
     const payload = editorModelToPayload(
-      modelWithDraft("standard", [draft("topics"), draft("header", { enabled: false })]),
+      modelWithDraft("standard", [
+        draft("page", { templateKey: "v.page.text", values: { title: "О тесте" }, settings: { align: "left" } }),
+        draft("header", { enabled: false }),
+      ]),
     );
     expect(payload.reportBlocks).toEqual([
-      { block: "topics", sortOrder: 0, enabled: true, templateKey: null, valuesJson: {}, settingsJson: {} },
-      { block: "header", sortOrder: 1, enabled: false, templateKey: null, valuesJson: {}, settingsJson: {} },
+      {
+        block: "page",
+        templateKey: "v.page.text",
+        enabled: true,
+        values: { title: "О тесте" },
+        settings: { align: "left" },
+      },
+      { block: "header", templateKey: null, enabled: false, values: {}, settings: {} },
     ]);
+    // Порядок тело не несёт: его выводит сервер из позиции, и второе поле спорило бы с ним.
+    expect(payload.reportBlocks?.[0]).not.toHaveProperty("sortOrder");
   });
 
   it("пустой список шлётся: это осознанное «печатать нечего»", () => {

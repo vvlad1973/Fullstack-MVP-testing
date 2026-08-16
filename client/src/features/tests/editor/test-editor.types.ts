@@ -9,7 +9,6 @@
 
 import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { DraftBlock } from "./use-report-document";
-import type { ReportBlockRowInput } from "@shared/report/report-document";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
@@ -676,8 +675,20 @@ export type TestSettingsPayload = {
    * PRD-51: документ отчёта ветви ТЕКУЩЕГО режима, в порядке печати. ОТСУТСТВИЕ поля =
    * «не трогать»: сохранение с другой вкладки не должно стирать документ. Пустой массив —
    * осознанное «печатать нечего», и он документ действительно стирает.
+   *
+   * Имена полей — КОНТРАКТ МАРШРУТА (`values`/`settings`), а не имена колонок базы:
+   * `sortOrder` тело запроса не несёт вовсе, его выводит сервер из позиции. Тип описан
+   * здесь целиком, а не переиспользован от разрешения документа, именно поэтому: у
+   * запроса и у строки таблицы разные наборы полей, и подмена одного другим уже стоила
+   * молча потерянного текста страниц — zod выбрасывает незаявленные ключи без единого слова.
    */
-  reportBlocks?: ReportBlockRowInput[];
+  reportBlocks?: Array<{
+    block: string;
+    templateKey: string | null;
+    enabled: boolean;
+    values: Record<string, unknown>;
+    settings: Record<string, unknown>;
+  }>;
   expectedVersion: number;
   /** Only sent on create (FAB folder-pick). PUT path leaves it undefined and
    *  uses the dedicated `/api/test-folders/move/:id` endpoint instead. */

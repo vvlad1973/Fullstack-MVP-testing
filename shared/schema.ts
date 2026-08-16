@@ -2066,6 +2066,11 @@ export const variantKindSchema = z.enum([
   "section-results",
   "report",
   "report.adaptive",
+  // PRD-51 FR-02: вариант БЛОКА документа отчёта. Не экран и не авторская страница —
+  // раскладка одного раздела внутри документа, привязанная к ключу блока из закрытого
+  // реестра продукта (`shared/report/report-blocks`). Виды `report`/`report.adaptive`
+  // остаются: они стали ОБОЛОЧКОЙ документа, в которую движок вкладывает эти блоки.
+  "report.block",
 ]);
 export type VariantKind = z.infer<typeof variantKindSchema>;
 
