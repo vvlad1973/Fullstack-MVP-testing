@@ -723,13 +723,16 @@ function validateReportDocumentDecl(
         issues.push({ variantKey: kind, ref, message: `неизвестный блок "${String(entry)}" в документе по умолчанию` });
         continue;
       }
+      // Разрыв листа раскладки не имеет, поэтому варианта у него и не ищем — и повторяться
+      // он ОБЯЗАН: документ из трёх листов ставит два разрыва, из четырёх — три. Запрет
+      // повтора осмыслен только для блоков с данными: второй «Сводный разрез» напечатал бы
+      // одни и те же числа дважды, а второй разрыв просто открывает следующий лист.
+      if (entry === REPORT_PAGE_BREAK_BLOCK) continue;
       if (seen.has(entry)) {
         issues.push({ variantKey: kind, ref, message: `блок "${entry}" указан в документе дважды` });
         continue;
       }
       seen.add(entry);
-      // Разрыв листа раскладки не имеет, поэтому варианта у него и не ищем.
-      if (entry === REPORT_PAGE_BREAK_BLOCK) continue;
       if (!seenPerBlock.has(`${entry}@${kind}`)) {
         issues.push({
           variantKey: kind,

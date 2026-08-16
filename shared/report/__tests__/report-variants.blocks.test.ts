@@ -123,3 +123,25 @@ describe("объявление блоков отчёта", () => {
     expect(messages(manifest)).toContain("scales");
   });
 });
+
+describe("разрыв листа в документе по умолчанию (PRD-51 Э4)", () => {
+  const withDoc = (report: string[]) => ({
+    contentTemplates: [
+      { key: "b.header", kind: "report.block", block: "header", isDefault: true, layoutFile: "l/h.html" },
+      { key: "b.topics", kind: "report.block", block: "topics", isDefault: true, layoutFile: "l/t.html" },
+    ],
+    reportDocument: { report },
+  });
+
+  it("повторяется столько раз, сколько листов открывает автор", () => {
+    // Документ из трёх листов ставит ДВА разрыва. Запрет повтора ломал бы ровно тот
+    // документ, ради которого разрыв и заведён — пойман загрузкой шаблона «Сертификация».
+    const issues = validateReportVariants(withDoc(["header", "page-break", "topics", "page-break"]));
+    expect(issues.filter((i) => i.message.includes("дважды"))).toEqual([]);
+  });
+
+  it("а блок с данными повторяться по-прежнему не вправе", () => {
+    const issues = validateReportVariants(withDoc(["header", "topics", "topics"]));
+    expect(issues.map((i) => i.message)).toContain('блок "topics" указан в документе дважды');
+  });
+});
