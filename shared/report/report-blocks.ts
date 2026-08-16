@@ -45,7 +45,6 @@ export interface ReportSystemBlock {
  * рекомендации, курсы и мероприятия.
  */
 export const REPORT_SYSTEM_BLOCKS: readonly ReportSystemBlock[] = [
-  // Титул и вердикт: единственный блок, который печатается ВСЕГДА (см. `required`).
   // Титул и вердикт: с них начинается минимальный документ (см. `baseline`).
   { key: "header", label: "Шапка документа", baseline: true },
   { key: "intro", label: "Вводный блок" },

@@ -1312,6 +1312,36 @@
 .page-actions { display: flex; gap: var(--ou-space-1); flex-shrink: 0; }
 .page-icon { color: var(--ou-fg-muted); flex-shrink: 0; }
 
+/* PRD-51 §7.2: строка документа отчёта. Выключенный блок читается приглушённым
+   названием — данные не печатаются, но строка остаётся на своём месте в списке. */
+.page-row.is-off .page-title,
+.page-row.is-off .page-variant-badge {
+  color: var(--ou-fg-muted);
+  opacity: 0.65;
+}
+
+/* Разрыв листа — не карточка и не страница, а строка-разделитель: следующий блок
+   начинается с нового листа. Пунктир справа договаривает то же самое. */
+.page-row--break .page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ou-space-2);
+  color: var(--ou-fg-muted);
+  font: var(--ou-text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.page-row--break .page-title::after {
+  content: "";
+  flex: 1;
+  height: var(--wf-border-w);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ou-border-default) 0 var(--wf-space-6, 6px),
+    transparent var(--wf-space-6, 6px) var(--ou-space-3)
+  );
+}
+
 /* PRD-19 FR-08a: «Обзор раздела/теста» navigation slot (section-finish /
    test-finish). Accent left-bar marks it as the navigation slot; the disabled
    variant (return OFF) dims it and drops the accent, with a `.page-comment`
