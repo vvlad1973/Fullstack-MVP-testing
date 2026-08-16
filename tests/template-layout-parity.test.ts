@@ -79,10 +79,20 @@ const htmlIn = (dir: string): string[] =>
     .sort();
 
 describe("certification layouts track the standard template", () => {
-  const standardFiles = htmlIn(DEFAULT_LAYOUTS);
+  /**
+   * PRD-51 §10.4: `report.html` и `report.adaptive.html` из сравнения выведены — у
+   * «Сертификации» свой документ (§10.1). Под гардом остаются 17 раскладок УЧЕНИЧЕСКИХ
+   * экранов: именно там он ловит расхождения контракта рантайма, ради которых заводился.
+   *
+   * Каталог `layouts/report/` сюда не попадает и без фильтра: `htmlIn` читает только
+   * верхний уровень. Фильтр назван явно, чтобы правило было ВИДНО, а не выводилось из
+   * особенности чтения каталога.
+   */
+  const isReportLayout = (f: string): boolean => f.startsWith("report.");
+  const standardFiles = htmlIn(DEFAULT_LAYOUTS).filter((f) => !isReportLayout(f));
 
-  it("declares every layout the standard template ships, and no others", () => {
-    expect(htmlIn(CERT_LAYOUTS)).toEqual(standardFiles);
+  it("declares every learner-screen layout the standard template ships, and no others", () => {
+    expect(htmlIn(CERT_LAYOUTS).filter((f) => !isReportLayout(f))).toEqual(standardFiles);
   });
 
   for (const file of standardFiles) {
@@ -150,18 +160,24 @@ describe("certification manifest stays in parity with the standard one", () => {
   const cert = JSON.parse(fs.readFileSync(path.join(CERT_DIR, "manifest.json"), "utf8"));
 
   /**
-   * PRD-51 §10.4: ДОКУМЕНТ ОТЧЁТА выведен из-под паритета.
+   * PRD-51 §10.4: из-под паритета выведено ВСЁ семейство отчёта — оболочка, её поля и
+   * раскладки блоков.
    *
-   * Отчёт переезжает на блоки поэтапно: эталон уже собирается из них, «Сертификация» ещё
-   * печатается цельной раскладкой, и это законное промежуточное состояние — вид без
-   * объявленного состава остаётся на своём макете. Требовать здесь совпадения значило бы
-   * требовать, чтобы оба шаблона переехали одним коммитом.
+   * Документ у шаблонов свой: эталон печатает сегодняшние секции, «Сертификация» — лист
+   * по референсу (§10.1). Требовать здесь совпадения значило бы требовать, чтобы два
+   * разных документа состояли из одних и тех же разделов с одними и теми же полями.
    *
-   * Исключение снимается по КАТАЛОГУ и виду, а не перечнем ключей: число раскладок блоков
-   * будет меняться, и перечень протух бы на первой же правке шаблона.
+   * Одних блоков мало: «Сертификации» нужно СВОЁ поле оболочки (иллюстрация титула), а
+   * `settings[]` вида `report` гард сравнивает с эталоном. Объявить это поле у эталона
+   * значило бы завести настройку без слота за ней — ровно тот дефект, ради которого гард
+   * настроек и писался (см. комментарий про PRD-29 ниже).
+   *
+   * Исключение снимается по ВИДУ, а не перечнем ключей: число раскладок блоков будет
+   * меняться, и перечень протух бы на первой же правке шаблона.
    */
+  const REPORT_KINDS = new Set(["report", "report.adaptive", "report.block"]);
   const isReportVariant = (t: { key: string; kind?: string }): boolean =>
-    t.kind === "report.block" || t.key.startsWith("report.block.");
+    REPORT_KINDS.has(String(t.kind)) || t.key.startsWith("report.");
 
   it("offers the same page variants — a test switches templates without rebinding pages", () => {
     const keys = (m: { contentTemplates: { key: string; kind?: string }[] }) =>
@@ -391,4 +407,19 @@ describe("certification demo dataset stays structurally in parity with the stand
       ).toEqual(keysOf(get(std)));
     });
   }
+});
+
+describe("PRD-51 §10.4: из-под паритета выведено ВСЁ семейство отчёта", () => {
+  const cert = JSON.parse(fs.readFileSync(path.join(CERT_DIR, "manifest.json"), "utf8"));
+
+  it("гард стережёт РОВНО 17 раскладок ученических экранов", () => {
+    // Девятнадцать минус две раскладки отчёта. Число названо явно: молчаливое сокращение
+    // списка — это и есть та регрессия, ради которой гард заведён.
+    expect(htmlIn(DEFAULT_LAYOUTS).filter((f) => !f.startsWith("report."))).toHaveLength(17);
+  });
+
+  it("«Сертификация» вправе объявить своё поле оболочки отчёта", () => {
+    const shell = cert.contentTemplates.find((t: { key: string }) => t.key === "report.standard");
+    expect(shell.settings.map((s: { key: string }) => s.key)).toContain("coverImage");
+  });
 });
