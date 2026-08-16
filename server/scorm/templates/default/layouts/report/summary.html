@@ -1,0 +1,39 @@
+<!-- Сводка баллов гейтится ТЕМ ЖЕ признаком, что на экране итогов (PRD-29 §6.7):
+     измерительная методика не приносит баллов, и «0 вопросов / 0.0 баллов / 0 %» —
+     утверждение, которого экран не делает. Гейт стоит на ВСЕЙ карточке: с переездом
+     названия в шапку внутри неё не осталось ничего, что печаталось бы без сводки. -->
+{{#unless result.hideScoreSummary}}
+<section class="tb-report__card">
+  <div class="tb-report__subtitle">Результат теста</div>
+
+  <div class="tb-report__score">
+    <div class="tb-report__metrics">
+      <div class="tb-report__metric">
+        <div class="tb-report__metric-num" data-path="result.totalQuestions"></div>
+        <div class="tb-report__metric-lbl">вопросов</div>
+      </div>
+      <div class="tb-report__metric">
+        <div class="tb-report__metric-num" data-path="report.correctLabel"></div>
+        <div class="tb-report__metric-lbl">верно</div>
+      </div>
+      <div class="tb-report__metric">
+        <div class="tb-report__metric-num" data-path="report.earnedPointsLabel"></div>
+        <div class="tb-report__metric-lbl">баллов</div>
+      </div>
+    </div>
+
+    <div class="tb-report__ring">
+      <svg viewBox="0 0 100 100">
+        <circle class="tb-report__ring-track" cx="50" cy="50" r="44" fill="none" stroke-width="12"/>
+        <circle class="tb-report__ring-fill" cx="50" cy="50" r="44" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="{{ report.ringDasharray }}" stroke-dashoffset="{{ report.ringDashoffset }}"/>
+      </svg>
+      <div class="tb-report__ring-value"><span data-path="result.scorePercent"></span>%</div>
+    </div>
+
+    <!-- Плашка вердикта — на пустой подписи её нет вовсе: она несёт фон и цвет исхода,
+         поэтому пустой строки мало. Гейт отдельный от сводки: автор вправе показать
+         сводку принудительно, но вердикта у неоцениваемого теста всё равно нет. -->
+    {{#if report.verdictBadge}}<div class="tb-report__badge" data-path="report.verdictBadge"></div>{{/if}}
+  </div>
+</section>
+{{/unless}}

@@ -158,19 +158,33 @@ describe("сборка для хоста", () => {
 });
 
 describe("минимальный документ", () => {
-  /** Шаблон объявил варианты блоков, но состав документа — нет. */
-  const noDecl = { contentTemplates: manifest.contentTemplates };
+  /** Состав объявлен, но целиком из блоков, которых шаблон не знает. */
+  const unknownOnly = {
+    contentTemplates: manifest.contentTemplates,
+    reportDocument: { report: ["scales", "indicators"] },
+  };
 
-  it("шаблон без объявленного состава печатает титул с вердиктом, а не пустоту", () => {
-    const doc = resolveReportDocument(noDecl, "report", []);
+  it("состав из одних неизвестных блоков вырождается в титул с вердиктом, а не в пустоту", () => {
+    const doc = resolveReportDocument(unknownOnly, "report", []);
     expect(doc.monolithic).toBe(false);
     expect(doc.blocks.map((b) => b.block)).toEqual(["header"]);
     expect(doc.blocks[0].enabled).toBe(true);
   });
 
   it("но выключить титул автору не запрещено: его строка уважается как есть", () => {
-    const doc = resolveReportDocument(noDecl, "report", [row({ block: "header", enabled: false })]);
+    const doc = resolveReportDocument(unknownOnly, "report", [
+      row({ block: "header", enabled: false }),
+    ]);
     expect(doc.blocks.map((b) => b.block)).toEqual(["header"]);
     expect(doc.blocks[0].enabled).toBe(false);
+  });
+
+  it("вид без объявленного состава остаётся на цельной раскладке, даже если соседний переехал", () => {
+    const halfMigrated = {
+      contentTemplates: manifest.contentTemplates,
+      reportDocument: { report: ["header", "topics"] },
+    };
+    expect(resolveReportDocument(halfMigrated, "report").monolithic).toBe(false);
+    expect(resolveReportDocument(halfMigrated, "report.adaptive").monolithic).toBe(true);
   });
 });

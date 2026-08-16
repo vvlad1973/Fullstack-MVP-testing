@@ -394,7 +394,7 @@
       "key": "report.standard",
       "label": "Отчёт: стандартный",
       "kind": "report",
-      "layoutFile": "layouts/report.html",
+      "layoutFile": "layouts/report/shell.html",
       "styleFile": "styles/report.css",
       "isDefault": true,
       "settings": [
@@ -1368,7 +1368,103 @@
         }
       ]
     }
+,
+    {
+      "key": "report.block.header",
+      "label": "Шапка: название, вердикт, слушатель",
+      "kind": "report.block",
+      "block": "header",
+      "layoutFile": "layouts/report/header.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.intro",
+      "label": "Вводный блок: текст автора",
+      "kind": "report.block",
+      "block": "intro",
+      "layoutFile": "layouts/report/intro.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.summary",
+      "label": "Сводка: кольцо и три числа",
+      "kind": "report.block",
+      "block": "summary",
+      "layoutFile": "layouts/report/summary.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.topics",
+      "label": "Темы: карточки",
+      "kind": "report.block",
+      "block": "topics",
+      "layoutFile": "layouts/report/topics.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.breakdown",
+      "label": "Сводный разрез: полосы по ключам",
+      "kind": "report.block",
+      "block": "breakdown",
+      "layoutFile": "layouts/report/breakdown.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.scales",
+      "label": "Шкалы: диаграмма и линейки",
+      "kind": "report.block",
+      "block": "scales",
+      "layoutFile": "layouts/report/scales.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.indicators",
+      "label": "Показатели: карточки",
+      "kind": "report.block",
+      "block": "indicators",
+      "layoutFile": "layouts/report/indicators.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.recommendations",
+      "label": "Рекомендации: тексты и материалы",
+      "kind": "report.block",
+      "block": "recommendations",
+      "layoutFile": "layouts/report/recommendations.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.courses",
+      "label": "Курсы: список",
+      "kind": "report.block",
+      "block": "courses",
+      "layoutFile": "layouts/report/courses.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.events",
+      "label": "Мероприятия: список",
+      "kind": "report.block",
+      "block": "events",
+      "layoutFile": "layouts/report/events.html",
+      "isDefault": true
+    },
+    {
+      "key": "report.block.page.text",
+      "label": "Страница: заголовок и текст",
+      "kind": "report.block",
+      "block": "page",
+      "layoutFile": "layouts/report/page-text.html",
+      "isDefault": true,
+      "placeholders": [
+        { "key": "title", "type": "text", "label": "Заголовок" },
+        { "key": "body", "type": "richText", "label": "Текст" }
+      ]
+    }
   ],
+  "reportDocument": {
+    "report": ["header", "intro", "summary", "topics", "breakdown", "scales", "indicators", "recommendations", "courses", "events"]
+  },
   "rendererPlugins": [],
   "layouts": {
     "shell": "shell.html",

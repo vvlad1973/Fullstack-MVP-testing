@@ -149,8 +149,26 @@ describe("certification manifest stays in parity with the standard one", () => {
   );
   const cert = JSON.parse(fs.readFileSync(path.join(CERT_DIR, "manifest.json"), "utf8"));
 
+  /**
+   * PRD-51 §10.4: ДОКУМЕНТ ОТЧЁТА выведен из-под паритета.
+   *
+   * Отчёт переезжает на блоки поэтапно: эталон уже собирается из них, «Сертификация» ещё
+   * печатается цельной раскладкой, и это законное промежуточное состояние — вид без
+   * объявленного состава остаётся на своём макете. Требовать здесь совпадения значило бы
+   * требовать, чтобы оба шаблона переехали одним коммитом.
+   *
+   * Исключение снимается по КАТАЛОГУ и виду, а не перечнем ключей: число раскладок блоков
+   * будет меняться, и перечень протух бы на первой же правке шаблона.
+   */
+  const isReportVariant = (t: { key: string; kind?: string }): boolean =>
+    t.kind === "report.block" || t.key.startsWith("report.block.");
+
   it("offers the same page variants — a test switches templates without rebinding pages", () => {
-    const keys = (m: { contentTemplates: { key: string }[] }) => m.contentTemplates.map((t) => t.key).sort();
+    const keys = (m: { contentTemplates: { key: string; kind?: string }[] }) =>
+      m.contentTemplates
+        .filter((t) => !isReportVariant(t))
+        .map((t) => t.key)
+        .sort();
     expect(keys(cert)).toEqual(keys(std));
   });
 
@@ -171,7 +189,9 @@ describe("certification manifest stays in parity with the standard one", () => {
   // in a key-only diff.
   const settingKeys = (ct: { settings?: { key: string }[] }): string[] => (ct.settings ?? []).map((s) => s.key).sort();
 
-  for (const stdCt of std.contentTemplates as Array<{ key: string; settings?: { key: string }[] }>) {
+  for (const stdCt of (std.contentTemplates as Array<{ key: string; kind?: string; settings?: { key: string }[] }>).filter(
+    (t) => !isReportVariant(t),
+  )) {
     it(`contentTemplates["${stdCt.key}"] offers the same settings[] keys as the standard template`, () => {
       const certCt = (cert.contentTemplates as Array<{ key: string; settings?: { key: string }[] }>).find(
         (c) => c.key === stdCt.key,

@@ -114,13 +114,17 @@ function placeholdersOf(variant: BlockVariant | undefined): ReportBlockPlacehold
 export function resolveReportDocument(
   manifest: unknown,
   kind: ReportKind,
-  rows: readonly ReportBlockRowInput[],
+  /** Строки теста; пусто/не передано — документ по умолчанию шаблона. */
+  rows: readonly ReportBlockRowInput[] = [],
 ): ResolvedReportDocument {
   const variants = blockVariants(manifest);
   const declared = resolveReportDocumentDecl(manifest, kind);
-  // Шаблон не объявил ни вариантов блоков, ни документа: он живёт по прежнему контракту,
-  // и хост обязан напечатать его цельную раскладку (§5.4).
-  if (!variants.length && !declared.length) return { blocks: [], skipped: [], monolithic: true };
+  // Документ объявляется НА ВИД, а варианты блоков общие для обоих. Поэтому решает
+  // именно `declared`: вид, для которого состав не объявлен, живёт по прежнему контракту
+  // и печатается цельной раскладкой (§5.4) — даже если соседний вид уже переехал на
+  // блоки. Смотреть на наличие вариантов было бы ошибкой: шаблон, переведённый наполовину,
+  // печатал бы у непереведённого вида пустой документ вместо своего макета.
+  if (!declared.length) return { blocks: [], skipped: [], monolithic: true };
 
   const defaultOf = new Map<string, BlockVariant>();
   const byKey = new Map<string, BlockVariant>();
