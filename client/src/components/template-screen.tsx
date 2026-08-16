@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { renderReportInto, type ReportBlockToRender } from "@shared/report/render-report";
 import { renderScreenInto, type ContentPageData } from "@shared/template/render-screen";
 import type { ProtectionSpec } from "@shared/template/protection/spec";
 import { fitQuestionScene } from "@shared/template/fit-question";
@@ -32,8 +33,16 @@ const DS_SHADOW_CSS = dsCss
   .replace(/:root/g, ":host");
 
 export interface TemplateScreenProps {
-  /** Layout HTML from the selected design template. */
+  /**
+   * Layout HTML from the selected design template. При заданном {@link blocks} это
+   * ОБОЛОЧКА документа отчёта (PRD-51), а не экран.
+   */
   layout: string;
+  /**
+   * PRD-51: блоки документа отчёта в порядке печати, с уже прочитанными раскладками.
+   * Пусто/отсутствует — рисуется обычный экран по {@link layout}.
+   */
+  blocks?: ReportBlockToRender[];
   /** Public render context (see render-screen / context contract). */
   context: unknown;
   /** Template CSS, injected (isolated) into the shadow root. */
@@ -125,7 +134,23 @@ export interface TemplateScreenProps {
   fill?: boolean;
 }
 
-export function TemplateScreen({ layout, context, css, slots, content, protection, cssVars, themeCss, dataTheme, themed, afterHtml, timers, onAction, onShadowReady, className, shell, fill = true }: TemplateScreenProps) {
+export function TemplateScreen({ layout, context, css, slots, content, protection, cssVars, themeCss, dataTheme, themed, afterHtml, timers, onAction, onShadowReady, className, shell, blocks, fill = true }: TemplateScreenProps) {
+  /**
+   * PRD-51: отчёт печатается ДОКУМЕНТОМ из блоков, а не одной раскладкой. Когда блоки
+   * пришли, `layout` — это оболочка документа, и рисует его та же общая сборка, которой
+   * пользуется конвейер PDF: предпросмотр обязан показывать ровно то, что получит
+   * слушатель, а вторая реализация сборки означала бы два разных документа.
+   */
+  const paintInto = useCallback(
+    (target: HTMLElement) => {
+      if (blocks && blocks.length > 0) {
+        renderReportInto(target, { shell: layout, context, blocks });
+        return;
+      }
+      renderScreenInto(target, { layout, context, slots, content, protection });
+    },
+    [blocks, layout, context, slots, content, protection],
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<ShadowRoot | null>(null);
   const screenRef = useRef<HTMLElement | null>(null);
@@ -288,7 +313,7 @@ export function TemplateScreen({ layout, context, css, slots, content, protectio
       shadow.appendChild(fit);
       screen.innerHTML = shell;
       const app = screen.querySelector<HTMLElement>("#app");
-      renderScreenInto(app ?? screen, { layout, context, slots, content, protection });
+      paintInto(app ?? screen);
       fitQuestion();
     } else {
       // Fill chain (mirrors the SCORM package's `#app` foundation): the shadow host
@@ -306,7 +331,7 @@ export function TemplateScreen({ layout, context, css, slots, content, protectio
         screen.style.display = "flex";
         screen.style.flexDirection = "column";
       }
-      renderScreenInto(screen, { layout, context, slots, content, protection });
+      paintInto(screen);
       const sceneEl = screen.firstElementChild as HTMLElement | null;
       if (fill && sceneEl) {
         sceneEl.style.flex = "1 1 auto";

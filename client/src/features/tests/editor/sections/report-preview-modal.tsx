@@ -26,6 +26,8 @@ import {
   type ReportPreviewSection,
 } from "@shared/report/report-preview";
 import { reportKindForMode } from "@shared/report/report-variants";
+import { resolveReportDocument } from "@shared/report/report-document";
+import type { ReportBlockToRender } from "@shared/report/render-report";
 import { buildReportPages, PAGE_WIDTH_PX } from "@shared/report/paginate-dom";
 import { reportImageKeys, resolveReportImageValues } from "@shared/report/report-assets";
 import { useTemplateBundle } from "./use-template-bundle";
@@ -85,6 +87,28 @@ export function ReportPreviewModal({
     const byFile = variant?.layoutFile ? bundle.layouts[variant.layoutFile] : undefined;
     return byFile ?? bundle.layouts[reportKindForMode(mode)];
   }, [bundle, variant, mode]);
+
+  /**
+   * PRD-51: блоки ДОКУМЕНТА и их раскладки.
+   *
+   * Состав считает та же функция, что и обе выдачи, а раскладки берутся из бандла
+   * шаблона по объявленному пути. Строки теста сюда пока не передаются: собрать документ
+   * автору ещё нечем — редактор документа приезжает отдельным этапом, — поэтому
+   * предпросмотр показывает документ ПО УМОЛЧАНИЮ шаблона. Это честный ответ: ровно его
+   * сегодня и получит слушатель.
+   *
+   * Шаблон без блоков даёт пустой список, и окно рисует прежнюю цельную раскладку.
+   */
+  const blocks = useMemo<ReportBlockToRender[]>(() => {
+    if (!bundle) return [];
+    const doc = resolveReportDocument(bundle.manifest, reportKindForMode(mode), []);
+    if (!doc || doc.monolithic) return [];
+    return doc.blocks
+      .map((b) => ({ ...b, layout: b.layoutFile ? (bundle.layouts[b.layoutFile] ?? "") : "" }))
+      // Блок, чьей раскладки в бандле нет, молча пропускается: показать вместо него
+      // пустоту честнее, чем уронить всё окно из-за одного отсутствующего файла.
+      .filter((b) => b.nature === "page-break" || b.layout.length > 0);
+  }, [bundle, mode]);
 
   // Картинки вида объявлены путями внутри шаблона (FR-05), а браузер видит файлы
   // шаблона только через роут ассетов. Без этого автор смотрел бы предпросмотр без
@@ -239,6 +263,7 @@ export function ReportPreviewModal({
                   гасится, и автор оценивает не те пропорции, что уйдут в PDF. */}
               <TemplateScreen
                 layout={layout}
+                blocks={blocks}
                 context={context}
                 css={bundle.css}
                 cssVars={cssVars}
