@@ -15,6 +15,7 @@ import {
   REPORT_BLOCK_KEYS,
   isReportBlockKey,
   reportBlockNature,
+  MINIMUM_REPORT_DOCUMENT,
 } from "../report-blocks";
 
 describe("реестр блоков отчёта", () => {
@@ -53,5 +54,11 @@ describe("реестр блоков отчёта", () => {
     for (const block of REPORT_SYSTEM_BLOCKS) {
       expect(block.label.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("минимальный документ", () => {
+  it("начинается с титула и вердикта — пустого отчёта не бывает", () => {
+    expect(MINIMUM_REPORT_DOCUMENT).toEqual(["header"]);
   });
 });

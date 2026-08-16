@@ -14,7 +14,12 @@
  *
  * Чистый модуль: ни DOM, ни Node.
  */
-import { reportBlockNature, REPORT_PAGE_BREAK_BLOCK, type ReportBlockNature } from "./report-blocks";
+import {
+  reportBlockNature,
+  MINIMUM_REPORT_DOCUMENT,
+  REPORT_PAGE_BREAK_BLOCK,
+  type ReportBlockNature,
+} from "./report-blocks";
 import {
   resolveReportBake,
   resolveReportDocumentDecl,
@@ -169,8 +174,15 @@ export function resolveReportDocument(
   });
 
   if (!rows.length) {
+    // Документ по умолчанию — состав, объявленный шаблоном. Если шаблон его не объявил
+    // (или всё объявленное ему самому неизвестно), берётся МИНИМАЛЬНЫЙ документ: пустой
+    // отчёт не выдаётся никогда — лист без имени и без вердикта не годится ни на что.
+    // Это граница умолчания, а не запрет: строки автора ниже уважаются как есть, включая
+    // выключенный титул.
+    const list = declared.filter(known);
+    const base = list.length ? list : MINIMUM_REPORT_DOCUMENT.filter(known);
     return {
-      blocks: declared.filter(known).map((block) => build(defaultRow(block, true))),
+      blocks: base.map((block) => build(defaultRow(block, true))),
       skipped: [],
       monolithic: false,
     };

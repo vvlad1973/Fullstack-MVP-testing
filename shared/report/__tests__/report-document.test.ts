@@ -156,3 +156,21 @@ describe("сборка для хоста", () => {
     expect(bundle.document?.blocks.every((b) => !b.enabled)).toBe(true);
   });
 });
+
+describe("минимальный документ", () => {
+  /** Шаблон объявил варианты блоков, но состав документа — нет. */
+  const noDecl = { contentTemplates: manifest.contentTemplates };
+
+  it("шаблон без объявленного состава печатает титул с вердиктом, а не пустоту", () => {
+    const doc = resolveReportDocument(noDecl, "report", []);
+    expect(doc.monolithic).toBe(false);
+    expect(doc.blocks.map((b) => b.block)).toEqual(["header"]);
+    expect(doc.blocks[0].enabled).toBe(true);
+  });
+
+  it("но выключить титул автору не запрещено: его строка уважается как есть", () => {
+    const doc = resolveReportDocument(noDecl, "report", [row({ block: "header", enabled: false })]);
+    expect(doc.blocks.map((b) => b.block)).toEqual(["header"]);
+    expect(doc.blocks[0].enabled).toBe(false);
+  });
+});

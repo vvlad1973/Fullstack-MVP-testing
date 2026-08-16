@@ -23,6 +23,18 @@ export interface ReportSystemBlock {
   key: string;
   /** Подпись строки в редакторе. */
   label: string;
+  /**
+   * Входит в МИНИМАЛЬНЫЙ документ: то, чем документ наполняется, когда взять состав
+   * больше неоткуда.
+   *
+   * Документ не рождается пустым. Отчёт — бумага, которую слушатель уносит с собой и
+   * показывает специалисту, и по умолчанию она отвечает на два вопроса: чей это документ
+   * и какой вердикт. Лист без имени и без исхода не годится ни на что.
+   *
+   * Это УМОЛЧАНИЕ, а не запрет: автор вправе выключить и этот блок. Продукт решает, с
+   * чего документ начинается, а не что автору разрешено.
+   */
+  baseline?: boolean;
 }
 
 /**
@@ -33,7 +45,9 @@ export interface ReportSystemBlock {
  * рекомендации, курсы и мероприятия.
  */
 export const REPORT_SYSTEM_BLOCKS: readonly ReportSystemBlock[] = [
-  { key: "header", label: "Шапка документа" },
+  // Титул и вердикт: единственный блок, который печатается ВСЕГДА (см. `required`).
+  // Титул и вердикт: с них начинается минимальный документ (см. `baseline`).
+  { key: "header", label: "Шапка документа", baseline: true },
   { key: "intro", label: "Вводный блок" },
   { key: "summary", label: "Сводка баллов" },
   { key: "topics", label: "Результаты по темам" },
@@ -57,6 +71,16 @@ export const REPORT_BLOCK_KEYS: readonly string[] = [
   REPORT_PAGE_BLOCK,
   REPORT_PAGE_BREAK_BLOCK,
 ];
+
+/**
+ * МИНИМАЛЬНЫЙ документ: чем наполняется отчёт, когда шаблон состава не объявил.
+ *
+ * Не «обязательные блоки»: выключить их автор вправе. Это нижняя граница УМОЛЧАНИЯ —
+ * пустой документ не выдаётся никогда, но и запретов автору отсюда не следует.
+ */
+export const MINIMUM_REPORT_DOCUMENT: readonly string[] = REPORT_SYSTEM_BLOCKS.filter(
+  (b) => b.baseline === true,
+).map((b) => b.key);
 
 /** Знает ли продукт такой блок. */
 export function isReportBlockKey(value: unknown): value is string {
