@@ -11,7 +11,11 @@
  * цельным, и хост печатает старую раскладку.
  */
 import { describe, expect, it } from "vitest";
-import { resolveReportDocument, type ReportBlockRowInput } from "../report-document";
+import {
+  resolveReportDocument,
+  resolveReportBundle,
+  type ReportBlockRowInput,
+} from "../report-document";
 
 const manifest = {
   contentTemplates: [
@@ -122,5 +126,33 @@ describe("разрешение документа отчёта", () => {
       reportDocument: { report: ["header", "topics"], "report.adaptive": ["topics"] },
     };
     expect(resolveReportDocument(m, "report.adaptive", []).blocks.map((b) => b.block)).toEqual(["topics"]);
+  });
+});
+
+describe("сборка для хоста", () => {
+  it("отдаёт оболочку и документ одним вызовом", () => {
+    const bundle = resolveReportBundle(manifest, "report", null, []);
+    expect(bundle.layoutKey).toBe("shell.html");
+    expect(bundle.document?.blocks.map((b) => b.block)).toEqual(["header", "topics"]);
+  });
+
+  it("у шаблона без блоков документ равен null, а раскладка остаётся цельной", () => {
+    const legacy = {
+      contentTemplates: [
+        { key: "report.standard", kind: "report", layoutFile: "layouts/report.html", isDefault: true },
+      ],
+    };
+    const bundle = resolveReportBundle(legacy, "report", null, []);
+    expect(bundle.document).toBeNull();
+    expect(bundle.layoutKey).toBe("layouts/report.html");
+  });
+
+  it("документ из нуля включённых блоков — не то же самое, что отсутствие документа", () => {
+    const bundle = resolveReportBundle(manifest, "report", null, [
+      row({ block: "header", enabled: false }),
+      row({ block: "topics", sortOrder: 1, enabled: false }),
+    ]);
+    expect(bundle.document).not.toBeNull();
+    expect(bundle.document?.blocks.every((b) => !b.enabled)).toBe(true);
   });
 });

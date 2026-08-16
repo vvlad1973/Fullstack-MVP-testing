@@ -15,7 +15,14 @@
  * Чистый модуль: ни DOM, ни Node.
  */
 import { reportBlockNature, REPORT_PAGE_BREAK_BLOCK, type ReportBlockNature } from "./report-blocks";
-import { resolveReportDocumentDecl, REPORT_BLOCK_KIND, type ReportKind } from "./report-variants";
+import {
+  resolveReportBake,
+  resolveReportDocumentDecl,
+  REPORT_BLOCK_KIND,
+  type ReportBake,
+  type ReportKind,
+  type ReportLabelLayers,
+} from "./report-variants";
 
 /** Строка документа, как её хранит тест (подмножество `report_blocks`). */
 export interface ReportBlockRowInput {
@@ -183,4 +190,42 @@ export function resolveReportDocument(
   }
 
   return { blocks, skipped, monolithic: false };
+}
+
+/** Что хост получает одним вызовом: оболочка со своими полями и разрешённый документ. */
+export interface ReportBundle extends ReportBake {
+  /**
+   * Документ из блоков; `null` — шаблон блоков не объявил, и печатается цельная
+   * раскладка `layoutKey` (§5.4). Проверять надо именно `null`, а не длину списка:
+   * документ из нуля включённых блоков — законный результат авторской настройки.
+   */
+  document: ResolvedReportDocument | null;
+}
+
+/**
+ * ОДИН вызов на хост: разрешить и оболочку, и документ (PRD-51 §5.3).
+ *
+ * Живёт здесь, а не рядом с {@link resolveReportBake}, чтобы не замкнуть кольцо импортов:
+ * этот модуль уже зависит от `report-variants`, а обратная зависимость сделала бы пару
+ * взаимной. Зависимость односторонняя — документ знает про вид отчёта, вид про документ
+ * не знает.
+ *
+ * @param manifest Манифест активного шаблона.
+ * @param kind Вид отчёта по режиму теста.
+ * @param branch Ветвь `report_settings_json` этого режима: выбор оболочки и её поля.
+ * @param rows Строки `report_blocks` теста для этого режима; пусто — документ по умолчанию.
+ * @param assetBase База для картинок оболочки (см. `resolveReportBake`).
+ * @param labelLayers Слои надписей PRD-49.
+ */
+export function resolveReportBundle(
+  manifest: unknown,
+  kind: ReportKind,
+  branch?: { variantKey?: string | null; values?: Record<string, unknown> | null } | null,
+  rows: readonly ReportBlockRowInput[] = [],
+  assetBase = "",
+  labelLayers?: ReportLabelLayers | null,
+): ReportBundle {
+  const bake = resolveReportBake(manifest, kind, branch, assetBase, labelLayers);
+  const document = resolveReportDocument(manifest, kind, rows);
+  return { ...bake, document: document.monolithic ? null : document };
 }
