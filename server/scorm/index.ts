@@ -10,7 +10,8 @@ import { registryMediaResolver } from "./builders/media-resolver";
 import { copyDirToFiles, getTemplatesRootDir } from "./builders/template-copy";
 import { getSharedRuntimeBundle } from "./builders/shared-runtime";
 import { readVendorDsCss, readPackageFontFiles, assemblePackageStyles } from "./builders/ds-styles";
-import { resolveReportBake, reportKindForMode, type ReportLabelLayers } from "@shared/report/report-variants";
+import { reportKindForMode, type ReportLabelLayers } from "@shared/report/report-variants";
+import { resolveReportBundle } from "@shared/report/report-document";
 import { isReportEnabled } from "@shared/schema";
 import type { ReportSettings, DesignSettings } from "@shared/schema";
 import fs from "node:fs";
@@ -172,12 +173,15 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     values: (data.test.designSettingsJson as DesignSettings | null)?.labels ?? null,
     overrides: (data.test.reportSettingsJson as ReportSettings | null)?.labels ?? null,
   };
-  let reportBake = resolveReportBake(
+  let reportBake = resolveReportBundle(
     readTemplateManifest(templateDir),
     reportKind,
     (data.test.reportSettingsJson as ReportSettings | null)?.[
       data.test.mode === "adaptive" ? "adaptive" : "standard"
     ] ?? null,
+    // PRD-51: состав документа теста. Разрешается ЗДЕСЬ, а не в рантайме: манифеста
+    // шаблона в LMS нет, и связать строку с раскладкой блока там нечем.
+    data.reportBlocks ?? [],
     // FR-05: картинки варианта — файлы ШАБЛОНА, а он лежит в пакете под `template/`.
     // Резолвятся здесь, а не в рантайме: только сборщик знает, из какого каталога
     // приехал вариант.
@@ -190,10 +194,14 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     // варианта: без этого шага страница собиралась бы вообще без оформления, потому
     // что своего `styleFile` у несуществующего варианта нет. Оттуда же берутся и его
     // картинки — база другая, потому что `default` лежит в пакете рядом, отдельно.
-    const fromDefault = resolveReportBake(
+    const fromDefault = resolveReportBundle(
       readTemplateManifest(defaultDir),
       reportKind,
       null,
+      // Документ теста собран под ЧУЖОЙ шаблон, и его блоки «Стандартному» неизвестны.
+      // Отдаём деградации пустой состав: она напечатает документ по умолчанию вложенного
+      // шаблона, а не набор пропусков.
+      [],
       `${PACKAGE_DEFAULT_TEMPLATE_DIR}/`,
       reportLabelLayers,
     );

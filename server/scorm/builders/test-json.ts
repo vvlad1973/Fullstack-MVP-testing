@@ -1,4 +1,4 @@
-import type { Test, TestSection, Topic, Question, TopicCourse, TopicEvent, PassRule, AdaptiveTopicSettings, AdaptiveLevel, AdaptiveLevelLink, ContentPage, ResultVariable, Scale, QuestionMeasurement, RetakePolicy, TestQuestionScoring } from "@shared/schema";
+import type { Test, TestSection, Topic, Question, TopicCourse, TopicEvent, PassRule, AdaptiveTopicSettings, AdaptiveLevel, AdaptiveLevelLink, ContentPage, ResultVariable, Scale, QuestionMeasurement, RetakePolicy, TestQuestionScoring, ReportBlockRow } from "@shared/schema";
 import { sanitizeHtml, placeholderScope } from "../../utils/html-sanitizer";
 import { findEligibilityPlugin, findEligibilityConfig } from "@shared/eligibility/registry";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
@@ -93,6 +93,14 @@ interface ExportData {
   questionScoring?: TestQuestionScoring[];
   adaptiveSettings?: AdaptiveSettingsExport | null;
   contentPages?: ContentPage[];
+  /**
+   * PRD-51: строки ДОКУМЕНТА ОТЧЁТА теста для его режима — состав и порядок блоков,
+   * которые автор собрал. Разрешает их в печатный документ сборщик пакета
+   * (`resolveReportBundle`), а не рантайм: манифеста шаблона в LMS нет.
+   *
+   * Отсутствуют/пусты ⇒ документ по умолчанию шаблона.
+   */
+  reportBlocks?: ReportBlockRow[];
   resultVariables?: ResultVariable[];
   scales?: Scale[];
   measurements?: QuestionMeasurement[];

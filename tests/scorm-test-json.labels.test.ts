@@ -127,6 +127,7 @@ const source = {
   getScales: async () => [],
   getQuestionMeasurements: async () => [],
   getTestQuestionScoring: async () => [],
+  getReportBlocks: async () => [],
 };
 
 const BASE_DESIGN = {

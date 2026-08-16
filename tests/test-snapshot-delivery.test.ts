@@ -25,6 +25,8 @@ const { storageMock } = vi.hoisted(() => ({
     getResultVariables: vi.fn(),
     getContentPages: vi.fn(),
     getTestQuestionScoring: vi.fn(),
+    // PRD-51: снапшот морозит документ отчёта вместе с рядом теста.
+    listReportBlocks: vi.fn(),
     getAdaptiveTopicSettingsByTest: vi.fn(),
     getAdaptiveLevelsByTest: vi.fn(),
     getAdaptiveLevelLinks: vi.fn(),
@@ -63,6 +65,7 @@ beforeEach(() => {
   storageMock.getResultVariables.mockResolvedValue([]);
   storageMock.getContentPages.mockResolvedValue([]);
   storageMock.getTestQuestionScoring.mockResolvedValue([]);
+  storageMock.listReportBlocks.mockResolvedValue([]);
   storageMock.getLatestSnapshot.mockResolvedValue(undefined);
   storageMock.getSnapshotsForTest.mockResolvedValue([]);
   storageMock.getReferencedSnapshotIds.mockResolvedValue([]);

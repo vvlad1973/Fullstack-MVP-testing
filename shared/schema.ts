@@ -1998,10 +1998,16 @@ export const reportBlocks = pgTable("report_blocks", {
   sortOrder: integer("sort_order").notNull().default(0),
   /** Системный блок гасится этим признаком и ОСТАЁТСЯ в списке (PRD-51 §3.1). */
   enabled: boolean("enabled").notNull().default(true),
-  /** Содержимое: значения `placeholders[]` варианта. */
-  valuesJson: jsonb("values_json").notNull().default({}),
+  /**
+   * Содержимое: значения `placeholders[]` варианта.
+   *
+   * Тип объявлен здесь, а не приводится на каждой стороне: колонка ВСЕГДА хранит карту
+   * «ключ поля → значение», и десяток приведений `as Record<...>` по коду — это десяток
+   * мест, где однажды приведут к другому.
+   */
+  valuesJson: jsonb("values_json").$type<Record<string, unknown>>().notNull().default({}),
   /** Свойства: значения `settings[]` варианта. */
-  settingsJson: jsonb("settings_json").notNull().default({}),
+  settingsJson: jsonb("settings_json").$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

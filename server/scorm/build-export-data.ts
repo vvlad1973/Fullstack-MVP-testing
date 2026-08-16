@@ -155,6 +155,13 @@ export async function buildScormExportData(
     : { templateId: "default", params: {}, ...prd49 };
 
   const contentPages = await src.getContentPages(test.id);
+  // PRD-51: строки документа отчёта. Идут ЧЕРЕЗ источник, а не мимо него: снапшот
+  // публикации морозит их вместе с рядом теста, и живой экспорт черновика обязан брать
+  // их из того же места, откуда берёт остальной состав.
+  const reportBlocks = await src.getReportBlocks(
+    test.id,
+    test.mode === "adaptive" ? "adaptive" : "standard",
+  );
   const resultVariables = await src.getResultVariables(test.id);
   const scales = await src.getScales(test.id);
   const measurements = await src.getQuestionMeasurements(test.id);
@@ -200,6 +207,7 @@ export async function buildScormExportData(
     questionScoring,
     adaptiveSettings,
     contentPages,
+    reportBlocks,
     resultVariables,
     scales,
     measurements,
