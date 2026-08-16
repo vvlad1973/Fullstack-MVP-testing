@@ -10,7 +10,7 @@
  * которого после сохранения не будет (§4.2, риск R-5).
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Banner,
   Button,
@@ -33,6 +33,12 @@ import {
 import { resolveReportValues } from "@shared/report/report-variants";
 import { fieldsOfScope, type ReportFieldScope } from "@shared/report/report-field-scope";
 import { ReportPreviewModal } from "./report-preview-modal";
+import { ReportDocumentList } from "./report-document-list";
+import { ReportBlockPalette } from "./report-block-palette";
+import { ReportBlockFields } from "./report-block-fields";
+import { insertBlock, initialReportDraft, type DraftBlock } from "../use-report-document";
+import { reportKindForMode } from "@shared/report/report-variants";
+import type { ContentTemplatePlaceholder } from "../use-content-pages";
 
 /** Одно поле варианта: тип решает, каким компонентом дизайн-системы его показать. */
 function ReportField(props: {
@@ -154,14 +160,26 @@ export function ReportSettingsCard(props: {
   testName?: string;
   sections?: ReportPreviewSection[];
   levelNames?: string[];
+  /**
+   * PRD-51: строки документа, ПРИШЕДШИЕ ИЗ БАЗЫ, для этой ветви режима. Пусто — тест
+   * документа не собирал, и показывается документ по умолчанию шаблона.
+   */
+  savedDocument?: DraftBlock[];
+  /** Черновик автора; `undefined` — документ ещё не правился в этой сессии. */
+  document?: DraftBlock[];
+  onDocumentChange?: (next: DraftBlock[]) => void;
 }) {
   const scope: ReportFieldScope = props.scope ?? "appearance";
   const isContent = scope === "content";
   const branchKey = props.mode === "adaptive" ? "adaptive" : "standard";
   const branch = props.value?.[branchKey] ?? null;
+  const kind = reportKindForMode(props.mode);
   const catalogue = useReportVariants(props.draftTemplateId, undefined, props.mode, branch?.variantKey);
   const [dropped, setDropped] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Позиция, с которой открыли палитру: блок встаёт ИМЕННО туда, откуда его добавляли.
+  const [addAt, setAddAt] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   const values = branch?.values ?? {};
   // Поля этой стороны — в порядке объявления шаблоном. Сторона без единого поля вовсе не
@@ -184,6 +202,30 @@ export function ReportSettingsCard(props: {
     );
     setDropped(droppedLabels);
     if (next) setBranch(next.key, nextValues);
+  };
+
+  // Документ показывается один раз разрешённым из СОХРАНЁННЫХ строк, а дальше принадлежит
+  // автору: правила §5.1 дописывают и пропускают блоки, и применять их к каждой правке
+  // значило бы спорить с автором на каждом нажатии.
+  const initialDoc = useMemo(
+    () => (catalogue.manifest ? initialReportDraft(catalogue.manifest, kind, props.savedDocument) : null),
+    [catalogue.manifest, kind, props.savedDocument],
+  );
+  const doc = props.document ?? initialDoc;
+  const setDoc = props.onDocumentChange ?? (() => {});
+  // Манифест объявляет поля как `unknown` (его читает и сервер, и рантайм); редактору
+  // нужен разобранный список, и сужение делается ровно здесь, на границе.
+  const blockOptions = catalogue.blocks.map((v) => ({
+    ...v,
+    placeholders: Array.isArray(v.placeholders)
+      ? (v.placeholders as ContentTemplatePlaceholder[])
+      : undefined,
+  }));
+  /** Поля варианта, выбранного строкой; у блока без варианта их нет. */
+  const placeholdersOf = (block: DraftBlock): ContentTemplatePlaceholder[] => {
+    const forBlock = catalogue.blocks.filter((v) => v.block === block.block);
+    const variant = forBlock.find((v) => v.key === block.templateKey) ?? forBlock.find((v) => v.isDefault);
+    return Array.isArray(variant?.placeholders) ? (variant.placeholders as ContentTemplatePlaceholder[]) : [];
   };
 
   const onFieldChange = (key: string, value: unknown) => {
@@ -278,6 +320,43 @@ export function ReportSettingsCard(props: {
                   </div>
                 </div>
               )}
+            </>
+          )}
+
+          {/* PRD-51: ДОКУМЕНТ — состав и порядок блоков отчёта. Живёт на стороне
+              содержания: что напечатать и в каком порядке — вопрос смысла, а не облика.
+              Шаблон, блоков не объявивший, документа не показывает вовсе: печатать он
+              будет цельную раскладку, и двигать в нём нечего (§5.4). */}
+          {isContent && doc !== null && (
+            <>
+              <ReportDocumentList
+                blocks={doc}
+                variants={blockOptions}
+                onChange={setDoc}
+                onAdd={setAddAt}
+                readOnly={props.readOnly}
+                expandedIndex={expanded}
+                onToggleExpand={(i) => setExpanded(expanded === i ? null : i)}
+                renderExpanded={(i) => (
+                  <ReportBlockFields
+                    index={i}
+                    block={doc[i]}
+                    placeholders={placeholdersOf(doc[i])}
+                    readOnly={props.readOnly}
+                    onChange={(next) => setDoc(doc.map((b, j) => (j === i ? next : b)))}
+                  />
+                )}
+              />
+              <ReportBlockPalette
+                open={addAt !== null}
+                onClose={() => setAddAt(null)}
+                variants={blockOptions}
+                documentBlocks={doc.map((b) => b.block)}
+                onPick={(block) => {
+                  setDoc(insertBlock(doc, addAt ?? doc.length, block));
+                  setAddAt(null);
+                }}
+              />
             </>
           )}
 

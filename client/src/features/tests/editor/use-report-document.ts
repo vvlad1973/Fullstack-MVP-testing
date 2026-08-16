@@ -15,7 +15,12 @@
  * Каждая операция возвращает НОВЫЙ массив и не трогает вход: черновик редактора
  * сравнивается по ссылке, и правка на месте не вызвала бы перерисовки.
  */
-import type { ReportBlockRowInput } from "@shared/report/report-document";
+import {
+  resolveReportDocument,
+  type ReportBlockRowInput,
+  type ResolvedReportBlock,
+} from "@shared/report/report-document";
+import type { ReportKind } from "@shared/report/report-variants";
 
 /** Блок документа, каким его держит черновик редактора. */
 export interface DraftBlock {
@@ -77,6 +82,37 @@ export function insertBlock(blocks: readonly DraftBlock[], at: number, block: Dr
 /** Удалить блок вместе с его содержимым. Системным блокам эта операция не предлагается. */
 export function removeBlock(blocks: readonly DraftBlock[], index: number): DraftBlock[] {
   return blocks.filter((_, i) => i !== index);
+}
+
+/** Разрешённый блок в форме черновика редактора. */
+function draftOf(block: ResolvedReportBlock): DraftBlock {
+  return {
+    block: block.block,
+    templateKey: block.templateKey,
+    enabled: block.enabled,
+    values: block.values,
+    settings: block.settings,
+    ...(block.appended ? { appended: true } : {}),
+  };
+}
+
+/**
+ * Собрать НАЧАЛЬНЫЙ черновик документа: сохранённые строки теста плюс правила §5.1.
+ *
+ * Зовётся ОДИН раз на загрузку, а не на каждую правку. Разрешение дописывает в конец блоки,
+ * которых в строках нет, и пропускает те, которых шаблон не знает; примени его к каждому
+ * изменению — оно спорило бы с автором на каждом нажатии, возвращая только что убранное.
+ *
+ * @returns `null` — шаблон блоков не объявил: он печатает цельную раскладку, и собирать в
+ *   нём нечего (§5.4). Это НЕ то же, что пустой список: пустой список — законный документ.
+ */
+export function initialReportDraft(
+  manifest: unknown,
+  kind: ReportKind,
+  saved: readonly DraftBlock[] = [],
+): DraftBlock[] | null {
+  const resolved = resolveReportDocument(manifest, kind, toRowInputs(saved));
+  return resolved.monolithic ? null : resolved.blocks.map(draftOf);
 }
 
 /**

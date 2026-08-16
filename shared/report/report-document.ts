@@ -56,6 +56,19 @@ export interface ResolvedReportBlock {
   placeholders: ReportBlockPlaceholder[];
   values: Record<string, unknown>;
   settings: Record<string, unknown>;
+  /**
+   * Вариант, ВЫБРАННЫЙ автором; `null` — умолчание блока. Печати он не нужен (она уже
+   * получила `layoutFile`), но нужен редактору: черновик обязан помнить выбор автора, а не
+   * пересчитывать его из раскладки. Хранится РОВНО то, что пришло строкой, даже если такого
+   * варианта шаблон больше не знает и печать деградировала к умолчанию: вернувшийся шаблон
+   * вернёт автору его выбор.
+   */
+  templateKey: string | null;
+  /**
+   * Блок дописан разрешением, а не автором: шаблон объявил его после того, как документ был
+   * собран (§5.1). Редактор метит такую строку — без метки она читается как забытая.
+   */
+  appended: boolean;
 }
 
 /** Разрешённый документ. */
@@ -71,12 +84,13 @@ export interface ResolvedReportDocument {
 }
 
 /** Объявление варианта блока в манифесте (подмножество). */
-interface BlockVariant {
+export interface BlockVariant {
   key: string;
   block: string;
   kinds?: string[];
   layoutFile?: string;
   isDefault?: boolean;
+  label?: string;
   placeholders?: unknown;
 }
 
@@ -87,8 +101,12 @@ interface BlockVariant {
  * адаптивного отчёта — карточка темы говорит то процентами, то подтверждённым уровнем, —
  * и без отбора умолчанием блока стала бы та раскладка, что объявлена раньше. Вариант без
  * `kinds` служит всем видам: так объявлены блоки, у которых различий нет.
+ *
+ * Экспортируется ради редактора: палитра и список блоков обязаны предлагать РОВНО то, что
+ * увидит рендерер. Второй отбор по своим правилам означал бы, что автор выбирает вариант,
+ * которого печать не знает.
  */
-function blockVariants(manifest: unknown, kind: ReportKind): BlockVariant[] {
+export function blockVariants(manifest: unknown, kind: ReportKind): BlockVariant[] {
   const list = (manifest as { contentTemplates?: unknown[] } | null)?.contentTemplates;
   if (!Array.isArray(list)) return [];
   return list.filter((v): v is BlockVariant => {
@@ -146,7 +164,7 @@ export function resolveReportDocument(
   const known = (block: string): boolean =>
     block === REPORT_PAGE_BREAK_BLOCK || defaultOf.has(block);
 
-  const build = (input: ReportBlockRowInput): ResolvedReportBlock => {
+  const build = (input: ReportBlockRowInput, appended = false): ResolvedReportBlock => {
     const nature = reportBlockNature(input.block);
     if (nature === "page-break") {
       return {
@@ -157,6 +175,8 @@ export function resolveReportDocument(
         placeholders: [],
         values: {},
         settings: {},
+        templateKey: null,
+        appended,
       };
     }
     // Вариант, которого шаблон больше не объявляет, деградирует к умолчанию СВОЕГО блока:
@@ -170,6 +190,10 @@ export function resolveReportDocument(
       placeholders: placeholdersOf(chosen),
       values: input.valuesJson ?? {},
       settings: input.settingsJson ?? {},
+      // Именно строка, а не `chosen.key`: выбор автора переживает пропажу варианта из
+      // шаблона, хотя печать на время этой пропажи деградирует к умолчанию блока.
+      templateKey: input.templateKey ?? null,
+      appended,
     };
   };
 
@@ -200,7 +224,7 @@ export function resolveReportDocument(
 
   const ordered = [...rows].sort((a, b) => a.sortOrder - b.sortOrder);
   const skipped = ordered.filter((r) => !known(r.block)).map((r) => r.block);
-  const blocks = ordered.filter((r) => known(r.block)).map(build);
+  const blocks = ordered.filter((r) => known(r.block)).map((r) => build(r));
 
   // Блок, появившийся в шаблоне ПОСЛЕ того, как автор собрал документ, дописывается в
   // КОНЕЦ и ВЫКЛЮЧЕННЫМ: молча вставить в середину чужого документа новый раздел нельзя,
@@ -208,7 +232,7 @@ export function resolveReportDocument(
   const present = new Set(ordered.map((r) => r.block));
   for (const block of declared) {
     if (present.has(block) || !known(block)) continue;
-    blocks.push(build(defaultRow(block, false)));
+    blocks.push(build(defaultRow(block, false), true));
   }
 
   return { blocks, skipped, monolithic: false };

@@ -469,6 +469,23 @@ function BasicPane({
         designParams={design?.draft.params}
         value={model.report ?? {}}
         onChange={(next) => updateModel((m) => ({ ...m, report: next }))}
+        // PRD-51: документ ветви текущего режима. Сохранённые строки и черновик разведены:
+        // из первых разрешается начальный вид документа, второй появляется с первой правкой
+        // и только он уходит на сервер.
+        savedDocument={model.reportDocument?.saved?.[model.mode === "adaptive" ? "adaptive" : "standard"]}
+        document={model.reportDocument?.draft?.[model.mode === "adaptive" ? "adaptive" : "standard"]}
+        onDocumentChange={(next) =>
+          updateModel((m) => ({
+            ...m,
+            reportDocument: {
+              ...m.reportDocument,
+              draft: {
+                ...m.reportDocument?.draft,
+                [m.mode === "adaptive" ? "adaptive" : "standard"]: next,
+              },
+            },
+          }))
+        }
         // FR-18: предпросмотр строится на РЕАЛЬНОЙ структуре редактируемого теста.
         testName={model.basic.title}
         sections={model.sections.map((s) => ({

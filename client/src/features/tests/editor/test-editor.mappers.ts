@@ -61,6 +61,7 @@ import type {
 } from "./test-editor.types";
 import { DEFAULT_BREAKDOWN_DISPLAY } from "./test-editor.types";
 import { makeQuestionOverride, type QuestionScoringOverride } from "./scoring-api";
+import { toRowInputs, type DraftBlock } from "./use-report-document";
 
 // ─── API response shape ───────────────────────────────────────────────────────
 
@@ -992,6 +993,39 @@ function readReportSettingsFromApi(api: ApiTestResponse): ReportSettings {
 }
 
 /**
+ * PRD-51: строки документа отчёта, как их отдаёт API, — в форму черновика редактора.
+ *
+ * Порядок берётся из `sortOrder` и тут же ЗАБЫВАЕТСЯ: дальше порядок несёт сама позиция в
+ * массиве. Два источника истины о порядке разошлись бы, и спорить с ними было бы нечем.
+ * Признака `appended` здесь нет: его ставит разрешение документа, а не база.
+ */
+function readReportDocumentFromApi(api: ApiTestResponse): {
+  standard?: DraftBlock[];
+  adaptive?: DraftBlock[];
+} {
+  const raw = (api as { reportBlocks?: unknown }).reportBlocks;
+  if (!isPlainObject(raw)) return {};
+  const out: { standard?: DraftBlock[]; adaptive?: DraftBlock[] } = {};
+  for (const mode of ["standard", "adaptive"] as const) {
+    const rows = (raw as Record<string, unknown>)[mode];
+    if (!Array.isArray(rows)) continue;
+    out[mode] = rows
+      .filter(isPlainObject)
+      .map((r) => r as Record<string, unknown>)
+      .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
+      .map((r) => ({
+        block: String(r.block ?? ""),
+        templateKey: typeof r.templateKey === "string" ? r.templateKey : null,
+        enabled: r.enabled !== false,
+        values: isPlainObject(r.valuesJson) ? (r.valuesJson as Record<string, unknown>) : {},
+        settings: isPlainObject(r.settingsJson) ? (r.settingsJson as Record<string, unknown>) : {},
+      }))
+      .filter((b) => b.block.length > 0);
+  }
+  return out;
+}
+
+/**
  * Normalize `tests.retake_policy_json` into the editor's {@link RetakePolicy}.
  * Tolerates the legacy `cooldownDays` alias and missing/partial fields; an
  * absent/!object value yields the disabled default (PRD-6 FR-02).
@@ -1232,6 +1266,7 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
     measurements: buildMeasurementsFromApi(src, scalesModel),
     retakePolicy: readRetakePolicyFromApi(src),
     report: readReportSettingsFromApi(src),
+    reportDocument: { saved: readReportDocumentFromApi(src) },
     intro: readIntroFromApi(src),
     scoring: {
       defaultQuestionPoints:
@@ -1262,6 +1297,11 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     assets: stripScormHref(model.basic.feedbackAssets),
     events: model.basic.feedbackEvents,
   };
+
+  // PRD-51: правится ветвь ТЕКУЩЕГО режима; ветвь другого лежит в базе нетронутой, и
+  // сервер её не касается (замена идёт по паре «тест + режим»).
+  const documentDraft =
+    model.reportDocument?.draft?.[model.mode === "adaptive" ? "adaptive" : "standard"];
 
   const payload: TestSettingsPayload = {
     title: model.basic.title,
@@ -1323,6 +1363,10 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     // PRD-15 block D (FR-31): test-wide default price (null = system default).
     // Defensive `?.` — drafts persisted before block D have no scoring slice.
     defaultQuestionPoints: model.scoring?.defaultQuestionPoints ?? null,
+    // PRD-51: документ уходит на сервер ТОЛЬКО если автор его правил. Отсутствие поля
+    // означает «не трогать», и это не то же, что пустой список: пустой список стёр бы
+    // документ теста, документа не собиравшего, — сохранением с чужой вкладки.
+    ...(documentDraft ? { reportBlocks: toRowInputs(documentDraft) } : {}),
     expectedVersion: model.version,
     folderId: model.folderId,
   };

@@ -315,7 +315,15 @@ async function loadFullTest(testId: string): Promise<Record<string, unknown> | n
   // for the editor's status indicator and the «Опубликовать изменения» action.
   const publication = await getPublicationState(test.id);
 
-  return { ...test, sections: sectionsWithDetails, adaptiveSettings, resultVariables, scales, measurements, questionScoring, publication };
+  // PRD-51: документ отчёта — ОБЕ ветви режима. Редактор правит ветвь текущего режима, но
+  // хранятся обе: тест, переключённый на адаптивный и обратно, не должен терять собранный
+  // документ (та же схема, что у `report_settings_json`).
+  const reportBlocks = {
+    standard: await storage.listReportBlocks(test.id, "standard"),
+    adaptive: await storage.listReportBlocks(test.id, "adaptive"),
+  };
+
+  return { ...test, sections: sectionsWithDetails, adaptiveSettings, resultVariables, scales, measurements, questionScoring, publication, reportBlocks };
 }
 
 // GET /api/tests - Список тестов

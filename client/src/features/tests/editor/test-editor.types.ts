@@ -9,6 +9,7 @@
 
 import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { DraftBlock } from "./use-report-document";
+import type { ReportBlockRowInput } from "@shared/report/report-document";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
@@ -574,7 +575,16 @@ export type TestEditorModel = {
    * список: без строк печатается документ по умолчанию шаблона, а пустой список —
    * осознанное «печатать нечего». Потребители обязаны различать эти два случая.
    */
-  reportDocument?: { standard?: DraftBlock[]; adaptive?: DraftBlock[] };
+  reportDocument?: {
+    /**
+     * Строки, ПРИШЕДШИЕ ИЗ БАЗЫ. Правкой не меняются: из них один раз разрешается
+     * начальный вид документа (правила §5.1 — дописать новое, пропустить неизвестное), и
+     * применять эти правила к каждому нажатию значило бы спорить с автором.
+     */
+    saved?: { standard?: DraftBlock[]; adaptive?: DraftBlock[] };
+    /** Черновик автора; появляется с ПЕРВОЙ правкой и только тогда уходит на сервер. */
+    draft?: { standard?: DraftBlock[]; adaptive?: DraftBlock[] };
+  };
   /** Вводные блоки экрана итогов и отчёта (`tests.intro_json`, PRD-27 §7.1). */
   intro?: TestIntro;
   /**
@@ -662,6 +672,12 @@ export type TestSettingsPayload = {
   sectionGroupsJson?: SectionGroup[] | null;
   /** PRD-15 block D (FR-31): test-wide default price; `null` = system (1). */
   defaultQuestionPoints: number | null;
+  /**
+   * PRD-51: документ отчёта ветви ТЕКУЩЕГО режима, в порядке печати. ОТСУТСТВИЕ поля =
+   * «не трогать»: сохранение с другой вкладки не должно стирать документ. Пустой массив —
+   * осознанное «печатать нечего», и он документ действительно стирает.
+   */
+  reportBlocks?: ReportBlockRowInput[];
   expectedVersion: number;
   /** Only sent on create (FAB folder-pick). PUT path leaves it undefined and
    *  uses the dedicated `/api/test-folders/move/:id` endpoint instead. */
