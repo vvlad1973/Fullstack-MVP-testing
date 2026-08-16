@@ -323,7 +323,32 @@ async function exportResultsToPDF(results, testName, learnerName, timestamp) {
       ? TB.buildAdaptiveReportContext(Object.assign({}, meta, { result: pdfAdaptiveInput(results) }), opts)
       : TB.buildReportContext(Object.assign({}, meta, { result: pdfStandardInput(results) }), opts);
 
-    var fileName = await TB.exportReportPdf({ layout: layout, context: context }, testName, {
+    // PRD-51: ДОКУМЕНТ ИЗ БЛОКОВ. Состав разрешил СБОРЩИК пакета и запёк в `bake.document`
+    // — манифеста шаблона в LMS нет, и связать строку документа с раскладкой блока здесь
+    // нечем. Рантайму остаётся подставить каждому блоку его разметку тем же резолвером,
+    // каким он берёт макет оболочки, и отдать всё общей сборке.
+    //
+    // Пакет, собранный до PRD-51, поля не имеет — печатается прежняя цельная раскладка.
+    var page = { layout: layout, context: context };
+    var doc = bake && bake.document;
+    if (doc && doc.blocks && doc.blocks.length) {
+      var blocks = [];
+      for (var i = 0; i < doc.blocks.length; i++) {
+        var b = doc.blocks[i];
+        // Разрыв листа раскладки не имеет вовсе; у остальных блок без разметки
+        // пропускается: напечатать пустоту на месте раздела честнее, чем уронить весь
+        // документ из-за одного не доехавшего файла.
+        var markup = b.layoutFile ? pdfReportLayout(b.layoutFile) : '';
+        if (b.nature !== 'page-break' && !markup) continue;
+        blocks.push(Object.assign({}, b, { layout: markup }));
+      }
+      if (blocks.length) {
+        page.shell = layout;
+        page.blocks = blocks;
+      }
+    }
+
+    var fileName = await TB.exportReportPdf(page, testName, {
       jsPDF: window.jspdf && window.jspdf.jsPDF,
       html2canvas: window.html2canvas
     });
