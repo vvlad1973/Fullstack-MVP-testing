@@ -42,3 +42,56 @@ describe("лист документа «Сертификации» светлы�
     expect(css).toMatch(/\.tb-report\.is-fail\s+\.tb-report__mark::before/);
   });
 });
+
+const manifest = JSON.parse(fs.readFileSync(path.join(CERT, "manifest.json"), "utf8"));
+const blocks = (manifest.contentTemplates as Array<Record<string, unknown>>).filter(
+  (v) => v.kind === "report.block",
+);
+
+/** Виды, которым служит вариант: без `kinds` — оба. */
+const kindsOf = (b: Record<string, unknown>): string[] =>
+  Array.isArray(b.kinds) ? (b.kinds as string[]) : ["report", "report.adaptive"];
+
+describe("манифест «Сертификации» объявляет документ", () => {
+  it("объявляет вариант каждого системного блока обычного отчёта", () => {
+    const forReport = blocks.filter((b) => kindsOf(b).includes("report") && b.block !== "page");
+    expect(forReport.map((b) => b.block).sort()).toEqual([
+      "breakdown", "courses", "events", "header", "indicators",
+      "intro", "recommendations", "scales", "summary", "topics",
+    ]);
+  });
+
+  it("на блок ровно одно умолчание для каждого вида", () => {
+    for (const kind of ["report", "report.adaptive"]) {
+      const seen = new Map<string, number>();
+      for (const b of blocks) {
+        if (!kindsOf(b).includes(kind) || !b.isDefault) continue;
+        seen.set(String(b.block), (seen.get(String(b.block)) ?? 0) + 1);
+      }
+      for (const [block, n] of seen) {
+        expect(n, `${kind}: у блока ${block} умолчаний ${n}`).toBe(1);
+      }
+    }
+  });
+
+  it("объявляет документ по умолчанию для обоих видов", () => {
+    expect(manifest.reportDocument.report).toEqual([
+      "header", "intro", "page-break", "topics", "page-break",
+      "summary", "breakdown", "scales", "indicators", "recommendations", "courses", "events",
+    ]);
+    expect(manifest.reportDocument["report.adaptive"][0]).toBe("header");
+  });
+
+  it("каждая объявленная раскладка лежит в шаблоне", () => {
+    for (const b of blocks) {
+      expect(fs.existsSync(path.join(CERT, String(b.layoutFile))), `нет файла ${b.layoutFile}`).toBe(true);
+    }
+  });
+
+  it("даёт автору три варианта страницы: одна колонка, две, три", () => {
+    const pages = blocks.filter((b) => b.block === "page");
+    expect(pages).toHaveLength(3);
+    // Страница служит ОБОИМ видам: авторский текст не зависит от того, адаптивен ли тест.
+    for (const p of pages) expect(p.kinds, `${p.key} привязан к виду`).toBeUndefined();
+  });
+});
