@@ -1,0 +1,115 @@
+<!-- РАЗДЕЛЫ. Состав и счётчик считает ЯДРО (PRD-50): `result.topicGroups` появляется
+     только у теста, где автор завёл блоки разделов, а плоский `result.topicResults`
+     остаётся ПОЛНЫМ — печатать оба значило бы вывести тему дважды. Три ветви и их порядок
+     те же, что у эталона: блоки, темы вне блоков, затем плоский список для теста без
+     блоков вовсе.
+
+     Отличие «Сертификации» — не в разметке, а в облике: блок разделов оформлен карточкой
+     со счётчиком в шапке, а темы внутри идут строками во всю ширину, а не ячейками сетки
+     (`styles/report.css`). Имена классов эталонные: они общий словарь двух шаблонов, по
+     которому написан гард селекторов. -->
+{{#if report.hasTopics}}
+<section class="tb-report__card">
+  {{#if labels.results.topics}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.topics }}</div>{{/if}}
+  {{#each result.topicGroups}}
+  <div class="tb-report__topic-group">
+    <div class="tb-report__topic-group-head">
+      {{#if label}}<div class="tb-report__topic-group-title">{{ label }}</div>{{/if}}
+      {{#if counterLabel}}<div class="tb-report__topic-group-counter">{{ counterLabel }}</div>{{/if}}
+    </div>
+    <div class="tb-report__topics">
+      {{#each topics}}
+      <div class="tb-report__topic {{ passClass }}">
+        <div class="tb-report__topic-stripe"></div>
+        <div class="tb-report__topic-head">
+          <div class="tb-report__topic-name">{{ topicName }}</div>
+          {{#if verdictLabel}}<div class="tb-report__topic-verdict">{{ verdictLabel }}</div>{{/if}}
+        </div>
+        <div class="tb-report__topic-stats">
+          <span>{{ countsLabel }}</span>
+          <span>{{ pointsFixedLabel }}</span>
+        </div>
+        <div class="tb-report__topic-bar"><div class="tb-report__topic-bar-fill" style="width: {{ barPercent }}%;"></div></div>
+        <!-- РАЗРЕЗЫ (PRD-50). В отличие от референса полоса показывает реальную долю и
+             называет значение: полоса, кодирующая цветом один лишь уровень, числа не
+             сообщает (§10.2, решение владельца). -->
+        {{#if breakdown}}
+        <div class="tb-report__breakdown">
+          {{#each breakdown}}
+          <div class="tb-report__breakdown-row {{ passClass }}" data-item="{{ key }}">
+            <div class="tb-report__breakdown-name">{{ key }}{{#if statusLabel}}<span class="tb-report__breakdown-status">{{ statusLabel }}</span>{{/if}}</div>
+            <div class="tb-report__breakdown-bar"><span style="width: {{ barPercent }}%;"></span></div>
+            {{#if showValue}}<div class="tb-report__breakdown-val">{{ valueLabel }}</div>{{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  {{/each}}
+  {{#if result.ungroupedTopics}}
+  <div class="tb-report__topic-group">
+    <div class="tb-report__topics">
+      {{#each result.ungroupedTopics}}
+      <div class="tb-report__topic {{ passClass }}">
+        <div class="tb-report__topic-stripe"></div>
+        <div class="tb-report__topic-head">
+          <div class="tb-report__topic-name">{{ topicName }}</div>
+          {{#if verdictLabel}}<div class="tb-report__topic-verdict">{{ verdictLabel }}</div>{{/if}}
+        </div>
+        <div class="tb-report__topic-stats">
+          <span>{{ countsLabel }}</span>
+          <span>{{ pointsFixedLabel }}</span>
+        </div>
+        <div class="tb-report__topic-bar"><div class="tb-report__topic-bar-fill" style="width: {{ barPercent }}%;"></div></div>
+        {{#if breakdown}}
+        <div class="tb-report__breakdown">
+          {{#each breakdown}}
+          <div class="tb-report__breakdown-row {{ passClass }}" data-item="{{ key }}">
+            <div class="tb-report__breakdown-name">{{ key }}{{#if statusLabel}}<span class="tb-report__breakdown-status">{{ statusLabel }}</span>{{/if}}</div>
+            <div class="tb-report__breakdown-bar"><span style="width: {{ barPercent }}%;"></span></div>
+            {{#if showValue}}<div class="tb-report__breakdown-val">{{ valueLabel }}</div>{{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  {{/if}}
+  {{#unless result.topicGroups}}
+  <div class="tb-report__topic-group">
+    <div class="tb-report__topics">
+      {{#each result.topicResults}}
+      <div class="tb-report__topic {{ passClass }}">
+        <div class="tb-report__topic-stripe"></div>
+        <div class="tb-report__topic-head">
+          <div class="tb-report__topic-name">{{ topicName }}</div>
+          {{#if verdictLabel}}<div class="tb-report__topic-verdict">{{ verdictLabel }}</div>{{/if}}
+        </div>
+        <div class="tb-report__topic-stats">
+          <span>{{ countsLabel }}</span>
+          <span>{{ pointsFixedLabel }}</span>
+        </div>
+        <div class="tb-report__topic-bar"><div class="tb-report__topic-bar-fill" style="width: {{ barPercent }}%;"></div></div>
+        {{#if breakdown}}
+        <div class="tb-report__breakdown">
+          {{#each breakdown}}
+          <div class="tb-report__breakdown-row {{ passClass }}" data-item="{{ key }}">
+            <div class="tb-report__breakdown-name">{{ key }}{{#if statusLabel}}<span class="tb-report__breakdown-status">{{ statusLabel }}</span>{{/if}}</div>
+            <div class="tb-report__breakdown-bar"><span style="width: {{ barPercent }}%;"></span></div>
+            {{#if showValue}}<div class="tb-report__breakdown-val">{{ valueLabel }}</div>{{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  {{/unless}}
+</section>
+{{/if}}
