@@ -392,6 +392,10 @@ export function ReportSettingsCard(props: {
         testName={props.testName ?? ""}
         sections={props.sections ?? []}
         levelNames={props.levelNames}
+        // PRD-51 FR-18: документ ЧЕРНОВИКА, включая ещё не сохранённый текст страниц.
+        // Предпросмотр, показывающий сохранённое, отвечал бы не на тот вопрос, ради
+        // которого его открывают.
+        document={doc ?? undefined}
       />
     </Card>
   );

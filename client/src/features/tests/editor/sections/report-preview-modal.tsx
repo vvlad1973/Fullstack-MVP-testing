@@ -32,6 +32,7 @@ import { buildReportPages, PAGE_WIDTH_PX } from "@shared/report/paginate-dom";
 import { reportImageKeys, resolveReportImageValues } from "@shared/report/report-assets";
 import { useTemplateBundle } from "./use-template-bundle";
 import type { ReportVariantOption } from "../use-report-variants";
+import { toRowInputs, type DraftBlock } from "../use-report-document";
 
 /** Что окно знает о редактируемом тесте (FR-18: структура реальная). */
 export interface ReportPreviewModalProps {
@@ -50,6 +51,12 @@ export interface ReportPreviewModalProps {
   sections: ReportPreviewSection[];
   /** Лестница уровней адаптивного теста. */
   levelNames?: string[];
+  /**
+   * PRD-51 FR-18: ДОКУМЕНТ, собранный автором, — черновик, а не сохранённое. Отсутствует
+   * (или пуст) — показывается документ по умолчанию шаблона: ровно его сегодня и получит
+   * слушатель у теста, документа не собиравшего.
+   */
+  document?: DraftBlock[];
 }
 
 /** Склонение слова «страница» для подписи «N страниц A4». */
@@ -73,6 +80,7 @@ export function ReportPreviewModal({
   testName,
   sections,
   levelNames,
+  document,
 }: ReportPreviewModalProps) {
   const [outcome, setOutcome] = useState<ReportPreviewOutcome>("failed");
   const bundleQuery = useTemplateBundle(templateId, open);
@@ -92,23 +100,27 @@ export function ReportPreviewModal({
    * PRD-51: блоки ДОКУМЕНТА и их раскладки.
    *
    * Состав считает та же функция, что и обе выдачи, а раскладки берутся из бандла
-   * шаблона по объявленному пути. Строки теста сюда пока не передаются: собрать документ
-   * автору ещё нечем — редактор документа приезжает отдельным этапом, — поэтому
-   * предпросмотр показывает документ ПО УМОЛЧАНИЮ шаблона. Это честный ответ: ровно его
-   * сегодня и получит слушатель.
+   * шаблона по объявленному пути. Строки — ЧЕРНОВИК автора: предпросмотр обязан
+   * показывать несохранённое, иначе он отвечает не на тот вопрос, ради которого его
+   * открывают. Пустой черновик даёт документ по умолчанию шаблона — ровно его и получит
+   * слушатель у теста, документа не собиравшего.
    *
    * Шаблон без блоков даёт пустой список, и окно рисует прежнюю цельную раскладку.
    */
   const blocks = useMemo<ReportBlockToRender[]>(() => {
     if (!bundle) return [];
-    const doc = resolveReportDocument(bundle.manifest, reportKindForMode(mode), []);
+    const doc = resolveReportDocument(
+      bundle.manifest,
+      reportKindForMode(mode),
+      toRowInputs(document ?? []),
+    );
     if (!doc || doc.monolithic) return [];
     return doc.blocks
       .map((b) => ({ ...b, layout: b.layoutFile ? (bundle.layouts[b.layoutFile] ?? "") : "" }))
       // Блок, чьей раскладки в бандле нет, молча пропускается: показать вместо него
       // пустоту честнее, чем уронить всё окно из-за одного отсутствующего файла.
       .filter((b) => b.nature === "page-break" || b.layout.length > 0);
-  }, [bundle, mode]);
+  }, [bundle, mode, document]);
 
   // Картинки вида объявлены путями внутри шаблона (FR-05), а браузер видит файлы
   // шаблона только через роут ассетов. Без этого автор смотрел бы предпросмотр без

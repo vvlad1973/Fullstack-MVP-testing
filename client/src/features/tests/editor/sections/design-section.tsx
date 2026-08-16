@@ -298,6 +298,15 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
                 designParams={design.draft.params}
                 value={model.report ?? {}}
                 onChange={(next) => updateModel((m) => ({ ...m, report: next }))}
+                // PRD-51: список блоков здесь не рисуется (это облик, а не содержание), но
+                // ПРЕДПРОСМОТР обязан показать тот же документ, что и в «Настройках»: два
+                // окна с одной кнопкой, показывающие разное, — это не выбор, а ошибка.
+                savedDocument={
+                  model.reportDocument?.saved?.[model.mode === "adaptive" ? "adaptive" : "standard"]
+                }
+                document={
+                  model.reportDocument?.draft?.[model.mode === "adaptive" ? "adaptive" : "standard"]
+                }
                 // FR-18: предпросмотр строится на РЕАЛЬНОЙ структуре редактируемого теста —
                 // его названии и разделах; демонстрационные только числа и вердикты.
                 testName={model.basic.title}
