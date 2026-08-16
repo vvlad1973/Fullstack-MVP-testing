@@ -15,6 +15,16 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { reportBlocks, type ReportBlockRow, type InsertReportBlockRow } from "@shared/schema";
 
+/**
+ * Исполнитель запросов: глобальное соединение либо дескриптор ЧУЖОЙ транзакции.
+ *
+ * Нужен потому, что документ сохраняется вместе с остальным ящиком настроек
+ * (`TestSettingsService.save`), а та транзакция уже открыта и работает своим `tx`.
+ * Вызвать здесь `db.transaction` значило бы открыть ВТОРУЮ — и откат ящика документ бы
+ * не забрал.
+ */
+type Executor = Pick<typeof db, "delete" | "insert">;
+
 /** Режим теста, которому принадлежит документ. */
 export type ReportDocumentMode = "standard" | "adaptive";
 
@@ -57,11 +67,28 @@ export class ReportBlocksRepository {
     blocks: readonly ReportBlockInput[],
   ): Promise<void> {
     await db.transaction(async (tx) => {
-      await tx
-        .delete(reportBlocks)
-        .where(and(eq(reportBlocks.testId, testId), eq(reportBlocks.mode, mode)));
-      if (!blocks.length) return;
-      await tx.insert(reportBlocks).values(blocks.map((b) => ({ ...b, testId, mode })));
+      await replaceReportBlocksIn(tx, testId, mode, blocks);
     });
   }
+}
+
+/**
+ * Заменить документ режима ЗАДАННЫМ исполнителем.
+ *
+ * Отдельная функция, а не метод: её зовут из ДВУХ мест — этот репозиторий (со своей
+ * транзакцией) и служба сохранения настроек (со своей, уже открытой). Второй реализации
+ * замены быть не должно: они разошлись бы, и документ, сохранённый с одного экрана, стал
+ * бы отличаться от сохранённого с другого.
+ *
+ * @param exec Соединение или дескриптор транзакции.
+ */
+export async function replaceReportBlocksIn(
+  exec: Executor,
+  testId: string,
+  mode: ReportDocumentMode,
+  blocks: readonly ReportBlockInput[],
+): Promise<void> {
+  await exec.delete(reportBlocks).where(and(eq(reportBlocks.testId, testId), eq(reportBlocks.mode, mode)));
+  if (!blocks.length) return;
+  await exec.insert(reportBlocks).values(blocks.map((b) => ({ ...b, testId, mode })));
 }
