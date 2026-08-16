@@ -631,6 +631,35 @@ export function buildTestJson(data: ExportData): string {
     });
   }
 
+  // PRD-51: ДОКУМЕНТ ОТЧЁТА теста. В пакет едут СЫРЫЕ строки: связать их с раскладками
+  // блоков может только сторона, видящая манифест шаблона, и делает это сборщик
+  // (`resolveReportBundle`), а не рантайм.
+  //
+  // Значения областей чистятся повторно ТЕМ ЖЕ вызовом, каким чистятся значения
+  // контентных страниц: в пакете разметка попадает в НАСТОЯЩИЙ документ, где вставленное
+  // автором правило `body { … }` перекрасило бы плеер. Повторная очистка идемпотентна и
+  // заодно чинит строки, сохранённые до появления очистки на сервере.
+  if (data.reportBlocks && data.reportBlocks.length > 0) {
+    test.reportBlocks = data.reportBlocks.map((row) => {
+      const values: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row.valuesJson ?? {})) {
+        values[k] = typeof v === "string" ? sanitizeHtml(v, { scope: placeholderScope(k) }) : v;
+      }
+      const settings: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row.settingsJson ?? {})) {
+        settings[k] = typeof v === "string" ? sanitizeHtml(v) : v;
+      }
+      return {
+        block: row.block,
+        templateKey: row.templateKey,
+        sortOrder: row.sortOrder,
+        enabled: row.enabled,
+        values,
+        settings,
+      };
+    });
+  }
+
   // PRD-2: user-defined result variables, ordered by sort_order. The runtime
   // (resultsPage.js) evaluates `formula` via FormulaDSL after standard scoring
   // and publishes result.*; `controlsStatus` may override pass/completion.
