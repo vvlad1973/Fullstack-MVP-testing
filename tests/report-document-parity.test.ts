@@ -63,7 +63,7 @@ function renderFromBlocks(context: unknown): string {
 }
 
 describe("паритет документа отчёта", () => {
-  const context = buildReportFixtureContext();
+  const context = buildReportFixtureContext(MANIFEST);
   const fromBlocks = renderFromBlocks(context);
   const monolithic = renderMonolithic(context);
 
@@ -78,6 +78,7 @@ describe("паритет документа отчёта", () => {
     ["разрезы в теме", "tb-report__breakdown-row"],
     ["сводный разрез", "tb-report__breakdown--block"],
     ["рекомендации", "tb-report__rec"],
+    ["зонтичный заголовок", "tb-report__title--tight"],
   ])("фикстура наполнила раздел: %s", (_name, marker) => {
     expect(monolithic).toContain(marker);
   });

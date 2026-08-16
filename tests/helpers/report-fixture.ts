@@ -12,6 +12,7 @@
  * проверяет сам тест — по маркерам в разметке.
  */
 import { buildReportContext } from "@shared/report/report-context";
+import { resolveReportBake } from "@shared/report/report-variants";
 import type { ReportInput } from "@shared/report/report-html";
 import type { ReportRenderContext } from "@shared/report/report-context";
 
@@ -80,6 +81,11 @@ const STANDARD: ReportInput = {
  * Разрезы включаются настройкой показа: без неё ядро не кладёт в строку темы ни одной
  * полосы, и половина сравниваемой разметки просто не родилась бы.
  */
-export function buildReportFixtureContext(): ReportRenderContext {
-  return buildReportContext(STANDARD);
+export function buildReportFixtureContext(manifest: unknown): ReportRenderContext {
+  // Словарь надписей разрешается ТЕМ ЖЕ путём, каким его получает документ у обоих
+  // хостов. Без него заголовки, гейтящиеся словарём (в том числе зонтичный «Ваш
+  // результат»), не рождаются вовсе — и сравнение молча не проверяло бы ни их наличие,
+  // ни их МЕСТО в документе.
+  const bake = resolveReportBake(manifest, "report", null, "");
+  return buildReportContext(STANDARD, { labels: bake.labels });
 }
