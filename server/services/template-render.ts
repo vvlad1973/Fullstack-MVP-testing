@@ -281,7 +281,13 @@ export function readReportLabelKeys(dir: string): string[] | null {
     if (variants.length === 0) return null;
     const declarations = readResultsDeclarations(dir).labels;
     if (declarations.length === 0) return [];
-    const layouts = variants
+    // PRD-51: искать надо и в раскладках БЛОКОВ документа, а не только в цельной оболочке.
+    // С разбором отчёта на блоки надписи переехали в них: зонтичный заголовок живёт теперь
+    // в `layouts/report/summary.html`, и сканер, читавший одну оболочку, переставал
+    // предлагать автору половину словаря — редактор надписей молча пустел.
+    const blockVariants = (manifest as { contentTemplates?: Array<{ kind?: string; layoutFile?: unknown }> })
+      ?.contentTemplates?.filter((v) => v?.kind === "report.block") ?? [];
+    const layouts = [...variants, ...blockVariants]
       .map((v) => (typeof v.layoutFile === "string" ? readFileSafe(path.join(dir, v.layoutFile)) : ""))
       .filter(Boolean);
     return declarations
