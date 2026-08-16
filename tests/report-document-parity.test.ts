@@ -17,7 +17,10 @@ import { describe, expect, it } from "vitest";
 import { renderScreenInto } from "@shared/template/render-screen";
 import { renderReportInto } from "@shared/report/render-report";
 import { resolveReportDocument } from "@shared/report/report-document";
-import { buildReportFixtureContext } from "./helpers/report-fixture";
+import {
+  buildReportFixtureContext,
+  buildAdaptiveReportFixtureContext,
+} from "./helpers/report-fixture";
 
 const DIR = path.resolve(__dirname, "../server/scorm/templates/default");
 const read = (p: string): string => fs.readFileSync(path.join(DIR, p), "utf8");
@@ -44,18 +47,18 @@ const normalize = (html: string): string =>
     .replace(/>\s+</g, "><")
     .trim();
 
-function renderMonolithic(context: unknown): string {
+function renderMonolithic(context: unknown, layoutFile: string): string {
   const stage = document.createElement("div");
-  renderScreenInto(stage, { layout: read("layouts/report.html"), context });
+  renderScreenInto(stage, { layout: read(layoutFile), context });
   return (stage.firstElementChild as HTMLElement).innerHTML;
 }
 
-function renderFromBlocks(context: unknown): string {
-  const doc = resolveReportDocument(MANIFEST, "report");
+function renderFromBlocks(context: unknown, kind: "report" | "report.adaptive", shellFile: string): string {
+  const doc = resolveReportDocument(MANIFEST, kind);
   expect(doc.monolithic, "шаблон обязан быть переведён на блоки").toBe(false);
   const stage = document.createElement("div");
   renderReportInto(stage, {
-    shell: read("layouts/report/shell.html"),
+    shell: read(shellFile),
     context,
     blocks: doc.blocks.map((b) => ({ ...b, layout: b.layoutFile ? read(b.layoutFile) : "" })),
   });
@@ -64,8 +67,8 @@ function renderFromBlocks(context: unknown): string {
 
 describe("паритет документа отчёта", () => {
   const context = buildReportFixtureContext(MANIFEST);
-  const fromBlocks = renderFromBlocks(context);
-  const monolithic = renderMonolithic(context);
+  const fromBlocks = renderFromBlocks(context, "report", "layouts/report/shell.html");
+  const monolithic = renderMonolithic(context, "layouts/report.html");
 
   // Фикстура обязана открыть гейты: сравнение двух пустых документов сошлось бы и не
   // доказало бы ничего. Маркеры проверяются на ЭТАЛОНЕ — если раздел не родился там,
@@ -79,6 +82,28 @@ describe("паритет документа отчёта", () => {
     ["сводный разрез", "tb-report__breakdown--block"],
     ["рекомендации", "tb-report__rec"],
     ["зонтичный заголовок", "tb-report__title--tight"],
+  ])("фикстура наполнила раздел: %s", (_name, marker) => {
+    expect(monolithic).toContain(marker);
+  });
+
+  it("документ из блоков совпадает с цельной раскладкой", () => {
+    expect(normalize(fromBlocks)).toBe(normalize(monolithic));
+  });
+});
+
+describe("паритет документа адаптивного отчёта", () => {
+  const context = buildAdaptiveReportFixtureContext(MANIFEST);
+  const fromBlocks = renderFromBlocks(context, "report.adaptive", "layouts/report/adaptive/shell.html");
+  const monolithic = renderMonolithic(context, "layouts/report.adaptive.html");
+
+  it.each([
+    ["шапка", "tb-report__headline"],
+    ["вводный блок", "tb-report__intro"],
+    ["карточка названия", "tb-report__title--solid"],
+    ["зонтичный заголовок", "tb-report__title--tight"],
+    ["темы", "tb-report__topic"],
+    ["сводный разрез", "tb-report__breakdown--block"],
+    ["рекомендации", "tb-report__rec"],
   ])("фикстура наполнила раздел: %s", (_name, marker) => {
     expect(monolithic).toContain(marker);
   });

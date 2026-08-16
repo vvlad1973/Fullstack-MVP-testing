@@ -11,9 +11,9 @@
  * документов сошлось бы и ничего не доказало. Какие именно разделы удалось наполнить,
  * проверяет сам тест — по маркерам в разметке.
  */
-import { buildReportContext } from "@shared/report/report-context";
+import { buildReportContext, buildAdaptiveReportContext } from "@shared/report/report-context";
 import { resolveReportBake } from "@shared/report/report-variants";
-import type { ReportInput } from "@shared/report/report-html";
+import type { ReportInput, AdaptiveReportInput } from "@shared/report/report-html";
 import type { ReportRenderContext } from "@shared/report/report-context";
 
 /** Попытка со всеми разделами: темы в блоках, разрезы, рекомендации, курсы, мероприятия. */
@@ -88,4 +88,42 @@ export function buildReportFixtureContext(manifest: unknown): ReportRenderContex
   // ни их МЕСТО в документе.
   const bake = resolveReportBake(manifest, "report", null, "");
   return buildReportContext(STANDARD, { labels: bake.labels });
+}
+
+/** Адаптивная попытка: подтверждённые уровни, разрезы, рекомендации и материалы. */
+const ADAPTIVE: AdaptiveReportInput = {
+  testName: "Сертификация руководителей",
+  learnerName: "Макарова Анна Васильевна",
+  timestamp: "2026-08-15T10:00:00.000Z",
+  adaptive: true,
+  intro: { text: "Поздравляем с прохождением тестирования!", format: "plain" },
+  breakdownDisplay: { visibility: "bar_and_value", basis: "units", placement: "both" },
+  result: {
+    passed: true,
+    breakdowns: [
+      { key: "Корпоративная культура", items: 4, answered: 4, earned: 3, possible: 4, percentUnits: 75, percentPoints: 75, passed: true },
+    ],
+    topicResults: [
+      {
+        topicName: "Управление командой",
+        achievedLevelIndex: 1,
+        achievedLevelName: "Целевой",
+        feedback: "Уровень подтверждён.",
+        recommendedCourses: [{ title: "Основы лидерства", url: "https://e/lead" }],
+      },
+      {
+        topicName: "Корпоративные финансы",
+        achievedLevelIndex: 0,
+        achievedLevelName: "Начальный",
+        feedback: "Уровень не подтверждён.",
+        recommendedCourses: [{ title: "Финансы для нефинансистов", url: "https://e/fin" }],
+      },
+    ],
+  },
+};
+
+/** Заполненный контекст АДАПТИВНОГО отчёта — по тем же правилам, что и обычного. */
+export function buildAdaptiveReportFixtureContext(manifest: unknown): ReportRenderContext {
+  const bake = resolveReportBake(manifest, "report.adaptive", null, "");
+  return buildAdaptiveReportContext(ADAPTIVE, { labels: bake.labels });
 }

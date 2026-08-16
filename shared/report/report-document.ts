@@ -74,24 +74,30 @@ export interface ResolvedReportDocument {
 interface BlockVariant {
   key: string;
   block: string;
+  kinds?: string[];
   layoutFile?: string;
   isDefault?: boolean;
   placeholders?: unknown;
 }
 
-/** Варианты блоков, объявленные манифестом. */
-function blockVariants(manifest: unknown): BlockVariant[] {
+/**
+ * Варианты блоков, объявленные манифестом ДЛЯ ЭТОГО ВИДА отчёта.
+ *
+ * Отбор по виду обязателен: один и тот же блок печатается по-разному у обычного и
+ * адаптивного отчёта — карточка темы говорит то процентами, то подтверждённым уровнем, —
+ * и без отбора умолчанием блока стала бы та раскладка, что объявлена раньше. Вариант без
+ * `kinds` служит всем видам: так объявлены блоки, у которых различий нет.
+ */
+function blockVariants(manifest: unknown, kind: ReportKind): BlockVariant[] {
   const list = (manifest as { contentTemplates?: unknown[] } | null)?.contentTemplates;
   if (!Array.isArray(list)) return [];
   return list.filter((v): v is BlockVariant => {
-    const raw = (v ?? {}) as { kind?: unknown; block?: unknown; key?: unknown };
-    return (
-      raw.kind === REPORT_BLOCK_KIND &&
-      typeof raw.key === "string" &&
-      raw.key.length > 0 &&
-      typeof raw.block === "string" &&
-      raw.block.length > 0
-    );
+    const raw = (v ?? {}) as { kind?: unknown; block?: unknown; key?: unknown; kinds?: unknown };
+    if (raw.kind !== REPORT_BLOCK_KIND) return false;
+    if (typeof raw.key !== "string" || !raw.key.length) return false;
+    if (typeof raw.block !== "string" || !raw.block.length) return false;
+    if (!Array.isArray(raw.kinds) || !raw.kinds.length) return true;
+    return (raw.kinds as unknown[]).includes(kind);
   });
 }
 
@@ -117,7 +123,7 @@ export function resolveReportDocument(
   /** Строки теста; пусто/не передано — документ по умолчанию шаблона. */
   rows: readonly ReportBlockRowInput[] = [],
 ): ResolvedReportDocument {
-  const variants = blockVariants(manifest);
+  const variants = blockVariants(manifest, kind);
   const declared = resolveReportDocumentDecl(manifest, kind);
   // Документ объявляется НА ВИД, а варианты блоков общие для обоих. Поэтому решает
   // именно `declared`: вид, для которого состав не объявлен, живёт по прежнему контракту

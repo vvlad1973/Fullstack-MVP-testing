@@ -73,6 +73,15 @@ export interface ReportBlockVariantDecl {
   kind: typeof REPORT_BLOCK_KIND;
   /** Ключ блока из реестра продукта ({@link module:shared/report/report-blocks}). */
   block: string;
+  /**
+   * Виды отчёта, которым служит этот вариант. ОТСУТСТВУЕТ — служит всем.
+   *
+   * Нужно потому, что один и тот же блок печатается по-разному в разных видах: карточка
+   * темы обычного отчёта говорит процентами, адаптивного — подтверждённым уровнем.
+   * Умолчание считается на пару «блок + вид», иначе двух раскладок одного блока не
+   * объявить вовсе.
+   */
+  kinds?: ReportKind[];
   layoutFile?: string;
   styleFile?: string;
   isDefault?: boolean;
@@ -385,7 +394,7 @@ function topLevelSelectors(css: string): string[] {
  * @param readFile Чтение файла пакета; без него проверяются только объявления.
  */
 function validateBlockVariant(
-  v: { key?: unknown; block?: unknown; layoutFile?: unknown; styleFile?: unknown; isDefault?: unknown },
+  v: { key?: unknown; block?: unknown; kinds?: unknown; layoutFile?: unknown; styleFile?: unknown; isDefault?: unknown },
   index: number,
   seenPerBlock: Map<string, number>,
   defaultsPerBlock: Map<string, number>,
@@ -415,8 +424,19 @@ function validateBlockVariant(
       message: "разрыв листа не имеет раскладки: это инструкция документу, а не блок содержимого",
     });
   } else {
-    seenPerBlock.set(block, (seenPerBlock.get(block) ?? 0) + 1);
-    if (v.isDefault === true) defaultsPerBlock.set(block, (defaultsPerBlock.get(block) ?? 0) + 1);
+    // Счёт ведётся по паре «блок + вид»: у обычного и адаптивного отчёта свои раскладки
+    // одного и того же блока, и требовать на них одно умолчание значило бы запретить
+    // адаптивному иметь собственную.
+    const kinds = Array.isArray(v.kinds) && v.kinds.length ? (v.kinds as string[]) : [...REPORT_KINDS];
+    for (const kind of kinds) {
+      if (!isReportKind(kind)) {
+        issues.push({ variantKey: key, ref: at("kinds"), message: `неизвестный вид отчёта "${String(kind)}"` });
+        continue;
+      }
+      const slot = `${block}@${kind}`;
+      seenPerBlock.set(slot, (seenPerBlock.get(slot) ?? 0) + 1);
+      if (v.isDefault === true) defaultsPerBlock.set(slot, (defaultsPerBlock.get(slot) ?? 0) + 1);
+    }
   }
 
   const layoutPath = typeof v.layoutFile === "string" ? v.layoutFile : "";
@@ -643,16 +663,17 @@ export function validateReportVariants(manifest: unknown, readFile?: ReportFileR
   // PRD-51: то же правило на КАЖДЫЙ блок. Вариантов у блока может быть несколько — это и
   // есть «Сменить вариант» в строке документа, — но умолчание обязано быть одно: иначе
   // строка, у которой автор варианта не выбирал, печаталась бы то одним, то другим.
-  for (const [block, count] of seenPerBlock) {
-    const defaults = defaultsPerBlock.get(block) ?? 0;
+  for (const [slot, count] of seenPerBlock) {
+    const defaults = defaultsPerBlock.get(slot) ?? 0;
     if (count > 0 && defaults !== 1) {
+      const [block, kind] = slot.split("@");
       issues.push({
         variantKey: block,
         ref: `contentTemplates.${REPORT_BLOCK_KIND}.${block}`,
         message:
           defaults === 0
-            ? `блок "${block}": ни один вариант не помечен isDefault`
-            : `блок "${block}": isDefault помечены ${defaults} варианта, допустим один`,
+            ? `блок "${block}" вида "${kind}": ни один вариант не помечен isDefault`
+            : `блок "${block}" вида "${kind}": isDefault помечены ${defaults} варианта, допустим один`,
       });
     }
   }
@@ -709,7 +730,7 @@ function validateReportDocumentDecl(
       seen.add(entry);
       // Разрыв листа раскладки не имеет, поэтому варианта у него и не ищем.
       if (entry === REPORT_PAGE_BREAK_BLOCK) continue;
-      if (!seenPerBlock.has(entry)) {
+      if (!seenPerBlock.has(`${entry}@${kind}`)) {
         issues.push({
           variantKey: kind,
           ref,
