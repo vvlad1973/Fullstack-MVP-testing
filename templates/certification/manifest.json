@@ -382,7 +382,7 @@
       "key": "report.standard",
       "label": "Отчёт: стандартный",
       "kind": "report",
-      "layoutFile": "layouts/report.html",
+      "layoutFile": "layouts/report/shell.html",
       "styleFile": "styles/report.css",
       "isDefault": true,
       "settings": [
@@ -428,8 +428,7 @@
           "key": "backgroundImage",
           "type": "image",
           "label": "Подложка страницы",
-          "description": "Фон страницы отчёта. Без изображения печатается градиент шаблона.",
-          "default": "assets/report/bg.png"
+          "description": "Фон страницы отчёта. Без изображения печатается светлый лист документа."
         },
         {
           "key": "logoImage",
@@ -451,7 +450,7 @@
       "key": "report.adaptive.standard",
       "label": "Отчёт: уровни",
       "kind": "report.adaptive",
-      "layoutFile": "layouts/report.adaptive.html",
+      "layoutFile": "layouts/report/adaptive/shell.html",
       "styleFile": "styles/report.css",
       "isDefault": true,
       "settings": [
@@ -497,8 +496,7 @@
           "key": "backgroundImage",
           "type": "image",
           "label": "Подложка страницы",
-          "description": "Фон страницы отчёта. Без изображения печатается градиент шаблона.",
-          "default": "assets/report/bg.png"
+          "description": "Фон страницы отчёта. Без изображения печатается светлый лист документа."
         },
         {
           "key": "logoImage",

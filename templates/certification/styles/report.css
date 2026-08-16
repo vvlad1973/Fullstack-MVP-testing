@@ -60,32 +60,6 @@
   margin-top: 0;
 }
 
-/* Карточка вердикта — ЕДИНСТВЕННЫЙ тёмный узел светлого документа: он и притягивает
-   взгляд, ради него бумагу и открывают. */
-.tb-report__card--verdict {
-  margin: 36px;
-  padding: 24px;
-  border: 0;
-  border-radius: 10px;
-  background: #101828;
-  color: #FFFFFF;
-}
-.tb-report__card--verdict .tb-report__headline,
-.tb-report.is-pass .tb-report__card--verdict .tb-report__headline { color: #FFFFFF; }
-.tb-report__card--verdict .tb-report__learner {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  color: #FFFFFF;
-}
-.tb-report__card--verdict .tb-report__date {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.72);
-  margin-bottom: 0;
-}
-
 /* ЗНАК ИСХОДА рисуется стилем по классу вердикта на КОРНЕ документа, а не ветвлением в
    разметке: булевой `isPass` в контракте контекста нет, и заводить её ради галочки
    значило бы расширять ядро под один шаблон. */
@@ -155,6 +129,36 @@
   border-radius: 18px;
   padding: 18px 20px;
   margin-bottom: 15px;
+}
+
+/* Карточка вердикта — ЕДИНСТВЕННЫЙ тёмный узел светлого документа: он и притягивает
+   взгляд, ради него бумагу и открывают.
+   Стоит СТРОГО НИЖЕ базовой карточки: селекторы одного веса, и побеждает объявленный
+   позже. Пока правило стояло выше, светлое тело обычной карточки перекрашивало тёмную
+   карточку титула — белый текст на светлом фоне, вердикт нечитаем. Поймано растром. */
+.tb-report__card--verdict {
+  margin: 36px;
+  padding: 24px;
+  border: 0;
+  border-radius: 10px;
+  background: #101828;
+  color: #FFFFFF;
+}
+.tb-report__card--verdict .tb-report__headline,
+.tb-report.is-pass .tb-report__card--verdict .tb-report__headline { color: #FFFFFF; }
+.tb-report__card--verdict .tb-report__attempts { color: rgba(255, 255, 255, 0.72); }
+.tb-report__card--verdict .tb-report__learner {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+}
+.tb-report__card--verdict .tb-report__date {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.72);
+  margin-bottom: 0;
 }
 
 /* Вводный блок автора — у «Сертификации» это НИЖНЯЯ ЧАСТЬ полотна титула: та же белая

@@ -95,3 +95,18 @@ describe("манифест «Сертификации» объявляет до�
     for (const p of pages) expect(p.kinds, `${p.key} привязан к виду`).toBeUndefined();
   });
 });
+
+describe("оболочка отчёта указывает на раскладку ДОКУМЕНТА, а не на цельную", () => {
+  // Цельная `layouts/report.html` осталась в шаблоне ради шаблонов, которые ещё не
+  // переехали, но сам вид обязан вести на оболочку документа: указывая на цельную,
+  // «Сертификация» печатала бы весь старый отчёт, а поверх него — блоки.
+  for (const [kind, file] of [
+    ["report", "layouts/report/shell.html"],
+    ["report.adaptive", "layouts/report/adaptive/shell.html"],
+  ] as const) {
+    it(`${kind} → ${file}`, () => {
+      const shell = (manifest.contentTemplates as Array<Record<string, unknown>>).find((v) => v.kind === kind);
+      expect(shell?.layoutFile).toBe(file);
+    });
+  }
+});
