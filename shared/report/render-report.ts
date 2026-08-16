@@ -79,6 +79,10 @@ export function renderReportInto(stage: HTMLElement, input: RenderReportInput): 
     // корня считает листы постраничная раскладка, и блок, не напечатавший ничего,
     // всё равно занимал бы место.
     buffer.querySelectorAll("[" + PROTECTION_STYLE_ATTR + "]").forEach((n) => n.remove());
-    while (buffer.firstElementChild) root.appendChild(buffer.firstElementChild);
+    // Переносятся ВСЕ узлы, а не только элементы: `firstElementChild` оставил бы в
+    // буфере комментарии и текст между узлами, и документ из блоков молча терял бы
+    // комментарии раскладок — те самые, в которых живут обоснования гейтов. Пустые
+    // текстовые узлы на раскладку по листам не влияют: она считает ДЕТЕЙ-ЭЛЕМЕНТОВ.
+    while (buffer.firstChild) root.appendChild(buffer.firstChild);
   }
 }
