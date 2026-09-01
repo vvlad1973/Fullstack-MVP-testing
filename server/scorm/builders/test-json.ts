@@ -1,4 +1,4 @@
-import type { Test, TestSection, Topic, Question, TopicCourse, TopicEvent, PassRule, AdaptiveTopicSettings, AdaptiveLevel, AdaptiveLevelLink, ContentPage, ResultVariable, Scale, QuestionMeasurement, RetakePolicy, TestQuestionScoring } from "@shared/schema";
+import type { Test, TestSection, Topic, Question, TopicCourse, TopicEvent, PassRule, AdaptiveTopicSettings, AdaptiveLevel, AdaptiveLevelLink, ContentPage, ResultVariable, Scale, QuestionMeasurement, RetakePolicy, TestQuestionScoring, ReportBlockRow } from "@shared/schema";
 import { sanitizeHtml, placeholderScope } from "../../utils/html-sanitizer";
 import { findEligibilityPlugin, findEligibilityConfig } from "@shared/eligibility/registry";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
@@ -93,6 +93,14 @@ interface ExportData {
   questionScoring?: TestQuestionScoring[];
   adaptiveSettings?: AdaptiveSettingsExport | null;
   contentPages?: ContentPage[];
+  /**
+   * PRD-51: строки ДОКУМЕНТА ОТЧЁТА теста для его режима — состав и порядок блоков,
+   * которые автор собрал. Разрешает их в печатный документ сборщик пакета
+   * (`resolveReportBundle`), а не рантайм: манифеста шаблона в LMS нет.
+   *
+   * Отсутствуют/пусты ⇒ документ по умолчанию шаблона.
+   */
+  reportBlocks?: ReportBlockRow[];
   resultVariables?: ResultVariable[];
   scales?: Scale[];
   measurements?: QuestionMeasurement[];
@@ -619,6 +627,35 @@ export function buildTestJson(data: ExportData): string {
         settings: packedSettings,
         autoAdvance: page.autoAdvance,
         autoAdvanceDelayMs: page.autoAdvanceDelayMs,
+      };
+    });
+  }
+
+  // PRD-51: ДОКУМЕНТ ОТЧЁТА теста. В пакет едут СЫРЫЕ строки: связать их с раскладками
+  // блоков может только сторона, видящая манифест шаблона, и делает это сборщик
+  // (`resolveReportBundle`), а не рантайм.
+  //
+  // Значения областей чистятся повторно ТЕМ ЖЕ вызовом, каким чистятся значения
+  // контентных страниц: в пакете разметка попадает в НАСТОЯЩИЙ документ, где вставленное
+  // автором правило `body { … }` перекрасило бы плеер. Повторная очистка идемпотентна и
+  // заодно чинит строки, сохранённые до появления очистки на сервере.
+  if (data.reportBlocks && data.reportBlocks.length > 0) {
+    test.reportBlocks = data.reportBlocks.map((row) => {
+      const values: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row.valuesJson ?? {})) {
+        values[k] = typeof v === "string" ? sanitizeHtml(v, { scope: placeholderScope(k) }) : v;
+      }
+      const settings: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row.settingsJson ?? {})) {
+        settings[k] = typeof v === "string" ? sanitizeHtml(v) : v;
+      }
+      return {
+        block: row.block,
+        templateKey: row.templateKey,
+        sortOrder: row.sortOrder,
+        enabled: row.enabled,
+        values,
+        settings,
       };
     });
   }

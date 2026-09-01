@@ -34,6 +34,10 @@ import {
   type ReportKind,
   type ReportLabelLayers,
 } from "@shared/report/report-variants";
+import {
+  resolveReportDocument,
+  type ReportBlockRowInput,
+} from "@shared/report/report-document";
 import { reportImageKeys, resolveReportImageValues } from "@shared/report/report-assets";
 
 /**
@@ -281,7 +285,13 @@ export function readReportLabelKeys(dir: string): string[] | null {
     if (variants.length === 0) return null;
     const declarations = readResultsDeclarations(dir).labels;
     if (declarations.length === 0) return [];
-    const layouts = variants
+    // PRD-51: искать надо и в раскладках БЛОКОВ документа, а не только в цельной оболочке.
+    // С разбором отчёта на блоки надписи переехали в них: зонтичный заголовок живёт теперь
+    // в `layouts/report/summary.html`, и сканер, читавший одну оболочку, переставал
+    // предлагать автору половину словаря — редактор надписей молча пустел.
+    const blockVariants = (manifest as { contentTemplates?: Array<{ kind?: string; layoutFile?: unknown }> })
+      ?.contentTemplates?.filter((v) => v?.kind === "report.block") ?? [];
+    const layouts = [...variants, ...blockVariants]
       .map((v) => (typeof v.layoutFile === "string" ? readFileSafe(path.join(dir, v.layoutFile)) : ""))
       .filter(Boolean);
     return declarations
@@ -560,6 +570,11 @@ export function readReportRenderPayload(
   paramsDir?: string,
   assetTemplateId?: string,
   labelLayers?: ReportLabelLayers | null,
+  /**
+   * PRD-51: строки документа отчёта для ветви режима. Пусто — документ по умолчанию
+   * шаблона; шаблон без объявленных блоков печатает цельную раскладку (§5.4).
+   */
+  documentRows?: readonly ReportBlockRowInput[],
 ): {
   layout: string;
   css: string;
@@ -570,6 +585,19 @@ export function readReportRenderPayload(
   themeCss?: string;
   design?: Record<string, string>;
   labels?: ResolvedLabels;
+  /**
+   * Блоки документа с их раскладками. ОТСУТСТВУЮТ у шаблона, печатающего цельную
+   * раскладку: клиент различает эти два случая и во втором рисует `layout` как раньше.
+   */
+  blocks?: Array<{
+    block: string;
+    nature: string;
+    enabled: boolean;
+    layout: string;
+    placeholders: Array<{ key: string; type: string }>;
+    values: Record<string, unknown>;
+    settings: Record<string, unknown>;
+  }>;
 } | null {
   try {
     const raw = readFileSafe(path.join(dir, "manifest.json"));
@@ -606,6 +634,25 @@ export function readReportRenderPayload(
           screen: "report",
         })
       : {};
+    // PRD-51 §5.3: ДОКУМЕНТ для веб-выдачи. Состав считает та же функция, что и пакет, а
+    // раскладки читаются здесь: клиент файлов шаблона не видит. Блок, чьей раскладки в
+    // шаблоне нет, пропускается — показать вместо него пустоту честнее, чем уронить весь
+    // документ из-за одного отсутствующего файла (так же поступает предпросмотр).
+    const document = resolveReportDocument(manifest, kind, documentRows ?? []);
+    const blocks = document.monolithic
+      ? undefined
+      : document.blocks
+          .map((b) => ({
+            block: b.block,
+            nature: b.nature,
+            enabled: b.enabled,
+            layout: b.layoutFile ? readFileSafe(path.join(dir, b.layoutFile)) || "" : "",
+            placeholders: b.placeholders,
+            values: b.values,
+            settings: b.settings,
+          }))
+          .filter((b) => b.nature === "page-break" || b.layout.length > 0);
+
     return {
       layout,
       css,
@@ -618,6 +665,7 @@ export function readReportRenderPayload(
       ...(themeCss ? { themeCss } : {}),
       ...(logoUrl ? { design: { logoUrl } } : {}),
       ...(Object.keys(labels).length ? { labels } : {}),
+      ...(blocks ? { blocks } : {}),
     };
   } catch {
     return null;

@@ -24,6 +24,11 @@ import { AssignmentsRepository } from "./storage/assignments-repository";
 import { FoldersRepository } from "./storage/folders-repository";
 import { MediaRepository, type MediaUsageRef } from "./storage/media-repository";
 import {
+  ReportBlocksRepository,
+  type ReportBlockInput,
+  type ReportDocumentMode,
+} from "./storage/report-blocks-repository";
+import {
   TestTransferRepository,
   type ImportWriteResult,
   type TransferWriteBatch,
@@ -69,6 +74,7 @@ import type {
   QuestionMeasurement, InsertQuestionMeasurement,
   TestQuestionScoring, InsertTestQuestionScoring,
   MediaAsset, InsertMediaAsset, MediaUsage, MediaEntityType,
+  ReportBlockRow,
 } from "@shared/schema";
 import type { StoredRole } from "@shared/access";
 import { type ValidationResult, type ValueType } from "@shared/formula";
@@ -373,6 +379,15 @@ export interface IStorage {
   listOrphanMediaAssets(): Promise<MediaAsset[]>;
   deleteMediaUsagesExcept(entityType: MediaEntityType, keepIds: string[]): Promise<void>;
 
+  // PRD-51: документ отчёта — упорядоченный список блоков теста, по ветви на режим.
+  // Читается и пишется ЦЕЛИКОМ: порядок и состав осмысленны только вместе.
+  listReportBlocks(testId: string, mode: ReportDocumentMode): Promise<ReportBlockRow[]>;
+  replaceReportBlocks(
+    testId: string,
+    mode: ReportDocumentMode,
+    blocks: readonly ReportBlockInput[],
+  ): Promise<void>;
+
   // Перенос теста между инсталляциями (.tbtest): запись уже перенумерованного графа
   // одной транзакцией. Идентификаторы приходят готовыми — см. services/test-transfer/plan.
   writeImportedTest(content: TestSnapshotContent): Promise<ImportWriteResult>;
@@ -397,6 +412,7 @@ export class DatabaseStorage implements IStorage {
   private readonly assignmentsRepo = new AssignmentsRepository();
   private readonly foldersRepo = new FoldersRepository();
   private readonly mediaRepo = new MediaRepository();
+  private readonly reportBlocksRepo = new ReportBlocksRepository();
   private readonly transferRepo = new TestTransferRepository();
 
   // ============================================
@@ -1214,6 +1230,22 @@ export class DatabaseStorage implements IStorage {
     rows: Omit<InsertTestQuestionScoring, "testId">[],
   ): Promise<TestQuestionScoring[]> {
     return this.scalesVariablesRepo.replaceTestQuestionScoring(testId, rows);
+  }
+
+  // ============================================
+  // Документ отчёта (delegated to ReportBlocksRepository)
+  // ============================================
+
+  listReportBlocks(testId: string, mode: ReportDocumentMode): Promise<ReportBlockRow[]> {
+    return this.reportBlocksRepo.listReportBlocks(testId, mode);
+  }
+
+  replaceReportBlocks(
+    testId: string,
+    mode: ReportDocumentMode,
+    blocks: readonly ReportBlockInput[],
+  ): Promise<void> {
+    return this.reportBlocksRepo.replaceReportBlocks(testId, mode, blocks);
   }
 
   // ============================================

@@ -7500,3 +7500,52 @@ button.ou-stepper__step:disabled { cursor: not-allowed; opacity: 0.6; }
 .ou-wiz--horizontal .ou-wiz__label { align-items: center; padding-top: 0; max-width: 100%; }
 .ou-wiz--horizontal .ou-wiz__title { font: var(--ou-text-body-s); font-weight: 600; }
 .ou-wiz--horizontal .ou-wiz__sub { font: var(--ou-text-body-xs); line-height: 1.3; text-wrap: pretty; max-width: 14ch; }
+
+/* === RichTextEditor — поле с режимами ввода (plain / rich / html) === */
+.ou-rte { display: inline-flex; flex-direction: column; gap: var(--ou-space-2); min-width: 0; }
+.ou-rte--full { display: flex; width: 100%; }
+.ou-rte__lbl { font: var(--ou-text-body-s); font-weight: 500; color: var(--ou-fg-default); }
+.ou-rte__lbl-req { color: var(--ou-error-default); }
+.ou-rte__bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--ou-space-2); flex-wrap: wrap;
+}
+.ou-rte__tools { display: flex; align-items: center; gap: 2px; }
+.ou-rte__tools-sep { width: 1px; height: 16px; background: var(--ou-border-soft); margin: 0 4px; }
+.ou-rte__tools .ou-iconbtn svg { width: 14px; height: 14px; }
+.ou-rte__box {
+  position: relative;
+  background: var(--ou-bg-input);
+  border: 1px solid var(--ou-border-default);
+  border-radius: var(--ou-radius-m);
+  transition: border-color var(--ou-motion-fast), box-shadow var(--ou-motion-fast);
+}
+.ou-rte__box:hover { border-color: var(--ou-border-hover); }
+.ou-rte__box:focus-within { border-color: var(--ou-accent-default); box-shadow: var(--ou-shadow-focus); }
+.ou-rte--error .ou-rte__box { border-color: var(--ou-error-default); }
+.ou-rte__area {
+  padding: var(--ou-space-2) var(--ou-space-3);
+  font: var(--ou-text-body-s); color: var(--ou-fg-default);
+  outline: none; overflow-y: auto;
+}
+.ou-rte__area p { margin: 0 0 var(--ou-space-2); }
+.ou-rte__area p:last-child { margin-bottom: 0; }
+.ou-rte__area ul, .ou-rte__area ol { margin: 0 0 var(--ou-space-2); padding-left: var(--ou-space-5); }
+/* Host pages normally ship a Tailwind-style reset that drops list markers from
+   every ul/ol. The formatted mode shows the RESULT, so the markers are restored
+   here — without this the author sees an indent with no bullet or number while
+   the published text has them. Values mirror the browser defaults. */
+.ou-rte__area ul { list-style: disc outside; }
+.ou-rte__area ul ul { list-style-type: circle; }
+.ou-rte__area ul ul ul { list-style-type: square; }
+.ou-rte__area ol { list-style: decimal outside; }
+.ou-rte__area a { color: var(--ou-accent-default); text-decoration: underline; }
+.ou-rte__input {
+  display: block; width: 100%; resize: vertical;
+  padding: var(--ou-space-2) var(--ou-space-3);
+  font: var(--ou-text-body-s); color: var(--ou-fg-default);
+  background: transparent; border: 0; outline: none;
+}
+.ou-rte__input--code { font: var(--ou-text-code-s); }
+.ou-rte__msg { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
+.ou-rte__msg--error { color: var(--ou-error-default); }

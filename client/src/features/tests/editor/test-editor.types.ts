@@ -8,6 +8,7 @@
  */
 
 import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
+import type { DraftBlock } from "./use-report-document";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
@@ -564,6 +565,25 @@ export type TestEditorModel = {
    * до блока D. Потребители обязаны читать через `?? {}`.
    */
   report?: ReportSettings;
+  /**
+   * PRD-51: ДОКУМЕНТ ОТЧЁТА — состав и порядок блоков, по ветви режима. Ветви две и
+   * живут одновременно, как и у {@link report}: смена режима не должна стирать
+   * собранный документ другого.
+   *
+   * ОТСУТСТВУЕТ у теста, который документа не собирал, и это не то же самое, что пустой
+   * список: без строк печатается документ по умолчанию шаблона, а пустой список —
+   * осознанное «печатать нечего». Потребители обязаны различать эти два случая.
+   */
+  reportDocument?: {
+    /**
+     * Строки, ПРИШЕДШИЕ ИЗ БАЗЫ. Правкой не меняются: из них один раз разрешается
+     * начальный вид документа (правила §5.1 — дописать новое, пропустить неизвестное), и
+     * применять эти правила к каждому нажатию значило бы спорить с автором.
+     */
+    saved?: { standard?: DraftBlock[]; adaptive?: DraftBlock[] };
+    /** Черновик автора; появляется с ПЕРВОЙ правкой и только тогда уходит на сервер. */
+    draft?: { standard?: DraftBlock[]; adaptive?: DraftBlock[] };
+  };
   /** Вводные блоки экрана итогов и отчёта (`tests.intro_json`, PRD-27 §7.1). */
   intro?: TestIntro;
   /**
@@ -651,6 +671,24 @@ export type TestSettingsPayload = {
   sectionGroupsJson?: SectionGroup[] | null;
   /** PRD-15 block D (FR-31): test-wide default price; `null` = system (1). */
   defaultQuestionPoints: number | null;
+  /**
+   * PRD-51: документ отчёта ветви ТЕКУЩЕГО режима, в порядке печати. ОТСУТСТВИЕ поля =
+   * «не трогать»: сохранение с другой вкладки не должно стирать документ. Пустой массив —
+   * осознанное «печатать нечего», и он документ действительно стирает.
+   *
+   * Имена полей — КОНТРАКТ МАРШРУТА (`values`/`settings`), а не имена колонок базы:
+   * `sortOrder` тело запроса не несёт вовсе, его выводит сервер из позиции. Тип описан
+   * здесь целиком, а не переиспользован от разрешения документа, именно поэтому: у
+   * запроса и у строки таблицы разные наборы полей, и подмена одного другим уже стоила
+   * молча потерянного текста страниц — zod выбрасывает незаявленные ключи без единого слова.
+   */
+  reportBlocks?: Array<{
+    block: string;
+    templateKey: string | null;
+    enabled: boolean;
+    values: Record<string, unknown>;
+    settings: Record<string, unknown>;
+  }>;
   expectedVersion: number;
   /** Only sent on create (FAB folder-pick). PUT path leaves it undefined and
    *  uses the dedicated `/api/test-folders/move/:id` endpoint instead. */

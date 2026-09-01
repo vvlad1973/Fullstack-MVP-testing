@@ -1,0 +1,14 @@
+<!-- ТИТУЛ АДАПТИВНОГО ОТЧЁТА: то же белое полотно, что у обычного (см. пояснение в
+     `layouts/report/header.html`), но вердикт у адаптивной методики свой — она говорит
+     подтверждённым уровнем, а не долей верных ответов, поэтому здесь стоит статичная
+     строка «Результаты теста», как у эталона, а не `report.verdictHeadline`. -->
+<div class="tb-report__cover">
+  <div class="tb-report__title tb-report__title--head" data-path="course.title"></div>
+  <div class="tb-report__card tb-report__card--verdict">
+    <div class="tb-report__headline">Результаты теста</div>
+    <div class="tb-report__attempts">Адаптивное тестирование</div>
+    {{#if report.hasLearnerName}}<div class="tb-report__learner">Слушатель: <span data-path="report.learnerName"></span></div>{{/if}}
+    <div class="tb-report__date">Дата прохождения: <span data-path="report.attemptDateLabel"></span></div>
+  </div>
+  {{#if report.values.coverImage}}<div class="tb-report__decor" style="background-image: url({{ report.values.coverImage }});"></div>{{/if}}
+</div>

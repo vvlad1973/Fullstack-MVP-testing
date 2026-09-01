@@ -16,6 +16,7 @@
 
 import { reportFileName } from "./report-html";
 import { renderScreenInto } from "../template/render-screen";
+import { renderReportInto, type ReportBlockToRender } from "./render-report";
 import { buildReportPages, PAGE_HEIGHT_PX, PAGE_WIDTH_PX } from "./paginate-dom";
 
 /** Minimal surface this module uses from jsPDF. */
@@ -122,6 +123,16 @@ export interface ReportPage {
   cssVars?: Record<string, string>;
   /** Контекст из `buildReportContext` / `buildAdaptiveReportContext`. */
   context: unknown;
+  /**
+   * PRD-51: ОБОЛОЧКА документа — корневой узел `.tb-report`. Приходит вместе с
+   * {@link blocks} у шаблона, объявившего блоки; вместе с ней {@link layout} не нужен.
+   */
+  shell?: string;
+  /**
+   * PRD-51: блоки документа в порядке печати, с уже прочитанными раскладками. Пусто или
+   * отсутствует — шаблон блоков не объявил, и печатается цельный {@link layout} (§5.4).
+   */
+  blocks?: readonly ReportBlockToRender[];
 }
 
 /**
@@ -143,7 +154,10 @@ export async function exportReportPdf(page: ReportPage, testName: string, deps: 
   const doc = deps.document || (typeof document !== "undefined" ? document : null);
   if (!doc) throw new Error("Экспорт отчёта требует браузерного окружения");
   if (!deps.jsPDF || !deps.html2canvas) throw new Error("Библиотеки jsPDF или html2canvas не загружены");
-  if (!page || !page.layout) throw new Error("Шаблон не предоставил макет отчёта");
+  // PRD-51: документ приходит ЛИБО блоками (оболочка + список), ЛИБО цельной раскладкой.
+  // Пусто и то и другое — печатать нечего, и молча отдать слушателю пустой PDF нельзя.
+  const asDocument = !!page?.shell && !!page.blocks?.length;
+  if (!page || (!asDocument && !page.layout)) throw new Error("Шаблон не предоставил макет отчёта");
 
   const container = doc.createElement("div");
   container.style.position = "absolute";
@@ -168,7 +182,16 @@ export async function exportReportPdf(page: ReportPage, testName: string, deps: 
   doc.body.appendChild(container);
 
   try {
-    renderScreenInto(stage, { layout: page.layout, context: page.context });
+    // ДОКУМЕНТ ИЗ БЛОКОВ (PRD-51 §5.3). Шаблон, объявивший блоки, приходит с оболочкой
+    // и списком; шаблон без них — со старым цельным `layout`, и путь совместимости
+    // остаётся живым (§5.4). Разводить это по двум конвейерам нельзя: постраничная
+    // раскладка, стыки листов и растеризация ниже одни и те же, и вторая копия
+    // разошлась бы с первой на первой же правке.
+    if (asDocument) {
+      renderReportInto(stage, { shell: page.shell!, context: page.context, blocks: page.blocks! });
+    } else {
+      renderScreenInto(stage, { layout: page.layout, context: page.context });
+    }
     const rendered = stage.firstElementChild as HTMLElement | null;
     if (!rendered) throw new Error("Макет отчёта ничего не отрисовал");
 

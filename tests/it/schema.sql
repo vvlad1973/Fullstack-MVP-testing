@@ -154,6 +154,20 @@ CREATE TABLE "questions" (
 	"created_by" varchar(36)
 );
 
+CREATE TABLE "report_blocks" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"test_id" varchar(36) NOT NULL,
+	"mode" text NOT NULL,
+	"block" text NOT NULL,
+	"template_key" text,
+	"sort_order" integer DEFAULT 0 NOT NULL,
+	"enabled" boolean DEFAULT true NOT NULL,
+	"values_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"settings_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
 CREATE TABLE "result_variables" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"test_id" varchar(36) NOT NULL,
@@ -443,6 +457,7 @@ ALTER TABLE "media_usages" ADD CONSTRAINT "media_usages_asset_id_media_assets_id
 ALTER TABLE "question_measurements" ADD CONSTRAINT "question_measurements_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "question_measurements" ADD CONSTRAINT "question_measurements_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "question_measurements" ADD CONSTRAINT "question_measurements_scale_id_scales_id_fk" FOREIGN KEY ("scale_id") REFERENCES "public"."scales"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "report_blocks" ADD CONSTRAINT "report_blocks_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "result_variables" ADD CONSTRAINT "result_variables_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "scales" ADD CONSTRAINT "scales_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "test_question_scoring" ADD CONSTRAINT "test_question_scoring_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
@@ -462,6 +477,7 @@ CREATE INDEX "question_measurements_test_id_idx" ON "question_measurements" USIN
 CREATE INDEX "question_measurements_question_id_idx" ON "question_measurements" USING btree ("question_id");
 CREATE INDEX "question_measurements_scale_id_idx" ON "question_measurements" USING btree ("scale_id");
 CREATE INDEX "questions_topic_id_idx" ON "questions" USING btree ("topic_id");
+CREATE INDEX "report_blocks_test_mode_sort_idx" ON "report_blocks" USING btree ("test_id","mode","sort_order");
 CREATE INDEX "result_variables_test_id_idx" ON "result_variables" USING btree ("test_id");
 CREATE UNIQUE INDEX "result_variables_test_id_name_uq" ON "result_variables" USING btree ("test_id","name");
 CREATE UNIQUE INDEX "result_variables_one_success_per_test" ON "result_variables" USING btree ("test_id") WHERE "result_variables"."controls_status" = 'success';

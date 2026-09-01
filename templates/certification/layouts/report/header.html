@@ -1,0 +1,25 @@
+<!-- ТИТУЛ: белое полотно, на котором стоит первый лист.
+
+     Блок ЗАМКНУТ в себе. Разделить полотно между `header` и `intro` нельзя: движок
+     разбирает раскладку каждого блока отдельным разбором, и незакрытый `<div>` браузер
+     закроет сам — обращение к слушателю оказалось бы снаружи плиты. Непрерывной плита
+     выглядит за счёт соседского правила в `styles/report.css`: полотно, за которым идёт
+     обращение, теряет нижнее скругление, а обращение — верхнее.
+
+     Название документа — `course.title`: имя бумаги принадлежит тесту, а не шаблону
+     (§10.2). Фиксированной фразы референса «Сертификация пройдена» у нас нет.
+
+     Знак исхода рисуется СТИЛЕМ по классу `report.verdictClass` на корне документа, а не
+     ветвлением в разметке: булевой `isPass` в контракте контекста нет, и заводить её ради
+     галочки значило бы расширять ядро под один шаблон. -->
+<div class="tb-report__cover">
+  <div class="tb-report__title tb-report__title--head" data-path="course.title"></div>
+  <div class="tb-report__card tb-report__card--verdict">
+    <div class="tb-report__mark" aria-hidden="true"></div>
+    <div class="tb-report__headline" data-path="report.verdictHeadline"></div>
+    {{#if report.attemptsCountLabel}}<div class="tb-report__attempts" data-path="report.attemptsCountLabel"></div>{{/if}}
+    {{#if report.hasLearnerName}}<div class="tb-report__learner" data-path="report.learnerName"></div>{{/if}}
+    <div class="tb-report__date" data-path="report.attemptDateLabel"></div>
+  </div>
+  {{#if report.values.coverImage}}<div class="tb-report__decor" style="background-image: url({{ report.values.coverImage }});"></div>{{/if}}
+</div>

@@ -1,7 +1,7 @@
 {
   "id": "certification",
   "name": "Сертификация (РТК)",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "templateApiVersion": "1.0",
   "description": "Сертификационный тест РТК: брендовая палитра Ростелекома (светлая и тёмная) с переопределяемыми цветами, оранжевый акцент, страница-роутер, кнопки навигации, пропуск и возврат к неотвеченным, экран обзора. Набор вариантов страниц совпадает со стандартным шаблоном — тест переключается между ними без переназначения страниц.",
   "themes": [
@@ -382,7 +382,7 @@
       "key": "report.standard",
       "label": "Отчёт: стандартный",
       "kind": "report",
-      "layoutFile": "layouts/report.html",
+      "layoutFile": "layouts/report/shell.html",
       "styleFile": "styles/report.css",
       "isDefault": true,
       "settings": [
@@ -428,8 +428,7 @@
           "key": "backgroundImage",
           "type": "image",
           "label": "Подложка страницы",
-          "description": "Фон страницы отчёта. Без изображения печатается градиент шаблона.",
-          "default": "assets/report/bg.png"
+          "description": "Фон страницы отчёта. Без изображения печатается светлый лист документа."
         },
         {
           "key": "logoImage",
@@ -437,6 +436,12 @@
           "label": "Логотип в отчёте",
           "description": "Показывается над заголовком. Пусто — строки логотипа нет.",
           "default": "assets/report/logo.png"
+        },
+        {
+          "key": "coverImage",
+          "type": "image",
+          "label": "Иллюстрация титула",
+          "description": "Картинка в правом нижнем углу первого листа. Пусто — угол остаётся пустым."
         }
       ],
       "placeholders": []
@@ -445,7 +450,7 @@
       "key": "report.adaptive.standard",
       "label": "Отчёт: уровни",
       "kind": "report.adaptive",
-      "layoutFile": "layouts/report.adaptive.html",
+      "layoutFile": "layouts/report/adaptive/shell.html",
       "styleFile": "styles/report.css",
       "isDefault": true,
       "settings": [
@@ -491,8 +496,7 @@
           "key": "backgroundImage",
           "type": "image",
           "label": "Подложка страницы",
-          "description": "Фон страницы отчёта. Без изображения печатается градиент шаблона.",
-          "default": "assets/report/bg.png"
+          "description": "Фон страницы отчёта. Без изображения печатается светлый лист документа."
         },
         {
           "key": "logoImage",
@@ -500,6 +504,12 @@
           "label": "Логотип в отчёте",
           "description": "Показывается над заголовком. Пусто — строки логотипа нет.",
           "default": "assets/report/logo.png"
+        },
+        {
+          "key": "coverImage",
+          "type": "image",
+          "label": "Иллюстрация титула",
+          "description": "Картинка в правом нижнем углу первого листа. Пусто — угол остаётся пустым."
         }
       ],
       "placeholders": []
@@ -1355,8 +1365,211 @@
           "maxLength": 600
         }
       ]
+    },
+    {
+      "key": "report.block.header",
+      "label": "Титул: полотно, вердикт, слушатель",
+      "kind": "report.block",
+      "block": "header",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/header.html"
+    },
+    {
+      "key": "report.block.intro",
+      "label": "Обращение к слушателю",
+      "kind": "report.block",
+      "block": "intro",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/intro.html"
+    },
+    {
+      "key": "report.block.summary",
+      "label": "Сводка баллов",
+      "kind": "report.block",
+      "block": "summary",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/summary.html"
+    },
+    {
+      "key": "report.block.topics",
+      "label": "Разделы: карточки со счётчиком",
+      "kind": "report.block",
+      "block": "topics",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/topics.html"
+    },
+    {
+      "key": "report.block.breakdown",
+      "label": "Сводный разрез",
+      "kind": "report.block",
+      "block": "breakdown",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/breakdown.html"
+    },
+    {
+      "key": "report.block.scales",
+      "label": "Шкалы",
+      "kind": "report.block",
+      "block": "scales",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/scales.html"
+    },
+    {
+      "key": "report.block.indicators",
+      "label": "Показатели",
+      "kind": "report.block",
+      "block": "indicators",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/indicators.html"
+    },
+    {
+      "key": "report.block.recommendations",
+      "label": "Рекомендации",
+      "kind": "report.block",
+      "block": "recommendations",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/recommendations.html"
+    },
+    {
+      "key": "report.block.courses",
+      "label": "Курсы",
+      "kind": "report.block",
+      "block": "courses",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/courses.html"
+    },
+    {
+      "key": "report.block.events",
+      "label": "Мероприятия",
+      "kind": "report.block",
+      "block": "events",
+      "kinds": ["report"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/events.html"
+    },
+    {
+      "key": "report.block.adaptive.header",
+      "label": "Титул уровней: полотно и вердикт",
+      "kind": "report.block",
+      "block": "header",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/header.html"
+    },
+    {
+      "key": "report.block.adaptive.intro",
+      "label": "Обращение к слушателю",
+      "kind": "report.block",
+      "block": "intro",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/intro.html"
+    },
+    {
+      "key": "report.block.adaptive.topics",
+      "label": "Разделы: подтверждённые уровни",
+      "kind": "report.block",
+      "block": "topics",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/topics.html"
+    },
+    {
+      "key": "report.block.adaptive.breakdown",
+      "label": "Сводный разрез",
+      "kind": "report.block",
+      "block": "breakdown",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/breakdown.html"
+    },
+    {
+      "key": "report.block.adaptive.scales",
+      "label": "Шкалы",
+      "kind": "report.block",
+      "block": "scales",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/scales.html"
+    },
+    {
+      "key": "report.block.adaptive.indicators",
+      "label": "Показатели",
+      "kind": "report.block",
+      "block": "indicators",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/indicators.html"
+    },
+    {
+      "key": "report.block.adaptive.recommendations",
+      "label": "Рекомендации",
+      "kind": "report.block",
+      "block": "recommendations",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/recommendations.html"
+    },
+    {
+      "key": "report.block.adaptive.courses",
+      "label": "Курсы",
+      "kind": "report.block",
+      "block": "courses",
+      "kinds": ["report.adaptive"],
+      "isDefault": true,
+      "layoutFile": "layouts/report/adaptive/courses.html"
+    },
+    {
+      "key": "report.block.page.text",
+      "label": "Страница: заголовок и текст",
+      "kind": "report.block",
+      "block": "page",
+      "isDefault": true,
+      "layoutFile": "layouts/report/page-text.html",
+      "placeholders": [
+        { "key": "title", "type": "text", "label": "Заголовок" },
+        { "key": "body", "type": "richText", "label": "Текст" }
+      ]
+    },
+    {
+      "key": "report.block.page.cols2",
+      "label": "Страница: две колонки",
+      "kind": "report.block",
+      "block": "page",
+      "layoutFile": "layouts/report/page-cols-2.html",
+      "placeholders": [
+        { "key": "title", "type": "text", "label": "Заголовок" },
+        { "key": "left", "type": "richText", "label": "Левая колонка" },
+        { "key": "right", "type": "richText", "label": "Правая колонка (врезка)" }
+      ]
+    },
+    {
+      "key": "report.block.page.cols3",
+      "label": "Страница: три колонки",
+      "kind": "report.block",
+      "block": "page",
+      "layoutFile": "layouts/report/page-cols-3.html",
+      "placeholders": [
+        { "key": "title", "type": "text", "label": "Заголовок" },
+        { "key": "col1", "type": "richText", "label": "Колонка 1" },
+        { "key": "col2", "type": "richText", "label": "Колонка 2" },
+        { "key": "col3", "type": "richText", "label": "Колонка 3" }
+      ]
     }
   ],
+  "reportDocument": {
+    "report": ["header", "intro", "page-break", "topics", "page-break", "summary", "breakdown", "scales", "indicators", "recommendations", "courses", "events"],
+    "report.adaptive": ["header", "intro", "page-break", "topics", "page-break", "breakdown", "scales", "indicators", "recommendations", "courses"]
+  },
   "rendererPlugins": [],
   "layouts": {
     "shell": "shell.html",

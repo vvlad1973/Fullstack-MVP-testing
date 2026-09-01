@@ -5,6 +5,11 @@
  *
  * Implements version-conflict detection per PRD-7 §5.3 and §9.
  */
+import { sanitizeAllStringValues } from "./content-page-fields";
+import {
+  replaceReportBlocksIn,
+  type ReportDocumentMode,
+} from "../storage/report-blocks-repository";
 import { randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
@@ -247,6 +252,26 @@ export interface SavePayload {
   adaptiveSettings?: AdaptiveTopicPayload[];
   /** When provided, the current DB version must match. Throws {@link VersionConflictError} if not. */
   expectedVersion?: number;
+  /**
+   * PRD-51: ДОКУМЕНТ ОТЧЁТА — состав и порядок блоков. Заменяется ЦЕЛИКОМ и в ТОЙ ЖЕ
+   * транзакции, что остальной ящик: порядок и состав осмысленны только вместе, а
+   * документ, применившийся без настроек, под которые автор его собирал, — это отчёт,
+   * которого автор не собирал.
+   *
+   * ОТСУТСТВИЕ поля документ не трогает: частичное сохранение с другого экрана не должно
+   * стирать работу, сделанную на этом. Пустой список — наоборот, осознанное «печатать
+   * нечего».
+   *
+   * `sortOrder` от клиента НЕ принимается: порядок выводится из позиции в массиве. Два
+   * источника истины о порядке разошлись бы, и спорить с ними было бы нечем.
+   */
+  reportBlocks?: Array<{
+    block: string;
+    templateKey?: string | null;
+    enabled?: boolean;
+    values?: Record<string, unknown>;
+    settings?: Record<string, unknown>;
+  }>;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -424,6 +449,32 @@ export class TestSettingsService {
 
       if (payload.adaptiveSettings !== undefined) {
         await this._replaceAdaptiveSettings(tx, testId, payload.adaptiveSettings);
+      }
+
+      // PRD-51: документ отчёта — в ТОЙ ЖЕ транзакции, тем же дескриптором. Ветвь
+      // берётся из режима, каким тест становится ПОСЛЕ этого сохранения: автор,
+      // переключивший режим и собравший документ одним заходом, ждёт, что документ
+      // ляжет в ветвь нового режима, а не прежнего.
+      if (payload.reportBlocks !== undefined) {
+        const mode = (updated.mode === "adaptive" ? "adaptive" : "standard") as ReportDocumentMode;
+        await replaceReportBlocksIn(
+          tx,
+          testId,
+          mode,
+          payload.reportBlocks.map((b, i) => ({
+            block: b.block,
+            templateKey: b.templateKey ?? null,
+            enabled: b.enabled !== false,
+            sortOrder: i,
+            // FR-14: разметка авторских областей чистится ТЕМ ЖЕ вызовом, что и значения
+            // контентных страниц, — включая заключение авторского CSS в область поля.
+            // В пакете эта разметка попадает в НАСТОЯЩИЙ документ, где правило
+            // `body { … }` перекрасило бы плеер, а скрипт исполнился бы. Второго набора
+            // правил очистки в продукте быть не должно.
+            valuesJson: sanitizeAllStringValues(b.values),
+            settingsJson: sanitizeAllStringValues(b.settings),
+          })),
+        );
       }
 
       // System content_pages reconciliation triggers when any of these change:

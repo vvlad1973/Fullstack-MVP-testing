@@ -25,6 +25,8 @@ const { storageMock } = vi.hoisted(() => ({
     getScales: vi.fn(),
     getQuestionMeasurements: vi.fn(),
     getTestQuestionScoring: vi.fn(),
+    // PRD-51: документ отчёта читается через тот же источник, что и прочий состав.
+    listReportBlocks: vi.fn(),
     getAdaptiveTopicSettingsByTest: vi.fn(),
     getAdaptiveLevelsByTest: vi.fn(),
     getAdaptiveLevelLinks: vi.fn(),
@@ -67,6 +69,7 @@ beforeEach(() => {
   storageMock.getScales.mockResolvedValue([] as never);
   storageMock.getQuestionMeasurements.mockResolvedValue([] as never);
   storageMock.getTestQuestionScoring.mockResolvedValue([] as never);
+  storageMock.listReportBlocks.mockResolvedValue([] as never);
   storageMock.getAdaptiveTopicSettingsByTest.mockResolvedValue([] as never);
   storageMock.getAdaptiveLevelsByTest.mockResolvedValue([{ id: "lvl1" }] as never);
   storageMock.getAdaptiveLevelLinks.mockResolvedValue([{ id: "lnk1" }] as never);

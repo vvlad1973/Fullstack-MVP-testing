@@ -1849,6 +1849,29 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
         values: (test?.designSettingsJson as DesignSettings | null)?.labels ?? null,
         overrides: (deliveredTest?.reportSettingsJson as ReportSettings | null)?.labels ?? null,
       };
+      // PRD-51 §5.3: документ отчёта для ВЕБ-выдачи. Строки берутся из того же источника,
+      // что и остальная выдача попытки: у попытки, прикреплённой к снапшоту, — из него.
+      // Иначе слушатель, скачавший документ спустя месяц, получил бы состав, собранный
+      // автором уже после его попытки.
+      const documentMode = resultJson.mode === "adaptive" ? "adaptive" : "standard";
+      const snapshotRows = attempt.snapshotId
+        ? ((await storage.getSnapshot(attempt.snapshotId))?.contentJson as
+            | { reportBlocks?: Array<Record<string, unknown>> }
+            | undefined)?.reportBlocks
+        : undefined;
+      const rawRows =
+        snapshotRows ?? (await storage.listReportBlocks(attempt.testId, documentMode));
+      const documentRows = (rawRows as Array<Record<string, unknown>>)
+        .filter((r) => !r.mode || r.mode === documentMode)
+        .map((r) => ({
+          block: String(r.block ?? ""),
+          sortOrder: Number(r.sortOrder ?? 0),
+          enabled: r.enabled !== false,
+          templateKey: typeof r.templateKey === "string" ? r.templateKey : null,
+          valuesJson: (r.valuesJson ?? {}) as Record<string, unknown>,
+          settingsJson: (r.settingsJson ?? {}) as Record<string, unknown>,
+        }))
+        .filter((r) => r.block.length > 0);
       reportRender = readReportRenderPayload(
         activeDir,
         reportKind,
@@ -1857,6 +1880,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
         activeDir,
         templateId,
         reportLabelLayers,
+        documentRows,
       );
       if (!reportRender) {
         const fallbackDir = await resolveTemplateDir("default", { activeOnly: false });
@@ -1872,6 +1896,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
             activeDir,
             "default",
             reportLabelLayers,
+            documentRows,
           );
         }
       }

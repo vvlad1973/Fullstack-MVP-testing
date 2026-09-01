@@ -44,6 +44,7 @@ import type {
   ContentPage,
   TestQuestionScoring,
   QuestionScoring,
+  ReportBlockRow,
 } from "@shared/schema";
 
 /** The frozen deliverable of a test (stored as test_snapshots.content_json). */
@@ -70,6 +71,19 @@ export interface TestSnapshotContent {
    * (read as []).
    */
   questionScoring?: TestQuestionScoring[];
+  /**
+   * PRD-51: ДОКУМЕНТ ОТЧЁТА теста — строки `report_blocks` обоих режимов, как они были
+   * на момент публикации.
+   *
+   * Замораживается по той же причине, по какой заморожен весь ряд теста: вместе с ним уже
+   * заморожены выбор оболочки и значения её полей (`report_settings_json`). Оставить
+   * состав документа живым значило бы печатать по старой попытке наполовину замороженный
+   * отчёт — с прежним оформлением и нынешним набором разделов.
+   *
+   * Отсутствует в снапшотах, снятых раньше (читается как `[]`), и тогда документ берётся
+   * по умолчанию шаблона.
+   */
+  reportBlocks?: ReportBlockRow[];
 }
 
 /**
@@ -94,6 +108,8 @@ export interface TestDataSource {
   getResultVariables(testId: string): Promise<ResultVariable[]>;
   getContentPages(testId: string): Promise<ContentPage[]>;
   getTestQuestionScoring(testId: string): Promise<TestQuestionScoring[]>;
+  /** PRD-51: строки документа отчёта для режима теста. */
+  getReportBlocks(testId: string, mode: "standard" | "adaptive"): Promise<ReportBlockRow[]>;
 }
 
 /**
@@ -120,6 +136,14 @@ export async function buildSnapshotContent(testId: string): Promise<TestSnapshot
       storage.getContentPages(testId),
       storage.getTestQuestionScoring(testId),
     ]);
+
+  // PRD-51: документ отчёта морозится ОБОИМИ режимами. Тест хранит обе ветви
+  // одновременно (как и `report_settings_json`), и смена режима после публикации не
+  // должна оставлять снапшот без документа.
+  const reportBlocks = [
+    ...(await storage.listReportBlocks(testId, "standard")),
+    ...(await storage.listReportBlocks(testId, "adaptive")),
+  ];
 
   // Topics referenced by sections (plus any referenced by content pages).
   const topicIds = new Set<string>();
@@ -165,6 +189,7 @@ export async function buildSnapshotContent(testId: string): Promise<TestSnapshot
     resultVariables,
     contentPages,
     questionScoring,
+    reportBlocks,
   };
 }
 
@@ -242,6 +267,7 @@ export function liveDataSource(): TestDataSource {
     getResultVariables: (id) => storage.getResultVariables(id),
     getContentPages: (id) => storage.getContentPages(id),
     getTestQuestionScoring: (id) => storage.getTestQuestionScoring(id),
+    getReportBlocks: (id, mode) => storage.listReportBlocks(id, mode),
   };
 }
 
@@ -314,6 +340,12 @@ export function snapshotDataSource(content: TestSnapshotContent): TestDataSource
       // only when they differ from the system default (NOT IN (0,1) — the old
       // `q.points || 1` coercion treated 0 as 1), and scoring whenever set.
       return synthesizeFrozenOverrides(content.test.id, allQuestions);
+    },
+    async getReportBlocks(_testId, mode) {
+      // Снапшот заморозил ОБА режима одной пачкой — отбираем нужный. Пусто здесь значит
+      // «снапшот снят до PRD-51 либо автор документа не собирал»: и в том, и в другом
+      // случае печатается документ по умолчанию шаблона, а не пустой отчёт.
+      return (content.reportBlocks ?? []).filter((r) => r.mode === mode);
     },
   };
 }

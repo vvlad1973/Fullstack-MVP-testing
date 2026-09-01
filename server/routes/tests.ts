@@ -159,7 +159,26 @@ const createTestBodySchema = testBodyBaseSchema.refine(
   { message: "Title is required", path: ["title"] },
 );
 
-const updateTestBodySchema = testBodyBaseSchema;
+/**
+ * PRD-51: ДОКУМЕНТ ОТЧЁТА в теле сохранения. Ключ объявлен ЯВНО: незаявленный zod
+ * срезает молча — ровно так однажды пропадала настройка «Тест пройден, если» на каждом
+ * сохранении (см. комментарий у `passDecisionPolicy`).
+ *
+ * `sortOrder` здесь НЕТ намеренно: порядок выводится из позиции в массиве. Приняв его от
+ * клиента, сервер получил бы второй источник истины о порядке, и спорить с ними было бы
+ * нечем.
+ */
+const reportBlockBodySchema = z.object({
+  block: z.string().min(1),
+  templateKey: z.string().nullable().optional(),
+  enabled: z.boolean().optional(),
+  values: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});
+
+const updateTestBodySchema = testBodyBaseSchema.extend({
+  reportBlocks: z.array(reportBlockBodySchema).optional(),
+});
 
 /** Converts a ZodError to the structured `fields` array per decisions.md §5.4. */
 function zodToFields(err: z.ZodError) {
@@ -296,7 +315,15 @@ async function loadFullTest(testId: string): Promise<Record<string, unknown> | n
   // for the editor's status indicator and the «Опубликовать изменения» action.
   const publication = await getPublicationState(test.id);
 
-  return { ...test, sections: sectionsWithDetails, adaptiveSettings, resultVariables, scales, measurements, questionScoring, publication };
+  // PRD-51: документ отчёта — ОБЕ ветви режима. Редактор правит ветвь текущего режима, но
+  // хранятся обе: тест, переключённый на адаптивный и обратно, не должен терять собранный
+  // документ (та же схема, что у `report_settings_json`).
+  const reportBlocks = {
+    standard: await storage.listReportBlocks(test.id, "standard"),
+    adaptive: await storage.listReportBlocks(test.id, "adaptive"),
+  };
+
+  return { ...test, sections: sectionsWithDetails, adaptiveSettings, resultVariables, scales, measurements, questionScoring, publication, reportBlocks };
 }
 
 // GET /api/tests - Список тестов
@@ -1077,6 +1104,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
     }
 
     const {
+      reportBlocks,
       title,
       description,
       overallPassRuleJson,
@@ -1195,6 +1223,9 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         sectionGroupsJson,
         defaultQuestionPoints,
       },
+      // PRD-51: документ отчёта уходит службе как есть — она заменит его в той же
+      // транзакции, что и остальной ящик, и сама выведет порядок из позиции.
+      reportBlocks,
       // PRD-7 §6.3: sections live with the standard mode only. For adaptive,
       // sections come from the adaptive levels instead.
       sections: mode === "standard" ? (sections as SectionPayload[] | undefined) : undefined,

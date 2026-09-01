@@ -164,6 +164,17 @@ export interface ReportContextOptions {
  * «надписи объявлены, но все погашены», а отсутствие ключа — «шаблон надписей не знает»;
  * макет различает эти случаи гейтами, и подменять одно другим нельзя.
  */
+/**
+ * Блоки разделов теста из материала итогов; `null`, когда блоков нет.
+ *
+ * Отдельный помощник, а не чтение по месту: его зовут ОБА построителя — обычный и
+ * адаптивный, — и разойдись они, документ печатал бы блоки только у одного вида.
+ */
+function groupsOf(opts: ReportContextOptions): unknown {
+  const raw = (opts.measures as { sectionGroupsJson?: unknown } | undefined)?.sectionGroupsJson;
+  return Array.isArray(raw) && raw.length ? raw : null;
+}
+
 function labelsOption(opts: ReportContextOptions): { labels?: ResolvedLabels } {
   const labels = opts.labels;
   return labels && Object.keys(labels).length > 0 ? { labels } : {};
@@ -258,7 +269,12 @@ export function buildReportContext(input: ReportInput, opts: ReportContextOption
   // а не экран, и досчитать её потом читателю нечем. `topicPointsIgnoreScoreSummary`
   // держит её и тогда, когда автор выключил сводку по баллам (issue #30 гасит эту
   // строку только на ЭКРАНЕ — там у ученика есть настройка, у скачанного PDF её нет).
-  const base = buildResultContext(input.result, input.testName || "", {
+  // PRD-50 FR-11: блоки разделов приезжают МАТЕРИАЛОМ итогов (`measures`), а не результатом
+  // попытки: у отчёта, который строит браузер, другого пути к устройству теста нет. Без
+  // этой перекладки документ печатал плоский список тем там, где экран печатал блоки со
+  // счётчиком, — §5.2 запрещает отчёту показывать иное, чем экран, с которого его скачали.
+  const resultInput = groupsOf(opts) ? { ...input.result, sectionGroups: groupsOf(opts) } : input.result;
+  const base = buildResultContext(resultInput, input.testName || "", {
     withTopicPoints: true,
     topicPointsIgnoreScoreSummary: true,
     // Источники консолидированного блока обратной связи, которых нет в результате
@@ -397,7 +413,11 @@ export function buildAdaptiveReportContext(
   // адаптивный построитель ровно так же, как в обычный. Порога здесь нет: адаптивный
   // вердикт выносится по подтверждённым уровням, и `hasPassThreshold` этому режиму
   // нечего сказать.
-  const base = buildAdaptiveResultContext(input.result, input.testName || "", {
+  // PRD-50 FR-11: блоки разделов — тем же приёмом, что у обычного отчёта (см. `groupsOf`).
+  const adaptiveInput = groupsOf(opts)
+    ? { ...input.result, sectionGroups: groupsOf(opts) }
+    : input.result;
+  const base = buildAdaptiveResultContext(adaptiveInput, input.testName || "", {
     ...(input.feedback ? { testFeedback: input.feedback } : {}),
     ...(input.intro ? { intro: input.intro } : {}),
     // issue #33: измерения печатаются и в адаптивном отчёте — тем же блоком и из того же

@@ -1312,6 +1312,36 @@
 .page-actions { display: flex; gap: var(--ou-space-1); flex-shrink: 0; }
 .page-icon { color: var(--ou-fg-muted); flex-shrink: 0; }
 
+/* PRD-51 §7.2: строка документа отчёта. Выключенный блок читается приглушённым
+   названием — данные не печатаются, но строка остаётся на своём месте в списке. */
+.page-row.is-off .page-title,
+.page-row.is-off .page-variant-badge {
+  color: var(--ou-fg-muted);
+  opacity: 0.65;
+}
+
+/* Разрыв листа — не карточка и не страница, а строка-разделитель: следующий блок
+   начинается с нового листа. Пунктир справа договаривает то же самое. */
+.page-row--break .page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ou-space-2);
+  color: var(--ou-fg-muted);
+  font: var(--ou-text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.page-row--break .page-title::after {
+  content: "";
+  flex: 1;
+  height: var(--wf-border-w);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ou-border-default) 0 var(--wf-space-6, 6px),
+    transparent var(--wf-space-6, 6px) var(--ou-space-3)
+  );
+}
+
 /* PRD-19 FR-08a: «Обзор раздела/теста» navigation slot (section-finish /
    test-finish). Accent left-bar marks it as the navigation slot; the disabled
    variant (return OFF) dims it and drops the accent, with a `.page-comment`
@@ -1611,6 +1641,43 @@
 }
 
 /* Variant picker list inside the «Добавить страницу» modal. */
+/* PRD-51 §7.3: поиск над списком палитры блоков. Иконка положена в поле, а не рядом:
+   строка поиска в модале узкая, и подпись съела бы её половину. */
+.variant-search { position: relative; margin-bottom: var(--ou-space-3); }
+.variant-search__icon {
+  position: absolute;
+  left: var(--ou-space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ou-fg-muted);
+  pointer-events: none;
+}
+.variant-search__input {
+  width: 100%;
+  height: var(--ou-size-control-m);
+  padding: 0 var(--ou-space-3) 0 var(--ou-space-7);
+  border: var(--wf-border-w) solid var(--ou-border-default);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-input);
+  font: var(--ou-text-body-m);
+  color: var(--ou-fg-default);
+  outline: none;
+}
+.variant-search__input:focus {
+  border-color: var(--ou-accent-default);
+  box-shadow: var(--ou-shadow-focus);
+}
+
+/* Заголовок группы внутри списка вариантов. */
+.variant-group {
+  font: var(--ou-text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ou-fg-muted);
+  padding: var(--ou-space-2) var(--ou-space-3) var(--wf-space-tiny, 2px);
+}
+
 .variant-list {
   list-style: none;
   padding: var(--ou-space-1);
