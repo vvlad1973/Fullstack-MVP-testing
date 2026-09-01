@@ -1536,8 +1536,8 @@
       "isDefault": true,
       "layoutFile": "layouts/report/page-text.html",
       "placeholders": [
-        { "key": "title", "type": "text", "label": "Заголовок" },
-        { "key": "body", "type": "richText", "label": "Текст" }
+        { "key": "title", "type": "text", "label": "Заголовок", "required": false },
+        { "key": "body", "type": "richText", "label": "Текст", "required": false }
       ]
     },
     {
@@ -1547,9 +1547,9 @@
       "block": "page",
       "layoutFile": "layouts/report/page-cols-2.html",
       "placeholders": [
-        { "key": "title", "type": "text", "label": "Заголовок" },
-        { "key": "left", "type": "richText", "label": "Левая колонка" },
-        { "key": "right", "type": "richText", "label": "Правая колонка (врезка)" }
+        { "key": "title", "type": "text", "label": "Заголовок", "required": false },
+        { "key": "left", "type": "richText", "label": "Левая колонка", "required": false },
+        { "key": "right", "type": "richText", "label": "Правая колонка (врезка)", "required": false }
       ]
     },
     {
@@ -1559,10 +1559,10 @@
       "block": "page",
       "layoutFile": "layouts/report/page-cols-3.html",
       "placeholders": [
-        { "key": "title", "type": "text", "label": "Заголовок" },
-        { "key": "col1", "type": "richText", "label": "Колонка 1" },
-        { "key": "col2", "type": "richText", "label": "Колонка 2" },
-        { "key": "col3", "type": "richText", "label": "Колонка 3" }
+        { "key": "title", "type": "text", "label": "Заголовок", "required": false },
+        { "key": "col1", "type": "richText", "label": "Колонка 1", "required": false },
+        { "key": "col2", "type": "richText", "label": "Колонка 2", "required": false },
+        { "key": "col3", "type": "richText", "label": "Колонка 3", "required": false }
       ]
     }
   ],

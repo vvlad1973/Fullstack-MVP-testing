@@ -43,6 +43,9 @@ const { storageMock, serviceMock } = vi.hoisted(() => ({
     // tests router + requireTestScope + loadFullTest
     getTest: vi.fn(),
     getTests: vi.fn().mockResolvedValue([]),
+    // PRD-51: маршрут читает документ отчёта. Здесь он не предмет проверки —
+    // пустой список означает «документ по умолчанию шаблона».
+    listReportBlocks: vi.fn().mockResolvedValue([]),
     getTestSections: vi.fn().mockResolvedValue([]),
     getTestGrantForUser: vi.fn().mockResolvedValue(undefined),
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),

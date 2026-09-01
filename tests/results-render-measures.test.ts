@@ -26,6 +26,9 @@ const { storageMock } = vi.hoisted(() => ({
     // на несуществующем методе ещё до кода, который проверяет этот файл.
     getCurrentAssignmentId: vi.fn().mockResolvedValue(null),
     getSnapshot: vi.fn(),
+    // PRD-51: маршрут читает документ отчёта. Здесь он не предмет проверки —
+    // пустой список означает «документ по умолчанию шаблона».
+    listReportBlocks: vi.fn().mockResolvedValue([]),
     getAttemptsByUserAndTest: vi.fn().mockResolvedValue([]),
     getUser: vi.fn(),
     getUserRoles: vi.fn().mockResolvedValue(["learner"]),

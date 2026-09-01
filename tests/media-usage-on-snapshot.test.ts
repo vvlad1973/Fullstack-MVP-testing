@@ -63,6 +63,8 @@ describe("createTestSnapshot — indexes the frozen deliverable on publish", () 
     vi.resetModules();
     const storageMock = {
       getTest: vi.fn(),
+      // PRD-51: маршрут читает документ отчёта; здесь он не предмет проверки.
+      listReportBlocks: vi.fn().mockResolvedValue([]),
       getTestSections: vi.fn(),
       getTopics: vi.fn(),
       getQuestionsByTopic: vi.fn(),
