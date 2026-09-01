@@ -669,7 +669,7 @@ Test
 
 ## База данных
 
-PostgreSQL + Drizzle ORM, **31 таблица**. Схема и Zod-типы -- в [shared/schema.ts](shared/schema.ts).
+PostgreSQL + Drizzle ORM, **32 таблицы**. Схема и Zod-типы -- в [shared/schema.ts](shared/schema.ts).
 
 **Модель миграций.** Схема ведётся версионированными миграциями: `drizzle-kit generate` создаёт файл,
 деплой применяет их командой `drizzle-kit migrate`. Прежний `drizzle-kit push --force` из деплоя убран --
@@ -911,6 +911,7 @@ PostgreSQL + Drizzle ORM, **31 таблица**. Схема и Zod-типы -- �
 | `test_sections.breakdown_rules_json` | PRD-50 | Пороги по ключам разреза — второй, независимый от квот гейт темы (drizzle `0020`) |
 | `tests.section_groups_json`, `test_sections.group_key` | PRD-50 | Названные блоки разделов на экране итогов и принадлежность темы блоку (drizzle `0021`) |
 | `tests.lms_attempt_result` | PRD-36 | Что пакет отдаёт в LMS при нескольких попытках: `best` / `last` (drizzle `0022`/`0023`) |
+| `report_blocks` | PRD-51 | Документ отчёта: упорядоченные блоки по ветви на режим теста (обычный / адаптивный); отсутствие строк = документ шаблона по умолчанию (drizzle `0024`) |
 | `media_assets`, `media_usages` | -- | Ядро медиатеки: схема и репозиторий есть, продуктового трека пока нет (drizzle `0009`) |
 
 Все опциональные колонки nullable/с дефолтом: их отсутствие сохраняет легаси-поведение.

@@ -3,6 +3,12 @@
 > **Для агентов-исполнителей:** ОБЯЗАТЕЛЬНЫЙ ПОДНАВЫК — `superpowers:subagent-driven-development`
 > (рекомендуется) или `superpowers:executing-plans`. Шаги помечены чек-боксами (`- [ ]`).
 
+**Статус: ВЫПОЛНЕН.** Этапы Э1-Э2 реализованы, приняты и влиты в `main` 2026-08-16 (последний коммит
+трека `e272cb2f`), приёмка — [отчёт](../reports/prd51-e1-e2-acceptance.md). Все 68 пунктов отмечены
+выполненными проходом актуализации 2026-09-01: план исполнялся прямо в сессии, а не через
+`executing-plans`, поэтому построчных отметок по ходу работы не ставилось — свидетельством
+исполнения служат отчёт приёмки и код, а не чекбоксы.
+
 **Цель:** отчёт о результатах перестаёт быть одной раскладкой и собирается из упорядоченного списка
 блоков; стандартный шаблон переведён на блоки, и тест, ничего не настраивавший, печатает прежний
 документ.
@@ -99,14 +105,14 @@ FR-13, FR-20 и FR-21. FR-14 (очистка разметки) закрыт зд
 потому что они фиксируют вещи, которых спека не фиксирует: расположение ручки перетаскивания, вид
 кнопки-вставки, тег природы блока, поведение раскрытия строки.
 
-- [ ] **Шаг 1: Снять образец разметки существующей «Структуры»**
+- [x] **Шаг 1: Снять образец разметки существующей «Структуры»**
 
 Открыть `docs/wireframes/approved/prd7-structure-linear-flat.html` и выписать классы и композицию
 строки страницы, кнопки-вставки и меню строки. Эскиз отчёта обязан использовать ТЕ ЖЕ классы —
 `docs/wireframes/prd7-shared.css` и `docs/wireframes/tb-components.css` подключаются как есть.
 Собственных классов в эскизе не заводить: расхождение с существующим экраном — дефект, а не свобода.
 
-- [ ] **Шаг 2: Собрать эскиз карточки-документа**
+- [x] **Шаг 2: Собрать эскиз карточки-документа**
 
 `docs/wireframes/prd51-report-document.html` — один холст, в нём карточка «Отчёт о результатах» со
 списком блоков по §7.2 спеки: строка системного блока с тумблером, строка авторской страницы с
@@ -114,12 +120,12 @@ FR-13, FR-20 и FR-21. FR-14 (очистка разметки) закрыт зд
 Переключатель состояний (как в остальных эскизах): `s-default`, `s-row-expanded`, `s-add-palette`,
 `s-readonly`. В холсте — только реальный UI; пояснения — в блоке заметок под холстом.
 
-- [ ] **Шаг 3: Собрать эскиз трёх листов отчёта**
+- [x] **Шаг 3: Собрать эскиз трёх листов отчёта**
 
 `docs/wireframes/prd51-certification-report.html` — три листа A4 по §10.1 и §10.3 спеки, с метриками
 из таблицы §10.3. Состояния: `s-pass`, `s-fail`.
 
-- [ ] **Шаг 4: Снять эскизы в браузере и сверить с референсом**
+- [x] **Шаг 4: Снять эскизы в браузере и сверить с референсом**
 
 ```bash
 python -m http.server 8123
@@ -130,12 +136,12 @@ python -m http.server 8123
 референса из `docs/references/` и сверить поэлементно: поля листа, высоту шапки карточки, размер
 бейджа, высоту полосы.
 
-- [ ] **Шаг 5: Отдать эскизы владельцу и дождаться утверждения**
+- [x] **Шаг 5: Отдать эскизы владельцу и дождаться утверждения**
 
 Гейт. Без явного «утверждено» следующие задачи не начинать: реализация UI без утверждённого эскиза —
 блокирующий дефект по правилу проекта.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add docs/wireframes/prd51-report-document.html docs/wireframes/prd51-certification-report.html
@@ -151,7 +157,7 @@ git commit -m "docs(prd-51): эскизы документа отчёта и к�
 - Create: `shared/report/report-blocks.ts`
 - Test: `shared/report/__tests__/report-blocks.test.ts`
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -194,7 +200,7 @@ describe("реестр блоков отчёта", () => {
 });
 ```
 
-- [ ] **Шаг 2: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 2: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm test -- shared/report/__tests__/report-blocks.test.ts
@@ -202,7 +208,7 @@ npm test -- shared/report/__tests__/report-blocks.test.ts
 
 Ожидание: FAIL, `Failed to resolve import "../report-blocks"`.
 
-- [ ] **Шаг 3: Написать минимальную реализацию**
+- [x] **Шаг 3: Написать минимальную реализацию**
 
 ```ts
 /**
@@ -272,7 +278,7 @@ export function reportBlockNature(key: string): ReportBlockNature {
 }
 ```
 
-- [ ] **Шаг 4: Прогнать тест и убедиться, что он проходит**
+- [x] **Шаг 4: Прогнать тест и убедиться, что он проходит**
 
 ```bash
 npm test -- shared/report/__tests__/report-blocks.test.ts
@@ -280,7 +286,7 @@ npm test -- shared/report/__tests__/report-blocks.test.ts
 
 Ожидание: PASS, 5 тестов.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add shared/report/report-blocks.ts shared/report/__tests__/report-blocks.test.ts
@@ -296,7 +302,7 @@ git commit -m "feat(prd-51): закрытый реестр блоков доку
 - Modify: `shared/report/report-variants.ts`
 - Test: `shared/report/__tests__/report-variants.blocks.test.ts` (создаётся)
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -370,7 +376,7 @@ describe("объявление блоков отчёта", () => {
 });
 ```
 
-- [ ] **Шаг 2: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 2: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm test -- shared/report/__tests__/report-variants.blocks.test.ts
@@ -378,7 +384,7 @@ npm test -- shared/report/__tests__/report-variants.blocks.test.ts
 
 Ожидание: FAIL — `resolveReportDocumentDecl` не экспортируется, вид `report.block` не распознан.
 
-- [ ] **Шаг 3: Реализовать правила в `report-variants.ts`**
+- [x] **Шаг 3: Реализовать правила в `report-variants.ts`**
 
 В `shared/report/report-variants.ts`:
 
@@ -414,7 +420,7 @@ npm test -- shared/report/__tests__/report-variants.blocks.test.ts
 7. Валидировать `reportDocument`: каждый ключ проходит `isReportBlockKey`, каждый системный ключ
    имеет объявленный вариант, дубли ключей запрещены.
 
-- [ ] **Шаг 4: Прогнать тест и убедиться, что он проходит**
+- [x] **Шаг 4: Прогнать тест и убедиться, что он проходит**
 
 ```bash
 npm test -- shared/report/__tests__/report-variants.blocks.test.ts
@@ -422,7 +428,7 @@ npm test -- shared/report/__tests__/report-variants.blocks.test.ts
 
 Ожидание: PASS, 8 тестов.
 
-- [ ] **Шаг 5: Прогнать существующие тесты варианта отчёта — регрессия запрета**
+- [x] **Шаг 5: Прогнать существующие тесты варианта отчёта — регрессия запрета**
 
 ```bash
 npm test -- shared/report/__tests__
@@ -431,7 +437,7 @@ npm test -- shared/report/__tests__
 Ожидание: PASS. Если тест на запрет `placeholders` красный — он проверял запрет на ВСЕХ видах;
 поправить его так, чтобы он проверял запрет на оболочке, и дописать случай разрешения на блоке.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add shared/report/report-variants.ts shared/report/__tests__
@@ -450,7 +456,7 @@ git commit -m "feat(prd-51): вид report.block и документ по умо
 - Modify: `server/storage.ts`
 - Test: `server/storage/__tests__/report-blocks-repository.it.test.ts`
 
-- [ ] **Шаг 1: Описать таблицу в схеме**
+- [x] **Шаг 1: Описать таблицу в схеме**
 
 В `shared/schema.ts`, рядом с `contentPages`:
 
@@ -496,7 +502,7 @@ export type ReportBlockRow = typeof reportBlocks.$inferSelect;
 export type InsertReportBlockRow = typeof reportBlocks.$inferInsert;
 ```
 
-- [ ] **Шаг 2: Сгенерировать миграцию**
+- [x] **Шаг 2: Сгенерировать миграцию**
 
 ```bash
 npx drizzle-kit generate
@@ -509,7 +515,7 @@ npx drizzle-kit generate
 ГОЧА: пересобирать уже применённую миграцию нельзя — механизм судит по времени, а не по хешам.
 Если файл придётся править, править ДО первого `db:migrate`.
 
-- [ ] **Шаг 3: Применить миграцию к dev-БД**
+- [x] **Шаг 3: Применить миграцию к dev-БД**
 
 ```bash
 npm run db:migrate
@@ -518,7 +524,7 @@ npm run db:migrate
 Ожидание: `report_blocks` создана. dev-БД общая для всех рабочих копий — миграция аддитивная,
 поэтому применять её безопасно.
 
-- [ ] **Шаг 4: Написать падающий интеграционный тест репозитория**
+- [x] **Шаг 4: Написать падающий интеграционный тест репозитория**
 
 ```ts
 import { describe, expect, it, beforeEach } from "vitest";
@@ -570,7 +576,7 @@ describe("ReportBlocksRepository", () => {
 Хелпер `makeTestDb` уже есть у соседних интеграционных тестов — взять его из существующего файла в
 `server/storage/__tests__/`, не писать свой.
 
-- [ ] **Шаг 5: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 5: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm run test:it -- server/storage/__tests__/report-blocks-repository.it.test.ts
@@ -578,7 +584,7 @@ npm run test:it -- server/storage/__tests__/report-blocks-repository.it.test.ts
 
 Ожидание: FAIL, модуль репозитория не найден.
 
-- [ ] **Шаг 6: Написать репозиторий**
+- [x] **Шаг 6: Написать репозиторий**
 
 ```ts
 /**
@@ -624,7 +630,7 @@ export class ReportBlocksRepository {
 }
 ```
 
-- [ ] **Шаг 7: Прогнать тест и убедиться, что он проходит**
+- [x] **Шаг 7: Прогнать тест и убедиться, что он проходит**
 
 ```bash
 npm run test:it -- server/storage/__tests__/report-blocks-repository.it.test.ts
@@ -632,7 +638,7 @@ npm run test:it -- server/storage/__tests__/report-blocks-repository.it.test.ts
 
 Ожидание: PASS, 4 теста.
 
-- [ ] **Шаг 8: Подключить репозиторий к фасаду**
+- [x] **Шаг 8: Подключить репозиторий к фасаду**
 
 В `server/storage.ts` добавить в контракт `IStorage` два метода и делегировать их так же, как это
 сделано для соседних репозиториев (взять образец у `content-pages`, не изобретать свой):
@@ -642,7 +648,7 @@ listReportBlocks(testId: string, mode: "standard" | "adaptive"): Promise<ReportB
 replaceReportBlocks(testId: string, mode: "standard" | "adaptive", blocks: ReportBlockInput[]): Promise<void>;
 ```
 
-- [ ] **Шаг 9: Проверить типы**
+- [x] **Шаг 9: Проверить типы**
 
 ```bash
 npm run check
@@ -650,7 +656,7 @@ npm run check
 
 Ожидание: 0 ошибок.
 
-- [ ] **Шаг 10: Коммит**
+- [x] **Шаг 10: Коммит**
 
 ```bash
 git add shared/schema.ts drizzle/ server/storage.ts server/storage/report-blocks-repository.ts server/storage/__tests__/report-blocks-repository.it.test.ts
@@ -666,7 +672,7 @@ git commit -m "feat(prd-51): таблица report_blocks и слой данны
 - Create: `shared/report/report-document.ts`
 - Test: `shared/report/__tests__/report-document.test.ts`
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -740,7 +746,7 @@ describe("разрешение документа отчёта", () => {
 });
 ```
 
-- [ ] **Шаг 2: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 2: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm test -- shared/report/__tests__/report-document.test.ts
@@ -748,7 +754,7 @@ npm test -- shared/report/__tests__/report-document.test.ts
 
 Ожидание: FAIL, модуль не найден.
 
-- [ ] **Шаг 3: Написать реализацию**
+- [x] **Шаг 3: Написать реализацию**
 
 ```ts
 /**
@@ -901,7 +907,7 @@ export function reportBlockLabel(block: string): string {
 }
 ```
 
-- [ ] **Шаг 4: Прогнать тест и убедиться, что он проходит**
+- [x] **Шаг 4: Прогнать тест и убедиться, что он проходит**
 
 ```bash
 npm test -- shared/report/__tests__/report-document.test.ts
@@ -909,7 +915,7 @@ npm test -- shared/report/__tests__/report-document.test.ts
 
 Ожидание: PASS, 7 тестов.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add shared/report/report-document.ts shared/report/__tests__/report-document.test.ts
@@ -925,7 +931,7 @@ git commit -m "feat(prd-51): разрешение документа отчёт�
 - Create: `shared/report/render-report.ts`
 - Test: `shared/report/__tests__/render-report.test.ts`
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```ts
 // @vitest-environment jsdom
@@ -1017,7 +1023,7 @@ describe("сборка документа отчёта", () => {
 });
 ```
 
-- [ ] **Шаг 2: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 2: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm test -- shared/report/__tests__/render-report.test.ts
@@ -1025,7 +1031,7 @@ npm test -- shared/report/__tests__/render-report.test.ts
 
 Ожидание: FAIL, модуль не найден.
 
-- [ ] **Шаг 3: Написать реализацию**
+- [x] **Шаг 3: Написать реализацию**
 
 ```ts
 /**
@@ -1095,7 +1101,7 @@ export function renderReportInto(stage: HTMLElement, input: RenderReportInput): 
 }
 ```
 
-- [ ] **Шаг 4: Прогнать тест и убедиться, что он проходит**
+- [x] **Шаг 4: Прогнать тест и убедиться, что он проходит**
 
 ```bash
 npm test -- shared/report/__tests__/render-report.test.ts
@@ -1103,7 +1109,7 @@ npm test -- shared/report/__tests__/render-report.test.ts
 
 Ожидание: PASS, 6 тестов.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add shared/report/render-report.ts shared/report/__tests__/render-report.test.ts
@@ -1122,7 +1128,7 @@ git commit -m "feat(prd-51): сборка документа отчёта из �
 - Modify: `client/src/features/tests/editor/sections/report-preview-modal.tsx`
 - Test: `shared/report/__tests__/export-pdf.document.test.ts` (создаётся)
 
-- [ ] **Шаг 1: Написать падающий тест конвейера PDF**
+- [x] **Шаг 1: Написать падающий тест конвейера PDF**
 
 ```ts
 // @vitest-environment jsdom
@@ -1167,7 +1173,7 @@ describe("конвейер PDF собирает документ из блоко
 });
 ```
 
-- [ ] **Шаг 2: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 2: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm test -- shared/report/__tests__/export-pdf.document.test.ts
@@ -1175,7 +1181,7 @@ npm test -- shared/report/__tests__/export-pdf.document.test.ts
 
 Ожидание: FAIL — `ReportPage` не принимает `shell`/`blocks`.
 
-- [ ] **Шаг 3: Расширить `ReportPage` и переключить конвейер**
+- [x] **Шаг 3: Расширить `ReportPage` и переключить конвейер**
 
 В `shared/report/export-pdf.ts`:
 
@@ -1197,7 +1203,7 @@ npm test -- shared/report/__tests__/export-pdf.document.test.ts
 
 3. Импортировать `renderReportInto` из `./render-report`.
 
-- [ ] **Шаг 4: Прогнать тест и убедиться, что он проходит**
+- [x] **Шаг 4: Прогнать тест и убедиться, что он проходит**
 
 ```bash
 npm test -- shared/report/__tests__/export-pdf.document.test.ts
@@ -1205,7 +1211,7 @@ npm test -- shared/report/__tests__/export-pdf.document.test.ts
 
 Ожидание: PASS.
 
-- [ ] **Шаг 5: Прогнать существующие тесты конвейера — путь совместимости жив**
+- [x] **Шаг 5: Прогнать существующие тесты конвейера — путь совместимости жив**
 
 ```bash
 npm test -- shared/report
@@ -1213,14 +1219,14 @@ npm test -- shared/report
 
 Ожидание: PASS, ни один существующий тест не покраснел.
 
-- [ ] **Шаг 6: Отдавать документ из `resolveReportBake`**
+- [x] **Шаг 6: Отдавать документ из `resolveReportBake`**
 
 В `shared/report/report-variants.ts` в возвращаемое значение `resolveReportBake` добавить поле
 `document: ResolvedReportDocument | null` (null, когда `monolithic`). Строки теста функция получает
 новым необязательным аргументом `rows`, потому что манифест их не знает, а два источника документа
 недопустимы.
 
-- [ ] **Шаг 7: Запечь документ в пакет**
+- [x] **Шаг 7: Запечь документ в пакет**
 
 В `server/scorm/builders/test-json.ts` рядом с существующей выпечкой отчёта:
 
@@ -1237,13 +1243,13 @@ npm test -- shared/report
 - объявить в пакете раскладки ВСЕХ использованных вариантов блоков (иначе в LMS документ соберётся
   из пустых блоков).
 
-- [ ] **Шаг 8: Переключить предпросмотр автора**
+- [x] **Шаг 8: Переключить предпросмотр автора**
 
 В `client/src/features/tests/editor/sections/report-preview-modal.tsx` передавать в `TemplateScreen`
 оболочку и блоки черновика вместо цельной раскладки. Второго движка предпросмотра нет и заводить его
 нельзя — окно обязано показывать ровно то, что уйдёт слушателю.
 
-- [ ] **Шаг 9: Проверить типы и прогнать затронутые тесты**
+- [x] **Шаг 9: Проверить типы и прогнать затронутые тесты**
 
 ```bash
 npm run check
@@ -1252,7 +1258,7 @@ npm test -- shared/report server/scorm/__tests__
 
 Ожидание: 0 ошибок типов; тесты зелёные.
 
-- [ ] **Шаг 10: Коммит**
+- [x] **Шаг 10: Коммит**
 
 ```bash
 git add shared/report server/scorm/builders/test-json.ts client/src/features/tests/editor/sections/report-preview-modal.tsx
@@ -1268,7 +1274,7 @@ git commit -m "feat(prd-51): PDF, пакет и предпросмотр соб�
 - Test: `shared/report/__tests__/report-document.test.ts` (дополняется)
 - Modify: `shared/report/report-variants.ts` (при необходимости)
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```ts
   it("шаблон без блоков собирает цельную раскладку, как сегодня", () => {
@@ -1283,7 +1289,7 @@ git commit -m "feat(prd-51): PDF, пакет и предпросмотр соб�
   });
 ```
 
-- [ ] **Шаг 2: Прогнать тест и убедиться, что он падает**
+- [x] **Шаг 2: Прогнать тест и убедиться, что он падает**
 
 ```bash
 npm test -- shared/report/__tests__/report-document.test.ts
@@ -1291,13 +1297,13 @@ npm test -- shared/report/__tests__/report-document.test.ts
 
 Ожидание: FAIL — поля `document` нет либо оно не `null`.
 
-- [ ] **Шаг 3: Довести реализацию до зелёного**
+- [x] **Шаг 3: Довести реализацию до зелёного**
 
 `resolveReportBake` отдаёт `document: null`, когда `resolveReportDocument` вернул `monolithic: true`;
 `layoutKey` при этом остаётся прежним. Никакой второй ветки в конвейере не заводить: разводит их
 уже условие шага 3 задачи 7.
 
-- [ ] **Шаг 4: Прогнать тест**
+- [x] **Шаг 4: Прогнать тест**
 
 ```bash
 npm test -- shared/report/__tests__/report-document.test.ts
@@ -1305,7 +1311,7 @@ npm test -- shared/report/__tests__/report-document.test.ts
 
 Ожидание: PASS.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add shared/report
@@ -1323,7 +1329,7 @@ git commit -m "feat(prd-51): шаблон без блоков печатает �
 - Modify: `server/scorm/templates/default/manifest.json`
 - Read: `server/scorm/templates/default/layouts/report.html` (источник разбора)
 
-- [ ] **Шаг 1: Разрезать раскладку по секциям**
+- [x] **Шаг 1: Разрезать раскладку по секциям**
 
 Прочитать `server/scorm/templates/default/layouts/report.html` целиком и перенести его секции в
 файлы блоков ДОСЛОВНО, вместе с комментариями: комментарии в этой раскладке объясняют гейты и
@@ -1351,7 +1357,7 @@ git commit -m "feat(prd-51): шаблон без блоков печатает �
 строкой — там же, где стояла. Если положить её в `header.html`, документ без сводки напечатает
 заголовок над пустотой.
 
-- [ ] **Шаг 2: Объявить варианты и документ в манифесте**
+- [x] **Шаг 2: Объявить варианты и документ в манифесте**
 
 В `server/scorm/templates/default/manifest.json`:
 
@@ -1386,7 +1392,7 @@ git commit -m "feat(prd-51): шаблон без блоков печатает �
    }
    ```
 
-- [ ] **Шаг 3: Написать раскладку авторской страницы**
+- [x] **Шаг 3: Написать раскладку авторской страницы**
 
 `server/scorm/templates/default/layouts/report/page-text.html`:
 
@@ -1397,7 +1403,7 @@ git commit -m "feat(prd-51): шаблон без блоков печатает �
 </section>
 ```
 
-- [ ] **Шаг 4: Перезапустить dev-сервер**
+- [x] **Шаг 4: Перезапустить dev-сервер**
 
 ```bash
 npm run dev
@@ -1405,7 +1411,7 @@ npm run dev
 
 Манифест живёт в БД, и правка файла не видна приложению без перезапуска.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add server/scorm/templates/default
@@ -1422,7 +1428,7 @@ git commit -m "feat(prd-51): стандартный шаблон разобра�
 
 Это ГЛАВНАЯ проверка Э2: разбор на блоки не имел права сдвинуть вёрстку.
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 ```ts
 // @vitest-environment jsdom
@@ -1468,7 +1474,7 @@ describe("паритет документа отчёта", () => {
 });
 ```
 
-- [ ] **Шаг 2: Написать фикстуру контекста**
+- [x] **Шаг 2: Написать фикстуру контекста**
 
 `tests/helpers/report-fixture.ts` — контекст с ЗАПОЛНЕННЫМИ данными всех десяти блоков: темы с
 группами и разрезами, шкалы, показатели, рекомендации, курсы, мероприятия, вводный блок. Пустой
@@ -1478,7 +1484,7 @@ describe("паритет документа отчёта", () => {
 на синтетическом входе, а не руками: контекст, собранный руками, не заметит, если ядро сменит форму
 поля.
 
-- [ ] **Шаг 3: Прогнать тест**
+- [x] **Шаг 3: Прогнать тест**
 
 ```bash
 npm test -- tests/report-document-parity.test.ts
@@ -1488,7 +1494,7 @@ npm test -- tests/report-document-parity.test.ts
 править ТОЛЬКО файлы блоков, приводя их к источнику; трогать `layouts/report.html` ради зелёного
 теста запрещено — он и есть эталон.
 
-- [ ] **Шаг 4: Добиться зелёного и повторить для адаптивного отчёта**
+- [x] **Шаг 4: Добиться зелёного и повторить для адаптивного отчёта**
 
 Дописать второй случай, сравнивающий `layouts/report.adaptive.html` с документом вида
 `report.adaptive`.
@@ -1499,7 +1505,7 @@ npm test -- tests/report-document-parity.test.ts
 
 Ожидание: PASS, 2 теста.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add tests/report-document-parity.test.ts tests/helpers/report-fixture.ts
@@ -1515,7 +1521,7 @@ git commit -m "test(prd-51): документ из блоков совпадае
 Юнит-тесты сравнивают DOM; растеризацию и стыки листов они не видят. Правило проекта: приёмка
 фронтенда — в браузере.
 
-- [ ] **Шаг 1: Поднять второй экземпляр dev-сервера**
+- [x] **Шаг 1: Поднять второй экземпляр dev-сервера**
 
 ```bash
 PORT=8099 npm run dev
@@ -1523,17 +1529,17 @@ PORT=8099 npm run dev
 
 Живой dev серверные правки не подхватывает — нужен именно новый запуск.
 
-- [ ] **Шаг 2: Скачать отчёт учётной записью приёмки**
+- [x] **Шаг 2: Скачать отчёт учётной записью приёмки**
 
 Войти как `acceptance@local.test`, пройти тест с темами, шкалами и показателями, нажать «Скачать
 отчёт».
 
-- [ ] **Шаг 3: Сверить PDF с эталоном, снятым ДО правки**
+- [x] **Шаг 3: Сверить PDF с эталоном, снятым ДО правки**
 
 Открыть оба PDF постранично и сверить: число листов, положение карточек, стыки листов, непрозрачный
 низ каждого листа. Расхождение — дефект Э2, а не «мелочь оформления».
 
-- [ ] **Шаг 4: Повторить в SCORM-пакете**
+- [x] **Шаг 4: Повторить в SCORM-пакете**
 
 ```bash
 npm run scorm:sample
@@ -1542,12 +1548,12 @@ npm run scorm:player
 
 Пройти пакет на `:5050`, скачать отчёт, сверить с веб-версией: документ обязан совпасть.
 
-- [ ] **Шаг 5: Записать результат приёмки**
+- [x] **Шаг 5: Записать результат приёмки**
 
 `docs/reports/prd51-e1-e2-acceptance.md` — что проверено, чем, с какими числами. Отчёт без чисел
 приёмкой не считается.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add docs/reports/prd51-e1-e2-acceptance.md

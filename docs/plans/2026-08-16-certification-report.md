@@ -4,6 +4,12 @@
 > через `superpowers:subagent-driven-development` или `superpowers:executing-plans`.
 > Шаги помечены чекбоксами (`- [ ]`) для отметки готовности.
 
+**Статус: ВЫПОЛНЕН.** Этап Э4 реализован, принят и влит в `main` 2026-08-16 (последний коммит трека
+`e272cb2f`), приёмка — [отчёт](../reports/prd51-e4-acceptance.md). Все 47 пунктов отмечены
+выполненными проходом актуализации 2026-09-01: план исполнялся прямо в сессии, а не через
+`executing-plans`, поэтому построчных отметок по ходу работы не ставилось — свидетельством
+исполнения служат отчёт приёмки и код, а не чекбоксы.
+
 **Цель:** шаблон «Сертификация» печатает отчёт документом из блоков по §10.1 спецификации
 с метриками §10.3, а гард паритета продолжает стеречь 17 раскладок ученических экранов.
 
@@ -113,7 +119,7 @@
 - Modify: `tests/template-layout-parity.test.ts:163-164` (`isReportVariant`)
 - Modify: `tests/template-layout-parity.test.ts:82-95` (побайтовое сравнение раскладок)
 
-- [ ] **Шаг 1: Написать падающий тест правила исключения**
+- [x] **Шаг 1: Написать падающий тест правила исключения**
 
 В `tests/template-layout-parity.test.ts` добавить в конец файла:
 
@@ -134,7 +140,7 @@ describe("PRD-51 §10.4: из-под паритета выведено ВСЁ с
 });
 ```
 
-- [ ] **Шаг 2: Прогнать — падает**
+- [x] **Шаг 2: Прогнать — падает**
 
 ```bash
 npm test -- tests/template-layout-parity.test.ts
@@ -143,7 +149,7 @@ npm test -- tests/template-layout-parity.test.ts
 Ожидание: FAIL — «Сертификация» поля `coverImage` пока не объявляет, а раскладок под
 гардом 19.
 
-- [ ] **Шаг 3: Расширить правило исключения**
+- [x] **Шаг 3: Расширить правило исключения**
 
 Заменить `isReportVariant` (строки 163-164):
 
@@ -165,7 +171,7 @@ npm test -- tests/template-layout-parity.test.ts
     REPORT_KINDS.has(String(t.kind)) || t.key.startsWith("report.");
 ```
 
-- [ ] **Шаг 4: Вывести раскладки отчёта из побайтового сравнения**
+- [x] **Шаг 4: Вывести раскладки отчёта из побайтового сравнения**
 
 Заменить тело `describe("certification layouts track the standard template", …)`
 (строки 79-94):
@@ -198,7 +204,7 @@ describe("certification layouts track the standard template", () => {
 });
 ```
 
-- [ ] **Шаг 5: Прогнать — второй тест всё ещё падает**
+- [x] **Шаг 5: Прогнать — второй тест всё ещё падает**
 
 ```bash
 npm test -- tests/template-layout-parity.test.ts
@@ -208,7 +214,7 @@ npm test -- tests/template-layout-parity.test.ts
 в задаче 3. Это ожидаемое промежуточное состояние: правило исключения готово, объявление
 ещё нет.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add tests/template-layout-parity.test.ts
@@ -226,7 +232,7 @@ CSS идёт ДО раскладок: раскладка без стилей в�
 
 - Modify: `templates/certification/styles/report.css`
 
-- [ ] **Шаг 1: Написать падающий тест метрик**
+- [x] **Шаг 1: Написать падающий тест метрик**
 
 Создать `tests/certification-report-document.test.ts`:
 
@@ -272,7 +278,7 @@ describe("лист документа «Сертификации» светлы�
 });
 ```
 
-- [ ] **Шаг 2: Прогнать — падает**
+- [x] **Шаг 2: Прогнать — падает**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts
@@ -280,7 +286,7 @@ npm test -- tests/certification-report-document.test.ts
 
 Ожидание: FAIL на первом же тесте — сегодняшний `report.css` «Сертификации» тёмный.
 
-- [ ] **Шаг 3: Переписать `styles/report.css`**
+- [x] **Шаг 3: Переписать `styles/report.css`**
 
 Файл переписывается целиком. Правила эталона сохраняются ВСЕ (их стережёт гард
 селекторов), меняются только значения; ниже добавляются правила узлов, которых у эталона
@@ -400,7 +406,7 @@ npm test -- tests/certification-report-document.test.ts
 с заменой тёмной палитры на светлую: фон карточки `#F7F7F7`, текст `#101828`, рамка
 `#D8D8D8`. Ни один селектор не удаляется — их стережёт гард.
 
-- [ ] **Шаг 4: Прогнать оба гарда**
+- [x] **Шаг 4: Прогнать оба гарда**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts tests/template-layout-parity.test.ts
@@ -409,7 +415,7 @@ npm test -- tests/certification-report-document.test.ts tests/template-layout-pa
 Ожидание: тесты метрик зелёные; гард селекторов зелёный (ни один селектор эталона не
 пропал); тест `coverImage` по-прежнему красный.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add templates/certification/styles/report.css tests/certification-report-document.test.ts
@@ -425,7 +431,7 @@ git commit -m "feat(prd-51): светлый лист документа «Сер
 - Modify: `templates/certification/manifest.json`
 - Modify: `tests/certification-report-document.test.ts`
 
-- [ ] **Шаг 1: Дописать падающий тест объявлений**
+- [x] **Шаг 1: Дописать падающий тест объявлений**
 
 В `tests/certification-report-document.test.ts` добавить:
 
@@ -478,7 +484,7 @@ describe("манифест «Сертификации» объявляет до�
 });
 ```
 
-- [ ] **Шаг 2: Прогнать — падает**
+- [x] **Шаг 2: Прогнать — падает**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts
@@ -486,7 +492,7 @@ npm test -- tests/certification-report-document.test.ts
 
 Ожидание: FAIL — вариантов `report.block` в манифесте нет.
 
-- [ ] **Шаг 3: Дописать манифест**
+- [x] **Шаг 3: Дописать манифест**
 
 Правка ТЕКСТОВАЯ, точечная: перечитывать и пересохранять JSON целиком нельзя — сериализация
 переформатирует файл и утопит правку в шуме (эта ошибка уже допускалась в Э2).
@@ -540,7 +546,7 @@ npm test -- tests/certification-report-document.test.ts
 
 Поднять `"version"` до `"1.10.0"`.
 
-- [ ] **Шаг 4: Прогнать — тест раскладок падает, остальные зелёные**
+- [x] **Шаг 4: Прогнать — тест раскладок падает, остальные зелёные**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts tests/template-layout-parity.test.ts
@@ -550,7 +556,7 @@ npm test -- tests/certification-report-document.test.ts tests/template-layout-pa
 в шаблоне» красный — файлов ещё нет. Это ожидаемо: объявление опережает раскладки ровно на
 одну задачу.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add templates/certification/manifest.json tests/certification-report-document.test.ts
@@ -567,7 +573,7 @@ git commit -m "feat(prd-51): манифест «Сертификации» об�
 - Create: `templates/certification/layouts/report/header.html`
 - Create: `templates/certification/layouts/report/intro.html`
 
-- [ ] **Шаг 1: Открыть эскиз и выписать структуру титула**
+- [x] **Шаг 1: Открыть эскиз и выписать структуру титула**
 
 ```bash
 python -m http.server 8123
@@ -577,7 +583,7 @@ python -m http.server 8123
 `s-pass`, лист 1. Выписать порядок узлов: полотно → бренд-плашка → название → карточка
 вердикта (знак, «Тест пройден», ФИО, дата) → обращение → место иллюстрации.
 
-- [ ] **Шаг 2: Написать оболочку**
+- [x] **Шаг 2: Написать оболочку**
 
 `templates/certification/layouts/report/shell.html`:
 
@@ -592,7 +598,7 @@ python -m http.server 8123
 </div>
 ```
 
-- [ ] **Шаг 3: Написать титул**
+- [x] **Шаг 3: Написать титул**
 
 `templates/certification/layouts/report/header.html`:
 
@@ -626,7 +632,7 @@ python -m http.server 8123
 .tb-report.is-fail .tb-report__mark::before { content: "\0021"; color: #FF4F12; }
 ```
 
-- [ ] **Шаг 4: Написать обращение**
+- [x] **Шаг 4: Написать обращение**
 
 `templates/certification/layouts/report/intro.html`:
 
@@ -636,7 +642,7 @@ python -m http.server 8123
 {{#if result.introHtml}}<div class="tb-report__intro">{{& result.introHtml }}</div>{{/if}}
 ```
 
-- [ ] **Шаг 5: Прогнать гард раскладок**
+- [x] **Шаг 5: Прогнать гард раскладок**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts
@@ -645,7 +651,7 @@ npm test -- tests/certification-report-document.test.ts
 Ожидание: тест существования файлов всё ещё красный (не хватает остальных десяти), тесты
 метрик и объявлений зелёные.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add templates/certification/layouts/report/shell.html templates/certification/layouts/report/header.html templates/certification/layouts/report/intro.html
@@ -662,7 +668,7 @@ git commit -m "feat(prd-51): оболочка и титул отчёта «Се�
 
 - Create: `templates/certification/layouts/report/topics.html`
 
-- [ ] **Шаг 1: Написать раскладку**
+- [x] **Шаг 1: Написать раскладку**
 
 ```html
 <!-- РАЗДЕЛЫ. Состав и счётчик считает ЯДРО (PRD-50): `result.topicGroups[]` появляется
@@ -716,7 +722,7 @@ git commit -m "feat(prd-51): оболочка и титул отчёта «Се�
 {{/if}}
 ```
 
-- [ ] **Шаг 2: Свериться с эталоном по именам путей**
+- [x] **Шаг 2: Свериться с эталоном по именам путей**
 
 ```bash
 grep -n "data-path\|{{#each\|{{ " server/scorm/templates/default/layouts/report/topics.html | head -40
@@ -726,13 +732,13 @@ grep -n "data-path\|{{#each\|{{ " server/scorm/templates/default/layouts/report/
 `valueLabel`, `ungroupedTopics`) обязано совпасть с эталонным. Расхождение здесь означает
 не «другой облик», а блок, который ничего не напечатает: контекст один на оба шаблона.
 
-- [ ] **Шаг 3: Прогнать**
+- [x] **Шаг 3: Прогнать**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts
 ```
 
-- [ ] **Шаг 4: Коммит**
+- [x] **Шаг 4: Коммит**
 
 ```bash
 git add templates/certification/layouts/report/topics.html
@@ -748,7 +754,7 @@ git commit -m "feat(prd-51): разделы отчёта «Сертификац�
 - Create: `templates/certification/layouts/report/summary.html`, `breakdown.html`,
   `scales.html`, `indicators.html`, `recommendations.html`, `courses.html`, `events.html`
 
-- [ ] **Шаг 1: Перенести раскладки эталона под светлую палитру**
+- [x] **Шаг 1: Перенести раскладки эталона под светлую палитру**
 
 Для каждого из семи блоков взять эталонную раскладку и изменить ТОЛЬКО структуру внешней
 карточки: `<section class="tb-report__card">` остаётся, внутренности не трогаются.
@@ -768,7 +774,7 @@ done
 у эталона: его гейт стоит СНАРУЖИ гейта карточки, и перенос заголовка сменил бы порядок
 документа у методики без баллов.
 
-- [ ] **Шаг 2: Прогнать — тест существования файлов зеленеет**
+- [x] **Шаг 2: Прогнать — тест существования файлов зеленеет**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts
@@ -776,7 +782,7 @@ npm test -- tests/certification-report-document.test.ts
 
 Ожидание: PASS всех тестов задачи 3, кроме страниц (задача 7).
 
-- [ ] **Шаг 3: Коммит**
+- [x] **Шаг 3: Коммит**
 
 ```bash
 git add templates/certification/layouts/report/
@@ -793,7 +799,7 @@ git commit -m "feat(prd-51): системные блоки отчёта «Сер
 - Create: `templates/certification/layouts/report/page-cols-2.html`
 - Create: `templates/certification/layouts/report/page-cols-3.html`
 
-- [ ] **Шаг 1: Одна колонка**
+- [x] **Шаг 1: Одна колонка**
 
 ```html
 <!-- АВТОРСКАЯ СТРАНИЦА: заголовок и текст. Незаполненная область не печатает ничего, но
@@ -804,7 +810,7 @@ git commit -m "feat(prd-51): системные блоки отчёта «Сер
 </section>
 ```
 
-- [ ] **Шаг 2: Две колонки**
+- [x] **Шаг 2: Две колонки**
 
 ```html
 <!-- ДВЕ КОЛОНКИ. Правая колонка эскиза оформлена врезкой — это её ОБЛИК, заданный
@@ -818,7 +824,7 @@ git commit -m "feat(prd-51): системные блоки отчёта «Сер
 </section>
 ```
 
-- [ ] **Шаг 3: Три колонки**
+- [x] **Шаг 3: Три колонки**
 
 ```html
 <!-- ТРИ КОЛОНКИ — раскладка листа рекомендаций эскиза. -->
@@ -832,13 +838,13 @@ git commit -m "feat(prd-51): системные блоки отчёта «Сер
 </section>
 ```
 
-- [ ] **Шаг 4: Прогнать — всё зелено**
+- [x] **Шаг 4: Прогнать — всё зелено**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts tests/template-layout-parity.test.ts
 ```
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add templates/certification/layouts/report/page-*.html
@@ -853,7 +859,7 @@ git commit -m "feat(prd-51): три варианта авторской стра
 
 - Create: `templates/certification/layouts/report/adaptive/` — девять файлов
 
-- [ ] **Шаг 1: Перенести адаптивные раскладки эталона**
+- [x] **Шаг 1: Перенести адаптивные раскладки эталона**
 
 ```bash
 mkdir -p templates/certification/layouts/report/adaptive
@@ -862,7 +868,7 @@ for f in shell header intro topics breakdown scales indicators recommendations c
 done
 ```
 
-- [ ] **Шаг 2: Привести титул и разделы к облику «Сертификации»**
+- [x] **Шаг 2: Привести титул и разделы к облику «Сертификации»**
 
 `adaptive/header.html` — та же плита титула, что в задаче 4, но с адаптивной подписью:
 
@@ -883,13 +889,13 @@ done
 УРОВНЕМ, а не долей, и её структура к референсу «Сертификации» отношения не имеет.
 Светлый облик ей даёт общий `styles/report.css`.
 
-- [ ] **Шаг 3: Прогнать**
+- [x] **Шаг 3: Прогнать**
 
 ```bash
 npm test -- tests/certification-report-document.test.ts
 ```
 
-- [ ] **Шаг 4: Коммит**
+- [x] **Шаг 4: Коммит**
 
 ```bash
 git add templates/certification/layouts/report/adaptive/
@@ -906,7 +912,7 @@ git commit -m "feat(prd-51): адаптивная ветвь отчёта «Се
 
 - Modify: `tests/report-shipped-templates.test.ts`
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 `resolveReportBundle` в этом файле уже импортирован; дописать к импорту разрешение
 документа:
@@ -941,7 +947,7 @@ describe("«Сертификация» кладёт документ в паке
 });
 ```
 
-- [ ] **Шаг 2: Прогнать — падает или зеленеет**
+- [x] **Шаг 2: Прогнать — падает или зеленеет**
 
 ```bash
 npm test -- tests/report-shipped-templates.test.ts
@@ -949,7 +955,7 @@ npm test -- tests/report-shipped-templates.test.ts
 
 Красный тест здесь означает расхождение манифеста с файлами — вернуться в задачу 3.
 
-- [ ] **Шаг 3: Коммит**
+- [x] **Шаг 3: Коммит**
 
 ```bash
 git add tests/report-shipped-templates.test.ts
@@ -966,7 +972,7 @@ git commit -m "test(prd-51): документ «Сертификации» до�
 
 - Create: `docs/reports/prd51-e4-acceptance.md`
 
-- [ ] **Шаг 1: Собрать пакет приёмки**
+- [x] **Шаг 1: Собрать пакет приёмки**
 
 ```bash
 PORT=8097 npm run dev
@@ -981,7 +987,7 @@ PORT=8097 npm run dev
 curl -s -b cookies "http://localhost:8097/api/tests/608932a1-b0d0-4953-8484-ba45890ddd1f/export/scorm" -o out/prd51-e4.zip
 ```
 
-- [ ] **Шаг 2: Пройти в плеере и скачать PDF**
+- [x] **Шаг 2: Пройти в плеере и скачать PDF**
 
 ```bash
 npm run scorm:player
@@ -990,7 +996,7 @@ npm run scorm:player
 Открыть `http://localhost:5050`, загрузить `prd51-e4.zip`, пройти тест, нажать «Скачать
 отчёт».
 
-- [ ] **Шаг 3: Растеризовать и сверить с референсом**
+- [x] **Шаг 3: Растеризовать и сверить с референсом**
 
 Извлечь листы из PDF (страницы — DCTDecode-изображения 1190 × 1684):
 
@@ -1014,17 +1020,17 @@ PY
 бейдж счётчика, строка раздела, полоса разреза, цвета исхода. Каждое расхождение — либо
 правка, либо строка в разделе «принято сознательно» отчёта приёмки.
 
-- [ ] **Шаг 4: Проверить непройденную попытку**
+- [x] **Шаг 4: Проверить непройденную попытку**
 
 Повторить прогон с результатом ниже порога. Ожидание: знак исхода и пилюли уровня
 оранжевые (`#FF4F12`), раскладка та же — различия только в данных (эскиз, `s-fail`).
 
-- [ ] **Шаг 5: Записать отчёт приёмки**
+- [x] **Шаг 5: Записать отчёт приёмки**
 
 `docs/reports/prd51-e4-acceptance.md`: что проверено, чем, с числами — размеры листов,
 число листов, снятые цвета, найденные расхождения. Отчёт без чисел приёмкой не считается.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add docs/reports/prd51-e4-acceptance.md
