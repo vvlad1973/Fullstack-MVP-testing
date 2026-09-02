@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-    Wireframe: PRD-52 — диалог «Отправить на согласование» (приглашение экспертов).
+    Wireframe: PRD-52 — диалог «Отправить на рецензирование» (приглашение рецензентов).
     Спека: docs/specs/prd-52/test-review.md. План: docs/plans/2026-09-03-test-review.md.
     Канон — реальный диалог назначения теста (client/src/components/assign-test-dialog.tsx:
     ModalDialog size=xl + Tabs variant=segment align=stretch) и эскизы prd28-bulk-invite-*.
     Состояния — кнопки навбара (адресуемы через ?state=<id>). НЕ согласован — черновик к ревью.
     -->
-    <title>PRD-52 — Отправить на согласование</title>
+    <title>PRD-52 — Отправить на рецензирование</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/university-rt.css" />
     <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
     <script defer src="/docs/wireframes/prd7-shared.js"></script>
@@ -79,7 +79,7 @@
     </svg>
 
     <nav class="wf-nav" aria-label="Wireframe state switcher">
-      <span class="wf-nav-title">Отправка на согласование:</span>
+      <span class="wf-nav-title">Отправка на рецензирование:</span>
       <button type="button" class="active" onclick="showState(this, 'invited')">приглашены</button>
       <button type="button" onclick="showState(this, 'users')">пользователи</button>
       <button type="button" onclick="showState(this, 'bulk')">списком из файла</button>
@@ -99,7 +99,7 @@
           <div class="ou-modal ou-modal--xl">
             <header class="ou-modal__head">
               <div class="ou-modal__head-text">
-                <h1 class="ou-modal__title" id="wf-t1">Отправить на согласование</h1>
+                <h1 class="ou-modal__title" id="wf-t1">Отправить на рецензирование</h1>
                 <p class="ou-modal__desc">Сертификационный тест для руководителей</p>
               </div>
               <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
@@ -173,7 +173,7 @@
           <div class="ou-modal ou-modal--xl">
             <header class="ou-modal__head">
               <div class="ou-modal__head-text">
-                <h1 class="ou-modal__title" id="wf-t2">Отправить на согласование</h1>
+                <h1 class="ou-modal__title" id="wf-t2">Отправить на рецензирование</h1>
                 <p class="ou-modal__desc">Сертификационный тест для руководителей</p>
               </div>
               <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
@@ -251,7 +251,7 @@
           <div class="ou-modal ou-modal--xl">
             <header class="ou-modal__head">
               <div class="ou-modal__head-text">
-                <h1 class="ou-modal__title" id="wf-t3">Отправить на согласование</h1>
+                <h1 class="ou-modal__title" id="wf-t3">Отправить на рецензирование</h1>
                 <p class="ou-modal__desc">Сертификационный тест для руководителей</p>
               </div>
               <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
@@ -347,7 +347,7 @@
               «Приглашены (N)», «Пользователи», «Группы», «Списком из файла».</li>
             <li>Конвейер PRD-28 переиспользуется целиком: разбор книги, классификация строк, заведение внешних
               участников, письмо и выгрузка ссылок. Отличие одно — вместо назначения выдаётся грант
-              <code>review</code>, а токен выпускается с назначением «согласование».</li>
+              <code>review</code>, а токен выпускается с назначением «рецензирование».</li>
           </ul>
 
           <h3 class="wf-notes-title">Что сказано словами прямо в диалоге</h3>

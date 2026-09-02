@@ -61,7 +61,7 @@
 | `server/scorm/debug-player/assets/inspector-compute.js` | уровень вопроса в адаптиве, гашение вердикта |
 | `client/src/features/tests/editor/test-editor.tsx` | вкладка «Комментарии» |
 | `client/src/features/tests/debug-player/debug-player-page.tsx` | вкладка «Комментарии», тумблер полной выдачи, баннер пересборки |
-| `client/src/components/assign-test-dialog.tsx` | режим «Отправить на согласование» |
+| `client/src/components/assign-test-dialog.tsx` | режим «Отправить на рецензирование» |
 | `client/src/features/tests/list/tests-list.tsx` | счётчик открытых замечаний, пункт меню |
 | `client/src/App.tsx` | маршрут `/review/tests/:testId` |
 | `vendor/ui-kit/src/components/Drawer.tsx` | Escape закрывает только верхний ящик |
@@ -1412,7 +1412,7 @@ git add server/services/review-invite.ts server/routes/review.ts tests/review-in
 git commit -m "feat(prd-52): приглашение экспертов грантом review"
 ```
 
-### Задача 6.2: диалог «Отправить на согласование»
+### Задача 6.2: диалог «Отправить на рецензирование»
 
 **Файлы:**
 
@@ -1446,7 +1446,7 @@ npm test -- client/src/features/tests/assign
 
 Диалог получает режим `assign | review`; в режиме `review` меняются заголовок, конечная точка и текст
 предупреждения. Вкладки, разбор файла, отчёт и выгрузка ссылок остаются общими. Пункт меню
-«Отправить на согласование» встаёт рядом с «Тестовый прогон» и гейтится правом выдачи грантов.
+«Отправить на рецензирование» встаёт рядом с «Тестовый прогон» и гейтится правом выдачи грантов.
 
 - [ ] **Шаг 4: тесты проходят**
 
