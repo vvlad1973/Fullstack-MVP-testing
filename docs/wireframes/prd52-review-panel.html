@@ -277,7 +277,7 @@
 
                 <div class="wf-form" style="margin-top:var(--ou-space-4)">
                   <div class="ou-formfield">
-                    <span class="ou-formfield__label">Исход</span>
+                    <span class="ou-formfield__lbl">Исход</span>
                     <span class="wf-inline">
                       <span class="ou-seg ou-seg--s ou-seg--accent" role="group" aria-label="Исход замечания">
                         <button type="button" class="ou-seg__item">Учтено</button>
@@ -286,11 +286,11 @@
                     </span>
                   </div>
                   <div class="ou-formfield">
-                    <span class="ou-formfield__label">Ответ автора</span>
+                    <span class="ou-formfield__lbl">Ответ автора</span>
                     <div class="ou-textarea ou-textarea--m ou-textarea--full">
-                      <textarea class="ou-textarea__input" rows="3" placeholder="Почему замечание отклонено"></textarea>
+                      <div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="3" placeholder="Почему замечание отклонено"></textarea></div>
                     </div>
-                    <span class="ou-formfield__hint">При отклонении ответ обязателен: эксперт должен увидеть причину.</span>
+                    <span class="ou-formfield__desc">При отклонении ответ обязателен: эксперт должен увидеть причину.</span>
                   </div>
                   <div class="ou-formactions ou-formactions--between">
                     <button class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(navBtn('tab'), 'tab')">Отмена</button>
@@ -345,13 +345,13 @@
               </header>
               <div class="wf-drawer-body">
                 <div class="ou-banner ou-banner--subtle ou-banner--sm">
-                  <span class="ou-banner__icon"><svg width="16" height="16"><use href="#i-message" /></svg></span>
-                  <div class="ou-banner__content"><div class="ou-banner__text">«Формулировка допускает два прочтения: доля рынка по абонентам или по выручке» — Ирина Петрова, 2 сентября.</div></div>
+                  <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-message" /></svg></span>
+                  <div class="ou-banner__body"><div class="ou-banner__desc">«Формулировка допускает два прочтения: доля рынка по абонентам или по выручке» — Ирина Петрова, 2 сентября.</div></div>
                 </div>
                 <div class="ou-formfield">
-                  <span class="ou-formfield__label">Формулировка</span>
+                  <span class="ou-formfield__lbl">Формулировка</span>
                   <div class="ou-textarea ou-textarea--m ou-textarea--full">
-                    <textarea class="ou-textarea__input" rows="3">Согласно «Стратегии-2030», какова целевая доля компании по выручке на мобильном рынке B2C к 2030 году?</textarea>
+                    <div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="3">Согласно «Стратегии-2030», какова целевая доля компании по выручке на мобильном рынке B2C к 2030 году?</textarea></div>
                   </div>
                 </div>
                 <div class="ou-formactions ou-formactions--between">
@@ -367,8 +367,8 @@
 
           <div class="wf-stack-hint">
             <div class="ou-banner ou-banner--subtle ou-banner--sm">
-              <span class="ou-banner__icon"><svg width="16" height="16"><use href="#i-info" /></svg></span>
-              <div class="ou-banner__content"><div class="ou-banner__text">Ящик вопроса лежит ПОВЕРХ ящика теста: нижний слой жив, и после сохранения автор возвращается в то же место списка с тем же фильтром. Escape закрывает только верхний ящик.</div></div>
+              <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-info" /></svg></span>
+              <div class="ou-banner__body"><div class="ou-banner__desc">Ящик вопроса лежит ПОВЕРХ ящика теста: нижний слой жив, и после сохранения автор возвращается в то же место списка с тем же фильтром. Escape закрывает только верхний ящик.</div></div>
             </div>
           </div>
         </div>
@@ -394,18 +394,18 @@
                 <div class="wf-form">
                   <div class="ou-formgroup ou-formgroup--two">
                     <div class="ou-formfield">
-                      <span class="ou-formfield__label">Место</span>
+                      <span class="ou-formfield__lbl">Место</span>
                       <div class="ou-select ou-field--s" data-ou-options="Тест в целом|Раздел «О компании»|Раздел «Продукты и сервисы»|Стартовый экран|Экран итогов"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Тест в целом</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div>
-                      <span class="ou-formfield__hint">По умолчанию — тест в целом.</span>
+                      <span class="ou-formfield__desc">По умолчанию — тест в целом.</span>
                     </div>
                     <div class="ou-formfield">
-                      <span class="ou-formfield__label">Вопрос или страница</span>
+                      <span class="ou-formfield__lbl">Вопрос или страница</span>
                       <div class="ou-select ou-field--s is-disabled" data-ou-options="—"><button type="button" class="ou-select__trigger" disabled><span class="ou-select__value">Выберите раздел</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div>
-                      <span class="ou-formfield__hint">Доступно после выбора раздела.</span>
+                      <span class="ou-formfield__desc">Доступно после выбора раздела.</span>
                     </div>
                   </div>
                   <div class="ou-textarea ou-textarea--m ou-textarea--full">
-                    <textarea class="ou-textarea__input" rows="4" placeholder="Что не так и что предлагаете изменить"></textarea>
+                    <div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="4" placeholder="Что не так и что предлагаете изменить"></textarea></div>
                   </div>
                   <div class="ou-formactions ou-formactions--between">
                     <button class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(navBtn('tab'), 'tab')">Отмена</button>
@@ -463,10 +463,10 @@
           </header>
           <div class="wf-drawer-body">
             <div class="ou-banner ou-banner--subtle ou-banner--sm">
-              <span class="ou-banner__icon"><svg width="16" height="16"><use href="#i-alert-triangle" /></svg></span>
-              <div class="ou-banner__content">
+              <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-alert-triangle" /></svg></span>
+              <div class="ou-banner__body">
                 <div class="ou-banner__title">Сохранено. В текущем прогоне изменения не видны</div>
-                <div class="ou-banner__text">Чтобы прогон учитывал правку, нужна пересборка пакета — она начнёт прохождение сначала.</div>
+                <div class="ou-banner__desc">Чтобы прогон учитывал правку, нужна пересборка пакета — она начнёт прохождение сначала.</div>
               </div>
               <div class="ou-banner__actions">
                 <button class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-refresh" /></svg></span><span>Пересобрать</span></button>
@@ -501,7 +501,7 @@
             <span class="wf-testrow__title">Сертификационный тест для руководителей</span>
             <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">Черновик</span>
             <span class="spacer"></span>
-            <span class="ou-tag ou-tag--warning ou-tag--s" aria-label="Открытых замечаний: 3"><span class="ou-tag__ico"><svg width="12" height="12"><use href="#i-message" /></svg></span>3</span>
+            <span class="ou-tag ou-tag--warning ou-tag--s" aria-label="Открытых замечаний: 3"><svg width="12" height="12"><use href="#i-message" /></svg>3</span>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия с тестом"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span></button>
           </div>
           <div class="wf-testrow" style="margin-top:var(--ou-space-2)">
@@ -510,16 +510,16 @@
             <span class="spacer"></span>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия с тестом"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span></button>
           </div>
-          <p class="ou-text-body-s" style="margin-top:var(--ou-space-3);color:var(--ou-fg-muted)">Счётчик показывается только при открытых замечаниях: у теста без них строка не меняется.</p>
+          <p style="margin-top:var(--ou-space-3);color:var(--ou-fg-muted)">Счётчик показывается только при открытых замечаниях: у теста без них строка не меняется.</p>
         </div>
       </div>
 
       <!-- ░░░ ПОЯСНЕНИЯ ░░░ -->
       <div class="wf-state" id="wf-docs">
         <div class="wf-doc">
-          <h2 class="ou-h2">Пояснения к эскизу</h2>
+          <h2 class="wf-mapping-title">Пояснения к эскизу</h2>
 
-          <h3 class="ou-h3">Одна панель, три входа</h3>
+          <h3 class="wf-notes-title">Одна панель, три входа</h3>
           <ul>
             <li>Вкладка «Комментарии» в ящике редактора теста — равноправный способ работы, не вспомогательный:
               автор читает, отвечает, переходит по якорю, закрывает с исходом и САМ создаёт замечания, не запуская
@@ -528,7 +528,7 @@
             <li>Прямая ссылка <code>?review=&lt;id&gt;</code> открывает ящик на этой вкладке с раскрытой веткой.</li>
           </ul>
 
-          <h3 class="ou-h3">Переход по якорю и возврат</h3>
+          <h3 class="wf-notes-title">Переход по якорю и возврат</h3>
           <ul>
             <li>Цель открывается ящиком ПОВЕРХ панели. Нижний ящик не размонтируется, поэтому после сохранения
               автор оказывается в том же месте списка, с тем же фильтром и скроллом — отдельного «вернуться» нет.</li>
@@ -538,21 +538,21 @@
             <li>Если объект якоря удалён, переход отключается, а замечание остаётся читаемым за счёт снимка контекста.</li>
           </ul>
 
-          <h3 class="ou-h3">Закрытие с исходом</h3>
+          <h3 class="wf-notes-title">Закрытие с исходом</h3>
           <ul>
             <li>Исход — «Учтено» или «Отклонено», ставит только тот, кто может править тест.</li>
             <li>При отклонении ответ обязателен: кнопка закрытия неактивна, пока текста нет.</li>
             <li>Закрытую ветку можно открыть заново. Чужое замечание не удаляется — только закрывается с исходом.</li>
           </ul>
 
-          <h3 class="ou-h3">Правка из отладчика</h3>
+          <h3 class="wf-notes-title">Правка из отладчика</h3>
           <ul>
             <li>Стейдж не перезагружается, прогон остаётся на том же вопросе.</li>
             <li>Баннер честно говорит, что правка в текущем прогоне не видна, и предлагает пересборку —
               с предупреждением, что прогон начнётся сначала.</li>
           </ul>
 
-          <h3 class="ou-h3">DS Mapping</h3>
+          <h3 class="wf-notes-title">DS Mapping</h3>
           <table class="tb-table">
             <thead><tr><th>Элемент эскиза</th><th>Компонент</th></tr></thead>
             <tbody>

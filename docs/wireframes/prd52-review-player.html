@@ -293,18 +293,18 @@
                       <div class="ou-card__body">
                         <div class="wf-newform">
                           <div class="ou-formfield">
-                            <span class="ou-formfield__label">Место</span>
+                            <span class="ou-formfield__lbl">Место</span>
                             <span class="wf-ctx-line"><span class="ou-tag ou-tag--accent ou-tag--outline">Раздел «О компании» · Вопрос 4 «Согласно «Стратегии-2030»…»</span></span>
-                            <span class="ou-formfield__hint">Подставлено автоматически по текущему экрану.</span>
+                            <span class="ou-formfield__desc">Подставлено автоматически по текущему экрану.</span>
                           </div>
                           <div class="ou-textarea ou-textarea--m ou-textarea--full">
-                            <textarea class="ou-textarea__input" rows="4" placeholder="Что не так и что предлагаете изменить"></textarea>
+                            <div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="4" placeholder="Что не так и что предлагаете изменить"></textarea></div>
                           </div>
                           <div class="ou-formactions ou-formactions--between">
                             <button class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(navBtn('run'), 'run')">Отмена</button>
                             <button class="ou-btn ou-btn--primary ou-btn--s">Отправить</button>
                           </div>
-                          <span class="ou-formfield__hint">Замечание увидят автор теста и другие эксперты круга.</span>
+                          <span class="ou-formfield__desc">Замечание увидят автор теста и другие эксперты круга.</span>
                         </div>
                       </div>
                     </div>
@@ -400,8 +400,8 @@
                   <div class="wf-ins-panel" data-panel="score">
                     <div data-scoreview="normal">
                       <div class="wf-stat-grid">
-                        <div class="ou-card ou-card--kpi ou-card--sm"><div class="ou-card__body"><span class="ou-card__lbl">Балл</span><span class="ou-card__val">9 / 16</span></div></div>
-                        <div class="ou-card ou-card--kpi ou-card--sm"><div class="ou-card__body"><span class="ou-card__lbl">Верно</span><span class="ou-card__val">9 из 16</span></div></div>
+                        <div class="ou-card ou-card--kpi ou-card--sm"><div class="ou-card__body"><span class="ou-card__kpi-label">Балл</span><span class="ou-card__kpi-value">9 / 16</span></div></div>
+                        <div class="ou-card ou-card--kpi ou-card--sm"><div class="ou-card__body"><span class="ou-card__kpi-label">Верно</span><span class="ou-card__kpi-value">9 из 16</span></div></div>
                       </div>
                       <div class="wf-sum" style="margin-top:0"><span>56% · порог 80%</span><span class="ou-tag ou-tag--error">Не пройден</span></div>
                       <table class="tb-table">
@@ -414,9 +414,9 @@
                     </div>
                     <div data-scoreview="suppressed" hidden>
                       <div class="ou-empty ou-empty--well ou-empty--inline">
-                        <div class="ou-empty__body">
+                        <div class="ou-empty__content">
                           <div class="ou-empty__title">Не считается в режиме полной выдачи</div>
-                          <div class="ou-empty__text">Выдан весь банк темы, а не настроенная выборка, поэтому балл, процент и вердикт были бы недостоверны. Верность ответа и балл за отдельный вопрос по-прежнему видны в «Протоколе».</div>
+                          <div class="ou-empty__desc">Выдан весь банк темы, а не настроенная выборка, поэтому балл, процент и вердикт были бы недостоверны. Верность ответа и балл за отдельный вопрос по-прежнему видны в «Протоколе».</div>
                         </div>
                       </div>
                       <div class="wf-sum"><span>Выключите «Все вопросы темы», чтобы пройти тест так, как его увидит ученик, и получить вердикт.</span></div>
@@ -439,8 +439,8 @@
                     </div>
                     <div data-protocol="adaptive" hidden>
                       <div class="ou-banner ou-banner--subtle ou-banner--sm">
-                        <span class="ou-banner__icon"><svg width="16" height="16"><use href="#i-info" /></svg></span>
-                        <div class="ou-banner__content"><div class="ou-banner__text">Сквозной прогон всех вопросов темы: лестница уровней и пороги перехода не работают. Уровень показан справочно — на какой ступени вопрос выдавался бы ученику.</div></div>
+                        <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-info" /></svg></span>
+                        <div class="ou-banner__body"><div class="ou-banner__desc">Сквозной прогон всех вопросов темы: лестница уровней и пороги перехода не работают. Уровень показан справочно — на какой ступени вопрос выдавался бы ученику.</div></div>
                       </div>
                       <table class="tb-table">
                         <thead><tr><th>Вопрос</th><th>Уровень</th><th>Вердикт</th><th>Балл</th></tr></thead>
@@ -476,10 +476,10 @@
             <div class="wf-pl-stage">
               <div class="wf-stage-canvas wf-stage-canvas--center">
                 <div class="ou-empty ou-empty--page ou-empty--tone-warn">
-                  <div class="ou-empty__media"><svg width="28" height="28"><use href="#i-lock" /></svg></div>
-                  <div class="ou-empty__body">
+                  <div class="ou-empty__art"><svg width="28" height="28"><use href="#i-lock" /></svg></div>
+                  <div class="ou-empty__content">
                     <div class="ou-empty__title">Нет доступа к согласованию</div>
-                    <div class="ou-empty__text">Ссылка отозвана, истёк её срок или доступ к этому тесту больше не выдан. Обратитесь к автору теста — он выпустит ссылку заново.</div>
+                    <div class="ou-empty__desc">Ссылка отозвана, истёк её срок или доступ к этому тесту больше не выдан. Обратитесь к автору теста — он выпустит ссылку заново.</div>
                   </div>
                 </div>
               </div>
@@ -491,9 +491,9 @@
       <!-- ░░░ ПОЯСНЕНИЯ ░░░ -->
       <div class="wf-state" id="wf-docs">
         <div class="wf-doc">
-          <h2 class="ou-h2">Пояснения к эскизу</h2>
+          <h2 class="wf-mapping-title">Пояснения к эскизу</h2>
 
-          <h3 class="ou-h3">Что это за экран</h3>
+          <h3 class="wf-notes-title">Что это за экран</h3>
           <ul>
             <li>Окно эксперта <code>/review/tests/:testId</code> — то же окно, что отладчик PRD-18, с урезанным
               инспектором. Открывается по персональной ссылке (внешний эксперт) или обычной сессией при гранте
@@ -503,7 +503,7 @@
               «Шкалы» и «Показатели» эксперту не показываются — это машинерия рантайма.</li>
           </ul>
 
-          <h3 class="ou-h3">Два тумблера в риббоне стейджа</h3>
+          <h3 class="wf-notes-title">Два тумблера в риббоне стейджа</h3>
           <ul>
             <li><strong>Эталон</strong> — подсветка правильных ответов на реальном рендере варианта. По умолчанию
               выключен, на баллы не влияет.</li>
@@ -513,7 +513,7 @@
               выдачи»: выдан весь банк, поэтому порог и вердикт недостоверны. «Протокол» продолжает работать.</li>
           </ul>
 
-          <h3 class="ou-h3">Замечания</h3>
+          <h3 class="wf-notes-title">Замечания</h3>
           <ul>
             <li>Кнопка «Замечание к этому экрану» подставляет контекст автоматически — руками место не указывают.</li>
             <li>В ленте видны замечания ВСЕХ участников круга, отвечать можно в любой ветке. Закрывать с исходом
@@ -523,14 +523,14 @@
               на момент замечания.</li>
           </ul>
 
-          <h3 class="ou-h3">Границы честности прогона</h3>
+          <h3 class="wf-notes-title">Границы честности прогона</h3>
           <ul>
             <li>Это не приёмка в LMS: нет секвенсирования, cross-attempt-стора и настоящего гейта повторов.</li>
             <li>Пакет содержит правильные ответы — эксперт с инструментами разработчика прочтёт их независимо
               от тумблера «Эталон». Ссылку выдают доверенным лицам.</li>
           </ul>
 
-          <h3 class="ou-h3">DS Mapping</h3>
+          <h3 class="wf-notes-title">DS Mapping</h3>
           <table class="tb-table">
             <thead><tr><th>Элемент эскиза</th><th>Компонент</th></tr></thead>
             <tbody>

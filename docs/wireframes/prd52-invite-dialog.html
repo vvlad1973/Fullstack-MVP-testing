@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+    Wireframe: PRD-52 — диалог «Отправить на согласование» (приглашение экспертов).
+    Спека: docs/specs/prd-52/test-review.md. План: docs/plans/2026-09-03-test-review.md.
+    Канон — реальный диалог назначения теста (client/src/components/assign-test-dialog.tsx:
+    ModalDialog size=xl + Tabs variant=segment align=stretch) и эскизы prd28-bulk-invite-*.
+    Состояния — кнопки навбара (адресуемы через ?state=<id>). НЕ согласован — черновик к ревью.
+    -->
+    <title>PRD-52 — Отправить на согласование</title>
+    <link rel="stylesheet" href="/docs/wireframes/ds/university-rt.css" />
+    <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
+    <script defer src="/docs/wireframes/prd7-shared.js"></script>
+    <link rel="stylesheet" href="/docs/wireframes/ds/wf-utils.css" />
+    <link rel="stylesheet" href="/client/src/styles/tb-components.css" />
+    <style>
+      /* gate-skip-start */
+      .wf-sprite { display: none; }
+      .wf-modal-body { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .wf-modal-body [hidden] { display: none; }
+      .wf-row { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; }
+      .wf-row .spacer { flex: 1; }
+      .wf-person { display: flex; align-items: center; gap: var(--ou-space-3); padding: var(--ou-space-3) var(--ou-space-4); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-m); }
+      .wf-person .spacer { flex: 1; }
+      .wf-person__name { font: var(--ou-text-body-s); font-weight: 600; }
+      .wf-person__mail { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
+      .wf-list { display: flex; flex-direction: column; gap: var(--ou-space-2); }
+      .wf-drop { border: var(--wf-border-w) dashed var(--ou-border-default); border-radius: var(--ou-radius-m); padding: var(--ou-space-6); text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--ou-space-2); }
+      .wf-drop__hint { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+      .wf-sum { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-3); font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+      .wf-inline { display: flex; flex-wrap: wrap; gap: var(--ou-space-2); align-items: center; }
+      .ou-select:has(.ou-select__trigger) { padding: 0; border: 0; border-radius: 0; background: transparent; cursor: default; }
+      .ou-select:not(.is-open) .ou-select__menu { display: none; }
+      /* gate-skip-end */
+    </style>
+
+    <style data-wf-template-overrides>
+      :root { --wf-nav-offset: 92px; }
+      .wf-nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+        display: flex; align-items: center; gap: var(--ou-space-2);
+        padding: var(--ou-space-2) var(--ou-space-4);
+        background: var(--ou-bg-elevated);
+        border-bottom: var(--wf-border-w) solid var(--ou-border-soft);
+        box-shadow: var(--ou-shadow-xs); color: var(--ou-fg-default); flex-wrap: wrap;
+      }
+      .wf-nav-title { font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); margin-right: var(--ou-space-2); white-space: nowrap; }
+      .wf-nav button {
+        padding: var(--ou-space-1) var(--ou-space-3);
+        border: var(--wf-border-w) solid var(--ou-border-default);
+        border-radius: var(--ou-radius-s); background: transparent;
+        color: var(--ou-fg-default); font: var(--ou-text-body-s); cursor: pointer;
+      }
+      .wf-nav button:hover { background: var(--ou-bg-hover); }
+      .wf-nav button.active { background: var(--ou-accent-default); color: var(--ou-fg-on-accent); border-color: var(--ou-accent-default); }
+      .wf-nav-sep { width: var(--wf-border-w); height: var(--ou-space-5); background: var(--ou-border-soft); margin: 0 var(--ou-space-2); }
+      .wf-stage { padding: var(--wf-nav-offset) var(--ou-space-6) var(--ou-space-10); }
+      .wf-state { display: none; }
+      .wf-state.active { display: block; }
+      .wf-doc { padding: 0 var(--ou-space-6) var(--ou-space-10); max-width: var(--wf-size-960, 960px); margin: 0 auto; }
+      /* Модал в состоянии: под навбаром, скролл только в теле (канон prd18). */
+      .wf-state > .ou-modal-root { top: var(--wf-nav-offset); place-items: start center; }
+      .wf-state > .ou-modal-root .ou-modal { max-height: calc(100vh - var(--wf-nav-offset) - var(--ou-space-8)); }
+    </style>
+  </head>
+  <body class="ou ou--light ou--normal">
+    <svg class="wf-sprite" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v5h5" /></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol>
+      <symbol id="i-alert-triangle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></symbol>
+    </svg>
+
+    <nav class="wf-nav" aria-label="Wireframe state switcher">
+      <span class="wf-nav-title">Отправка на согласование:</span>
+      <button type="button" class="active" onclick="showState(this, 'invited')">приглашены</button>
+      <button type="button" onclick="showState(this, 'users')">пользователи</button>
+      <button type="button" onclick="showState(this, 'bulk')">списком из файла</button>
+      <button type="button" onclick="showState(this, 'report')">отчёт рассылки</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="toggleTheme(this)">Dark</button>
+      <button type="button" onclick="toggleDensity(this)">Compact</button>
+    </nav>
+
+    <div class="wf-stage">
+      <!-- ░░░ ПРИГЛАШЕНЫ ░░░ -->
+      <div class="wf-state active" id="wf-invited">
+        <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="wf-t1">
+          <div class="ou-modal__backdrop"></div>
+          <div class="ou-modal ou-modal--xl">
+            <header class="ou-modal__head">
+              <div class="ou-modal__head-text">
+                <h1 class="ou-modal__title" id="wf-t1">Отправить на согласование</h1>
+                <p class="ou-modal__desc">Сертификационный тест для руководителей</p>
+              </div>
+              <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
+            </header>
+            <div class="ou-modal__body wf-modal-body">
+              <div class="ou-tabs ou-tabs--segment ou-tabs--stretch ou-tabs--m">
+                <div class="ou-tabs__list" role="tablist">
+                  <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Приглашены (3)</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('users'), 'users')"><span class="ou-tabs__label">Пользователи</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab"><span class="ou-tabs__label">Группы</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('bulk'), 'bulk')"><span class="ou-tabs__label">Списком из файла</span></button>
+                </div>
+              </div>
+
+              <div class="ou-banner ou-banner--subtle ou-banner--sm">
+                <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-info" /></svg></span>
+                <div class="ou-banner__body"><div class="ou-banner__desc">Эксперты видят замечания друг друга и могут отвечать в чужих ветках. Прохождение теста по этой ссылке не записывается: попытка не создаётся, в аналитике следа нет.</div></div>
+              </div>
+
+              <div class="wf-list">
+                <div class="wf-person">
+                  <span class="ou-avatar ou-avatar--s ou-avatar--c-blue"><span class="ou-avatar__visual"><span class="ou-avatar__initials">ИП</span></span></span>
+                  <span>
+                    <span class="wf-person__name">Ирина Петрова</span><br />
+                    <span class="wf-person__mail">i.petrova@example.com · внешний участник</span>
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="ou-tag ou-tag--success ou-tag--s">ссылка активна до 30.09</span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">2 замечания</span>
+                  <button class="ou-btn ou-btn--ghost ou-btn--xs">Выслать заново</button>
+                  <button class="ou-btn ou-btn--ghost ou-btn--xs">Отозвать</button>
+                </div>
+                <div class="wf-person">
+                  <span class="ou-avatar ou-avatar--s ou-avatar--c-purple"><span class="ou-avatar__visual"><span class="ou-avatar__initials">СК</span></span></span>
+                  <span>
+                    <span class="wf-person__name">Сергей Ковалёв</span><br />
+                    <span class="wf-person__mail">s.kovalev@example.com · пользователь платформы</span>
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">доступ по учётной записи</span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">5 замечаний</span>
+                  <button class="ou-btn ou-btn--ghost ou-btn--xs">Отозвать</button>
+                </div>
+                <div class="wf-person">
+                  <span class="ou-avatar ou-avatar--s ou-avatar--c-slate"><span class="ou-avatar__visual"><span class="ou-avatar__initials">МТ</span></span></span>
+                  <span>
+                    <span class="wf-person__name">Марина Титова</span><br />
+                    <span class="wf-person__mail">m.titova@example.com · внешний участник</span>
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="ou-tag ou-tag--warning ou-tag--s">срок ссылки истёк</span>
+                  <button class="ou-btn ou-btn--secondary ou-btn--xs">Выпустить заново</button>
+                  <button class="ou-btn ou-btn--ghost ou-btn--xs">Отозвать</button>
+                </div>
+              </div>
+
+              <div class="wf-sum"><span>Отзыв закрывает доступ сразу: выданная ссылка перестаёт работать, замечания остаются.</span></div>
+            </div>
+            <footer class="ou-modal__foot ou-modal__foot--between">
+              <span class="wf-inline"><span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">Срок ссылки: 30 дней</span></span>
+              <button class="ou-btn ou-btn--secondary ou-btn--m">Закрыть</button>
+            </footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- ░░░ ПОЛЬЗОВАТЕЛИ ░░░ -->
+      <div class="wf-state" id="wf-users">
+        <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="wf-t2">
+          <div class="ou-modal__backdrop"></div>
+          <div class="ou-modal ou-modal--xl">
+            <header class="ou-modal__head">
+              <div class="ou-modal__head-text">
+                <h1 class="ou-modal__title" id="wf-t2">Отправить на согласование</h1>
+                <p class="ou-modal__desc">Сертификационный тест для руководителей</p>
+              </div>
+              <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
+            </header>
+            <div class="ou-modal__body wf-modal-body">
+              <div class="ou-tabs ou-tabs--segment ou-tabs--stretch ou-tabs--m">
+                <div class="ou-tabs__list" role="tablist">
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('invited'), 'invited')"><span class="ou-tabs__label">Приглашены (3)</span></button>
+                  <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Пользователи</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab"><span class="ou-tabs__label">Группы</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('bulk'), 'bulk')"><span class="ou-tabs__label">Списком из файла</span></button>
+                </div>
+              </div>
+
+              <div class="ou-field ou-field--m ou-field--full">
+                <div class="ou-field__box">
+                  <span class="ou-field__ico"><svg width="16" height="16"><use href="#i-search" /></svg></span>
+                  <input class="ou-field__input" type="search" placeholder="Поиск по имени или адресу" aria-label="Поиск эксперта" />
+                </div>
+              </div>
+
+              <div class="wf-list">
+                <label class="wf-person">
+                  <span class="ou-check ou-check--s"><input class="ou-check__input" type="checkbox" checked /><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg></span></span>
+                  <span class="ou-avatar ou-avatar--s ou-avatar--c-teal"><span class="ou-avatar__visual"><span class="ou-avatar__initials">ОЛ</span></span></span>
+                  <span>
+                    <span class="wf-person__name">Олег Лебедев</span><br />
+                    <span class="wf-person__mail">o.lebedev@example.com</span>
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">методист</span>
+                </label>
+                <label class="wf-person">
+                  <span class="ou-check ou-check--s"><input class="ou-check__input" type="checkbox" /><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg></span></span>
+                  <span class="ou-avatar ou-avatar--s ou-avatar--c-amber"><span class="ou-avatar__visual"><span class="ou-avatar__initials">ЕР</span></span></span>
+                  <span>
+                    <span class="wf-person__name">Елена Рогова</span><br />
+                    <span class="wf-person__mail">e.rogova@example.com</span>
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">руководитель направления</span>
+                </label>
+                <label class="wf-person">
+                  <span class="ou-check ou-check--s"><input class="ou-check__input" type="checkbox" /><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg></span></span>
+                  <span class="ou-avatar ou-avatar--s ou-avatar--c-pink"><span class="ou-avatar__visual"><span class="ou-avatar__initials">ДС</span></span></span>
+                  <span>
+                    <span class="wf-person__name">Дмитрий Смирнов</span><br />
+                    <span class="wf-person__mail">d.smirnov@example.com</span>
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">эксперт по продуктам</span>
+                </label>
+              </div>
+
+              <div class="wf-sum"><span>Пользователь платформы открывает тест своей учётной записью — письмо со ссылкой ему не нужно, но его можно отправить.</span></div>
+            </div>
+            <footer class="ou-modal__foot ou-modal__foot--between">
+              <label class="wf-inline">
+                <span class="ou-check ou-check--s"><input class="ou-check__input" type="checkbox" checked /><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg></span></span>
+                <span class="wf-person__mail">Отправить письмо с приглашением</span>
+              </label>
+              <span>
+                <button class="ou-btn ou-btn--secondary ou-btn--m">Отмена</button>
+                <button class="ou-btn ou-btn--primary ou-btn--m"><span class="ou-btn__ico"><svg width="16" height="16"><use href="#i-mail" /></svg></span><span>Пригласить (1)</span></button>
+              </span>
+            </footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- ░░░ СПИСКОМ ИЗ ФАЙЛА ░░░ -->
+      <div class="wf-state" id="wf-bulk">
+        <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="wf-t3">
+          <div class="ou-modal__backdrop"></div>
+          <div class="ou-modal ou-modal--xl">
+            <header class="ou-modal__head">
+              <div class="ou-modal__head-text">
+                <h1 class="ou-modal__title" id="wf-t3">Отправить на согласование</h1>
+                <p class="ou-modal__desc">Сертификационный тест для руководителей</p>
+              </div>
+              <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
+            </header>
+            <div class="ou-modal__body wf-modal-body">
+              <div class="ou-tabs ou-tabs--segment ou-tabs--stretch ou-tabs--m">
+                <div class="ou-tabs__list" role="tablist">
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('invited'), 'invited')"><span class="ou-tabs__label">Приглашены (3)</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('users'), 'users')"><span class="ou-tabs__label">Пользователи</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab"><span class="ou-tabs__label">Группы</span></button>
+                  <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Списком из файла</span></button>
+                </div>
+              </div>
+
+              <div class="wf-drop">
+                <span class="ou-avatar ou-avatar--m ou-avatar--c-slate"><span class="ou-avatar__visual"><span class="ou-avatar__icon"><svg width="20" height="20"><use href="#i-file" /></svg></span></span></span>
+                <span class="wf-drop__hint">Перетащите книгу Excel со списком экспертов или выберите файл</span>
+                <button class="ou-btn ou-btn--secondary ou-btn--s">Выбрать файл</button>
+                <span class="wf-drop__hint">Колонки: адрес почты, имя, фамилия. До 500 строк за раз.</span>
+              </div>
+
+              <div class="ou-banner ou-banner--subtle ou-banner--sm">
+                <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-info" /></svg></span>
+                <div class="ou-banner__body"><div class="ou-banner__desc">Тот же разбор книги, что и при назначении теста: строки классифицируются, для новых адресов заводятся внешние участники, каждому выпускается персональная ссылка.</div></div>
+              </div>
+            </div>
+            <footer class="ou-modal__foot ou-modal__foot--between">
+              <button class="ou-btn ou-btn--ghost ou-btn--m"><span class="ou-btn__ico"><svg width="16" height="16"><use href="#i-download" /></svg></span><span>Шаблон книги</span></button>
+              <span>
+                <button class="ou-btn ou-btn--secondary ou-btn--m">Отмена</button>
+                <button class="ou-btn ou-btn--primary ou-btn--m" disabled>Пригласить</button>
+              </span>
+            </footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- ░░░ ОТЧЁТ РАССЫЛКИ ░░░ -->
+      <div class="wf-state" id="wf-report">
+        <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="wf-t4">
+          <div class="ou-modal__backdrop"></div>
+          <div class="ou-modal ou-modal--xl">
+            <header class="ou-modal__head">
+              <div class="ou-modal__head-text">
+                <h1 class="ou-modal__title" id="wf-t4">Приглашения отправлены</h1>
+                <p class="ou-modal__desc">Сертификационный тест для руководителей · книга «эксперты-сентябрь.xlsx»</p>
+              </div>
+              <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-modal__close" aria-label="Закрыть"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
+            </header>
+            <div class="ou-modal__body wf-modal-body">
+              <div class="wf-row">
+                <span class="ou-tag ou-tag--success">приглашено 12</span>
+                <span class="ou-tag ou-tag--neutral">уже имели доступ 2</span>
+                <span class="ou-tag ou-tag--warning">строк с ошибками 1</span>
+              </div>
+
+              <table class="tb-table">
+                <thead><tr><th>Строка</th><th>Адрес</th><th>Что сделано</th></tr></thead>
+                <tbody>
+                  <tr><td>2</td><td>i.petrova@example.com</td><td><span class="ou-tag ou-tag--success ou-tag--s">приглашена, ссылка выпущена</span></td></tr>
+                  <tr><td>3</td><td>s.kovalev@example.com</td><td><span class="ou-tag ou-tag--neutral ou-tag--s">уже имеет доступ, ссылка не нужна</span></td></tr>
+                  <tr><td>4</td><td>m.titova@example</td><td><span class="ou-tag ou-tag--warning ou-tag--s">адрес не распознан, строка пропущена</span></td></tr>
+                </tbody>
+              </table>
+
+              <div class="ou-banner ou-banner--subtle ou-banner--sm">
+                <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-alert-triangle" /></svg></span>
+                <div class="ou-banner__body">
+                  <div class="ou-banner__title">Выгрузите ссылки сейчас</div>
+                  <div class="ou-banner__desc">Ссылки хранятся только в зашифрованном виде. Закроете отчёт — восстановить их будет нельзя, останется только выпустить заново.</div>
+                </div>
+                <div class="ou-banner__actions">
+                  <button class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-download" /></svg></span><span>Выгрузить ссылки</span></button>
+                </div>
+              </div>
+            </div>
+            <footer class="ou-modal__foot ou-modal__foot--between">
+              <button class="ou-btn ou-btn--ghost ou-btn--m" onclick="showState(navBtn('invited'), 'invited')">К списку приглашённых</button>
+              <button class="ou-btn ou-btn--primary ou-btn--m">Готово</button>
+            </footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- ░░░ ПОЯСНЕНИЯ ░░░ -->
+      <div class="wf-state" id="wf-docs">
+        <div class="wf-doc">
+          <h2 class="wf-mapping-title">Пояснения к эскизу</h2>
+
+          <h3 class="wf-notes-title">Тот же диалог, что и назначение</h3>
+          <ul>
+            <li>Раскладка повторяет реальный диалог назначения теста: модал <code>xl</code>, вкладки-сегменты
+              «Приглашены (N)», «Пользователи», «Группы», «Списком из файла».</li>
+            <li>Конвейер PRD-28 переиспользуется целиком: разбор книги, классификация строк, заведение внешних
+              участников, письмо и выгрузка ссылок. Отличие одно — вместо назначения выдаётся грант
+              <code>review</code>, а токен выпускается с назначением «согласование».</li>
+          </ul>
+
+          <h3 class="wf-notes-title">Что сказано словами прямо в диалоге</h3>
+          <ul>
+            <li>Эксперты видят замечания друг друга — это решение о видимости, и приглашающий должен знать о нём
+              до отправки, а не после.</li>
+            <li>Прогон эксперта не создаёт попытки и не попадает в аналитику.</li>
+            <li>Пользователю платформы письмо не обязательно: он открывает тест своей учётной записью.</li>
+          </ul>
+
+          <h3 class="wf-notes-title">Ссылки и отзыв</h3>
+          <ul>
+            <li>Ссылка персональная: без неё замечание не подписать. Срок жизни — как у ссылки назначения.</li>
+            <li>Выгрузить ссылки можно ТОЛЬКО пока открыт отчёт: в базе лежит хеш, не сам токен. Потерянная
+              ссылка выпускается заново.</li>
+            <li>Отзыв закрывает доступ немедленно; замечания отозванного эксперта остаются в истории.</li>
+          </ul>
+
+          <h3 class="wf-notes-title">DS Mapping</h3>
+          <table class="tb-table">
+            <thead><tr><th>Элемент эскиза</th><th>Компонент</th></tr></thead>
+            <tbody>
+              <tr><td>Диалог</td><td><code>ou-modal-root</code> + <code>ou-modal ou-modal--xl</code></td></tr>
+              <tr><td>Вкладки диалога</td><td><code>ou-tabs--segment ou-tabs--stretch</code></td></tr>
+              <tr><td>Строка человека</td><td><code>ou-avatar</code> + <code>ou-tag</code> + <code>ou-btn--ghost --xs</code></td></tr>
+              <tr><td>Выбор пользователей</td><td><code>ou-check ou-check--s</code></td></tr>
+              <tr><td>Поиск</td><td><code>ou-field</code> с иконкой</td></tr>
+              <tr><td>Предупреждения и итог рассылки</td><td><code>ou-banner ou-banner--subtle</code></td></tr>
+              <tr><td>Отчёт по строкам книги</td><td><code>tb-table</code> + <code>ou-tag</code></td></tr>
+              <tr><td>Подвал диалога</td><td><code>ou-modal__foot ou-modal__foot--between</code></td></tr>
+              <tr><td>Зона загрузки файла</td><td>faux-chrome <code>wf-drop</code> — в проде компонент загрузки PRD-28</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function navBtn(id) {
+        return document.querySelector('.wf-nav button[onclick*="\'' + id + '\'"]');
+      }
+      function showState(btn, id) {
+        document.querySelectorAll('.wf-state').forEach(function (s) { s.classList.remove('active'); });
+        var el = document.getElementById('wf-' + id);
+        if (el) el.classList.add('active');
+        document.querySelectorAll('.wf-nav button[onclick*="showState"]').forEach(function (b) {
+          b.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+      }
+      (function () {
+        var want = new URLSearchParams(location.search).get('state');
+        if (want && navBtn(want)) showState(navBtn(want), want);
+      })();
+    </script>
+  </body>
+</html>
