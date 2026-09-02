@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-    Wireframe: PRD-52 — панель замечаний у автора (вкладка «Комментарии» в ящике теста,
+    Wireframe: PRD-52 — панель комментариев у автора (вкладка «Комментарии» в ящике теста,
     стек ящиков при переходе по якорю, закрытие с исходом).
     Спека: docs/specs/prd-52/test-review.md. План: docs/plans/2026-09-03-test-review.md.
     Канон ящика — approved/prd17-test-variants.html. Состояния — кнопки навбара
     (адресуемы через ?state=<id>). НЕ согласован — черновик к ревью.
     -->
-    <title>PRD-52 — Панель замечаний</title>
+    <title>PRD-52 — Панель комментариев</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/university-rt.css" />
     <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
     <script defer src="/docs/wireframes/prd7-shared.js"></script>
@@ -40,7 +40,7 @@
       .wf-stack__over .wf-drawer { max-width: var(--wf-size-780, 780px); box-shadow: var(--ou-shadow-l); }
       .wf-stack-hint { max-width: var(--wf-size-860, 860px); margin: var(--ou-space-3) auto 0; }
 
-      /* Лента веток замечаний. */
+      /* Лента веток комментариев. */
       .wf-group { display: flex; flex-direction: column; gap: var(--ou-space-2); }
       .wf-thread-head { display: flex; align-items: center; gap: var(--ou-space-2); flex-wrap: wrap; }
       .wf-thread-head .spacer { flex: 1; }
@@ -66,7 +66,7 @@
          div.ou-select + .ou-select__trigger, отчего рамка удваивается. Гасим внешний бокс. */
       .ou-select:has(.ou-select__trigger) { padding: 0; border: 0; border-radius: 0; background: transparent; cursor: default; }
       .ou-select:not(.is-open) .ou-select__menu { display: none; }
-      /* Строка списка тестов со счётчиком открытых замечаний. */
+      /* Строка списка тестов со счётчиком открытых комментариев. */
       .wf-testrow { display: flex; align-items: center; gap: var(--ou-space-3); padding: var(--ou-space-3) var(--ou-space-4); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-m); background: var(--ou-bg-elevated); }
       .wf-testrow .spacer { flex: 1; }
       .wf-testrow__title { font: var(--ou-text-body-m); font-weight: 600; }
@@ -112,11 +112,11 @@
     </svg>
 
     <nav class="wf-nav" aria-label="Wireframe state switcher">
-      <span class="wf-nav-title">Замечания у автора:</span>
+      <span class="wf-nav-title">Комментарии у автора:</span>
       <button type="button" class="active" onclick="showState(this, 'tab')">вкладка в ящике</button>
       <button type="button" onclick="showState(this, 'resolve')">закрытие с исходом</button>
       <button type="button" onclick="showState(this, 'stack')">переход · стек ящиков</button>
-      <button type="button" onclick="showState(this, 'new')">замечание из ящика</button>
+      <button type="button" onclick="showState(this, 'new')">комментарий из ящика</button>
       <button type="button" onclick="showState(this, 'orphan')">объект удалён</button>
       <button type="button" onclick="showState(this, 'rebuild')">панель в отладчике</button>
       <button type="button" onclick="showState(this, 'list')">счётчик в списке</button>
@@ -150,13 +150,13 @@
 
           <div class="wf-drawer-body">
             <div class="wf-panel-bar">
-              <button class="ou-btn ou-btn--primary ou-btn--s" onclick="showState(navBtn('new'), 'new')"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-message" /></svg></span><span>Добавить замечание</span></button>
+              <button class="ou-btn ou-btn--primary ou-btn--s" onclick="showState(navBtn('new'), 'new')"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-message" /></svg></span><span>Добавить комментарий</span></button>
               <span class="spacer"></span>
               <label class="wf-toggle">
                 <span class="ou-switch ou-switch--s is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Только открытые" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
                 <span class="wf-toggle__lbl">Только открытые</span>
               </label>
-              <button class="ou-btn ou-btn--secondary ou-btn--s">Следующее замечание</button>
+              <button class="ou-btn ou-btn--secondary ou-btn--s">Следующий комментарий</button>
             </div>
 
             <div class="tb-section-label">Раздел «О компании»</div>
@@ -176,7 +176,7 @@
                     <button class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(navBtn('stack'), 'stack')"><span>Перейти к вопросу</span><span class="ou-btn__ico"><svg width="13" height="13"><use href="#i-arrow-right" /></svg></span></button>
                     <button class="ou-btn ou-btn--ghost ou-btn--s">Ответить</button>
                     <span class="spacer"></span>
-                    <button class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(navBtn('resolve'), 'resolve')">Закрыть замечание</button>
+                    <button class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(navBtn('resolve'), 'resolve')">Закрыть комментарий</button>
                   </div>
                 </div>
               </div>
@@ -203,7 +203,7 @@
                     </div>
                   </div>
                   <div class="wf-actions">
-                    <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">изменено после замечания</span>
+                    <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">изменено после комментария</span>
                     <button class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(navBtn('stack'), 'stack')"><span>Перейти к вопросу</span><span class="ou-btn__ico"><svg width="13" height="13"><use href="#i-arrow-right" /></svg></span></button>
                     <span class="spacer"></span>
                     <button class="ou-btn ou-btn--secondary ou-btn--s">Открыть заново</button>
@@ -243,7 +243,7 @@
               </div>
             </div>
 
-            <div class="wf-sum"><span>Всего 7 замечаний · открытых 3 · от двух экспертов</span></div>
+            <div class="wf-sum"><span>Всего 7 комментариев · открытых 3 · от двух экспертов</span></div>
           </div>
         </div>
       </div>
@@ -279,7 +279,7 @@
                   <div class="ou-formfield">
                     <span class="ou-formfield__lbl">Исход</span>
                     <span class="wf-inline">
-                      <span class="ou-seg ou-seg--s ou-seg--accent" role="group" aria-label="Исход замечания">
+                      <span class="ou-seg ou-seg--s ou-seg--accent" role="group" aria-label="Исход комментария">
                         <button type="button" class="ou-seg__item">Учтено</button>
                         <button type="button" class="ou-seg__item is-active" aria-pressed="true">Отклонено</button>
                       </span>
@@ -288,13 +288,13 @@
                   <div class="ou-formfield">
                     <span class="ou-formfield__lbl">Ответ автора</span>
                     <div class="ou-textarea ou-textarea--m ou-textarea--full">
-                      <div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="3" placeholder="Почему замечание отклонено"></textarea></div>
+                      <div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="3" placeholder="Почему комментарий отклонён"></textarea></div>
                     </div>
                     <span class="ou-formfield__desc">При отклонении ответ обязателен: эксперт должен увидеть причину.</span>
                   </div>
                   <div class="ou-formactions ou-formactions--between">
                     <button class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(navBtn('tab'), 'tab')">Отмена</button>
-                    <button class="ou-btn ou-btn--primary ou-btn--s" disabled>Закрыть замечание</button>
+                    <button class="ou-btn ou-btn--primary ou-btn--s" disabled>Закрыть комментарий</button>
                   </div>
                 </div>
               </div>
@@ -340,7 +340,7 @@
             <div class="wf-drawer">
               <header class="ou-drawer__head">
                 <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Вопрос · Стратегия-2030</h1></div>
-                <span class="ou-tag ou-tag--accent ou-tag--outline">по замечанию 3 из 7</span>
+                <span class="ou-tag ou-tag--accent ou-tag--outline">по комментарию 3 из 7</span>
                 <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-drawer__close" aria-label="Закрыть редактор вопроса"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
               </header>
               <div class="wf-drawer-body">
@@ -389,7 +389,7 @@
           </div>
           <div class="wf-drawer-body">
             <div class="ou-card ou-card--outlined ou-card--sm">
-              <div class="ou-card__header"><span class="ou-card__title">Новое замечание</span></div>
+              <div class="ou-card__header"><span class="ou-card__title">Новый комментарий</span></div>
               <div class="ou-card__body">
                 <div class="wf-form">
                   <div class="ou-formgroup ou-formgroup--two">
@@ -414,7 +414,7 @@
                 </div>
               </div>
             </div>
-            <div class="wf-sum"><span>Замечание автора попадает в ту же историю и видно всем экспертам круга.</span></div>
+            <div class="wf-sum"><span>Комментарий автора попадает в ту же историю и видно всем экспертам круга.</span></div>
           </div>
         </div>
       </div>
@@ -446,11 +446,11 @@
                   <span class="ou-tag ou-tag--neutral ou-tag--s">объект удалён</span>
                   <button class="ou-btn ou-btn--secondary ou-btn--s" disabled><span>Перейти к вопросу</span></button>
                   <span class="spacer"></span>
-                  <button class="ou-btn ou-btn--secondary ou-btn--s">Закрыть замечание</button>
+                  <button class="ou-btn ou-btn--secondary ou-btn--s">Закрыть комментарий</button>
                 </div>
               </div>
             </div>
-            <div class="wf-sum"><span>Вопрос удалён из банка. Замечание осталось читаемым за счёт снимка контекста, переход отключён.</span></div>
+            <div class="wf-sum"><span>Вопрос удалён из банка. Комментарий остался читаемым за счёт снимка контекста, переход отключён.</span></div>
           </div>
         </div>
       </div>
@@ -483,9 +483,9 @@
                 <span class="wf-thread-ctx">Вопрос 4 «Согласно «Стратегии-2030»…»</span>
                 <p class="wf-thread-text">Формулировка допускает два прочтения.</p>
                 <div class="wf-actions">
-                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">изменено после замечания</span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">изменено после комментария</span>
                   <span class="spacer"></span>
-                  <button class="ou-btn ou-btn--secondary ou-btn--s">Закрыть замечание</button>
+                  <button class="ou-btn ou-btn--secondary ou-btn--s">Закрыть комментарий</button>
                 </div>
               </div>
             </div>
@@ -501,7 +501,7 @@
             <span class="wf-testrow__title">Сертификационный тест для руководителей</span>
             <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">Черновик</span>
             <span class="spacer"></span>
-            <span class="ou-tag ou-tag--warning ou-tag--s" aria-label="Открытых замечаний: 3"><svg width="12" height="12"><use href="#i-message" /></svg>3</span>
+            <span class="ou-tag ou-tag--warning ou-tag--s" aria-label="Открытых комментариев: 3"><svg width="12" height="12"><use href="#i-message" /></svg>3</span>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия с тестом"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span></button>
           </div>
           <div class="wf-testrow" style="margin-top:var(--ou-space-2)">
@@ -510,7 +510,7 @@
             <span class="spacer"></span>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия с тестом"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span></button>
           </div>
-          <p style="margin-top:var(--ou-space-3);color:var(--ou-fg-muted)">Счётчик показывается только при открытых замечаниях: у теста без них строка не меняется.</p>
+          <p style="margin-top:var(--ou-space-3);color:var(--ou-fg-muted)">Счётчик показывается только при открытых комментариях: у теста без них строка не меняется.</p>
         </div>
       </div>
 
@@ -522,7 +522,7 @@
           <h3 class="wf-notes-title">Одна панель, три входа</h3>
           <ul>
             <li>Вкладка «Комментарии» в ящике редактора теста — равноправный способ работы, не вспомогательный:
-              автор читает, отвечает, переходит по якорю, закрывает с исходом и САМ создаёт замечания, не запуская
+              автор читает, отвечает, переходит по якорю, закрывает с исходом и САМ создаёт комментарии, не запуская
               прогон.</li>
             <li>Та же панель — вкладкой в полном отладчике PRD-18.</li>
             <li>Прямая ссылка <code>?review=&lt;id&gt;</code> открывает ящик на этой вкладке с раскрытой веткой.</li>
@@ -534,15 +534,15 @@
               автор оказывается в том же месте списка, с тем же фильтром и скроллом — отдельного «вернуться» нет.</li>
             <li>Escape закрывает только ВЕРХНИЙ ящик. Сегодня <code>Drawer</code> вешает обработчик на документ, и
               два открытых ящика закрылись бы вместе — нужна правка в ui-kit (стек открытых ящиков).</li>
-            <li>В ящике вопроса видно само замечание — чтобы править, не переключаясь обратно.</li>
-            <li>Если объект якоря удалён, переход отключается, а замечание остаётся читаемым за счёт снимка контекста.</li>
+            <li>В ящике вопроса виден сам комментарий — чтобы править, не переключаясь обратно.</li>
+            <li>Если объект якоря удалён, переход отключается, а комментарий остаётся читаемым за счёт снимка контекста.</li>
           </ul>
 
           <h3 class="wf-notes-title">Закрытие с исходом</h3>
           <ul>
             <li>Исход — «Учтено» или «Отклонено», ставит только тот, кто может править тест.</li>
             <li>При отклонении ответ обязателен: кнопка закрытия неактивна, пока текста нет.</li>
-            <li>Закрытую ветку можно открыть заново. Чужое замечание не удаляется — только закрывается с исходом.</li>
+            <li>Закрытую ветку можно открыть заново. Чужой комментарий не удаляется — только закрывается с исходом.</li>
           </ul>
 
           <h3 class="wf-notes-title">Правка из отладчика</h3>
@@ -561,9 +561,9 @@
               <tr><td>Группировка по разделам</td><td><code>tb-section-label</code></td></tr>
               <tr><td>Карточка ветки</td><td><code>ou-card ou-card--outlined ou-card--sm</code></td></tr>
               <tr><td>Выбор исхода</td><td><code>ou-seg ou-seg--s</code></td></tr>
-              <tr><td>Ответ, текст замечания</td><td><code>ou-textarea</code> + <code>ou-textarea__input</code></td></tr>
+              <tr><td>Ответ, текст комментария</td><td><code>ou-textarea</code> + <code>ou-textarea__input</code></td></tr>
               <tr><td>Выбор якоря</td><td><code>ou-select</code> в <code>ou-formgroup--two</code></td></tr>
-              <tr><td>Баннер пересборки и цитата замечания</td><td><code>ou-banner ou-banner--subtle</code></td></tr>
+              <tr><td>Баннер пересборки и цитата комментария</td><td><code>ou-banner ou-banner--subtle</code></td></tr>
               <tr><td>Счётчик в списке тестов</td><td><code>ou-tag--warning</code> с иконкой</td></tr>
               <tr><td>Стек ящиков</td><td>faux-chrome <code>wf-stack</code> — в проде это два настоящих <code>Drawer</code></td></tr>
             </tbody>

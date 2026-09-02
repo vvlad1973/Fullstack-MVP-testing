@@ -4,7 +4,7 @@
 > [docs/specs/prd-52/test-review.md](../specs/prd-52/test-review.md), номера FR ниже ссылаются на неё.
 
 **Цель:** автор рассылает экспертам персональные ссылки на сокращённый плеер, эксперт проходит тест и
-оставляет замечания к конкретным местам, автор разбирает их в режиме рецензирования — отвечает,
+оставляет комментарии к конкретным местам, автор разбирает их в режиме рецензирования — отвечает,
 переходит к объекту, правит и закрывает с исходом.
 
 **Подход:** ничего нового не изобретаем. Доступ — третий уровень существующего гранта теста; ссылка —
@@ -33,14 +33,14 @@
 
 | Файл | Ответственность |
 | --- | --- |
-| `drizzle/0025_prd52_review_comments.sql` | миграция: `purpose` в токенах, обнуляемый `assignment_id`, таблица замечаний |
+| `drizzle/0025_prd52_review_comments.sql` | миграция: `purpose` в токенах, обнуляемый `assignment_id`, таблица комментариев |
 | `server/middleware/review-scope.ts` | `requireReviewScope` — грант `review` или edit-scope |
 | `server/storage/review-comments-repository.ts` | запросы к `test_review_comments` |
 | `server/services/review-anchor.ts` | `contextLabel` и `pinnedContentHash` по якорю |
 | `server/services/review-invite.ts` | выдача гранта `review` + ревью-токен поверх конвейера PRD-28 |
-| `server/routes/review.ts` | API замечаний и ревью-сессии |
+| `server/routes/review.ts` | API комментариев и ревью-сессии |
 | `shared/review/anchor.ts` | тип якоря, резолвер «якорь — цель», общий для клиента и сервера |
-| `client/src/features/tests/review/review-panel.tsx` | панель замечаний — один компонент на три входа |
+| `client/src/features/tests/review/review-panel.tsx` | панель комментариев — один компонент на три входа |
 | `client/src/features/tests/review/review-api.ts` | клиентские запросы |
 | `client/src/features/tests/review/review-comment-form.tsx` | форма создания с выбором якоря |
 | `client/src/features/tests/review/use-review-comments.ts` | загрузка, фильтр, счётчики |
@@ -51,18 +51,18 @@
 
 | Файл | Что |
 | --- | --- |
-| `shared/schema.ts` | `review` в `accessLevel`, `purpose`/обнуляемый `assignmentId`, таблица и типы замечаний |
+| `shared/schema.ts` | `review` в `accessLevel`, `purpose`/обнуляемый `assignmentId`, таблица и типы комментариев |
 | `server/services/test-access.ts` | `canReviewTest` |
 | `server/routes/index.ts` | монтирование `reviewRouter` |
 | `server/middleware/magic-scope-rules.ts` | правила ревью-путей |
 | `server/routes/access.ts` | редирект по `purpose` |
-| `server/storage.ts` | делегирование в репозиторий замечаний |
+| `server/storage.ts` | делегирование в репозиторий комментариев |
 | `server/scorm/assets/app.js` | hash-флаг полной выдачи, ветка в `generateVariant` |
 | `server/scorm/debug-player/assets/inspector-compute.js` | уровень вопроса в адаптиве, гашение вердикта |
 | `client/src/features/tests/editor/test-editor.tsx` | вкладка «Комментарии» |
 | `client/src/features/tests/debug-player/debug-player-page.tsx` | вкладка «Комментарии», тумблер полной выдачи, баннер пересборки |
 | `client/src/components/assign-test-dialog.tsx` | режим «Отправить на рецензирование» |
-| `client/src/features/tests/list/tests-list.tsx` | счётчик открытых замечаний, пункт меню |
+| `client/src/features/tests/list/tests-list.tsx` | счётчик открытых комментариев, пункт меню |
 | `client/src/App.tsx` | маршрут `/review/tests/:testId` |
 | `vendor/ui-kit/src/components/Drawer.tsx` | Escape закрывает только верхний ящик |
 
@@ -97,7 +97,7 @@ git status --short
 
 - [ ] **Шаг 1: эскиз экрана эксперта**
 
-Состояния на одном холсте: прогон с открытой вкладкой «Комментарии»; форма нового замечания к
+Состояния на одном холсте: прогон с открытой вкладкой «Комментарии»; форма нового комментария к
 текущему вопросу; вкладки «Результаты» и «Протокол»; «Результаты» в режиме полной выдачи с текстом
 «не считается в режиме полной выдачи»; протокол адаптивного теста с колонкой уровня и пометкой
 вопроса вне лестницы; экран отказа без гранта.
@@ -105,17 +105,17 @@ git status --short
 Канон берётся из уже согласованного `docs/wireframes/approved/prd18-debug-player.html`: та же
 faux-chrome раскладка окна, тот же статусбар внутри стейджа, инспектор справа с самого верха.
 
-- [ ] **Шаг 2: эскиз панели замечаний**
+- [ ] **Шаг 2: эскиз панели комментариев**
 
 Состояния: лента веток с группировкой по разделам и вопросам; фильтр «только открытые»; ветка с
 ответами; закрытие с выбором исхода и обязательным ответом при отклонении; пометка «изменено после
-замечания»; замечание с удалённым объектом; форма создания из ящика с выбором якоря; стек ящиков —
+комментария»; комментарий с удалённым объектом; форма создания из ящика с выбором якоря; стек ящиков —
 ящик вопроса поверх ящика теста; баннер «нужна пересборка» в отладчике.
 
 - [ ] **Шаг 3: эскиз диалога рассылки**
 
 Четыре вкладки по образцу назначения теста, отчёт прогона, выгрузка ссылок, предупреждение о том, что
-эксперты видят замечания друг друга.
+эксперты видят комментарии друг друга.
 
 - [ ] **Шаг 4: проверить эскизы гейтом и в браузере**
 
@@ -135,7 +135,7 @@ faux-chrome окна и JS-хуков.
 
 ```bash
 git add docs/wireframes/prd52-review-player.html docs/wireframes/prd52-review-panel.html docs/wireframes/prd52-invite-dialog.html
-git commit -m "docs(prd-52): эскизы экрана эксперта, панели замечаний и диалога рассылки"
+git commit -m "docs(prd-52): эскизы экрана эксперта, панели комментариев и диалога рассылки"
 ```
 
 ---
@@ -367,7 +367,7 @@ npx drizzle-kit generate
 
 ```bash
 git add shared/schema.ts drizzle/0025_prd52_review_comments.sql drizzle/meta
-git commit -m "feat(prd-52): миграция 0025 — замечания и назначение токена"
+git commit -m "feat(prd-52): миграция 0025 — комментарии и назначение токена"
 ```
 
 ### Задача 1.4: ревью-ссылка
@@ -390,7 +390,7 @@ it("ревью-токен ведёт на экран эксперта", async ()
   expect(res.headers.location).toBe("/review/tests/t1");
 });
 
-it("ревью-сессия видит замечания своего теста и не видит чужого", () => {
+it("ревью-сессия видит комментарии своего теста и не видит чужого", () => {
   expect(matchMagicScopeRule("GET", "/api/tests/t1/review/comments")?.rule.bind).toBe("test");
   expect(matchMagicScopeRule("POST", "/api/tests/t1/review/comments")?.rule.bind).toBe("test");
   expect(matchMagicScopeRule("GET", "/api/tests/t1/review/session")).toBeTruthy();
@@ -446,7 +446,7 @@ git commit -m "feat(prd-52): вход по ревью-ссылке и её об�
 
 ---
 
-## Э2. Замечания на сервере
+## Э2. Комментарии на сервере
 
 ### Задача 2.1: якорь — общий контракт
 
@@ -525,7 +525,7 @@ npm test -- tests/review-anchor.test.ts
 
 ```bash
 git add shared/review/anchor.ts tests/review-anchor.test.ts
-git commit -m "feat(prd-52): общий контракт якоря замечания"
+git commit -m "feat(prd-52): общий контракт якоря комментария"
 ```
 
 ### Задача 2.2: снимок контекста и пин хеша
@@ -584,7 +584,7 @@ git add server/services/review-anchor.ts tests/review-anchor-service.test.ts
 git commit -m "feat(prd-52): снимок контекста и пин содержимого якоря"
 ```
 
-### Задача 2.3: репозиторий замечаний
+### Задача 2.3: репозиторий комментариев
 
 **Файлы:**
 
@@ -645,10 +645,10 @@ npm run check
 
 ```bash
 git add server/storage/review-comments-repository.ts server/storage.ts tests/it/review-comments-repository.it.test.ts
-git commit -m "feat(prd-52): репозиторий замечаний"
+git commit -m "feat(prd-52): репозиторий комментариев"
 ```
 
-### Задача 2.4: API замечаний и правила жизненного цикла
+### Задача 2.4: API комментариев и правила жизненного цикла
 
 **Файлы:**
 
@@ -662,7 +662,7 @@ git commit -m "feat(prd-52): репозиторий замечаний"
 | Метод | Путь | Смысл |
 | --- | --- | --- |
 | GET | `/api/tests/:id/review/comments` | ветки теста |
-| POST | `/api/tests/:id/review/comments` | новое замечание или ответ |
+| POST | `/api/tests/:id/review/comments` | новый комментарий или ответ |
 | PATCH | `/api/tests/:id/review/comments/:commentId` | правка своего текста |
 | DELETE | `/api/tests/:id/review/comments/:commentId` | удаление своего без ответов |
 | POST | `/api/tests/:id/review/comments/:commentId/resolve` | закрытие с исходом |
@@ -690,12 +690,12 @@ it("эксперт не может закрыть ветку", async () => {
   expect(res.status).toBe(403);
 });
 
-it("чужое замечание не удаляется владельцем теста", async () => {
+it("чужой комментарий не удаляется владельцем теста", async () => {
   const res = await ownerAgent.delete(`/api/tests/${testId}/review/comments/${expertCommentId}`);
   expect(res.status).toBe(403);
 });
 
-it("своё замечание не удаляется после ответа", async () => {
+it("свой комментарий не удаляется после ответа", async () => {
   const res = await expertAgent.delete(`/api/tests/${testId}/review/comments/${answeredId}`);
   expect(res.status).toBe(409);
 });
@@ -727,7 +727,7 @@ npm test -- tests/review-routes.test.ts
 - ответ — это `parentId` на корне; ответ на ответ отвергается (422);
 - `status` ставится только на корне;
 - `resolve` со `status: "rejected"` проверяет, что в ветке есть хотя бы один ответ, иначе 422;
-- `DELETE` разрешён только автору замечания и только пока ответов нет (409), чужое — 403;
+- `DELETE` разрешён только автору комментария и только пока ответов нет (409), чужое — 403;
 - `GET` считает `stale` сравнением текущего хеша якоря с `pinnedContentHash` и отдаёт его полем
   ответа, не сохраняя в базу;
 - удалённый объект якоря даёт `orphaned: true` и гасит переход на клиенте.
@@ -743,7 +743,7 @@ npm run check
 
 ```bash
 git add server/routes/review.ts server/routes/index.ts tests/review-routes.test.ts
-git commit -m "feat(prd-52): API замечаний с исходом и пометкой устаревания"
+git commit -m "feat(prd-52): API комментариев с исходом и пометкой устаревания"
 ```
 
 ---
@@ -1111,7 +1111,7 @@ git add vendor/ui-kit/src/components/Drawer.tsx vendor/ui-kit/src/components/__t
 git commit -m "fix(ui-kit): Escape закрывает только верхний ящик стека"
 ```
 
-### Задача 5.2: панель замечаний
+### Задача 5.2: панель комментариев
 
 **Файлы:**
 
@@ -1138,13 +1138,13 @@ it("фильтр оставляет только открытые", async () => 
 it("отклонение требует ответа", async () => {
   render(<ReviewPanel testId="t1" canResolve />);
   await userEvent.click(await screen.findByRole("button", { name: "Отклонить" }));
-  expect(screen.getByRole("button", { name: "Отклонить замечание" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Отклонить комментарий" })).toBeDisabled();
 });
 
 it("показывает пометку изменённого вопроса", async () => {
   mockThreads([{ id: "c1", stale: true, anchorKind: "question" }]);
   render(<ReviewPanel testId="t1" />);
-  expect(await screen.findByText("изменено после замечания")).toBeInTheDocument();
+  expect(await screen.findByText("изменено после комментария")).toBeInTheDocument();
 });
 
 it("удалённый объект гасит переход", async () => {
@@ -1153,9 +1153,9 @@ it("удалённый объект гасит переход", async () => {
   expect(await screen.findByRole("button", { name: "Перейти" })).toBeDisabled();
 });
 
-it("автор создаёт замечание с выбором якоря", async () => {
+it("автор создаёт комментарий с выбором якоря", async () => {
   render(<ReviewPanel testId="t1" mode="editor" />);
-  await userEvent.click(screen.getByRole("button", { name: "Добавить замечание" }));
+  await userEvent.click(screen.getByRole("button", { name: "Добавить комментарий" }));
   expect(screen.getByLabelText("Место")).toHaveValue("test");
 });
 ```
@@ -1183,7 +1183,7 @@ npm run check
 
 ```bash
 git add client/src/features/tests/review
-git commit -m "feat(prd-52): панель замечаний"
+git commit -m "feat(prd-52): панель комментариев"
 ```
 
 ### Задача 5.3: вкладка в ящике редактора теста
@@ -1310,12 +1310,12 @@ git commit -m "feat(prd-52): «Комментарии» в отладчике и
 - [ ] **Шаг 1: написать падающие тесты**
 
 ```tsx
-it("показывает счётчик открытых замечаний", async () => {
+it("показывает счётчик открытых комментариев", async () => {
   render(<TestsList />);
-  expect(await screen.findByLabelText("Открытых замечаний: 3")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Открытых комментариев: 3")).toBeInTheDocument();
 });
 
-it("ссылка ?review открывает ящик на вкладке замечаний с раскрытой веткой", async () => {
+it("ссылка ?review открывает ящик на вкладке комментариев с раскрытой веткой", async () => {
   renderAt("/author/tests?test=t1&review=c1");
   expect(await screen.findByRole("tab", { name: /Комментарии/ })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByTestId("thread-c1")).toHaveAttribute("data-expanded", "true");
@@ -1344,7 +1344,7 @@ npm run check
 
 ```bash
 git add client/src/features/tests/list server/routes/tests.ts
-git commit -m "feat(prd-52): счётчик замечаний в списке и адресная ссылка на ветку"
+git commit -m "feat(prd-52): счётчик комментариев в списке и адресная ссылка на ветку"
 ```
 
 ---
@@ -1425,7 +1425,7 @@ git commit -m "feat(prd-52): приглашение экспертов гран�
 ```tsx
 it("в режиме согласования четыре вкладки и предупреждение о видимости", async () => {
   render(<AssignTestDialog testId="t1" mode="review" open />);
-  expect(await screen.findByText(/эксперты видят замечания друг друга/i)).toBeInTheDocument();
+  expect(await screen.findByText(/эксперты видят комментарии друг друга/i)).toBeInTheDocument();
   expect(screen.getAllByRole("tab")).toHaveLength(4);
 });
 

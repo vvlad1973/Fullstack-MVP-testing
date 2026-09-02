@@ -101,7 +101,7 @@
       .wf-ins-panel[data-panel="protocol"] .tb-table td:nth-child(n+2) { white-space: nowrap; }
       .wf-qico { color: var(--ou-fg-muted); vertical-align: middle; }
 
-      /* Лента замечаний: карточки веток (DS ou-card--outlined), ответы — вложенным блоком. */
+      /* Лента комментариев: карточки веток (DS ou-card--outlined), ответы — вложенным блоком. */
       .wf-thread { margin-bottom: var(--ou-space-3); }
       .wf-thread-head { display: flex; align-items: center; gap: var(--ou-space-2); flex-wrap: wrap; }
       .wf-thread-head .spacer { flex: 1; }
@@ -160,7 +160,7 @@
     <nav class="wf-nav" aria-label="Wireframe state switcher">
       <span class="wf-nav-title">Окно эксперта:</span>
       <button type="button" class="active" onclick="showState(this, 'run')">прогон · Комментарии</button>
-      <button type="button" onclick="showState(this, 'newnote')">новое замечание</button>
+      <button type="button" onclick="showState(this, 'newnote')">новый комментарий</button>
       <button type="button" onclick="showState(this, 'score')">Результаты</button>
       <button type="button" onclick="showState(this, 'protocol')">Протокол</button>
       <button type="button" onclick="showState(this, 'full')">полная выдача</button>
@@ -182,7 +182,7 @@
               <svg width="18" height="18"><use href="#i-message" /></svg>
               <b>Рецензирование теста</b>
               <span class="wf-pl-sub">Сертификационный тест для руководителей · текущая версия</span>
-              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="О рецензировании" title="Прогон рецензирования не записывается: попытка не создаётся, результат никуда не идёт. Замечания сохраняются и видны автору теста и другим экспертам."><span class="ou-iconbtn__ico"><svg width="14" height="14"><use href="#i-info" /></svg></span></button>
+              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="О рецензировании" title="Прогон рецензирования не записывается: попытка не создаётся, результат никуда не идёт. Комментарии сохраняются и видны автору теста и другим экспертам."><span class="ou-iconbtn__ico"><svg width="14" height="14"><use href="#i-info" /></svg></span></button>
             </span>
             <span class="spacer"></span>
             <button class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-reset" /></svg></span><span>Начать заново</span></button>
@@ -287,9 +287,9 @@
                 <div class="wf-ins-body">
                   <!-- ════ Комментарии ════ -->
                   <div class="wf-ins-panel is-active" data-panel="review">
-                    <!-- Форма нового замечания: раскрывается кнопкой, контекст подставлен. -->
+                    <!-- Форма нового комментария: раскрывается кнопкой, контекст подставлен. -->
                     <div class="ou-card ou-card--outlined ou-card--sm" data-note="form" hidden>
-                      <div class="ou-card__header"><span class="ou-card__title">Новое замечание</span></div>
+                      <div class="ou-card__header"><span class="ou-card__title">Новый комментарий</span></div>
                       <div class="ou-card__body">
                         <div class="wf-newform">
                           <div class="ou-formfield">
@@ -304,13 +304,13 @@
                             <button class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(navBtn('run'), 'run')">Отмена</button>
                             <button class="ou-btn ou-btn--primary ou-btn--s">Отправить</button>
                           </div>
-                          <span class="ou-formfield__desc">Замечание увидят автор теста и другие эксперты круга.</span>
+                          <span class="ou-formfield__desc">Комментарий увидят автор теста и другие эксперты круга.</span>
                         </div>
                       </div>
                     </div>
 
                     <div class="wf-ins-toolbar" data-note="bar">
-                      <button class="ou-btn ou-btn--primary ou-btn--s" onclick="showState(navBtn('newnote'), 'newnote')"><span class="ou-btn__ico"><svg width="13" height="13"><use href="#i-message" /></svg></span><span>Замечание к этому экрану</span></button>
+                      <button class="ou-btn ou-btn--primary ou-btn--s" onclick="showState(navBtn('newnote'), 'newnote')"><span class="ou-btn__ico"><svg width="13" height="13"><use href="#i-message" /></svg></span><span>Комментарий к этому экрану</span></button>
                       <span class="spacer"></span>
                       <label class="wf-toggle">
                         <span class="ou-switch ou-switch--s is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Только открытые" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
@@ -358,7 +358,7 @@
                         <span class="wf-thread-ctx">Раздел «О компании» · Вопрос 2 «Кластер «Кибербезопасность»»</span>
                         <p class="wf-thread-text">В ключе отмечены три варианта, но по методике верных должно быть два.</p>
                         <div class="wf-actions">
-                          <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">изменено после замечания</span>
+                          <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s">изменено после комментария</span>
                           <span class="spacer"></span>
                           <button class="ou-btn ou-btn--secondary ou-btn--s">Ответить</button>
                         </div>
@@ -393,7 +393,7 @@
                       </div>
                     </div>
 
-                    <div class="wf-sum"><span>Всего 7 замечаний · открытых 3 · ваших 2</span></div>
+                    <div class="wf-sum"><span>Всего 7 комментариев · открытых 3 · ваших 2</span></div>
                   </div>
 
                   <!-- ════ Результаты ════ -->
@@ -513,14 +513,14 @@
               выдачи»: выдан весь банк, поэтому порог и вердикт недостоверны. «Протокол» продолжает работать.</li>
           </ul>
 
-          <h3 class="wf-notes-title">Замечания</h3>
+          <h3 class="wf-notes-title">Комментарии</h3>
           <ul>
-            <li>Кнопка «Замечание к этому экрану» подставляет контекст автоматически — руками место не указывают.</li>
-            <li>В ленте видны замечания ВСЕХ участников круга, отвечать можно в любой ветке. Закрывать с исходом
+            <li>Кнопка «Комментарий к этому экрану» подставляет контекст автоматически — руками место не указывают.</li>
+            <li>В ленте видны комментарии ВСЕХ участников круга, отвечать можно в любой ветке. Закрывать с исходом
               может только автор теста, поэтому у эксперта кнопок «Учтено»/«Отклонить» нет — он видит уже
               проставленный исход.</li>
-            <li>Метка «изменено после замечания» появляется, когда содержимое вопроса разошлось с тем, что было
-              на момент замечания.</li>
+            <li>Метка «изменено после комментария» появляется, когда содержимое вопроса разошлось с тем, что было
+              на момент комментария.</li>
           </ul>
 
           <h3 class="wf-notes-title">Границы честности прогона</h3>
@@ -535,11 +535,11 @@
             <thead><tr><th>Элемент эскиза</th><th>Компонент</th></tr></thead>
             <tbody>
               <tr><td>Вкладки инспектора</td><td><code>ou-tabs ou-tabs--underline ou-tabs--s</code></td></tr>
-              <tr><td>Карточка ветки замечаний</td><td><code>ou-card ou-card--outlined ou-card--sm</code></td></tr>
-              <tr><td>Автор замечания</td><td><code>ou-avatar ou-avatar--xs</code></td></tr>
+              <tr><td>Карточка ветки комментариев</td><td><code>ou-card ou-card--outlined ou-card--sm</code></td></tr>
+              <tr><td>Автор комментария</td><td><code>ou-avatar ou-avatar--xs</code></td></tr>
               <tr><td>Статус ветки, метки контекста</td><td><code>ou-tag</code> (warning / success / neutral)</td></tr>
               <tr><td>Тумблеры «Эталон», «Все вопросы темы», «Только открытые»</td><td><code>ou-switch ou-switch--s</code></td></tr>
-              <tr><td>Поле текста замечания</td><td><code>ou-textarea</code> + <code>ou-textarea__input</code></td></tr>
+              <tr><td>Поле текста комментария</td><td><code>ou-textarea</code> + <code>ou-textarea__input</code></td></tr>
               <tr><td>Кнопки формы</td><td><code>ou-btn</code>, ряд — <code>ou-formactions--between</code></td></tr>
               <tr><td>Балл и «Верно» на «Результатах»</td><td><code>ou-card--kpi</code></td></tr>
               <tr><td>Таблицы протокола и разделов</td><td><code>tb-table</code></td></tr>
