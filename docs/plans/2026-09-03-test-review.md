@@ -45,7 +45,7 @@
 | `client/src/features/tests/review/review-comment-form.tsx` | форма создания с выбором якоря |
 | `client/src/features/tests/review/use-review-comments.ts` | загрузка, фильтр, счётчики |
 | `client/src/pages/review/review-player-page.tsx` | экран эксперта `/review/tests/:testId` |
-| `docs/wireframes/prd52-*.html` | эскизы Э0 |
+| `docs/wireframes/approved/prd52-*.html` | эскизы Э0 |
 
 **Изменяются:**
 
@@ -91,9 +91,9 @@ git status --short
 
 **Файлы:**
 
-- Создать: `docs/wireframes/prd52-review-player.html`
-- Создать: `docs/wireframes/prd52-review-panel.html`
-- Создать: `docs/wireframes/prd52-invite-dialog.html`
+- Создать: `docs/wireframes/approved/prd52-review-player.html`
+- Создать: `docs/wireframes/approved/prd52-review-panel.html`
+- Создать: `docs/wireframes/approved/prd52-invite-dialog.html`
 
 - [ ] **Шаг 1: эскиз экрана эксперта**
 
@@ -134,7 +134,7 @@ faux-chrome окна и JS-хуков.
 - [ ] **Шаг 6: коммит**
 
 ```bash
-git add docs/wireframes/prd52-review-player.html docs/wireframes/prd52-review-panel.html docs/wireframes/prd52-invite-dialog.html
+git add docs/wireframes/approved/prd52-review-player.html docs/wireframes/approved/prd52-review-panel.html docs/wireframes/approved/prd52-invite-dialog.html
 git commit -m "docs(prd-52): эскизы экрана эксперта, панели комментариев и диалога рассылки"
 ```
 

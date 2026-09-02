@@ -8,7 +8,7 @@
     стек ящиков при переходе по якорю, закрытие с исходом).
     Спека: docs/specs/prd-52/test-review.md. План: docs/plans/2026-09-03-test-review.md.
     Канон ящика — approved/prd17-test-variants.html. Состояния — кнопки навбара
-    (адресуемы через ?state=<id>). НЕ согласован — черновик к ревью.
+    (адресуемы через ?state=<id>). СОГЛАСОВАН 2026-09-03.
     -->
     <title>PRD-52 — Панель комментариев</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/university-rt.css" />
@@ -132,7 +132,7 @@
       <div class="wf-state active" id="wf-tab">
         <div class="wf-drawer">
           <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Сертификационный тест для руководителей</h1></div>
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификационный тест для руководителей</h2></div>
             <span class="ou-tag ou-tag--neutral ou-tag--outline" aria-label="Статус: черновик">Черновик</span>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-drawer__close" aria-label="Закрыть редактор"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
           </header>
@@ -252,7 +252,7 @@
       <div class="wf-state" id="wf-resolve">
         <div class="wf-drawer">
           <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Сертификационный тест для руководителей</h1></div>
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификационный тест для руководителей</h2></div>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-drawer__close" aria-label="Закрыть редактор"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
           </header>
           <div class="ou-tabs ou-tabs--underline ou-tabs--m wf-drawer__tabs">
@@ -310,7 +310,7 @@
           <div class="wf-stack__under">
             <div class="wf-drawer">
               <header class="ou-drawer__head">
-                <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Сертификационный тест для руководителей</h1></div>
+                <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификационный тест для руководителей</h2></div>
               </header>
               <div class="ou-tabs ou-tabs--underline ou-tabs--m wf-drawer__tabs">
                 <div class="ou-tabs__list" role="tablist">
@@ -339,7 +339,7 @@
           <div class="wf-stack__over">
             <div class="wf-drawer">
               <header class="ou-drawer__head">
-                <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Вопрос · Стратегия-2030</h1></div>
+                <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Вопрос · Стратегия-2030</h2></div>
                 <span class="ou-tag ou-tag--accent ou-tag--outline">по комментарию 3 из 7</span>
                 <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-drawer__close" aria-label="Закрыть редактор вопроса"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
               </header>
@@ -378,7 +378,7 @@
       <div class="wf-state" id="wf-new">
         <div class="wf-drawer">
           <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Сертификационный тест для руководителей</h1></div>
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификационный тест для руководителей</h2></div>
             <button class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s ou-drawer__close" aria-label="Закрыть редактор"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-x" /></svg></span></button>
           </header>
           <div class="ou-tabs ou-tabs--underline ou-tabs--m wf-drawer__tabs">
@@ -395,12 +395,12 @@
                   <div class="ou-formgroup ou-formgroup--two">
                     <div class="ou-formfield">
                       <span class="ou-formfield__lbl">Место</span>
-                      <div class="ou-select ou-field--s" data-ou-options="Тест в целом|Раздел «О компании»|Раздел «Продукты и сервисы»|Стартовый экран|Экран итогов"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Тест в целом</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div>
+                      <div class="ou-select ou-field--s" data-ou-options="Тест в целом|Раздел «О компании»|Раздел «Продукты и сервисы»|Стартовый экран|Экран итогов"><button type="button" class="ou-field__box ou-select__trigger"><span class="ou-select__value">Тест в целом</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div>
                       <span class="ou-formfield__desc">По умолчанию — тест в целом.</span>
                     </div>
                     <div class="ou-formfield">
                       <span class="ou-formfield__lbl">Вопрос или страница</span>
-                      <div class="ou-select ou-field--s is-disabled" data-ou-options="—"><button type="button" class="ou-select__trigger" disabled><span class="ou-select__value">Выберите раздел</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div>
+                      <div class="ou-select ou-field--s is-disabled" data-ou-options="—"><button type="button" class="ou-field__box ou-select__trigger" disabled><span class="ou-select__value">Выберите раздел</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div>
                       <span class="ou-formfield__desc">Доступно после выбора раздела.</span>
                     </div>
                   </div>
@@ -423,7 +423,7 @@
       <div class="wf-state" id="wf-orphan">
         <div class="wf-drawer">
           <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Сертификационный тест для руководителей</h1></div>
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификационный тест для руководителей</h2></div>
           </header>
           <div class="ou-tabs ou-tabs--underline ou-tabs--m wf-drawer__tabs">
             <div class="ou-tabs__list" role="tablist">
@@ -459,7 +459,7 @@
       <div class="wf-state" id="wf-rebuild">
         <div class="wf-drawer">
           <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Отладка теста · вкладка «Комментарии»</h1></div>
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Отладка теста · вкладка «Комментарии»</h2></div>
           </header>
           <div class="wf-drawer-body">
             <div class="ou-banner ou-banner--subtle ou-banner--sm">
