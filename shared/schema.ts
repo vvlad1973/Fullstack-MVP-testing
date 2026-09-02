@@ -649,7 +649,9 @@ export const testAccessGrants = pgTable("test_access_grants", {
   id: varchar("id", { length: 36 }).primaryKey(),
   testId: varchar("test_id", { length: 36 }).notNull(),
   userId: varchar("user_id", { length: 36 }).notNull(),
-  accessLevel: text("access_level", { enum: ["edit", "assign"] }).notNull(),
+  // PRD-52: `review` opens the reviewer screen of ONE test (comments + a throwaway
+  // run) and nothing else. Stored as plain text, so the value needs no migration.
+  accessLevel: text("access_level", { enum: ["edit", "assign", "review"] }).notNull(),
   grantedBy: varchar("granted_by", { length: 36 }), // which admin granted it
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
