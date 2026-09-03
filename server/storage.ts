@@ -170,7 +170,7 @@ export interface IStorage {
   getRecentTokensCount(userId: string, hours: number): Promise<number>;
 
   // Assignment Access Tokens (magic links)
-  createAssignmentAccessToken(data: { assignmentId: string; userId: string; testId: string; tokenHash: string; expiresAt: Date }): Promise<AssignmentAccessToken>;
+  createAssignmentAccessToken(data: { assignmentId: string | null; userId: string; testId: string; tokenHash: string; expiresAt: Date; purpose?: "attempt" | "review" }): Promise<AssignmentAccessToken>;
   getAssignmentAccessToken(tokenHash: string): Promise<AssignmentAccessToken | undefined>;
   getAssignmentAccessTokensByAssignment(assignmentId: string): Promise<AssignmentAccessToken[]>;
   revokeAssignmentAccessToken(id: string): Promise<void>;
@@ -691,7 +691,7 @@ export class DatabaseStorage implements IStorage {
 
   // ── Assignment Access Tokens (magic links) (delegated to AssignmentsRepository) ─
 
-  createAssignmentAccessToken(data: { assignmentId: string; userId: string; testId: string; tokenHash: string; expiresAt: Date }): Promise<AssignmentAccessToken> {
+  createAssignmentAccessToken(data: { assignmentId: string | null; userId: string; testId: string; tokenHash: string; expiresAt: Date; purpose?: "attempt" | "review" }): Promise<AssignmentAccessToken> {
     return this.assignmentsRepo.createAssignmentAccessToken(data);
   }
 

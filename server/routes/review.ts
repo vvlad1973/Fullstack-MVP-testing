@@ -26,6 +26,8 @@ import { requireTestScope } from "../middleware/test-scope";
 import { storage } from "../storage";
 import { describeAnchor, isAnchorStale, isAnchorOrphaned } from "../services/review-anchor";
 import { openRunSession, servePackageFile, closeRunSession } from "../scorm/debug-player/run-session";
+import { inviteReviewers } from "../services/review-invite";
+import { canGrantAccess } from "../services/test-access";
 import { readShimJs, readInspectorComputeJs } from "../scorm/debug-player/assets";
 import type { ReviewAnchor, ReviewAnchorKind } from "@shared/review/anchor";
 import { logger } from "../logger";
@@ -264,6 +266,46 @@ router.get("/:id/review/shim.js", ...reviewGate, (_req: Request, res: Response) 
 router.get("/:id/review/inspector-compute.js", ...reviewGate, (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/javascript; charset=utf-8");
   res.send(readInspectorComputeJs());
+});
+
+// ─── Приглашение рецензентов ─────────────────────────────────────────────────
+
+/** Сколько живёт ревью-ссылка, если срок не задан явно. */
+const REVIEW_LINK_DAYS = 30;
+
+// POST /api/tests/:id/review/invite — выдать грант `review` и разослать ссылки.
+// Гейт — право выдавать доступ к ЭТОМУ тесту: приглашение рецензента и есть выдача
+// доступа, и решать это должен владелец теста, а не всякий, кто его может читать.
+router.post("/:id/review/invite", requirePermission("tests.access.grant"), async (req: Request, res: Response) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) return res.status(400).json({ error: "Некого приглашать" });
+  try {
+    const test = await storage.getTest(req.params.id);
+    if (!test) return res.status(404).json({ error: "Тест не найден" });
+    if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser!.id, test)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const expiresAt = typeof req.body?.linkExpiresAt === "string"
+      ? new Date(req.body.linkExpiresAt)
+      : new Date(Date.now() + REVIEW_LINK_DAYS * 24 * 60 * 60 * 1000);
+
+    const report = await inviteReviewers({
+      testId: req.params.id,
+      rows: rows.map((row: { email?: unknown; name?: unknown }) => ({
+        email: String(row.email ?? "").trim().toLowerCase(),
+        name: typeof row.name === "string" ? row.name : null,
+      })).filter((row: { email: string }) => row.email.includes("@")),
+      actorId: req.currentUser!.id,
+      linkExpiresAt: expiresAt,
+      sendEmail: req.body?.sendEmail !== false,
+      storage,
+    });
+    res.json(report);
+  } catch (error) {
+    logger.error("Review invite failed: " + (error as Error).message, "review");
+    res.status(500).json({ error: "Не удалось пригласить рецензентов" });
+  }
 });
 
 export default router;

@@ -154,7 +154,7 @@ export class AssignmentsRepository {
 
   // ── Assignment Access Tokens (magic links) ──────────────────────────────────
 
-  async createAssignmentAccessToken(data: { assignmentId: string; userId: string; testId: string; tokenHash: string; expiresAt: Date }): Promise<AssignmentAccessToken> {
+  async createAssignmentAccessToken(data: { assignmentId: string | null; userId: string; testId: string; tokenHash: string; expiresAt: Date; purpose?: "attempt" | "review" }): Promise<AssignmentAccessToken> {
     const [token] = await db.insert(assignmentAccessTokens).values({
       id: randomUUID(),
       assignmentId: data.assignmentId,
@@ -162,6 +162,9 @@ export class AssignmentsRepository {
       testId: data.testId,
       tokenHash: data.tokenHash,
       expiresAt: data.expiresAt,
+      // PRD-52: назначение ссылки. По умолчанию — прохождение, как у всех ранее
+      // выданных ссылок, поэтому старые вызовы поля не передают.
+      purpose: data.purpose ?? "attempt",
     }).returning();
     return token;
   }
