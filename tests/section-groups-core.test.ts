@@ -125,9 +125,11 @@ describe("aggregateStandardResult + блоки разделов", () => {
     expect(agg.topicResults[0].groupKey).toBe("knowledge");
   });
 
-  it("счётчик берёт вердикт ВТОРОГО прохода: порог ключа разреза роняет раздел (FR-16/FR-19)", () => {
-    // Раздел набирает 75% и свой порог в 60% берёт, но ключ «ПДн» отвечен на 50%
-    // при пороге 80% — вердикт выносится ПОСЛЕ разрезов, и счётчик обязан взять его.
+  it("порог подтемы вердикт раздела НЕ роняет: подтема не судится (Э1)", () => {
+    // Раздел набирает 75% и свой порог в 60% берёт. У подтемы «ПДн» в базе остался порог
+    // 80%, и отвечена она на 50%, — но с Э1 (решение владельца 2026-09-03) подтема
+    // считается и показывается, а не судится: вердикт темы выносит ТОЛЬКО её правило,
+    // и счётчик блока берёт именно его. До Э1 такой раздел падал вместе с подтемой.
     const agg = aggregateStandardResult({
       sections: [
         section("law", [q(0, 0, ["ПДн"]), q(0, 1, ["ПДн"]), q(0, 0), q(0, 0)], {
@@ -139,9 +141,9 @@ describe("aggregateStandardResult + блоки разделов", () => {
       sectionGroups: groups,
     });
     expect(agg.topicResults[0].percent).toBe(75);
-    expect(agg.topicResults[0].passed).toBe(false);
+    expect(agg.topicResults[0].passed).toBe(true);
     expect(agg.sectionGroups).toEqual([
-      { key: "knowledge", label: "Знания", topicIds: ["law"], passedCount: 0, totalCount: 1 },
+      { key: "knowledge", label: "Знания", topicIds: ["law"], passedCount: 1, totalCount: 1 },
     ]);
   });
 

@@ -355,6 +355,7 @@ CREATE TABLE "test_sections" (
 	"draw_blueprint_json" jsonb,
 	"form_set_json" jsonb,
 	"breakdown_rules_json" jsonb,
+	"breakdown_feedback_json" jsonb,
 	"group_key" text,
 	"question_order" text,
 	"default_points" integer,
