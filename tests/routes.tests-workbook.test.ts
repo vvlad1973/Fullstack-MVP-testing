@@ -1623,6 +1623,52 @@ describe("GET /:id/workbook/export — обратная связь и реком
     expect(JSON.stringify(recRows)).not.toContain(jsTopic.id);
   });
 
+  // PRD-50 FR-50: подтема — четвёртый владелец обратной связи, адресуется «Разделом» плюс
+  // «Подтемой». Её строка идёт сразу за своим разделом: адрес начинается с него, и книга
+  // читается сверху вниз, а не прыжками.
+  it("пишет строку на каждую подтему раздела, адресуя её темой и тегом", async () => {
+    storageMock.getTestSections.mockResolvedValue([
+      {
+        topicId: jsTopic.id, drawCount: 5, sortOrder: 0, required: true,
+        topicPassRuleJson: null, drawBlueprintJson: null, feedbackJson: sectionFeedback,
+        breakdownFeedbackJson: {
+          axis: "tag",
+          keys: {
+            "замыкания": {
+              format: "plain",
+              text: "Повторите замыкания",
+              links: [{ title: "Курс по замыканиям", url: "https://example.test/cl" }],
+              assets: [],
+              events: [],
+            },
+          },
+        },
+      },
+    ]);
+    const res = await getExport();
+    const wb = await readWorkbookFromBuffer(res.body as Buffer);
+
+    const fbRows = sheetToObjects(wb.getWorksheet("Обратная связь")!);
+    expect(fbRows).toHaveLength(3);
+    expect(fbRows[2]).toMatchObject({
+      "Кому": "Подтема",
+      "Раздел": "JavaScript",
+      "Подтема": "замыкания",
+      "Формат": "Простой",
+      "Текст": "Повторите замыкания",
+    });
+
+    // Рекомендации подтемы адресуются тем же адресом: без него строка не найдёт владельца.
+    const recRows = sheetToObjects(wb.getWorksheet("Рекомендации")!);
+    const keyRow = recRows.find((r: any) => String(r["Кому"] ?? "") === "Подтема");
+    expect(keyRow).toMatchObject({
+      "Раздел": "JavaScript",
+      "Подтема": "замыкания",
+      "Тип": "Курс",
+      "Заголовок": "Курс по замыканиям",
+    });
+  });
+
   // Порядок листов описывает тест сверху вниз: обратная связь принадлежит структуре,
   // а не оценке, поэтому стоит между «Порогами вариантов» и «Оценкой».
   it("оба листа стоят между «Порогами вариантов» и «Страницами»", async () => {
