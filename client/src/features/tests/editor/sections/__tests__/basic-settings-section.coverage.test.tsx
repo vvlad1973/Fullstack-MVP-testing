@@ -185,8 +185,13 @@ describe("<NavigationPane /> — навигация прохождения (PRD-
       runtime: { ...baseModel().runtime, allowReturnToUnanswered: false },
     });
     renderSettings(model, undefined, { pane: NavigationPane });
-    expect(screen.getByTestId("settings-allow-change-checkbox")).toBeDisabled();
-    expect(screen.getByText(/только при включённом возврате/i)).toBeInTheDocument();
+    const toggle = screen.getByTestId("settings-allow-change-checkbox");
+    expect(toggle).toBeDisabled();
+    // Причина ищется В ПОЛЕ этого переключателя, а не по всей панели: ту же причину
+    // печатает погашенная «Свободная навигация внутри раздела» (PRD-19 FR-11c), и поиск
+    // по одному тексту стал бы неоднозначным.
+    const field = toggle.closest(".ou-formfield") as HTMLElement;
+    expect(within(field).getByText(/только при включённом возврате/i)).toBeInTheDocument();
   });
 
   it("disables «изменение ответа» with a banner when correct answers are shown", () => {
