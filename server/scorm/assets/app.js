@@ -158,6 +158,19 @@ function tbDebugForcedForms() {
   } catch (e) { return null; }
 }
 
+// PRD-52 review: deliver the WHOLE topic bank instead of the configured draw, so a
+// reviewer proof-reads the bank rather than one sampled variant. Like the PRD-18
+// form pin, the flag travels in the launch URL hash and is therefore INERT in
+// production: an LMS launches the package without a hash. `win` is injectable so a
+// unit test can pass a fake window; production calls it with no argument.
+function tbDebugFullDraw(win) {
+  try {
+    var w = win || (typeof window !== 'undefined' ? window : null);
+    var h = (w && w.location && w.location.hash) || '';
+    return /(?:^#|[#&])tbfa=1(?:&|$)/.test(h);
+  } catch (e) { return false; }
+}
+
 function generateVariant() {
   state.variant = { sections: [] };
   state.flatQuestions = [];
@@ -166,6 +179,8 @@ function generateVariant() {
   var usedIds = {}; // Track used question IDs across all sections to prevent duplicates
   // PRD-18 debug: per-topic pinned variants (null in production — inert).
   var tbForcedForms = tbDebugForcedForms();
+  // PRD-52 review: whole-bank delivery (false in production — inert).
+  var tbFullDraw = tbDebugFullDraw();
 
   // PRD-30 раздел 14: selection happens per topic here, the delivery ORDER of the
   // whole test is decided ONCE by assembleDelivery below — never by a second pass
@@ -186,7 +201,14 @@ function generateVariant() {
     // attempt state so grading can gate the topic by ITS variant's threshold
     // (`by_variant` rule). Stays null for non-variant topics.
     var deliveredFormId = null;
-    if (section.formSet && section.formSet.forms && section.formSet.forms.length) {
+    if (tbFullDraw) {
+      // PRD-52 FR-13: the whole topic bank, ahead of every other rule — variants,
+      // tag quotas and drawCount all NARROW the delivery, and the reviewer asked
+      // for the opposite. Order still follows the section's own setting, so the
+      // sequence is the one the author designed.
+      questions = orderQuestions(available, effectiveSectionOrder(testOrder, section.questionOrder), shuffle);
+      preordered = true;
+    } else if (section.formSet && section.formSet.forms && section.formSet.forms.length) {
       // PRD-17 variants mode (BR-12): deliver ONE curated variant whole, in random
       // order. No cross-attempt store in SCORM (NFR-17) -> previousFormIds empty, so
       // the pick is effectively random. Map the chosen variant's ids back to the
