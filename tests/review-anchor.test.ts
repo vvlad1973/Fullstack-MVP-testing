@@ -21,18 +21,23 @@ describe("resolveAnchorTarget", () => {
       .toEqual({ target: "content-page-editor", contentPageId: "p1" });
   });
 
-  it("тема ведёт в структуру теста и несёт раздел для подсветки", () => {
+  it("тема ведёт в «Состав и сценарий» и несёт раздел для подсветки", () => {
     expect(resolveAnchorTarget({ kind: "topic", topicId: "tp1" }))
-      .toEqual({ target: "test-editor", tab: "structure", topicId: "tp1" });
+      .toEqual({ target: "test-editor", tab: "composition", topicId: "tp1" });
   });
 
-  it("стартовый экран и итоги ведут в оформление", () => {
-    expect(resolveAnchorTarget({ kind: "start" })).toEqual({ target: "test-editor", tab: "design" });
-    expect(resolveAnchorTarget({ kind: "results" })).toEqual({ target: "test-editor", tab: "design" });
+  it("стартовая страница ведёт в состав: это узел полотна, а не оформление", () => {
+    expect(resolveAnchorTarget({ kind: "start" }))
+      .toEqual({ target: "test-editor", tab: "composition" });
   });
 
-  it("тест в целом ведёт в ящик теста", () => {
-    expect(resolveAnchorTarget({ kind: "test" })).toEqual({ target: "test-editor", tab: "basic" });
+  it("экран итогов ведёт в «Обратную связь и итоги», где он и собирается", () => {
+    expect(resolveAnchorTarget({ kind: "results" }))
+      .toEqual({ target: "test-editor", tab: "feedback" });
+  });
+
+  it("тест в целом ведёт в «Основное»", () => {
+    expect(resolveAnchorTarget({ kind: "test" })).toEqual({ target: "test-editor", tab: "main" });
   });
 
   it("якорь на вопрос без идентификатора не ведёт никуда: лучше молчать, чем открыть чужое", () => {

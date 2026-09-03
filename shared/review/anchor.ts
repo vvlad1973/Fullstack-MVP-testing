@@ -25,8 +25,15 @@ export interface ReviewAnchor {
   contentPageId?: string | null;
 }
 
-/** Вкладка ящика теста, на которую ведёт якорь. */
-export type TestEditorTab = "basic" | "structure" | "design";
+/**
+ * Вкладка ящика теста, на которую ведёт якорь.
+ *
+ * Ключи — дерево вкладок редактора после перестройки 2026-09-03 (шесть вкладок по
+ * вопросу автора плюс «Комментарии»). Список держится ЗДЕСЬ, а не импортируется из
+ * клиента, потому что резолвер общий для клиента и сервера; при следующей смене
+ * дерева правится одно это место.
+ */
+export type TestEditorTab = "main" | "composition" | "rules" | "scoring" | "feedback" | "design";
 
 /**
  * Цель перехода. Клиент открывает по ней нужный редактор — ящиком ПОВЕРХ панели,
@@ -51,14 +58,20 @@ export function resolveAnchorTarget(anchor: ReviewAnchor): AnchorTarget | null {
         ? { target: "content-page-editor", contentPageId: anchor.contentPageId }
         : null;
     case "topic":
+      // Раздел живёт в «Составе и сценарии» — там его выборка, квоты и место в полотне.
       return anchor.topicId
-        ? { target: "test-editor", tab: "structure", topicId: anchor.topicId }
-        : { target: "test-editor", tab: "structure" };
+        ? { target: "test-editor", tab: "composition", topicId: anchor.topicId }
+        : { target: "test-editor", tab: "composition" };
     case "start":
+      // Стартовая страница — узел полотна, а не оформление: правят её там же, где
+      // остальную структуру прохождения.
+      return { target: "test-editor", tab: "composition" };
     case "results":
-      return { target: "test-editor", tab: "design" };
+      // Экран итогов собирается на «Обратной связи и итогах»: состав подблоков,
+      // надписи, тексты после теста. «Оформление» отвечает только за шаблон.
+      return { target: "test-editor", tab: "feedback" };
     case "test":
-      return { target: "test-editor", tab: "basic" };
+      return { target: "test-editor", tab: "main" };
   }
 }
 
