@@ -358,6 +358,11 @@ router.get("/", requirePermission("tests.read"), async (req, res) => {
     // service note on why this is not a per-test query.
     const unmappedPages = await countUnmappedPages(visibleTests, storage);
 
+    // PRD-52 FR-32: сколько у теста открытых комментариев рецензентов. Считается на
+    // ВЕСЬ список одним запросом, а не на строку: список рисуется целиком, и запрос
+    // на карточку превратил бы его в десятки обращений ради одного числа.
+    const openComments = await storage.countOpenReviewCommentsByTests(visibleTests.map((t) => t.id));
+
     const testsWithSections = await Promise.all(
       visibleTests.map(async (test) => {
         const sections = await storage.getTestSections(test.id);
@@ -415,6 +420,7 @@ router.get("/", requirePermission("tests.read"), async (req, res) => {
           adaptiveSettings,
           publication,
           unmappedPageCount: unmappedPages.get(test.id) ?? 0,
+          openReviewComments: openComments[test.id] ?? 0,
         };
       })
     );

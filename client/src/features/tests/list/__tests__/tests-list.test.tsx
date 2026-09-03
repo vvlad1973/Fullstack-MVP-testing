@@ -447,3 +447,31 @@ describe("<TestsListPage /> — unmapped-page mark", () => {
     expect(screen.queryByTestId("test-unmapped-t-1")).toBeNull();
   });
 });
+
+// ─── PRD-52 FR-32: открытые комментарии рецензентов ──────────────────────────
+
+describe("<TestsListPage /> — счётчик комментариев", () => {
+  it("показывает число открытых комментариев", async () => {
+    mockMany({
+      "/api/tests": [buildApiTestRow({ openReviewComments: 3 })],
+      "/api/test-folders": [],
+    });
+    renderPage();
+    await waitFor(() => screen.getByText("Основы информационной безопасности"));
+
+    const mark = screen.getByTestId("open-comments");
+    expect(mark).toHaveTextContent("3");
+    expect(mark).toHaveAttribute("title", "Открытых комментариев: 3");
+  });
+
+  it("у теста без открытых комментариев строка не меняется", async () => {
+    mockMany({
+      "/api/tests": [buildApiTestRow({ openReviewComments: 0 })],
+      "/api/test-folders": [],
+    });
+    renderPage();
+    await waitFor(() => screen.getByText("Основы информационной безопасности"));
+
+    expect(screen.queryByTestId("open-comments")).toBeNull();
+  });
+});

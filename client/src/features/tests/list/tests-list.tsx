@@ -57,6 +57,7 @@ import {
   Upload,
   Users,
   ArrowRight,
+  MessageSquare,
 } from "lucide-react";
 import {
   Banner,
@@ -141,6 +142,7 @@ function apiToEntry(row: ApiTestRow): TestListEntry {
     createdAt: (row as { createdAt?: string | Date | null }).createdAt ?? null,
     publicationState: (row as { publication?: { state?: TestListEntry["publicationState"] } }).publication?.state,
     unmappedPageCount: (row as { unmappedPageCount?: number }).unmappedPageCount ?? 0,
+    openReviewComments: (row as { openReviewComments?: number }).openReviewComments ?? 0,
   };
 }
 
@@ -1425,6 +1427,7 @@ function TestRow(props: {
       <div className="tb-status-cell">
         <StatusTag status={e.status} publicationState={e.publicationState} />
         <UnmappedPagesMark count={e.unmappedPageCount ?? 0} testId={e.id} onOpen={props.onOpenStructure} />
+        <OpenCommentsMark count={e.openReviewComments ?? 0} />
       </div>
       <div>
         <span className={"mode-badge " + e.mode} title={modeTitle(e.mode)}>
@@ -1527,6 +1530,23 @@ function TestRow(props: {
  * in the run reveals it; the mark is how the author learns a decision is pending,
  * and it takes them to «Структура», where the mapping is made.
  */
+/**
+ * PRD-52 FR-32: сколько у теста открытых комментариев рецензентов.
+ *
+ * Показывается ТОЛЬКО когда они есть: у теста без комментариев строка не должна
+ * обрастать нулём — это шум в списке, который читают ежедневно.
+ */
+function OpenCommentsMark({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const label = `Открытых комментариев: ${count}`;
+  return (
+    <span className="tb-open-comments-mark" title={label} aria-label={label} data-testid="open-comments">
+      <MessageSquare size={12} aria-hidden />
+      {count}
+    </span>
+  );
+}
+
 function UnmappedPagesMark(props: { count: number; testId: string; onOpen: () => void }) {
   if (props.count <= 0) return null;
   // Just a warning pictogram: the count lives in the tooltip (it is a hint, not a
