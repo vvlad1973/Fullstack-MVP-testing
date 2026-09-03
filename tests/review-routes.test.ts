@@ -99,7 +99,10 @@ function root(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  storageMock.getUser.mockImplementation(async (id: string) => ({ id, status: "active", email: `${id}@x` }));
+  storageMock.getUser.mockImplementation(async (id: string) => ({
+    id, status: "active", email: `${id}@x`,
+    name: id === "expert-1" ? "Ирина Петрова" : id === "author-1" ? "Автор Теста" : null,
+  }));
   storageMock.getUserRoles.mockResolvedValue([ROLES.AUTHOR]);
   storageMock.getTest.mockResolvedValue(TEST);
   storageMock.getTestGrantForUser.mockResolvedValue(undefined);
@@ -135,6 +138,11 @@ beforeEach(() => {
 });
 
 describe("GET /:id/review/comments", () => {
+  it("подписывает комментарий именем автора, а не идентификатором", async () => {
+    const res = await request(expertApp()).get("/api/tests/t1/review/comments");
+    expect(res.body[0].authorName).toBe("Ирина Петрова");
+  });
+
   it("отдаёт ветки рецензенту", async () => {
     const res = await request(expertApp()).get("/api/tests/t1/review/comments");
     expect(res.status).toBe(200);

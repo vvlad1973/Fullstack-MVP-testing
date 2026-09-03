@@ -76,6 +76,27 @@ function anchorOf(row: {
 router.get("/:id/review/comments", ...reviewGate, async (req: Request, res: Response) => {
   try {
     const threads = await storage.listReviewThreads(req.params.id);
+
+    // Имена авторов: комментарий подписан ЧЕЛОВЕКОМ, а не идентификатором. Читаются
+    // одним проходом по участникам ветки — иначе на каждую строку ленты пришлось бы
+    // по запросу, а веток на тесте бывают десятки.
+    const authorIds = new Set<string>();
+    for (const thread of threads) {
+      authorIds.add(thread.authorId);
+      for (const reply of thread.replies) authorIds.add(reply.authorId);
+    }
+    const names = new Map<string, string>();
+    await Promise.all(
+      [...authorIds].map(async (id) => {
+        const user = await storage.getUser(id);
+        if (user) names.set(id, user.name || user.email);
+      }),
+    );
+    const named = <T extends { authorId: string }>(row: T) => ({
+      ...row,
+      authorName: names.get(row.authorId) ?? null,
+    });
+
     const decorated = await Promise.all(
       threads.map(async (thread) => {
         const anchor = anchorOf(thread);
@@ -86,7 +107,7 @@ router.get("/:id/review/comments", ...reviewGate, async (req: Request, res: Resp
         // `stale` и `orphaned` НЕ хранятся: это состояние теста на момент чтения,
         // а не свойство комментария. Записанные, они разошлись бы с содержимым при
         // первой же правке в обход панели.
-        return { ...thread, stale, orphaned };
+        return { ...named(thread), replies: thread.replies.map(named), stale, orphaned };
       }),
     );
     res.json(decorated);

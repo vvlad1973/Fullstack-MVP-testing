@@ -39,7 +39,7 @@ import {
   Tabs,
   type TabItem,
 } from "@universityrt/ui-kit";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useTestEditor,
   type EditorTabKey,
@@ -53,14 +53,19 @@ import { buildFieldErrorIndex } from "./field-errors";
 import { useDesignSettings } from "./use-design-settings";
 import { useContentPages, hasStructureErrors, hasStructureWarnings } from "./use-content-pages";
 import { useToast } from "@/hooks/use-toast";
-import { CompositionSection } from "./sections/topics-structure-section";
-import { SettingsSection } from "./sections/basic-settings-section";
+import {
+  CompositionTab,
+  FeedbackTab,
+  MainTab,
+  RulesTab,
+  ScoringTab,
+} from "./sections/editor-tabs";
 import { DesignSection } from "./sections/design-section";
-import { StructureSection } from "./sections/start-pages-section";
-import { ResultVariablesSection } from "./sections/result-variables-section";
-import { ScalesSection } from "./sections/scales-section";
-import { ScoringSection } from "./sections/scoring-section";
 import { describeFeasibilityState } from "@/features/content-protection/issue-text";
+import { ReviewPanel } from "../review/review-panel";
+import { QuestionEditorDrawer } from "@/features/questions/question-editor-drawer";
+import type { Question, Topic } from "@shared/schema";
+import { useOptionalAuth } from "@/lib/auth";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -84,6 +89,11 @@ export type TestEditorProps = {
    */
   initialTab?: EditorTabKey;
   /**
+   * PRD-52: ветка комментариев, раскрываемая по ссылке `?review=<id>`. Ящик её не
+   * ищет — просто передаёт панели, которая раскроет и подсветит нужную.
+   */
+  focusReviewThreadId?: string;
+  /**
    * Замечания выполнимости выдачи, прочитанные после успешного сохранения
    * (PRD-15 FR-05). Показывать их ВНУТРИ ящика нельзя: сохранение его закрывает,
    * — поэтому строки уходят наверх, списку тестов, в тот же advisory-диалог, что
@@ -101,43 +111,52 @@ export type TestEditorViewProps = {
   editor: UseTestEditorResult;
   /** Tab to open on; defaults to «Состав». See {@link TestEditorProps.initialTab}. */
   initialTab?: EditorTabKey;
+  /** См. {@link TestEditorProps.focusReviewThreadId}. */
+  focusReviewThreadId?: string;
   /** See {@link TestEditorProps.onFeasibilityNotes}. */
   onFeasibilityNotes?: (notes: string[]) => void;
 };
 
+/**
+ * Порядок вкладок ящика (план «перестройка настроек редактора теста», §3.1). Вкладка
+ * отвечает на ОДИН вопрос автора и идёт в том порядке, в каком он их задаёт: что это
+ * за тест -> из чего собран -> как идёт -> как оценивается -> что видит участник ->
+ * как выглядит -> что о нём сказали коллеги.
+ */
 const TAB_ORDER: EditorTabKey[] = [
+  "main",
   "composition",
-  "settings",
-  "design",
-  "structure",
+  "rules",
   "scoring",
-  "scales",
-  "metrics",
+  "feedback",
+  "design",
+  "review",
 ];
 
 const TAB_LABELS: Record<EditorTabKey, string> = {
-  composition: "Состав",
-  settings: "Настройки",
+  main: "Основное",
+  composition: "Состав и сценарий",
+  rules: "Правила прохождения",
+  scoring: "Оценка результата",
+  feedback: "Обратная связь и итоги",
   design: "Оформление",
-  structure: "Структура",
-  scoring: "Оценка",
-  scales: "Шкалы",
-  metrics: "Показатели",
+  review: "Комментарии",
 };
 
 /**
- * Maps a {@link ValidationIssue} `field` path to the editor tab that renders it
- * (FR-20c anchor navigation). `sections*` live in the Состав tab; everything
- * else (`basic.*`, `passRules.*`, `adaptive.*`) is edited in the Настройки tab.
+ * Адрес поля с ошибкой: в какой вкладке его искать (FR-20c). После перестройки ящика
+ * адреса другие — состав и сценарий в одной вкладке, вердикт уехал к оценке, — поэтому
+ * карта переписана целиком, а не дополнена.
  */
 function tabForField(field: string): EditorTabKey {
   if (field === "sections" || field.startsWith("sections[") || field.startsWith("sections.")) {
     return "composition";
   }
-  if (field.startsWith("scoring")) return "scoring";
-  if (field.startsWith("scales")) return "scales";
-  if (field.startsWith("resultVariables")) return "metrics";
-  return "settings";
+  if (field === "flowMode" || field.startsWith("adaptive")) return "composition";
+  if (field.startsWith("scoring") || field.startsWith("passRules")) return "scoring";
+  if (field.startsWith("scales") || field.startsWith("resultVariables")) return "scoring";
+  if (field.startsWith("retakePolicy") || field.startsWith("runtime")) return "rules";
+  return "main";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -170,6 +189,7 @@ export function TestEditor(props: TestEditorProps): React.JSX.Element | null {
       onClose={onClose}
       editor={editor}
       initialTab={props.initialTab}
+      focusReviewThreadId={props.focusReviewThreadId}
       onFeasibilityNotes={props.onFeasibilityNotes}
     />
   );
@@ -183,6 +203,24 @@ export function TestEditor(props: TestEditorProps): React.JSX.Element | null {
 export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | null {
   const { open, onClose, editor } = props;
   const [activeTab, setActiveTab] = useState<EditorTabKey>(props.initialTab ?? "composition");
+  /**
+   * PRD-52 FR-28: вопрос, открытый по переходу из комментария. Ящик редактора
+   * вопроса монтируется ТОЛЬКО когда открыт: он тянет за собой охрану контента и
+   * свои запросы, и держать его в ящике теста всё время — плата за то, что нужно
+   * в редком случае.
+   */
+  const [reviewQuestionId, setReviewQuestionId] = useState<string | null>(null);
+  const reviewQuestions = useQuery<Question[]>({
+    queryKey: ["/api/questions"],
+    enabled: Boolean(reviewQuestionId),
+  });
+  const reviewTopics = useQuery<Topic[]>({
+    queryKey: ["/api/topics"],
+    enabled: Boolean(reviewQuestionId),
+  });
+  const reviewQuestion = reviewQuestionId
+    ? (reviewQuestions.data ?? []).find((q) => q.id === reviewQuestionId) ?? null
+    : null;
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
 
@@ -192,6 +230,8 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   const design = useDesignSettings(editor.model?.id);
 
   const { toast } = useToast();
+  // PRD-52: свои комментарии подписываются «Вы» — панель отличает их по идентификатору.
+  const auth = useOptionalAuth();
 
   // Hoist content-pages here too so the «Структура» section shares one hook
   // instance with the drawer — letting the tab reflect content-page warnings
@@ -419,30 +459,35 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
 
   const tabItems = useMemo<TabItem<EditorTabKey>[]>(
     () =>
-      TAB_ORDER.map((tab) => {
-        const base = editor.tabStatuses[tab];
-        // The «Структура» tab folds in content-page warnings (missing variant /
-        // unfilled required fields) on top of its own draft status.
-        const status =
-          tab === "structure"
-            ? { ...base, warning: base.warning || structureWarn }
-            : base;
-        // Per prd7-editor-drawer.html the dirty/warn/error indicator is a
-        // small inline dot rendered INSIDE the tab label (not in the badge
-        // pill slot). Using the `badge` prop would wrap it in
-        // `.ou-tabs__badge` (an 18×18 chip designed for counts/labels) —
-        // that doesn't match the wireframe. So we compose label+dot here.
-        return {
-          id: tab,
-          label: (
-            <>
-              {TAB_LABELS[tab]}
-              <StatusBadge status={status} />
-            </>
-          ),
-        };
-      }),
-    [editor.tabStatuses, structureWarn],
+      TAB_ORDER
+        // PRD-52: комментарии привязаны к СУЩЕСТВУЮЩЕМУ тесту. У создаваемого ветки жить
+        // негде — вкладка появляется у сохранённого. Признак берётся из РЕЖИМА ящика, а не
+        // из загруженной модели: иначе полоса вкладок дёргалась бы по приходу ответа.
+        .filter((tab) => tab !== "review" || editor.mode !== "create")
+        .map((tab) => {
+          const base = editor.tabStatuses[tab];
+          // The «Структура» tab folds in content-page warnings (missing variant /
+          // unfilled required fields) on top of its own draft status.
+          const status =
+            tab === "composition"
+              ? { ...base, warning: base.warning || structureWarn }
+              : base;
+          // Per prd7-editor-drawer.html the dirty/warn/error indicator is a
+          // small inline dot rendered INSIDE the tab label (not in the badge
+          // pill slot). Using the `badge` prop would wrap it in
+          // `.ou-tabs__badge` (an 18×18 chip designed for counts/labels) —
+          // that doesn't match the wireframe. So we compose label+dot here.
+          return {
+            id: tab,
+            label: (
+              <>
+                {TAB_LABELS[tab]}
+                <StatusBadge status={status} />
+              </>
+            ),
+          };
+        }),
+    [editor.mode, editor.tabStatuses, structureWarn],
   );
 
   if (!open) return null;
@@ -529,9 +574,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
             // Tabs that render an `ou-drawer__split` (rail + content) need the
             // flush body so the split fills the full height — otherwise a short
             // pane (e.g. the Scales empty state) leaves a gap below.
-            (activeTab === "settings" || activeTab === "design" || activeTab === "scales"
-              ? " ou-drawer__body--flush"
-              : "")
+            (activeTab === "main" || activeTab === "review" ? "" : " ou-drawer__body--flush")
           }
           tabIndex={0}
           data-testid="test-editor-body"
@@ -580,20 +623,48 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               data-testid="test-editor-save-error"
             />
           )}
-          {editor.model && activeTab === "composition" && (
-            <CompositionSection
+          {editor.model && activeTab === "main" && (
+            <MainTab
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
             />
           )}
-          {editor.model && activeTab === "settings" && (
-            <SettingsSection
+          {editor.model && activeTab === "composition" && (
+            <CompositionTab
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
-              // Карточке отчёта нужен ЧЕРНОВОЙ шаблон вкладки «Оформление»: виды и их поля
-              // предлагает он, а не сохранённый (PRD-27 §4.2).
+              testId={editor.model.id}
+              content={contentPages}
+              savedFlowMode={editor.savedFlowMode}
+              designDraft={design.draft}
+            />
+          )}
+          {editor.model && activeTab === "rules" && (
+            <RulesTab
+              model={editor.model}
+              updateModel={editor.updateModel}
+              fieldErrors={fieldErrors}
+              // Параметры прогресса объявляет шаблон: рисуются они ЧЕРНОВИКОМ
+              // «Оформления», иначе автор правил бы уже выбранный, но не сохранённый
+              // шаблон вслепую.
+              design={design}
+            />
+          )}
+          {editor.model && activeTab === "scoring" && (
+            <ScoringTab
+              model={editor.model}
+              updateModel={editor.updateModel}
+              fieldErrors={fieldErrors}
+              testId={editor.model.id}
+            />
+          )}
+          {editor.model && activeTab === "feedback" && (
+            <FeedbackTab
+              model={editor.model}
+              updateModel={editor.updateModel}
+              fieldErrors={fieldErrors}
               design={design}
             />
           )}
@@ -601,47 +672,45 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
             <DesignSection
               testId={editor.model.id}
               design={design}
-              // PRD-47 §6.2: пункт «Отчёт о результатах» правит `model.report` — хранение
-              // осталось своей колонкой, переехал только элемент интерфейса.
+              // PRD-47 §6.2: облик отчёта правит `model.report` — хранение осталось
+              // своей колонкой, переехал только элемент интерфейса.
               model={editor.model}
               updateModel={editor.updateModel}
             />
           )}
-          {editor.model && activeTab === "structure" && (
-            <StructureSection
-              model={editor.model}
-              testId={editor.model.id}
-              content={contentPages}
-              savedFlowMode={editor.savedFlowMode}
-              onGoToComposition={() => setActiveTab("composition")}
-              updateModel={editor.updateModel}
-              designDraft={design.draft}
-            />
-          )}
-          {editor.model && activeTab === "scoring" && (
-            <ScoringSection
-              model={editor.model}
-              testId={editor.model.id}
-              updateModel={editor.updateModel}
-            />
-          )}
-          {editor.model && activeTab === "scales" && (
-            <ScalesSection
-              model={editor.model}
-              testId={editor.model.id}
-              updateModel={editor.updateModel}
-              fieldErrors={fieldErrors}
-            />
-          )}
-          {editor.model && activeTab === "metrics" && (
-            <ResultVariablesSection
-              model={editor.model}
-              testId={editor.model.id}
-              updateModel={editor.updateModel}
-              fieldErrors={fieldErrors}
-            />
+          {editor.model?.id && activeTab === "review" && (
+            <div className="tb-settings-content" data-testid="settings-pane-review">
+              <ReviewPanel
+                testId={editor.model.id}
+                mode="editor"
+                canResolve
+                currentUserId={auth?.user?.id}
+                // Место комментария автор выбирает из РАЗДЕЛОВ этого теста: панель сама
+                // не ходит за составом, его знает ящик.
+                anchorOptions={{
+                  topics: editor.model.sections.map((s) => ({ id: s.topicId, name: s.topicName })),
+                }}
+                onNavigate={(target) => {
+                  // Вопрос открывается ЯЩИКОМ ПОВЕРХ этого: ящик теста остаётся
+                  // смонтированным, поэтому после правки автор возвращается в то же
+                  // место списка комментариев, а не собирает контекст заново.
+                  if (target.target === "question-editor") setReviewQuestionId(target.questionId);
+                  else if (target.target === "test-editor") setActiveTab(target.tab);
+                }}
+                focusThreadId={props.focusReviewThreadId}
+              />
+            </div>
           )}
           {!editor.model && <TabPlaceholder tab={activeTab} />}
+          {reviewQuestionId ? (
+            <QuestionEditorDrawer
+              open={Boolean(reviewQuestion)}
+              question={reviewQuestion}
+              topics={reviewTopics.data ?? []}
+              onClose={() => setReviewQuestionId(null)}
+              onSaved={() => setReviewQuestionId(null)}
+            />
+          ) : null}
           </div>
           {combinedSaving && (
             <div
@@ -795,13 +864,13 @@ function StatusBadge({ status }: { status: TabStatus }) {
 
 function TabPlaceholder({ tab }: { tab: EditorTabKey }) {
   const desc: Record<EditorTabKey, string> = {
-    composition: "Темы и выборка вопросов — наполнение тестом.",
-    settings: "Параметры прохождения, ограничения, обратная связь.",
-    design: "Цвета, шрифты, фоны и логотип.",
-    structure: "Порядок вопросов, страницы и секции.",
-    scoring: "Баллы, цена ответа и сложность вопросов в этом тесте.",
-    scales: "Шкалы и измерения — агрегаты вкладов вопросов.",
-    metrics: "Показатели результата — формулы над итогами теста.",
+    main: "Название, описание, режим теста и интеграция.",
+    composition: "Темы и выборка вопросов, уровни адаптивного теста, сценарий.",
+    rules: "Навигация, показ по ходу, ограничения и защита контента.",
+    scoring: "Цена ответа, вердикт теста и тем, шкалы и показатели.",
+    feedback: "Что участник узнаёт о результате: итоги, тексты и отчёт.",
+    design: "Шаблон и объявленный им облик: цвета, шрифты, фоны и логотип.",
+    review: "Комментарии коллег к этому тесту.",
   };
   return (
     <EmptyState
@@ -934,13 +1003,13 @@ function collectChangesByTab(
   draft: TestEditorModel,
 ): Record<EditorTabKey, FieldDiff[]> {
   const result: Record<EditorTabKey, FieldDiff[]> = {
+    main: [],
     composition: [],
-    settings: [],
-    design: [],
-    structure: [],
+    rules: [],
     scoring: [],
-    scales: [],
-    metrics: [],
+    feedback: [],
+    design: [],
+    review: [],
   };
 
   const fmtBool = (v: boolean) => (v ? "Да" : "Нет");
@@ -963,63 +1032,63 @@ function collectChangesByTab(
     }
   > = [
     {
-      tab: "settings",
+      tab: "main",
       field: "title",
       label: "Название",
       oldValue: snap.basic.title,
       newValue: draft.basic.title,
     },
     {
-      tab: "settings",
+      tab: "main",
       field: "description",
       label: "Описание",
       oldValue: snap.basic.description || "не задано",
       newValue: draft.basic.description || "не задано",
     },
     {
-      tab: "settings",
+      tab: "main",
       field: "mode",
       label: "Режим теста",
       oldValue: fmtMode(snap.mode),
       newValue: fmtMode(draft.mode),
     },
     {
-      tab: "settings",
+      tab: "composition",
       field: "flowMode",
       label: "Сценарий прохождения",
       oldValue: fmtFlow(snap.flowMode),
       newValue: fmtFlow(draft.flowMode),
     },
     {
-      tab: "settings",
+      tab: "rules",
       field: "timeLimitMinutes",
       label: "Лимит времени",
       oldValue: fmtMinutes(snap.runtime.timeLimitMinutes),
       newValue: fmtMinutes(draft.runtime.timeLimitMinutes),
     },
     {
-      tab: "settings",
+      tab: "rules",
       field: "maxAttempts",
       label: "Максимум попыток",
       oldValue: fmtAttempts(snap.runtime.maxAttempts),
       newValue: fmtAttempts(draft.runtime.maxAttempts),
     },
     {
-      tab: "settings",
+      tab: "feedback",
       field: "showCorrectAnswers",
       label: "Показывать правильные ответы",
       oldValue: fmtBool(snap.runtime.showCorrectAnswers),
       newValue: fmtBool(draft.runtime.showCorrectAnswers),
     },
     {
-      tab: "settings",
+      tab: "main",
       field: "webhookUrl",
       label: "Webhook URL",
       oldValue: snap.basic.webhookUrl || "не задан",
       newValue: draft.basic.webhookUrl || "не задан",
     },
     {
-      tab: "settings",
+      tab: "main",
       field: "telemetryEnabled",
       label: "Телеметрия",
       oldValue: fmtBool(snap.basic.telemetryEnabled),
