@@ -230,6 +230,18 @@ async function sourceForStart(
  * знает тему, и по ней же общий построитель находит свои записи разреза. Раздел без
  * текстов в карту не попадает — отсутствие ключа и означает «текстов нет».
  */
+async function readBreakdownFeedback(
+  src: { getTestSections(testId: string): Promise<Array<{ topicId: string; breakdownFeedbackJson?: unknown }>> },
+  testId: string,
+): Promise<Record<string, Record<string, FeedbackBlock>>> {
+  try {
+    return breakdownFeedbackByTopic(await src.getTestSections(testId));
+  } catch (error) {
+    logger.warn("PRD-50 FR-50: тексты подтем не прочитаны — " + (error as Error).message);
+    return {};
+  }
+}
+
 function breakdownFeedbackByTopic(
   sections: Array<{ topicId: string; breakdownFeedbackJson?: unknown }>,
 ): Record<string, Record<string, FeedbackBlock>> {
@@ -316,7 +328,11 @@ async function resultsMaterialForAttempt(
       // PRD-50 FR-50: тексты подтем разделов ВЫДАННОЙ версии. Раздел без текстов ключа
       // ничего в карту не кладёт, поэтому тест, не пользовавшийся настройкой, идёт по
       // прежнему пути до байта.
-      breakdownFeedbackByTopic: breakdownFeedbackByTopic(await src.getTestSections(attempt.testId)),
+      //
+      // Своим `try` — не общим: не прочитались тексты ПОДТЕМ, значит нет только их, а
+      // шкалы, показатели и обратная связь теста обязаны дойти. Общий `catch` ниже
+      // обнулил бы весь материал экрана из-за необязательной его части.
+      breakdownFeedbackByTopic: await readBreakdownFeedback(src, attempt.testId),
       testFeedback: (deliveredTest?.feedbackJson as Partial<FeedbackContent> | null) ?? null,
       // Вводные блоки: экрана и отчёта. Берутся из ВЫДАННОЙ версии теста, как и всё
       // остальное здесь, — попытка показывает то содержание, на котором её проходили.

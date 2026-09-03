@@ -891,16 +891,16 @@ describe("Attempts routes — answer-adaptive", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.isFinished).toBe(true);
-    // Тема впереди раздела: общий источник раньше частного — тот же порядок, что у
-    // стандартного режима и у запечённого пакета.
-    expect(res.body.result.topicResults[0].feedbackTexts).toEqual(["Текст темы", "Текст раздела"]);
+    // Текст раздела ЗАМЕНЯЕТ текст темы (PRD-29 §7.1a): у темы в тесте один разрешённый
+    // текст, а не склейка двух. Тот же порядок, что у запечённого пакета.
+    expect(res.body.result.topicResults[0].feedbackTexts).toEqual(["Текст раздела"]);
     expect(res.body.result.topicResults[0].recommendedAssets).toEqual([
       { title: "Разбор темы", url: "/api/media/aaaa" },
       { title: "Памятка раздела", url: "/api/media/bbbb" },
     ]);
     // Сохраняются ВМЕСТЕ с попыткой, а не пересчитываются при показе.
     expect(storageMock.updateAttempt.mock.calls[0][1].resultJson.topicResults[0].feedbackTexts)
-      .toEqual(["Текст темы", "Текст раздела"]);
+      .toEqual(["Текст раздела"]);
     storageMock.getTopic.mockReset();
   });
 
@@ -1271,11 +1271,9 @@ describe("Attempts routes — finish attempt", () => {
       .send({ answers: { q1: 0 } }));
 
     expect(res.status).toBe(200);
-    // Тема впереди раздела: общий источник раньше частного (как у вложений).
-    expect(res.body.result.topicResults[0].feedbackTexts).toEqual([
-      "Текст темы",
-      "Текст раздела",
-    ]);
+    // Текст раздела ЗАМЕНЯЕТ текст темы (§7.1a). Вложения ведут себя иначе — они
+    // складываются: замена объявлена решением для ТЕКСТА.
+    expect(res.body.result.topicResults[0].feedbackTexts).toEqual(["Текст раздела"]);
     storageMock.getTopic.mockReset();
   });
 
