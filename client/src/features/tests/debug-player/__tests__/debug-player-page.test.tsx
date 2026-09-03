@@ -6,7 +6,8 @@
  * access/error/loading states, reset, and CSV export.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DebugSessionState } from "../use-debug-session";
 import type { ProtocolRow, TBInspectorApi } from "../inspector-snapshot";
 
@@ -23,6 +24,16 @@ vi.mock("../use-debug-session", () => ({
 vi.mock("wouter", () => ({ useParams: () => ({ testId: "t1" }) }));
 
 import DebugPlayerPage from "../debug-player-page";
+
+/**
+ * Страница держит панель комментариев (PRD-52), а та ходит в API через react-query,
+ * поэтому рендер идёт под собственным клиентом — без сети: запросы панели остаются
+ * висеть, а проверяемая разметка от них не зависит.
+ */
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 // ─── Compute mock ───────────────────────────────────────────────────────────────
 

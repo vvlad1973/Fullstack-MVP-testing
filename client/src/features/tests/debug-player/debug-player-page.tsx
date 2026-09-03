@@ -29,6 +29,9 @@ import {
 } from "../run-inspector/panels";
 import { ReviewPanel } from "../review/review-panel";
 import { useScreenAnchor } from "../review/use-screen-anchor";
+import { QuestionEditorDrawer } from "@/features/questions/question-editor-drawer";
+import { useQuery } from "@tanstack/react-query";
+import type { Question, Topic } from "@shared/schema";
 import { describeFeasibilityState } from "@/features/content-protection/issue-text";
 import "./debug-player.css";
 
@@ -78,6 +81,15 @@ export default function DebugPlayerPage() {
   // том же вопросе, — но и в пакет она не попадает. Молчать об этом нельзя: автор
   // решит, что правка не сработала.
   const [pendingRebuild, setPendingRebuild] = useState(false);
+  // PRD-52 FR-28: правка по комментарию открывается ящиком ПОВЕРХ окна. Стейдж при
+  // этом не перезагружается, поэтому после закрытия ящика прогон стоит на том же
+  // вопросе, а место в списке комментариев не теряется.
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const questionsQuery = useQuery<Question[]>({ queryKey: ["/api/questions"], enabled: Boolean(editingQuestionId) });
+  const topicsQuery = useQuery<Topic[]>({ queryKey: ["/api/topics"], enabled: Boolean(editingQuestionId) });
+  const editingQuestion = editingQuestionId
+    ? (questionsQuery.data ?? []).find((q) => q.id === editingQuestionId) ?? null
+    : null;
   const [snap, setSnap] = useState<InspectorSnapshot>(EMPTY);
   // PRD-18: per-topic pinned variants { topicId: formId } for variants-mode sections.
   // Empty on mount (a fresh window starts unpinned). Passed to the stage as a
@@ -307,7 +319,10 @@ export default function DebugPlayerPage() {
                   mode="player"
                   canResolve
                   screenAnchor={screenAnchor}
-                  onNavigate={() => setPendingRebuild(true)}
+                  onNavigate={(target) => {
+                    if (target.target === "question-editor") setEditingQuestionId(target.questionId);
+                    else openEditor();
+                  }}
                 />
               )}
               {tab === "score" && <ScorePanel snap={snap} />}
@@ -323,6 +338,23 @@ export default function DebugPlayerPage() {
           </div>
         </aside>
       </div>
+
+        {/* Монтируется ТОЛЬКО открытым: редактор вопроса тянет за собой контекст
+            авторизации и охрану контента — держать его в окне весь прогон значит
+            платить за то, что почти всегда не нужно. */}
+        {editingQuestionId ? (
+          <QuestionEditorDrawer
+            open={Boolean(editingQuestion)}
+            question={editingQuestion}
+            topics={topicsQuery.data ?? []}
+            onClose={() => setEditingQuestionId(null)}
+            onSaved={() => {
+              // Пакет собран ДО правки: пока его не пересобрать, прогон её не увидит.
+              setPendingRebuild(true);
+              setEditingQuestionId(null);
+            }}
+          />
+        ) : null}
     </div>
   );
 }
