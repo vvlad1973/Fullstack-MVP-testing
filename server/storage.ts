@@ -174,6 +174,7 @@ export interface IStorage {
   getAssignmentAccessToken(tokenHash: string): Promise<AssignmentAccessToken | undefined>;
   getAssignmentAccessTokensByAssignment(assignmentId: string): Promise<AssignmentAccessToken[]>;
   revokeAssignmentAccessToken(id: string): Promise<void>;
+  revokeReviewLinks(testId: string, userId: string): Promise<void>;
   revokeAssignmentAccessTokensByAssignment(assignmentId: string): Promise<void>;
   revokeAssignmentAccessTokensByAssignmentAndUser(assignmentId: string, userId: string): Promise<void>;
 
@@ -705,6 +706,10 @@ export class DatabaseStorage implements IStorage {
 
   revokeAssignmentAccessToken(id: string): Promise<void> {
     return this.assignmentsRepo.revokeAssignmentAccessToken(id);
+  }
+
+  revokeReviewLinks(testId: string, userId: string): Promise<void> {
+    return this.assignmentsRepo.revokeReviewLinks(testId, userId);
   }
 
   revokeAssignmentAccessTokensByAssignment(assignmentId: string): Promise<void> {

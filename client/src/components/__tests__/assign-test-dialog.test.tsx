@@ -229,6 +229,19 @@ describe("AssignTestDialog — режим рецензирования", () => {
     expect(screen.getByText(/видят комментарии друг друга/i)).toBeInTheDocument();
   });
 
+  it("первая вкладка показывает приглашённых рецензентов, а не участников", async () => {
+    renderDialog({ mode: "review" });
+    expect(await screen.findByRole("tab", { name: /Приглашены/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Назначено/ })).not.toBeInTheDocument();
+  });
+
+  it("действие называется «Пригласить», а не «Назначить»", async () => {
+    renderDialog({ mode: "review" });
+    fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
+    expect(await screen.findByRole("button", { name: /Пригласить/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Назначить/ })).not.toBeInTheDocument();
+  });
+
   it("обычный режим заголовка и предупреждения не меняет", async () => {
     renderDialog();
     expect(screen.queryByText("Отправить на рецензирование")).not.toBeInTheDocument();

@@ -356,4 +356,63 @@ router.post("/:id/review/invite", requirePermission("tests.access.grant"), async
   }
 });
 
+// GET /api/tests/:id/review/reviewers — кто приглашён рецензировать этот тест.
+// Показывается на первой вкладке диалога: приглашённые, а не участники прохождения.
+router.get("/:id/review/reviewers", requirePermission("tests.access.grant"), async (req: Request, res: Response) => {
+  try {
+    const test = await storage.getTest(req.params.id);
+    if (!test) return res.status(404).json({ error: "Тест не найден" });
+    if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser!.id, test)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const grants = (await storage.getTestAccessGrants(req.params.id))
+      .filter((grant) => grant.accessLevel === "review");
+    const counts = await storage.listReviewThreads(req.params.id);
+
+    const reviewers = await Promise.all(
+      grants.map(async (grant) => {
+        const user = await storage.getUser(grant.userId);
+        return {
+          userId: grant.userId,
+          name: user?.name ?? null,
+          email: user?.email ?? null,
+          // Внешний участник заходит ТОЛЬКО по ссылке; штатный — своей учётной
+          // записью, и ссылка ему нужна лишь как приглашение.
+          external: Boolean(user?.isExternal),
+          grantedAt: grant.createdAt,
+          // Сколько этот человек уже написал — по нему видно, дошли ли руки.
+          comments: counts.filter((thread) => thread.authorId === grant.userId).length,
+        };
+      }),
+    );
+    res.json(reviewers);
+  } catch (error) {
+    logger.error("Reviewers read failed: " + (error as Error).message, "review");
+    res.status(500).json({ error: "Не удалось прочитать список рецензентов" });
+  }
+});
+
+// DELETE /api/tests/:id/review/reviewers/:userId — отозвать доступ рецензента.
+// Снимается и грант, и все живые ссылки: оставить ссылку значило бы оставить дверь
+// открытой после отзыва. Комментарии человека остаются — это история приёмки.
+router.delete("/:id/review/reviewers/:userId", requirePermission("tests.access.grant"), async (req: Request, res: Response) => {
+  try {
+    const test = await storage.getTest(req.params.id);
+    if (!test) return res.status(404).json({ error: "Тест не найден" });
+    if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser!.id, test)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const grant = await storage.getTestGrantForUser(req.params.id, req.params.userId);
+    if (grant?.accessLevel === "review") {
+      await storage.removeTestAccessGrant(req.params.id, req.params.userId);
+    }
+    await storage.revokeReviewLinks(req.params.id, req.params.userId);
+    res.json({ revoked: true });
+  } catch (error) {
+    logger.error("Reviewer revoke failed: " + (error as Error).message, "review");
+    res.status(500).json({ error: "Не удалось отозвать доступ" });
+  }
+});
+
 export default router;

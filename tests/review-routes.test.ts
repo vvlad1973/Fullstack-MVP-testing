@@ -23,6 +23,9 @@ const { storageMock, accessMock, anchorMock, runMock } = vi.hoisted(() => ({
     getTestGrantForUser: vi.fn(),
     listReviewThreads: vi.fn(),
     getReviewComment: vi.fn(),
+    getTestAccessGrants: vi.fn(),
+    removeTestAccessGrant: vi.fn(),
+    revokeReviewLinks: vi.fn(),
     hasReviewReplies: vi.fn(),
     createReviewComment: vi.fn(),
     updateReviewCommentBody: vi.fn(),
@@ -30,7 +33,7 @@ const { storageMock, accessMock, anchorMock, runMock } = vi.hoisted(() => ({
     resolveReviewComment: vi.fn(),
     reopenReviewComment: vi.fn(),
   },
-  accessMock: { canReviewTest: vi.fn(), canEditTest: vi.fn() },
+  accessMock: { canReviewTest: vi.fn(), canEditTest: vi.fn(), canGrantAccess: vi.fn() },
   runMock: {
     buildScormExportData: vi.fn(),
     generateScormPackage: vi.fn(),
@@ -117,6 +120,13 @@ beforeEach(() => {
   );
   storageMock.reopenReviewComment.mockResolvedValue(root({ status: "open" }));
   accessMock.canReviewTest.mockResolvedValue(true);
+  accessMock.canGrantAccess.mockImplementation((_r: unknown, userId: string) => userId === "author-1");
+  storageMock.getTestAccessGrants.mockResolvedValue([
+    { testId: "t1", userId: "expert-1", accessLevel: "review", createdAt: new Date("2026-09-02") },
+    { testId: "t1", userId: "manager-1", accessLevel: "assign", createdAt: new Date("2026-09-02") },
+  ]);
+  storageMock.removeTestAccessGrant.mockResolvedValue(true);
+  storageMock.revokeReviewLinks.mockResolvedValue(undefined);
   accessMock.canEditTest.mockImplementation(async (_r: unknown, userId: string) => userId === "author-1");
   anchorMock.describeAnchor.mockResolvedValue({
     contextLabel: "Раздел «О компании» · Вопрос «…»", pinnedContentHash: "a".repeat(64),
@@ -359,5 +369,36 @@ describe("прогон рецензирования", () => {
   it("закрывает прогон", async () => {
     const res = await request(expertApp()).delete("/api/tests/t1/review/session/tok1");
     expect(res.body.dropped).toBe(true);
+  });
+});
+
+describe("рецензенты теста", () => {
+  it("отдаёт ТОЛЬКО приглашённых рецензентов, а не всех, у кого есть доступ", async () => {
+    const res = await request(authorApp()).get("/api/tests/t1/review/reviewers");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ userId: "expert-1", comments: 1 });
+  });
+
+  it("посторонний список не увидит", async () => {
+    const res = await request(expertApp()).get("/api/tests/t1/review/reviewers");
+    expect(res.status).toBe(403);
+  });
+
+  it("отзыв снимает грант И гасит живые ссылки", async () => {
+    storageMock.getReviewComment.mockResolvedValue(root());
+    storageMock.getTestGrantForUser.mockResolvedValue({ accessLevel: "review" });
+    const res = await request(authorApp()).delete("/api/tests/t1/review/reviewers/expert-1");
+    expect(res.status).toBe(200);
+    expect(storageMock.removeTestAccessGrant).toHaveBeenCalledWith("t1", "expert-1");
+    expect(storageMock.revokeReviewLinks).toHaveBeenCalledWith("t1", "expert-1");
+  });
+
+  it("отзыв не трогает грант другого уровня: edit-доступ отзывают не здесь", async () => {
+    storageMock.getTestGrantForUser.mockResolvedValue({ accessLevel: "edit" });
+    await request(authorApp()).delete("/api/tests/t1/review/reviewers/author-2");
+    expect(storageMock.removeTestAccessGrant).not.toHaveBeenCalled();
+    // Ссылки всё равно гасим: ревью-ссылка могла быть выдана раньше повышения.
+    expect(storageMock.revokeReviewLinks).toHaveBeenCalledWith("t1", "author-2");
   });
 });

@@ -11,7 +11,7 @@
  * Exposed through the `IStorage` facade, never imported by routes.
  */
 import { randomUUID } from "crypto";
-import { eq, and, or, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, or, desc, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   testAssignments, assignmentAccessTokens, userGroups, tests,
@@ -184,6 +184,25 @@ export class AssignmentsRepository {
     await db.update(assignmentAccessTokens)
       .set({ revokedAt: new Date() })
       .where(eq(assignmentAccessTokens.id, id));
+  }
+
+  /**
+   * PRD-52: отозвать ревью-ссылки человека на тесте.
+   *
+   * Отзыв идёт по ПАРЕ (тест, человек), а не по назначению: у рецензирования
+   * назначения нет вовсе, доступ несёт грант. Снимаются все живые ссылки — человеку
+   * могли выпустить не одну (перевыпуск после истечения срока), и оставить хоть одну
+   * значило бы оставить дверь открытой после отзыва доступа.
+   */
+  async revokeReviewLinks(testId: string, userId: string): Promise<void> {
+    await db.update(assignmentAccessTokens)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(assignmentAccessTokens.testId, testId),
+        eq(assignmentAccessTokens.userId, userId),
+        eq(assignmentAccessTokens.purpose, "review"),
+        isNull(assignmentAccessTokens.revokedAt),
+      ));
   }
 
   async revokeAssignmentAccessTokensByAssignment(assignmentId: string): Promise<void> {

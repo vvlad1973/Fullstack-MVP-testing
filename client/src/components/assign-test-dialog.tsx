@@ -179,6 +179,15 @@ function GroupUsersPanel({ assignmentId }: { assignmentId: string }) {
   );
 }
 
+/** PRD-52: строка списка приглашённых рецензентов. */
+interface ReviewerRow {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  external: boolean;
+  comments: number;
+}
+
 interface AssignTestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -225,7 +234,33 @@ export function AssignTestDialog({
   // Fetch current assignments
   const { data: assignments = [], isLoading: assignmentsLoading } = useQuery<Assignment[]>({
     queryKey: [`/api/tests/${testId}/assignments`],
-    enabled: open,
+    enabled: open && !isReview,
+  });
+
+  /**
+   * PRD-52: приглашённые рецензенты. В режиме рецензирования первая вкладка обязана
+   * показывать ИХ, а не участников прохождения: это разные списки, и путать их —
+   * значит предлагать отозвать доступ не у того человека.
+   */
+  const { data: reviewers = [], isLoading: reviewersLoading } = useQuery<ReviewerRow[]>({
+    queryKey: [`/api/tests/${testId}/review/reviewers`],
+    enabled: open && isReview,
+  });
+
+  const revokeReviewer = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await fetch(`/api/tests/${testId}/review/reviewers/${userId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Не удалось отозвать доступ");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/review/reviewers`] });
+      toast({ title: "Доступ отозван", description: "Ссылка рецензента больше не работает." });
+    },
+    onError: (e: Error) => toast({ variant: "destructive", title: t.common.error, description: e.message }),
   });
 
   // Fetch all users
@@ -595,6 +630,67 @@ export function AssignTestDialog({
     />
   );
 
+  const reviewersPanel = reviewersLoading ? (
+    <Cluster justify="center" wrap={false} padY={7}>
+      <Loader2 size={24} className="ou-spin" />
+    </Cluster>
+  ) : reviewers.length === 0 ? (
+    <Box padY={7} style={{ textAlign: "center", color: "var(--ou-fg-muted)" }}>
+      <Users size={48} style={{ marginInline: "auto", marginBottom: "var(--ou-space-4)", opacity: 0.5 }} />
+      <p>Тест ещё никому не отправляли на рецензирование</p>
+      <p>Выберите людей на соседних вкладках — каждый получит свою ссылку.</p>
+    </Box>
+  ) : (
+    <Table
+      columns={[
+        {
+          key: "who",
+          header: "Рецензент",
+          render: (r: ReviewerRow) => (
+            <Stack gap={1}>
+              <Text weight="medium">{r.name || r.email || r.userId}</Text>
+              {r.name && r.email ? <Text variant="body-s" tone="muted">{r.email}</Text> : null}
+            </Stack>
+          ),
+        },
+        {
+          key: "kind",
+          header: "Доступ",
+          width: "200px",
+          render: (r: ReviewerRow) => (
+            <Tag size="s" variant="outline">
+              {r.external ? "по ссылке" : "по учётной записи"}
+            </Tag>
+          ),
+        },
+        {
+          key: "comments",
+          header: "Комментариев",
+          width: "140px",
+          render: (r: ReviewerRow) => (r.comments > 0 ? String(r.comments) : "—"),
+        },
+        {
+          key: "actions",
+          header: "",
+          width: "120px",
+          render: (r: ReviewerRow) => (
+            <Button
+              variant="ghost"
+              size="s"
+              onClick={() => revokeReviewer.mutate(r.userId)}
+              disabled={revokeReviewer.isPending}
+              data-testid={`revoke-reviewer-${r.userId}`}
+            >
+              Отозвать
+            </Button>
+          ),
+        },
+      ]}
+      rows={reviewers}
+      rowKey={(r: ReviewerRow) => r.userId}
+    />
+  );
+
   const usersPanel = (
     <Stack gap={4}>
       <Stack gap={3}>
@@ -605,7 +701,7 @@ export function AssignTestDialog({
             disabled={selectedUserIds.length === 0}
             loading={assignMutation.isPending}
           >
-            {t.assignments.assign} ({selectedUserIds.length})
+            {isReview ? "Пригласить" : t.assignments.assign} ({selectedUserIds.length})
           </Button>
         </Cluster>
       </Stack>
@@ -638,7 +734,7 @@ export function AssignTestDialog({
             disabled={selectedGroupIds.length === 0}
             loading={assignMutation.isPending}
           >
-            {t.assignments.assign} ({selectedGroupIds.length})
+            {isReview ? "Пригласить" : t.assignments.assign} ({selectedGroupIds.length})
           </Button>
         </Cluster>
       </Stack>
@@ -686,7 +782,9 @@ export function AssignTestDialog({
         value={activeTab}
         onChange={setActiveTab}
         items={[
-          { id: "current", label: `${t.assignments.assignedTo} (${assignments.length})`, content: currentPanel },
+          isReview
+            ? { id: "current", label: `Приглашены (${reviewers.length})`, content: reviewersPanel }
+            : { id: "current", label: `${t.assignments.assignedTo} (${assignments.length})`, content: currentPanel },
           { id: "users", label: t.assignments.users, icon: <Users size={16} />, content: usersPanel },
           { id: "groups", label: t.assignments.groups, icon: <UsersRound size={16} />, content: groupsPanel },
           {
