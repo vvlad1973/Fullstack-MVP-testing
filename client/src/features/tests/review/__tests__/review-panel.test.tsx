@@ -210,3 +210,18 @@ describe("создание комментария", () => {
     });
   });
 });
+
+describe("ссылка на ветку", () => {
+  it("раскрывает ветку, на которую ведёт ссылка, и метит её в разметке", async () => {
+    renderPanel({ focusThreadId: "c1" });
+    const thread = await screen.findByTestId("thread-c1");
+    expect(thread).toHaveAttribute("data-expanded", "true");
+    expect(thread.className).toContain("is-focused");
+  });
+
+  it("без ссылки ни одна ветка не выделена", async () => {
+    renderPanel();
+    const thread = await screen.findByTestId("thread-c1");
+    expect(thread).toHaveAttribute("data-expanded", "false");
+  });
+});

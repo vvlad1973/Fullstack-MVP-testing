@@ -495,4 +495,5 @@ describe("<TestsListPage /> — ссылка ?review=<id>", () => {
     // Параметры сняты с адреса: обновление страницы не должно снова открывать ящик.
     expect(window.location.search).toBe("");
   });
+
 });

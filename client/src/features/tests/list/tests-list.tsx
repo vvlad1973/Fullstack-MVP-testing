@@ -870,9 +870,7 @@ export function TestsListPage(): React.JSX.Element {
           setFocusReviewThreadId(null);
         }}
         initialTab={editorTarget?.kind === "edit" ? editorTarget.tab : undefined}
-        // TODO(PRD-52): передать `focusReviewThreadId` в ящик, когда соседний трек
-        // добавит этот проп в TestEditor (панель уже умеет его принимать как
-        // `focusThreadId`). Пока ссылка открывает вкладку, но ветку не подсвечивает.
+        focusReviewThreadId={focusReviewThreadId ?? undefined}
         onFeasibilityNotes={setSaveNotes}
       />
 
