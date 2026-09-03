@@ -21,6 +21,7 @@ import testsWorkbookRouter from "./tests-workbook";
 import testTransferRouter from "./test-transfer";
 import workbookRouter from "./workbook";
 import debugPlayerRouter from "./debug-player";
+import reviewRouter from "./review";
 import homeRouter from "./home";
 import reportRouter from "./report";
 import mediaRouter from "./media";
@@ -66,6 +67,7 @@ export const routerConfig = [
   { path: "/api/tests", router: testsWorkbookRouter },
   { path: "/api/tests", router: testTransferRouter }, // перенос теста между инсталляциями (.tbtest)
   { path: "/api/tests", router: debugPlayerRouter }, // PRD-18 debug player (session/play/delete)
+  { path: "/api/tests", router: reviewRouter }, // PRD-52 рецензирование: комментарии и прогон
   { path: "/api/workbook", router: workbookRouter },
   { path: "/api/folders", router: foldersRouter },
   { path: "/api/test-folders", router: testFoldersRouter },
