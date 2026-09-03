@@ -57,6 +57,18 @@ export const MAGIC_SCOPE_RULES: MagicScopeRule[] = [
   { method: "POST", pattern: "/api/attempts/:attemptId/expire-topic-adaptive", bind: "attempt" },
   { method: "POST", pattern: "/api/attempts/:attemptId/finish-adaptive", bind: "attempt" },
   { method: "GET", pattern: "/api/attempts/:attemptId/result", bind: "attempt" },
+  // PRD-52: рецензент, пришедший по ревью-ссылке. Всё привязано к тесту ссылки, а
+  // редактирование, отладчик и экспорт сюда сознательно не входят: грант `review`
+  // открывает прогон и комментарии, и ничего сверх этого. Удаление комментария в
+  // список не внесено — своё удаляют из полноценной сессии, чужое не удаляют вовсе.
+  { method: "POST", pattern: "/api/tests/:testId/review/session", bind: "test" },
+  { method: "DELETE", pattern: "/api/tests/:testId/review/session/:token", bind: "test" },
+  { method: "GET", pattern: "/api/tests/:testId/review/play/:token/*", bind: "test" },
+  { method: "GET", pattern: "/api/tests/:testId/review/shim.js", bind: "test" },
+  { method: "GET", pattern: "/api/tests/:testId/review/inspector-compute.js", bind: "test" },
+  { method: "GET", pattern: "/api/tests/:testId/review/comments", bind: "test" },
+  { method: "POST", pattern: "/api/tests/:testId/review/comments", bind: "test" },
+  { method: "PATCH", pattern: "/api/tests/:testId/review/comments/:commentId", bind: "test" },
   { method: "GET", pattern: "/api/report/lib/:file", bind: "none" },
   // PRD-27 FR-05: подложка и логотип отчёта — файлы ШАБЛОНА, а не ассеты продукта
   // (прежний `/api/report/asset/:file` удалён вместе с ними). Без этой строки ученик,

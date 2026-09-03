@@ -86,9 +86,20 @@ export const testAssignments = pgTable("test_assignments", {
 // Magic-link токены для доступа к тесту без пароля
 export const assignmentAccessTokens = pgTable("assignment_access_tokens", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  assignmentId: varchar("assignment_id", { length: 36 }).notNull(),
+  /**
+   * PRD-52: NULL у ревью-ссылки. У рецензирования назначения нет — доступ несёт
+   * грант `review`, — но вход, отзыв, срок жизни и конвейер писем те же, поэтому
+   * заводить таблицу-близнеца ради одного поля дороже, чем обнулить это.
+   */
+  assignmentId: varchar("assignment_id", { length: 36 }),
   userId: varchar("user_id", { length: 36 }).notNull(),
   testId: varchar("test_id", { length: 36 }).notNull(),
+  /**
+   * Куда ведёт ссылка: `attempt` — прохождение теста (PRD-28), `review` — экран
+   * рецензента (PRD-52). Значение по умолчанию сохраняет смысл всех выданных ранее
+   * ссылок без бэкфилла.
+   */
+  purpose: text("purpose", { enum: ["attempt", "review"] }).notNull().default("attempt"),
   tokenHash: text("token_hash").notNull().unique(), // SHA-256 от случайного токена
   expiresAt: timestamp("expires_at").notNull(),
   revokedAt: timestamp("revoked_at"), // NULL = активен
@@ -2023,6 +2034,70 @@ export type ReportBlockRow = typeof reportBlocks.$inferSelect;
 
 /** Строка документа отчёта на запись. */
 export type InsertReportBlockRow = typeof reportBlocks.$inferInsert;
+
+// ─── PRD-52: комментарии рецензирования ──────────────────────────────────────
+
+/**
+ * Комментарий рецензента к тесту (PRD-52 раздел 6).
+ *
+ * Ветка — один уровень: у ответа заполнен `parentId`, ответа на ответ нет, и исход
+ * (`status`) живёт ТОЛЬКО у корня ветки. Такая форма выбрана осознанно: обсуждение
+ * замечания редко ветвится глубже, а плоский ответ позволяет читать историю приёмки
+ * подряд, не собирая дерево.
+ *
+ * Якорь — СУЩНОСТЬ (вопрос, страница, тема, экран), а не позиция в прогоне: выборка
+ * вопросов меняется от прогона к прогону, и позиционный якорь обесценился бы на
+ * следующем же запуске. Рядом с якорем хранится `contextLabel` — снимок контекста
+ * строкой, чтобы комментарий оставался читаемым после удаления объекта, и
+ * `pinnedContentHash` — хеш содержимого на момент комментария, по которому автору
+ * показывают «изменено после комментария» (тот же приём, что в
+ * `test_question_scoring.pinned_content_hash`).
+ */
+export const testReviewComments = pgTable("test_review_comments", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 })
+    .notNull()
+    .references(() => tests.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id", { length: 36 }).notNull(),
+  /** NULL = корень ветки; заполнен = ответ в этой ветке (ровно один уровень). */
+  parentId: varchar("parent_id", { length: 36 }),
+  body: text("body").notNull(),
+  anchorKind: text("anchor_kind", {
+    enum: ["question", "content-page", "topic", "start", "results", "test"],
+  }).notNull(),
+  questionId: varchar("question_id", { length: 36 }),
+  topicId: varchar("topic_id", { length: 36 }),
+  contentPageId: uuid("content_page_id"),
+  /** Снимок контекста строкой: «Раздел «IPTV» · Вопрос 3 «…»». */
+  contextLabel: text("context_label"),
+  /** Хеш содержимого якоря на момент комментария; NULL для экранов и теста в целом. */
+  pinnedContentHash: text("pinned_content_hash"),
+  /** Исход. NULL у ответов: статус несёт только корень ветки. */
+  status: text("status", { enum: ["open", "accepted", "rejected"] }),
+  resolvedBy: varchar("resolved_by", { length: 36 }),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  // Лента теста читается целиком, в порядке появления.
+  testIdx: index("test_review_comments_test_idx").on(table.testId, table.createdAt),
+  // Комментарии к одному вопросу — для панели в карточке вопроса и счётчиков.
+  testQuestionIdx: index("test_review_comments_test_question_idx").on(table.testId, table.questionId),
+  // Сбор ответов ветки.
+  parentIdx: index("test_review_comments_parent_idx").on(table.parentId),
+}));
+
+/** Комментарий рецензирования, как его отдаёт база. */
+export type TestReviewComment = typeof testReviewComments.$inferSelect;
+
+/** Комментарий рецензирования на запись. */
+export type InsertTestReviewComment = typeof testReviewComments.$inferInsert;
+
+/** Вид якоря комментария — общий словарь для клиента и сервера. */
+export type ReviewAnchorKind = TestReviewComment["anchorKind"];
+
+/** Исход комментария: открыт, учтён, отклонён. */
+export type ReviewCommentStatus = NonNullable<TestReviewComment["status"]>;
 
 // Insert schemas
 export const insertScormPackageSchema = createInsertSchema(scormPackages).omit({ id: true });

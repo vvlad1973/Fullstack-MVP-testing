@@ -41,7 +41,7 @@ const validToken = "a".repeat(40);
 
 /** Build a token record with sensible non-revoked, non-expired defaults. */
 function makeRecord(overrides: Partial<{
-  id: string; assignmentId: string; userId: string; testId: string;
+  id: string; assignmentId: string | null; userId: string; testId: string; purpose: string;
   tokenHash: string; expiresAt: Date; revokedAt: Date | null; createdAt: Date;
 }> = {}) {
   return {
@@ -221,5 +221,24 @@ describe("GET /access/:token", () => {
     const res = await request(makeApp()).get(`/access/${validToken}`);
     expect(res.headers["referrer-policy"]).toBe("no-referrer");
     expect(res.headers["cache-control"]).toContain("no-store");
+  });
+});
+
+// ─── PRD-52: ревью-ссылка ────────────────────────────────────────────────────
+describe("GET /access/:token — назначение ссылки (PRD-52 FR-04)", () => {
+  it("ведёт рецензента на экран рецензирования, а не на прохождение", async () => {
+    storageMock.getAssignmentAccessToken.mockResolvedValue(
+      makeRecord({ assignmentId: null, purpose: "review" }),
+    );
+    const res = await request(makeApp()).get(`/access/${validToken}`);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/review/tests/test1");
+  });
+
+  it("ссылка без назначения остаётся ссылкой на прохождение (совместимость)", async () => {
+    // Выданные до PRD-52 записи не знают поля purpose — поведение не меняется.
+    storageMock.getAssignmentAccessToken.mockResolvedValue(makeRecord());
+    const res = await request(makeApp()).get(`/access/${validToken}`);
+    expect(res.headers.location).toBe("/learner/test/test1");
   });
 });

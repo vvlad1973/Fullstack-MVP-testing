@@ -91,4 +91,24 @@ describe("matchMagicScopeRule", () => {
       expect(matchMagicScopeRule("POST", "/api/templates/default/assets/x.png")).toBeNull();
     });
   });
+
+  describe('PRD-52: ревью-пути рецензента', () => {
+    it('сессия комментариев привязана к тесту ссылки', () => {
+      expect(matchMagicScopeRule('GET', '/api/tests/t1/review/comments')?.rule.bind).toBe('test');
+      expect(matchMagicScopeRule('POST', '/api/tests/t1/review/comments')?.rule.bind).toBe('test');
+    });
+
+    it('прогон рецензирования открыт: сессия, раздача пакета и ассеты плеера', () => {
+      expect(matchMagicScopeRule('POST', '/api/tests/t1/review/session')?.rule.bind).toBe('test');
+      expect(matchMagicScopeRule('GET', '/api/tests/t1/review/play/tok/index.html')?.rule.bind).toBe('test');
+      expect(matchMagicScopeRule('GET', '/api/tests/t1/review/shim.js')?.rule.bind).toBe('test');
+      expect(matchMagicScopeRule('GET', '/api/tests/t1/review/inspector-compute.js')?.rule.bind).toBe('test');
+    });
+
+    it('ничего сверх рецензирования: отладчик и экспорт остаются закрытыми', () => {
+      expect(matchMagicScopeRule('POST', '/api/tests/t1/debug/session')).toBeNull();
+      expect(matchMagicScopeRule('GET', '/api/tests/t1/export/scorm')).toBeNull();
+      expect(matchMagicScopeRule('DELETE', '/api/tests/t1/review/comments/c1')).toBeNull();
+    });
+  });
 });

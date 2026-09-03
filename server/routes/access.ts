@@ -79,12 +79,17 @@ router.get("/:token", async (req: Request, res: Response) => {
     );
 
     logger.info(
-      `Magic link login: userId=${record.userId} testId=${record.testId} ${describeCaller(req)}`,
+      `Magic link login: userId=${record.userId} testId=${record.testId} purpose=${record.purpose} ${describeCaller(req)}`,
       LOG_SOURCE,
     );
 
-    // Редиректим на тест
-    res.redirect(`/learner/test/${record.testId}`);
+    // PRD-52: назначение ссылки решает, куда человек попадает. Ссылка без поля —
+    // выданная до PRD-52 — ведёт на прохождение, как и раньше.
+    res.redirect(
+      record.purpose === "review"
+        ? `/review/tests/${record.testId}`
+        : `/learner/test/${record.testId}`,
+    );
   } catch (error) {
     logger.error("Magic link error: " + (error as Error).message, LOG_SOURCE);
     res.status(500).send(renderErrorPage("Произошла ошибка. Попробуйте ещё раз или обратитесь к организатору."));

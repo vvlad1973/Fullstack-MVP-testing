@@ -24,9 +24,13 @@ import { storage } from "../storage";
 import { matchMagicScopeRule } from "./magic-scope-rules";
 import { logger } from "../logger";
 
-/** The scope a magic link opens: one assignment, one test. */
+/** The scope a magic link opens: one test, and the assignment it came from (if any). */
 export interface MagicScope {
-  assignmentId: string;
+  /**
+   * PRD-52: `null` for a review link — reviewing carries no assignment. The scope
+   * itself is decided by `testId`; this field is kept for audit and revocation.
+   */
+  assignmentId: string | null;
   testId: string;
 }
 
