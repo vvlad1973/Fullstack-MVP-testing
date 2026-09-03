@@ -410,7 +410,10 @@ function renderAdaptiveResultsTemplated(app, result) {
         // over for EVERY topic; the shared builder is what gates them by the topic's
         // verdict (in this mode: whether any level was confirmed).
         feedbackTexts: vrTopicFeedbackTexts(tr),
-        recommendedAssets: vrTopicAssets(tr)
+        recommendedAssets: vrTopicAssets(tr),
+        // PRD-50 FR-50: тексты подтем этого раздела — тот же читатель, что у обычного
+        // экрана; отбирает их общий построитель.
+        breakdownFeedback: vrTopicBreakdownFeedback(tr)
       };
     })
   };
@@ -453,7 +456,11 @@ function renderAdaptiveResultsTemplated(app, result) {
     // with PRD-31 it became WRONG: an unlimited test would keep offering the retry
     // straight through a closed interval. The flag now says what it means.
     canRetry: canRetry,
-    showFinish: !canRetry
+    showFinish: !canRetry,
+    // PRD-50 FR-50: общее правило прохождения. У адаптивного теста порога в процентах
+    // обычно нет — тогда условия нет вовсе, и тексты подтем печатаются везде, где автор
+    // их написал (то же, что делает общий построитель на веб-хосте).
+    overallPassRule: TEST_DATA.overallPassRule || null
   };
   // PRD-50 FR-13: настройка показа, выпеченная в TEST_DATA только когда автор её включил —
   // тот же признак, что читает обычный экран (`viewResults.js`). Без неё блока нет.

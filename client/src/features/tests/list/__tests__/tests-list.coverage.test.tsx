@@ -33,6 +33,13 @@ vi.mock("@/lib/auth", () => ({
     hasRole: (role: string) => authMock.roles.includes(role),
     user: { id: authMock.userId },
   }),
+  // Ящик редактора читает пользователя НЕОБЯЗАТЕЛЬНО (`useOptionalAuth`): он
+  // собирается и без провайдера. Мок обязан знать оба чтения, иначе падает импорт.
+  useOptionalAuth: () => ({
+    can: (cap: string) => authMock.can(cap),
+    hasRole: (role: string) => authMock.roles.includes(role),
+    user: { id: authMock.userId },
+  }),
 }));
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────

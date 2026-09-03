@@ -23,7 +23,7 @@ import type { BreakdownDisplaySetting, MeasureInput, MeasuresInput } from "@shar
 import type { ReportInput, AdaptiveReportInput, ReportMeta } from "@shared/report/report-html";
 import { LEVEL_SCHEMES, type LevelRamp } from "@shared/template/level-ramp";
 import { withResolvedScaleIcons } from "./scale-icons";
-import { parseIndicatorInterpretation, parseScaleInterpretation } from "@shared/scales/interpretation";
+import { parseIndicatorInterpretation, parseScaleInterpretation } from "@shared/scales/interpretation";import type { FeedbackBlock } from "@shared/scales/interpretation";
 import type { RenderKind } from "@shared/template/measure-view";
 import type { ResultsBlockSettings } from "@shared/template/results-blocks";
 import {
@@ -75,6 +75,23 @@ export interface MeasuresSource {
   /** Settings of the chosen `results` variant. */
   blockSettings: ResultsBlockSettings;
   hasPassThreshold: boolean;
+  /**
+   * Общее правило прохождения ВЫДАННОЙ версии теста (`tests.overall_pass_rule_json`).
+   *
+   * Признака `hasPassThreshold` для текстов подтем мало: они выдаются сравнением с
+   * ПОРОГОМ (PRD-50 FR-50), а не фактом его наличия. Читается из того же источника,
+   * что и признак, — попытка судится содержанием, на котором её проходили.
+   */
+  overallPassRule?: { type?: string | null; value?: number | null } | null;
+  /**
+   * PRD-50 FR-50: тексты подтем по разделам ВЫДАННОЙ версии — `topicId` -> (ключ
+   * подтемы -> блок обратной связи), из `test_sections.breakdown_feedback_json`.
+   *
+   * Едут материалом экрана, а не полем сохранённой попытки: так же, как обратная связь
+   * самого теста, и по той же причине — это содержание ТЕСТА, а снимок публикации
+   * замораживает его вместе с остальным разделом.
+   */
+  breakdownFeedbackByTopic?: Record<string, Record<string, FeedbackBlock>> | null;
   /**
    * PRD-46 §5: do the shown scales divide one whole? Answered by the CALLER
    * (`ipsativeScalesForDelivery`), which is the only side holding the contribution rows and
@@ -254,7 +271,10 @@ export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
 }
 
 /** Map a server topic result to the normalized topic input. */
-function toTopicInput(t: TopicResult): TopicInput {
+function toTopicInput(
+  t: TopicResult,
+  breakdownFeedbackByTopic?: Record<string, Record<string, FeedbackBlock>> | null,
+): TopicInput {
   return {
     topicId: t.topicId,
     topicName: t.topicName,
@@ -295,6 +315,11 @@ function toTopicInput(t: TopicResult): TopicInput {
     // including the report input this very object is serialized into. What a key the test
     // does not declare means is decided in ONE place, the shared builder (FR-12).
     ...(t.groupKey ? { groupKey: t.groupKey } : {}),
+    // PRD-50 FR-50: тексты подтем ЭТОГО раздела. Кого из них прочитает человек, решает
+    // общий построитель по порогу теста, — здесь только доставка написанного.
+    ...(breakdownFeedbackByTopic?.[t.topicId]
+      ? { breakdownFeedback: breakdownFeedbackByTopic[t.topicId] }
+      : {}),
   };
 }
 
@@ -352,7 +377,7 @@ export function buildResultContext(
       correct: result.totalCorrect,
       earnedPoints: result.totalEarnedPoints,
       possiblePoints: result.totalPossiblePoints,
-      topicResults: (result.topicResults || []).map(toTopicInput),
+      topicResults: (result.topicResults || []).map((t) => toTopicInput(t, measures?.breakdownFeedbackByTopic)),
       // PRD-50 FR-11: список блоков разделов теста. Едет тем же путём, что и настройка
       // разрезов, — из ВЫДАННОЙ версии теста. Пусто = блоков нет, и построитель не
       // добавляет к контексту ни одного нового поля (FR-27).
@@ -380,6 +405,8 @@ export function buildResultContext(
       // `undefined` when the material could not be read at all; the builder then treats
       // it as unknown and shows the feedback.
       ...(measures ? { hasPassThreshold: measures.hasPassThreshold } : {}),
+      // PRD-50 FR-50: САМО правило — по его порогу отбираются тексты подтем.
+      ...(measures?.overallPassRule ? { overallPassRule: measures.overallPassRule } : {}),
       // PRD-50 FR-13: the author's breakdown display setting. `?? null` so a test with the
       // column absent (every test predating this PRD) resolves to the builder's own
       // «hidden» default and prints no rows, whatever {@link TopicInput.breakdown} carries.
@@ -413,6 +440,8 @@ function reportFeedbackMeta(measures?: MeasuresSource): Partial<ReportMeta> {
   return {
     ...(feedback ? { feedback } : {}),
     ...(measures ? { hasPassThreshold: measures.hasPassThreshold } : {}),
+    // PRD-50 FR-50: документ отбирает тексты подтем тем же порогом, что и экран (§5.2).
+    ...(measures?.overallPassRule ? { overallPassRule: measures.overallPassRule } : {}),
     // Переключатель «как на экране итогов» разрешается ОДНИМ правилом на все хосты.
     ...(resolveReportIntro(measures?.intro) ? { intro: resolveReportIntro(measures?.intro) } : {}),
     // PRD-50 FR-13: та же настройка, что читает `buildResultContext` (см.
@@ -456,7 +485,7 @@ export function buildReportInput(
       correct: result.totalCorrect,
       earnedPoints: result.totalEarnedPoints,
       possiblePoints: result.totalPossiblePoints,
-      topicResults: (result.topicResults || []).map(toTopicInput),
+      topicResults: (result.topicResults || []).map((t) => toTopicInput(t, measures?.breakdownFeedbackByTopic)),
       // PRD-50 FR-11: те же блоки, что у экрана, и из того же материала (§5.2 — документ
       // не вправе показать иное, чем экран, с которого его скачали). Разбирает их общий
       // построитель контекста, который отчёт и экран зовут один и тот же.

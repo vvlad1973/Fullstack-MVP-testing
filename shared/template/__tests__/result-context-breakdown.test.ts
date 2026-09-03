@@ -63,10 +63,9 @@ describe("полный состав строки (§8.1)", () => {
       barPercent: 40,
       showValue: true,
       valueLabel: "40 %",
-      // §8.1, с Э2: no threshold on this fixture's key → the row asserts nothing.
-      passed: null,
-      passClass: "",
-      statusLabel: "",
+      // Вердикта у подтемы НЕТ (Э1, решение владельца 2026-09-03): подтема считается и
+      // показывается, но не судится, — поэтому в составе строки нет ни `passed`, ни
+      // класса, ни подписи. `toEqual` это и стережёт: вернуть их обратно молча нельзя.
     });
   });
 
@@ -99,33 +98,20 @@ describe("полный состав строки (§8.1)", () => {
   });
 });
 
-describe("вердикт ключа в строке разреза (§8.1, с Э2)", () => {
-  const withVerdict = (passed: boolean | null) => ({
-    ...result,
-    topicResults: [{ ...topic, breakdown: [{ ...topic.breakdown[0], passed }] }],
-  });
-
-  it("порог пройден — класс и подпись как у темы", () => {
-    const ctx = buildResultContext(withVerdict(true) as never, "Тест", {
+describe("подтема не судится (Э1)", () => {
+  it("строка разреза не несёт ни вердикта, ни его класса, ни подписи", () => {
+    // Даже если сохранённая запись притащит `passed` — так выглядят попытки, сданные до
+    // Э1, — строка контекста о нём молчит: судит тему её собственное правило.
+    const legacy = {
+      ...result,
+      topicResults: [{ ...topic, breakdown: [{ ...topic.breakdown[0], passed: false }] }],
+    };
+    const ctx = buildResultContext(legacy as never, "Тест", {
       breakdownDisplay: { visibility: "bar", basis: "units" },
     } as never);
     const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
-    expect(rows[0]).toMatchObject({ passed: true, passClass: "is-pass", statusLabel: "Пройдено" });
-  });
-
-  it("порог не пройден", () => {
-    const ctx = buildResultContext(withVerdict(false) as never, "Тест", {
-      breakdownDisplay: { visibility: "bar", basis: "units" },
-    } as never);
-    const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
-    expect(rows[0]).toMatchObject({ passed: false, passClass: "is-fail", statusLabel: "Не пройдено" });
-  });
-
-  it("порога нет — строка молчит о вердикте, а не утверждает «не пройдено»", () => {
-    const ctx = buildResultContext(withVerdict(null) as never, "Тест", {
-      breakdownDisplay: { visibility: "bar", basis: "units" },
-    } as never);
-    const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
-    expect(rows[0]).toMatchObject({ passed: null, passClass: "", statusLabel: "" });
+    expect(rows[0]).not.toHaveProperty("passed");
+    expect(rows[0]).not.toHaveProperty("passClass");
+    expect(rows[0]).not.toHaveProperty("statusLabel");
   });
 });

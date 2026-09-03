@@ -91,6 +91,19 @@ function vrTopicFeedbackTexts(tr) {
 }
 
 /**
+ * PRD-50 FR-50: тексты ПОДТЕМ этого раздела, выпеченные в `section.breakdownFeedback`
+ * (`{ ключ: блок }`). Читаются из TEST_DATA по той же причине, что тексты темы: это
+ * содержание пакета, а не сохранённого прогона.
+ *
+ * Отбор здесь НЕ делается — кого прочитает человек, решает общий построитель по порогу
+ * теста; второе правило отбора в рантайме разошлось бы с веб-хостом.
+ */
+function vrTopicBreakdownFeedback(tr) {
+  var section = TEST_DATA.sections.find(function (s) { return s.topicId === tr.topicId; });
+  return (section && section.breakdownFeedback) || null;
+}
+
+/**
  * PRD-50: this topic's breakdown records, from whichever of the two places has them.
  *
  * A SAVED attempt carries them ON the topic: `saveAttemptResult` persists `topicResults`
@@ -452,6 +465,8 @@ function buildResultsMeasures(scaleComputation, varComputation) {
     // ONE reading of the pass rule, shared with the top-level option the builder gates
     // the test's feedback on — two copies could disagree about the very same test.
     hasPassThreshold: vrHasPassThreshold(),
+    // PRD-50 FR-50: САМО правило — по его порогу построитель отбирает тексты подтем.
+    overallPassRule: (typeof TEST_DATA !== 'undefined' && TEST_DATA.overallPassRule) || null,
     blockSettings: blockSettings,
     // PRD-35/46: the chart setting travels in the SAME settings of the «Итоги» variant, so
     // the package hands them over untouched and the ONE decision rule in Core reads them —
@@ -518,6 +533,8 @@ function renderViewResultsTemplated(app, results) {
         // PRD-32 attachments of the topic and of the section, for the ONE «Материалы»
         // block; gated by the same verdict rule inside the shared builder.
         recommendedAssets: vrTopicAssets(tr),
+        // PRD-50 FR-50: тексты подтем этого раздела; отбирает их общий построитель.
+        breakdownFeedback: vrTopicBreakdownFeedback(tr),
         // PRD-50: this topic's breakdown records — from the topic itself on a saved
         // attempt, from the flat list on a current one. See `vrTopicBreakdown`.
         breakdown: vrTopicBreakdown(tr, results.breakdowns),
@@ -549,7 +566,9 @@ function renderViewResultsTemplated(app, results) {
     // …and the builder withholds it on an EXPLICIT pass only, so it needs to know
     // whether this test pronounces a verdict at all. Travels for every test, unlike the
     // copy inside `measures`, which a test without measurements never sends.
-    hasPassThreshold: vrHasPassThreshold()
+    hasPassThreshold: vrHasPassThreshold(),
+    // PRD-50 FR-50: САМО правило — по его порогу построитель отбирает тексты подтем.
+    overallPassRule: (typeof TEST_DATA !== 'undefined' && TEST_DATA.overallPassRule) || null
   };
   // PRD-50 FR-13: the author's breakdown display setting, baked into TEST_DATA only
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
@@ -632,6 +651,8 @@ function renderResultsTemplated(app, results) {
         // PRD-32 attachments of the topic and of the section, for the ONE «Материалы»
         // block; gated by the same verdict rule inside the shared builder.
         recommendedAssets: vrTopicAssets(tr),
+        // PRD-50 FR-50: тексты подтем этого раздела; отбирает их общий построитель.
+        breakdownFeedback: vrTopicBreakdownFeedback(tr),
         // PRD-50: this topic's breakdown records, out of the fresh in-memory result —
         // this screen renders BEFORE persistence, so it is the one results screen that
         // always has them when the test carries keys. See `vrTopicBreakdown`.
@@ -658,7 +679,9 @@ function renderResultsTemplated(app, results) {
     // …and the builder withholds it on an EXPLICIT pass only, so it needs to know
     // whether this test pronounces a verdict at all. Travels for every test, unlike the
     // copy inside `measures`, which a test without measurements never sends.
-    hasPassThreshold: vrHasPassThreshold()
+    hasPassThreshold: vrHasPassThreshold(),
+    // PRD-50 FR-50: САМО правило — по его порогу построитель отбирает тексты подтем.
+    overallPassRule: (typeof TEST_DATA !== 'undefined' && TEST_DATA.overallPassRule) || null
   };
   // PRD-50 FR-13: the author's breakdown display setting, baked into TEST_DATA only
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context

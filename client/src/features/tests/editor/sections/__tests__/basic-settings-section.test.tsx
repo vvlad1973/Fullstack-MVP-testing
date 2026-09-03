@@ -17,7 +17,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SettingsSection } from "../basic-settings-section";
+import {
+  AdaptivePane,
+  DuringRunPane,
+  DuringTestPane,
+  FeedbackTextsPane,
+  IntegrationPane,
+  LimitsPane,
+  MainPane,
+  NavigationPane,
+  ScenarioSettingsPane,
+  VerdictPane,
+} from "../basic-settings-section";
+import { RulesTab } from "../editor-tabs";
 import type { TestEditorModel } from "../../test-editor.types";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
 import { buildFieldErrorIndex } from "../../field-errors";
@@ -96,54 +108,49 @@ function selectOption(selectTestId: string, optionLabel: string | RegExp) {
 
 // ─── Side-rail navigation ─────────────────────────────────────────────────────
 
-describe("<SettingsSection /> — side rail", () => {
-  it("renders 4 sub-sections in standard mode (adaptive is hidden)", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    expect(screen.getByTestId("settings-rail-basic")).toBeInTheDocument();
-    expect(screen.getByTestId("settings-rail-pass-rules")).toBeInTheDocument();
-    expect(screen.getByTestId("settings-rail-limits")).toBeInTheDocument();
-    expect(screen.getByTestId("settings-rail-integration")).toBeInTheDocument();
-    expect(screen.queryByTestId("settings-rail-adaptive")).toBeNull();
-    // «Повторное прохождение» — блок внутри «Ограничений», своего пункта нет.
-    expect(screen.queryByTestId("settings-rail-retake")).toBeNull();
+/**
+ * После перестройки ящика рейл принадлежит ВКЛАДКЕ. Проверяется вкладка «Правила
+ * прохождения»: её четыре подраздела и переключение панели.
+ */
+describe("<RulesTab /> — рейл вкладки", () => {
+  it("показывает четыре подраздела правил прохождения", () => {
+    render(<RulesTab model={baseModel()} updateModel={() => {}} />);
+    expect(screen.getByTestId("rules-rail-navigation")).toBeInTheDocument();
+    expect(screen.getByTestId("rules-rail-during")).toBeInTheDocument();
+    expect(screen.getByTestId("rules-rail-limits")).toBeInTheDocument();
+    expect(screen.getByTestId("rules-rail-protection")).toBeInTheDocument();
   });
 
-  it("renders the retake block inside the «Ограничения» pane", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+  it("открывается на «Навигации»", () => {
+    render(<RulesTab model={baseModel()} updateModel={() => {}} />);
+    expect(screen.getByTestId("rules-pane-navigation")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-allow-return-checkbox")).toBeInTheDocument();
+  });
+
+  it("переключает панель по клику на пункт рейла", () => {
+    render(<RulesTab model={baseModel()} updateModel={() => {}} />);
+    fireEvent.click(screen.getByTestId("rules-rail-limits"));
+    expect(screen.getByTestId("rules-pane-limits")).toBeInTheDocument();
+    // «Повторное прохождение» — блок внутри «Ограничений», своего пункта нет.
     expect(screen.getByTestId("settings-retake-switch")).toBeInTheDocument();
     expect(screen.getByTestId("settings-attempt-interval-switch")).toBeInTheDocument();
+    expect(screen.queryByTestId("rules-rail-retake")).toBeNull();
   });
 
-  it("reveals «Адаптивный режим» rail item only when mode === adaptive", () => {
-    render(
-      <SettingsSection
-        model={baseModel({ mode: "adaptive" })}
-        updateModel={() => {}}
-      />,
-    );
-    expect(screen.getByTestId("settings-rail-adaptive")).toBeInTheDocument();
-  });
-
-  it("opens the «Основное» pane by default", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    expect(screen.getByTestId("settings-pane-basic")).toBeInTheDocument();
-  });
-
-  it("switches pane when a rail item is clicked", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
-    expect(screen.getByTestId("settings-pane-limits")).toBeInTheDocument();
+  it("показывает защиту контента отдельным подразделом", () => {
+    render(<RulesTab model={baseModel()} updateModel={() => {}} />);
+    fireEvent.click(screen.getByTestId("rules-rail-protection"));
+    expect(screen.getByTestId("settings-copy-protection-checkbox")).toBeInTheDocument();
   });
 });
 
 // ─── Basic pane bindings ──────────────────────────────────────────────────────
 
-describe("<SettingsSection /> — Основное pane", () => {
+describe("<MainPane /> — «Основное»", () => {
   it("не показывает карточку отчёта: она переехала на «Оформление» (PRD-47 §6.2)", () => {
     // Отчёт — часть шаблона, и его поля объявляет манифест ровно как параметры
     // оформления. В общих настройках теста им больше не место.
-    render(<SettingsSection model={baseModel()} updateModel={vi.fn()} />);
+    render(<MainPane model={baseModel()} updateModel={vi.fn()} />);
 
     expect(screen.queryByTestId("report-settings-card")).toBeNull();
   });
@@ -151,7 +158,7 @@ describe("<SettingsSection /> — Основное pane", () => {
   it("updates basic.title on input change", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<MainPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-title-input"), {
       target: { value: "Свежий тест" },
     });
@@ -161,7 +168,7 @@ describe("<SettingsSection /> — Основное pane", () => {
   it("updates basic.description on textarea change", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<MainPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-description-input"), {
       target: { value: "Новое описание" },
     });
@@ -171,7 +178,7 @@ describe("<SettingsSection /> — Основное pane", () => {
   it("toggles mode to adaptive when segmented button is clicked", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<MainPane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByRole("button", { name: "Адаптивный" }));
     expect(runUpdater(updateModel, model).mode).toBe("adaptive");
   });
@@ -179,25 +186,24 @@ describe("<SettingsSection /> — Основное pane", () => {
   it("updates flowMode via select", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<ScenarioSettingsPane model={model} updateModel={updateModel} />);
     selectOption("settings-flow-mode", "Через страницу-маршрутизатор");
     expect(runUpdater(updateModel, model).flowMode).toBe("router_by_topics");
   });
 
-  // S13.2-G7: «Общая обратная связь теста» card renders in Основное.
+  // Э3.6: карточка обратной связи переехала на «Обратная связь и итоги».
   it("renders the «Общая обратная связь теста» card with feedback trigger", () => {
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
+    render(<FeedbackTextsPane model={model} updateModel={vi.fn()} />);
     expect(screen.getByTestId("settings-feedback-card")).toBeInTheDocument();
     expect(screen.getByTestId("settings-feedback-trigger")).toBeInTheDocument();
   });
 
-  // S13.2-G8: «Показывать правильные ответы» switch now lives in Основное
-  // (inside the feedback card), not in Ограничения.
-  it("toggles showCorrectAnswers from the Основное feedback card", () => {
+  // Э3.6: показ правильных ответов — это «Во время теста» на вкладке обратной связи.
+  it("toggles showCorrectAnswers from the «Во время теста» pane", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<DuringTestPane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("settings-show-correct-checkbox"));
     expect(runUpdater(updateModel, model).runtime.showCorrectAnswers).toBe(true);
   });
@@ -243,11 +249,11 @@ const sampleAdaptiveTopic: TestEditorModel["adaptive"]["topics"][number] = {
   ],
 };
 
-describe("<SettingsSection /> — mode/flowMode switch preserves data", () => {
+describe("Смена режима и сценария не теряет данные", () => {
   it("switching standard → adaptive keeps title/sections and scaffolds adaptive topics", () => {
     const updateModel = vi.fn();
     const model = baseModel({ mode: "standard", sections: [sampleSection] });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<MainPane model={model} updateModel={updateModel} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Адаптивный" }));
 
@@ -270,7 +276,7 @@ describe("<SettingsSection /> — mode/flowMode switch preserves data", () => {
         topics: [sampleAdaptiveTopic],
       },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<MainPane model={model} updateModel={updateModel} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Стандартный" }));
 
@@ -287,7 +293,7 @@ describe("<SettingsSection /> — mode/flowMode switch preserves data", () => {
       sectionUnlockRules: {},
     };
     const model = baseModel({ flowMode: "router_by_topics", flowSettings: { router } });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
+    render(<ScenarioSettingsPane model={model} updateModel={updateModel} />);
 
     selectOption("settings-flow-mode", "Линейный");
 
@@ -300,12 +306,11 @@ describe("<SettingsSection /> — mode/flowMode switch preserves data", () => {
 
 // ─── Limits pane bindings ─────────────────────────────────────────────────────
 
-describe("<SettingsSection /> — Ограничения pane", () => {
+describe("<LimitsPane /> — «Ограничения»", () => {
   it("updates timeLimitMinutes to number when entered", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-time-limit-input"), {
       target: { value: "30" },
     });
@@ -315,8 +320,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
   it("sets timeLimitMinutes back to null when input is cleared", () => {
     const updateModel = vi.fn();
     const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const } });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-time-limit-input"), {
       target: { value: "" },
     });
@@ -326,8 +330,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
   it("переключает результат для LMS на последнюю попытку", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<IntegrationPane model={model} updateModel={updateModel} />);
     // Выбор «какая попытка уходит в LMS» — авторский: стандарт SCORM его не решает,
     // а LMS, хранящая лишь снимок, при «последней» перекроет удачную попытку неудачной.
     selectOption("settings-lms-attempt-result", "Последняя попытка");
@@ -337,8 +340,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
   it("показывает значение теста, а не подставляет своё", () => {
     // Тест, заведённый до появления настройки, остаётся на «лучшей» — редактор обязан
     // показать именно её, иначе автор молча переключит поведение простым сохранением.
-    render(<SettingsSection model={baseModel()} updateModel={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<IntegrationPane model={baseModel()} updateModel={vi.fn()} />);
     expect(screen.getByTestId("settings-lms-attempt-result")).toHaveTextContent("Лучшая попытка");
   });
 
@@ -349,16 +351,14 @@ describe("<SettingsSection /> — Ограничения pane", () => {
   // S13.3-G9: per-topic «Индивидуальные лимиты» switch + table.
   it("shows the per-topic switch + no-topics info when sections is empty", () => {
     const model = baseModel({ sections: [] });
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={vi.fn()} />);
     expect(screen.getByTestId("settings-per-topic-no-topics")).toBeInTheDocument();
     expect(screen.queryByTestId("settings-per-topic-switch")).toBeNull();
   });
 
   it("shows the per-topic switch (OFF) when sections exist but all inherit_test", () => {
     const model = baseModel({ sections: [sampleSection] });
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={vi.fn()} />);
     expect(screen.getByTestId("settings-per-topic-switch")).toBeInTheDocument();
     // Table is hidden until the author opts into a custom limit.
     expect(screen.queryByTestId("settings-per-topic-table")).toBeNull();
@@ -370,8 +370,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
         { ...sampleSection, timeLimit: { source: "custom", minutes: 15 } },
       ],
     });
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={vi.fn()} />);
     expect(screen.getByTestId("settings-per-topic-table")).toBeInTheDocument();
     expect(
       screen.getByTestId(`settings-per-topic-limit-${sampleSection.topicId}`),
@@ -385,8 +384,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
         { ...sampleSection, timeLimit: { source: "custom", minutes: 15 } },
       ],
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.change(
       screen.getByTestId(`settings-per-topic-limit-${sampleSection.topicId}`),
       { target: { value: "25" } },
@@ -402,8 +400,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
         { ...sampleSection, timeLimit: { source: "custom", minutes: 15 } },
       ],
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.change(
       screen.getByTestId(`settings-per-topic-limit-${sampleSection.topicId}`),
       { target: { value: "" } },
@@ -421,9 +418,8 @@ describe("<SettingsSection /> — Ограничения pane", () => {
       ],
     });
     const { rerender } = render(
-      <SettingsSection model={model} updateModel={updateModel} />,
+      <LimitsPane model={model} updateModel={updateModel} />,
     );
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
     // Switch starts OFF (all sections inherit_test) and the table is hidden.
     expect(screen.queryByTestId("settings-per-topic-table")).toBeNull();
     fireEvent.click(screen.getByTestId("settings-per-topic-switch"));
@@ -431,7 +427,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
     // Every section becomes `none` so the derived switch stays ON.
     expect(next.sections.every((s) => s.timeLimit.source === "none")).toBe(true);
     // Re-rendering with the produced model now shows the per-topic table.
-    rerender(<SettingsSection model={next} updateModel={updateModel} />);
+    rerender(<LimitsPane model={next} updateModel={updateModel} />);
     expect(screen.getByTestId("settings-per-topic-table")).toBeInTheDocument();
   });
 
@@ -448,8 +444,7 @@ describe("<SettingsSection /> — Ограничения pane", () => {
         },
       ],
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
+    render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("settings-per-topic-switch"));
     const next = runUpdater(updateModel, model);
     expect(next.sections.every((s) => s.timeLimit.source === "inherit_test")).toBe(true);
@@ -458,12 +453,11 @@ describe("<SettingsSection /> — Ограничения pane", () => {
 
 // ─── Integration pane bindings ────────────────────────────────────────────────
 
-describe("<SettingsSection /> — Интеграция pane", () => {
+describe("<IntegrationPane /> — «Интеграция»", () => {
   it("updates webhookUrl from input", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-integration"));
+    render(<IntegrationPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-webhook-input"), {
       target: { value: "https://example.com/webhook" },
     });
@@ -475,8 +469,7 @@ describe("<SettingsSection /> — Интеграция pane", () => {
   it("toggles telemetryEnabled via checkbox", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-integration"));
+    render(<IntegrationPane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("settings-telemetry-checkbox"));
     expect(runUpdater(updateModel, model).basic.telemetryEnabled).toBe(true);
   });
@@ -484,7 +477,7 @@ describe("<SettingsSection /> — Интеграция pane", () => {
 
 // ─── Pass-rules pane bindings ─────────────────────────────────────────────────
 
-describe("<SettingsSection /> — Правила прохождения pane", () => {
+describe("<VerdictPane /> — вердикт теста и тем", () => {
   function buildSection(over: Partial<import("../../test-editor.types").EditorSection> = {}) {
     return {
       topicId: "top-1",
@@ -504,8 +497,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
   }
 
   it("renders all 4 decision-policy radio options", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={baseModel()} updateModel={() => {}} />);
     expect(
       screen.getByRole("radio", { name: /достигнут общий проходной порог теста/i }),
     ).toBeInTheDocument();
@@ -525,8 +517,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
   it("changes decisionPolicy when a radio is selected", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     fireEvent.click(
       screen.getByRole("radio", { name: /пройдена каждая выбранная тема/i }),
     );
@@ -538,8 +529,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
   it("changes overall rule type, keeping the value where possible", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     selectOption("pass-overall-type", "Сумма баллов");
     const next = runUpdater(updateModel, model).passRules.overall;
     expect(next.type).toBe("absolute");
@@ -548,7 +538,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
 
   it("hides overall value input when type=none", () => {
     render(
-      <SettingsSection
+      <VerdictPane
         model={baseModel({
           passRules: {
             decisionPolicy: "overall_only",
@@ -559,15 +549,13 @@ describe("<SettingsSection /> — Правила прохождения pane", (
         updateModel={() => {}}
       />,
     );
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
     expect(screen.queryByTestId("pass-overall-value")).toBeNull();
   });
 
   it("updates overall.value on number input change", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("pass-overall-value"), {
       target: { value: "85" },
     });
@@ -575,8 +563,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
   });
 
   it("shows a «нет тем» banner when sections array is empty", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={baseModel()} updateModel={() => {}} />);
     expect(screen.getByTestId("pass-rules-no-topics")).toBeInTheDocument();
     expect(screen.queryByTestId("pass-rules-topics-table")).toBeNull();
   });
@@ -588,8 +575,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
         buildSection({ topicId: "top-2", topicName: "Topic 2", required: true }),
       ],
     });
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={() => {}} />);
     expect(screen.getByTestId("pass-topic-row-top-1")).toBeInTheDocument();
     expect(screen.getByTestId("pass-topic-row-top-2")).toBeInTheDocument();
     // The «Обязательная» toggle lives in the «Состав» tab, not here.
@@ -608,8 +594,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
         },
       },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     expect(screen.getByTestId("pass-topic-detail-top-1")).toBeInTheDocument();
     const valInput = screen.getByTestId("pass-topic-custom-value-top-1") as HTMLInputElement;
     expect(valInput.value).toBe("80");
@@ -634,8 +619,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
         severity: "error",
       },
     ]);
-    render(<SettingsSection model={model} updateModel={() => {}} fieldErrors={fieldErrors} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={() => {}} fieldErrors={fieldErrors} />);
     const valInput = screen.getByTestId("pass-topic-custom-value-top-1") as HTMLInputElement;
     expect(valInput).toHaveAttribute("aria-invalid", "true");
     // FR-20c: the drawer's «Перейти к ошибкам» anchors on `[data-field="<exact field path>"]`.
@@ -649,8 +633,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
     const model = baseModel({
       sections: [buildSection({ topicId: "top-1" })],
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     selectOption("pass-topic-source-top-1", "Индивидуальное правило");
     const rule = runUpdater(updateModel, model).passRules.byTopic["top-1"];
     expect(rule).toEqual({ source: "custom", type: "percent", value: 70 });
@@ -663,8 +646,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
     const model = baseModel({
       runtime: { ...baseModel().runtime, allowReturnToUnanswered: false, quickAdvance: false },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<NavigationPane model={model} updateModel={updateModel} />);
     const toggle = screen.getByTestId("settings-quick-advance-checkbox");
     expect(toggle).not.toBeDisabled();
     fireEvent.click(toggle);
@@ -678,8 +660,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
     const model = baseModel({
       runtime: { ...baseModel().runtime, showCorrectAnswers: true, quickAdvance: true },
     });
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
+    render(<NavigationPane model={model} updateModel={vi.fn()} />);
     const toggle = screen.getByTestId("settings-quick-advance-checkbox");
     expect(toggle).toBeDisabled();
   });
@@ -687,7 +668,7 @@ describe("<SettingsSection /> — Правила прохождения pane", (
 
 // ─── Adaptive pane bindings ───────────────────────────────────────────────────
 
-describe("<SettingsSection /> — Адаптивный режим pane (mode = adaptive)", () => {
+describe("<AdaptivePane /> — адаптивные уровни (mode = adaptive)", () => {
   function buildSection(over: Partial<import("../../test-editor.types").EditorSection> = {}) {
     return {
       topicId: "top-1",
@@ -715,8 +696,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
     const model = adaptiveModel({
       adaptive: { showDifficultyLevel: true, testSettings: { showDifficultyLevel: true }, topics: [] },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<DuringRunPane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("adaptive-show-difficulty"));
     const next = runUpdater(updateModel, model);
     expect(next.adaptive.showDifficultyLevel).toBe(false);
@@ -724,8 +704,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
   });
 
   it("shows the «нет тем» banner when there are no sections", () => {
-    render(<SettingsSection model={adaptiveModel()} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<AdaptivePane model={adaptiveModel()} updateModel={() => {}} />);
     expect(screen.getByTestId("adaptive-no-topics")).toBeInTheDocument();
     expect(screen.queryByTestId("adaptive-topics-list")).toBeNull();
   });
@@ -737,8 +716,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
         buildSection({ topicId: "t2", topicName: "Тема Б" }),
       ],
     });
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<AdaptivePane model={model} updateModel={() => {}} />);
     expect(screen.getByTestId("adaptive-topic-t1")).toBeInTheDocument();
     expect(screen.getByTestId("adaptive-topic-t2")).toBeInTheDocument();
   });
@@ -748,8 +726,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
     const model = adaptiveModel({
       sections: [buildSection({ topicId: "t1", topicName: "Тема А" })],
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<AdaptivePane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("adaptive-topic-enabled-t1"));
     const next = runUpdater(updateModel, model);
     const topic = next.adaptive.topics.find((t) => t.topicId === "t1");
@@ -761,8 +738,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
     const model = adaptiveModel({
       sections: [buildSection({ topicId: "t1", topicName: "Тема А" })],
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<AdaptivePane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("adaptive-topic-toggle-t1"));
     expect(screen.getByTestId("adaptive-topic-body-t1")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("adaptive-add-level-t1"));
@@ -803,8 +779,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
         ],
       },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<AdaptivePane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("adaptive-topic-toggle-t1"));
     fireEvent.change(screen.getByTestId("adaptive-level-t1-0-threshold"), {
       target: { value: "75" },
@@ -834,8 +809,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
         ],
       },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
+    render(<AdaptivePane model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("adaptive-topic-toggle-t1"));
     fireEvent.click(screen.getByTestId("adaptive-level-t1-0-remove"));
     const next = runUpdater(updateModel, model);
@@ -844,38 +818,6 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
     expect(next.adaptive.topics[0].levels[0].levelIndex).toBe(0);
   });
 
-  it("removes a per-level material link via the unified Feedback editor modal", () => {
-    const updateModel = vi.fn();
-    const model = adaptiveModel({
-      sections: [buildSection({ topicId: "t1", topicName: "Тема А" })],
-      adaptive: {
-        showDifficultyLevel: true,
-        testSettings: { showDifficultyLevel: true },
-        topics: [
-          {
-            topicId: "t1",
-            topicName: "Тема А",
-            failureFeedback: null,
-            enabled: true,
-            levels: [
-              { levelIndex: 0, levelName: "L1", minDifficulty: 0, maxDifficulty: 30, questionsCount: 5, passThreshold: 60, passThresholdType: "percent", feedback: null, links: [{ title: "Doc", url: "https://example.com" }] },
-            ],
-          },
-        ],
-      },
-    });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    fireEvent.click(screen.getByTestId("settings-rail-adaptive"));
-    fireEvent.click(screen.getByTestId("adaptive-topic-toggle-t1"));
-    // Open the feedback editor modal for level 0 (non-empty → pencil opens it).
-    fireEvent.click(screen.getByTestId("adaptive-level-t1-0-feedback-edit"));
-    // Remove the only link inside the modal
-    fireEvent.click(screen.getByTestId("feedback-editor-link-remove-0"));
-    // Save closes the modal and propagates the new links array via onSave
-    fireEvent.click(screen.getByTestId("feedback-editor-save"));
-    const next = runUpdater(updateModel, model);
-    expect(next.adaptive.topics[0].levels[0].links).toHaveLength(0);
-  });
 });
 
 // ─── PRD-4 v1.1 L1: flowMode `linear_flat` blocked in adaptive mode ──────────
@@ -883,7 +825,7 @@ describe("<SettingsSection /> — Адаптивный режим pane (mode = a
 describe("PRD-4 v1.1 L1: adaptive+linear_flat UI guard", () => {
   it("opens flowMode select and marks linear_flat option disabled when mode=adaptive", () => {
     const model = baseModel({ mode: "adaptive", flowMode: "linear_by_topics" });
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
+    render(<ScenarioSettingsPane model={model} updateModel={vi.fn()} />);
     // DS Select renders the listbox lazily — click to open. The trigger is
     // marked with the parent test id; option text appears inside the popup.
     const trigger = screen
@@ -901,7 +843,7 @@ describe("PRD-4 v1.1 L1: adaptive+linear_flat UI guard", () => {
     // This combo should never occur once L4 auto-fix runs, but if a user
     // forces it via mode-switch in the UI we surface a recovery banner.
     const model = baseModel({ mode: "adaptive", flowMode: "linear_flat" });
-    render(<SettingsSection model={model} updateModel={vi.fn()} />);
+    render(<ScenarioSettingsPane model={model} updateModel={vi.fn()} />);
     expect(
       screen.getByTestId("settings-flow-mode-adaptive-flat-warning"),
     ).toBeInTheDocument();
@@ -920,7 +862,7 @@ describe("PRD-4 v1.1 L1: adaptive+linear_flat UI guard", () => {
     ];
     for (const combo of validCombos) {
       const { unmount } = render(
-        <SettingsSection model={baseModel(combo)} updateModel={vi.fn()} />,
+        <ScenarioSettingsPane model={baseModel(combo)} updateModel={vi.fn()} />,
       );
       expect(
         screen.queryByTestId("settings-flow-mode-adaptive-flat-warning"),
@@ -932,12 +874,11 @@ describe("PRD-4 v1.1 L1: adaptive+linear_flat UI guard", () => {
 
 // ─── Повторное прохождение: блок внутри «Ограничений» (PRD-6) ─────────────────
 
-describe("<SettingsSection /> — Повторное прохождение block (PRD-6)", () => {
+describe("<LimitsPane /> — Повторное прохождение (PRD-6)", () => {
   function renderRetake(model: TestEditorModel, updateModel: () => void = () => {}) {
-    const utils = render(<SettingsSection model={model} updateModel={updateModel} />);
+    const utils = render(<LimitsPane model={model} updateModel={updateModel} />);
     // The retake block lives at the bottom of the «Ограничения» pane; it no
     // longer has a rail item of its own.
-    fireEvent.click(screen.getByTestId("settings-rail-limits"));
     return utils;
   }
 
@@ -1104,7 +1045,7 @@ describe("<SettingsSection /> — Повторное прохождение bloc
 
 // ─── PRD-24: «По вариантам» ──────────────────────────────────────────────────
 
-describe("<SettingsSection /> — правило «По вариантам» (PRD-24)", () => {
+describe("<VerdictPane /> — правило «По вариантам» (PRD-24)", () => {
   const forms = [
     { id: "v1", label: "Вариант 1", questionIds: ["q1", "q2"] },
     { id: "v2", label: "Вариант 2", questionIds: ["q3"] },
@@ -1135,19 +1076,16 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
       ...over,
     } as never);
 
-  const openPane = () => fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
 
   it("offers «По вариантам» only for a topic delivered as variants", () => {
-    render(<SettingsSection model={variantsModel()} updateModel={() => {}} />);
-    openPane();
+    render(<VerdictPane model={variantsModel()} updateModel={() => {}} />);
     fireEvent.click(within(screen.getByTestId("pass-topic-source-top-1")).getByRole("button"));
     expect(screen.getByRole("option", { name: "По вариантам" })).toBeInTheDocument();
   });
 
   it("hides «По вариантам» for a topic without variants", () => {
     const model = baseModel({ sections: [section()] } as never);
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={() => {}} />);
     fireEvent.click(within(screen.getByTestId("pass-topic-source-top-1")).getByRole("button"));
     expect(screen.queryByRole("option", { name: "По вариантам" })).not.toBeInTheDocument();
   });
@@ -1155,8 +1093,7 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
   it("seeds a threshold for every variant when the source is picked", () => {
     const updateModel = vi.fn();
     const model = variantsModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     selectOption("pass-topic-source-top-1", "По вариантам");
     // seeded from the test's overall percent so the rule is valid immediately
     expect(runUpdater(updateModel, model).passRules.byTopic["top-1"]).toEqual({
@@ -1169,8 +1106,7 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
     const model = variantsModel({
       "top-1": { source: "by_variant", byForm: { v1: { type: "percent", value: 60 }, v2: { type: "absolute", value: 1 } } },
     });
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={() => {}} />);
     expect(screen.getByTestId("pass-topic-variants-top-1")).toBeInTheDocument();
     expect(screen.getByTestId("pass-variant-value-top-1-v1")).toBeInTheDocument();
     expect(screen.getByTestId("pass-variant-value-top-1-v2")).toBeInTheDocument();
@@ -1183,8 +1119,7 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
       { "top-1": { source: "by_variant", byForm: { v1: { type: "absolute", value: 2 }, v2: { type: "percent", value: 60 } } } },
       { scoring: { defaultQuestionPoints: null, questionOverrides: [{ questionId: "q1", points: 5, scoringJson: null, difficulty: null, pinnedContentHash: null }] } },
     );
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={() => {}} />);
     // q1 overridden to 5 + q2 at the system default 1 → 6, not "2 questions"
     expect(screen.getByText(/макс\. 6 баллов/)).toBeInTheDocument();
   });
@@ -1197,8 +1132,7 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
       { "top-1": { source: "by_variant", byForm: { v1: { type: "absolute", value: 2 }, v2: { type: "absolute", value: 1 } } } },
       { scoring: { defaultQuestionPoints: null, questionOverrides: [{ questionId: "q1", points: 5, scoringJson: null, difficulty: null, pinnedContentHash: null }] } },
     );
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={() => {}} />);
     // v1 = q1(5) + q2(1) = 6, v2 = q3(1) = 1
     expect(screen.getByTestId("pass-variant-max-top-1-v1")).toHaveTextContent("макс. 6 баллов");
     expect(screen.getByTestId("pass-variant-max-top-1-v2")).toHaveTextContent("макс. 1 баллов");
@@ -1208,8 +1142,7 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
     const model = variantsModel({
       "top-1": { source: "by_variant", byForm: { v1: { type: "absolute", value: 2 }, v2: { type: "percent", value: 60 } } },
     });
-    render(<SettingsSection model={model} updateModel={() => {}} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={() => {}} />);
     expect(screen.getByTestId("pass-variant-max-top-1-v1")).toBeInTheDocument();
     expect(screen.queryByTestId("pass-variant-max-top-1-v2")).not.toBeInTheDocument();
   });
@@ -1219,8 +1152,7 @@ describe("<SettingsSection /> — правило «По вариантам» (PR
     const model = variantsModel({
       "top-1": { source: "by_variant", byForm: { v1: { type: "percent", value: 60 }, v2: { type: "percent", value: 80 } } },
     });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    openPane();
+    render(<VerdictPane model={model} updateModel={updateModel} />);
     selectOption("pass-variant-type-top-1-v1", "Сумма баллов");
     expect(runUpdater(updateModel, model).passRules.byTopic["top-1"]).toEqual({
       source: "by_variant",

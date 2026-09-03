@@ -1,27 +1,35 @@
 /**
  * @module shared/breakdown/publish-warnings
- * @description PRD-50 FR-45 - FR-47: the four delivery traps an author is told about when a
+ * @description PRD-50 FR-45 - FR-47: the delivery traps an author is told about when a
  * test is published. WARNINGS, never blocks — publication proceeds and the snapshot is
  * frozen; the author decides what to do. Pure: the caller gathers the data, this only
  * judges it, so the same rules can later feed the editor without a second implementation.
  *
  * The traps come straight from the reference workbook: two questions of «Технологии» belong
  * to no variant and can never be delivered, and nothing in the service ever said so.
+ *
+ * FR-46 («порог назначен ключу, которого выдача не даст») is GONE: a key threshold no
+ * longer gates anything (решение владельца 2026-09-03), so an unreachable threshold has
+ * nothing to make unreachable. Stored thresholds stay in the data as legacy.
  */
 import { tagKey } from "../tags";
-import { resolveBreakdownRules, breakdownThresholdFor } from "../scoring/pass-rule";
+import { resolveBreakdownRules } from "../scoring/pass-rule";
 
 export type BreakdownWarningCode =
   /** FR-45: Σ quotas ≠ the section's sample size — the keys do not partition it. */
   | "quota_sum_mismatch"
   /** FR-45: deliverable questions carry no key at all. */
   | "questions_without_key"
-  /** FR-46: a threshold names a key that no delivery can produce — an unreachable gate. */
-  | "threshold_key_never_delivered"
   /** FR-47: a question belongs to no variant and will never be delivered. */
   | "question_outside_variants"
   /** FR-47: quotas AND variants are both set; in variants mode quotas are not applied. */
-  | "quotas_ignored_in_variants";
+  | "quotas_ignored_in_variants"
+  /**
+   * The section still stores key thresholds, which no longer gate anything (решение
+   * владельца 2026-09-03). Said ONCE, at publication: the topic verdict of this test may
+   * come out different from the one the previous publication produced.
+   */
+  | "key_thresholds_no_longer_gate";
 
 export interface BreakdownWarning {
   code: BreakdownWarningCode;
@@ -99,15 +107,9 @@ export function checkBreakdownPublish(sections: readonly BreakdownPublishSection
       if (withoutKey > 0) at({ code: "questions_without_key", count: withoutKey });
     }
 
-    // FR-46: a threshold nobody can ever meet or miss.
-    if (rules) {
-      const present = new Set<string>();
-      for (const q of deliverable) for (const k of keysOf(q)) present.add(k);
-      for (const key of rules.byKey.keys()) {
-        if (breakdownThresholdFor(rules, rules.axis, key) === null) continue;
-        if (!present.has(tagKey(key))) at({ code: "threshold_key_never_delivered", key });
-      }
-    }
+    // Тест, который раньше судился порогами подтем, теперь судится одним правилом темы.
+    // Автор должен узнать об этом ДО того, как увидит другой вердикт у той же попытки.
+    if (rules) at({ code: "key_thresholds_no_longer_gate" });
   }
   return out;
 }

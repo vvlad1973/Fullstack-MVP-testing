@@ -100,7 +100,7 @@ function nextResponse(body: unknown, status = 200) {
 // ─── Component tests ──────────────────────────────────────────────────────────
 
 describe("<TestEditor /> DOM and focus", () => {
-  it("renders the DS Drawer with the four tabs and a single Сохранить action", async () => {
+  it("renders the DS Drawer with the seven tabs and a single Сохранить action", async () => {
     nextResponse(buildApiResponse());
     const client = makeClient();
     render(
@@ -121,7 +121,15 @@ describe("<TestEditor /> DOM and focus", () => {
     expect(root.querySelector(".ou-tabs.ou-tabs--underline.ou-tabs--m")).not.toBeNull();
     expect(root.querySelector(".ou-drawer__foot")).not.toBeNull();
 
-    for (const label of ["Состав", "Настройки", "Оформление", "Структура"]) {
+    for (const label of [
+      "Основное",
+      "Состав и сценарий",
+      "Правила прохождения",
+      "Оценка результата",
+      "Обратная связь и итоги",
+      "Оформление",
+      "Комментарии",
+    ]) {
       expect(screen.getByRole("tab", { name: new RegExp(label, "i") })).toBeInTheDocument();
     }
 
@@ -160,7 +168,7 @@ describe("<TestEditor /> DOM and focus", () => {
       ),
     );
 
-    const firstTab = await screen.findByRole("tab", { name: /Состав/i });
+    const firstTab = await screen.findByRole("tab", { name: /Основное/i });
     await waitFor(() => expect(document.activeElement).toBe(firstTab));
   });
 
@@ -1026,7 +1034,7 @@ describe("<TestEditor /> — close-confirm chips + error banner", () => {
     await waitFor(() =>
       expect(screen.getByTestId("test-editor-close-confirm-chips")).toBeInTheDocument(),
     );
-    expect(screen.getByTestId("test-editor-close-confirm-chip-settings")).toBeInTheDocument();
+    expect(screen.getByTestId("test-editor-close-confirm-chip-main")).toBeInTheDocument();
   });
 
   it("shows the goToError banner inside close-confirm when there are validation errors (G31)", async () => {

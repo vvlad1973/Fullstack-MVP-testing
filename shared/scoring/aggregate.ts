@@ -15,12 +15,11 @@
  * points-based; the final verdict combines the overall rule with the topic gates
  * per the authored `passDecisionPolicy` (see {@link decideVerdict}) — data written
  * before that policy existed keeps the old `overallPassed && every gated topic`.
- * Since PRD-50 the TOPIC verdict is decided in a SECOND pass, after the breakdown
- * records exist (FR-16), because it now combines the section's own rule with the
- * thresholds of its breakdown keys (FR-19, `applyBreakdownGate`). The first pass
- * still computes every value it always did — `percent`, `earnedPoints`,
- * `resolvedPassRule` — and the second one only reads them, so a section without key
- * thresholds is gated exactly as before.
+ * The TOPIC verdict is decided in a SECOND pass, after the breakdown records exist
+ * (FR-16). It is the section's OWN rule and nothing else: a key threshold no longer
+ * participates (решение владельца 2026-09-03 — подтема ГОВОРИТ о результате, но не
+ * судит его). The first pass still computes every value it always did — `percent`,
+ * `earnedPoints`, `resolvedPassRule` — and the second one only reads them.
  *
  * PRD-50: this module is also the ONLY entry point into `shared/breakdown/` — every
  * delivered, graded question is fed to {@link computeBreakdowns} here, so the
@@ -44,7 +43,6 @@ import {
   resolveTopicRule,
   checkPassRule,
   resolvePassDecisionPolicy,
-  applyBreakdownGate,
   type PassDecisionPolicy,
   type ResolvedRule,
 } from "./pass-rule";
@@ -85,8 +83,11 @@ export interface AggregateSection<E = unknown> {
    */
   required?: boolean;
   /**
-   * PRD-50 §4: stored `test_sections.breakdown_rules_json` (any shape — normalised here,
-   * like `topicPassRule`). Absent = the topic is gated exactly as before this PRD.
+   * PRD-50 §4: stored `test_sections.breakdown_rules_json`. NO LONGER READ: the topic
+   * verdict is its own rule alone (решение владельца 2026-09-03), so a key threshold
+   * neither gates the topic nor stamps the breakdown rows. The field stays in the input
+   * shape so a host that still passes it (a legacy SCORM package, a stored snapshot)
+   * keeps type-checking; the value is ignored.
    */
   breakdownRules?: unknown;
   /**
@@ -215,7 +216,6 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     rule: ResolvedRule | null;
     scored: number;
     required: boolean;
-    breakdownRules: unknown;
   }> = [];
 
   const topicResults: AggregateTopicResult<E>[] = input.sections.map((sec) => {
@@ -257,7 +257,6 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       scored,
       // FR: absent flag = required (DB default `test_sections.required = true`).
       required: sec.required !== false,
-      breakdownRules: sec.breakdownRules ?? null,
     });
 
     tEarned += earned;
@@ -304,12 +303,12 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     topic.breakdown = bySection.get(sectionScope(topic.topicId)) ?? [];
     // FR-09: a section with nothing to grade has no percent to compare, so it stays UNGATED
     // (`null`) instead of failing its rule at 0%.
-    const byRule =
+    //
+    // The verdict is the section's OWN rule and nothing else: a key threshold no longer
+    // gates the topic (решение владельца 2026-09-03). A subtopic SPEAKS about the result —
+    // it does not judge it, so a stored `breakdown_rules_json` changes no verdict any more.
+    const passed =
       gate.rule && gate.scored > 0 ? checkPassRule(gate.rule, topic.percent, topic.earnedPoints) : null;
-    // FR-19: … AND every declared key threshold. Either half may be absent: a section with
-    // key thresholds and no rule of its own is gated by the keys alone.
-    const byKeys = applyBreakdownGate(topic.breakdown, gate.breakdownRules);
-    const passed = byRule === null && byKeys === null ? null : byRule !== false && byKeys !== false;
     topic.passed = passed;
     if (passed === false) {
       allTopicsPassed = false;

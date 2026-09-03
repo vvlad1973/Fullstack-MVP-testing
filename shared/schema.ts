@@ -6,7 +6,7 @@ import { normalizeTag, normalizeTags, TAG_MAX_LENGTH } from "./tags";
 import { isAllocationFeasible } from "./questions/allocation";
 import { STORED_ROLES } from "./access/roles";
 import { PLACEHOLDER_TYPES, SETTING_TYPES } from "./template/field-types";
-import type { BreakdownRules } from "./breakdown/types";
+import type { BreakdownRules, BreakdownFeedback as BreakdownFeedbackShape } from "./breakdown/types";
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -750,6 +750,7 @@ export const breakdownRulesSchema = z.object({
   keys: z.record(z.string(), breakdownThresholdSchema).optional(),
 });
 
+
 export const testSections = pgTable("test_sections", {
   id: varchar("id", { length: 36 }).primaryKey(),
   testId: varchar("test_id", { length: 36 }).notNull(),
@@ -777,6 +778,12 @@ export const testSections = pgTable("test_sections", {
    * from `draw_blueprint_json` by decision: quota = delivery, threshold = grading.
    */
   breakdownRulesJson: jsonb("breakdown_rules_json").$type<BreakdownRules>(),
+  /**
+   * PRD-50 FR-50: обратная связь ПОДТЕМ этого раздела — карта «ключ -> текст с
+   * рекомендациями». NULL = у подтем текста нет, и результат печатается ровно как раньше.
+   * Своя колонка, а не поле правил: правило — оценка, текст — содержание результата.
+   */
+  breakdownFeedbackJson: jsonb("breakdown_feedback_json").$type<BreakdownFeedbackShape<FeedbackContent>>(),
   /**
    * PRD-50 FR-11/FR-12: the group this section belongs to — a `key` of the test's
    * `section_groups_json`. Null = the section belongs to no group and prints after all
@@ -978,6 +985,10 @@ export const insertTestSectionSchema = createInsertSchema(testSections)
     drawBlueprintJson: drawBlueprintSchema.nullish(),
     formSetJson: formSetSchema.nullish(),
     breakdownRulesJson: breakdownRulesSchema.nullish(),
+    // `breakdownFeedbackJson` НЕ валидируется здесь: его схема опирается на
+    // `feedbackContentSchema`, объявленную ниже по файлу (обратная связь темы), а этот
+    // insert-схемой пользуются раньше. Проверку делает маршрут записи разделов теста,
+    // как и для остальных «живых» JSON-колонок.
   });
 export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true });
 
@@ -1160,6 +1171,26 @@ export const feedbackContentSchema = z.object({
   links: z.array(feedbackLinkSchema).default([]),
   assets: z.array(feedbackAssetSchema).default([]),
   events: z.array(feedbackEventSchema).default([]),
+});
+
+/**
+ * PRD-50 FR-50: обратная связь ПОДТЕМЫ (ключа разреза) внутри одного раздела теста.
+ *
+ * Отдельная колонка, а не поле внутри `breakdown_rules_json`, по той же причине, по которой
+ * квоты и пороги живут врозь: правило — это оценка, а текст — содержание результата.
+ * Пороги к тому же перестали что-либо судить (решение владельца 2026-09-03), и подмешивать
+ * к ним живой авторский текст значило бы хоронить его в легаси-структуре.
+ *
+ * Формат значения — тот же `feedback_json`, что у темы и у раздела (`format`, `text`,
+ * `links`, `assets`, `events`), поэтому текст подтемы собирается тем же сборщиком
+ * рекомендаций и печатается теми же блоками.
+ *
+ * Ключ записи — ключ подтемы КАК ЕГО НАПИСАЛ АВТОР; сопоставление идёт через `tagKey`
+ * (регистр и пробелы), как и везде в разрезе. Пустая запись = текста нет.
+ */
+export const breakdownFeedbackSchema = z.object({
+  axis: z.literal("tag"),
+  keys: z.record(z.string(), feedbackContentSchema),
 });
 
 /**

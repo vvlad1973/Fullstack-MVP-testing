@@ -115,9 +115,11 @@ describe("<DesignSection /> — rail navigation", () => {
     expect(screen.getByTestId("design-rail-branding")).toBeInTheDocument();
     // The fixture declares a colour, so «Цвета» is there…
     expect(screen.getByTestId("design-rail-colors")).toBeInTheDocument();
-    // …and nothing for layout/progress, so those items are not shown at all
-    // (before PRD-23 they opened on a banner saying there is nothing here).
+    // …а макета и диаграмм фикстура не объявляет, поэтому их пунктов нет вовсе
+    // (до PRD-23 они открывались на баннере «здесь ничего нет»).
     expect(screen.queryByTestId("design-rail-layout")).toBeNull();
+    expect(screen.queryByTestId("design-rail-charts")).toBeNull();
+    // Э3.7: прогресс объявляет тот же манифест, но рисует его «Правила прохождения».
     expect(screen.queryByTestId("design-rail-progress")).toBeNull();
   });
 
@@ -540,7 +542,7 @@ describe("<DesignSection /> — template-incompatible state (S12-G6)", () => {
     expect(screen.getByTestId("design-rail-template-error-dot")).toBeInTheDocument();
     expect(screen.getByTestId("design-rail-branding")).toBeDisabled();
     expect(screen.getByTestId("design-rail-layout")).toBeDisabled();
-    expect(screen.getByTestId("design-rail-progress")).toBeDisabled();
+    expect(screen.getByTestId("design-rail-charts")).toBeDisabled();
   });
 
   it("clicking «Применить «Стандартный»» switches the draft to the default template", async () => {

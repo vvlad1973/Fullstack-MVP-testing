@@ -57,10 +57,9 @@ export {
   resolveOverallRule,
   resolveTopicRule,
   checkPassRule,
-  // PRD-50 FR-19: экран итогов РАЗДЕЛА считает вердикт своей веткой (`computeSectionResult`),
-  // мимо `aggregateStandardResult`, поэтому гейт по ключам нужен ему отдельной функцией.
+  // Пороги ключей больше не судят ничего (решение владельца 2026-09-03), но резольвер
+  // остаётся в пакете: сохранённые пороги читает перенос теста и предупреждение публикации.
   resolveBreakdownRules,
-  applyBreakdownGate,
 } from "../scoring/pass-rule";
 export { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
 export { buildStartState } from "./start-state";

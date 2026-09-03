@@ -1,13 +1,13 @@
 /**
  * @module features/tests/editor/sections/__tests__/basic-settings-breakdown.test
- * @description PRD-50 FR-13: the «Подытоги по ключам» control in the «Правила
- * прохождения» pane — visibility selector present, defaults to «Не показывать»,
- * and reports `{ visibility, basis }` through `updateModel` on change.
+ * @description PRD-50 FR-13: the «Подытоги по подтемам» control in the «Состав итогов»
+ * pane — visibility selector present, defaults to «Не показывать», and reports
+ * `{ visibility, basis }` through `updateModel` on change.
  */
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SettingsSection } from "../basic-settings-section";
+import { BreakdownDisplayPane } from "../basic-settings-section";
 import type { TestEditorModel } from "../../test-editor.types";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
 
@@ -83,18 +83,14 @@ function selectOption(selectTestId: string, optionLabel: string | RegExp) {
   fireEvent.click(screen.getByRole("option", { name: optionLabel }));
 }
 
-const openPassRulesPane = () => fireEvent.click(screen.getByTestId("settings-rail-pass-rules"));
-
-describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-13)", () => {
-  it("рендерит селектор видимости в панели «Правила прохождения»", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    openPassRulesPane();
+describe("<BreakdownDisplayPane /> — Подытоги по ключам (PRD-50 FR-13)", () => {
+  it("рендерит селектор видимости в панели «Состав итогов»", () => {
+    render(<BreakdownDisplayPane model={baseModel()} updateModel={() => {}} />);
     expect(screen.getByTestId("settings-breakdown-visibility-select")).toBeInTheDocument();
   });
 
   it("умолчание — «Не показывать», и селектор базы скрыт", () => {
-    render(<SettingsSection model={baseModel()} updateModel={() => {}} />);
-    openPassRulesPane();
+    render(<BreakdownDisplayPane model={baseModel()} updateModel={() => {}} />);
     expect(
       within(screen.getByTestId("settings-breakdown-visibility-select")).getByRole("button"),
     ).toHaveTextContent("Не показывать");
@@ -104,8 +100,7 @@ describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-
   it("выбор «Полоса» отдаёт наверх { visibility: \"bar\", basis: \"units\" }", () => {
     const updateModel = vi.fn();
     const model = baseModel();
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    openPassRulesPane();
+    render(<BreakdownDisplayPane model={model} updateModel={updateModel} />);
     selectOption("settings-breakdown-visibility-select", "Полоса");
     expect(runUpdater(updateModel, model).runtime.breakdownDisplay).toEqual({
       visibility: "bar",
@@ -115,7 +110,7 @@ describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-
 
   it("показывает селектор базы, когда видимость не «hidden»", () => {
     render(
-      <SettingsSection
+      <BreakdownDisplayPane
         model={baseModel({
           runtime: {
             timeLimitMinutes: null,
@@ -136,7 +131,6 @@ describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-
         updateModel={() => {}}
       />,
     );
-    openPassRulesPane();
     expect(screen.getByTestId("settings-breakdown-basis-select")).toBeInTheDocument();
   });
 });
@@ -146,7 +140,7 @@ describe("<SettingsSection /> — Подытоги по ключам (PRD-50 FR-
  * Настройка, сохранённая до Э4, положения не несёт и обязана читаться как «В карточках
  * тем», то есть ровно как сегодня.
  */
-describe("<SettingsSection /> — где показывать подытоги (PRD-50 FR-44)", () => {
+describe("<BreakdownDisplayPane /> — где показывать подытоги (PRD-50 FR-44)", () => {
   const withDisplay = (breakdownDisplay?: Record<string, string>) =>
     baseModel({
       runtime: {
@@ -167,14 +161,12 @@ describe("<SettingsSection /> — где показывать подытоги (
     } as Partial<TestEditorModel>);
 
   it("селектора нет, пока разрез не показывается", () => {
-    render(<SettingsSection model={withDisplay()} updateModel={() => {}} />);
-    openPassRulesPane();
+    render(<BreakdownDisplayPane model={withDisplay()} updateModel={() => {}} />);
     expect(screen.queryByTestId("settings-breakdown-placement-select")).not.toBeInTheDocument();
   });
 
   it("настройка без положения читается как «В карточках тем»", () => {
-    render(<SettingsSection model={withDisplay({ visibility: "bar", basis: "units" })} updateModel={() => {}} />);
-    openPassRulesPane();
+    render(<BreakdownDisplayPane model={withDisplay({ visibility: "bar", basis: "units" })} updateModel={() => {}} />);
     expect(
       within(screen.getByTestId("settings-breakdown-placement-select")).getByRole("button"),
     ).toHaveTextContent("В карточках тем");
@@ -183,8 +175,7 @@ describe("<SettingsSection /> — где показывать подытоги (
   it("выбор сводного блока отдаёт наверх placement, не трогая остальное", () => {
     const updateModel = vi.fn();
     const model = withDisplay({ visibility: "bar_and_value", basis: "points" });
-    render(<SettingsSection model={model} updateModel={updateModel} />);
-    openPassRulesPane();
+    render(<BreakdownDisplayPane model={model} updateModel={updateModel} />);
     selectOption("settings-breakdown-placement-select", "Сводным блоком по тесту");
     expect(runUpdater(updateModel, model).runtime.breakdownDisplay).toEqual({
       visibility: "bar_and_value",

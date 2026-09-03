@@ -8,7 +8,7 @@
  * branch (design draft persisted through the unified footer save), the status-tag
  * error/dirty derivations, the changes-popover structural line + close button,
  * the close-confirm «Продолжить редактирование», the composition-error anchor and
- * the «Структура» tab panel.
+ * панель вкладки «Состав и сценарий».
  *
  * Harness copied from {@link test-editor.coverage.test}.
  */
@@ -422,30 +422,33 @@ describe("<TestEditor /> — close-confirm cancel", () => {
   });
 });
 
-// ─── Composition-error anchor + «Структура» tab ──────────────────────────────
+// ─── Адрес ошибки состава + полотно сценария ─────────────────────────────────
 
-describe("<TestEditor /> — error anchor to composition + structure tab", () => {
+describe("<TestEditor /> — адрес ошибки состава и полотно сценария", () => {
   it("anchors a sections error to the «Состав» tab (tabForField composition branch)", async () => {
-    // No topics → a blocking `sections` error whose anchor lives in Состав.
+    // Нет тем → блокирующая ошибка `sections`, её адрес — «Состав и сценарий».
     nextResponse(buildApiResponse({ sections: [] }));
     render(withClient(makeClient(), <TestEditor testId="test-1" open onClose={() => {}} />));
 
     await screen.findByTestId("test-editor-error-summary");
     fireEvent.click(screen.getByRole("button", { name: /Перейти к ошибкам/i }));
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: /Состав/i, selected: true })).toBeInTheDocument(),
+      expect(screen.getByRole("tab", { name: /Состав и сценарий/i, selected: true })).toBeInTheDocument(),
     );
   });
 
-  it("renders the «Структура» tab panel", async () => {
+  it("рисует полотно сценария на вкладке «Состав и сценарий»", async () => {
     installRouter();
     render(withClient(makeClient(), <TestEditor testId="test-1" open onClose={() => {}} />));
     await screen.findByText("Sample Test");
 
-    fireEvent.click(screen.getByRole("tab", { name: /Структура/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Состав и сценарий/i }));
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: /Структура/i, selected: true })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("tab", { name: /Состав и сценарий/i, selected: true }),
+      ).toBeInTheDocument(),
     );
+    fireEvent.click(screen.getByTestId("composition-rail-scenario"));
     expect(screen.getByTestId("test-editor-body")).toBeInTheDocument();
   });
 });

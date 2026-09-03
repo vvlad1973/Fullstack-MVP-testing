@@ -230,57 +230,7 @@ describe("<CompositionSection />", () => {
     expect(result.sections[0].maxQuestions).toBe(10);
   });
 
-  // ── Feedback preview wiring (FR-36 / FR-37) ─────────────────────────────────
-
-  it("clicking tb-feedback-preview opens FeedbackEditorModal for that topic", async () => {
-    const model = baseModel({
-      sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ" })],
-    });
-    renderWithClient(<CompositionSection model={model} updateModel={() => {}} />);
-
-    // Before click: dialog with this specific title should not be accessible.
-    // (ModalDialog may still be in DOM when closed, but without its content rendered.)
-    expect(
-      screen.queryByRole("dialog", { name: /Обратная связь по теме «Основы ИБ»/i }),
-    ).not.toBeInTheDocument();
-
-    // Click the preview button to open the modal.
-    fireEvent.click(screen.getByTestId("feedback-preview-top-1"));
-
-    // After click: dialog should be accessible with the topic title.
-    await waitFor(() =>
-      expect(
-        screen.getByRole("dialog", { name: /Обратная связь по теме «Основы ИБ»/i }),
-      ).toBeInTheDocument(),
-    );
-  });
-
-  it("saving feedback modal patches section via updateModel", async () => {
-    const updateModel = vi.fn();
-    const model = baseModel({
-      sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ" })],
-    });
-    renderWithClient(<CompositionSection model={model} updateModel={updateModel} />);
-
-    // Open the modal by clicking the preview.
-    fireEvent.click(screen.getByTestId("feedback-preview-top-1"));
-    await waitFor(() =>
-      expect(
-        screen.getByRole("dialog", { name: /Обратная связь по теме «Основы ИБ»/i }),
-      ).toBeInTheDocument(),
-    );
-
-    // Type something in the Textarea (plain format by default).
-    // The textarea is inside the now-open dialog.
-    const textarea = screen.getByTestId("feedback-editor-text");
-    fireEvent.change(textarea, { target: { value: "Great job!" } });
-
-    // Save.
-    fireEvent.click(screen.getByTestId("feedback-editor-save"));
-
-    expect(updateModel).toHaveBeenCalledOnce();
-    const result = runUpdater(updateModel, model);
-    expect(result.sections[0].feedback.text).toBe("Great job!");
-    expect(result.sections[0].feedback.format).toBe("plain");
-  });
+  // Обратная связь темы правится не здесь: с Э2.3 она живёт на вкладке «Обратная связь и
+  // итоги», карточкой «По темам», где показана РАЗРЕШЁННОЙ — с источником и сбросом.
+  // Её проверки переехали в `topic-feedback-card.test.tsx`.
 });

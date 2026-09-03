@@ -71,16 +71,16 @@ export interface PublishInfeasibleError {
 export type BreakdownWarningCode =
   | "quota_sum_mismatch"
   | "questions_without_key"
-  | "threshold_key_never_delivered"
   | "question_outside_variants"
-  | "quotas_ignored_in_variants";
+  | "quotas_ignored_in_variants"
+  | "key_thresholds_no_longer_gate";
 
 /** One publication warning (server `BreakdownWarning`). */
 export interface BreakdownWarning {
   code: BreakdownWarningCode;
   topicId: string;
   topicName: string;
-  /** The key the warning speaks about (`threshold_key_never_delivered`). */
+  /** The key a warning speaks about, when it names one. */
   key?: string;
   /** The number the message quotes: Σ quotas, or how many questions are affected. */
   count?: number;

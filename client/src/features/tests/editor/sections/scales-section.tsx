@@ -1379,7 +1379,7 @@ function ContributionsPane({
         layout="inline"
         well
         title="В тесте пока нет вопросов"
-        description="Добавьте темы и вопросы во вкладке «Состав», затем задайте их вклады в шкалы."
+        description="Добавьте темы и вопросы во вкладке «Состав и сценарий», затем задайте их вклады в шкалы."
         data-testid="contributions-no-questions"
       />
     );

@@ -215,6 +215,21 @@ function countSettingsParams(draft: SettingsDraft): number {
 }
 
 /** Recommendations inside one owner's feedback: courses, materials and events together. */
+/**
+ * PRD-50 FR-50: набор подтем, прочитанный из книги, в форме колонки раздела.
+ *
+ * Подтема со стёртым текстом (в книге её строка есть, но пустая) в набор не попадает —
+ * так автор её и снимает. Набор, оставшийся пустым, уходит как `null`: «структура есть, но
+ * пустая» и «ничего не написано» — одно и то же, а `null` короче в базе.
+ */
+function breakdownFeedbackOf(
+  byTag: Map<string, FeedbackPayload | null>,
+): { axis: "tag"; keys: Record<string, FeedbackPayload> } | null {
+  const keys: Record<string, FeedbackPayload> = {};
+  for (const [tag, payload] of byTag) if (payload) keys[tag] = payload;
+  return Object.keys(keys).length > 0 ? { axis: "tag", keys } : null;
+}
+
 function countRecommendations(payload: FeedbackPayload | null | undefined): number {
   if (!payload) return 0;
   return (payload.links?.length ?? 0) + (payload.assets?.length ?? 0) + (payload.events?.length ?? 0);
@@ -1867,6 +1882,12 @@ export async function importWorkbook(
           // names. A section it does not name keeps the field absent, so a book without
           // the sheet says nothing about feedback at all.
           ...(feedback?.byTopic.has(key) ? { feedbackJson: feedback.byTopic.get(key) } : {}),
+          // PRD-50 FR-50: тексты подтем. Ключ ставится ТОЛЬКО разделу, чьи подтемы книга
+          // назвала: раздел, о подтемах которого она молчит, сохраняет свои как были.
+          // Подтема со стёртым текстом уходит из набора — так автор её и снимает.
+          ...(feedback?.byKey.has(key)
+            ? { breakdownFeedbackJson: breakdownFeedbackOf(feedback.byKey.get(key)!) }
+            : {}),
         },
       });
       result.structure.quotas += strata.length;

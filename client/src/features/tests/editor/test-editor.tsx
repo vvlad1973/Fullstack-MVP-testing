@@ -666,6 +666,10 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
               design={design}
+              // Э2.4: реестр «По вопросам» уводит правку в редактор вопроса. Открывается тем
+              // же ящиком ПОВЕРХ, что и переход из комментария (PRD-52 FR-28): ящик теста
+              // остаётся смонтированным, и автор возвращается на то же место реестра.
+              onOpenQuestion={setReviewQuestionId}
             />
           )}
           {editor.model && activeTab === "design" && (

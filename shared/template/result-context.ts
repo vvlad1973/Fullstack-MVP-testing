@@ -35,6 +35,7 @@ import { richTextToHtml, type RichTextFormat } from "./rich-text";
 import { buildScalesChart, type ChartKindSettings } from "./scales-chart";
 import { parseScaleAppearance } from "./scale-appearance";
 import { collectRecommendations } from "./recommendations";
+import { collectBreakdownFeedback, passThresholdPercent } from "../breakdown/feedback";
 import { resolveResultsBlocks, type ResultsBlocks, type ResultsBlockSettings } from "./results-blocks";
 // PRD-29 §6.7 lives in the scoring layer, not here: the results screen was its first
 // reader, not its owner (see the two gates in `buildResultContext`).
@@ -129,6 +130,15 @@ export interface TopicFeedbackInput {
    * the SCORM package from the same two blocks baked into `TEST_DATA`.
    */
   feedbackTexts?: string[] | null;
+  /**
+   * PRD-50 FR-50: тексты ПОДТЕМ этого раздела (`test_sections.breakdown_feedback_json`),
+   * ключ подтемы -> её блок обратной связи в том же формате, что у темы.
+   *
+   * Отбор — не дело хоста: подтему выдаёт тот, чей результат ниже общего проходного
+   * порога теста (решение владельца 2026-09-03), и правило живёт в одном месте,
+   * {@link module:shared/breakdown/feedback}. Хост только привозит написанное.
+   */
+  breakdownFeedback?: Record<string, FeedbackBlock> | null;
 }
 
 /**
@@ -362,46 +372,39 @@ function blockText(block: unknown): string {
 }
 
 /**
- * Feedback TEXTS due to the learner for ONE topic of ONE test, ready for
- * {@link TopicFeedbackInput.feedbackTexts}: the topic's own text and that of this test's
- * section over it, in that order.
+ * Обратная связь темы в этом тесте — РАЗРЕШЁННАЯ, одним значением (PRD-29 §7.1a).
  *
- * ONE exported rule, like {@link feedbackAssets}, because both hosts must hand the
- * learner the SAME text: the web grader stores the result of this call with the attempt,
- * the SCORM bake writes it into the section of `TEST_DATA`. A second copy of the rule
- * would drift silently and surface as the two players showing different feedback — the
- * very defect this consolidation repairs.
+ * Задан текст раздела (`test_sections.feedback_json`) — печатается он; не задан —
+ * печатается текст темы (`topics.feedback_json`). Сложение двух текстов не допускается:
+ * до этой правки печатались ОБА подряд, и ученик получал склейку, которую автор нигде не
+ * видел и не собирал (решение владельца 2026-09-02).
  *
- * WHERE THE TOPIC'S TEXT COMES FROM. The current source is `topics.feedback_json.text`,
- * with the legacy `topics.feedback` column as the fallback. That fallback is not
- * back-compat decoration: the in-service topic editor sends ONLY `feedback_json`, so the
- * legacy column still holds the WHOLE text of every topic the editor has never touched,
- * and reading `feedback_json` alone would silently drop what the author did write. Where
- * both carry a text the CURRENT source wins — a topic already migrated to
- * `feedback_json` may still drag an outdated copy in the column.
+ * ОДНО правило на оба хоста, как и {@link feedbackAssets}: веб-хост сохраняет результат
+ * этого вызова вместе с попыткой, сборка SCORM пишет его в раздел `TEST_DATA`. Вторая
+ * копия правила разошлась бы молча и всплыла бы как два плеера с разным текстом.
  *
- * A LIST and not one glued string: the topic and the section are two INDEPENDENT
- * authoring points, and that boundary is what the consolidated recommendations block
- * de-duplicates on. The order is load-bearing — the topic, the more general source,
- * comes first, so its copy is the one dedup keeps. A blank text (empty, or whitespace
- * only) contributes nothing: an empty paragraph is not a recommendation. The same
- * sentence written in both places is returned once.
+ * ОТКУДА БЕРЁТСЯ ТЕКСТ ТЕМЫ. Нынешний источник — `topics.feedback_json.text`, запасной —
+ * легаси-колонка `topics.feedback`. Запасной не украшение совместимости: редактор тем
+ * шлёт ТОЛЬКО `feedback_json`, и у темы, которой редактор не касался, весь текст лежит в
+ * колонке. Где есть оба, побеждает нынешний источник.
  *
- * @param topic The topic row: its `feedbackJson` block and legacy `feedback` column.
- * @param sectionFeedback `test_sections.feedback_json` of THIS test's section over it.
+ * Возвращается СПИСОК, хотя значений в нём теперь не больше одного: имя и форма поля
+ * (`feedbackTexts`) — контракт с обоими хостами и с сохранёнными попытками, а попытки,
+ * сданные до этой правки, везут в нём два текста и обязаны печатать их как прежде.
+ * Пустой текст (пробелы) не даёт ничего: пустой абзац — не рекомендация.
+ *
+ * @param topic Строка темы: её блок `feedbackJson` и легаси-колонка `feedback`.
+ * @param sectionFeedback `test_sections.feedback_json` раздела ЭТОГО теста над темой.
  */
 export function topicFeedbackTexts(
   topic: { feedbackJson?: unknown; feedback?: string | null } | null | undefined,
   sectionFeedback?: unknown,
 ): string[] {
+  const sectionText = blockText(sectionFeedback);
+  if (sectionText) return [sectionText];
   const legacy = typeof topic?.feedback === "string" ? topic.feedback.trim() : "";
   const topicText = blockText(topic?.feedbackJson) || legacy;
-  const out: string[] = [];
-  for (const text of [topicText, blockText(sectionFeedback)]) {
-    if (!text || out.includes(text)) continue;
-    out.push(text);
-  }
-  return out;
+  return topicText ? [topicText] : [];
 }
 
 /**
@@ -625,6 +628,16 @@ export interface ResultContextOptions {
    */
   hasPassThreshold?: boolean;
   /**
+   * Общее правило прохождения теста (`tests.overall_pass_rule_json`) — не признак, а
+   * САМО правило: тексты подтем выдаются по сравнению с его порогом (PRD-50 FR-50).
+   *
+   * Отдельно от {@link ResultContextOptions.hasPassThreshold}, который отвечает на другой
+   * вопрос («вердикт вообще выносился?») и читается ещё двумя потребителями. Отсутствие
+   * значит «порога нет»: сравнивать не с чем, и тексты подтем выдаются везде, где автор
+   * их написал.
+   */
+  overallPassRule?: { type?: string | null; value?: number | null } | null;
+  /**
    * PRD-29 measurement blocks. Absent (a test with neither scales nor indicators)
    * leaves the context byte-identical to what a control test has always produced.
    */
@@ -742,14 +755,9 @@ function topicVerdictLabel(passed: boolean | null, labels?: Record<string, strin
  * projections show the same kind of fact, and a row that rounded or worded itself
  * differently depending on where it is printed would read as two different measurements.
  */
-function breakdownRow(
-  e: BreakdownEntry,
-  display: BreakdownDisplaySetting,
-  labels?: Record<string, string>,
-): CtxBreakdownRow {
+function breakdownRow(e: BreakdownEntry, display: BreakdownDisplaySetting): CtxBreakdownRow {
   const showValue = display.visibility === "bar_and_value";
   const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
-  const passed = e.passed ?? null;
   return {
     key: e.key,
     items: e.items,
@@ -765,12 +773,6 @@ function breakdownRow(
     barPercent: Math.round(value),
     showValue,
     valueLabel: showValue ? Math.round(value) + " %" : "",
-    // Same three fields and the same pair of words as the topic verdict — resolved
-    // through the very same helper, so a row can never disagree with the card that
-    // holds it about what its own verdict is called (FR-34).
-    passed,
-    passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
-    statusLabel: topicVerdictLabel(passed, labels),
   };
 }
 
@@ -816,7 +818,7 @@ function fillBreakdownBlock(
   labels?: Record<string, string>,
 ): void {
   if (!display || !showsBreakdownBlock(display) || !breakdowns?.length) return;
-  result.breakdown = breakdowns.map((e) => breakdownRow(e, display, labels));
+  result.breakdown = breakdowns.map((e) => breakdownRow(e, display));
 }
 
 /** Map a normalized topic to its presentational view (Core-prepared class + label). */
@@ -856,7 +858,7 @@ function topicView(
   // questions.
   const display = breakdownDisplay;
   if (display && showsNestedBreakdown(display) && t.breakdown?.length) {
-    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, labels));
+    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display));
   }
   return view;
 }
@@ -1135,6 +1137,19 @@ export function buildResultContext(
   for (const topic of input.topicResults || []) {
     recommendationSources.push(...topicRecommendationSources(topic, topic.passed !== true));
   }
+  // PRD-50 FR-50: тексты ПОДТЕМ — последними, они самые узкие (одна подтема одного
+  // раздела), и дедуп оставит копию пошире, если автор написал то же самое теме.
+  //
+  // Вердикт здесь НЕ спрашивается — ни теста, ни темы. Правило владельца буквально: ниже
+  // общего порога теста -> выдаём, при любом вердикте. Провал по подтеме внутри сданного
+  // теста и есть тот случай, ради которого автор пишет этот текст; гасить его пройденным
+  // тестом значило бы отменять настройку ровно там, где она нужна.
+  recommendationSources.push(
+    ...collectBreakdownFeedback(
+      input.topicResults || [],
+      passThresholdPercent(opts.overallPassRule, input.possiblePoints),
+    ),
+  );
   const recommendations = collectRecommendations(recommendationSources);
   if (recommendations.hasAny) result.recommendations = recommendations;
   // PRD-49. The umbrella's sub-blocks + resolved labels, via the ONE rule shared with the
@@ -1346,6 +1361,16 @@ export interface AdaptiveResultContextOptions {
    */
   testFeedback?: FeedbackBlock | null;
   /**
+   * Общее правило прохождения теста (`tests.overall_pass_rule_json`) — не признак, а
+   * САМО правило: тексты подтем выдаются по сравнению с его порогом (PRD-50 FR-50).
+   *
+   * Отдельно от {@link ResultContextOptions.hasPassThreshold}, который отвечает на другой
+   * вопрос («вердикт вообще выносился?») и читается ещё двумя потребителями. Отсутствие
+   * значит «порога нет»: сравнивать не с чем, и тексты подтем выдаются везде, где автор
+   * их написал.
+   */
+  overallPassRule?: { type?: string | null; value?: number | null } | null;
+  /**
    * PRD-29 measurement blocks — scales and indicators of THIS attempt, in the very shape
    * the standard screen takes them (issue #33).
    *
@@ -1529,6 +1554,19 @@ export function buildAdaptiveResultContext(
   for (const topic of input.topicResults || []) {
     recommendationSources.push(...topicRecommendationSources(topic, !hasAchievedLevel(topic)));
   }
+  // PRD-50 FR-50: тексты ПОДТЕМ — последними, они самые узкие (одна подтема одного
+  // раздела), и дедуп оставит копию пошире, если автор написал то же самое теме.
+  //
+  // Вердикт здесь НЕ спрашивается — ни теста, ни темы. Правило владельца буквально: ниже
+  // общего порога теста -> выдаём, при любом вердикте. Провал по подтеме внутри сданного
+  // теста и есть тот случай, ради которого автор пишет этот текст; гасить его пройденным
+  // тестом значило бы отменять настройку ровно там, где она нужна.
+  recommendationSources.push(
+    // Адаптивный экран не считает баллов теста, поэтому абсолютный порог перевести не во
+    // что: `null` вместо суммы означает «переводить нечем», и такой тест печатает тексты
+    // всех подтем, где они написаны. Процентный порог работает как на обычном экране.
+    ...collectBreakdownFeedback(input.topicResults || [], passThresholdPercent(opts.overallPassRule, null)),
+  );
   const recommendations = collectRecommendations(recommendationSources);
   if (recommendations.hasAny) result.recommendations = recommendations;
   // PRD-49. Same rule as the standard screen (see `attachBlocksAndLabels`), with

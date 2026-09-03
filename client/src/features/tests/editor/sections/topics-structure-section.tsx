@@ -39,9 +39,7 @@ import {
   Tag,
 } from "@universityrt/ui-kit";
 import { effectiveSectionOrder, type TestQuestionOrder } from "@shared/draw/assemble-delivery";
-import { FeedbackEditorModal } from "./feedback-editor-modal";
 import { VariantsEditor } from "./variants-editor";
-import { FeedbackPreview as SharedFeedbackPreview } from "./feedback-preview";
 import type {
   EditorSection,
   TestEditorModel,
@@ -219,38 +217,13 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
     setPickerOpen(false);
   };
 
-  // ─── PRD-50 FR-11: blocks of sections («Блоки итогов») ───────────────────────
-
-  const sectionGroups = model.sectionGroups ?? [];
-
-  const addGroup = () => {
-    updateModel((m) => {
-      const groups = m.sectionGroups ?? [];
-      const key = nextGroupKey(groups);
-      return {
-        ...m,
-        sectionGroups: [...groups, { key, label: `Блок ${groups.length + 1}` }],
-      };
-    });
-  };
-
-  const renameGroup = (key: string, label: string) => {
-    updateModel((m) => ({
-      ...m,
-      sectionGroups: (m.sectionGroups ?? []).map((g) => (g.key === key ? { ...g, label } : g)),
-    }));
-  };
-
-  // FR-12: a section referencing a deleted block is still legal for the core (it
-  // reads as "no block"), but the editor never leaves a dangling reference on
-  // screen — dropping the block also clears it from every section that had it.
-  const removeGroup = (key: string) => {
-    updateModel((m) => ({
-      ...m,
-      sectionGroups: (m.sectionGroups ?? []).filter((g) => g.key !== key),
-      sections: m.sections.map((s) => (s.groupKey === key ? { ...s, groupKey: null } : s)),
-    }));
-  };
+  /*
+   * Блоки итогов (`sectionGroups`) редактор больше НЕ предлагает: группировку тем взяла
+   * на себя подтема-тег — те же вопросы уже размечены, выдача по ним квотируется, итог
+   * считается (решение владельца 2026-09-02). Данные уже собранных тестов сохраняются и
+   * печатаются: модель и снимок публикации их по-прежнему возят, ушёл только элемент
+   * интерфейса.
+   */
 
   // PRD-30 FR-16: absent = «перемешивание», today's behaviour of every test.
   const testOrder: TestQuestionOrder = model.questionOrder ?? "random";
@@ -262,7 +235,7 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
         <Banner
           tone="info"
           title="Тест в адаптивном режиме"
-          description="Настройки уровней сложности и связки тем — во вкладке «Настройки → Адаптивный режим»."
+          description="Настройки уровней сложности и связки тем — в подразделе «Адаптивные уровни»."
           data-testid="composition-adaptive-banner"
         />
       )}
@@ -285,47 +258,6 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
         />
         <span className="tb-test-order-row__hint">{TEST_ORDER_HINTS[testOrder](flatFlow)}</span>
       </div>
-
-      {/* PRD-50 FR-11/FR-43: named blocks of sections, edited next to the test's
-          structure (a block is a property of the STRUCTURE, not scoring or display).
-          Each topic below picks one of these blocks or stays «Без блока» (FR-25). */}
-      <div className="tb-section-label">Блоки итогов</div>
-      {sectionGroups.length > 0 && (
-        <ul className="tb-feedback-editor__list" aria-label="Блоки итогов" data-testid="section-groups-list">
-          {sectionGroups.map((group, idx) => (
-            <li key={group.key} className="tb-feedback-editor__item">
-              <div className="tb-feedback-editor__item-fields">
-                <Input
-                  size="s"
-                  fullWidth
-                  aria-label={`Подпись блока ${idx + 1}`}
-                  value={group.label}
-                  placeholder="Название блока"
-                  onChange={(e) => renameGroup(group.key, e.target.value)}
-                  data-testid={`section-group-label-${group.key}`}
-                />
-              </div>
-              <IconButton
-                icon={<Trash2 size={14} aria-hidden="true" />}
-                aria-label={`Удалить блок «${group.label || `Блок ${idx + 1}`}»`}
-                variant="ghost"
-                size="s"
-                onClick={() => removeGroup(group.key)}
-                data-testid={`section-group-remove-${group.key}`}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      <Button
-        variant="secondary"
-        size="s"
-        leadingIcon={<Plus size={16} aria-hidden="true" />}
-        onClick={addGroup}
-        data-testid="section-group-add"
-      >
-        Добавить блок
-      </Button>
 
       {model.sections.length === 0 && (
         <EmptyState
@@ -367,15 +299,12 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           }
           onChangeBlueprint={(bp) => updateSection(section.topicId, { drawBlueprint: bp })}
           onChangeBreakdownRules={(rules) => updateSection(section.topicId, { breakdownRules: rules })}
-          groups={sectionGroups}
-          onChangeGroup={(groupKey) => updateSection(section.topicId, { groupKey })}
           // PRD-24: changing the variant set also re-syncs the topic's per-variant
           // pass rule (seed added / drop removed / normalise when mode goes off).
           onChangeFormSet={(formSet) =>
             updateModel((m) => applyFormSetChange(m, section.topicId, formSet))
           }
           onRemove={() => removeSection(section.topicId)}
-          onSaveFeedback={(patch) => updateSection(section.topicId, patch)}
         />
       ))}
 
@@ -434,17 +363,12 @@ function TopicRow(props: {
   onChangeBlueprint: (bp: DrawBlueprint | null) => void;
   /** PRD-50 §4 (FR-09): replace this section's key thresholds (`null` = informational). */
   onChangeBreakdownRules: (rules: BreakdownRules | null) => void;
-  /** PRD-50 FR-11: the test's blocks, for the «Блок» Select's option list. */
-  groups: SectionGroup[];
-  /** PRD-50 FR-11/FR-12: set this section's block (`null` = «Без блока»). */
-  onChangeGroup: (groupKey: string | null) => void;
   /** PRD-17 (BR-12): replace this section's variant set (`null` = variants off). */
   onChangeFormSet: (formSet: FormSet | null) => void;
   /** FR-20c: validation message for this section's variants. */
   variantsError?: string;
   onRemove: () => void;
   /** Called with a partial EditorSection patch when feedback is saved. */
-  onSaveFeedback: (patch: Partial<EditorSection>) => void;
   /** PRD-15 E-11: the author can no longer see this section's topic (grant
    * revoked / made private). The test still works and saves; only new draws
    * from this topic are blocked. */
@@ -452,7 +376,6 @@ function TopicRow(props: {
 }) {
   const { section } = props;
   const maxQ = Math.max(section.maxQuestions, 1);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Adaptive mode forces "draw all" on every topic (the per-level questionsCount
   // governs how many are shown); the stored manual `drawAll` is preserved so
@@ -593,27 +516,6 @@ function TopicRow(props: {
             </span>
           </div>
 
-          {/* PRD-50 FR-11/FR-43: which block of the results screen this topic
-              belongs to. Shown only once the test has at least one block — a test
-              with none behaves exactly as before (FR-27), so there is nothing to
-              pick here yet. */}
-          {props.groups.length > 0 && (
-            <div className="tb-group-row">
-              <span className="tb-group-row__lbl">Блок</span>
-              <Select
-                size="s"
-                value={section.groupKey ?? NO_GROUP}
-                onChange={(value) => props.onChangeGroup(value === NO_GROUP ? null : value)}
-                options={[
-                  { value: NO_GROUP, label: "Без блока" },
-                  ...props.groups.map((g) => ({ value: g.key, label: g.label })),
-                ]}
-                aria-label={`Блок итогов: ${section.topicName}`}
-                data-testid={`topic-group-${section.topicId}`}
-              />
-            </div>
-          )}
-
           <KeysTable
             topicId={section.topicId}
             topicName={section.topicName}
@@ -641,37 +543,12 @@ function TopicRow(props: {
             disabled={props.adaptive}
           />
 
-          <div className="tb-card-desc">Обратная связь по теме</div>
-          {/* Clicking the preview opens FeedbackEditorModal (FR-36 / FR-37). */}
-          <FeedbackPreview
-            section={section}
-            onEdit={() => setFeedbackOpen(true)}
-          />
+          {/* Обратная связь темы правится во вкладке «Обратная связь и итоги»,
+              подраздел «Обратная связь», карточка «По темам»: там она показана
+              РАЗРЕШЁННОЙ — с источником и сбросом, — а здесь стояла среди выборки и
+              квот, где автор искал её последней (PRD-29 §7.1a). */}
         </div>
       </div>
-      <FeedbackEditorModal
-        open={feedbackOpen}
-        title={`Обратная связь по теме «${section.topicName}»`}
-        description="Показывается учащемуся после прохождения темы"
-        value={{
-          format: section.feedback.format,
-          text: section.feedback.text,
-          links: section.feedbackLinks,
-          assets: section.feedbackAssets,
-          events: section.feedbackEvents,
-        }}
-        onCancel={() => setFeedbackOpen(false)}
-        onSave={(v) => {
-          props.onSaveFeedback({
-            feedback: { format: v.format, text: v.text },
-            feedbackLinks: v.links,
-            feedbackAssets: v.assets,
-            feedbackEvents: v.events ?? [],
-          });
-          setFeedbackOpen(false);
-        }}
-        testId={`feedback-editor-topic-${section.topicId}`}
-      />
     </>
   );
 }
@@ -1055,39 +932,6 @@ function withKeyThreshold(
   return { ...base, axis: "tag", keys: { ...(base.keys ?? {}), [key]: threshold } };
 }
 
-/**
- * Read-only preview of topic feedback content. When `onEdit` is provided,
- * renders as a clickable `div[role="button"]` (not `<button>`) so that rich
- * HTML content from the RTE — which includes block elements like `<p>` — is
- * valid inside the container. A `<button>` cannot contain block-level children.
- */
-function FeedbackPreview({
-  section,
-  onEdit,
-}: {
-  section: EditorSection;
-  onEdit?: () => void;
-}) {
-  // TD-02: delegate to the shared grouped-list preview (Материалы / Курсы /
-  // Мероприятия) with a pencil edit trigger.
-  return (
-    <SharedFeedbackPreview
-      format={section.feedback.format}
-      text={section.feedback.text}
-      links={section.feedbackLinks}
-      assets={section.feedbackAssets}
-      events={section.feedbackEvents}
-      onEdit={onEdit}
-      editAriaLabel="Редактировать обратную связь по теме"
-      emptyLabel={
-        onEdit
-          ? "Не задано — нажмите для редактирования"
-          : "Не задано — обратная связь по теме пока не настроена"
-      }
-      testId={`feedback-preview-${section.topicId}`}
-    />
-  );
-}
 
 function TopicPickerModal(props: {
   open: boolean;
@@ -1096,8 +940,12 @@ function TopicPickerModal(props: {
   onCancel: () => void;
 }) {
   const [filter, setFilter] = useState("");
+  // `String(t?.name ?? "")`, а не `t.name`: строка без имени — это испорченный ответ API,
+  // и падать на ней всем ящиком нельзя. Раньше исключение в этом фильтре сносило редактор
+  // целиком, вместе с уже введённым черновиком.
+  const needle = filter.trim().toLowerCase();
   const filtered = props.topics.filter((t) =>
-    t.name.toLowerCase().includes(filter.trim().toLowerCase()),
+    String(t?.name ?? "").toLowerCase().includes(needle),
   );
 
   return (
@@ -1161,7 +1009,7 @@ function TopicPickerModal(props: {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Minimal shape of `/api/questions` rows the key table needs. */
-type QuestionTagRow = { id?: string; topicId: string; tags?: string[] };
+export type QuestionTagRow = { id?: string; topicId: string; tags?: string[] };
 
 /** Per-topic tag index: distinct display tags + how many questions carry each key. */
 type TopicTagInfo = { tags: string[]; availByKey: Record<string, number> };
@@ -1173,7 +1021,7 @@ type TopicTagInfo = { tags: string[]; availByKey: Record<string, number> };
  * (a question with several tags counts once per distinct key) — the per-tag
  * availability used for the shortfall indicator (FR-06).
  */
-function buildTagsByTopic(questions: QuestionTagRow[]): Map<string, TopicTagInfo> {
+export function buildTagsByTopic(questions: QuestionTagRow[]): Map<string, TopicTagInfo> {
   const map = new Map<string, TopicTagInfo>();
   for (const q of questions) {
     if (!q || typeof q.topicId !== "string") continue;

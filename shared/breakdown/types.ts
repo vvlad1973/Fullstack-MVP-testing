@@ -37,13 +37,6 @@ export interface BreakdownEntry {
   percentPoints: number;
   /** `unitEarned / unitPossible`, 0…100. The display default (решение 4). */
   percentUnits: number;
-  /**
-   * PRD-50 FR-19 - FR-23: verdict of this key. `true`/`false` when a threshold applied,
-   * `null`/absent when the key is informational, nothing was delivered under it (FR-22),
-   * or the record is test-scoped (FR-23 — there is no gate there). Stamped by
-   * `applyBreakdownGate`, never by {@link computeBreakdowns}, which knows no rules.
-   */
-  passed?: boolean | null;
 }
 
 /**
@@ -65,4 +58,21 @@ export interface BreakdownRules {
   default?: BreakdownThreshold;
   /** Per-key thresholds; a key absent here falls back to {@link BreakdownRules.default}. */
   keys?: Record<string, BreakdownThreshold>;
+}
+
+/**
+ * PRD-50 FR-50: обратная связь подтем ОДНОГО раздела, хранится в
+ * `test_sections.breakdown_feedback_json`. Значение записи — то же содержимое, что у
+ * обратной связи темы (`format`, `text`, `links`, `assets`, `events`), поэтому текст
+ * подтемы проходит через тот же сборщик рекомендаций, что и остальные источники.
+ *
+ * Тип содержимого здесь параметризован (`unknown` на уровне ядра разреза): `shared/schema`
+ * валидирует его схемой `feedbackContentSchema`, а рендер-контекст принимает уже разобранное
+ * значение. Так модуль разреза не начинает зависеть от схемы БД.
+ */
+export interface BreakdownFeedback<T = unknown> {
+  /** Axis the texts speak about. Only `"tag"` is registered in this edition. */
+  axis: string;
+  /** Ключ подтемы -> её текст с рекомендациями. */
+  keys: Record<string, T>;
 }

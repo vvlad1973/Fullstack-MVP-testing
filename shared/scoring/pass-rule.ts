@@ -14,12 +14,13 @@
  * `inherit_overall` / `none` (treated as an unsatisfiable `value:undefined` count
  * rule, so the topic always failed) and disagreed on the count basis.
  *
- * PRD-50 adds the SECOND half of the topic gate here: the thresholds of the section's
- * breakdown keys ({@link applyBreakdownGate}). It lives next to the section rule for the
- * same reason the section rule lives here — one implementation for both hosts.
+ * PRD-50 added a second half of the topic gate here — the thresholds of the section's
+ * breakdown keys. It is GONE (решение владельца 2026-09-03): the topic verdict is its own
+ * rule alone. What remains is the resolution of the stored thresholds, which the publish
+ * warning and the test transfer still read.
  */
 
-import type { BreakdownEntry, BreakdownRules } from "../breakdown/types";
+import type { BreakdownRules } from "../breakdown/types";
 
 /** A resolved, runtime-ready pass rule. `null` means "no gate" (topic informational). */
 export type ResolvedRule = { type: "percent" | "count"; value: number };
@@ -182,7 +183,7 @@ export function hasPronouncedVerdict(thresholdDeclared: boolean | undefined, pos
   return !(nothingToGrade(possiblePoints) || thresholdDeclared === false);
 }
 
-// ─── PRD-50: gate by breakdown keys ──────────────────────────────────────────
+// ─── PRD-50: stored key thresholds (legacy, no longer a gate) ────────────────
 
 /**
  * Normalised, runtime-ready key thresholds of ONE section. `fallback` is the threshold every
@@ -235,33 +236,9 @@ export function breakdownThresholdFor(
   return own === undefined ? rules.fallback : own;
 }
 
-/**
- * Apply the key thresholds to ONE section's breakdown records (FR-19 - FR-22).
- *
- * Stamps `passed` on every record and answers the section's key verdict: `true` when every
- * applied threshold holds, `false` when at least one is missed, `null` when NO threshold
- * applied at all — no rules, only informational keys, or nothing delivered under the keys
- * that have one (FR-22). `null` must not be read as «passed»: the caller distinguishes «the
- * keys say nothing» from «the keys say yes».
- *
- * The records are mutated on purpose. They are the very objects both hosts persist with the
- * attempt and render from, so returning copies would mean threading a second array through
- * two hosts, the stored result and the report.
+/*
+ * `applyBreakdownGate` жил здесь до решения владельца 2026-09-03: он штамповал вердикт на
+ * каждой строке разреза и складывал их в половину вердикта темы. Снят вместе с полем
+ * `passed` записи разреза — подтема говорит о результате, но не судит его. Резольверы выше
+ * остаются: сохранённые пороги читает предупреждение публикации и перенос теста.
  */
-export function applyBreakdownGate(entries: BreakdownEntry[], rawRules: unknown): boolean | null {
-  const rules = resolveBreakdownRules(rawRules);
-  let verdict: boolean | null = null;
-  for (const e of entries) {
-    const threshold = breakdownThresholdFor(rules, e.axis, e.key);
-    // FR-22: a key nothing was delivered under cannot be missed, so it is not judged.
-    if (threshold === null || e.items <= 0) {
-      e.passed = null;
-      continue;
-    }
-    // FR-21: ALWAYS the points share — the display basis must not move the verdict.
-    const ok = e.percentPoints >= threshold;
-    e.passed = ok;
-    verdict = verdict === null ? ok : verdict && ok;
-  }
-  return verdict;
-}

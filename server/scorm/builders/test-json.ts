@@ -9,7 +9,7 @@ import { parseScaleInterpretation } from "@shared/scales/interpretation";
 import { hasGradedContent } from "@shared/questions/question-type";
 // PRD-32: ONE address rule for a feedback attachment, and ONE source-priority rule for
 // the topic's feedback text — the same helpers the web grader runs.
-import { feedbackAssets, topicFeedbackTexts } from "@shared/template/result-context";
+import { feedbackAssets, normalizeFeedback, topicFeedbackTexts } from "@shared/template/result-context";
 import type { ReportBake } from "@shared/report/report-variants";
 
 interface AdaptiveLevelWithLinks extends AdaptiveLevel {
@@ -133,6 +133,23 @@ interface ExportData {
     secretKey: string;
     apiBaseUrl: string;
   } | null;
+}
+
+/**
+ * PRD-50 FR-50: тексты подтем раздела для пакета — `{ ключ: блок }` либо `null`.
+ *
+ * `null` вместо пустого объекта не украшение: раздел без текстов НЕ добавляет ключа в
+ * `TEST_DATA`, и пакет теста, не пользовавшегося настройкой, остаётся прежним до байта.
+ */
+function bakeBreakdownFeedback(raw: unknown): Record<string, unknown> | null {
+  const keys = (raw as { keys?: Record<string, unknown> } | null | undefined)?.keys;
+  if (!keys) return null;
+  const out: Record<string, unknown> = {};
+  for (const [key, content] of Object.entries(keys)) {
+    const block = normalizeFeedback(content);
+    if (block) out[key] = block;
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 export function buildTestJson(data: ExportData): string {
@@ -325,6 +342,11 @@ export function buildTestJson(data: ExportData): string {
       // Feedback TEXTS of the same two authoring points, through the same shared rule the
       // web grader runs — source priority and the topic-before-section order included.
       const sectionFeedbackTexts = topicFeedbackTexts(s.topic, s.feedbackJson);
+      // PRD-50 FR-50: тексты ПОДТЕМ этого раздела (`test_sections.breakdown_feedback_json`)
+      // через тот же нормализатор, что и остальные источники блока рекомендаций: адреса
+      // вложений становятся `/api/media/<id>`, а упаковщик медиа переписывает их в
+      // внутрипакетные пути вместе со всем деревом.
+      const sectionBreakdownFeedback = bakeBreakdownFeedback(s.breakdownFeedbackJson);
       return {
         topicId: s.topic.id,
         topicName: s.topic.name,
@@ -355,10 +377,9 @@ export function buildTestJson(data: ExportData): string {
         // degrades to a random pick (R-6). The whole bank ships (every variant's
         // questions+keys, R-7) — selection happens client-side.
         ...(s.formSetJson ? { formSet: s.formSetJson } : {}),
-        // PRD-50 §4 (FR-09): per-key thresholds of this section. Baked only when the author
-        // set them, so packages of tests without thresholds stay byte-identical; the runtime
-        // reads `section.breakdownRules` and an absent value means «keys are informational».
-        ...(s.breakdownRulesJson ? { breakdownRules: s.breakdownRulesJson } : {}),
+        // Пороги подтем в пакет НЕ пекутся: рантайм их больше не читает — вердикт темы
+        // считается её собственным правилом (решение владельца 2026-09-03). Сохранённые
+        // пороги остаются в базе и в переносе теста, но в доставке им делать нечего.
         // PRD-50 FR-11: блок, в который автор поместил ЭТОТ раздел. Как и список блоков
         // выше — только когда он есть, иначе пакет прежний до байта; ссылка на ключ,
         // которого в списке нет, значит «без блока», и разрешает это ядро (FR-12).
@@ -385,6 +406,10 @@ export function buildTestJson(data: ExportData): string {
         // without feedback stay byte-identical (FR-02); the runtime falls back to an
         // empty list.
         ...(sectionFeedbackTexts.length > 0 ? { feedbackTexts: sectionFeedbackTexts } : {}),
+        // PRD-50 FR-50: тексты подтем. Выпекаются только когда автор их написал, поэтому
+        // пакет теста без них байт-в-байт прежний; кого из них прочитает человек, решает
+        // ОБЩИЙ построитель по порогу теста — рантайм только отдаёт написанное.
+        ...(sectionBreakdownFeedback ? { breakdownFeedback: sectionBreakdownFeedback } : {}),
         recommendedCourses: s.courses.map((c) => ({ title: c.title, url: c.url })),
         recommendedEvents: s.events.map((e) => ({ title: e.title })),
         // PRD-32: PDF attachments of the TOPIC (`topics.feedback_json`) and of THIS test's

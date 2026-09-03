@@ -23,13 +23,12 @@ import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Trash2 } from "lucide-react";
 import {
-  Accordion,
-  AccordionItem,
   Banner,
   Button,
   Card,
   CardBody,
   CardHeader,
+  FormSection,
   Input,
   NumberInput,
   RadioGroup,
@@ -88,143 +87,27 @@ export type SettingsSectionProps = {
 /** Backwards-compatible alias: original skeleton lived under this name. */
 export type BasicSettingsSectionProps = SettingsSectionProps;
 
-type RailKey =
-  | "basic"
-  | "pass-rules"
-  | "limits"
-  | "integration"
-  | "adaptive";
-
-const RAIL_ITEMS: { key: RailKey; label: string }[] = [
-  { key: "basic", label: "Основное" },
-  { key: "pass-rules", label: "Правила прохождения" },
-  { key: "limits", label: "Ограничения" },
-  { key: "integration", label: "Интеграция" },
-  { key: "adaptive", label: "Адаптивный режим" },
-];
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
-/** FR-20c: which validated field paths live under each settings sub-pane. */
-const RAIL_ERROR_PREFIXES: Record<RailKey, string[]> = {
-  basic: ["basic.title", "flowMode"],
-  "pass-rules": ["passRules"],
-  limits: [],
-  integration: ["basic.webhookUrl"],
-  adaptive: ["adaptive"],
-};
-
-export function SettingsSection({
-  model,
-  updateModel,
-  fieldErrors = EMPTY_FIELD_ERRORS,
-  design,
-}: SettingsSectionProps) {
-  const [active, setActive] = useState<RailKey>("basic");
-  // Per requirements: «Адаптивный режим» sub-section is only relevant when
-  // the test itself runs in adaptive mode. Hide the rail item in standard
-  // mode; if it was active, fall back to the previous tab.
-  const isAdaptive = model.mode === "adaptive";
-  const visibleRailItems = isAdaptive
-    ? RAIL_ITEMS
-    : RAIL_ITEMS.filter((it) => it.key !== "adaptive");
-  const effectiveActive: RailKey =
-    active === "adaptive" && !isAdaptive ? "basic" : active;
-
-  // Error dot: no topic is enabled (stop-factor for adaptive mode).
-  const hasAdaptiveError =
-    isAdaptive &&
-    model.sections.length > 0 &&
-    !model.adaptive.topics.some((t) => t.enabled);
-  // Warning dot: at least one enabled topic has fewer than 2 levels.
-  const hasAdaptiveWarning =
-    isAdaptive &&
-    !hasAdaptiveError &&
-    model.sections.some((section) => {
-      const topic = model.adaptive.topics.find((t) => t.topicId === section.topicId);
-      return topic?.enabled && topic.levels.length < 2;
-    });
-
-  return (
-    <div className="ou-drawer__split" data-testid="settings-split">
-      <nav className="ou-drawer__rail" aria-label="Подразделы настроек">
-        {visibleRailItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={
-              "ou-drawer__rail-item" +
-              (effectiveActive === item.key ? " is-active" : "")
-            }
-            aria-current={effectiveActive === item.key ? "page" : undefined}
-            onClick={() => setActive(item.key)}
-            data-testid={`settings-rail-${item.key}`}
-          >
-            {item.label}
-            {/* FR-20c: error dot when any validated field in this pane is invalid.
-                Adaptive keeps its dedicated stop-factor check below. */}
-            {item.key !== "adaptive" &&
-              RAIL_ERROR_PREFIXES[item.key].some((p) => fieldErrors.has(p)) && (
-                <span
-                  className="tb-status-dot tb-status-dot--err"
-                  aria-label="Ошибка"
-                />
-              )}
-            {item.key === "adaptive" && (hasAdaptiveError || fieldErrors.has("adaptive")) && (
-              <span
-                className="tb-status-dot tb-status-dot--err"
-                aria-label="Ошибка"
-              />
-            )}
-            {item.key === "adaptive" && hasAdaptiveWarning && !fieldErrors.has("adaptive") && (
-              <span
-                className="tb-status-dot tb-status-dot--warn"
-                aria-label="Требует внимания"
-              />
-            )}
-          </button>
-        ))}
-      </nav>
-      <div
-        className="tb-settings-content"
-        data-testid={`settings-pane-${effectiveActive}`}
-      >
-        {effectiveActive === "basic" && (
-          <BasicPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} design={design} />
-        )}
-        {effectiveActive === "pass-rules" && (
-          <PassRulesPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-        )}
-        {effectiveActive === "limits" && (
-          <LimitsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-        )}
-        {effectiveActive === "integration" && (
-          <IntegrationPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-        )}
-        {effectiveActive === "adaptive" && isAdaptive && (
-          <AdaptivePane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Backwards-compatible re-export under the old skeleton name. */
-export const BasicSettingsSection = SettingsSection;
+/*
+ * Рейл «Настроек» жил здесь до перестройки ящика (Э3): пять пунктов, которые резали
+ * настройки по трём осям сразу. Теперь рейлы ведут сами вкладки редактора, а этот
+ * модуль отдаёт им панели — MainPane, ScenarioSettingsPane, NavigationPane и прочие.
+ */
 
 // ─── Sub-pane: Основное ───────────────────────────────────────────────────────
 
-function BasicPane({
+/**
+ * «Основное» → чем тест ЯВЛЯЕТСЯ: название, описание, режим (Э3.2).
+ *
+ * Прежняя панель «Основное» держала заодно сценарий прохождения, обратную связь, вводный
+ * текст и карточку отчёта — четыре разных разговора в одном месте. Каждый переехал туда,
+ * где ему отвечают: сценарий — в «Состав и сценарий», тексты и отчёт — в «Обратную связь
+ * и итоги».
+ */
+export function MainPane({
   model,
   updateModel,
   fieldErrors = EMPTY_FIELD_ERRORS,
-  design,
 }: SettingsSectionProps) {
-  // PRD-7 S13.2-G7: «Общая обратная связь теста» card. The model already
-  // carries the underlying fields (basic.feedback / feedbackLinks /
-  // feedbackAssets), populated by the API on load (PRD-7 S2). This UI block
-  // is the missing surface that lets the author edit them via the unified
-  // FeedbackEditorModal, identical to topic-level feedback elsewhere.
   return (
     <>
       <div className="ou-formfield" data-field="basic.title">
@@ -282,6 +165,9 @@ function BasicPane({
           ]}
           onChange={(value) => {
               updateModel((m) => {
+                // Переключение в адаптивный режим заводит лестницу для каждой темы теста:
+                // сам режим без уровней ничего не значит, а автор не должен собирать их
+                // по одному после смены режима.
                 if (value === "adaptive" && m.mode !== "adaptive" && m.sections.length > 0) {
                   const existingTopics = m.adaptive.topics;
                   const updatedTopics = m.sections.map((section) => {
@@ -310,6 +196,23 @@ function BasicPane({
         />
       </div>
 
+    </>
+  );
+}
+
+// ─── Панель «Сценарий» (вкладка «Состав и сценарий») ──────────────────────────
+
+/**
+ * Сценарий прохождения: как тест ведёт участника — одним потоком, по темам или через
+ * страницу-маршрутизатор. Стоит рядом с полотном сценария, а не в «Основном»: это ответ
+ * на вопрос «как он идёт», а не «что это за тест» (Э3.3).
+ */
+export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProps) {
+  // PRD-19: экран итогов раздела осмыслен только у секционного теста, где разделы есть.
+  const showSectionResultsApplicable =
+    model.flowMode !== "linear_flat" && model.sections.length > 0;
+  return (
+    <>
       <div className="ou-formfield">
         <Select<FlowMode>
           id="settings-flow-mode"
@@ -345,16 +248,71 @@ function BasicPane({
         )}
       </div>
 
-      {/*
-        PRD-47 §6.2: карточка «Отчёт о результатах» переехала на вкладку «Оформление», в
-        свой пункт рейла. Отчёт — часть шаблона, его поля объявляет манифест ровно как
-        параметры оформления, и место им рядом с «Макетом», а не под правилами
-        прохождения. Хранение при этом НЕ переехало: поля отчёта остаются своей колонкой
-        (PRD-27 §4.2), поэтому `model.report` по-прежнему часть модели теста.
-      */}
 
-      <hr className="wf-sep" />
+      {showSectionResultsApplicable && (
+        <div className="ou-formfield">
+          <Switch
+            label="Показывать итоги раздела"
+            description="После завершения раздела показывается экран с его результатом. Только для секционных тестов."
+            checked={model.runtime.showSectionResults}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              updateModel((m) => ({
+                ...m,
+                runtime: { ...m.runtime, showSectionResults: checked },
+              }));
+            }}
+            data-testid="settings-show-section-results-checkbox"
+          />
+        </div>
+      )}
+    </>
+  );
+}
 
+// ─── Панель «Во время теста» (вкладка «Обратная связь и итоги») ───────────────
+
+/**
+ * Что участник видит ПО ХОДУ: показывать ли правильные ответы. Настройка живёт рядом с
+ * текстами обратной связи, потому что говорит о том же — что человек узнаёт о своём
+ * ответе и когда (Э3.6).
+ */
+export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
+  return (
+    <>
+          <div className="ou-formfield">
+            <Switch
+              label="Показывать правильные ответы после прохождения"
+              checked={model.runtime.showCorrectAnswers}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                updateModel((m) => ({
+                  ...m,
+                  runtime: {
+                    ...m.runtime,
+                    showCorrectAnswers: checked,
+                    // PRD-19 FR-04b: взаимоисключение — при показе правильных ответов
+                    // изменение ответа недоступно.
+                    allowAnswerChange: checked ? false : m.runtime.allowAnswerChange,
+                  },
+                }));
+              }}
+              data-testid="settings-show-correct-checkbox"
+            />
+          </div>
+    </>
+  );
+}
+
+// ─── Панель «Обратная связь» (тексты после теста) ─────────────────────────────
+
+/**
+ * Тексты, которые участник читает ПОСЛЕ теста: общая обратная связь и вводный текст
+ * итогов и отчёта. Прежде они висели в «Основном» вперемешку с названием теста (Э3.6).
+ */
+export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) {
+  return (
+    <>
       <Card variant="outlined" data-testid="settings-feedback-card">
         <CardHeader title="Общая обратная связь теста" />
         <CardBody>
@@ -376,37 +334,10 @@ function BasicPane({
               }));
             }}
           />
-          <hr className="wf-sep" />
-          <div className="ou-formfield">
-            <Switch
-              label="Показывать правильные ответы после прохождения"
-              checked={model.runtime.showCorrectAnswers}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                updateModel((m) => ({
-                  ...m,
-                  runtime: {
-                    ...m.runtime,
-                    showCorrectAnswers: checked,
-                    // PRD-19 FR-04b: взаимоисключение — при показе правильных ответов
-                    // изменение ответа недоступно.
-                    allowAnswerChange: checked ? false : m.runtime.allowAnswerChange,
-                  },
-                }));
-              }}
-              data-testid="settings-show-correct-checkbox"
-            />
-          </div>
         </CardBody>
       </Card>
-
       <hr className="wf-sep" />
 
-      {/*
-        ВВОДНЫЕ БЛОКИ. Идут первыми в своей выдаче и объясняют слушателю, что он читает.
-        Текстов два, потому что адресаты разные: экран пробегают глазами сразу, отчёт
-        уносят с собой и показывают специалисту. Пустой текст = блока нет.
-      */}
       <Card variant="outlined" data-testid="settings-intro-card">
         <CardHeader title="Вводный текст" />
         <CardBody>
@@ -453,15 +384,19 @@ function BasicPane({
           )}
         </CardBody>
       </Card>
+    </>
+  );
+}
 
-      {/*
-        Отчёт — тоже обратная связь обучающемуся, поэтому его СОДЕРЖАНИЕ (выдавать ли
-        документ и что в нём показывать) стоит здесь, рядом с текстом, который слушатель
-        прочтёт (PRD-27 §7.1). Облик документа — подложка, логотип, вид — остался в
-        «Оформлении», где живут шаблон и брендинг: поля делит сам шаблон признаком `scope`.
-      */}
-      <hr className="wf-sep" />
+// ─── Панель «Отчёт» (содержание документа) ────────────────────────────────────
 
+/**
+ * Отчёт — тоже обратная связь обучающемуся, поэтому его СОДЕРЖАНИЕ (выдавать ли документ,
+ * что в нём показывать, из каких блоков он собран) стоит рядом с текстами, которые
+ * слушатель прочтёт (PRD-27 §7.1). Облик документа остался в «Оформлении».
+ */
+export function ReportContentPane({ model, updateModel, design }: SettingsSectionProps) {
+  return (
       <ReportSettingsCard
         scope="content"
         mode={model.mode}
@@ -499,7 +434,6 @@ function BasicPane({
             : undefined
         }
       />
-    </>
   );
 }
 
@@ -510,75 +444,54 @@ function BasicPane({
  * the in-attempt ones (attempt count, time) and the between-attempts retake
  * block, which lives here instead of a rail item of its own.
  */
-function LimitsPane({ model, updateModel }: SettingsSectionProps) {
+export function LimitsPane({ model, updateModel }: SettingsSectionProps) {
   return (
     <>
-      <div className="ou-formfield">
-        <NumberInput
-          id="settings-max-attempts"
-          size="m"
-          label="Максимум попыток"
-          hint="Оставьте 0 для неограниченного числа попыток."
-          value={model.runtime.maxAttempts ?? 0}
-          min={0}
-          data-testid="settings-max-attempts-input"
-          onChange={(next) =>
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, maxAttempts: next === 0 ? null : next },
-            }))
-          }
-        />
-      </div>
+      {/* Э3.4: два барьера отвечают на разные вопросы — «сколько длится ПОПЫТКА» и
+          «когда можно ПОВТОРИТЬ». Прежде они шли одним столбцом, и лимит времени теста
+          читался как ограничение повторов. */}
+      <FormSection title="Ограничения попытки" stacked>
+        <div className="ou-formfield">
+          <NumberInput
+            id="settings-time-limit"
+            size="m"
+            label="Лимит времени теста"
+            hint="Оставьте 0, чтобы не ограничивать."
+            value={model.runtime.timeLimitMinutes ?? 0}
+            min={0}
+            suffix="минут"
+            data-testid="settings-time-limit-input"
+            onChange={(next) =>
+              updateModel((m) => ({
+                ...m,
+                runtime: { ...m.runtime, timeLimitMinutes: next === 0 ? null : next },
+              }))
+            }
+          />
+        </div>
+        <PerTopicLimitsBlock model={model} updateModel={updateModel} />
+      </FormSection>
 
-      <div className="ou-formfield">
-        <Select<"best" | "last">
-          id="settings-lms-attempt-result"
-          size="m"
-          fullWidth
-          label="Результат для LMS при нескольких попытках"
-          hint="Действует только в SCORM-пакете. Многие LMS сами решают, какую попытку засчитать, — тогда выбирайте «последнюю»; если LMS хранит лишь последний результат, «лучшая» защитит удачную попытку от неудачной."
-          value={model.runtime.lmsAttemptResult}
-          options={[
-            { value: "best", label: "Лучшая попытка" },
-            { value: "last", label: "Последняя попытка" },
-          ]}
-          data-testid="settings-lms-attempt-result"
-          onChange={(next) =>
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, lmsAttemptResult: next },
-            }))
-          }
-        />
-      </div>
-
-      <div className="ou-formfield">
-        <NumberInput
-          id="settings-time-limit"
-          size="m"
-          label="Лимит времени теста"
-          hint="Оставьте 0, чтобы не ограничивать."
-          value={model.runtime.timeLimitMinutes ?? 0}
-          min={0}
-          suffix="минут"
-          data-testid="settings-time-limit-input"
-          onChange={(next) =>
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, timeLimitMinutes: next === 0 ? null : next },
-            }))
-          }
-        />
-      </div>
-      <hr className="wf-sep" />
-      <PerTopicLimitsBlock model={model} updateModel={updateModel} />
-      {/* PRD-7 S13.2-G8: «Показывать правильные ответы» переехал в Основное
-          → секция «Общая обратная связь теста» (вместе с feedback editor),
-          per wireframe prd7-editor-settings-tab.html lines 820-837. */}
-      <hr className="wf-sep" />
-      <h3 className="tb-topics-title">Повторное прохождение</h3>
-      <RetakeBlock model={model} updateModel={updateModel} />
+      <FormSection title="Ограничения повторных попыток" stacked>
+        <div className="ou-formfield">
+          <NumberInput
+            id="settings-max-attempts"
+            size="m"
+            label="Максимум попыток"
+            hint="Оставьте 0 для неограниченного числа попыток."
+            value={model.runtime.maxAttempts ?? 0}
+            min={0}
+            data-testid="settings-max-attempts-input"
+            onChange={(next) =>
+              updateModel((m) => ({
+                ...m,
+                runtime: { ...m.runtime, maxAttempts: next === 0 ? null : next },
+              }))
+            }
+          />
+        </div>
+        <RetakeBlock model={model} updateModel={updateModel} />
+      </FormSection>
     </>
   );
 }
@@ -615,7 +528,7 @@ function PerTopicLimitsBlock({ model, updateModel }: SettingsSectionProps) {
       <Banner
         tone="info"
         size="sm"
-        description="Индивидуальные лимиты для тем доступны после добавления хотя бы одной темы во вкладке «Состав»."
+        description="Индивидуальные лимиты для тем доступны после добавления хотя бы одной темы в подразделе «Состав»."
         data-testid="settings-per-topic-no-topics"
       />
     );
@@ -1011,7 +924,7 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
 
 // ─── Sub-pane: Интеграция ─────────────────────────────────────────────────────
 
-function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }: SettingsSectionProps) {
+export function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }: SettingsSectionProps) {
   return (
     <>
       <div className="ou-formfield" data-field="basic.webhookUrl">
@@ -1050,34 +963,48 @@ function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS 
           data-testid="settings-telemetry-checkbox"
         />
       </div>
+
+      <div className="ou-formfield">
+        <Select<"best" | "last">
+          id="settings-lms-attempt-result"
+          size="m"
+          fullWidth
+          label="Результат для LMS при нескольких попытках"
+          hint="Действует только в SCORM-пакете. Многие LMS сами решают, какую попытку засчитать, — тогда выбирайте «последнюю»; если LMS хранит лишь последний результат, «лучшая» защитит удачную попытку от неудачной."
+          value={model.runtime.lmsAttemptResult}
+          options={[
+            { value: "best", label: "Лучшая попытка" },
+            { value: "last", label: "Последняя попытка" },
+          ]}
+          data-testid="settings-lms-attempt-result"
+          onChange={(next) =>
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, lmsAttemptResult: next },
+            }))
+          }
+        />
+      </div>
     </>
   );
 }
 
-// ─── Sub-pane: Правила прохождения ────────────────────────────────────────────
+// ─── Панель «Навигация» (вкладка «Правила прохождения») ───────────────────────
 
-const DECISION_POLICIES: { value: PassDecisionPolicy; label: string }[] = [
-  { value: "overall_only", label: "достигнут общий проходной порог теста" },
-  {
-    value: "overall_and_required_topics",
-    label:
-      "достигнут общий проходной порог и пройдены все обязательные темы",
-  },
-  { value: "required_topics_only", label: "пройдены все обязательные темы" },
-  { value: "all_topics_passed", label: "пройдена каждая выбранная тема" },
-];
-
-function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }: SettingsSectionProps) {
+/**
+ * Как участник ходит по тесту: возврат к пропущенным, правка ответа, обзор, быстрый
+ * переход. Часть переключателей гасится другими настройками, и подпись под погашенным
+ * называет ПРИЧИНУ вместе с её адресом — иначе автор ищет её по всему ящику (Э3.4).
+ */
+export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
   // PRD-19 (FR-04b): «изменение ответа» зависит от возврата ВКЛ и взаимоисключается с показом
-  // правильных ответов (раздел «Ограничения»). showSectionResults — только для секционных.
+  // правильных ответов («Обратная связь и итоги» → «Во время теста»).
   const changeDisabled =
     !model.runtime.allowReturnToUnanswered || model.runtime.showCorrectAnswers;
   // PRD-43: НЕ зависит от allowReturnToUnanswered (все 4 комбинации допустимы) —
   // блокируется только показом правильного ответа, который всегда требует
   // отдельного шага перед переходом дальше.
   const quickAdvanceDisabled = model.runtime.showCorrectAnswers;
-  const showSectionResultsApplicable =
-    model.flowMode !== "linear_flat" && model.sections.length > 0;
   return (
     <>
       <div className="ou-formfield">
@@ -1122,7 +1049,7 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
             description={
               !model.runtime.allowReturnToUnanswered
                 ? "Доступно только при включённом возврате к неотвеченным."
-                : "Недоступно при включённом показе правильных ответов (раздел «Ограничения»): иначе ученик увидит правильный ответ и переправит свой."
+                : "Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): иначе ученик увидит правильный ответ и переправит свой."
             }
           />
         )}
@@ -1161,28 +1088,129 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
           <Banner
             tone="warning"
             size="sm"
-            description="Недоступно при включённом показе правильных ответов (раздел «Ограничения»): нужно увидеть правильный ответ, прежде чем переходить дальше."
+            description="Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): нужно увидеть правильный ответ, прежде чем переходить дальше."
           />
         )}
       </div>
-      {showSectionResultsApplicable && (
-        <div className="ou-formfield">
-          <Switch
-            label="Показывать итоги раздела"
-            description="После завершения раздела показывается экран с его результатом. Только для секционных тестов."
-            checked={model.runtime.showSectionResults}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              updateModel((m) => ({
-                ...m,
-                runtime: { ...m.runtime, showSectionResults: checked },
-              }));
-            }}
-            data-testid="settings-show-section-results-checkbox"
-          />
-        </div>
-      )}
+    </>
+  );
+}
 
+// ─── Панель «Во время прохождения» (вкладка «Правила прохождения») ────────────
+
+/**
+ * Что участник видит НА ЭКРАНЕ ВОПРОСА. Параметры прогресса объявляет шаблон, и рисует их
+ * вкладка «Оформление» своим механизмом, — здесь стоит то, что принадлежит правилам
+ * прохождения: показ уровня сложности в адаптивном тесте (Э3.4, решение 18).
+ */
+export function DuringRunPane({ model, updateModel }: SettingsSectionProps) {
+  if (model.mode !== "adaptive") {
+    return (
+      <Banner
+        tone="info"
+        title="Показывать нечего"
+        description="Уровень сложности показывает только адаптивный тест. Режим теста выбирается во вкладке «Основное»."
+        data-testid="during-run-not-adaptive"
+      />
+    );
+  }
+  return (
+    <>
+      <div className="ou-formfield">
+        <Switch
+          label="Показывать уровень сложности при прохождении"
+          checked={model.adaptive.showDifficultyLevel}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              adaptive: {
+                ...m.adaptive,
+                showDifficultyLevel: checked,
+                testSettings: { ...m.adaptive.testSettings, showDifficultyLevel: checked },
+              },
+            }));
+          }}
+          data-testid="adaptive-show-difficulty"
+        />
+      </div>
+    </>
+  );
+}
+
+// ─── Панель «Защита контента» (вкладка «Правила прохождения») ─────────────────
+
+/**
+ * PRD-34: три независимых меры против выноса заданий. Стоят своим подразделом, а не в
+ * хвосте правил прохождения: это отдельный разговор, и автор ищет их по названию (Э3.4).
+ */
+export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
+  return (
+    <>
+      {/* PRD-34: блок «Защита». Три переключателя НЕЗАВИСИМЫ (FR-02) — водяной знак и
+          скрытие при потере фокуса осмысленны и без основной защиты, поэтому
+          подчинённости между ними нет ни здесь, ни в базе. */}
+      <div className="ou-formfield">
+        <Switch
+          label="Защищать текст задания от копирования"
+          description="На экране вопроса и на экране обзора текст не выделяется, не копируется, не перетаскивается и не печатается. В тестовом прогоне автора защита не действует."
+          checked={model.runtime.copyProtection}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, copyProtection: checked },
+            }));
+          }}
+          data-testid="settings-copy-protection-checkbox"
+        />
+      </div>
+      <div className="ou-formfield">
+        <Switch
+          label="Показывать водяной знак"
+          description="Поверх экранов вопроса, обзора, итогов раздела и итогов теста печатается обезличенный идентификатор и время. Снимок экрана остаётся возможным, но становится атрибутируемым."
+          checked={model.runtime.protectionWatermark}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, protectionWatermark: checked },
+            }));
+          }}
+          data-testid="settings-protection-watermark-checkbox"
+        />
+      </div>
+      <div className="ou-formfield">
+        <Switch
+          label="Скрывать задание при уходе из окна"
+          description="Если ученик переключился на другую вкладку, задание закрывается заглушкой и открывается снова само, как только окно активно. Таймер и ответы не затрагиваются."
+          checked={model.runtime.protectionHideOnBlur}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, protectionHideOnBlur: checked },
+            }));
+          }}
+          data-testid="settings-protection-hide-on-blur-checkbox"
+        />
+      </div>
+
+      <hr className="wf-sep" />
+    </>
+  );
+}
+
+// ─── Панель «Состав итогов» → показ подытогов ─────────────────────────────────
+
+/**
+ * PRD-50: показ подытогов по подтемам. После Э1 у подтемы нет вердикта, поэтому все три
+ * поля говорят только о ПОКАЗЕ — включение полос, база числа и место печати, — и живут
+ * рядом с порядком подблоков и надписями, а не в оценке (решение 17).
+ */
+export function BreakdownDisplayPane({ model, updateModel }: SettingsSectionProps) {
+  return (
+    <>
       <div className="ou-formfield">
         <Select<"hidden" | "bar" | "bar_and_value">
           id="settings-breakdown-visibility"
@@ -1275,58 +1303,33 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
       )}
 
       <hr className="wf-sep" />
+    </>
+  );
+}
 
-      {/* PRD-34: блок «Защита». Три переключателя НЕЗАВИСИМЫ (FR-02) — водяной знак и
-          скрытие при потере фокуса осмысленны и без основной защиты, поэтому
-          подчинённости между ними нет ни здесь, ни в базе. */}
-      <div className="ou-formfield">
-        <Switch
-          label="Защищать текст задания от копирования"
-          description="На экране вопроса и на экране обзора текст не выделяется, не копируется, не перетаскивается и не печатается. В тестовом прогоне автора защита не действует."
-          checked={model.runtime.copyProtection}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, copyProtection: checked },
-            }));
-          }}
-          data-testid="settings-copy-protection-checkbox"
-        />
-      </div>
-      <div className="ou-formfield">
-        <Switch
-          label="Показывать водяной знак"
-          description="Поверх экранов вопроса, обзора, итогов раздела и итогов теста печатается обезличенный идентификатор и время. Снимок экрана остаётся возможным, но становится атрибутируемым."
-          checked={model.runtime.protectionWatermark}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, protectionWatermark: checked },
-            }));
-          }}
-          data-testid="settings-protection-watermark-checkbox"
-        />
-      </div>
-      <div className="ou-formfield">
-        <Switch
-          label="Скрывать задание при уходе из окна"
-          description="Если ученик переключился на другую вкладку, задание закрывается заглушкой и открывается снова само, как только окно активно. Таймер и ответы не затрагиваются."
-          checked={model.runtime.protectionHideOnBlur}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, protectionHideOnBlur: checked },
-            }));
-          }}
-          data-testid="settings-protection-hide-on-blur-checkbox"
-        />
-      </div>
+// ─── Панель «Вердикт» (вкладка «Оценка результата») ───────────────────────────
 
-      <hr className="wf-sep" />
+const DECISION_POLICIES: { value: PassDecisionPolicy; label: string }[] = [
+  { value: "overall_only", label: "достигнут общий проходной порог теста" },
+  {
+    value: "overall_and_required_topics",
+    label: "достигнут общий проходной порог и пройдены все обязательные темы",
+  },
+  { value: "required_topics_only", label: "пройдены все обязательные темы" },
+  { value: "all_topics_passed", label: "пройдена каждая выбранная тема" },
+];
 
+/**
+ * Что значит «тест пройден»: общая политика, общее правило и правила тем. Прежде карточка
+ * стояла в хвосте «Правил прохождения» — рядом с навигацией, к которой не относится (Э3.5).
+ */
+export function VerdictPane({
+  model,
+  updateModel,
+  fieldErrors = EMPTY_FIELD_ERRORS,
+}: SettingsSectionProps) {
+  return (
+    <>
       <Card
         variant="outlined"
         size="sm"
@@ -1503,7 +1506,7 @@ function PassRulesPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }:
           <div className="ou-banner__body">
             <div className="ou-banner__title">Сначала добавьте темы</div>
             <div className="ou-banner__desc">
-              Перейдите во вкладку «Состав» и добавьте хотя бы одну тему — после
+              Перейдите в подраздел «Состав» и добавьте хотя бы одну тему — после
               этого здесь появится таблица правил прохождения тем.
             </div>
           </div>
@@ -1809,7 +1812,7 @@ function makeDefaultLevel(index: number): AdaptiveLevelConfig {
   };
 }
 
-function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
+export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
   // Parent (SettingsSection) only renders this pane when mode === "adaptive",
   // so the «mode=standard» fallback banner has been removed. If you need to
   // re-introduce it (e.g., for a quick preview from standard mode), restore
@@ -1844,35 +1847,13 @@ function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
 
   return (
     <>
-
-      <div className="ou-formfield">
-        <Switch
-          label="Показывать уровень сложности при прохождении"
-          checked={model.adaptive.showDifficultyLevel}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              adaptive: {
-                ...m.adaptive,
-                showDifficultyLevel: checked,
-                testSettings: { ...m.adaptive.testSettings, showDifficultyLevel: checked },
-              },
-            }));
-          }}
-          data-testid="adaptive-show-difficulty"
-        />
-      </div>
-
-      <hr className="wf-sep" />
-
       <h3 className="tb-topics-title">Адаптивность по темам</h3>
 
       {model.sections.length === 0 ? (
         <Banner
           tone="info"
           title="Сначала добавьте темы"
-          description="Адаптивность настраивается по темам теста. Перейдите во вкладку «Состав» и добавьте темы — после этого здесь появится список для настройки уровней."
+          description="Адаптивность настраивается по темам теста. Перейдите в подраздел «Состав» и добавьте темы — после этого здесь появится список для настройки уровней."
           data-testid="adaptive-no-topics"
         />
       ) : (
@@ -2021,14 +2002,6 @@ function AdaptiveTopicAccordion(props: {
       )}
       {open && (
         <div className="ou-acc__body" data-testid={`adaptive-topic-body-${topic.topicId}`}>
-          <div className="ou-formfield">
-            <FailureFeedbackEditor
-              topicName={topic.topicName}
-              topicId={topic.topicId}
-              value={topic.failureFeedback ?? ""}
-              onChange={props.onFailureFeedbackChange}
-            />
-          </div>
 
           <div className="tb-adaptive-section">
             <div className="tb-adaptive-section__head">
@@ -2224,21 +2197,6 @@ function AdaptiveLevelCard(props: {
             />
           </div>
         </div>
-        <div className="ou-formfield">
-          <LevelFeedbackEditor
-            topicId={props.topicId}
-            levelIndex={level.levelIndex}
-            levelName={level.levelName}
-            text={level.feedback ?? ""}
-            links={level.links}
-            onChange={({ text, links }) =>
-              props.onChange({
-                feedback: text === "" ? null : text,
-                links,
-              })
-            }
-          />
-        </div>
       </CardBody>
     </Card>
   );
@@ -2367,7 +2325,12 @@ function TestFeedbackTrigger(props: {
  * adaptive mode) and «обратная связь для уровня» (per-level inside an
  * adaptive level card). Only the modal title and stored value shape differ.
  */
-function FeedbackEditTrigger(props: {
+/**
+ * Правка одного текста обратной связи: подпись, предпросмотр и модалка. Публичный,
+ * потому что тем же триггером пользуется карточка «По уровням» вкладки обратной связи —
+ * тексты уровней переехали туда, а правятся тем же элементом (Э2.5).
+ */
+export function FeedbackEditTrigger(props: {
   label: string;
   buttonAriaLabel: string;
   modalTitle: string;
@@ -2420,47 +2383,8 @@ function FeedbackEditTrigger(props: {
   );
 }
 
-function FailureFeedbackEditor(props: {
-  topicName: string;
-  topicId: string;
-  value: string;
-  onChange: (text: string) => void;
-}) {
-  return (
-    <FeedbackEditTrigger
-      label="Обратная связь при не пройденном уровне"
-      buttonAriaLabel={`Редактировать обратную связь темы ${props.topicName}`}
-      modalTitle={`Обратная связь по теме «${props.topicName}»`}
-      modalDescription="Показывается обучающемуся, если он не прошёл ни один уровень темы."
-      text={props.value}
-      links={[]}
-      hideAssets
-      onSave={({ text }) => props.onChange(text)}
-      testId={`adaptive-topic-failure-${props.topicId}`}
-    />
-  );
-}
-
-function LevelFeedbackEditor(props: {
-  topicId: string;
-  levelIndex: number;
-  levelName: string;
-  text: string;
-  links: AdaptiveLinkConfig[];
-  onChange: (patch: { text: string; links: AdaptiveLinkConfig[] }) => void;
-}) {
-  const testIdBase = `adaptive-level-${props.topicId}-${props.levelIndex}`;
-  return (
-    <FeedbackEditTrigger
-      label="Обратная связь для уровня"
-      buttonAriaLabel={`Редактировать обратную связь уровня ${props.levelName}`}
-      modalTitle={`Обратная связь уровня «${props.levelName}»`}
-      modalDescription="Показывается обучающемуся при достижении этого уровня сложности."
-      text={props.text}
-      links={props.links}
-      hideAssets
-      onSave={props.onChange}
-      testId={`${testIdBase}-feedback`}
-    />
-  );
-}
+/*
+ * Здесь стояли `FailureFeedbackEditor` и `LevelFeedbackEditor`. Тексты адаптивных уровней
+ * переехали во вкладку «Обратная связь и итоги», карточку «По уровням» (Э2.5): лестница
+ * отвечает за СТРУКТУРУ, а тексты живут там же, где все прочие тексты теста.
+ */

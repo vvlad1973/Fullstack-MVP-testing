@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, breakdownFeedbackSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -63,6 +63,11 @@ const sectionBodySchema = z
     // formSetJson above — Zod strips an unlisted key, and the author's thresholds would
     // vanish on save with a cheerful 200 OK.
     breakdownRulesJson: breakdownRulesSchema.nullish(),
+    // PRD-50 FR-50: тексты подтем. В `insertTestSectionSchema` эта схема не объявлена
+    // (там она ссылалась бы на `feedbackContentSchema` до его объявления), поэтому
+    // проверяет её ЗАПИСЬ — здесь. Без строки Zod срезал бы ключ, и автор получил бы
+    // бодрое 200 без сохранённого текста, ровно как было бы с `formSetJson`.
+    breakdownFeedbackJson: breakdownFeedbackSchema.nullish(),
     // PRD-50 FR-11: the group this section belongs to. MUST be listed here for the same
     // reason as formSetJson above — an unlisted key is stripped, and the author's choice
     // of block would never reach the column. null = no group (FR-25).

@@ -124,6 +124,13 @@ export interface SectionPayload {
   /** PRD-50 §4: per-key thresholds of this section; null/absent = keys are informational. */
   breakdownRulesJson?: BreakdownRules | null;
   /**
+   * PRD-50 FR-50: тексты подтем этого раздела; `null`/отсутствие = автор их не писал.
+   *
+   * Своей колонкой, а не полем порогов: порог — про оценку (и с Э1 он легаси), текст — про
+   * содержание результата.
+   */
+  breakdownFeedbackJson?: unknown;
+  /**
    * PRD-50 FR-11: `key` of the test's group this section belongs to; `null`/absent = no
    * group, and the section prints after all groups in its own order (FR-25).
    */
@@ -798,6 +805,7 @@ export class TestSettingsService {
         drawBlueprintJson: s.drawBlueprintJson ?? null,
         formSetJson: s.formSetJson ?? null,
         breakdownRulesJson: s.breakdownRulesJson ?? null,
+        breakdownFeedbackJson: (s.breakdownFeedbackJson ?? null) as never,
         groupKey: s.groupKey ?? null,
         defaultPoints: s.defaultPoints ?? null,
         // FR-18: `null` = тема наследует правило теста.

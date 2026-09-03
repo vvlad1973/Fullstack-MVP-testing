@@ -100,15 +100,14 @@ function fixtureWithSectionRules(rules: unknown) {
 }
 
 describe("buildTestJson: пороги ключей в пакете", () => {
-  it("выпекает breakdownRules секции, когда автор их задал", () => {
+  it("пороги подтем в пакет не пекутся — рантайм их не читает", () => {
+    // Решение владельца 2026-09-03: вердикт темы — её собственное правило, поэтому
+    // сохранённым порогам в доставке делать нечего. В базе и в переносе они остаются.
     const json = bake(fixtureWithSectionRules({ axis: "tag", keys: { "ПДн": { type: "percent", value: 80 } } }));
-    expect(json.sections[0].breakdownRules).toEqual({
-      axis: "tag",
-      keys: { "ПДн": { type: "percent", value: 80 } },
-    });
+    expect("breakdownRules" in json.sections[0]).toBe(false);
   });
 
-  it("не выпекает ничего, когда порогов нет — пакет остаётся байт-идентичным", () => {
+  it("без порогов пакет тоже их не несёт", () => {
     const json = bake(fixtureWithSectionRules(null));
     expect("breakdownRules" in json.sections[0]).toBe(false);
   });

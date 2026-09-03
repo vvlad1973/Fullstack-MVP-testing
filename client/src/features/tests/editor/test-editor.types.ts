@@ -63,6 +63,20 @@ export type FeedbackContent = {
 };
 
 /**
+ * PRD-50 FR-50: обратная связь ОДНОЙ подтемы — целый блок, а не только текст.
+ *
+ * У теста и темы материалы лежат отдельными полями рядом с текстом (`feedbackLinks` и
+ * прочие): так сложилось исторически. Подтем в разделе много, и четыре параллельные карты
+ * пришлось бы держать в согласии между собой — поэтому здесь один блок на подтему, ровно
+ * той формы, в какой его хранит база (`feedbackContentSchema`).
+ */
+export type BreakdownFeedbackEntry = FeedbackContent & {
+  links: FeedbackLink[];
+  assets: FeedbackAsset[];
+  events: FeedbackEvent[];
+};
+
+/**
  * Material attached to feedback — title + external URL (PRD-42). `fileName`/`mimeType` are
  * legacy-only: descriptors saved through the retired upload flow (PRD-32) carry them, new
  * rows do not. `scormHref` is a legacy in-package address kept for reading old data only.
@@ -217,6 +231,14 @@ export type EditorSection = {
    * информационные, вердикт темы считается ровно как до PRD-50.
    */
   breakdownRules?: BreakdownRules | null;
+  /**
+   * PRD-50 FR-50: обратная связь ПОДТЕМ этого раздела — ключ подтемы -> её текст с
+   * рекомендациями в том же формате, что у темы.
+   *
+   * Отдельно от {@link breakdownRules}: пороги — про оценку (и с Э1 они легаси), текст —
+   * про содержание. Хранятся тоже врозь, своей колонкой.
+   */
+  breakdownFeedback?: Record<string, BreakdownFeedbackEntry> | null;
   /**
    * PRD-30 FR-02/FR-18: this topic's OVERRIDE of the test-wide delivery order.
    * `null`/absent = «как в тесте» (the default), `random` = today's shuffle,
@@ -710,6 +732,8 @@ export type TestSectionPayload = {
   formSetJson: FormSet | null;
   /** PRD-50 §4: пороги ключей; `null` = ключи информационные. */
   breakdownRulesJson: BreakdownRules | null;
+  /** PRD-50 FR-50: тексты подтем; `null` = автор их не писал. */
+  breakdownFeedbackJson: { axis: "tag"; keys: Record<string, BreakdownFeedbackEntry> } | null;
   /** PRD-50 FR-11/FR-12: the test's block this section belongs to; `null` = no block. */
   groupKey: string | null;
   /** PRD-15 block D (FR-31): per-section default price; `null` = inherit test. */

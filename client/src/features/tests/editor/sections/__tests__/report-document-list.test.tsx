@@ -163,7 +163,7 @@ describe("список блоков документа", () => {
       blocks: [{ block: "intro", templateKey: null, enabled: true, values: {}, settings: {} }],
     });
     expect(screen.getByTestId("report-document-intro-hint-0")).toHaveTextContent(
-      "Текст задаётся во вкладке «Настройки»",
+      "Текст задаётся в подразделе «Обратная связь»",
     );
   });
 });

@@ -64,11 +64,11 @@ export function describeBreakdownWarning(w: BreakdownWarning): string {
       return `Тема «${w.topicName}»: сумма квот ${w.count} не равна выборке ${w.total} — подтемы не разбивают выдачу целиком.`;
     case "questions_without_key":
       return `Тема «${w.topicName}»: вопросов без подтемы — ${w.count}. Они попадут в выдачу, но не войдут ни в одну полосу.`;
-    case "threshold_key_never_delivered":
-      return `Тема «${w.topicName}»: порог задан для подтемы «${w.key}», которой нет ни в одной выдаче — порог недостижим.`;
     case "question_outside_variants":
       return `Тема «${w.topicName}»: вопросов вне вариантов — ${w.count}. Они не будут выданы никогда.`;
     case "quotas_ignored_in_variants":
       return `Тема «${w.topicName}»: заданы и квоты, и варианты. В режиме вариантов квоты не применяются.`;
+    case "key_thresholds_no_longer_gate":
+      return `Тема «${w.topicName}»: у подтем заданы пороги, но подтема больше не влияет на вердикт темы — он считается правилом самой темы. Вердикт этого теста может отличаться от прежнего.`;
   }
 }

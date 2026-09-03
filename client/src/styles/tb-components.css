@@ -75,6 +75,22 @@
   min-height: 0;
 }
 
+/* ── Полоса вкладок ящика редактора ─────────────────────────────────────
+   Семь вкладок нового дерева с точками состояния в подписи шире, чем полоса
+   ящика: DS `.ou-tabs__list` — обычный flex без переноса и прокрутки, поэтому
+   последняя вкладка просто уезжала за правый край. Отступ вкладки внутри
+   ЯЩИКА уменьшен до 8px (ui-kit: 14px), а полосе разрешена прокрутка —
+   на узком экране или с длинными подписями седьмая вкладка достижима, а не
+   срезана. Правило живёт в `tb`-слое: сам DS не трогаем. */
+.ou-drawer > .ou-tabs--m .ou-tabs__tab {
+  padding-left: var(--ou-space-2);
+  padding-right: var(--ou-space-2);
+}
+.ou-drawer > .ou-tabs .ou-tabs__list {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
 /* ── Drawer body — flush variant for split layouts ──────────────────────
    DS .ou-drawer__body has `overflow-y: auto; padding: var(--ou-space-5)`.
    When the body's child is a `.ou-drawer__split` (rail + content), we want
@@ -177,6 +193,51 @@
 
 /* Card body paragraph (muted info). */
 .tb-card-desc { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin: 0 0 var(--ou-space-2); }
+
+/* PRD-29 §7.1a: шапка строки темы в карточке «По темам» — подпись источника слева,
+   «Сбросить до установок темы» справа, в одну строку над предпросмотром. */
+.tb-topic-feedback__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ou-space-2);
+  margin-bottom: var(--ou-space-2);
+}
+
+/* Э2.4: реестр «По вопросам» — дерево «тема -> вопрос», только чтение. Тема сворачивается,
+   потому что у теста бывает десяток тем по десятку вопросов. */
+.tb-qfeedback__topic + .tb-qfeedback__topic { margin-top: var(--ou-space-2); }
+.tb-qfeedback__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--ou-space-2);
+  width: 100%;
+  padding: var(--ou-space-2);
+  border: 0;
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-page);
+  cursor: pointer;
+  text-align: left;
+  color: var(--ou-fg-default);
+}
+.tb-qfeedback__trigger:hover { background: var(--ou-bg-subtle); }
+.tb-qfeedback__name { font: var(--ou-text-body-m); font-weight: 600; }
+.tb-qfeedback__count { margin-left: auto; font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+.tb-qfeedback__body { padding: var(--ou-space-2) 0 0 var(--ou-space-6); }
+.tb-qfeedback__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ou-space-4);
+  padding: var(--ou-space-2) 0;
+  border-bottom: 1px solid var(--ou-border-soft);
+}
+.tb-qfeedback__q { flex: 1 1 40%; min-width: 0; display: flex; align-items: center; gap: var(--ou-space-2); }
+.tb-qfeedback__q-text { font: var(--ou-text-body-s); overflow-wrap: anywhere; }
+.tb-qfeedback__texts { flex: 1 1 45%; min-width: 0; }
+.tb-qfeedback__line { display: flex; gap: var(--ou-space-2); font: var(--ou-text-body-s); }
+.tb-qfeedback__line-lbl { color: var(--ou-fg-muted); flex: 0 0 auto; }
+.tb-qfeedback__line-text { overflow-wrap: anywhere; }
+.tb-qfeedback__line-text.is-empty { color: var(--ou-fg-disabled); }
 
 /* Meta-count — компактный indicator «иконка + число» (например, число
    назначений теста в шапке drawer-а). Не chip, не tag — просто tone-muted

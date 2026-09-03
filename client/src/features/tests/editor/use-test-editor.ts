@@ -51,15 +51,38 @@ import type {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-/** The primary tabs of the editor Drawer. */
+/**
+ * Вкладки ящика редактора — целевое дерево, принятое владельцем 2026-09-03
+ * (`docs/reports/AUDIT_TEST_EDITOR_SETTINGS.md`, эскизы `editor-settings-target.html`).
+ *
+ * Прежние семь вкладок резали настройки по трём несовместимым осям сразу — по предмету
+ * («Шкалы», «Показатели»), по этапу («Состав», «Структура») и по природе («Настройки»,
+ * «Оформление»), — и автор искал настройку перебором. Новые шесть режут по ОДНОМУ
+ * вопросу: о чём эта настройка.
+ *
+ *   - `main`        — что это за тест и как он отдаётся в LMS;
+ *   - `composition` — из чего он собран и в каком порядке идёт;
+ *   - `rules`       — по каким правилам проходится;
+ *   - `scoring`     — как считается результат;
+ *   - `feedback`    — что участник видит во время теста и после него;
+ *   - `design`      — как это выглядит.
+ *
+ * Ключи прежних вкладок переиспользованы там, где смысл совпал (`composition`, `scoring`,
+ * `design`), поэтому ссылки вида «открыть тест на вкладке X» продолжают работать.
+ */
 export type EditorTabKey =
+  | "main"
   | "composition"
-  | "settings"
-  | "design"
-  | "structure"
+  | "rules"
   | "scoring"
-  | "scales"
-  | "metrics";
+  | "feedback"
+  | "design"
+  /**
+   * PRD-52: комментарии рецензентов. Седьмая вкладка добавлена решением владельца
+   * 2026-09-03 поверх принятого дерева из шести: панель комментариев живёт в ящике
+   * редактора равноправно с окном прогона.
+   */
+  | "review";
 
 /** Aggregated status per tab — drives the `status-dot` indicator (FR-25b). */
 export type TabStatus = {
@@ -181,21 +204,25 @@ const EMPTY_VALIDATION: ValidationResult = { errors: [], warnings: [] };
 const EMPTY_TAB_STATUS: TabStatus = { dirty: false, warning: false, error: false };
 
 /**
- * Map a validation issue field path to the tab that owns it (FR-25b). Falls
- * back to `composition` when the field cannot be attributed to a specific tab.
+ * Адрес поля в новом дереве вкладок (FR-25b): по какому ВОПРОСУ настройка, туда она и
+ * относится. Неопознанное поле уходит в «Состав и сценарий» — там живёт то, из чего тест
+ * собран, и промах виден автору сразу.
  */
 function tabOfField(field: string): EditorTabKey {
   if (field.startsWith("sections")) return "composition";
-  if (field.startsWith("adaptive")) return "settings";
-  if (field.startsWith("passRules")) return "settings";
-  if (field.startsWith("runtime")) return "settings";
-  if (field.startsWith("retakePolicy")) return "settings";
-  if (field.startsWith("basic")) return "settings";
-  if (field.startsWith("design")) return "design";
-  if (field.startsWith("flow") || field.startsWith("structure")) return "structure";
+  if (field.startsWith("adaptive")) return "composition";
+  if (field.startsWith("flow") || field.startsWith("structure")) return "composition";
+  // Правила оценки тем и цена ответа — это «как считается результат».
+  if (field.startsWith("passRules")) return "scoring";
   if (field.startsWith("scoring")) return "scoring";
-  if (field.startsWith("scales")) return "scales";
-  if (field.startsWith("resultVariables")) return "metrics";
+  if (field.startsWith("scales")) return "scoring";
+  if (field.startsWith("resultVariables")) return "scoring";
+  // Ограничения попытки и повторного прохождения — «по каким правилам проходится».
+  if (field.startsWith("retakePolicy")) return "rules";
+  if (field.startsWith("runtime")) return "rules";
+  if (field.startsWith("design")) return "design";
+  // Название, описание, режим и интеграция с LMS.
+  if (field.startsWith("basic")) return "main";
   return "composition";
 }
 
@@ -205,13 +232,13 @@ function buildTabStatuses(
   validation: ValidationResult,
 ): Record<EditorTabKey, TabStatus> {
   const statuses: Record<EditorTabKey, TabStatus> = {
+    main: { ...EMPTY_TAB_STATUS },
     composition: { ...EMPTY_TAB_STATUS },
-    settings: { ...EMPTY_TAB_STATUS },
-    design: { ...EMPTY_TAB_STATUS },
-    structure: { ...EMPTY_TAB_STATUS },
+    rules: { ...EMPTY_TAB_STATUS },
     scoring: { ...EMPTY_TAB_STATUS },
-    scales: { ...EMPTY_TAB_STATUS },
-    metrics: { ...EMPTY_TAB_STATUS },
+    feedback: { ...EMPTY_TAB_STATUS },
+    design: { ...EMPTY_TAB_STATUS },
+    review: { ...EMPTY_TAB_STATUS },
   };
   for (const tab of dirtyTabs) statuses[tab].dirty = true;
   for (const issue of validation.errors) statuses[tabOfField(issue.field)].error = true;
@@ -245,30 +272,33 @@ function diffDirtyTabs(
   ) {
     dirty.add("scoring");
   }
-  if (
-    !shallowEqualJson(draft.basic, snapshot.basic) ||
-    !shallowEqualJson(draft.runtime, snapshot.runtime) ||
-    !shallowEqualJson(draft.passRules, snapshot.passRules) ||
-    !shallowEqualJson(draft.adaptive, snapshot.adaptive) ||
-    !shallowEqualJson(draft.retakePolicy, snapshot.retakePolicy) ||
-    draft.mode !== snapshot.mode
-  ) {
-    dirty.add("settings");
+  // «Основное»: чем тест является и как он отдаётся в LMS.
+  if (!shallowEqualJson(draft.basic, snapshot.basic) || draft.mode !== snapshot.mode) {
+    dirty.add("main");
   }
+  // «Правила прохождения»: показ по ходу и ограничения попыток.
   if (
+    !shallowEqualJson(draft.runtime, snapshot.runtime) ||
+    !shallowEqualJson(draft.retakePolicy, snapshot.retakePolicy)
+  ) {
+    dirty.add("rules");
+  }
+  // «Состав и сценарий»: лестница адаптивного режима и сценарий прохождения.
+  if (
+    !shallowEqualJson(draft.adaptive, snapshot.adaptive) ||
     draft.flowMode !== snapshot.flowMode ||
     !shallowEqualJson(draft.flowSettings, snapshot.flowSettings)
   ) {
-    dirty.add("structure");
+    dirty.add("composition");
   }
-  if (!shallowEqualJson(draft.resultVariables, snapshot.resultVariables)) {
-    dirty.add("metrics");
-  }
+  // «Оценка результата»: вердикт, шкалы, показатели — вместе с ценой ответа выше.
   if (
+    !shallowEqualJson(draft.passRules, snapshot.passRules) ||
+    !shallowEqualJson(draft.resultVariables, snapshot.resultVariables) ||
     !shallowEqualJson(draft.scales, snapshot.scales) ||
     !shallowEqualJson(draft.measurements, snapshot.measurements)
   ) {
-    dirty.add("scales");
+    dirty.add("scoring");
   }
   return dirty;
 }
@@ -476,13 +506,13 @@ export function useTestEditor(
   const tabStatuses = useMemo(() => {
     if (!draft || !snapshot) {
       return {
+        main: { ...EMPTY_TAB_STATUS },
         composition: { ...EMPTY_TAB_STATUS },
-        settings: { ...EMPTY_TAB_STATUS },
-        design: { ...EMPTY_TAB_STATUS },
-        structure: { ...EMPTY_TAB_STATUS },
+        rules: { ...EMPTY_TAB_STATUS },
         scoring: { ...EMPTY_TAB_STATUS },
-        scales: { ...EMPTY_TAB_STATUS },
-        metrics: { ...EMPTY_TAB_STATUS },
+        feedback: { ...EMPTY_TAB_STATUS },
+        design: { ...EMPTY_TAB_STATUS },
+        review: { ...EMPTY_TAB_STATUS },
       };
     }
     const dirty = diffDirtyTabs(draft, snapshot);

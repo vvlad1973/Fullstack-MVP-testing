@@ -21,7 +21,7 @@
 import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
-import { breakdownRulesSchema, formSetSchema, sectionGroupsSchema } from "@shared/schema";
+import { breakdownFeedbackSchema, breakdownRulesSchema, formSetSchema, sectionGroupsSchema } from "@shared/schema";
 import type { BreakdownRules } from "@shared/breakdown/types";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 import type {
@@ -29,6 +29,7 @@ import type {
   AdaptiveLinkConfig,
   AdaptiveSettingsPayload,
   AdaptiveTopicConfig,
+  BreakdownFeedbackEntry,
   EditorSection,
   FeedbackAsset,
   FeedbackContent,
@@ -355,6 +356,19 @@ function readBreakdownRulesFromApi(raw: unknown): BreakdownRules | null {
 }
 
 /**
+ * Тексты подтем (PRD-50 FR-50) из jsonb API. Проверяются `breakdownFeedbackSchema`;
+ * отсутствие и любая испорченная форма вырождаются в `null` — «автор их не писал», —
+ * поэтому кривой блоб не роняет редактор, ровно как у порогов выше.
+ */
+function readBreakdownFeedbackFromApi(raw: unknown): Record<string, BreakdownFeedbackEntry> | null {
+  if (raw == null) return null;
+  const parsed = breakdownFeedbackSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const keys = parsed.data.keys as Record<string, BreakdownFeedbackEntry>;
+  return Object.keys(keys).length > 0 ? keys : null;
+}
+
+/**
  * Read the test's blocks of sections (PRD-50 FR-11) from the API jsonb. Validated
  * with `sectionGroupsSchema`; absence or any malformed shape degrades to `[]` (no
  * blocks) — the same thing an absent column has always meant (FR-27) — so a bad
@@ -432,6 +446,7 @@ function buildSectionsFromApi(src: ApiTestResponse): {
       formSet: readFormSetFromApi(raw.formSetJson),
       // PRD-50 §4: пороги ключей (валидируем; кривое/отсутствующее = null).
       breakdownRules: readBreakdownRulesFromApi(raw.breakdownRulesJson),
+      breakdownFeedback: readBreakdownFeedbackFromApi(raw.breakdownFeedbackJson),
       // PRD-50 FR-11/FR-12: this section's block, or null when it belongs to none —
       // including a legacy section saved before this PRD.
       groupKey: typeof raw.groupKey === "string" ? raw.groupKey : null,
@@ -1486,6 +1501,12 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
       // PRD-50 §4: пороги ключей; пустой набор без умолчания шлём как null — пустая
       // структура и её отсутствие означают одно и то же, а null короче в базе.
       breakdownRulesJson: normalizeBreakdownRules(section.breakdownRules),
+      // PRD-50 FR-50: тексты подтем. Пустая карта уходит как null: «ничего не написано» и
+      // «структура есть, но пустая» — одно и то же, а null короче в базе.
+      breakdownFeedbackJson:
+        section.breakdownFeedback && Object.keys(section.breakdownFeedback).length > 0
+          ? { axis: "tag" as const, keys: section.breakdownFeedback }
+          : null,
       // PRD-50 FR-11/FR-12: the block this section belongs to; `null` = no block.
       groupKey: section.groupKey ?? null,
       // PRD-15 block D (FR-31): per-section default price.

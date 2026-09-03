@@ -52,7 +52,9 @@ describe("checkBreakdownPublish", () => {
     expect(out.find((w) => w.code === "questions_without_key")!.count).toBe(1);
   });
 
-  it("порог задан ключу, которого нет ни в одном варианте (FR-46)", () => {
+  it("недостижимый порог больше не предупреждение — порог ничего не судит", () => {
+    // Решение владельца 2026-09-03: порог ключа не гейт, поэтому и «недостижимым» он быть
+    // не может. Прежнее предупреждение FR-46 снято вместе с гейтом.
     const out = checkBreakdownPublish([
       section({
         rules: { axis: "tag", keys: { "Коррупция": { type: "percent", value: 60 } } },
@@ -62,7 +64,24 @@ describe("checkBreakdownPublish", () => {
         ],
       }),
     ]);
-    expect(out.find((w) => w.code === "threshold_key_never_delivered")!.key).toBe("Коррупция");
+    expect(out.map((w) => w.code)).not.toContain("threshold_key_never_delivered");
+  });
+
+  it("тест с сохранёнными порогами предупреждает о смене вердикта", () => {
+    const out = checkBreakdownPublish([
+      section({ rules: { axis: "tag", keys: { "ПДн": { type: "percent", value: 60 } } } }),
+    ]);
+    expect(out.map((w) => w.code)).toContain("key_thresholds_no_longer_gate");
+    expect(out.find((w) => w.code === "key_thresholds_no_longer_gate")).toMatchObject({
+      topicId: "law",
+      topicName: "Право",
+    });
+  });
+
+  it("без сохранённых порогов о смене вердикта не говорим", () => {
+    expect(codes([section({ blueprint: { strata: [{ tag: "ПДн", count: 3 }] } })])).not.toContain(
+      "key_thresholds_no_longer_gate",
+    );
   });
 
   it("вопрос не входит ни в один вариант (FR-47)", () => {

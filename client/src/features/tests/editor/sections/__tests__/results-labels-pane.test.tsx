@@ -12,7 +12,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { ResultsLabelsPane } from "../results-labels-pane";
-import { DesignSection } from "../design-section";
+import { FeedbackTab } from "../editor-tabs";
+import { useDesignSettings } from "../../use-design-settings";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
 import type { TestEditorModel } from "../../test-editor.types";
 import type { LabelDeclaration } from "@shared/template/labels";
@@ -277,6 +278,39 @@ function templateRow(labels: LabelDeclaration[] | undefined, reportLabelKeys?: s
   };
 }
 
+/** Черновик теста, которого хватает панелям вкладки: они правят только `report`. */
+function emptyModel(): TestEditorModel {
+  return {
+    id: TEST_ID,
+    version: 1,
+    mode: "standard",
+    flowMode: "linear_flat",
+    flowSettings: {},
+    folderId: null,
+    basic: {
+      title: "Опросник", description: "", status: "draft",
+      feedback: { format: "plain", text: "" },
+      feedbackLinks: [], feedbackAssets: [], feedbackEvents: [],
+      webhookUrl: "", telemetryEnabled: false,
+    },
+    runtime: {
+      timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false,
+      allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true,
+      skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true,
+      protectionWatermark: false, protectionHideOnBlur: false,
+    lmsAttemptResult: "best" as const,
+    },
+    passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },
+    sections: [],
+    adaptive: { showDifficultyLevel: true, testSettings: { showDifficultyLevel: true }, topics: [] },
+    resultVariables: [],
+    scales: [],
+    measurements: [],
+    retakePolicy: defaultRetakePolicy(),
+    scoring: { defaultQuestionPoints: null, questionOverrides: [] },
+  };
+}
+
 function renderDesignTab(
   labels: LabelDeclaration[] | undefined,
   reportLabelKeys?: string[],
@@ -301,31 +335,40 @@ function renderDesignTab(
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   render(
     <QueryClientProvider client={client}>
-      <DesignSection testId={TEST_ID} model={model} updateModel={model ? vi.fn() : undefined} />
+      <FeedbackHarness model={model ?? emptyModel()} />
     </QueryClientProvider>,
   );
+}
+
+/**
+ * Вкладке «Обратная связь и итоги» черновик оформления передаёт ящик — надписи объявляет
+ * ШАБЛОН, и берётся выбранный, но ещё не сохранённый. В тесте роль ящика играет этот
+ * хост: он держит тот же хук, что и редактор.
+ */
+function FeedbackHarness({ model }: { model: TestEditorModel }) {
+  const design = useDesignSettings(TEST_ID);
+  return <FeedbackTab model={model} updateModel={vi.fn()} design={design} />;
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("«Оформление» → «Итоги»", () => {
-  it("пункт «Итоги» есть у шаблона, объявившего надписи, и открывает панель", async () => {
+describe("«Обратная связь и итоги» → «Состав итогов»", () => {
+  it("надписи шаблона правятся в «Составе итогов»", async () => {
     renderDesignTab(DECLS);
-    // Ждём ЗАГРУЖЕННОГО состояния: пункт рейки появляется вместе с манифестом, но панель
-    // до конца загрузки показывает баннер «Загружаем настройки оформления…».
-    await waitFor(() => expect(screen.getByTestId("design-template-pane")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("design-rail-results"));
-    expect(screen.getByTestId("design-results-pane")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("feedback-rail-results"));
+    await waitFor(() => expect(screen.getByLabelText("Заголовок итогов")).toBeInTheDocument());
+    expect(screen.getByTestId("feedback-pane-results")).toBeInTheDocument();
     expect(screen.getByTestId("results-block-order")).toBeInTheDocument();
     expect(screen.getByLabelText("Подзаголовок шкал")).toHaveAttribute("placeholder", "По шкалам");
   });
 
-  it("шаблон без объявлений пункта не показывает", async () => {
+  it("шаблон без объявлений надписей не рисует", async () => {
     renderDesignTab(undefined);
-    await waitFor(() => expect(screen.getByTestId("design-template-pane")).toBeInTheDocument());
-    expect(screen.queryByTestId("design-rail-results")).toBeNull();
+    fireEvent.click(screen.getByTestId("feedback-rail-results"));
+    await waitFor(() => expect(screen.getByTestId("settings-breakdown-visibility-select")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Заголовок итогов")).toBeNull();
   });
 });
 
@@ -335,47 +378,15 @@ describe("«Оформление» → «Итоги»", () => {
  * вовсе. Перечень строк панели приходит теперь с сервера (`reportLabelKeys`), посчитанный
  * по макетам вариантов отчёта.
  */
-describe("«Оформление» → «Отчёт» → надписи документа", () => {
+describe("«Обратная связь и итоги» → «Отчёт» → надписи документа", () => {
   /** Карточки отчёта живут в модели теста, поэтому панель без неё не разворачивается. */
-  function reportModel(): TestEditorModel {
-    return {
-      id: TEST_ID,
-      version: 1,
-      mode: "standard",
-      flowMode: "linear_flat",
-      flowSettings: {},
-      folderId: null,
-      basic: {
-        title: "Опросник", description: "", status: "draft",
-        feedback: { format: "plain", text: "" },
-        feedbackLinks: [], feedbackAssets: [], feedbackEvents: [],
-        webhookUrl: "", telemetryEnabled: false,
-      },
-      runtime: {
-        timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false,
-        allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true,
-        skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true,
-        protectionWatermark: false, protectionHideOnBlur: false,
-      lmsAttemptResult: "best" as const,
-      },
-      passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },
-      sections: [],
-      adaptive: { showDifficultyLevel: true, testSettings: { showDifficultyLevel: true }, topics: [] },
-      resultVariables: [],
-      scales: [],
-      measurements: [],
-      retakePolicy: defaultRetakePolicy(),
-      scoring: { defaultQuestionPoints: null, questionOverrides: [] },
-    };
-  }
 
   function renderReportTab(reportLabelKeys?: string[]) {
-    renderDesignTab(DECLS, reportLabelKeys, reportModel());
+    renderDesignTab(DECLS, reportLabelKeys, emptyModel());
   }
 
   async function openReportPane() {
-    await waitFor(() => expect(screen.getByTestId("design-template-pane")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("design-rail-report"));
+    fireEvent.click(screen.getByTestId("feedback-rail-report"));
     await waitFor(() => expect(screen.getByTestId("design-report-labels")).toBeInTheDocument());
   }
 
@@ -400,8 +411,8 @@ describe("«Оформление» → «Отчёт» → надписи док�
 
   it("документ, не печатающий ни одной надписи, карточки не получает", async () => {
     renderReportTab([]);
-    await waitFor(() => expect(screen.getByTestId("design-template-pane")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("design-rail-report"));
+    fireEvent.click(screen.getByTestId("feedback-rail-report"));
+    await waitFor(() => expect(screen.getByTestId("report-content-card")).toBeInTheDocument());
     expect(screen.queryByTestId("design-report-labels")).toBeNull();
   });
 });

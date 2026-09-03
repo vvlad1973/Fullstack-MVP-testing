@@ -229,9 +229,11 @@ describe("сводный блок разреза на адаптивном эк�
     expect(ctx.result.topicResults?.[0]).not.toHaveProperty("breakdown");
   });
 
-  it("надписи вердикта берутся из словаря — та же строка, что на обычном экране", () => {
+  it("строка разреза вердикта не несёт, а заголовок блока берётся из словаря", () => {
+    // Решение владельца 2026-09-03: подтема говорит о результате, но не судит его —
+    // ни `passed`, ни `passClass`, ни `statusLabel` в строке больше нет.
     const ctx = buildAdaptiveResultContext(
-      { ...adaptiveInput, breakdowns: [{ ...entry("ПДн", 75), passed: false }] },
+      { ...adaptiveInput, breakdowns: [entry("ПДн", 75)] },
       "Адаптивный",
       {
         breakdownDisplay: display,
@@ -239,7 +241,10 @@ describe("сводный блок разреза на адаптивном эк�
         labels: { "topic.verdict.failed": "Не зачтено", "results.breakdown": "Разрез результата" },
       },
     );
-    expect(ctx.result.breakdown?.[0].statusLabel).toBe("Не зачтено");
+    const row = ctx.result.breakdown?.[0] as Record<string, unknown> | undefined;
+    expect(row).toBeDefined();
+    expect("statusLabel" in row!).toBe(false);
+    expect("passed" in row!).toBe(false);
     expect(ctx.result.blocks?.find((b) => b.key === "breakdown")?.heading).toBe("Разрез результата");
   });
 });

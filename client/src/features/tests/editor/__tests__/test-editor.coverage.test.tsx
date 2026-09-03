@@ -351,19 +351,23 @@ describe("<TestEditor /> — archived status tag", () => {
 // ─── Tab panel rendering ─────────────────────────────────────────────────────
 
 describe("<TestEditor /> — non-default tab panels", () => {
-  it("switches to the «Оценка» and «Показатели» tabs and keeps the drawer mounted", async () => {
+  it("переключается на «Оценку результата» и её подразделы, не роняя ящик", async () => {
     installRouter();
     render(withClient(makeClient(), <TestEditor testId="test-1" open onClose={() => {}} />));
     await screen.findByText("Sample Test");
 
     // These two section panels render from `editor.model` + list endpoints that
     // the router answers with empty arrays, so they mount without extra fixtures.
-    for (const label of ["Оценка", "Показатели"]) {
-      fireEvent.click(screen.getByRole("tab", { name: new RegExp(label, "i") }));
-      await waitFor(() =>
-        expect(screen.getByRole("tab", { name: new RegExp(label, "i"), selected: true })).toBeInTheDocument(),
-      );
-      expect(screen.getByTestId("test-editor-body")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Оценка результата/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("tab", { name: /Оценка результата/i, selected: true }),
+      ).toBeInTheDocument(),
+    );
+    for (const rail of ["scales", "metrics"]) {
+      fireEvent.click(screen.getByTestId(`scoring-rail-${rail}`));
+      expect(screen.getByTestId(`scoring-pane-${rail}`)).toBeInTheDocument();
     }
+    expect(screen.getByTestId("test-editor-body")).toBeInTheDocument();
   });
 });

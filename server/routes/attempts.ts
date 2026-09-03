@@ -59,7 +59,8 @@ import { isMeasurementOnly } from "@shared/questions/question-type";
 import type { BreakdownItem } from "@shared/breakdown/types";
 // PRD-32: ONE address rule for a feedback attachment, and ONE source-priority rule for
 // the topic's feedback text — the same helpers the SCORM bake runs.
-import { feedbackAssets, topicFeedbackTexts } from "@shared/template/result-context";
+import { feedbackAssets, normalizeFeedback, topicFeedbackTexts } from "@shared/template/result-context";
+import type { FeedbackBlock } from "@shared/scales/interpretation";
 // issue #34: общий/условный режим обратной связи вопроса — одно правило на оба хоста.
 import { feedbackTextFor } from "@shared/template/feedback-banner";
 import { isReportEnabled } from "@shared/schema";
@@ -222,6 +223,37 @@ async function sourceForStart(
  * (`server/services/result-context.ts`), off the emptiness of these two arrays; this
  * function only reads. `undefined` therefore means «could not be read», nothing else.
  */
+/**
+ * PRD-50 FR-50: карта «раздел -> (подтема -> её текст)» по разделам ВЫДАННОЙ версии.
+ *
+ * Ключ карты — `topicId`, а не идентификатор раздела: сохранённый результат попытки
+ * знает тему, и по ней же общий построитель находит свои записи разреза. Раздел без
+ * текстов в карту не попадает — отсутствие ключа и означает «текстов нет».
+ */
+function breakdownFeedbackByTopic(
+  sections: Array<{ topicId: string; breakdownFeedbackJson?: unknown }>,
+): Record<string, Record<string, FeedbackBlock>> {
+  const out: Record<string, Record<string, FeedbackBlock>> = {};
+  for (const section of sections) {
+    const declared = section.breakdownFeedbackJson as
+      | { keys?: Record<string, Partial<FeedbackContent>> }
+      | null
+      | undefined;
+    const keys = declared?.keys;
+    if (!keys) continue;
+    const byKey: Record<string, FeedbackBlock> = {};
+    for (const [key, content] of Object.entries(keys)) {
+      // Через тот же нормализатор, что и обратная связь темы и теста: адреса вложений
+      // и формат текста разрешаются в ОДНОМ месте, иначе подтема печаталась бы иначе,
+      // чем соседний источник того же блока.
+      const block = normalizeFeedback(content);
+      if (block) byKey[key] = block;
+    }
+    if (Object.keys(byKey).length > 0) out[section.topicId] = byKey;
+  }
+  return out;
+}
+
 async function resultsMaterialForAttempt(
   attempt: { testId: string; snapshotId: string | null },
   liveTest: Test | undefined,
@@ -278,6 +310,13 @@ async function resultsMaterialForAttempt(
         reportChartSettings,
       ),
       hasPassThreshold: !!passRule && passRule.type !== "none",
+      // PRD-50 FR-50: САМО правило, а не только признак — тексты подтем выдаются
+      // сравнением их результата с ЭТИМ порогом.
+      overallPassRule: passRule ?? null,
+      // PRD-50 FR-50: тексты подтем разделов ВЫДАННОЙ версии. Раздел без текстов ключа
+      // ничего в карту не кладёт, поэтому тест, не пользовавшийся настройкой, идёт по
+      // прежнему пути до байта.
+      breakdownFeedbackByTopic: breakdownFeedbackByTopic(await src.getTestSections(attempt.testId)),
       testFeedback: (deliveredTest?.feedbackJson as Partial<FeedbackContent> | null) ?? null,
       // Вводные блоки: экрана и отчёта. Берутся из ВЫДАННОЙ версии теста, как и всё
       // остальное здесь, — попытка показывает то содержание, на котором её проходили.
@@ -1406,9 +1445,8 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
       topicPassRule: section?.topicPassRuleJson ?? null,
       // PRD-24: the variant delivered for this topic decides which threshold gates it.
       formId: variantSection.formId ?? null,
-      // PRD-50 FR-19: тот же гейт, что на итогах теста — иначе экран итогов раздела
-      // объявил бы пройденным то, что финальный экран не пройдёт.
-      breakdownRules: section?.breakdownRulesJson ?? null,
+      // Пороги подтем не передаём: вердикт темы — её собственное правило (решение
+      // владельца 2026-09-03). Сохранённые пороги остаются в данных как легаси.
       questions: questions.map((q) => {
         const effective = scoring.resolve(q);
         return {
@@ -1516,10 +1554,8 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         formId: variantSection.formId ?? null,
         // «Тест пройден, если»: the `*_required_topics*` policies gate on this flag.
         required: section?.required ?? true,
-        // PRD-50 FR-19: пороги ключей ЭТОГО раздела — из того же источника, из которого
-        // попытка выдавалась (снимок или живой тест), поэтому закреплённая за снимком
-        // попытка судится порогами, с которыми её опубликовали.
-        breakdownRules: section?.breakdownRulesJson ?? null,
+        // Пороги подтем в расчёт не идут: вердикт темы — её собственное правило
+        // (решение владельца 2026-09-03). Сохранённые пороги остаются легаси-данными.
         // PRD-50 FR-11: блок разделов, в котором раздел был ВЫДАН. Из того же источника,
         // что и порог раздела: попытка обязана помнить принадлежность, с которой её
         // оценивали, даже если автор перегруппирует тест завтра.

@@ -104,30 +104,35 @@ export type DesignSectionProps = {
 
 type DesignRailKey =
   | "template"
+  | "layout"
   | "branding"
   | "colors"
-  | "layout"
-  | "progress"
-  | "results"
+  | "charts"
   | "report";
 
 const RAIL_ITEMS: { key: DesignRailKey; label: string }[] = [
   { key: "template", label: "Шаблон" },
-  { key: "branding", label: "Брендирование" },
-  // PRD-23: colours have logic the other params do not — inheritance from the
-  // template's palette, a storage format, a value per theme — so they get their
-  // own section instead of sitting between the font and the logo.
-  { key: "colors", label: "Цвета" },
   { key: "layout", label: "Макет" },
-  { key: "progress", label: "Прогресс и шапка" },
-  // PRD-49 §7: заголовки блоков итогов и порядок подблоков. Надписи объявляет шаблон, и
-  // пункт есть только у шаблона, который их объявил, — ровно как у секций параметров.
-  { key: "results", label: "Итоги" },
+  { key: "branding", label: "Брендирование" },
+  // PRD-23: у цветов есть логика, которой нет у прочих параметров — наследование от
+  // палитры шаблона, формат хранения, значение на тему, — поэтому у них свой пункт.
+  { key: "colors", label: "Цвета" },
+  // Э3.7: вид диаграмм шкал и показателей — тоже облик, но разговор отдельный: автор
+  // выбирает ФОРМУ печати измерения, а не цвет и не шрифт. Пункт собирается по ТИПУ
+  // параметра, как и цвета: иначе пришлось бы перевыпускать каждый уже залитый шаблон.
+  { key: "charts", label: "Вид диаграмм" },
   // PRD-47 §6.2: отчёт — часть шаблона, его поля объявляет манифест ровно как параметры
-  // оформления. Место им здесь, а не в общих настройках теста. Хранение при этом НЕ
-  // переезжает: поля отчёта остаются своей колонкой (PRD-27 §4.2).
-  { key: "report", label: "Отчёт о результатах" },
+  // оформления. Здесь только ОБЛИК документа: что в нём печатать, автор задаёт во вкладке
+  // «Обратная связь и итоги» (решение 18).
+  { key: "report", label: "Облик отчёта" },
 ];
+
+/**
+ * Что может нарисовать {@link SectionPane}: пункт рейла «Оформления» либо секция
+ * «Прогресс и шапка» — её параметры объявляет тот же манифест, но рисует их вкладка
+ * «Правила прохождения»: это не облик, а то, что участник видит по ходу (решение 18).
+ */
+export type ParamPaneKey = Exclude<DesignRailKey, "template"> | "progress";
 
 /**
  * Params a rail section shows. Colours are picked by TYPE, not by the `section`
@@ -137,13 +142,25 @@ const RAIL_ITEMS: { key: DesignRailKey; label: string }[] = [
  */
 function paramsForRail(
   params: TemplateParam[] | undefined,
-  key: Exclude<DesignRailKey, "template">,
+  key: ParamPaneKey,
 ): TemplateParam[] {
   const all = params ?? [];
   if (key === "colors") return all.filter((p) => p.type === "color");
+  if (key === "charts") return all.filter(isChartParam);
   return all.filter(
-    (p) => (p.section ?? "branding") === key && !(key === "branding" && p.type === "color"),
+    (p) =>
+      (p.section ?? "branding") === key &&
+      !(key === "branding" && (p.type === "color" || isChartParam(p))),
   );
+}
+
+/**
+ * Параметр вида диаграмм: тот, что шаблон объявил группой «Итоги». Пункт рейла собирается
+ * по ОБЪЯВЛЕНИЮ манифеста, а не по перечню ключей: у другого шаблона диаграммы свои, и
+ * список ключей в редакторе устарел бы с первым же новым шаблоном (решение 19).
+ */
+function isChartParam(p: TemplateParam): boolean {
+  return p.group === "Итоги";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -172,9 +189,6 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
     return RAIL_ITEMS.filter(
       (item) =>
         item.key === "template" ||
-        // PRD-49 §9: шаблон без `labels[]` печатает свои жёсткие строки — настраивать
-        // нечего, и подраздел ему не показывается.
-        (item.key === "results" && (design.template?.manifest.labels?.length ?? 0) > 0) ||
         // PRD-47 §6.2: отчёт есть у любого теста. Даже когда шаблон не объявил видов,
         // карточка объясняет, что отчёт соберётся видом «Стандартный», — спрятать пункт
         // значит спрятать это объяснение. Остальные пункты без параметров бессмысленны.
@@ -265,24 +279,6 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
             />
           ) : effectiveActive === "colors" ? (
             <ColorsPane design={design} onPreview={() => setPreviewOpen(true)} />
-          ) : effectiveActive === "results" ? (
-            <div data-testid="design-results-pane">
-              <ResultsLabelsPane
-                declarations={design.template?.manifest.labels ?? []}
-                labels={design.draft.labels ?? {}}
-                onChange={design.setLabels}
-                order={design.draft.resultsBlockOrder}
-                // Состав и порядок объявляет ШАБЛОН, и берётся объявление ЭКРАНА ИТОГОВ:
-                // настройка одна на все экраны, а адаптивные итоги, например, сводки
-                // баллов не печатают вовсе.
-                templateOrder={templateBlockOrder(
-                  design.template?.manifest.resultsBlockOrder,
-                  "results",
-                )}
-                onOrderChange={design.setResultsBlockOrder}
-              />
-              <DesignSaveError design={design} />
-            </div>
           ) : effectiveActive === "report" ? (
             // PRD-47 §6.2: переезд, а не переработка — состав карточки тот же, что стоял
             // в «Настройки → Основное». Черновые шаблон и брендинг теперь СВОИ, этой же
@@ -323,20 +319,6 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
                     : undefined
                 }
               />
-              {/* PRD-49 §7: тот же перечень надписей, но слоем ПЕРЕОПРЕДЕЛЕНИЙ. Пустая
-                  строка значит «как на экране итогов», поэтому подсказкой поля стоит уже
-                  разрешённый текст итогов, а не умолчание шаблона. Перечень — только те
-                  надписи, которые печатает ДОКУМЕНТ (`reportLabelKeys`): у него своя
-                  фиксированная структура, и строка про заголовок, которого в нём нет,
-                  включалась бы вхолостую. */}
-              {reportLabelDeclarations.length > 0 && (
-                <ReportLabelsCard
-                  declarations={reportLabelDeclarations}
-                  sharedLabels={design.draft.labels ?? {}}
-                  report={model.report ?? {}}
-                  onChange={(next) => updateModel((m) => ({ ...m, report: next }))}
-                />
-              )}
               </>
             ) : null
           ) : effectiveActive === "layout" ? (
@@ -350,10 +332,10 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
           ) : (
             <SectionPane
               design={design}
-              section="progress"
-              emptyTitle="В шаблоне нет настроек прогресса"
-              emptyDesc={`У выбранного шаблона «${design.template?.manifest.name ?? ""}» в секции «Прогресс и шапка» не объявлено ни одного параметра.`}
-              testId="design-progress-pane"
+              section="charts"
+              emptyTitle="В шаблоне нет настроек вида диаграмм"
+              emptyDesc={`Шаблон «${design.template?.manifest.name ?? ""}» не объявил, чем рисовать шкалы и показатели, — он печатает их своим встроенным видом.`}
+              testId="design-charts-pane"
             />
           )}
         </div>
@@ -387,7 +369,7 @@ function CreateModeNotice() {
     <Banner
       tone="info"
       title="Сначала сохраните черновик"
-      description="Настройки оформления привязаны к существующему тесту. Заполните обязательные поля во вкладке «Настройки», сохраните черновик — после этого вкладка «Оформление» станет доступна для редактирования."
+      description="Настройки оформления привязаны к существующему тесту. Заполните обязательные поля во вкладке «Основное», сохраните черновик — после этого вкладка «Оформление» станет доступна для редактирования."
       data-testid="design-create-notice"
     />
   );
@@ -586,7 +568,7 @@ function TemplatePane({
  * природа — их объявляет `manifest.labels[]`, а не `settings[]` выбранного вида, и живут
  * они на всех экранах сразу. Значения кладутся в `report_settings_json.labels`.
  */
-function ReportLabelsCard({
+export function ReportLabelsCard({
   declarations,
   sharedLabels,
   report,
@@ -636,7 +618,7 @@ function ReportLabelsCard({
  * Generic pane that renders template params for a given `ParamSection`.
  * When no params are declared for the section an informational Banner is shown.
  */
-function SectionPane({
+export function SectionPane({
   design,
   section,
   emptyTitle,
@@ -644,7 +626,11 @@ function SectionPane({
   testId,
 }: {
   design: UseDesignSettingsResult;
-  section: ParamSection;
+  /**
+   * Пункт рейла, чьи параметры рисуются. Не `ParamSection`: «Цвета» и «Вид диаграмм»
+   * собираются по типу и по объявленной группе, а не по секции манифеста.
+   */
+  section: ParamPaneKey;
   emptyTitle: string;
   emptyDesc: string;
   testId: string;

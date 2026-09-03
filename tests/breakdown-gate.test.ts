@@ -1,13 +1,14 @@
 /**
  * @module tests/breakdown-gate
- * @description PRD-50 FR-19 - FR-23: тема пройдена, когда выполнен порог раздела И все
- * заданные пороги её ключей. Порог всегда в баллах, ключ без выдачи вердикт не роняет,
- * в области теста гейта нет.
+ * @description Подтема ГОВОРИТ о результате, но не судит его (решение владельца
+ * 2026-09-03): вердикт темы — это её собственное правило и ничего больше. Здесь
+ * закреплено, что сохранённые пороги ключей вердикт не двигают, а запись разреза
+ * вердикта не несёт вовсе; резольвер порогов остаётся — его читают перенос теста и
+ * предупреждения публикации.
  */
 import { describe, it, expect } from "vitest";
 import { aggregateStandardResult, type AggregateSection } from "../shared/scoring/aggregate";
-import { applyBreakdownGate, resolveBreakdownRules } from "../shared/scoring/pass-rule";
-import type { BreakdownEntry } from "../shared/breakdown/types";
+import { resolveBreakdownRules } from "../shared/scoring/pass-rule";
 
 /** Один вопрос: цена `points`, ответ верен при `ok`. */
 const q = (ok: boolean, tags: string[] | null, points = 1) => ({
@@ -31,28 +32,14 @@ const section = (
   ...extra,
 });
 
-const entry = (key: string, percentPoints: number, items = 1): BreakdownEntry => ({
-  scope: "section:law",
-  axis: "tag",
-  key,
-  items,
-  answered: items,
-  earned: percentPoints / 100,
-  possible: 1,
-  unitEarned: percentPoints / 100,
-  unitPossible: items,
-  percentPoints,
-  percentUnits: percentPoints,
-});
-
 describe("resolveBreakdownRules", () => {
-  it("пустые и неопознанные правила означают отсутствие гейта", () => {
+  it("пустые и неопознанные правила означают отсутствие порогов", () => {
     expect(resolveBreakdownRules(null)).toBeNull();
     expect(resolveBreakdownRules({ axis: "tag" })).toBeNull();
     expect(resolveBreakdownRules("нет")).toBeNull();
   });
 
-  it("явный «none» у ключа перебивает умолчание (FR-20)", () => {
+  it("явный «none» у ключа перебивает умолчание", () => {
     const rules = resolveBreakdownRules({
       axis: "tag",
       default: { type: "percent", value: 60 },
@@ -64,48 +51,24 @@ describe("resolveBreakdownRules", () => {
   });
 });
 
-describe("applyBreakdownGate", () => {
-  it("проставляет вердикт каждой записи и отвечает за раздел", () => {
-    const rows = [entry("ПДн", 80), entry("Коррупция", 40)];
-    const verdict = applyBreakdownGate(rows, { axis: "tag", default: { type: "percent", value: 60 } });
-    expect(rows.map((r) => r.passed)).toEqual([true, false]);
-    expect(verdict).toBe(false);
-  });
-
-  it("ключ без выданных вопросов не проверяется и вердикт не роняет (FR-22)", () => {
-    const rows = [entry("ПДн", 0, 0)];
-    const verdict = applyBreakdownGate(rows, { axis: "tag", default: { type: "percent", value: 60 } });
-    expect(rows[0].passed).toBeNull();
-    expect(verdict).toBeNull();
-  });
-
-  it("правил нет — ни одной пометки и ни одного гейта", () => {
-    const rows = [entry("ПДн", 10)];
-    expect(applyBreakdownGate(rows, null)).toBeNull();
-    expect(rows[0].passed).toBeNull();
-  });
-});
-
-describe("aggregateStandardResult + гейт по ключам", () => {
-  it("порог ключа роняет тему, у которой порог раздела выполнен (FR-19)", () => {
+describe("вердикт темы не зависит от порогов подтем", () => {
+  it("порог подтемы не роняет тему, у которой выполнено правило раздела", () => {
     const agg = aggregateStandardResult({
       sections: [
         section("law", [q(true, ["ПДн"]), q(true, ["ПДн"]), q(false, ["Коррупция"]), q(true, ["Коррупция"])], {
           topicPassRule: { source: "custom", type: "percent", value: 70 },
+          // Сохранённый порог (легаси PRD-50 Э2): читается только переносом и
+          // предупреждениями, на вердикт не влияет.
           breakdownRules: { axis: "tag", keys: { "Коррупция": { type: "percent", value: 80 } } },
         }),
       ],
       overallPassRule: { type: "percent", value: 70 },
     });
     expect(agg.topicResults[0].percent).toBe(75);
-    expect(agg.topicResults[0].passed).toBe(false);
-    const rows = agg.topicResults[0].breakdown;
-    expect(rows.find((r) => r.key === "ПДн")!.passed).toBeNull();
-    expect(rows.find((r) => r.key === "Коррупция")!.passed).toBe(false);
+    expect(agg.topicResults[0].passed).toBe(true);
   });
 
-  it("порог сравнивается с балльной долей, а не с долей вопросов (FR-21)", () => {
-    // Дешёвый вопрос верен, дорогой — нет: доля вопросов 50 %, доля баллов 25 %.
+  it("тема без собственного правила остаётся без вердикта, сколько бы порогов ни было задано", () => {
     const agg = aggregateStandardResult({
       sections: [
         section("law", [q(true, ["ПДн"], 1), q(false, ["ПДн"], 3)], {
@@ -114,41 +77,41 @@ describe("aggregateStandardResult + гейт по ключам", () => {
       ],
       overallPassRule: null,
     });
-    expect(agg.topicResults[0].breakdown[0].percentUnits).toBe(50);
-    expect(agg.topicResults[0].breakdown[0].percentPoints).toBe(25);
+    expect(agg.topicResults[0].passed).toBeNull();
+  });
+
+  it("строки разреза считаются по-прежнему: доля вопросов и доля баллов расходятся", () => {
+    // Дешёвый вопрос верен, дорогой — нет: доля вопросов 50 %, доля баллов 25 %.
+    const agg = aggregateStandardResult({
+      sections: [section("law", [q(true, ["ПДн"], 1), q(false, ["ПДн"], 3)])],
+      overallPassRule: null,
+    });
+    const row = agg.topicResults[0].breakdown[0];
+    expect(row.percentUnits).toBe(50);
+    expect(row.percentPoints).toBe(25);
+    expect("passed" in row).toBe(false);
+  });
+
+  it("вердикт темы держится на её правиле: 60 % при пороге 70 — не пройдено", () => {
+    const agg = aggregateStandardResult({
+      sections: [
+        section(
+          "law",
+          [q(true, ["ПДн"]), q(true, ["ПДн"]), q(true, ["ПДн"]), q(false, ["ПДн"]), q(false, ["Коррупция"])],
+          { topicPassRule: { source: "custom", type: "percent", value: 70 } },
+        ),
+      ],
+      overallPassRule: null,
+    });
+    expect(agg.topicResults[0].percent).toBe(60);
     expect(agg.topicResults[0].passed).toBe(false);
   });
 
-  it("тема без правила раздела становится оцениваемой по одним ключам", () => {
+  it("записи области теста тоже без вердикта", () => {
     const agg = aggregateStandardResult({
-      sections: [
-        section("law", [q(true, ["ПДн"]), q(true, ["ПДн"])], {
-          breakdownRules: { axis: "tag", default: { type: "percent", value: 60 } },
-        }),
-      ],
+      sections: [section("law", [q(false, ["ПДн"])])],
       overallPassRule: null,
     });
-    expect(agg.topicResults[0].passed).toBe(true);
-  });
-
-  it("в области теста гейта нет (FR-23)", () => {
-    const agg = aggregateStandardResult({
-      sections: [
-        section("law", [q(false, ["ПДн"])], {
-          breakdownRules: { axis: "tag", default: { type: "percent", value: 60 } },
-        }),
-      ],
-      overallPassRule: null,
-    });
-    expect(agg.breakdowns[0].passed ?? null).toBeNull();
-  });
-
-  it("раздел без правил ведёт себя ровно как до Э2", () => {
-    const agg = aggregateStandardResult({
-      sections: [section("law", [q(false, ["ПДн"])], { topicPassRule: { source: "none" } })],
-      overallPassRule: { type: "percent", value: 70 },
-    });
-    expect(agg.topicResults[0].passed).toBeNull();
-    expect(agg.topicResults[0].breakdown[0].passed ?? null).toBeNull();
+    expect("passed" in agg.breakdowns[0]).toBe(false);
   });
 });

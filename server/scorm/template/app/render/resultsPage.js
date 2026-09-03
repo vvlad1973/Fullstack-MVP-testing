@@ -572,16 +572,11 @@ function computeSectionResult(topicId) {
   );
   var passed = resolvedRule ? window.TBTemplate.checkPassRule(resolvedRule, percent, earnedPoints) : null;
 
-  // PRD-50 FR-19/FR-22: пороги ключей раздела. `applyBreakdownGate` возвращает null, когда
-  // ни один порог не применился, и тогда вердикт остаётся тем, что дал порог раздела.
+  // Строки разреза раздела: только счёт, без вердикта. Пороги подтем ничего не судят
+  // (решение владельца 2026-09-03) — вердикт раздела дало его собственное правило выше.
   var sectionEntries = window.TBTemplate.computeBreakdowns(breakdownItems).filter(function (e) {
     return e.scope !== 'test';
   });
-  var keysVerdict = window.TBTemplate.applyBreakdownGate(
-    sectionEntries,
-    section ? (section.breakdownRules || null) : null
-  );
-  if (keysVerdict !== null) passed = passed === null ? keysVerdict : passed && keysVerdict;
 
   var result = {
     topicId: topicId,
@@ -626,9 +621,6 @@ function calculateResults() {
         formId: deliveredFormId(fq.topicId),
         // «Тест пройден, если»: the `*_required_topics*` policies gate on this flag.
         required: section ? section.required !== false : true,
-        // PRD-50 FR-19: пороги ключей этого раздела; выпечены в TEST_DATA как
-        // section.breakdownRules. Отсутствие = ключи информационные, вердикт как до PRD-50.
-        breakdownRules: section ? (section.breakdownRules || null) : null,
         // PRD-50 FR-11: блок разделов, в который автор поместил ЭТОТ раздел; выпечен в
         // TEST_DATA как section.groupKey. Отсутствие = раздел вне блоков.
         groupKey: section ? (section.groupKey || null) : null,

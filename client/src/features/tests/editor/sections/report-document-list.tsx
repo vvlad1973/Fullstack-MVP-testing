@@ -375,7 +375,7 @@ function ReportBlockRow(props: {
           {block.block === "intro" && (
             <Tag tone="info" size="s" data-testid={`report-document-intro-hint-${index}`}>
               <Info size={12} aria-hidden="true" />
-              Текст задаётся во вкладке «Настройки», блок «Вводный текст»
+              Текст задаётся в подразделе «Обратная связь», карточка «Вводный текст»
             </Tag>
           )}
           {forBlock.length > 1 && (

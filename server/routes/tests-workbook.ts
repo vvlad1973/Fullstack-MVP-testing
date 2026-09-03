@@ -332,6 +332,11 @@ router.get(
       const feedbackSections = orderedSections.map((s) => ({
         topicName: topicName.get(s.topicId) || "",
         feedback: (s.feedbackJson ?? null) as FeedbackSource | null,
+        // PRD-50 FR-50: тексты подтем раздела. Адресуются «Разделом» + «Подтемой»; раздел
+        // без них строк подтем не даёт, и книга такого теста прежняя.
+        keyFeedback:
+          ((s.breakdownFeedbackJson as { keys?: Record<string, FeedbackSource | null> } | null)
+            ?.keys ?? null),
       }));
       const testFeedback = (test.feedbackJson ?? null) as FeedbackSource | null;
       const feedbackRows = serializeFeedbackRows(testFeedback, feedbackSections);

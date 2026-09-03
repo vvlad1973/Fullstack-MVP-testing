@@ -105,9 +105,7 @@ describe("блок печатает сохранённые записи и НЕ 
       barPercent: 75,
       showValue: true,
       valueLabel: "75 %",
-      passed: null,
-      passClass: "",
-      statusLabel: "",
+      // Вердикта у подтемы нет (Э1): в составе строки его полей больше не бывает.
     });
   });
 
