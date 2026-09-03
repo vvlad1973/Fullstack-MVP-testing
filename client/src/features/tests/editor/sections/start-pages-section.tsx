@@ -167,9 +167,14 @@ export type StructureSectionProps = {
 /** Backwards-compatible alias: original skeleton lived under this name. */
 export type StartPagesSectionProps = StructureSectionProps;
 
+/**
+ * Э5.5 (Ф-18): the SAME three words the «Сценарий» field offers. The banner used to call
+ * the first two «Последовательный», so an author who had picked «Линейный» arrived at the
+ * canvas and checked whether they were in the right place.
+ */
 const FLOW_LABEL: Record<TestEditorModel["flowMode"], string> = {
-  linear_flat: "Последовательный",
-  linear_by_topics: "Последовательный по темам",
+  linear_flat: "Линейный",
+  linear_by_topics: "Линейный по темам",
   router_by_topics: "Через страницу-маршрутизатор",
 };
 
@@ -270,8 +275,8 @@ function UnmappedPagesBanner(props: { pages: ContentPage[]; onMap: (page: Conten
       stacked
       title={`Страниц требуют сопоставления: ${unmapped.length}`}
       description={
-        "Выбранный шаблон оформления не содержит вариантов, к которым привязаны эти страницы. " +
-        "До сопоставления они показываются вариантом по умолчанию — привязка сохранена." +
+        "Выбранный шаблон оформления не содержит макетов, к которым привязаны эти страницы. " +
+        "До сопоставления они показываются макетом по умолчанию — привязка сохранена." +
         (rest > 0 ? ` Показаны первые ${listed.length}, ещё ${rest} — по отметке в списке.` : "")
       }
       actions={listed.map((page) => ({
@@ -573,7 +578,7 @@ function FlowModeBar({ mode }: { mode: TestEditorModel["flowMode"] }) {
       <span>Режим:</span>
       <span className="flow-mode-label">{FLOW_LABEL[mode]}</span>
       <span className="flow-mode-hint">
-        — задаётся во вкладке Настройки › Сценарий прохождения
+        — задаётся выше, полем «Сценарий прохождения»
       </span>
     </div>
   );
@@ -1376,7 +1381,7 @@ function SystemPageRow(props: {
               onClick={canSwitch ? () => handlers.onReplaceVariant(page) : undefined}
               data-testid={`${props.testId}-replace`}
             >
-              Сменить вариант
+              Сменить макет
             </MenuItem>
             <MenuItem
               onClick={() => handlers.onPreview(page)}
@@ -1412,7 +1417,7 @@ function SystemPageRow(props: {
           {canSwitch && (
             <Tag tone="info" size="s" data-testid={`${props.testId}-variant-hint`}>
               <Info size={12} aria-hidden="true" />
-              Доступно вариантов: {variants.length}
+              Доступно макетов: {variants.length}
             </Tag>
           )}
         </div>
@@ -1710,7 +1715,7 @@ function AuthorPageRow(props: {
                     onClick={() => props.onReplaceVariant(page)}
                     data-testid={`structure-page-replace-${page.id}`}
                   >
-                    Сменить вариант…
+                    Сменить макет…
                   </MenuItem>
                 )}
                 <MenuItem
@@ -1775,7 +1780,7 @@ function AuthorPageRow(props: {
             {showVariantHint && (
               <Tag tone="info" size="s" data-testid={`structure-page-${page.id}-variant-hint`}>
                 <Info size={12} aria-hidden="true" />
-                Доступно вариантов: {variantsForKind.length}
+                Доступно макетов: {variantsForKind.length}
               </Tag>
             )}
           </div>
@@ -1856,7 +1861,7 @@ function PageEditForm(props: {
         <Banner
           tone="warning"
           size="sm"
-          description="Вариант страницы недоступен в текущем шаблоне. Выберите другой шаблон оформления или пересоздайте страницу."
+          description="Макет страницы недоступен в текущем шаблоне. Выберите другой шаблон оформления или пересоздайте страницу."
           data-testid={`structure-page-edit-no-variant-${page.id}`}
         />
       )}
@@ -2230,7 +2235,7 @@ function AddPageModal(props: {
       }}
       size="xl"
       title="Добавить страницу"
-      description={ctx ? `Выберите вариант для зоны «${ctx.zoneLabel}».` : undefined}
+      description={ctx ? `Выберите макет для зоны «${ctx.zoneLabel}».` : undefined}
       footer={
         <>
           <Button
@@ -2270,8 +2275,8 @@ function AddPageModal(props: {
           <input
             type="search"
             className="variant-search__input"
-            placeholder="Поиск по названию варианта…"
-            aria-label="Поиск вариантов"
+            placeholder="Поиск по названию макета…"
+            aria-label="Поиск макетов"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             data-testid="structure-add-search"
@@ -2438,7 +2443,7 @@ function ReplaceVariantModal(props: {
         props.onClose();
       }}
       size="xl"
-      title="Сменить вариант страницы"
+      title="Сменить макет страницы"
       description={page ? `Системная страница «${KIND_LABEL[page.kind] ?? page.kind}».` : undefined}
       footer={
         <>
@@ -2479,8 +2484,8 @@ function ReplaceVariantModal(props: {
           <input
             type="search"
             className="variant-search__input"
-            placeholder="Поиск по названию варианта…"
-            aria-label="Поиск вариантов"
+            placeholder="Поиск по названию макета…"
+            aria-label="Поиск макетов"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             data-testid="structure-replace-search"
@@ -2534,8 +2539,8 @@ function ReplaceVariantModal(props: {
             </ul>
             <p className="diff-block__meta">
               {isNoFields
-                ? "У нового варианта нет редактируемых полей — содержимое страницы будет полностью задано шаблоном."
-                : "У нового варианта таких полей нет."}
+                ? "У нового макета нет редактируемых полей — содержимое страницы будет полностью задано шаблоном."
+                : "У нового макета таких полей нет."}
             </p>
           </div>
         </div>

@@ -16,6 +16,7 @@ import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Banner, Button, Card, CardBody, CardHeader, Tag } from "@universityrt/ui-kit";
 import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { t } from "@/lib/i18n";
 import type { TestEditorModel } from "../test-editor.types";
 
 /** Строка вопроса в том виде, в каком её отдаёт `/api/questions`. */
@@ -144,8 +145,12 @@ export function QuestionFeedbackRegistry({
                       <div className="tb-qfeedback__row" key={q.id}>
                         <div className="tb-qfeedback__q">
                           <div className="tb-qfeedback__q-text">{q.text || "Без формулировки"}</div>
+                          {/* Э5.8: режим называется ровно так же, как в карточке вопроса —
+                              из одного словаря, чтобы реестр не завёл своих синонимов. */}
                           <Tag size="s" variant="soft">
-                            {q.feedbackMode === "conditional" ? "Условная" : "Общая"}
+                            {q.feedbackMode === "conditional"
+                              ? t.questions.feedbackModeConditional
+                              : t.questions.feedbackModeGeneral}
                           </Tag>
                         </div>
                         <div className="tb-qfeedback__texts">

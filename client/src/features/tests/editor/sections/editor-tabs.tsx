@@ -15,7 +15,7 @@
  */
 import { useMemo } from "react";
 import type * as React from "react";
-import { Banner } from "@universityrt/ui-kit";
+import { Banner, FormSection } from "@universityrt/ui-kit";
 import type { FieldErrorIndex } from "../field-errors";
 import type { TestEditorModel } from "../test-editor.types";
 import type { UseDesignSettingsResult } from "../use-design-settings";
@@ -193,7 +193,9 @@ export function RulesTab({
     >
       {active === "navigation" && <NavigationPane model={model} updateModel={updateModel} />}
       {active === "during" && (
-        <>
+        // Э5.7: заголовок группы называет не момент («по ходу»), а предмет — что именно
+        // участник видит на экране вопроса, пока идёт тест.
+        <FormSection title="Что видит ученик во время прохождения теста" stacked>
           {/* Прогресс и шапка объявлены МАНИФЕСТОМ шаблона, поэтому рисует их тот же
               механизм, что и в «Оформлении»; сюда параметры переехали адресом, а не
               переписыванием (решение 18). */}
@@ -207,7 +209,7 @@ export function RulesTab({
             />
           )}
           <DuringRunPane model={model} updateModel={updateModel} />
-        </>
+        </FormSection>
       )}
       {active === "limits" && (
         <LimitsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />

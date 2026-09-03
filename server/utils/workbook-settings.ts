@@ -21,6 +21,11 @@
  * Several parameters write into one JSON column, so the sheet is applied not to the `tests`
  * row but to a DRAFT ({@link SettingsDraft}): the import merges its branches onto the test's
  * current state and only then calls the settings service.
+ *
+ * A parameter NAME is part of that contract, because the sheet matches a row by it. Renaming
+ * one therefore adds {@link SettingParam.aliases} rather than replacing the name: the export
+ * prints the new name, the import goes on accepting the old one, and a workbook downloaded
+ * before the rename keeps applying.
  */
 import type { Test } from "@shared/schema";
 import { ELIGIBILITY_PLUGINS } from "@shared/eligibility/registry";
@@ -81,10 +86,29 @@ type Bucket = "test" | "router" | "overall" | "retake" | "attemptInterval" | "pl
 export interface SettingParam {
   /** Text of the «Параметр» cell — the editor's label, verbatim. */
   name: string;
+  /**
+   * Names this parameter USED to be printed under. Accepted on import forever, never
+   * written: the sheet always exports {@link name}.
+   *
+   * A parameter name is a CONTRACT with workbooks already in the wild. The sheet matches a
+   * row by its name, and an author's copy lives on their own disk — there is no release
+   * after which every such copy has been reissued. So a rename adds an alias instead of
+   * replacing a name, and the alias stays: dropping it later breaks exactly the workbooks
+   * that were never re-downloaded.
+   */
+  aliases?: readonly string[];
   /** Value for the export; empty string when the test carries nothing. */
   read(src: SettingsSource): string;
   /** Apply a NON-EMPTY cell to the draft; return an error message or nothing. */
   write(raw: string, draft: SettingsDraft): string | undefined;
+}
+
+/** Options every parameter constructor accepts: the former names of this parameter. */
+type AliasOpts = { aliases?: readonly string[] };
+
+/** `aliases` as a spreadable fragment, so a parameter without them carries no key at all. */
+function aliasesOf({ aliases }: AliasOpts): Pick<SettingParam, "aliases"> {
+  return aliases && aliases.length > 0 ? { aliases } : {};
 }
 
 const YES = "Да";
@@ -189,9 +213,11 @@ function boolParam(
   get: (s: SettingsSource) => unknown,
   bucket: Bucket,
   key: string,
+  opts: AliasOpts = {},
 ): SettingParam {
   return {
     name,
+    ...aliasesOf(opts),
     read: (s) => {
       const v = get(s);
       return v === true ? YES : v === false ? NO : "";
@@ -223,11 +249,12 @@ function intParam(
   get: (s: SettingsSource) => unknown,
   bucket: Bucket,
   key: string,
-  opts: { min?: number; max?: number; zeroIsNull?: boolean } = {},
+  opts: { min?: number; max?: number; zeroIsNull?: boolean } & AliasOpts = {},
 ): SettingParam {
   const { min = 0, max = Number.MAX_SAFE_INTEGER, zeroIsNull = false } = opts;
   return {
     name,
+    ...aliasesOf(opts),
     read: (s) => {
       const v = get(s);
       if (v == null) return zeroIsNull ? "0" : "";
@@ -252,9 +279,11 @@ function textParam(
   get: (s: SettingsSource) => unknown,
   bucket: Bucket,
   key: string,
+  opts: AliasOpts = {},
 ): SettingParam {
   return {
     name,
+    ...aliasesOf(opts),
     read: (s) => String(get(s) ?? ""),
     // An empty cell never reaches here (parseSettingsSheet filters it out), so a text
     // parameter cannot be cleared by the workbook — a deliberate consequence of the
@@ -280,13 +309,14 @@ function enumParam(
   get: (s: SettingsSource) => unknown,
   bucket: Bucket,
   key: string,
-  opts: { open?: boolean } = {},
+  opts: { open?: boolean } & AliasOpts = {},
 ): SettingParam {
   const byLabel = new Map(
     Object.entries(labels).map(([value, label]) => [normalizeCell(label), value]),
   );
   return {
     name,
+    ...aliasesOf(opts),
     read: (s) => {
       const v = get(s);
       if (typeof v !== "string" || v === "") return "";
@@ -408,7 +438,11 @@ export const SETTING_PARAMS: SettingParam[] = [
   },
   enumParam("Режим теста", MODE_LABELS, (s) => s.mode, "test", "mode"),
   {
-    name: "Сценарий прохождения",
+    // The editor's field keeps the full «Сценарий прохождения» label (audit decision 26);
+    // outside its panel — the workbook, validation, the guides — the parameter is named by
+    // what it holds, «Тип сценария» (Э5.1).
+    name: "Тип сценария",
+    aliases: ["Сценарий прохождения"],
     read: (s) => {
       const mode = branch(s.flowPolicyJson).mode;
       const key = typeof mode === "string" && FLOW_LABELS[mode as keyof typeof FLOW_LABELS]
@@ -426,7 +460,11 @@ export const SETTING_PARAMS: SettingParam[] = [
     },
   },
   enumParam("Порядок выдачи вопросов", ORDER_LABELS, (s) => s.questionOrder, "test", "questionOrder"),
-  boolParam("Показывать правильные ответы после прохождения", (s) => s.showCorrectAnswers, "test", "showCorrectAnswers"),
+  // Ф-19: the highlight is printed right after the answer, not at the end of the test, so
+  // the old name promised the wrong moment (Э5.2).
+  boolParam("Показывать правильные ответы после ответа", (s) => s.showCorrectAnswers, "test", "showCorrectAnswers", {
+    aliases: ["Показывать правильные ответы после прохождения"],
+  }),
   boolParam("Показывать уровень сложности при прохождении", (s) => s.showDifficultyLevel, "test", "showDifficultyLevel"),
 
   // ── Pass rules ──
@@ -476,8 +514,20 @@ export const SETTING_PARAMS: SettingParam[] = [
   boolParam("В отчёте — тот же текст, что на экране итогов", (s) => branch(s.introJson).reportSameAsResults, "introRoot", "reportSameAsResults"),
 ];
 
-/** Parameter by cell name: compared case-insensitively and free of Excel's sticky spaces. */
+/**
+ * Parameter by cell name: compared case-insensitively and free of Excel's sticky spaces.
+ *
+ * Current names are indexed FIRST and an alias never overwrites one: if a rename ever hands
+ * one parameter the former name of another, the sheet keeps meaning what it prints today,
+ * and the older book loses one row instead of writing into the wrong column.
+ */
 const PARAM_BY_NAME = new Map(SETTING_PARAMS.map((p) => [normalizeCell(p.name), p]));
+for (const param of SETTING_PARAMS) {
+  for (const alias of param.aliases ?? []) {
+    const key = normalizeCell(alias);
+    if (!PARAM_BY_NAME.has(key)) PARAM_BY_NAME.set(key, param);
+  }
+}
 
 /** Export: one row per registry parameter, always all of them. */
 export function serializeSettingsRows(src: SettingsSource): Record<string, unknown>[] {

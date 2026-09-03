@@ -83,7 +83,7 @@ function selectOption(selectTestId: string, optionLabel: string | RegExp) {
   fireEvent.click(screen.getByRole("option", { name: optionLabel }));
 }
 
-describe("<BreakdownDisplayPane /> — Подытоги по ключам (PRD-50 FR-13)", () => {
+describe("<BreakdownDisplayPane /> — Подытоги по подтемам (PRD-50 FR-13)", () => {
   it("рендерит селектор видимости в панели «Состав итогов»", () => {
     render(<BreakdownDisplayPane model={baseModel()} updateModel={() => {}} />);
     expect(screen.getByTestId("settings-breakdown-visibility-select")).toBeInTheDocument();
@@ -176,7 +176,7 @@ describe("<BreakdownDisplayPane /> — где показывать подыто�
     const updateModel = vi.fn();
     const model = withDisplay({ visibility: "bar_and_value", basis: "points" });
     render(<BreakdownDisplayPane model={model} updateModel={updateModel} />);
-    selectOption("settings-breakdown-placement-select", "Сводным блоком по тесту");
+    selectOption("settings-breakdown-placement-select", "Отдельным блоком в итогах");
     expect(runUpdater(updateModel, model).runtime.breakdownDisplay).toEqual({
       visibility: "bar_and_value",
       basis: "points",

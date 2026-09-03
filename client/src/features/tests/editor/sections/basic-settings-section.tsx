@@ -282,7 +282,7 @@ export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
     <>
           <div className="ou-formfield">
             <Switch
-              label="Показывать правильные ответы после прохождения"
+              label="Показывать правильные ответы после ответа"
               checked={model.runtime.showCorrectAnswers}
               onChange={(e) => {
                 const checked = e.target.checked;
@@ -1116,23 +1116,23 @@ export function DuringRunPane({ model, updateModel }: SettingsSectionProps) {
   }
   return (
     <>
-      <div className="ou-formfield">
-        <Switch
-          label="Показывать уровень сложности при прохождении"
-          checked={model.adaptive.showDifficultyLevel}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              adaptive: {
-                ...m.adaptive,
-                showDifficultyLevel: checked,
-                testSettings: { ...m.adaptive.testSettings, showDifficultyLevel: checked },
-              },
-            }));
-          }}
-          data-testid="adaptive-show-difficulty"
-        />
+      <div className="ou-formfield">
+        <Switch
+          label="Показывать уровень сложности при прохождении"
+          checked={model.adaptive.showDifficultyLevel}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              adaptive: {
+                ...m.adaptive,
+                showDifficultyLevel: checked,
+                testSettings: { ...m.adaptive.testSettings, showDifficultyLevel: checked },
+              },
+            }));
+          }}
+          data-testid="adaptive-show-difficulty"
+        />
       </div>
     </>
   );
@@ -1211,48 +1211,24 @@ export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
 export function BreakdownDisplayPane({ model, updateModel }: SettingsSectionProps) {
   return (
     <>
-      <div className="ou-formfield">
-        <Select<"hidden" | "bar" | "bar_and_value">
-          id="settings-breakdown-visibility"
-          size="m"
-          fullWidth
-          label="Подытоги по ключам"
-          // Ф-2: подсказка обещала «итоги раздела», а этот экран разрез не печатает и не
-          // может — поля нет в его контексте, блока нет ни в одной раскладке. Обещание
-          // экрана, которого не будет, читается как дефект выдачи, а не как текст.
-          hint="Полосы по подтемам (тегам вопросов): на экране итогов теста и в отчёте. Экран «Итоги раздела» подытогов не печатает."
-          value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility}
-          options={[
-            { value: "hidden", label: "Не показывать" },
-            { value: "bar", label: "Полоса" },
-            { value: "bar_and_value", label: "Полоса и число" },
-          ]}
-          onChange={(value) =>
-            updateModel((m) => ({
-              ...m,
-              runtime: {
-                ...m.runtime,
-                breakdownDisplay: {
-                  ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
-                  visibility: value,
-                },
-              },
-            }))
-          }
-          data-testid="settings-breakdown-visibility-select"
-        />
-      </div>
-      {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
+      {/* Э5.3: группа названа предметом — подтемами, а не «ключами» движка (эскиз
+          `s-feedback`, решение 23). «Ключ» остаётся в коде и в спецификациях. */}
+      <FormSection title="Подытоги по подтемам" stacked>
         <div className="ou-formfield">
-          <Select<"units" | "points">
-            id="settings-breakdown-basis"
+          <Select<"hidden" | "bar" | "bar_and_value">
+            id="settings-breakdown-visibility"
             size="m"
             fullWidth
-            label="База подытогов"
-            value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).basis}
+            label="Подытоги по подтемам (тегам)"
+            // Ф-2: подсказка обещала «итоги раздела», а этот экран разрез не печатает и не
+            // может — поля нет в его контексте, блока нет ни в одной раскладке. Обещание
+            // экрана, которого не будет, читается как дефект выдачи, а не как текст.
+            hint="Полосы по подтемам (тегам вопросов): на экране итогов теста и в отчёте. Экран «Итоги раздела» подытогов не печатает. «Не показывать» убирает подытоги совсем и прячет два поля ниже."
+            value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility}
             options={[
-              { value: "units", label: "Доля вопросов" },
-              { value: "points", label: "Доля баллов" },
+              { value: "hidden", label: "Не показывать" },
+              { value: "bar", label: "Полоса" },
+              { value: "bar_and_value", label: "Полоса и число" },
             ]}
             onChange={(value) =>
               updateModel((m) => ({
@@ -1261,49 +1237,77 @@ export function BreakdownDisplayPane({ model, updateModel }: SettingsSectionProp
                   ...m.runtime,
                   breakdownDisplay: {
                     ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
-                    basis: value,
+                    visibility: value,
                   },
                 },
               }))
             }
-            data-testid="settings-breakdown-basis-select"
+            data-testid="settings-breakdown-visibility-select"
           />
         </div>
-      )}
-      {/* PRD-50 FR-44 (Э4): ГДЕ показывать подытоги. Два места отвечают на разные вопросы —
-          ключ внутри одного раздела и тот же ключ по всему тесту, — поэтому автор выбирает
-          любое из них или оба. Поля нет в настройке, сохранённой до этого этапа: там оно
-          читается как «В карточках тем», то есть ровно то, что тест печатал. */}
-      {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
-        <div className="ou-formfield">
-          <Select<"topics" | "block" | "both">
-            id="settings-breakdown-placement"
-            size="m"
-            fullWidth
-            label="Где показывать подытоги"
-            hint="Сводный блок печатает ключ, живущий в нескольких разделах, ОДНОЙ строкой по всему тесту. В адаптивном тесте карточка темы говорит подтверждённым уровнем и полос не печатает — там работает только сводный блок."
-            value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).placement ?? "topics"}
-            options={[
-              { value: "topics", label: "В карточках тем" },
-              { value: "block", label: "Сводным блоком по тесту" },
-              { value: "both", label: "И там, и там" },
-            ]}
-            onChange={(value) =>
-              updateModel((m) => ({
-                ...m,
-                runtime: {
-                  ...m.runtime,
-                  breakdownDisplay: {
-                    ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
-                    placement: value,
+        {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
+          <div className="ou-formfield">
+            <Select<"units" | "points">
+              id="settings-breakdown-basis"
+              size="m"
+              fullWidth
+              label="База подытогов"
+              value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).basis}
+              options={[
+                { value: "units", label: "Доля вопросов" },
+                { value: "points", label: "Доля баллов" },
+              ]}
+              onChange={(value) =>
+                updateModel((m) => ({
+                  ...m,
+                  runtime: {
+                    ...m.runtime,
+                    breakdownDisplay: {
+                      ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
+                      basis: value,
+                    },
                   },
-                },
-              }))
-            }
-            data-testid="settings-breakdown-placement-select"
-          />
-        </div>
-      )}
+                }))
+              }
+              data-testid="settings-breakdown-basis-select"
+            />
+          </div>
+        )}
+        {/* PRD-50 FR-44 (Э4): ГДЕ показывать подытоги. Два места отвечают на разные вопросы —
+            ключ внутри одного раздела и тот же ключ по всему тесту, — поэтому автор выбирает
+            любое из них или оба. Поля нет в настройке, сохранённой до этого этапа: там оно
+            читается как «В карточках тем», то есть ровно то, что тест печатал. */}
+        {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
+          <div className="ou-formfield">
+            <Select<"topics" | "block" | "both">
+              id="settings-breakdown-placement"
+              size="m"
+              fullWidth
+              label="Где показывать подытоги"
+              hint="Сводный блок печатает подтему, живущую в нескольких разделах, одной строкой по всему тесту. В адаптивном тесте карточка темы говорит подтверждённым уровнем и полос не печатает — там работает только сводный блок."
+              value={(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).placement ?? "topics"}
+              options={[
+                { value: "topics", label: "В карточках тем" },
+                { value: "block", label: "Отдельным блоком в итогах" },
+                { value: "both", label: "В карточках тем и отдельным блоком" },
+              ]}
+              onChange={(value) =>
+                updateModel((m) => ({
+                  ...m,
+                  runtime: {
+                    ...m.runtime,
+                    breakdownDisplay: {
+                      ...(m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY),
+                      placement: value,
+                    },
+                  },
+                }))
+              }
+              data-testid="settings-breakdown-placement-select"
+            />
+          </div>
+        )}
+      </FormSection>
 
       <hr className="wf-sep" />
     </>
@@ -1415,16 +1419,16 @@ export function VerdictPane({
 
       {model.sections.length > 0 && (
         <>
-          <h3 className="tb-topics-title">Правила прохождения тем</h3>
+          <h3 className="tb-topics-title">Правила оценки тем</h3>
           <table
             className="tb-table tb-pass-table"
-            aria-label="Правила прохождения тем"
+            aria-label="Правила оценки тем"
             data-testid="pass-rules-topics-table"
           >
             <thead>
               <tr>
                 <th scope="col" className="tb-pass-table__topic-col">Тема</th>
-                <th scope="col">Правило прохождения темы</th>
+                <th scope="col">Правило оценки темы</th>
               </tr>
             </thead>
             <tbody>
@@ -1547,7 +1551,7 @@ function PassTopicRow(props: {
             size="s"
             fullWidth
             value={props.rule.source}
-            aria-label={`Правило прохождения темы ${props.topicName}`}
+            aria-label={`Правило оценки темы ${props.topicName}`}
             options={[
               { value: "inherit_overall", label: "Как у теста" },
               { value: "custom", label: "Индивидуальное правило" },

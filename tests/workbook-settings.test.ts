@@ -17,6 +17,7 @@ import {
   SETTING_PARAMS,
   SETTING_PARAM_NAMES,
   emptySettingsDraft,
+  normalizeCell,
   parseSettingsSheet,
   serializeSettingsRows,
   type SettingsSource,
@@ -156,9 +157,9 @@ describe("реестр листа «Настройки»", () => {
     expect(draft.test.mode).toBeUndefined();
   });
 
-  it("сценарий прохождения ходит по кругу", () => {
+  it("тип сценария ходит по кругу", () => {
     const rows = serializeSettingsRows({ flowPolicyJson: { mode: "router_by_topics" } });
-    const cell = rows.find((r) => r["Параметр"] === "Сценарий прохождения");
+    const cell = rows.find((r) => r["Параметр"] === "Тип сценария");
     expect(cell?.["Значение"]).toBe("Через страницу-маршрутизатор");
 
     const { draft } = parseSettingsSheet([cell as Record<string, unknown>]);
@@ -167,7 +168,7 @@ describe("реестр листа «Настройки»", () => {
 
   it("сценарий по умолчанию — «Линейный»", () => {
     const rows = serializeSettingsRows({ flowPolicyJson: null });
-    expect(cellOf(rows, "Сценарий прохождения")).toBe("Линейный");
+    expect(cellOf(rows, "Тип сценария")).toBe("Линейный");
   });
 
   it("повторное прохождение собирается в свой черновик, а не в колонки теста", () => {
@@ -321,6 +322,49 @@ describe("реестр листа «Настройки»", () => {
     expect(draft.introReport).toEqual({ format: "plain", text: "Отчёт" });
     expect(draft.introRoot).toEqual({ reportSameAsResults: false });
     expect(draft.folderPath).toBe("Аттестация / 2026");
+  });
+
+  // ── Переименования и старые книги (Э5.1, Э5.2) ──────────────────────────────
+
+  it("книга, выгруженная до переименования, применяется по старым именам", () => {
+    const { draft, errors } = parseSettingsSheet([
+      row("Сценарий прохождения", "Через страницу-маршрутизатор"),
+      row("Показывать правильные ответы после прохождения", "да"),
+    ]);
+    expect(errors).toEqual([]);
+    expect(draft.flowMode).toBe("router_by_topics");
+    expect(draft.test.showCorrectAnswers).toBe(true);
+  });
+
+  it("выгрузка печатает только новое имя, старое остаётся лишь на входе", () => {
+    const names = serializeSettingsRows({}).map((r) => r["Параметр"]);
+    expect(names).toContain("Тип сценария");
+    expect(names).toContain("Показывать правильные ответы после ответа");
+    expect(names).not.toContain("Сценарий прохождения");
+    expect(names).not.toContain("Показывать правильные ответы после прохождения");
+  });
+
+  it("старое имя терпит мусор из Word так же, как новое", () => {
+    const { draft, errors } = parseSettingsSheet([
+      row("Сценарий  прохождения ", "Линейный по темам"),
+    ]);
+    expect(errors).toEqual([]);
+    expect(draft.flowMode).toBe("linear_by_topics");
+  });
+
+  it("алиас не отбирает имя у другого параметра", () => {
+    // Сторож на будущее: алиас — это имя, которое книга уже носит, и совпади оно с ИМЕНЕМ
+    // соседнего параметра, старая книга писала бы в чужую колонку молча.
+    const names = new Set(SETTING_PARAMS.map((p) => normalizeCell(p.name)));
+    const seen = new Set<string>();
+    for (const param of SETTING_PARAMS) {
+      for (const alias of param.aliases ?? []) {
+        const key = normalizeCell(alias);
+        expect(names.has(key)).toBe(false);
+        expect(seen.has(key)).toBe(false);
+        seen.add(key);
+      }
+    }
   });
 
   it("повторённый параметр применяется последним вхождением", () => {

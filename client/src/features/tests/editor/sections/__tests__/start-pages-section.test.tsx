@@ -9,7 +9,7 @@
  *     system nodes per section (no legacy per-topic intro/summary)
  *   - Author info pages: add (variant modal), inline edit, reorder, delete
  *   - Required-field + missing-template warnings
- *   - «Сменить вариант» on system rows (enabled when >1 variant, replace-variant)
+ *   - «Сменить макет» on system rows (enabled when >1 variant, replace-variant)
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -77,12 +77,12 @@ const TEMPLATE = {
       },
       { key: "intro.hero", label: "Введение", kind: "intro", placeholders: [{ key: "title", type: "text", label: "Заголовок" }] },
       { key: "summary.result", label: "Итог: результат", kind: "summary", placeholders: [] },
-      // PRD-19 section-boundary system nodes. One review variant → «Сменить вариант»
+      // PRD-19 section-boundary system nodes. One review variant → «Сменить макет»
       // disabled on the обзор; two section-results variants → enabled on the итоги node.
       { key: "review.standard", label: "Обзор: стандартный", kind: "review", placeholders: [] },
       { key: "section-results.result", label: "Итог: результат", kind: "section-results", placeholders: [] },
       { key: "section-results.ring", label: "Итог: кольцо", kind: "section-results", placeholders: [] },
-      // One questions variant → «Сменить вариант» disabled.
+      // One questions variant → «Сменить макет» disabled.
       { key: "question.standard", label: "Стандартный макет вопроса", kind: "questions", placeholders: [] },
     ],
   },
@@ -640,7 +640,7 @@ describe("<StructureSection /> — warnings", () => {
     await waitFor(() => expect(screen.getByTestId("structure-page-required-pg-req")).toBeInTheDocument());
   });
 
-  it("shows the «Доступно вариантов» hint on an info page when the template offers several", async () => {
+  it("shows the «Доступно макетов» hint on an info page when the template offers several", async () => {
     // TEMPLATE declares 4 info variants (info.text/title/empty + gallery.card) → the
     // author info row surfaces the hint, symmetric with the system row.
     installApi([
@@ -648,12 +648,12 @@ describe("<StructureSection /> — warnings", () => {
     ]);
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-info")).toBeInTheDocument());
-    expect(screen.getByTestId("structure-page-pg-info-variant-hint")).toHaveTextContent("Доступно вариантов: 4");
+    expect(screen.getByTestId("structure-page-pg-info-variant-hint")).toHaveTextContent("Доступно макетов: 4");
   });
 });
 
 describe("<StructureSection /> — switch variant of a system page", () => {
-  it("section-results node has >1 variant → «Сменить вариант» applies the new variant to the local draft", async () => {
+  it("section-results node has >1 variant → «Сменить макет» applies the new variant to the local draft", async () => {
     const spies = installApi([
       buildPage({ id: "pg-sr", kind: "section-results", position: "after", topicId: null, templateKey: "section-results.result", valuesJson: { values: {} } }),
       buildPage({ id: "pg-qt1", kind: "questions", position: "before_topic", topicId: "t1", templateKey: "question.standard", valuesJson: { values: {} } }),
@@ -678,7 +678,7 @@ describe("<StructureSection /> — switch variant of a system page", () => {
     expect(spies.replaceVariant).not.toHaveBeenCalled();
   });
 
-  it("questions has a single variant → no hint, «Сменить вариант» disabled", async () => {
+  it("questions has a single variant → no hint, «Сменить макет» disabled", async () => {
     installApi([
       buildPage({ id: "pg-qt1", kind: "questions", position: "before_topic", topicId: "t1", templateKey: "question.standard", valuesJson: { values: {} } }),
     ]);
@@ -689,7 +689,7 @@ describe("<StructureSection /> — switch variant of a system page", () => {
       }),
     );
     await waitFor(() => expect(screen.getByTestId("structure-questions-row-t1")).toBeInTheDocument());
-    // No «Доступно вариантов» hint label and no «Единственный вариант» chip.
+    // No «Доступно макетов» hint label and no «Единственный вариант» chip.
     expect(screen.queryByTestId("structure-questions-row-t1-variant-hint")).toBeNull();
     expect(screen.getByTestId("structure-questions-row-t1")).not.toHaveTextContent("Единственный вариант");
     // The command exists but is disabled — clicking it does not open the modal.
@@ -789,7 +789,7 @@ describe("<StructureSection /> — replace-variant search + diff", () => {
     expect(diff).toHaveTextContent("Текущие настройки страницы будут потеряны");
     expect(diff).toHaveTextContent("Заголовок:");
     expect(diff).toHaveTextContent("Текст:");
-    expect(diff).toHaveTextContent("У нового варианта нет редактируемых полей");
+    expect(diff).toHaveTextContent("У нового макета нет редактируемых полей");
   });
 
   it("does not show diff-block when switching back to current variant", async () => {

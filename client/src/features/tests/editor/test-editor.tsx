@@ -870,7 +870,7 @@ function TabPlaceholder({ tab }: { tab: EditorTabKey }) {
   const desc: Record<EditorTabKey, string> = {
     main: "Название, описание, режим теста и интеграция.",
     composition: "Темы и выборка вопросов, уровни адаптивного теста, сценарий.",
-    rules: "Навигация, показ по ходу, ограничения и защита контента.",
+    rules: "Навигация, что видно во время прохождения, ограничения и защита контента.",
     scoring: "Цена ответа, вердикт теста и тем, шкалы и показатели.",
     feedback: "Что участник узнаёт о результате: итоги, тексты и отчёт.",
     design: "Шаблон и объявленный им облик: цвета, шрифты, фоны и логотип.",
@@ -1080,7 +1080,7 @@ function collectChangesByTab(
     {
       tab: "feedback",
       field: "showCorrectAnswers",
-      label: "Показывать правильные ответы",
+      label: "Показывать правильные ответы после ответа",
       oldValue: fmtBool(snap.runtime.showCorrectAnswers),
       newValue: fmtBool(draft.runtime.showCorrectAnswers),
     },
@@ -1446,7 +1446,7 @@ function collectConflictRows(
     },
     {
       field: "showCorrectAnswers",
-      label: "Показывать правильные ответы",
+      label: "Показывать правильные ответы после ответа",
       serverValue: fmtBool(server.runtime.showCorrectAnswers),
       localValue: fmtBool(local.runtime.showCorrectAnswers),
     },
