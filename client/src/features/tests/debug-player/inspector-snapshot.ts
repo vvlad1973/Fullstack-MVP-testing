@@ -109,6 +109,8 @@ export interface TBInspectorApi {
   buildDraw(pkg: TBPkg | null): DrawVM;
   /** «Эталон»: paint correct-answer markers onto the live question render in the iframe (§5.4). */
   applyReference(iframeWin: Window | null): void;
+  /** PRD-52: вопрос текущего экрана — по нему панель подставляет место комментария. */
+  currentScreenQuestion?(iframeWin: Window | null): { id?: string; topicId?: string } | null;
   /** Remove all «Эталон» markers from the iframe. */
   clearReference(iframeWin: Window | null): void;
   /** Disable the «Завершить тест» button after it's clicked (debug — no re-submit). */

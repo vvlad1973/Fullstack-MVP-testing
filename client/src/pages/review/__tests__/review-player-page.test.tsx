@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 
 const { sessionMock, snapshotMock } = vi.hoisted(() => ({
@@ -24,6 +25,16 @@ vi.mock("@/features/tests/debug-player/inspector-snapshot", async (importOrigina
 }));
 
 import ReviewPlayerPage from "../review-player-page";
+
+/** Страница держит панель комментариев, а та ходит в API через react-query. */
+function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ReviewPlayerPage />
+    </QueryClientProvider>,
+  );
+}
 
 /** Снимок инспектора с минимумом, который читают панели. */
 function snapshot(over: Record<string, unknown> = {}) {
@@ -48,19 +59,19 @@ beforeEach(() => {
 
 describe("окно рецензента", () => {
   it("показывает ровно три вкладки инспектора", async () => {
-    render(<ReviewPlayerPage />);
+    renderPage();
     const tabs = await screen.findAllByRole("tab");
     expect(tabs.map((t) => t.textContent)).toEqual(["Комментарии", "Результаты", "Протокол"]);
   });
 
   it("оба режимных тумблера выключены при открытии", async () => {
-    render(<ReviewPlayerPage />);
+    renderPage();
     expect(await screen.findByTestId("toggle-reference")).not.toBeChecked();
     expect(screen.getByTestId("toggle-full-draw")).not.toBeChecked();
   });
 
   it("включение полной выдачи перестраивает прогон и уходит в стейдж хешем", async () => {
-    render(<ReviewPlayerPage />);
+    renderPage();
     await userEvent.click(await screen.findByTestId("toggle-full-draw"));
     expect(sessionMock.reset).toHaveBeenCalledTimes(1);
     await waitFor(() => {
@@ -70,12 +81,12 @@ describe("окно рецензента", () => {
 
   it("после старта прогона тумблер полной выдачи недоступен", async () => {
     snapshotMock.buildSnapshot.mockReturnValue(snapshot({ draw: { started: true, sections: [] } }));
-    render(<ReviewPlayerPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByTestId("toggle-full-draw")).toBeDisabled());
   });
 
   it("в режиме полной выдачи вердикт не показывается, а объясняется", async () => {
-    render(<ReviewPlayerPage />);
+    renderPage();
     await userEvent.click(await screen.findByTestId("toggle-full-draw"));
     await userEvent.click(screen.getByRole("tab", { name: "Результаты" }));
     expect(await screen.findByText(/Не считается в режиме полной выдачи/i)).toBeInTheDocument();
@@ -84,14 +95,14 @@ describe("окно рецензента", () => {
 
   it("без гранта показывает экран отказа, а не пустой прогон", async () => {
     sessionMock.state = { status: "forbidden" };
-    render(<ReviewPlayerPage />);
+    renderPage();
     expect(await screen.findByText("Нет доступа к рецензированию")).toBeInTheDocument();
     expect(screen.queryByTitle("stage")).not.toBeInTheDocument();
   });
 
   it("ошибка сборки объясняется текстом, а не молчанием", async () => {
     sessionMock.state = { status: "error", error: "422: в теме нет вопросов" };
-    render(<ReviewPlayerPage />);
+    renderPage();
     expect(await screen.findByText("Не удалось открыть прогон")).toBeInTheDocument();
     expect(screen.getByText(/в теме нет вопросов/)).toBeInTheDocument();
   });

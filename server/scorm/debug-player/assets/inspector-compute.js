@@ -1208,6 +1208,15 @@
   window.TBInspector = {
     fmtNum: fmtNum, trunc: trunc, byteLen: byteLen, fmtBytes: fmtBytes,
     buildScore: buildScore, buildDraw: buildDraw, questionLevel: questionLevel,
+    // PRD-52: какой вопрос сейчас на экране — по нему панель подставляет место
+    // комментария. Тот же резолвер, что рисует эталон, поэтому «место» и подсветка
+    // всегда говорят об одном и том же вопросе.
+    currentScreenQuestion: function (iframeWin) {
+      try {
+        var st = (iframeWin && iframeWin.state) || null;
+        return currentScreenQuestion(iframeWin, st);
+      } catch (e) { return null; }
+    },
     applyReference: applyReference, clearReference: clearReference, guardFinishButton: guardFinishButton,
     readPkg: readPkg, parseInteractions: parseInteractions, interactionById: interactionById,
     typeLabel: typeLabel, humanAnswer: humanAnswer, isActiveMeasure: isActiveMeasure,

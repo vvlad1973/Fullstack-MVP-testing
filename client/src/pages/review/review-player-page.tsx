@@ -19,6 +19,8 @@ import { MessageSquare, RotateCcw, Info, Lock } from "lucide-react";
 import { useDebugSession } from "@/features/tests/debug-player/use-debug-session";
 import { buildSnapshot, type InspectorSnapshot } from "@/features/tests/debug-player/inspector-snapshot";
 import { ScorePanel, ProtocolPanel, PanelEmpty } from "@/features/tests/run-inspector/panels";
+import { ReviewPanel } from "@/features/tests/review/review-panel";
+import { useScreenAnchor } from "@/features/tests/review/use-screen-anchor";
 import "@/features/tests/debug-player/debug-player.css";
 
 type ReviewTabId = "comments" | "score" | "protocol";
@@ -41,6 +43,8 @@ export default function ReviewPlayerPage() {
   const [reference, setReference] = useState(false);
   const [fullDraw, setFullDraw] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  // Место комментария — текущий экран прогона; тот же резолвер, что рисует эталон.
+  const screenAnchor = useScreenAnchor(frameRef, snap);
 
   // Снимок инспектора снимается по тику с ЖИВОГО рантайма пакета: подписаться не на
   // что — пакет ничего не публикует наружу, кроме своих глобалей.
@@ -182,7 +186,7 @@ export default function ReviewPlayerPage() {
           />
           <div className="dbg__ins-body">
             {tab === "comments" ? (
-              <PanelEmpty text="Панель комментариев подключается следующим шагом." />
+              <ReviewPanel testId={testId} mode="player" screenAnchor={screenAnchor} />
             ) : !snap ? (
               <PanelEmpty text="Запустите пакет — здесь появятся данные прогона." />
             ) : fullDraw ? (

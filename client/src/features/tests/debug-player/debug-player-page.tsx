@@ -27,12 +27,18 @@ import {
 import {
   ScorePanel, ProtocolPanel, PanelEmpty, QuestionLabel, ScoreAdaptivePanel,
 } from "../run-inspector/panels";
+import { ReviewPanel } from "../review/review-panel";
+import { useScreenAnchor } from "../review/use-screen-anchor";
 import { describeFeasibilityState } from "@/features/content-protection/issue-text";
 import "./debug-player.css";
 
-type TabId = "score" | "protocol" | "draw" | "scales" | "results" | "state" | "lms";
+type TabId = "review" | "score" | "protocol" | "draw" | "scales" | "results" | "state" | "lms";
 
 const TABS: { id: TabId; label: string }[] = [
+  // PRD-52: комментарии рецензентов видит и автор — в том же прогоне, где он их
+  // проверяет. Первой вкладку не ставим: у автора отладчик прежде всего про
+  // математику теста, а комментарии — то, ради чего он сюда вернулся.
+  { id: "review", label: "Комментарии" },
   { id: "score", label: "Результаты" },
   { id: "protocol", label: "Протокол" },
   { id: "draw", label: "Выдача" },
@@ -68,6 +74,10 @@ export default function DebugPlayerPage() {
   // PRD-52: тот же режим полной выдачи, что у рецензента. Автору он нужен по той же
   // причине — просмотреть банк темы целиком, а не ту выборку, что выпала прогону.
   const [fullDraw, setFullDraw] = useState(false);
+  // PRD-52 FR-30: правка по комментарию не перезагружает стейдж — прогон остаётся на
+  // том же вопросе, — но и в пакет она не попадает. Молчать об этом нельзя: автор
+  // решит, что правка не сработала.
+  const [pendingRebuild, setPendingRebuild] = useState(false);
   const [snap, setSnap] = useState<InspectorSnapshot>(EMPTY);
   // PRD-18: per-topic pinned variants { topicId: formId } for variants-mode sections.
   // Empty on mount (a fresh window starts unpinned). Passed to the stage as a
@@ -153,6 +163,8 @@ export default function DebugPlayerPage() {
   // Полная выдача едет тем же хешем; оба флага уживаются в одной строке.
   const drawHash = fullDraw ? (pinHash ? pinHash + "&tbfa=1" : "#tbfa=1") : pinHash;
   // Выдача фиксируется на первом вопросе — дальше режим не переключить.
+  // Место комментария — вопрос текущего экрана прогона (PRD-52 FR-18).
+  const screenAnchor = useScreenAnchor(iframeRef, snap);
   const drawStarted = Boolean(snap.draw?.started);
   const stageSrc = state.playUrl ? state.playUrl + drawHash : undefined;
 
@@ -166,7 +178,16 @@ export default function DebugPlayerPage() {
           <IconButton variant="ghost" size="s" aria-label="О прогоне отладки" title={DISCLAIMER + (state.template ? ` Шаблон оформления: ${state.template}.` : "")} icon={<Info size={14} />} />
         </span>
         <span className="dbg__bar-spacer" />
-        <Button variant="secondary" size="s" leadingIcon={<RefreshCw size={14} />} onClick={rebuild} disabled={building}>
+        <Button
+          variant={pendingRebuild ? "primary" : "secondary"}
+          size="s"
+          leadingIcon={<RefreshCw size={14} />}
+          onClick={() => { setPendingRebuild(false); rebuild(); }}
+          disabled={building}
+          title={pendingRebuild
+            ? "Собрать пакет заново с учётом правок — прогон начнётся сначала"
+            : "Собрать пакет заново из текущего состояния теста"}
+        >
           Пересобрать
         </Button>
         <Button variant="ghost" size="s" leadingIcon={<RotateCcw size={14} />} onClick={reset} data-testid="btn-reset" disabled={state.status !== "ready"}>
@@ -185,6 +206,15 @@ export default function DebugPlayerPage() {
 
       <div className="dbg__body">
         <section className="dbg__stage">
+          {pendingRebuild ? (
+            <Banner
+              tone="warning"
+              title="Сохранено. В текущем прогоне изменения не видны"
+              data-testid="rebuild-banner"
+            >
+              Чтобы прогон учитывал правку, нужна пересборка пакета — она начнёт прохождение сначала.
+            </Banner>
+          ) : null}
           <StatusBar snap={snap} />
           <div className="dbg__canvas">
             <div className="dbg__frame">
@@ -271,6 +301,15 @@ export default function DebugPlayerPage() {
           <div className="dbg__ins-main">
             <TabHead tab={tab} onTab={setTab} />
             <div className="dbg__ins-body">
+              {tab === "review" && (
+                <ReviewPanel
+                  testId={testId}
+                  mode="player"
+                  canResolve
+                  screenAnchor={screenAnchor}
+                  onNavigate={() => setPendingRebuild(true)}
+                />
+              )}
               {tab === "score" && <ScorePanel snap={snap} />}
               {tab === "protocol" && <ProtocolPanel snap={snap} />}
               {tab === "draw" && <DrawPanel snap={snap} pins={pins} onPin={setPin} />}
