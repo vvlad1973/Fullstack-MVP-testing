@@ -17,18 +17,22 @@ import { useQuery } from "@tanstack/react-query";
 import { Banner, Button, Card, CardBody, CardHeader, Tag } from "@universityrt/ui-kit";
 import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { t } from "@/lib/i18n";
+import type { Question } from "@shared/schema";
 import type { TestEditorModel } from "../test-editor.types";
 
-/** Строка вопроса в том виде, в каком её отдаёт `/api/questions`. */
-type QuestionRow = {
-  id: string;
-  topicId: string;
-  text?: string;
-  feedbackMode?: "general" | "conditional" | null;
-  feedback?: string | null;
-  feedbackCorrect?: string | null;
-  feedbackIncorrect?: string | null;
-};
+/**
+ * Строка вопроса в том виде, в каком её отдаёт `/api/questions`.
+ *
+ * Поля ВЫБИРАЮТСЯ из схемы, а не переписываются здесь руками: собственный список имён
+ * однажды уже разошёлся с маршрутом — реестр читал `text`, которого в ответе нет, и каждая
+ * строка печатала «Без формулировки». Компилятор промолчал (поле было необязательным), и
+ * компонентный тест тоже: у него была своя фикстура, названная так же неверно. `Pick`
+ * ставит расхождение на учёт компилятора.
+ */
+type QuestionRow = Pick<
+  Question,
+  "id" | "topicId" | "prompt" | "feedbackMode" | "feedback" | "feedbackCorrect" | "feedbackIncorrect"
+>;
 
 export type QuestionFeedbackRegistryProps = {
   model: TestEditorModel;
@@ -144,7 +148,7 @@ export function QuestionFeedbackRegistry({
                     list.map((q) => (
                       <div className="tb-qfeedback__row" key={q.id}>
                         <div className="tb-qfeedback__q">
-                          <div className="tb-qfeedback__q-text">{q.text || "Без формулировки"}</div>
+                          <div className="tb-qfeedback__q-text">{q.prompt || "Без формулировки"}</div>
                           {/* Э5.8: режим называется ровно так же, как в карточке вопроса —
                               из одного словаря, чтобы реестр не завёл своих синонимов. */}
                           <Tag size="s" variant="soft">

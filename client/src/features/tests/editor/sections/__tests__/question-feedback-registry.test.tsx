@@ -10,23 +10,34 @@ import { QuestionFeedbackRegistry } from "../question-feedback-registry";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
 import type { TestEditorModel } from "../../test-editor.types";
 
+/**
+ * Поле формулировки называется `prompt` — ровно так, как его отдаёт `/api/questions`.
+ * Фикстура со своим именем поля прежде скрывала дефект: реестр читал `text`, тест был
+ * зелёным, а на живом экране каждая строка печатала «Без формулировки».
+ */
 const QUESTIONS = [
   {
     id: "q1",
     topicId: "law",
-    text: "Что такое персональные данные?",
+    prompt: "Что такое персональные данные?",
     feedbackMode: "general",
     feedback: "Смотрите статью 3",
   },
   {
     id: "q2",
     topicId: "law",
-    text: "Можно ли передавать данные третьим лицам?",
+    prompt: "Можно ли передавать данные третьим лицам?",
     feedbackMode: "conditional",
     feedbackCorrect: "Верно, только с согласия",
     feedbackIncorrect: "Нет: нужно согласие субъекта",
   },
-  { id: "q3", topicId: "law", text: "Без обратной связи", feedbackMode: "general", feedback: null },
+  {
+    id: "q3",
+    topicId: "law",
+    prompt: "Без обратной связи",
+    feedbackMode: "general",
+    feedback: null,
+  },
 ];
 
 function section(topicId: string, topicName: string) {
