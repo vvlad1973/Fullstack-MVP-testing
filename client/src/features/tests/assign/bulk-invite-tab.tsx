@@ -213,11 +213,24 @@ interface BulkInviteTabProps {
   testTitle: string;
   /** Return to the «Назначено» tab, where revoke and re-send already live. */
   onGoToAssignments: () => void;
+  /**
+   * PRD-52: зачем приглашают. `assign` — участник проходит тест (PRD-28),
+   * `review` — рецензент получает грант и ссылку на окно рецензирования.
+   *
+   * Разбор книги, предпросмотр и отчёт у них ОБЩИЕ: список людей — один и тот же
+   * список людей, и вторая копия разбора однажды разошлась бы с первой (например,
+   * потеряла бы признак внешнего). Расходится только последний шаг — что именно
+   * человеку выдают — и подписи, которые об этом говорят.
+   */
+  purpose?: "assign" | "review";
 }
 
 type BulkStep = "upload" | "preview" | "running" | "report";
 
-export function BulkInviteTab({ testId, testTitle, onGoToAssignments }: BulkInviteTabProps) {
+export function BulkInviteTab({
+  testId, testTitle, onGoToAssignments, purpose = "assign",
+}: BulkInviteTabProps) {
+  const isReview = purpose === "review";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -270,17 +283,25 @@ export function BulkInviteTab({ testId, testTitle, onGoToAssignments }: BulkInvi
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/tests/${testId}/participants/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          rows: rows.filter((r) => selected.includes(String(r.index))),
-          dueDate: dueDate || null,
-          linkExpiresAt: linkExpiresAt || null,
-          groupName: groupName.trim() || null,
-        }),
-      });
+      const picked = rows.filter((r) => selected.includes(String(r.index)));
+      const res = await fetch(
+        isReview ? `/api/tests/${testId}/review/invite` : `/api/tests/${testId}/participants/invite`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          // Рецензирование не знает ни срока сдачи, ни группы: у него нет
+          // назначения, к которому эти поля относятся, — только срок жизни ссылки.
+          body: JSON.stringify(isReview
+            ? { rows: picked, linkExpiresAt: linkExpiresAt || null }
+            : {
+              rows: picked,
+              dueDate: dueDate || null,
+              linkExpiresAt: linkExpiresAt || null,
+              groupName: groupName.trim() || null,
+            }),
+        },
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new InviteRefusal(body.error || "Не удалось выполнить рассылку", body.code);

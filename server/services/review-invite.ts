@@ -19,9 +19,15 @@ import { sendReviewInviteEmail } from "../email";
 import { appBaseUrl } from "../config";
 import { logger } from "../logger";
 
-/** Кого приглашаем: адрес обязателен, имя заполняет пробел у новой учётки. */
+/**
+ * Кого приглашаем. Либо адрес — тогда учётка находится или заводится, — либо
+ * идентификатор уже выбранного пользователя платформы: в диалоге его выбирают из
+ * списка, и искать его повторно по адресу значило бы рисковать промахом на
+ * однофамильце с похожей почтой.
+ */
 export interface ReviewInviteRow {
-  email: string;
+  email?: string;
+  userId?: string;
   name?: string | null;
 }
 
@@ -75,6 +81,12 @@ async function resolveReviewer(
   row: ReviewInviteRow,
   ctx: { actorId: string; storage: IStorage },
 ): Promise<{ user: User; created: boolean }> {
+  if (row.userId) {
+    const picked = await ctx.storage.getUser(row.userId);
+    if (!picked) throw new Error("User not found");
+    return { user: picked, created: false };
+  }
+  if (!row.email) throw new Error("Не указан адрес");
   const existing = await ctx.storage.getUserByEmail(row.email);
   if (existing) {
     if (!existing.name && row.name) {
@@ -140,9 +152,9 @@ export async function inviteReviewers(opts: ReviewInviteOptions): Promise<Review
       const magicLink = `${appBaseUrl()}/access/${raw}`;
 
       let delivered: boolean | undefined;
-      if (sendEmail) {
+      if (sendEmail && (row.email || user.email)) {
         delivered = await sendReviewInviteEmail({
-          to: row.email,
+          to: (row.email ?? user.email)!,
           userName: user.name || undefined,
           testTitle: test.title,
           magicLink,
@@ -151,17 +163,17 @@ export async function inviteReviewers(opts: ReviewInviteOptions): Promise<Review
       }
 
       report.results.push({
-        email: row.email, userId: user.id, accountCreated: created,
+        email: row.email ?? user.email, userId: user.id, accountCreated: created,
         granted: !hadAccess, magicLink, delivered,
       });
       if (hadAccess) report.alreadyHadAccess += 1;
       else report.invited += 1;
     } catch (error) {
       logger.error(
-        `Review invite failed for ${row.email}: ${(error as Error).message}`,
+        `Review invite failed for ${row.email ?? row.userId}: ${(error as Error).message}`,
         "review",
       );
-      report.failed.push({ email: row.email, reason: (error as Error).message });
+      report.failed.push({ email: row.email ?? row.userId ?? "", reason: (error as Error).message });
     }
   }
 

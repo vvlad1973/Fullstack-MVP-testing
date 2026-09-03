@@ -331,6 +331,8 @@ export function TestsListPage(): React.JSX.Element {
   // Existing dialogs (assign / export) --------------------------------------
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignTest, setAssignTest] = useState<{ id: string; title: string } | null>(null);
+  // PRD-52: тот же диалог, другое выдаваемое право — грант на рецензирование.
+  const [assignMode, setAssignMode] = useState<"assign" | "review">("assign");
 
   // Access panel (PRD-13 / PRD-15 BRC-27) — admin on any test, author on owned.
   const [accessTest, setAccessTest] = useState<{ id: string; title: string } | null>(null);
@@ -833,6 +835,7 @@ export function TestsListPage(): React.JSX.Element {
           onOpenChange={setAssignDialogOpen}
           testId={assignTest.id}
           testTitle={assignTest.title}
+          mode={assignMode}
         />
       )}
 
@@ -987,6 +990,23 @@ export function TestsListPage(): React.JSX.Element {
           >
             <BugPlay size={14} />
             Выполнить отладку
+          </button>
+        )}
+        {canGrantAccessFor(test) && (
+          <button
+            type="button"
+            className="dropdown-item"
+            role="menuitem"
+            onClick={() => {
+              setTestMenu(null);
+              setAssignMode("review");
+              setAssignTest({ id: test.id, title: test.title });
+              setAssignDialogOpen(true);
+            }}
+            data-testid={`menu-review-${test.id}`}
+          >
+            <MessageSquare size={14} />
+            Отправить на рецензирование
           </button>
         )}
         {canExportScorm && (

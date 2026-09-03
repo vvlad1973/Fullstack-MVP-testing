@@ -219,3 +219,19 @@ describe("<AssignTestDialog /> — groups tab", () => {
     expect(await screen.findByText("Все группы уже назначены")).toBeInTheDocument();
   });
 });
+
+// ─── PRD-52: режим рецензирования ────────────────────────────────────────────
+
+describe("AssignTestDialog — режим рецензирования", () => {
+  it("называется «Отправить на рецензирование» и предупреждает о видимости", async () => {
+    renderDialog({ mode: "review" });
+    expect(await screen.findByText("Отправить на рецензирование")).toBeInTheDocument();
+    expect(screen.getByText(/видят комментарии друг друга/i)).toBeInTheDocument();
+  });
+
+  it("обычный режим заголовка и предупреждения не меняет", async () => {
+    renderDialog();
+    expect(screen.queryByText("Отправить на рецензирование")).not.toBeInTheDocument();
+    expect(screen.queryByText(/видят комментарии друг друга/i)).not.toBeInTheDocument();
+  });
+});

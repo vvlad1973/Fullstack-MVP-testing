@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import {
+  Banner,
   Box,
   Button,
   Cluster,
@@ -183,6 +184,15 @@ interface AssignTestDialogProps {
   onOpenChange: (open: boolean) => void;
   testId: string;
   testTitle: string;
+  /**
+   * PRD-52: зачем открыт диалог. `assign` — назначить прохождение (PRD-28),
+   * `review` — отправить тест на рецензирование.
+   *
+   * Раскладка у них общая, потому что задача общая: выбрать людей и разослать им
+   * ссылки. Расходится только выдаваемое право — назначение против гранта
+   * `review` — и подписи, которые об этом говорят.
+   */
+  mode?: "assign" | "review";
 }
 
 export function AssignTestDialog({
@@ -190,7 +200,9 @@ export function AssignTestDialog({
   onOpenChange,
   testId,
   testTitle,
+  mode = "assign",
 }: AssignTestDialogProps) {
+  const isReview = mode === "review";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -231,12 +243,25 @@ export function AssignTestDialog({
   // Assign mutation
   const assignMutation = useMutation({
     mutationFn: async (data: { userIds?: string[]; groupIds?: string[]; dueDate?: string; linkExpiresAt?: string }) => {
-      const res = await fetch(`/api/tests/${testId}/assignments/bulk`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
+      // Рецензенту выдаётся грант и ссылка на окно рецензирования; приглашение
+      // идёт поимённо — у рецензирования нет группового назначения, к которому
+      // можно было бы приписать группу целиком.
+      const res = isReview
+        ? await fetch(`/api/tests/${testId}/review/invite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            rows: (data.userIds ?? []).map((id) => ({ userId: id })),
+            linkExpiresAt: data.linkExpiresAt ?? null,
+          }),
+        })
+        : await fetch(`/api/tests/${testId}/assignments/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
       if (!res.ok) throw new Error("Failed to assign");
       return res.json();
     },
@@ -641,7 +666,7 @@ export function AssignTestDialog({
       open={open}
       onClose={() => onOpenChange(false)}
       size="xl"
-      title={t.assignments.manageAssignments}
+      title={isReview ? "Отправить на рецензирование" : t.assignments.manageAssignments}
       description={testTitle}
       footer={
         <Button variant="secondary" onClick={() => onOpenChange(false)}>
@@ -649,6 +674,12 @@ export function AssignTestDialog({
         </Button>
       }
     >
+      {isReview ? (
+        <Banner tone="info">
+          Рецензенты видят комментарии друг друга и могут отвечать в чужих ветках. Прохождение теста по
+          этой ссылке не записывается: попытка не создаётся, в аналитике следа нет.
+        </Banner>
+      ) : null}
       <Tabs<AssignTab>
         variant="segment"
         align="stretch"
@@ -667,6 +698,7 @@ export function AssignTestDialog({
                 testId={testId}
                 testTitle={testTitle}
                 onGoToAssignments={() => setActiveTab("current")}
+                purpose={mode}
               />
             ),
           },

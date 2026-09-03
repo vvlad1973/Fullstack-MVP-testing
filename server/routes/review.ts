@@ -292,16 +292,43 @@ router.post("/:id/review/invite", requirePermission("tests.access.grant"), async
 
     const report = await inviteReviewers({
       testId: req.params.id,
-      rows: rows.map((row: { email?: unknown; name?: unknown }) => ({
-        email: String(row.email ?? "").trim().toLowerCase(),
-        name: typeof row.name === "string" ? row.name : null,
-      })).filter((row: { email: string }) => row.email.includes("@")),
+      rows: rows
+        .map((row: { email?: unknown; userId?: unknown; name?: unknown }) => ({
+          email: typeof row.email === "string" ? row.email.trim().toLowerCase() : undefined,
+          userId: typeof row.userId === "string" ? row.userId : undefined,
+          name: typeof row.name === "string" ? row.name : null,
+        }))
+        // Строка без адреса И без выбранного пользователя приглашать некого.
+        .filter((row: { email?: string; userId?: string }) =>
+          Boolean(row.userId) || Boolean(row.email?.includes("@"))),
       actorId: req.currentUser!.id,
       linkExpiresAt: expiresAt,
       sendEmail: req.body?.sendEmail !== false,
       storage,
     });
-    res.json(report);
+    // Отчёт отдаётся в ФОРМЕ отчёта рассылки участников: вкладка «Списком из файла»
+    // у обоих назначений одна, и второй формат заставил бы её ветвиться в разборе
+    // ответа — там, где разницы по сути нет.
+    res.json({
+      created: report.results.filter((r) => r.accountCreated).length,
+      reused: report.results.filter((r) => !r.accountCreated).length,
+      assigned: report.invited,
+      groupId: null,
+      linksExpireAt: expiresAt.toISOString(),
+      results: report.results.map((r) => ({
+        email: r.email,
+        name: null,
+        status: r.accountCreated ? "new" : r.granted ? "external" : "assigned",
+        magicLink: r.magicLink,
+        delivered: r.delivered ?? false,
+      })),
+      failed: report.failed.map((f) => ({
+        email: f.email,
+        reason: f.reason,
+        accountCreated: false,
+        assignmentCreated: false,
+      })),
+    });
   } catch (error) {
     logger.error("Review invite failed: " + (error as Error).message, "review");
     res.status(500).json({ error: "Не удалось пригласить рецензентов" });
