@@ -25,6 +25,8 @@ const { storageMock, serviceMock } = vi.hoisted(() => ({
     // PRD-51: маршрут читает документ отчёта. Здесь он не предмет проверки —
     // пустой список означает «документ по умолчанию шаблона».
     listReportBlocks: vi.fn().mockResolvedValue([]),
+    // PRD-52: счётчик открытых комментариев считается на весь список сразу.
+    countOpenReviewCommentsByTests: vi.fn().mockResolvedValue({}),
     getTestSections: vi.fn(),
     getTopics: vi.fn(),
     getUsers: vi.fn().mockResolvedValue([]),
