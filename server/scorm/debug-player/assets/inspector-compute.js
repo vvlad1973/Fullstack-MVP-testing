@@ -306,6 +306,53 @@
 
   // ── Протокол: per-question structured records (drawn question, answer,
   // correctness, price PRD-10, scale contributions PRD-5). HTML/JSX is the host's. ──
+
+  /**
+   * PRD-52 FR-16/FR-17: уровень вопроса по диапазонам сложности темы.
+   *
+   * В обычном адаптивном прогоне уровень известен от самой лестницы, но в режиме
+   * полной выдачи её нет — вопросы идут подряд. Тогда уровень вычисляется здесь и
+   * показывается СПРАВОЧНО: на какой ступени вопрос выдавался бы ученику.
+   *
+   * `outsideLevels` — вопрос темы с лестницей, не попавший ни в один диапазон:
+   * ученику он не выдастся никогда, и увидеть это можно только тут.
+   */
+  function questionLevel(topics, topicId, difficulty) {
+    var list = topics || [];
+    var topic = null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].topicId === topicId) { topic = list[i]; break; }
+    }
+    var levels = (topic && topic.levels) || [];
+    if (!levels.length) return { levelName: null, outsideLevels: false };
+    if (difficulty == null) return { levelName: null, outsideLevels: true };
+    for (var j = 0; j < levels.length; j++) {
+      var lv = levels[j];
+      if (difficulty >= lv.minDifficulty && difficulty <= lv.maxDifficulty) {
+        return { levelName: lv.levelName || null, outsideLevels: false };
+      }
+    }
+    return { levelName: null, outsideLevels: true };
+  }
+
+  /**
+   * PRD-52 FR-12: идёт ли прогон в режиме полной выдачи. Читается там же, где его
+   * ставит окно рецензента, — в хеше launch-URL пакета; в проде хеша нет.
+   */
+  function isFullDrawRun(pkg) {
+    try {
+      var h = (pkg && pkg.w && pkg.w.location && pkg.w.location.hash) || "";
+      return /(?:^#|[#&])tbfa=1(?:&|$)/.test(h);
+    } catch (e) { return false; }
+  }
+
+
+  /** Уровень строки протокола в адаптивном тесте (см. questionLevel). */
+  function adaptiveLevel(pkg, row, q) {
+    var topics = (pkg && pkg.TEST_DATA && pkg.TEST_DATA.adaptiveTopics) || [];
+    return questionLevel(topics, row.topicId || (q && q.topicId), q && q.difficulty);
+  }
+
   function buildProtocolRows(pkg, cmi, mode) {
     mode = mode || "live";
     var rows, note = "", total = 0;
@@ -364,7 +411,10 @@
         priceNote: measure ? "цена: не начисляется — измерительный вопрос" : priceNote(pr),
         earned: Math.round(earned * 100) / 100, points: points,
         difficulty: (showDiff && q.difficulty != null) ? q.difficulty : null,
-        levelName: row.levelName || null,
+        // Уровень: из самой лестницы, а если её в этом прогоне нет (полная выдача) —
+        // вычисленный по диапазонам сложности темы.
+        levelName: row.levelName || (showDiff ? adaptiveLevel(pkg, row, q).levelName : null),
+        outsideLevels: showDiff && !row.levelName ? adaptiveLevel(pkg, row, q).outsideLevels : false,
         contribs: pkg ? contributionsFor(pkg, q, ans) : [],
       };
     });
@@ -787,6 +837,17 @@
     var r = null;
     try { if (typeof pkg.w.calculateResults === "function") r = pkg.w.calculateResults(); } catch (e) {}
     if (!r) return { available: false, adaptive: false };
+    // PRD-52 FR-14: в режиме полной выдачи выдан весь банк, а порог настроен на
+    // выборку — балл, процент и вердикт были бы недостоверны, поэтому их здесь нет
+    // вовсе. Протокол при этом работает: верность отдельного ответа от полноты
+    // выдачи не зависит.
+    if (isFullDrawRun(pkg)) {
+      return {
+        available: true, adaptive: false, suppressed: true,
+        earnedPoints: null, possiblePoints: null, percent: null, passed: null,
+        rule: null, sections: [],
+      };
+    }
     // Sectioned flow (linear_by_topics / router_by_topics) drives the status-bar
     // «Прогресс · разделы» lane; flat flow shows «вопрос i из N». Default flat.
     var flowMode = (pkg.TEST_DATA && pkg.TEST_DATA.flowPolicy && pkg.TEST_DATA.flowPolicy.mode) || "linear_flat";
@@ -812,7 +873,7 @@
       });
     }
     return {
-      available: true, adaptive: false,
+      available: true, adaptive: false, suppressed: false,
       sectioned: flowMode !== "linear_flat",
       earnedPoints: round2(r.earnedPoints), possiblePoints: round2(r.possiblePoints),
       correct: r.correct, totalQuestions: r.totalQuestions,
@@ -1146,7 +1207,7 @@
 
   window.TBInspector = {
     fmtNum: fmtNum, trunc: trunc, byteLen: byteLen, fmtBytes: fmtBytes,
-    buildScore: buildScore, buildDraw: buildDraw,
+    buildScore: buildScore, buildDraw: buildDraw, questionLevel: questionLevel,
     applyReference: applyReference, clearReference: clearReference, guardFinishButton: guardFinishButton,
     readPkg: readPkg, parseInteractions: parseInteractions, interactionById: interactionById,
     typeLabel: typeLabel, humanAnswer: humanAnswer, isActiveMeasure: isActiveMeasure,
