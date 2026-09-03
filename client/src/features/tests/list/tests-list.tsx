@@ -283,11 +283,26 @@ export function TestsListPage(): React.JSX.Element {
   // the author can fix the variant/состав and rebuild. The param is stripped after
   // opening so a refresh/back doesn't re-open the Drawer.
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("edit");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("edit");
+    // PRD-52 FR-27: `?test=<id>&review=<threadId>` открывает ящик сразу на вкладке
+    // «Комментарии» с раскрытой веткой — по такой ссылке рецензент или коллега
+    // отправляет автора к конкретному замечанию, а не к тесту вообще.
+    const reviewTestId = params.get("test");
+    const reviewThreadId = params.get("review");
+    if (reviewTestId && reviewThreadId) {
+      setEditorTarget({ kind: "edit", testId: reviewTestId, tab: "review" });
+      setFocusReviewThreadId(reviewThreadId);
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+      return;
+    }
     if (!id) return;
     setEditorTarget({ kind: "edit", testId: id });
     window.history.replaceState(null, "", window.location.pathname + window.location.hash);
   }, []);
+
+  /** PRD-52: ветка, раскрытая по ссылке; передаётся в панель комментариев ящика. */
+  const [focusReviewThreadId, setFocusReviewThreadId] = useState<string | null>(null);
 
   // More-menu --------------------------------------------------------------
   const [testMenu, setTestMenu] = useState<{ id: string } | null>(null);
@@ -848,8 +863,16 @@ export function TestsListPage(): React.JSX.Element {
             : undefined
         }
         open={editorTarget !== null}
-        onClose={() => setEditorTarget(null)}
+        onClose={() => {
+          setEditorTarget(null);
+          // Раскрытая ветка живёт ровно одно открытие ящика: следующий заход — это
+          // уже обычная работа со списком, а не переход по чьей-то ссылке.
+          setFocusReviewThreadId(null);
+        }}
         initialTab={editorTarget?.kind === "edit" ? editorTarget.tab : undefined}
+        // TODO(PRD-52): передать `focusReviewThreadId` в ящик, когда соседний трек
+        // добавит этот проп в TestEditor (панель уже умеет его принимать как
+        // `focusThreadId`). Пока ссылка открывает вкладку, но ветку не подсвечивает.
         onFeasibilityNotes={setSaveNotes}
       />
 
@@ -1263,7 +1286,7 @@ function DefaultTree(props: {
             indented={row.depth >= 2}
             onOpen={() => props.onOpenTest(row.id)}
             onEdit={() => props.onOpenTest(row.id)}
-            onOpenStructure={() => props.onOpenTest(row.id, "structure")}
+            onOpenStructure={() => props.onOpenTest(row.id, "composition")}
             onAssign={() => props.onAssign(row.id, row.entry.title)}
             onMore={(e) => {
               e.stopPropagation();
@@ -1304,7 +1327,7 @@ function SearchTree(props: {
           breadcrumb={row.folderName}
           onOpen={() => props.onOpenTest(row.id)}
           onEdit={() => props.onOpenTest(row.id)}
-          onOpenStructure={() => props.onOpenTest(row.id, "structure")}
+          onOpenStructure={() => props.onOpenTest(row.id, "composition")}
           onAssign={() => props.onAssign(row.id, row.entry.title)}
           onMore={(e) => {
             e.stopPropagation();

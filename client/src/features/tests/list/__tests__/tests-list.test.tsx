@@ -417,7 +417,7 @@ describe("<TestsListPage /> — empty state", () => {
 // ─── PRD-22 (plan Э6): pages needing a variant mapping ────────────────────────
 
 describe("<TestsListPage /> — unmapped-page mark", () => {
-  it("marks a test whose pages need mapping and opens «Структура» on click", async () => {
+  it("метит тест с непривязанными страницами и открывает полотно сценария", async () => {
     mockMany({
       "/api/tests": [buildApiTestRow({ unmappedPageCount: 3 })],
       "/api/test-folders": [],
@@ -430,10 +430,15 @@ describe("<TestsListPage /> — unmapped-page mark", () => {
     expect(mark).toHaveTextContent("");
     expect(mark).toHaveAttribute("title", expect.stringContaining("Страниц с недоступным вариантом: 3"));
 
-    // The editor Drawer opens on «Структура», where the mapping is made — the row
-    // click alone would land the author on «Состав».
+    // Ящик открывается на «Составе и сценарии» — там живёт полотно, где привязка и
+    // делается; клик по самой строке привёл бы автора на «Основное».
     fireEvent.click(mark);
-    await waitFor(() => expect(screen.getByRole("tab", { name: /Структура/ })).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: /Состав и сценарий/ })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
   });
 
   it("shows no mark when nothing needs mapping", async () => {
@@ -473,5 +478,21 @@ describe("<TestsListPage /> — счётчик комментариев", () => 
     await waitFor(() => screen.getByText("Основы информационной безопасности"));
 
     expect(screen.queryByTestId("open-comments")).toBeNull();
+  });
+});
+
+// ─── PRD-52 FR-27: ссылка на конкретную ветку ────────────────────────────────
+
+describe("<TestsListPage /> — ссылка ?review=<id>", () => {
+  it("открывает ящик теста сразу на вкладке «Комментарии»", async () => {
+    window.history.replaceState(null, "", "/author/tests?test=t-1&review=c1");
+    mockMany({ "/api/tests": [buildApiTestRow()], "/api/test-folders": [] });
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: /Комментарии/ })).toHaveAttribute("aria-selected", "true"),
+    );
+    // Параметры сняты с адреса: обновление страницы не должно снова открывать ящик.
+    expect(window.location.search).toBe("");
   });
 });
