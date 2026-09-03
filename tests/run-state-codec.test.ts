@@ -106,7 +106,10 @@ describe("выдача пинится позициями при сборке в�
 
   const PORT = [
     "drawSection", "orderQuestions", "effectiveSectionOrder", "orderDeliverySection",
-    "assembleDelivery", "selectForm", "tbDebugForcedForms", "generateVariant",
+    // `tbDebugFullDraw` — отладочный признак полной выдачи банка (PRD-52): в проде он
+    // инертен, но `generateVariant` его зовёт, и без него песочница падает на
+    // ReferenceError раньше первой проверки.
+    "assembleDelivery", "selectForm", "tbDebugForcedForms", "tbDebugFullDraw", "generateVariant",
   ].map(extract).join("\n");
 
   const question = (id: string) => ({ id, type: "single", tags: [] });
