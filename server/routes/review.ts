@@ -25,6 +25,8 @@ import { requireReviewScope } from "../middleware/review-scope";
 import { requireTestScope } from "../middleware/test-scope";
 import { storage } from "../storage";
 import { describeAnchor, isAnchorStale, isAnchorOrphaned } from "../services/review-anchor";
+import { openRunSession, servePackageFile, closeRunSession } from "../scorm/debug-player/run-session";
+import { readShimJs, readInspectorComputeJs } from "../scorm/debug-player/assets";
 import type { ReviewAnchor, ReviewAnchorKind } from "@shared/review/anchor";
 import { logger } from "../logger";
 
@@ -235,6 +237,33 @@ router.post("/:id/review/comments/:commentId/reopen", ...resolveGate, async (req
     logger.error("Review comment reopen failed: " + (error as Error).message, "review");
     res.status(500).json({ error: "Не удалось открыть комментарий" });
   }
+});
+
+// ─── Прогон рецензирования ───────────────────────────────────────────────────
+// Тот же движок, что у отладчика автора (PRD-18): живая сборка, телеметрия
+// выключена, попытка не создаётся. Отличается только гейт — грант `review`.
+
+// POST /api/tests/:id/review/session — собрать пакет и открыть прогон.
+router.post("/:id/review/session", ...reviewGate, (req: Request, res: Response) =>
+  openRunSession(req, res, "review"));
+
+// GET /api/tests/:id/review/play/:token[/*] — раздача файлов пакета same-origin.
+router.get("/:id/review/play/:token{/*splat}", ...reviewGate, servePackageFile);
+
+// DELETE /api/tests/:id/review/session/:token — закрыть прогон.
+router.delete("/:id/review/session/:token", ...reviewGate, closeRunSession);
+
+// GET /api/tests/:id/review/shim.js — RTE-шим, который окно рецензента держит в
+// СВОЁМ окне: SCO находит `API_1484_11` подъёмом по `window.parent`.
+router.get("/:id/review/shim.js", ...reviewGate, (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+  res.send(readShimJs());
+});
+
+// GET /api/tests/:id/review/inspector-compute.js — вычислительный слой инспектора.
+router.get("/:id/review/inspector-compute.js", ...reviewGate, (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+  res.send(readInspectorComputeJs());
 });
 
 export default router;

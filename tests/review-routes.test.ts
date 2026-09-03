@@ -15,7 +15,7 @@ import { ROLES } from "@shared/access";
 
 vi.hoisted(() => { process.env.DATABASE_URL = "postgresql://fake/test"; });
 
-const { storageMock, accessMock, anchorMock } = vi.hoisted(() => ({
+const { storageMock, accessMock, anchorMock, runMock } = vi.hoisted(() => ({
   storageMock: {
     getUser: vi.fn(),
     getUserRoles: vi.fn(),
@@ -31,6 +31,16 @@ const { storageMock, accessMock, anchorMock } = vi.hoisted(() => ({
     reopenReviewComment: vi.fn(),
   },
   accessMock: { canReviewTest: vi.fn(), canEditTest: vi.fn() },
+  runMock: {
+    buildScormExportData: vi.fn(),
+    generateScormPackage: vi.fn(),
+    createDebugSession: vi.fn(),
+    getDebugSession: vi.fn(),
+    dropDebugSession: vi.fn(),
+    assessTestPublish: vi.fn(),
+    readShimJs: vi.fn(),
+    readInspectorComputeJs: vi.fn(),
+  },
   anchorMock: { describeAnchor: vi.fn(), isAnchorStale: vi.fn(), isAnchorOrphaned: vi.fn() },
 }));
 
@@ -39,6 +49,21 @@ vi.mock("../server/services/test-access", () => accessMock);
 vi.mock("../server/services/review-anchor", () => anchorMock);
 vi.mock("../server/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+vi.mock("../server/scorm/build-export-data", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  buildScormExportData: runMock.buildScormExportData,
+}));
+vi.mock("../server/scorm-exporter", () => ({ generateScormPackage: runMock.generateScormPackage }));
+vi.mock("../server/scorm/debug-player/session-store", () => ({
+  createDebugSession: runMock.createDebugSession,
+  getDebugSession: runMock.getDebugSession,
+  dropDebugSession: runMock.dropDebugSession,
+}));
+vi.mock("../server/services/draw-feasibility", () => ({ assessTestPublish: runMock.assessTestPublish }));
+vi.mock("../server/scorm/debug-player/assets", () => ({
+  readShimJs: runMock.readShimJs,
+  readInspectorComputeJs: runMock.readInspectorComputeJs,
 }));
 
 import reviewRouter from "../server/routes/review";
@@ -95,6 +120,18 @@ beforeEach(() => {
   });
   anchorMock.isAnchorStale.mockResolvedValue(false);
   anchorMock.isAnchorOrphaned.mockResolvedValue(false);
+  runMock.buildScormExportData.mockResolvedValue({
+    test: { id: "t1", title: "Тест" }, designSettings: { templateId: "default" },
+  });
+  runMock.generateScormPackage.mockResolvedValue(Buffer.from("zip"));
+  runMock.createDebugSession.mockResolvedValue({ token: "tok1", launch: "index.html" });
+  runMock.getDebugSession.mockReturnValue({
+    launch: "index.html", files: new Map([["index.html", Buffer.from("<html>")]]),
+  });
+  runMock.dropDebugSession.mockReturnValue(true);
+  runMock.assessTestPublish.mockResolvedValue([]);
+  runMock.readShimJs.mockReturnValue("/* shim */");
+  runMock.readInspectorComputeJs.mockReturnValue("/* compute */");
 });
 
 describe("GET /:id/review/comments", () => {
@@ -263,5 +300,56 @@ describe("исход ветки", () => {
       .post("/api/tests/t1/review/comments/c1/resolve")
       .send({ status: "accepted" });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("прогон рецензирования", () => {
+  it("собирает пакет из живого состояния с выключенной телеметрией", async () => {
+    const res = await request(expertApp()).post("/api/tests/t1/review/session");
+    expect(res.status).toBe(200);
+    expect(res.body.playUrl).toBe("/api/tests/t1/review/play/tok1/index.html");
+    expect(runMock.buildScormExportData).toHaveBeenCalledWith("t1", { source: "debug" });
+    expect(runMock.generateScormPackage).toHaveBeenCalledWith(
+      expect.objectContaining({ telemetry: null }),
+    );
+  });
+
+  it("прогон не оставляет попытки", async () => {
+    await request(expertApp()).post("/api/tests/t1/review/session");
+    expect(storageMock.createReviewComment).not.toHaveBeenCalled();
+    expect(Object.keys(storageMock)).not.toContain("createAttempt");
+  });
+
+  it("посторонний прогон не откроет", async () => {
+    accessMock.canReviewTest.mockResolvedValue(false);
+    const res = await request(makeApp("stranger")).post("/api/tests/t1/review/session");
+    expect(res.status).toBe(403);
+    expect(runMock.generateScormPackage).not.toHaveBeenCalled();
+  });
+
+  it("раздаёт файл пакета вербатим", async () => {
+    const res = await request(expertApp()).get("/api/tests/t1/review/play/tok1/index.html");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/html");
+    expect(res.text).toBe("<html>");
+  });
+
+  it("истёкший прогон отвечает 410, чужой токен — 404", async () => {
+    runMock.getDebugSession.mockReturnValue("expired");
+    expect((await request(expertApp()).get("/api/tests/t1/review/play/tok1/index.html")).status).toBe(410);
+    runMock.getDebugSession.mockReturnValue(undefined);
+    expect((await request(expertApp()).get("/api/tests/t1/review/play/tok1/index.html")).status).toBe(404);
+  });
+
+  it("отдаёт шим и вычислительный слой инспектора в окно рецензента", async () => {
+    const shim = await request(expertApp()).get("/api/tests/t1/review/shim.js");
+    const compute = await request(expertApp()).get("/api/tests/t1/review/inspector-compute.js");
+    expect(shim.text).toBe("/* shim */");
+    expect(compute.text).toBe("/* compute */");
+  });
+
+  it("закрывает прогон", async () => {
+    const res = await request(expertApp()).delete("/api/tests/t1/review/session/tok1");
+    expect(res.body.dropped).toBe(true);
   });
 });
