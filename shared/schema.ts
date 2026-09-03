@@ -579,6 +579,15 @@ export const tests = pgTable("tests", {
   // Default false. Depends on allowReturnToUnanswered=true and is mutually exclusive with
   // showCorrectAnswers (FR-04b) — enforced in the editor/service layer, not as a DB CHECK.
   allowAnswerChange: boolean("allow_answer_change").notNull().default(false),
+  // PRD-19 (FR-11a): free navigation inside the CURRENT section — any question of it is a
+  // jump target, including one not shown yet, so «не выдан» stops existing within the
+  // section. The section boundary still holds (FR-11b): a neighbouring section is out of
+  // reach until the current one is finished, a finished section stays locked, the flat flow
+  // spreads the freedom over the whole test, and adaptive topics ignore the setting — there
+  // the ladder of levels decides the order. Depends on allowReturnToUnanswered=true (FR-11c):
+  // without return the pills are an indicator, not navigation. Default false so an existing
+  // test keeps today's frontier without its author touching anything.
+  allowFreeSectionNavigation: boolean("allow_free_section_navigation").notNull().default(false),
   // PRD-43: independent of allowReturnToUnanswered — whether submitting an answer
   // also advances to the next question in one click, or needs a separate «Далее»
   // click. Default false (today's two-step behaviour for a brand-new test); the

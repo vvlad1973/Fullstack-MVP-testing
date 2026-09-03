@@ -47,7 +47,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       webhookUrl: "",
       telemetryEnabled: false,
     },
-    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
+    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },
     sections: [],
     adaptive: { showDifficultyLevel: true, testSettings: { showDifficultyLevel: true }, topics: [] },
@@ -163,7 +163,7 @@ describe("<NavigationPane /> — навигация прохождения (PRD-
   it("turning «возврат к неотвеченным» off also clears «изменение ответа»", () => {
     const updateModel = vi.fn();
     const model = baseModel({
-      runtime: { ...baseModel().runtime, allowReturnToUnanswered: true, allowAnswerChange: true },
+      runtime: { ...baseModel().runtime, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: true },
     });
     renderSettings(model, updateModel, { pane: NavigationPane });
     fireEvent.click(screen.getByTestId("settings-allow-return-checkbox"));

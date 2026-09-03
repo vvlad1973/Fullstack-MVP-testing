@@ -36,7 +36,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
     },
     runtime: {
       timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false,
-      allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false,
+      allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false,
       copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false,
       lmsAttemptResult: "best" as const,
     },

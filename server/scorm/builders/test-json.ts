@@ -295,6 +295,11 @@ export function buildTestJson(data: ExportData): string {
     // PRD-19 (Блок A): правила навигации/завершения для рантайма (применение — Блок B/C/D).
     allowReturnToUnanswered: data.test.allowReturnToUnanswered ?? true,
     allowAnswerChange: data.test.allowAnswerChange ?? false,
+    // PRD-19 (FR-11a/FR-11b): свободная навигация внутри раздела. Адаптивный тест её
+    // ИГНОРИРУЕТ — порядок там ведёт лестница уровней, поэтому значение автора в пакет
+    // такого теста не попадает.
+    allowFreeSectionNavigation:
+      data.test.mode === "adaptive" ? false : (data.test.allowFreeSectionNavigation ?? false),
     // PRD-43: independent of allowReturnToUnanswered.
     quickAdvance: data.test.quickAdvance ?? false,
     showSectionResults: data.test.showSectionResults ?? true,

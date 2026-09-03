@@ -190,6 +190,13 @@
       "when": 1788400010501,
       "tag": "0026_prd50_breakdown_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1788463375751,
+      "tag": "0027_prd19_free_section_navigation",
+      "breakpoints": true
     }
   ]
 }

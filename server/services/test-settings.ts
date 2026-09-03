@@ -207,6 +207,8 @@ export interface TestPayload {
   showCorrectAnswers?: boolean;
   // PRD-19 (Блок A): правила навигации/завершения.
   allowReturnToUnanswered?: boolean;
+  // PRD-19 (FR-11a): свободная навигация внутри раздела.
+  allowFreeSectionNavigation?: boolean;
   allowAnswerChange?: boolean;
   // PRD-43: independent of allowReturnToUnanswered.
   quickAdvance?: boolean;
@@ -334,6 +336,9 @@ export class TestSettingsService {
         showCorrectAnswers: payload.test.showCorrectAnswers ?? false,
         // PRD-19 (Блок A): новый тест — возврат ВКЛ по умолчанию (FR-01).
         allowReturnToUnanswered: payload.test.allowReturnToUnanswered ?? true,
+        // PRD-19 (FR-11c): новый тест — свободная навигация ВЫКЛ. Умолчание обязано быть
+        // выключенным: тест, заведённый до этой настройки, не меняет поведения сам собой.
+        allowFreeSectionNavigation: payload.test.allowFreeSectionNavigation ?? false,
         allowAnswerChange: payload.test.allowAnswerChange ?? false,
         // PRD-43: new test — matches today's two-step default (consistent with
         // allowReturnToUnanswered defaulting to true, i.e. flexible-two-step).

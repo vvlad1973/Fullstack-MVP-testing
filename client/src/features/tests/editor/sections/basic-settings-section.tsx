@@ -1001,6 +1001,10 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
   // правильных ответов («Обратная связь и итоги» → «Во время теста»).
   const changeDisabled =
     !model.runtime.allowReturnToUnanswered || model.runtime.showCorrectAnswers;
+  // PRD-19 (FR-11c): свободная навигация имеет смысл только при возврате ВКЛ — иначе карта
+  // вопросов вообще не навигация. Показ правильных ответов ей, в отличие от «изменения
+  // ответа», не мешает: открытый вперёд вопрос не даёт увидеть чужую подсказку.
+  const freeNavDisabled = !model.runtime.allowReturnToUnanswered;
   // PRD-43: НЕ зависит от allowReturnToUnanswered (все 4 комбинации допустимы) —
   // блокируется только показом правильного ответа, который всегда требует
   // отдельного шага перед переходом дальше.
@@ -1021,11 +1025,39 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
                 allowReturnToUnanswered: checked,
                 // изменение ответа невозможно без возврата
                 allowAnswerChange: checked ? m.runtime.allowAnswerChange : false,
+                // FR-11c: свободная навигация тоже держится на возврате — без него карта
+                // вопросов не навигация, а индикатор, и открывать в ней нечего.
+                allowFreeSectionNavigation: checked
+                  ? m.runtime.allowFreeSectionNavigation
+                  : false,
               },
             }));
           }}
           data-testid="settings-allow-return-checkbox"
         />
+      </div>
+      <div className="ou-formfield">
+        <Switch
+          label="Свободная навигация внутри раздела"
+          description="Ученик может открыть любой вопрос текущего раздела, в том числе ещё не показанный. За границу раздела перехода нет: соседний раздел откроется, когда текущий завершён."
+          checked={model.runtime.allowFreeSectionNavigation && !freeNavDisabled}
+          disabled={freeNavDisabled}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, allowFreeSectionNavigation: checked },
+            }));
+          }}
+          data-testid="settings-free-navigation-checkbox"
+        />
+        {freeNavDisabled && (
+          <Banner
+            tone="warning"
+            size="sm"
+            description="Доступно только при включённом возврате к неотвеченным."
+          />
+        )}
       </div>
       <div className="ou-formfield">
         <Switch

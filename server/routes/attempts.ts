@@ -93,6 +93,12 @@ function prd19RuntimeSettings(test: Test) {
   return {
     allowReturnToUnanswered: test.allowReturnToUnanswered ?? true,
     allowAnswerChange: test.allowAnswerChange ?? false,
+    // PRD-19 (FR-11a/FR-11b): free navigation inside the section. Resolved here rather than
+    // read raw, because an adaptive test IGNORES it — there the ladder of levels decides the
+    // order, and the author's value must not leak into a run it does not govern. Absence in
+    // an OLD publication snapshot reads as «off», i.e. today's frontier.
+    allowFreeSectionNavigation:
+      test.mode === "adaptive" ? false : (test.allowFreeSectionNavigation ?? false),
     // PRD-43: independent of allowReturnToUnanswered.
     quickAdvance: test.quickAdvance ?? false,
     showSectionResults: test.showSectionResults ?? true,

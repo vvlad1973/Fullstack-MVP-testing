@@ -49,6 +49,7 @@ const ROUND_TRIP_SOURCE = {
   timeLimitMinutes: 45,
   defaultQuestionPoints: 2,
   allowReturnToUnanswered: true,
+  allowFreeSectionNavigation: true,
   allowAnswerChange: false,
   quickAdvance: true,
   showSectionResults: false,
@@ -298,6 +299,9 @@ describe("реестр листа «Настройки»", () => {
       timeLimitMinutes: 45,
       defaultQuestionPoints: 2,
       quickAdvance: true,
+      // PRD-19 FR-11a: новый параметр листа ДОБАВЛЕН, а не переименован — уже выданные
+      // книги обязаны читаться, и его отсутствие в них значит «настройка не меняется».
+      allowFreeSectionNavigation: true,
       showSectionResults: false,
       skipReviewWhenComplete: true,
       copyProtection: false,

@@ -275,13 +275,17 @@ function renderReviewScreen() {
     // must not reveal not-yet-issued questions.
     var fromButton = (state.reviewOrigin !== null && state.reviewOrigin !== undefined);
     var frontier = state.currentIndex;
+    var freeNav = !!TEST_DATA.allowReturnToUnanswered && !!TEST_DATA.allowFreeSectionNavigation;
     var statusMap = state.questionStatuses || {};
     var built = TB.buildReviewContext({
         questions: state.flatQuestions.map(function (fq, i) {
             var st = statusMap[fq.question.id];
             return {
                 id: fq.question.id, topicId: fq.topicId, prompt: fq.question.prompt,
-                delivered: (i <= frontier) || st === 'answered' || st === 'skipped'
+                // FR-11a: при свободной навигации «невыданных» внутри охвата нет — обзор
+                // обязан перечислить их все, иначе он умолчит о вопросе, к которому ученик
+                // мог перейти в один клик. Охват фильтруется ниже разделом, как и прежде.
+                delivered: freeNav || (i <= frontier) || st === 'answered' || st === 'skipped'
             };
         }),
         statuses: statusMap,
@@ -583,6 +587,10 @@ function renderStandardQuestion(qData, current, total, progress) {
             commitScope: sectionScope ? 'section' : 'test',
             sectionCommitted: state.sectionCommitted || {},
             allowReturn: !!TEST_DATA.allowReturnToUnanswered,
+            // PRD-19 (FR-11a): свободная навигация внутри раздела открывает фронтир на весь
+            // текущий охват сразу. Зависит от возврата (FR-11c): без него карта — индикатор,
+            // и открывать в ней нечего.
+            freeNavigation: !!TEST_DATA.allowReturnToUnanswered && !!TEST_DATA.allowFreeSectionNavigation,
             scopeLabel: sectionScope ? ('Вопросы раздела «' + (qData.topicName || '') + '»') : 'Вопросы теста'
         }) : null;
         var context = {

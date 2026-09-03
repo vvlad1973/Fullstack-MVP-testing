@@ -80,6 +80,7 @@ function baseModel(sections: ReturnType<typeof section>[]): TestEditorModel {
       maxAttempts: null,
       showCorrectAnswers: false,
       allowReturnToUnanswered: true,
+      allowFreeSectionNavigation: false,
       allowAnswerChange: false,
       quickAdvance: false,
       showSectionResults: true,

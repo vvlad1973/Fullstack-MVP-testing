@@ -663,6 +663,8 @@ export default function TakeTestPage() {
   // the response populates them.
   const [navSettings, setNavSettings] = useState<{
     allowReturnToUnanswered: boolean;
+    /** PRD-19 (FR-11a): свободная навигация внутри раздела; сервер уже погасил её адаптиву. */
+    allowFreeSectionNavigation: boolean;
     allowAnswerChange: boolean;
     // PRD-43: independent of allowReturnToUnanswered.
     quickAdvance: boolean;
@@ -672,6 +674,7 @@ export default function TakeTestPage() {
     answerCommitScope: "test" | "section";
   }>({
     allowReturnToUnanswered: false,
+    allowFreeSectionNavigation: false,
     allowAnswerChange: false,
     quickAdvance: true,
     showSectionResults: true,
@@ -1126,6 +1129,8 @@ export default function TakeTestPage() {
       // PRD-19 (Block B): restore runtime settings + per-question statuses.
       setNavSettings({
         allowReturnToUnanswered: data.attempt.allowReturnToUnanswered ?? false,
+        // PRD-19 (FR-11c): отсутствие поля в ответе — прежний фронтир, свобода ВЫКЛ.
+        allowFreeSectionNavigation: data.attempt.allowFreeSectionNavigation ?? false,
         allowAnswerChange: data.attempt.allowAnswerChange ?? false,
         // PRD-43: same fallback rule as the DB backfill migration — derive from
         // allowReturnToUnanswered when the server response omits the field.
@@ -1323,6 +1328,8 @@ export default function TakeTestPage() {
     // PRD-19 (Block B): runtime navigation settings from the start response.
     setNavSettings({
       allowReturnToUnanswered: data.allowReturnToUnanswered ?? false,
+      // PRD-19 (FR-11c): отсутствие поля в ответе — прежний фронтир, свобода ВЫКЛ.
+      allowFreeSectionNavigation: data.allowFreeSectionNavigation ?? false,
       allowAnswerChange: data.allowAnswerChange ?? false,
       // PRD-43: same fallback rule as the DB backfill migration — derive from
       // allowReturnToUnanswered when the server response omits the field.
@@ -2938,6 +2945,8 @@ export default function TakeTestPage() {
     // position) or committed are «delivered» — the обзор must not reveal not-yet-issued
     // questions. Mid-flow entry («Вернуться») additionally offers «Назад» + highlights
     // the current question.
+    const freeNavWeb =
+      navSettings.allowReturnToUnanswered && navSettings.allowFreeSectionNavigation;
     const built = buildReviewContext({
       questions: flatQuestions.map((fq, i) => {
         const st = questionStatus[fq.question.id];
@@ -2945,7 +2954,11 @@ export default function TakeTestPage() {
           id: fq.question.id,
           topicId: fq.topicId,
           prompt: fq.question.prompt,
-          delivered: i <= currentIndex || st === "answered" || st === "skipped",
+          // FR-11a: при свободной навигации «невыданных» внутри охвата нет — обзор
+          // обязан перечислить их все, иначе он умолчит о вопросе, к которому ученик мог
+          // перейти в один клик. Охват ниже фильтруется разделом, как и прежде.
+          delivered:
+            freeNavWeb || i <= currentIndex || st === "answered" || st === "skipped",
         };
       }),
       statuses: questionStatus,
@@ -3169,6 +3182,10 @@ export default function TakeTestPage() {
         // PRD-19 D5: a committed (finished) section's pills are locked (FR-06/FR-11).
         sectionCommitted,
         allowReturn: navSettings.allowReturnToUnanswered,
+        // PRD-19 (FR-11a): свободная навигация открывает фронтир на весь текущий охват.
+        // Зависит от возврата (FR-11c): без него карта — индикатор, открывать нечего.
+        freeNavigation:
+          navSettings.allowReturnToUnanswered && navSettings.allowFreeSectionNavigation,
         scopeLabel:
           navSettings.answerCommitScope === "section"
             ? `Вопросы раздела «${currentQ.topicName}»`

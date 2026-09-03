@@ -235,6 +235,38 @@ describe("POST .../attempts/start — branches", () => {
     expect(res.body.showSectionResults).toBe(false);
   });
 
+  // PRD-19 FR-11a/FR-11b: свободная навигация внутри раздела. Веб-хост читает её из
+  // ответа старта — это его аналог TEST_DATA пакета.
+  it("отдаёт свободную навигацию хосту, а адаптивному тесту гасит её (FR-11b)", async () => {
+    const liveRun = () => {
+      storageMock.getTestSections.mockResolvedValue([{ topicId: "t1", drawCount: 1 }]);
+      storageMock.getTopics.mockResolvedValue([{ id: "t1", name: "JS" }]);
+      storageMock.getQuestionsByTopic.mockResolvedValue([dbQuestion]);
+      storageMock.getQuestionsByIds.mockResolvedValue([dbQuestion]);
+      storageMock.createAttempt.mockResolvedValue(dbAttempt);
+    };
+    liveRun();
+    storageMock.getTest.mockResolvedValue({ ...dbTest, allowFreeSectionNavigation: true });
+    const free = await asLearner(request(app).post("/api/tests/test1/attempts/start"));
+    expect(free.status).toBe(201);
+    expect(free.body.allowFreeSectionNavigation).toBe(true);
+
+    // Адаптивный порядок ведёт лестница уровней, поэтому настройка автора до выдачи не
+    // доходит — иначе она бы обещала свободу там, где её нет.
+    liveRun();
+    storageMock.getTest.mockResolvedValue({
+      ...dbTest, mode: "adaptive", allowFreeSectionNavigation: true,
+    });
+    const adaptive = await asLearner(request(app).post("/api/tests/test1/attempts/start"));
+    expect(adaptive.body.allowFreeSectionNavigation).toBe(false);
+
+    // Тест, заведённый до этой колонки, получает прежний фронтир (FR-11c).
+    liveRun();
+    storageMock.getTest.mockResolvedValue({ ...dbTest });
+    const legacy = await asLearner(request(app).post("/api/tests/test1/attempts/start"));
+    expect(legacy.body.allowFreeSectionNavigation).toBe(false);
+  });
+
   it("falls back to live storage when a published test has no snapshot", async () => {
     storageMock.getTest.mockResolvedValue({ ...dbTest, status: "published" });
     storageMock.getLatestSnapshot.mockResolvedValue(undefined);

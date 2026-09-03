@@ -65,6 +65,7 @@ function baseModel(over: Partial<TestEditorModel> = {}): TestEditorModel {
       maxAttempts: null,
       showCorrectAnswers: false,
       allowReturnToUnanswered: true,
+      allowFreeSectionNavigation: false,
       allowAnswerChange: false,
       quickAdvance: false,
       showSectionResults: true,

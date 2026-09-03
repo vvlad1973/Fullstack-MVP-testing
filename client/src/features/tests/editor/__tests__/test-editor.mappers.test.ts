@@ -999,6 +999,29 @@ describe("quickAdvance (PRD-43)", () => {
   });
 });
 
+// ─── Свободная навигация внутри раздела (PRD-19 FR-11a) ───────────────────────
+
+describe("свободная навигация внутри раздела (PRD-19 FR-11a)", () => {
+  it("новый тест заводится с выключенной свободой", () => {
+    expect(emptyEditorModel({ folderId: null }).runtime.allowFreeSectionNavigation).toBe(false);
+  });
+
+  it("тест без этой колонки читается как ВЫКЛ, а не как «неизвестно» (FR-11c)", () => {
+    // Существующий тест обязан сохранить нынешнее поведение без правок автора, поэтому
+    // отсутствие поля — это «выключено», и таким же оно уедет обратно на сервер.
+    expect(apiToEditorModel({}).runtime.allowFreeSectionNavigation).toBe(false);
+  });
+
+  it("явное значение читается дословно и переживает круг до полезной нагрузки", () => {
+    expect(
+      apiToEditorModel({ allowFreeSectionNavigation: true }).runtime.allowFreeSectionNavigation,
+    ).toBe(true);
+    const model = emptyEditorModel({ folderId: null });
+    model.runtime.allowFreeSectionNavigation = true;
+    expect(editorModelToPayload(model).allowFreeSectionNavigation).toBe(true);
+  });
+});
+
 // ─── PRD-50 FR-11/FR-12: section-group (block) round-trip ────────────────────
 
 describe("PRD-50 FR-44 положение показа разреза (Э4)", () => {

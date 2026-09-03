@@ -400,6 +400,7 @@ CREATE TABLE "tests" (
 	"default_question_points" integer,
 	"question_order" text DEFAULT 'random' NOT NULL,
 	"allow_return_to_unanswered" boolean DEFAULT true NOT NULL,
+	"allow_free_section_navigation" boolean DEFAULT false NOT NULL,
 	"allow_answer_change" boolean DEFAULT false NOT NULL,
 	"quick_advance" boolean DEFAULT false NOT NULL,
 	"show_section_results" boolean DEFAULT true NOT NULL,

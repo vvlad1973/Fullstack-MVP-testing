@@ -66,7 +66,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       webhookUrl: "",
       telemetryEnabled: false,
     },
-    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, quickAdvance: false, showSectionResults: true, skipReviewWhenComplete: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
+    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, quickAdvance: false, showSectionResults: true, skipReviewWhenComplete: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     passRules: {
       decisionPolicy: "overall_only",
       overall: { type: "percent", value: 70 },
@@ -319,7 +319,7 @@ describe("<LimitsPane /> — «Ограничения»", () => {
 
   it("sets timeLimitMinutes back to null when input is cleared", () => {
     const updateModel = vi.fn();
-    const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const } });
+    const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const } });
     render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-time-limit-input"), {
       target: { value: "" },
@@ -663,6 +663,58 @@ describe("<VerdictPane /> — вердикт теста и тем", () => {
     render(<NavigationPane model={model} updateModel={vi.fn()} />);
     const toggle = screen.getByTestId("settings-quick-advance-checkbox");
     expect(toggle).toBeDisabled();
+  });
+
+  // ─── PRD-19 FR-11a - FR-11c: свободная навигация внутри раздела ───────────
+
+  it("свободная навигация выключается и включается автором", () => {
+    const updateModel = vi.fn();
+    const model = baseModel();
+    render(<NavigationPane model={model} updateModel={updateModel} />);
+    const toggle = screen.getByTestId("settings-free-navigation-checkbox");
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(runUpdater(updateModel, model).runtime.allowFreeSectionNavigation).toBe(true);
+  });
+
+  it("без возврата к неотвеченным она гаснет и называет причину (FR-11c)", () => {
+    const model = baseModel({
+      runtime: {
+        ...baseModel().runtime,
+        allowReturnToUnanswered: false,
+        allowFreeSectionNavigation: true,
+      },
+    });
+    render(<NavigationPane model={model} updateModel={vi.fn()} />);
+    const toggle = screen.getByTestId("settings-free-navigation-checkbox");
+    expect(toggle).toBeDisabled();
+    // Погашённая настройка не показывается включённой: иначе автор поверил бы,
+    // что свобода действует.
+    expect(toggle).not.toBeChecked();
+    expect(
+      screen.getAllByText("Доступно только при включённом возврате к неотвеченным.").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("выключение возврата сбрасывает и свободную навигацию", () => {
+    const updateModel = vi.fn();
+    const model = baseModel({
+      runtime: { ...baseModel().runtime, allowFreeSectionNavigation: true },
+    });
+    render(<NavigationPane model={model} updateModel={updateModel} />);
+    fireEvent.click(screen.getByTestId("settings-allow-return-checkbox"));
+    const updated = runUpdater(updateModel, model);
+    expect(updated.runtime.allowReturnToUnanswered).toBe(false);
+    expect(updated.runtime.allowFreeSectionNavigation).toBe(false);
+  });
+
+  it("показ правильных ответов свободной навигации НЕ мешает", () => {
+    // В отличие от «изменять ответ»: открытый вперёд вопрос чужой подсказки не показывает.
+    const model = baseModel({
+      runtime: { ...baseModel().runtime, showCorrectAnswers: true },
+    });
+    render(<NavigationPane model={model} updateModel={vi.fn()} />);
+    expect(screen.getByTestId("settings-free-navigation-checkbox")).not.toBeDisabled();
   });
 });
 

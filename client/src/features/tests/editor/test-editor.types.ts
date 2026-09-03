@@ -532,6 +532,7 @@ export type TestEditorModel = {
     showCorrectAnswers: boolean;
     // PRD-19 (Блок A): правила навигации/завершения.
     allowReturnToUnanswered: boolean; // FR-01
+    allowFreeSectionNavigation: boolean; // FR-11a (зависит от возврата, FR-11c)
     allowAnswerChange: boolean; // FR-04a (зависит от возврата; взаимоискл. с showCorrectAnswers)
     // PRD-43: НЕЗАВИСИМ от allowReturnToUnanswered; взаимоискл. с showCorrectAnswers (гасится в UI).
     quickAdvance: boolean;
@@ -659,6 +660,7 @@ export type TestSettingsPayload = {
   showCorrectAnswers: boolean;
   // PRD-19 (Блок A): правила навигации/завершения теста.
   allowReturnToUnanswered: boolean;
+  allowFreeSectionNavigation: boolean;
   allowAnswerChange: boolean;
   // PRD-43: независим от allowReturnToUnanswered.
   quickAdvance: boolean;

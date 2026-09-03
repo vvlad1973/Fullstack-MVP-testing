@@ -93,6 +93,7 @@ export type ApiTestResponse = {
   showCorrectAnswers?: boolean | null;
   // PRD-19 (Блок A)
   allowReturnToUnanswered?: boolean | null;
+  allowFreeSectionNavigation?: boolean | null;
   allowAnswerChange?: boolean | null;
   // PRD-43: независим от allowReturnToUnanswered.
   quickAdvance?: boolean | null;
@@ -1123,6 +1124,8 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       showCorrectAnswers: false,
       // PRD-19 (Блок A): новый тест — возврат ВКЛ по умолчанию (FR-01).
       allowReturnToUnanswered: true,
+      // PRD-19 (FR-11c): свободная навигация ВЫКЛ и у нового теста — её включает автор.
+      allowFreeSectionNavigation: false,
       allowAnswerChange: false,
       // PRD-43: новый тест — как сегодняшнее двухшаговое поведение (ВКЛ возврата
       // + ВЫКЛ быстрого перехода).
@@ -1238,6 +1241,11 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
         typeof src.showCorrectAnswers === "boolean" ? src.showCorrectAnswers : false,
       // PRD-19 (Блок A): consolidated in `resolvedAllowReturnToUnanswered` above.
       allowReturnToUnanswered: resolvedAllowReturnToUnanswered,
+      // PRD-19 (FR-11a): поля нет в ответе (тест до этой настройки) → ВЫКЛ, прежний фронтир.
+      allowFreeSectionNavigation:
+        typeof src.allowFreeSectionNavigation === "boolean"
+          ? src.allowFreeSectionNavigation
+          : false,
       allowAnswerChange:
         typeof src.allowAnswerChange === "boolean" ? src.allowAnswerChange : false,
       // PRD-43: поля нет в ответе (тест до PRD-43) → то же правило, что и у
@@ -1337,6 +1345,7 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     maxAttempts: model.runtime.maxAttempts,
     showCorrectAnswers: model.runtime.showCorrectAnswers,
     allowReturnToUnanswered: model.runtime.allowReturnToUnanswered,
+    allowFreeSectionNavigation: model.runtime.allowFreeSectionNavigation,
     allowAnswerChange: model.runtime.allowAnswerChange,
     quickAdvance: model.runtime.quickAdvance,
     showSectionResults: model.runtime.showSectionResults,

@@ -117,6 +117,10 @@ const testBodyBaseSchema = z.object({
   showCorrectAnswers: z.boolean().optional(),
   // PRD-19 (Блок A): правила навигации/завершения.
   allowReturnToUnanswered: z.boolean().optional(),
+  // PRD-19 (FR-11a): свободная навигация внутри раздела; имеет смысл только вместе с
+  // возвратом к неотвеченным (FR-11c) — зависимость держит редактор, как и для
+  // «изменять ответ».
+  allowFreeSectionNavigation: z.boolean().optional(),
   allowAnswerChange: z.boolean().optional(),
   // PRD-43: independent of allowReturnToUnanswered.
   quickAdvance: z.boolean().optional(),
@@ -671,6 +675,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       sections,
       showCorrectAnswers,
       allowReturnToUnanswered,
+      allowFreeSectionNavigation,
       allowAnswerChange,
       quickAdvance,
       showSectionResults,
@@ -735,6 +740,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         published,
         showCorrectAnswers,
         allowReturnToUnanswered,
+        allowFreeSectionNavigation,
         allowAnswerChange,
         quickAdvance,
         showSectionResults,
@@ -1124,6 +1130,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       sections,
       showCorrectAnswers,
       allowReturnToUnanswered,
+      allowFreeSectionNavigation,
       allowAnswerChange,
       quickAdvance,
       showSectionResults,
@@ -1191,6 +1198,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         webhookUrl,
         showCorrectAnswers,
         allowReturnToUnanswered,
+        allowFreeSectionNavigation,
         allowAnswerChange,
         quickAdvance,
         showSectionResults,
