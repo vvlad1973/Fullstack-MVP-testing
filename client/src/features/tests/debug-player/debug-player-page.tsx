@@ -65,6 +65,9 @@ export default function DebugPlayerPage() {
   const [watchSource, setWatchSource] = useState<WatchSource>("state");
   const [watchFilter, setWatchFilter] = useState("");
   const [reference, setReference] = useState(false);
+  // PRD-52: тот же режим полной выдачи, что у рецензента. Автору он нужен по той же
+  // причине — просмотреть банк темы целиком, а не ту выборку, что выпала прогону.
+  const [fullDraw, setFullDraw] = useState(false);
   const [snap, setSnap] = useState<InspectorSnapshot>(EMPTY);
   // PRD-18: per-topic pinned variants { topicId: formId } for variants-mode sections.
   // Empty on mount (a fresh window starts unpinned). Passed to the stage as a
@@ -147,7 +150,11 @@ export default function DebugPlayerPage() {
   const openEditor = () => window.open(`/author/tests?edit=${testId}`, "_blank", "noopener");
   // Variant pins ride on the stage launch-URL hash; the runtime reads `#tbff=` at draw time.
   const pinHash = Object.keys(pins).length ? "#tbff=" + encodeURIComponent(JSON.stringify(pins)) : "";
-  const stageSrc = state.playUrl ? state.playUrl + pinHash : undefined;
+  // Полная выдача едет тем же хешем; оба флага уживаются в одной строке.
+  const drawHash = fullDraw ? (pinHash ? pinHash + "&tbfa=1" : "#tbfa=1") : pinHash;
+  // Выдача фиксируется на первом вопросе — дальше режим не переключить.
+  const drawStarted = Boolean(snap.draw?.started);
+  const stageSrc = state.playUrl ? state.playUrl + drawHash : undefined;
 
   return (
     <div className={collapsed ? "dbg is-collapsed" : "dbg"}>
@@ -190,6 +197,21 @@ export default function DebugPlayerPage() {
                     onChange={(e) => setReference(e.target.checked)}
                     aria-label="Показать эталон"
                     data-testid="toggle-reference"
+                  />
+                </label>
+                <label
+                  className="dbg__ref-toggle"
+                  title={drawStarted
+                    ? "Выдача уже зафиксирована: режим переключается до первого вопроса"
+                    : "Выдать весь банк темы вместо настроенной выборки"}
+                >
+                  <span className="dbg__ref-lbl">Все вопросы темы</span>
+                  <Switch
+                    checked={fullDraw}
+                    onChange={(e) => { setFullDraw(e.target.checked); reset(); }}
+                    disabled={drawStarted}
+                    aria-label="Все вопросы темы"
+                    data-testid="toggle-full-draw"
                   />
                 </label>
               </div>

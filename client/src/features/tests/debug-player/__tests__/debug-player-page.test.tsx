@@ -277,3 +277,13 @@ describe("DebugPlayerPage — variant pins", () => {
     expect(screen.getByText(/После старта прогона выбор зафиксирован/)).toBeInTheDocument();
   });
 });
+
+describe("PRD-52: полная выдача в отладчике", () => {
+  it("тумблер выключен по умолчанию и уводит флаг в стейдж", () => {
+    render(<DebugPlayerPage />);
+    const toggle = screen.getByTestId("toggle-full-draw") as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(screen.getByTitle("Прогон отладки").getAttribute("src")).toContain("tbfa=1");
+  });
+});
