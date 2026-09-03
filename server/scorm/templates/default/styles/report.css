@@ -128,8 +128,9 @@
 }
 
 /* PRD-50: БЛОК РАЗДЕЛОВ — заголовок со счётчиком «пройдено N из M» над собственной
-   сеткой тем. Отступ несёт сам блок, поэтому документ теста БЕЗ блоков не сдвигается
-   ни на пиксель: узла `.tb-report__topic-group` в нём просто нет. */
+   сеткой тем. Шапку печатает только блок разделов: в документе из блоков (PRD-51,
+   `layouts/report/topics.html`) обёртку получает и плоский список тем, но узла
+   `-head` в нём нет, поэтому тест без блоков не несёт пустой полосы. */
 .tb-report__topic-group { margin-bottom: 12px; }
 .tb-report__topic-group:last-child { margin-bottom: 0; }
 .tb-report__topic-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -250,24 +251,17 @@
 }
 .tb-report__breakdown-bar span { display: block; height: 100%; border-radius: 2px; background: #6b7280; }
 .tb-report__breakdown-val { font-size: 7px; color: #aca9a9; margin-top: 2px; }
-/* PRD-50 Э2: вердикт ключа. Те же оттенки, что у `.tb-report__topic.is-pass/is-fail`
-   выше в этом файле — вердикт разреза не заводит себе отдельную палитру. */
-.tb-report__breakdown-status { margin-left: 6px; font-size: 7px; color: #aca9a9; }
-.tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #22c55e; }
-.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #ef4444; }
-.tb-report__breakdown-row.is-pass .tb-report__breakdown-status { color: #22c55e; }
-.tb-report__breakdown-row.is-fail .tb-report__breakdown-status { color: #ef4444; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на
-   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Цвет вердикта
-   не переопределяется: он приходит правилами выше и один на обе проекции. */
+   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Исхода у строки
+   нет вовсе (решение владельца 2026-09-03): подтема не судится, и полоса нейтральна в
+   обеих проекциях. */
 .tb-report__breakdown--block { margin-bottom: 0; }
 .tb-report__breakdown--block .tb-report__breakdown-row { margin-bottom: 8px; }
 .tb-report__breakdown--block .tb-report__breakdown-name { font-size: 10px; margin-bottom: 4px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar { height: 4px; border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar span { border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-val { font-size: 9px; }
-.tb-report__breakdown--block .tb-report__breakdown-status { font-size: 9px; }
 
 .tb-report__topic-fb {
   font-size: 10px;

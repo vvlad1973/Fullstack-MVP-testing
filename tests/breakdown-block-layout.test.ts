@@ -28,14 +28,19 @@ const LABELS = {
   recommendations: { courses: "Курсы", events: "Мероприятия", assets: "Материалы" },
 };
 
-/** Ключ «ПДн» выдан в двух разделах — в блоке он ОДНА строка на весь тест. */
+/**
+ * Ключ «ПДн» выдан в двух разделах — в блоке он ОДНА строка на весь тест.
+ *
+ * Вердикта в строке нет: подтема считается и показывается, но не судится (решение
+ * владельца 2026-09-03), и `passed`/`passClass`/`statusLabel` ушли из контекста строки
+ * (`CtxBreakdownRow`). Фикстура повторяет контракт дословно — иначе гард продолжил бы
+ * требовать от раскладок разметку, которой ядро больше не питает.
+ */
 const ROWS = [
   { key: "ПДн", items: 4, answered: 4, earned: 3, possible: 4, percent: 75, percentUnits: 75,
-    percentPoints: 75, barPercent: 75, showValue: true, valueLabel: "75 %", passed: true,
-    passClass: "is-pass", statusLabel: "Пройдено" },
+    percentPoints: 75, barPercent: 75, showValue: true, valueLabel: "75 %" },
   { key: "Антикоррупция", items: 2, answered: 1, earned: 0, possible: 2, percent: 0, percentUnits: 0,
-    percentPoints: 0, barPercent: 0, showValue: true, valueLabel: "0 %", passed: false,
-    passClass: "is-fail", statusLabel: "Не пройдено" },
+    percentPoints: 0, barPercent: 0, showValue: true, valueLabel: "0 %" },
 ];
 
 const topic = (topicName: string) => ({
@@ -88,11 +93,14 @@ for (const [templateId, dir] of Object.entries(TEMPLATES)) {
       expect(html).toContain("width: 75%;");
     });
 
-    it("строка несёт вердикт ключа и число выбранной базы", () => {
+    it("строка несёт число выбранной базы и НЕ несёт вердикта", () => {
       const html = render(resultsContext(WITH_BLOCK, true));
-      expect(html).toContain('class="tb-breakdown__row is-pass"');
-      expect(html).toContain('class="tb-breakdown__row is-fail"');
       expect(html).toContain("75 %");
+      // Подтема не судится: ни класса исхода на строке, ни метки рядом с ключом.
+      expect(html).toContain('class="tb-breakdown__row"');
+      expect(html).not.toContain("tb-breakdown__row is-pass");
+      expect(html).not.toContain("tb-breakdown__row is-fail");
+      expect(html).not.toContain("tb-breakdown__status");
     });
 
     it("блок выключен — ни узла, ни заголовка", () => {
@@ -117,6 +125,10 @@ for (const [templateId, dir] of Object.entries(TEMPLATES)) {
       expect(html).toContain("Разрез результата");
       expect(times(html, "tb-report__breakdown--block")).toBe(1);
       expect(times(html, 'data-item="ПДн"')).toBe(1);
+      // Бумага повторяет экран и в этом: вердикта у строки нет ни там, ни здесь.
+      expect(html).not.toContain("tb-report__breakdown-row is-pass");
+      expect(html).not.toContain("tb-report__breakdown-row is-fail");
+      expect(html).not.toContain("tb-report__breakdown-status");
     });
 
     it("блок выключен — карточки нет", () => {

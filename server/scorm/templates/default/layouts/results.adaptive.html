@@ -164,8 +164,8 @@
       {{#if isBreakdown}}
       <div class="tb-breakdown">
         {{#each @root.result.breakdown}}
-        <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
-          <div class="tb-breakdown__name">{{ key }}{{#if statusLabel}}<span class="tb-breakdown__status">{{ statusLabel }}</span>{{/if}}</div>
+        <div class="tb-breakdown__row" data-item="{{ key }}">
+          <div class="tb-breakdown__name">{{ key }}</div>
           <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
           {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
         </div>

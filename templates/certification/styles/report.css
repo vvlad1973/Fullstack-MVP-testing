@@ -255,8 +255,11 @@
 
 /* PRD-50: БЛОК РАЗДЕЛОВ — у «Сертификации» это КАРТОЧКА по метрикам референса (§10.3):
    тело `#F7F7F7`, шапка `#E2E2E2` высотой 59 px, волосяная рамка, зазор между карточками
-   10 px. Отступ несёт сам блок, поэтому документ теста БЕЗ блоков не сдвигается ни на
-   пиксель: узла `.tb-report__topic-group` в нём просто нет. */
+   10 px. ШАПКУ печатает только блок разделов: в документе из блоков (PRD-51,
+   `layouts/report/topics.html`) карточку получает и плоский список тем, но узла
+   `-head` в нём нет — иначе тест без блоков нёс бы пустую полосу в 59 px. Блоков
+   разделов новые тесты не заводят вовсе (решение владельца 12), так что ветка без
+   них — основная. */
 .tb-report__topic-group {
   margin-bottom: 10px;
   border: 1px solid #D8D8D8;
@@ -419,24 +422,17 @@
 }
 .tb-report__breakdown-bar span { display: block; height: 100%; border-radius: 2px; background: #98A2B3; }
 .tb-report__breakdown-val { font-size: 7px; color: #5A6472; margin-top: 2px; }
-/* PRD-50 Э2: вердикт ключа. Те же оттенки, что у `.tb-report__topic.is-pass/is-fail`
-   выше — вердикт разреза не заводит себе отдельную палитру. */
-.tb-report__breakdown-status { margin-left: 6px; font-size: 7px; color: #5A6472; }
-.tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #19D7A4; }
-.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #FF4F12; }
-.tb-report__breakdown-row.is-pass .tb-report__breakdown-status { color: #19D7A4; }
-.tb-report__breakdown-row.is-fail .tb-report__breakdown-status { color: #FF4F12; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на
-   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Цвет вердикта
-   не переопределяется: он приходит правилами выше и один на обе проекции. */
+   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Исхода у строки
+   нет вовсе (решение владельца 2026-09-03): подтема не судится, и полоса нейтральна в
+   обеих проекциях. */
 .tb-report__breakdown--block { margin-bottom: 0; }
 .tb-report__breakdown--block .tb-report__breakdown-row { margin-bottom: 8px; }
 .tb-report__breakdown--block .tb-report__breakdown-name { font-size: 10px; margin-bottom: 4px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar { height: 4px; border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar span { border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-val { font-size: 9px; }
-.tb-report__breakdown--block .tb-report__breakdown-status { font-size: 9px; }
 
 .tb-report__topic-fb {
   font-size: 10px;

@@ -160,4 +160,32 @@ for (const [templateId, dir] of Object.entries(TEMPLATES)) {
       expect(times(html, "Делегирование")).toBe(1);
     });
   });
+
+  /**
+   * Э6.3: тот же блок в ДОКУМЕНТЕ из блоков (PRD-51, `layouts/report/topics.html`).
+   * Новые тесты блоков разделов не заводят — карточка «Блоки итогов» из редактора убрана
+   * (решение владельца 12), поэтому ветка БЕЗ блоков стала основной, и шапка со счётчиком
+   * не должна оставлять от себя пустую полосу: у «Сертификации» она нарисована карточкой
+   * высотой 59 px с собственным фоном, и пустой узел был бы виден на бумаге.
+   */
+  describe(`${templateId}: блок тем документа гасит шапку, когда блоков разделов нет`, () => {
+    const render = compileTemplate(fs.readFileSync(path.join(dir, "report/topics.html"), "utf-8"));
+
+    it("без блоков разделов шапки нет вовсе", () => {
+      const html = render(reportContext(FLAT));
+      expect(html).not.toContain("tb-report__topic-group-head");
+      expect(html).not.toContain("tb-report__topic-group-counter");
+      expect(times(html, 'class="tb-report__topics"')).toBe(1);
+      expect(times(html, "Делегирование")).toBe(1);
+    });
+
+    it("с блоками шапка печатает заголовок и счётчик", () => {
+      const html = render(reportContext(GROUPED));
+      expect(times(html, "tb-report__topic-group-head")).toBe(2);
+      expect(html).toContain("Управленческие компетенции");
+      expect(html).toContain("1 / 2");
+      // Темы вне блоков идут своей карточкой — и она тоже без шапки.
+      expect(times(html, "Вне блоков")).toBe(1);
+    });
+  });
 }

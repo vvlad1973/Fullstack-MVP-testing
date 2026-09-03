@@ -652,23 +652,18 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-stat-rows { display: flex; flex-direction: column; width: 100%; }
 .tb-stat-val { font: var(--ou-text-body-m); color: var(--ou-fg-default); }
 /* PRD-50: per-key breakdown bars inside a topic card. Same kind of bar as
-   `.tb-topic-card__bar` above, with its own track. The fill stays neutral until the
-   key has an applied threshold; the fill width always comes inline from the layout
-   (`barPercent`). Colours are the template's own tokens — on the dark
-   «Сертификация» palette `--ou-bg-hover` resolves to a light film over the card. */
+   `.tb-topic-card__bar` above, with its own track. The fill is always neutral: a
+   subtopic speaks about the result and is not judged (решение владельца 2026-09-03),
+   so no `is-pass`/`is-fail` reaches this row — the verdict belongs to the topic card
+   around it. The fill width always comes inline from the layout (`barPercent`).
+   Colours are the template's own tokens — on the dark «Сертификация» palette
+   `--ou-bg-hover` resolves to a light film over the card. */
 .tb-topic__breakdown { display: flex; flex-direction: column; gap: var(--ou-space-1); width: 100%; margin-top: var(--ou-space-1); }
 .tb-breakdown__row { width: 100%; }
 .tb-breakdown__name { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-bottom: 2px; }
 .tb-breakdown__bar { height: 4px; background: var(--ou-bg-hover); border-radius: 999px; overflow: hidden; }
 .tb-breakdown__bar span { display: block; height: 100%; border-radius: 999px; background: var(--ou-fg-muted); }
 .tb-breakdown__val { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: 2px; }
-/* PRD-50 Э2: key verdict. Same tokens as `.tb-topic-card__bar.is-pass/is-fail` above —
-   the verdict colour does not get its own palette per block. */
-.tb-breakdown__status { margin-left: 6px; font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tb-breakdown__row.is-pass .tb-breakdown__bar span { background: var(--ou-success-default); }
-.tb-breakdown__row.is-fail .tb-breakdown__bar span { background: var(--ou-error-default); }
-.tb-breakdown__row.is-pass .tb-breakdown__status { color: var(--ou-success-default); }
-.tb-breakdown__row.is-fail .tb-breakdown__status { color: var(--ou-error-default); }
 /* PRD-50 Э4: the SUMMARY breakdown block of the whole test. Its own wrapper rather than
    `tb-topic__breakdown`: that one lives inside a topic card and takes its width and top
    gap from it, while this one stands as a sub-block of the results umbrella beside the

@@ -669,24 +669,16 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-stat-rows { display: flex; flex-direction: column; width: 100%; }
 .tb-stat-val { font: var(--ou-text-body-m); color: var(--ou-fg-default); }
 /* PRD-50: подытоги по ключам разреза. Тот же род полосы, что `tb-topic-card__bar`
-   выше. Заливка нейтральна, пока у ключа нет применившегося порога (`passClass`
-   пуст); с Э2 `is-pass`/`is-fail` красят её тем же токеном, что и вердикт темы,
-   ниже. Ширину задаёт инлайн-стиль макета (`barPercent`), здесь только дорожка,
-   заливка и типографика. */
+   выше. Заливка ВСЕГДА нейтральна: подтема говорит о результате, но не судится
+   (решение владельца 2026-09-03), и `is-pass`/`is-fail` в строку не приходят —
+   вердикт держит карточка темы вокруг. Ширину задаёт инлайн-стиль макета
+   (`barPercent`), здесь только дорожка, заливка и типографика. */
 .tb-topic__breakdown { display: flex; flex-direction: column; gap: var(--ou-space-1); width: 100%; margin-top: var(--ou-space-1); }
 .tb-breakdown__row { width: 100%; }
 .tb-breakdown__name { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-bottom: 2px; }
 .tb-breakdown__bar { height: 4px; background: var(--ou-bg-hover); border-radius: 999px; overflow: hidden; }
 .tb-breakdown__bar span { display: block; height: 100%; border-radius: 999px; background: var(--ou-fg-muted); }
 .tb-breakdown__val { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: 2px; }
-/* PRD-50 Э2: вердикт ключа. Те же токены, что у `.tb-topic-card__bar.is-pass/is-fail`
-   и `.router-topic-card--passed/failed .router-topic-card__status` — цвет вердикта
-   везде один и тот же, а не свой на каждый блок. */
-.tb-breakdown__status { margin-left: 6px; font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tb-breakdown__row.is-pass .tb-breakdown__bar span { background: var(--ou-success-default); }
-.tb-breakdown__row.is-fail .tb-breakdown__bar span { background: var(--ou-error-default); }
-.tb-breakdown__row.is-pass .tb-breakdown__status { color: var(--ou-success-default); }
-.tb-breakdown__row.is-fail .tb-breakdown__status { color: var(--ou-error-default); }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза по всему тесту. Своя обёртка, а не `tb-topic__breakdown`:
    тот живёт внутри карточки темы и получает от неё ширину и верхний отступ, а этот стоит
    подблоком итогов наравне со шкалами. Строки внутри — те же самые. */

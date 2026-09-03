@@ -56,8 +56,8 @@
     {{#if labels.results.breakdown}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.breakdown }}</div>{{/if}}
     <div class="tb-report__breakdown tb-report__breakdown--block">
       {{#each result.breakdown}}
-      <div class="tb-report__breakdown-row {{ passClass }}" data-item="{{ key }}">
-        <div class="tb-report__breakdown-name">{{ key }}{{#if statusLabel}}<span class="tb-report__breakdown-status">{{ statusLabel }}</span>{{/if}}</div>
+      <div class="tb-report__breakdown-row" data-item="{{ key }}">
+        <div class="tb-report__breakdown-name">{{ key }}</div>
         <div class="tb-report__breakdown-bar"><span style="width: {{ barPercent }}%;"></span></div>
         {{#if showValue}}<div class="tb-report__breakdown-val">{{ valueLabel }}</div>{{/if}}
       </div>
