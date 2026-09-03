@@ -28,7 +28,8 @@ CREATE TABLE "adaptive_topic_settings" (
 
 CREATE TABLE "assignment_access_tokens" (
 	"id" varchar(36) PRIMARY KEY NOT NULL,
-	"assignment_id" varchar(36) NOT NULL,
+	"assignment_id" varchar(36),
+	"purpose" text DEFAULT 'attempt' NOT NULL,
 	"user_id" varchar(36) NOT NULL,
 	"test_id" varchar(36) NOT NULL,
 	"token_hash" text NOT NULL,
@@ -318,6 +319,25 @@ CREATE TABLE "test_question_scoring" (
 	"scoring_json" jsonb,
 	"difficulty" integer,
 	"pinned_content_hash" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE "test_review_comments" (
+	"id" varchar(36) PRIMARY KEY NOT NULL,
+	"test_id" varchar(36) NOT NULL,
+	"author_id" varchar(36) NOT NULL,
+	"parent_id" varchar(36),
+	"body" text NOT NULL,
+	"anchor_kind" text NOT NULL,
+	"question_id" varchar(36),
+	"topic_id" varchar(36),
+	"content_page_id" uuid,
+	"context_label" text,
+	"pinned_content_hash" text,
+	"status" text,
+	"resolved_by" varchar(36),
+	"resolved_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

@@ -29,6 +29,11 @@ import {
   type ReportDocumentMode,
 } from "./storage/report-blocks-repository";
 import {
+  ReviewCommentsRepository,
+  type ReviewCommentInput,
+  type ReviewThread,
+} from "./storage/review-comments-repository";
+import {
   TestTransferRepository,
   type ImportWriteResult,
   type TransferWriteBatch,
@@ -75,6 +80,7 @@ import type {
   TestQuestionScoring, InsertTestQuestionScoring,
   MediaAsset, InsertMediaAsset, MediaUsage, MediaEntityType,
   ReportBlockRow,
+  TestReviewComment,
 } from "@shared/schema";
 import type { StoredRole } from "@shared/access";
 import { type ValidationResult, type ValueType } from "@shared/formula";
@@ -381,6 +387,20 @@ export interface IStorage {
 
   // PRD-51: документ отчёта — упорядоченный список блоков теста, по ветви на режим.
   // Читается и пишется ЦЕЛИКОМ: порядок и состав осмысленны только вместе.
+  // PRD-52: комментарии рецензирования
+  listReviewThreads(testId: string): Promise<ReviewThread[]>;
+  getReviewComment(id: string): Promise<TestReviewComment | undefined>;
+  hasReviewReplies(rootId: string): Promise<boolean>;
+  createReviewComment(input: ReviewCommentInput): Promise<TestReviewComment>;
+  updateReviewCommentBody(id: string, body: string): Promise<TestReviewComment | undefined>;
+  deleteReviewComment(id: string): Promise<boolean>;
+  resolveReviewComment(
+    id: string,
+    outcome: { status: "accepted" | "rejected"; resolvedBy: string },
+  ): Promise<TestReviewComment | undefined>;
+  reopenReviewComment(id: string): Promise<TestReviewComment | undefined>;
+  countOpenReviewComments(testId: string): Promise<number>;
+  countOpenReviewCommentsByTests(testIds: string[]): Promise<Record<string, number>>;
   listReportBlocks(testId: string, mode: ReportDocumentMode): Promise<ReportBlockRow[]>;
   replaceReportBlocks(
     testId: string,
@@ -413,6 +433,7 @@ export class DatabaseStorage implements IStorage {
   private readonly foldersRepo = new FoldersRepository();
   private readonly mediaRepo = new MediaRepository();
   private readonly reportBlocksRepo = new ReportBlocksRepository();
+  private readonly reviewCommentsRepo = new ReviewCommentsRepository();
   private readonly transferRepo = new TestTransferRepository();
 
   // ============================================
@@ -1235,6 +1256,53 @@ export class DatabaseStorage implements IStorage {
   // ============================================
   // Документ отчёта (delegated to ReportBlocksRepository)
   // ============================================
+
+  // ============================================
+  // Комментарии рецензирования (delegated to ReviewCommentsRepository)
+  // ============================================
+
+  listReviewThreads(testId: string): Promise<ReviewThread[]> {
+    return this.reviewCommentsRepo.listReviewThreads(testId);
+  }
+
+  getReviewComment(id: string): Promise<TestReviewComment | undefined> {
+    return this.reviewCommentsRepo.getReviewComment(id);
+  }
+
+  hasReviewReplies(rootId: string): Promise<boolean> {
+    return this.reviewCommentsRepo.hasReviewReplies(rootId);
+  }
+
+  createReviewComment(input: ReviewCommentInput): Promise<TestReviewComment> {
+    return this.reviewCommentsRepo.createReviewComment(input);
+  }
+
+  updateReviewCommentBody(id: string, body: string): Promise<TestReviewComment | undefined> {
+    return this.reviewCommentsRepo.updateReviewCommentBody(id, body);
+  }
+
+  deleteReviewComment(id: string): Promise<boolean> {
+    return this.reviewCommentsRepo.deleteReviewComment(id);
+  }
+
+  resolveReviewComment(
+    id: string,
+    outcome: { status: "accepted" | "rejected"; resolvedBy: string },
+  ): Promise<TestReviewComment | undefined> {
+    return this.reviewCommentsRepo.resolveReviewComment(id, outcome);
+  }
+
+  reopenReviewComment(id: string): Promise<TestReviewComment | undefined> {
+    return this.reviewCommentsRepo.reopenReviewComment(id);
+  }
+
+  countOpenReviewComments(testId: string): Promise<number> {
+    return this.reviewCommentsRepo.countOpenReviewComments(testId);
+  }
+
+  countOpenReviewCommentsByTests(testIds: string[]): Promise<Record<string, number>> {
+    return this.reviewCommentsRepo.countOpenReviewCommentsByTests(testIds);
+  }
 
   listReportBlocks(testId: string, mode: ReportDocumentMode): Promise<ReportBlockRow[]> {
     return this.reportBlocksRepo.listReportBlocks(testId, mode);
