@@ -22,6 +22,7 @@ import AuthorTemplatesPage from "@/pages/author/templates";
 import AnalyticsPage from "@/pages/author/analytics";
 import TestAnalyticsPage from "@/pages/author/test-analytics";
 import DebugPlayerPage from "@/features/tests/debug-player/debug-player-page";
+import ReviewPlayerPage from "@/pages/review/review-player-page";
 import UsersPage from "@/pages/author/users";
 import GroupsPage from "@/pages/author/groups";
 import ImportPage from "@/pages/author/import";
@@ -59,13 +60,19 @@ export function ProtectedRoute({
   // test is a full authentication — so send the learner straight to the login form
   // instead of an intermediate "you cannot go there" screen.
   if (user.magicScope) {
-    const testPath = `/learner/test/${user.magicScope.testId}`;
+    // PRD-52: ревью-ссылка открывает ОДИН экран — окно рецензирования своего теста;
+    // ссылка на прохождение, как и раньше, только сам тест и страницу результата.
+    const testPath = user.magicScope.purpose === "review"
+      ? `/review/tests/${user.magicScope.testId}`
+      : `/learner/test/${user.magicScope.testId}`;
     // Wouter matches a route with an optional trailing slash, so `/learner/test/t1/`
     // is the same page as `/learner/test/t1` — compare without it, or the learner
     // gets bounced to the login form while standing on their own test.
     const path = location.replace(/\/+$/, "") || "/";
-    const insideScope =
-      !scopeViolated && (path === testPath || path.startsWith("/learner/result/"));
+    const insideScope = !scopeViolated && (
+      path === testPath
+      || (user.magicScope.purpose !== "review" && path.startsWith("/learner/result/"))
+    );
     if (!insideScope) return <Redirect to="/login" />;
     return <>{children}</>;
   }
@@ -143,6 +150,15 @@ function Router() {
           <AuthorLayout>
             <TestAnalyticsPage />
           </AuthorLayout>
+        </ProtectedRoute>
+      </Route>
+
+      {/* PRD-52: окно рецензента — полноэкранное, без авторской оболочки. Права
+          решает сервер по гранту `review`, поэтому capability здесь не требуется:
+          у внешнего рецензента её и не будет. */}
+      <Route path="/review/tests/:testId">
+        <ProtectedRoute>
+          <ReviewPlayerPage />
         </ProtectedRoute>
       </Route>
 

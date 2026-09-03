@@ -12,7 +12,7 @@ import { hasPermission, type Role, type Capability } from "@shared/access";
 export type AuthUser = User & {
   roles?: Role[];
   permissions?: Capability[];
-  magicScope?: { testId: string } | null;
+  magicScope?: { testId: string; purpose?: "attempt" | "review" } | null;
 };
 
 interface AuthContextType {

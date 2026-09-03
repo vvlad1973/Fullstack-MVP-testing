@@ -32,6 +32,12 @@ export interface MagicScope {
    */
   assignmentId: string | null;
   testId: string;
+  /**
+   * PRD-52: чем ссылка была выдана. Клиент по этому полю решает, какой экран
+   * держать открытым, а сервер — куда вести после входа. Ссылка на прохождение
+   * не должна открывать окно рецензирования и наоборот.
+   */
+  purpose: "attempt" | "review";
 }
 
 declare module "express-session" {

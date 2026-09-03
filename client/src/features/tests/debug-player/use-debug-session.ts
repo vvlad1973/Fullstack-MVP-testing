@@ -44,7 +44,13 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-export function useDebugSession(testId: string) {
+/**
+ * Какой прогон открывается: отладочный (автор, PRD-18) или рецензентский
+ * (PRD-52). От этого зависит только префикс маршрутов — сам движок общий.
+ */
+export type RunKind = "debug" | "review";
+
+export function useDebugSession(testId: string, kind: RunKind = "debug") {
   const [state, setState] = useState<DebugSessionState>({ status: "loading" });
   // Bumping `runKey` reloads the stage iframe for a fresh run (Сброс).
   const [runKey, setRunKey] = useState(0);
@@ -59,9 +65,9 @@ export function useDebugSession(testId: string) {
         // Inject the RTE shim + inspector compute ONCE per window. On «Пересобрать»
         // (buildKey bump) they already exist — re-injecting would duplicate the
         // <script> tags and reset window.__scorm, dropping the token-keyed store.
-        if (!window.__scorm) await loadScript(`/api/tests/${testId}/debug/shim.js`);
-        if (!window.TBInspector) await loadScript(`/api/tests/${testId}/debug/inspector-compute.js`);
-        const res = await apiRequest("POST", `/api/tests/${testId}/debug/session`);
+        if (!window.__scorm) await loadScript(`/api/tests/${testId}/${kind}/shim.js`);
+        if (!window.TBInspector) await loadScript(`/api/tests/${testId}/${kind}/inspector-compute.js`);
+        const res = await apiRequest("POST", `/api/tests/${testId}/${kind}/session`);
         const data = (await res.json()) as {
           token: string; launch: string; playUrl: string; title?: string; template?: string;
           feasibility?: PublishCheckFinding[];
@@ -80,7 +86,7 @@ export function useDebugSession(testId: string) {
       }
     })();
     return () => { cancelled = true; };
-  }, [testId, buildKey]);
+  }, [testId, kind, buildKey]);
 
   /** Reset the current run: clear the RTE store and reload the stage iframe. */
   function reset() {

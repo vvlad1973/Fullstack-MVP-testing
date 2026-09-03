@@ -213,7 +213,9 @@ describe("GET /access/:token", () => {
     const agent = request.agent(app);
     await agent.get(`/access/${validToken}`);
     const probe = await agent.get("/probe");
-    expect(probe.body.magic).toEqual({ assignmentId: "asgn1", testId: "test1" });
+    // PRD-52: в области ссылки теперь есть её назначение — по нему клиент решает,
+    // какой экран держать открытым.
+    expect(probe.body.magic).toEqual({ assignmentId: "asgn1", testId: "test1", purpose: "attempt" });
   });
 
   it("sends the hygiene headers so the raw token cannot leak", async () => {

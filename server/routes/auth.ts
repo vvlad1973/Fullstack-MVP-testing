@@ -171,7 +171,9 @@ router.get("/me", async (req, res) => {
         gdprConsent: user.gdprConsent,
         // Present only for a session opened by an assignment link; the client uses
         // it to keep the interface inside that one test.
-        magicScope: req.session.magic ? { testId: req.session.magic.testId } : null,
+        magicScope: req.session.magic
+          ? { testId: req.session.magic.testId, purpose: req.session.magic.purpose }
+          : null,
       },
     });
   } catch (error) {

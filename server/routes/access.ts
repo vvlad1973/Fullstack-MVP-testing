@@ -73,7 +73,11 @@ router.get("/:token", async (req: Request, res: Response) => {
     // The link is access to ONE test, not a login: the session is marked so the
     // scope guard can hold it inside that test. A password login clears the mark.
     req.session.userId = record.userId;
-    req.session.magic = { assignmentId: record.assignmentId, testId: record.testId };
+    req.session.magic = {
+      assignmentId: record.assignmentId,
+      testId: record.testId,
+      purpose: record.purpose === "review" ? "review" : "attempt",
+    };
     await new Promise<void>((resolve, reject) =>
       req.session.save(err => err ? reject(err) : resolve())
     );
