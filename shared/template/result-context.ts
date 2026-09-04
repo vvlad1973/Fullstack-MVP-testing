@@ -43,6 +43,7 @@ import { hasGradedScore as isGradedRun, hasPronouncedVerdict } from "../scoring/
 // PRD-50 FR-26: the counter rule lives with the verdict it counts, not with the layout —
 // `aggregateStandardResult` stamps the same numbers onto the stored result through it.
 import { groupSections } from "../scoring/section-groups";
+import { findOutcome } from "../scales/interpretation";
 import type {
   FeedbackBlock,
   IndicatorInterpretation,
@@ -464,9 +465,11 @@ function firedFeedback(m: MeasureInput): FeedbackBlock | null {
     const band = interpretation.bands.find((b) => (m.value as number) >= b.min && (m.value as number) <= b.max);
     return normalizeFeedback(band?.feedback);
   }
+  // Через `findOutcome`, а не собственным сравнением: набор ключей и запасной `count:<N>`
+  // (PRD-53 §4.3) обязаны действовать и в карточке, и в блоке рекомендаций. Две копии правила
+  // означали бы, что текст профиля нашёлся, а совет к нему — нет.
   const outcomes = (interpretation as IndicatorInterpretation).outcomes ?? [];
-  const outcome = outcomes.find((o) => o.code === String(m.value));
-  return normalizeFeedback(outcome?.feedback);
+  return normalizeFeedback(findOutcome(outcomes, m.value as string | boolean)?.feedback);
 }
 
 /**
@@ -494,8 +497,12 @@ interface ResolvedMeasures {
  *   measurement blocks answer `auto` from their own emptiness, in both modes alike.
  */
 function resolveMeasures(measures: MeasuresInput, hasGradedScore: boolean): ResolvedMeasures {
-  const visibleScales = measures.scales.filter((m) => m.visibility !== "hidden");
-  const visibleIndicators = measures.indicators.filter((m) => m.visibility !== "hidden");
+  // Измерение без значения карточку не печатает (PRD-53 §7.2). Показатель, заведённый ПОСЛЕ
+  // завершения попытки, значения в ней не имеет, и прежде это давало пустую карточку с одними
+  // отступами. `null`/`undefined` — единственные признаки отсутствия: `false` и `0` это значения.
+  const hasValue = (m: MeasureInput) => m.value !== null && m.value !== undefined;
+  const visibleScales = measures.scales.filter((m) => m.visibility !== "hidden" && hasValue(m));
+  const visibleIndicators = measures.indicators.filter((m) => m.visibility !== "hidden" && hasValue(m));
   return {
     visibleScales,
     visibleIndicators,
