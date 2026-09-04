@@ -36,6 +36,16 @@ export type CountFn = "countVars" | "countScales";
 /** `fn(["k1","k2"], place).prop` scale-ranking sources (PRD-44 §5). */
 export type ScaleRankFn = "topScale" | "bottomScale";
 
+/** `topGroup(["k1","k2"], порог).prop` — верхняя зона группы шкал (PRD-53 §4.2). */
+export type ScaleGroupFn = "topGroup";
+
+/**
+ * Свойства верхней зоны. Названий шкал среди них НЕТ и быть не может: контекст вычислителя несёт
+ * {@link ScaleResult}, у которого `label` — подпись УРОВНЯ, а не имя шкалы. Имя нужно метке исхода,
+ * а её составляет редактор, где имена под рукой.
+ */
+export const SCALE_GROUP_PROPS: readonly string[] = ["code", "count", "max"];
+
 /**
  * Allowed properties of a ranked scale. `key` and `label` are strings, the rest numbers;
  * `tiedCount` is at least 1, so a report can branch on «два равно выраженных стиля»
@@ -64,6 +74,7 @@ export type Ast =
   | { type: "nullary"; fn: NullaryFn }
   | { type: "count"; fn: CountFn; keys: string[]; level: string }
   | { type: "scaleRank"; fn: ScaleRankFn; keys: string[]; place: number; prop: string }
+  | { type: "scaleGroup"; keys: string[]; threshold: number | string; prop: string }
   | { type: "if"; cond: Ast; then: Ast; otherwise: Ast }
   | { type: "unary"; op: "NOT" | "neg"; operand: Ast }
   | { type: "binary"; op: BinaryOp; left: Ast; right: Ast };
@@ -184,6 +195,12 @@ export interface ValidationRefs {
   priorVarNames?: Set<string>;
   /** Per-scale band levels; used to warn on `countScales` level arguments. */
   scaleBandLevels?: Record<string, Set<string>>;
+  /**
+   * PRD-53: режим нормализации каждой шкалы теста. Нужен ровно одной проверке — АБСОЛЮТНЫЙ порог
+   * верхней зоны на группе, где шкалы нормализованы по-разному, сравнивает несопоставимые
+   * величины. Отсутствие карты отключает проверку, как и у прочих наборов ссылок.
+   */
+  scaleNormalizations?: Record<string, string>;
 }
 
 export interface ValidationMessage {
