@@ -99,11 +99,16 @@ const GRID_FILES: Record<string, string[]> = {
   "G-7": ["scales-section.tsx", "levels-editor.tsx"],
 };
 
-/** Pulls the source file base names out of the report's "Ссылка на код" cell. */
+/**
+ * Pulls the file base names out of the report's "Ссылка на код" cell. `.html` is in the list
+ * because section W is fixed in the wireframe itself, not in code — a finding with no file
+ * silently drops out of every pass, and "fix the drawing" is as much a unit of work as "fix
+ * the component".
+ */
 function filesOf(...cellsWithCode: string[]): string[] {
   const found = cellsWithCode
     .join(" ")
-    .matchAll(/([A-Za-z0-9._-]+\.(?:tsx|ts|css|mjs|json))/g);
+    .matchAll(/([A-Za-z0-9._-]+\.(?:tsx|ts|css|mjs|json|html))/g);
   return [...new Set([...found].map((m) => m[1]))];
 }
 
@@ -125,7 +130,7 @@ export function parseFindings(markdown: string): Finding[] {
     if (!line.startsWith("|")) continue;
     const c = cells(line);
     const id = c[0];
-    if (!/^[A-G]-\d+$/.test(id)) continue;
+    if (!/^[A-GW]-\d+$/.test(id)) continue;
     const area = id.split("-")[0];
     const duplicateOf = G_DUPLICATES[id];
     const gridMeasurement = area === "G" && c.length >= 7;
@@ -176,7 +181,11 @@ export function assignBatches(rows: Finding[]): Finding[] {
     if (row.batch) continue;
     const kind = row.kind.toLowerCase();
     const place = row.place.toLowerCase();
-    if (SECTION_FINDINGS.has(row.id)) row.batch = "sections";
+    // Section W collects design-system violations of the WIREFRAMES themselves — an invented
+    // `ou-*` class cannot be fixed in code at all, only in the drawing, and only after the
+    // owner approves the change. They go straight to the owner batch.
+    if (row.area === "W") row.batch = "owner";
+    else if (SECTION_FINDINGS.has(row.id)) row.batch = "sections";
     else if (place.startsWith("состав, блок квот")) row.batch = "quotas";
     else if (/сетк|фиксированн/.test(kind)) row.batch = "grid";
     else if (/не тот тип контрола|обход дс|не тот контейнер/.test(kind)) row.batch = "components";

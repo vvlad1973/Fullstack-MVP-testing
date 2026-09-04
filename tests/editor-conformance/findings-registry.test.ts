@@ -98,6 +98,18 @@ describe("assignBatches", () => {
     expect(rows.find((r) => r.id === "G-7")?.batch).toBe("components");
   });
 
+  it("держит нарушения дизайн-системы в самих эскизах отдельным участком", () => {
+    const wireframeTable = [
+      "| № | Место (файл эскиза) | Эскиз (выдуманный класс) | Реализация (класс ДС) | Тип | Важность | Ссылка на код |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| W-1 | editor-settings-target.html | `ou-drawer-root--right` | Модификатора нет | выдуманный класс ДС | существенное | `docs/wireframes/editor-settings-target.html:493` |",
+    ].join("\n");
+
+    const rows = assignBatches(parseFindings(wireframeTable));
+
+    expect(rows[0]).toMatchObject({ id: "W-1", area: "W", batch: "owner", status: "open" });
+  });
+
   it("не перетирает уже проставленную партию", () => {
     const rows = parseFindings(SAMPLE);
     rows[0].batch = "owner";

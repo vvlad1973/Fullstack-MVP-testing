@@ -1,5 +1,185 @@
 [
   {
+    "id": "W-1",
+    "area": "W",
+    "place": "editor-settings-target.html",
+    "expected": "`ou-drawer-root--right`, использований 28",
+    "actual": "Модификатора нет: в ДС объявлен только `ou-drawer-root`, сторона задаётся на панели (`ou-drawer--right`)",
+    "kind": "выдуманный класс дс",
+    "severity": "существенное",
+    "code": "docs/wireframes/editor-settings-target.html:493",
+    "files": [
+      "editor-settings-target.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-2",
+    "area": "W",
+    "place": "editor-settings-target.html",
+    "expected": "`ou-formfield__hint`, использований 19",
+    "actual": "`ou-formfield__desc`",
+    "kind": "выдуманный класс дс",
+    "severity": "существенное",
+    "code": "docs/wireframes/editor-settings-target.html:1261",
+    "files": [
+      "editor-settings-target.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-3",
+    "area": "W",
+    "place": "editor-settings-target.html",
+    "expected": "`ou-field__hint`, использований 2",
+    "actual": "`ou-formfield__desc`; семейства `ou-field__*` для подсказки в ДС нет",
+    "kind": "выдуманный класс дс",
+    "severity": "существенное",
+    "code": "docs/wireframes/editor-settings-target.html:1215",
+    "files": [
+      "editor-settings-target.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-4",
+    "area": "W",
+    "place": "editor-settings-target.html",
+    "expected": "`ou-seg--m`, использований 4",
+    "actual": "Модификатора нет: в ДС объявлены `ou-seg--s` и `ou-seg--l`, размер m — умолчание без класса",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/editor-settings-target.html:744",
+    "files": [
+      "editor-settings-target.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-5",
+    "area": "W",
+    "place": "editor-settings-target.html",
+    "expected": "`ou-textarea--m`, использований 2",
+    "actual": "Модификатора нет: объявлены `ou-textarea--s` и `ou-textarea--l`, размер m — умолчание",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/editor-settings-target.html:3554",
+    "files": [
+      "editor-settings-target.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-6",
+    "area": "W",
+    "place": "editor-settings-target.html",
+    "expected": "`ou-tabs__ico`",
+    "actual": "В ДС не объявлен; иконка вкладки в ui-kit своего класса не имеет",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/editor-settings-target.html:2050",
+    "files": [
+      "editor-settings-target.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-7",
+    "area": "W",
+    "place": "approved/prd7-editor-conflict.html",
+    "expected": "`ou-table`",
+    "actual": "`ou-tbl` (11 объявлений в ДС)",
+    "kind": "выдуманный класс дс",
+    "severity": "существенное",
+    "code": "docs/wireframes/approved/prd7-editor-conflict.html:133",
+    "files": [
+      "prd7-editor-conflict.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-8",
+    "area": "W",
+    "place": "approved/prd7-editor-conflict.html",
+    "expected": "`ou-table-wrap`",
+    "actual": "Обёртки с таким именем в ДС нет",
+    "kind": "выдуманный класс дс",
+    "severity": "существенное",
+    "code": "docs/wireframes/approved/prd7-editor-conflict.html:132",
+    "files": [
+      "prd7-editor-conflict.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-9",
+    "area": "W",
+    "place": "approved/prd52-review-panel.html",
+    "expected": "`ou-textarea--m`, использований 3",
+    "actual": "Модификатора нет, размер m — умолчание",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/approved/prd52-review-panel.html:290",
+    "files": [
+      "prd52-review-panel.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-10",
+    "area": "W",
+    "place": "approved/prd52-review-player.html",
+    "expected": "`ou-textarea--m`",
+    "actual": "Модификатора нет, размер m — умолчание",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/approved/prd52-review-player.html:300",
+    "files": [
+      "prd52-review-player.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-11",
+    "area": "W",
+    "place": "approved/prd7-editor-settings-tab.html",
+    "expected": "`ou-textarea--m`, использований 8",
+    "actual": "Модификатора нет, размер m — умолчание",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/approved/prd7-editor-settings-tab.html:666",
+    "files": [
+      "prd7-editor-settings-tab.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
+    "id": "W-12",
+    "area": "W",
+    "place": "approved/prd7-editor-settings-tab.html",
+    "expected": "`ou-skel--w-1/4`, использований 3",
+    "actual": "В ДС не объявлен; имя с дробью — остаток утилитарного класса Tailwind",
+    "kind": "выдуманный класс дс",
+    "severity": "косметическое",
+    "code": "docs/wireframes/approved/prd7-editor-settings-tab.html:952",
+    "files": [
+      "prd7-editor-settings-tab.html"
+    ],
+    "batch": "owner",
+    "status": "open"
+  },
+  {
     "id": "A-1",
     "area": "A",
     "place": "Поповер изменений (`s-changes`)",
@@ -2884,7 +3064,8 @@
     "severity": "косметическое",
     "code": "client/src/features/tests/editor/sections/design-section.tsx:189-197",
     "files": [
-      "design-section.tsx"
+      "design-section.tsx",
+      "editor-settings-target.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -2899,7 +3080,8 @@
     "severity": "косметическое",
     "code": "client/src/features/tests/editor/sections/design-section.tsx:538-546",
     "files": [
-      "design-section.tsx"
+      "design-section.tsx",
+      "editor-settings-target.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -2914,7 +3096,8 @@
     "severity": "косметическое",
     "code": "client/src/styles/tb-components.css:2146-2161",
     "files": [
-      "tb-components.css"
+      "tb-components.css",
+      "editor-settings-target.html"
     ],
     "batch": "grid",
     "status": "open"
@@ -2946,6 +3129,7 @@
     "code": "design-section.tsx:450-472",
     "files": [
       "design-section.tsx",
+      "editor-settings-target.html",
       "tb-components.css"
     ],
     "batch": "cosmetics",
@@ -2962,7 +3146,8 @@
     "code": "design-section.tsx:787-793; vendor/ui-kit/src/components/SegmentedControl.tsx:33",
     "files": [
       "design-section.tsx",
-      "SegmentedControl.tsx"
+      "SegmentedControl.tsx",
+      "editor-settings-target.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -2977,7 +3162,8 @@
     "severity": "косметическое",
     "code": "client/src/styles/tb-components.css:2178-2185",
     "files": [
-      "tb-components.css"
+      "tb-components.css",
+      "editor-settings-target.html"
     ],
     "batch": "grid",
     "status": "open"
@@ -2992,7 +3178,8 @@
     "severity": "косметическое",
     "code": "client/src/styles/tb-components.css:2165-2169",
     "files": [
-      "tb-components.css"
+      "tb-components.css",
+      "editor-settings-target.html"
     ],
     "batch": "grid",
     "status": "open"
@@ -3007,7 +3194,8 @@
     "severity": "косметическое",
     "code": "client/src/styles/tb-components.css:2196-2199",
     "files": [
-      "tb-components.css"
+      "tb-components.css",
+      "editor-settings-target.html"
     ],
     "batch": "texts",
     "status": "open"
@@ -3022,7 +3210,8 @@
     "severity": "существенное",
     "code": "client/src/features/tests/review/review-panel.tsx:93-113",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "actions",
     "status": "open"
@@ -3037,7 +3226,8 @@
     "severity": "косметическое",
     "code": "review-panel.tsx:104-112",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -3052,7 +3242,8 @@
     "severity": "существенное",
     "code": "review-panel.tsx:164-169, :177-182",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "actions",
     "status": "open"
@@ -3067,7 +3258,8 @@
     "severity": "косметическое",
     "code": "review-panel.tsx:259",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "texts",
     "status": "open"
@@ -3082,7 +3274,8 @@
     "severity": "существенное",
     "code": "review-panel.tsx:294-298",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "texts",
     "status": "open"
@@ -3097,7 +3290,8 @@
     "severity": "косметическое",
     "code": "client/src/features/tests/review/review-panel.css:9-14",
     "files": [
-      "review-panel.css"
+      "review-panel.css",
+      "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -3112,7 +3306,8 @@
     "severity": "косметическое",
     "code": "client/src/features/tests/editor/test-editor.tsx:479-487",
     "files": [
-      "test-editor.tsx"
+      "test-editor.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "actions",
     "status": "open"
@@ -3127,7 +3322,8 @@
     "severity": "существенное",
     "code": "client/src/features/tests/review/review-comment-form.tsx:57-58",
     "files": [
-      "review-comment-form.tsx"
+      "review-comment-form.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "sections",
     "status": "open"
@@ -3142,7 +3338,8 @@
     "severity": "существенное",
     "code": "review-comment-form.tsx:42-55, :69-77",
     "files": [
-      "review-comment-form.tsx"
+      "review-comment-form.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "actions",
     "status": "open"
@@ -3157,7 +3354,8 @@
     "severity": "косметическое",
     "code": "review-comment-form.tsx:69-77",
     "files": [
-      "review-comment-form.tsx"
+      "review-comment-form.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "actions",
     "status": "open"
@@ -3172,7 +3370,8 @@
     "severity": "косметическое",
     "code": "review-comment-form.tsx:70-76",
     "files": [
-      "review-comment-form.tsx"
+      "review-comment-form.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -3187,7 +3386,8 @@
     "severity": "косметическое",
     "code": "review-comment-form.tsx:79-86",
     "files": [
-      "review-comment-form.tsx"
+      "review-comment-form.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
     "status": "open"
@@ -3202,7 +3402,8 @@
     "severity": "существенное",
     "code": "review-panel.tsx:201-218",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "components",
     "status": "open"
@@ -3217,7 +3418,8 @@
     "severity": "косметическое",
     "code": "review-panel.tsx:219-228",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "actions",
     "status": "open"
@@ -3232,7 +3434,8 @@
     "severity": "косметическое",
     "code": "review-panel.tsx:222",
     "files": [
-      "review-panel.tsx"
+      "review-panel.tsx",
+      "prd52-review-panel.html"
     ],
     "batch": "texts",
     "status": "open"
