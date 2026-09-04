@@ -2275,7 +2275,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       </div>
 
       <div class="pv-dialog-foot">
-        <span>28 экранов · 44 шаблонов контента · шаблон «Сертификация (РТК)» v1.11.0</span>
+        <span>28 экранов · 44 шаблонов контента · шаблон «Сертификация (РТК)» v1.12.0</span>
         <button type="button" class="pv-btn">Закрыть</button>
       </div>
     </div>
@@ -2287,7 +2287,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   window.PRD1_PREVIEW_MANIFEST  = {
   "id": "certification",
   "name": "Сертификация (РТК)",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "templateApiVersion": "1.0",
   "description": "Сертификационный тест РТК: брендовая палитра Ростелекома (светлая и тёмная) с переопределяемыми цветами, оранжевый акцент, страница-роутер, кнопки навигации, пропуск и возврат к неотвеченным, экран обзора. Набор вариантов страниц совпадает со стандартным шаблоном — тест переключается между ними без переназначения страниц.",
   "themes": [
@@ -11284,7 +11284,7 @@ var TBTemplate = (() => {
         statusClass = "is-flagged";
       }
       if (!input.reviewMarking && index === currentIndex) statusClass = "is-current";
-      const issued = input.allIssued || index <= currentIndex || status === "answered" || status === "skipped";
+      const issued = input.allIssued || input.freeNavigation === true || index <= currentIndex || status === "answered" || status === "skipped";
       const clickable = ((_c2 = input.allowReturn) != null ? _c2 : true) && issued && !sectionLocked;
       const number = pos + 1;
       const word = (_d2 = STATUS_WORD[statusClass]) != null ? _d2 : STATUS_WORD[""];

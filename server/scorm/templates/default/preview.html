@@ -10737,7 +10737,7 @@ var TBTemplate = (() => {
         statusClass = "is-flagged";
       }
       if (!input.reviewMarking && index === currentIndex) statusClass = "is-current";
-      const issued = input.allIssued || index <= currentIndex || status === "answered" || status === "skipped";
+      const issued = input.allIssued || input.freeNavigation === true || index <= currentIndex || status === "answered" || status === "skipped";
       const clickable = ((_c2 = input.allowReturn) != null ? _c2 : true) && issued && !sectionLocked;
       const number = pos + 1;
       const word = (_d2 = STATUS_WORD[statusClass]) != null ? _d2 : STATUS_WORD[""];
