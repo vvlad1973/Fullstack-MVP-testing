@@ -114,11 +114,46 @@ async function main(): Promise<void> {
   await closeDatabaseConnection();
 }
 
+/** PostgreSQL error code, dug out of however many wrappers drizzle put around it. */
+function errorCode(error: unknown): string | undefined {
+  for (let e: unknown = error, depth = 0; e != null && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
+    const code = (e as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  return undefined;
+}
+
+/**
+ * The message plus every wrapped cause.
+ *
+ * Printing only `error.message` hid the one thing an operator needs: drizzle
+ * reports a failed statement as «Failed query: SELECT … params:» and leaves the
+ * driver's actual complaint — «no pg_hba.conf entry for host …», «password
+ * authentication failed», ECONNREFUSED — in `cause`. A deploy once spent an hour
+ * blind because of it.
+ */
+function describeError(error: unknown): string {
+  const parts: string[] = [];
+  for (let e: unknown = error, depth = 0; e != null && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
+    const message = (e as { message?: unknown }).message;
+    if (typeof message === "string" && message && !parts.includes(message)) parts.push(message);
+  }
+  return parts.join(" | ") || String(error);
+}
+
 // Same shape as the sibling deploy script: run on import, so the file works both as
 // the bundled `dist/*.cjs` the deploy calls and under tsx during development.
 main()
   .then(() => process.exit(0))
   .catch((error: unknown) => {
-    console.error("[reconcile-migration-ledger] failed:", (error as Error).message);
+    // 42P01 undefined_table: a database that has never been migrated carries no
+    // ledger yet. That is the NORMAL state of a brand-new instance, not a failure —
+    // reporting it as one trains the reader to ignore this step's output, which is
+    // exactly where the real error (a refused connection) then goes unnoticed.
+    if (errorCode(error) === "42P01") {
+      console.log("[reconcile-migration-ledger] no ledger table yet — nothing to reconcile (new database)");
+      process.exit(0);
+    }
+    console.error("[reconcile-migration-ledger] failed:", describeError(error));
     process.exit(1);
   });
