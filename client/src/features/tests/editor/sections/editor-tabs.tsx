@@ -336,7 +336,6 @@ export function FeedbackTab({
       {active === "during" && (
         <>
           <DuringTestPane model={model} updateModel={updateModel} />
-          <hr className="wf-sep" />
           {/* Э2.4: что уже написано у вопросов этого теста. Только чтение: обратная связь
               принадлежит ВОПРОСУ, тот же вопрос стоит и в других тестах. */}
           <QuestionFeedbackRegistry model={model} onOpenQuestion={onOpenQuestion} />
@@ -374,21 +373,16 @@ export function FeedbackTab({
       {active === "texts" && (
         <>
           <FeedbackTextsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-          <hr className="wf-sep" />
           {/* PRD-29 §7.1a: тексты тем — РАЗРЕШЁННЫЕ, по одному на тему. Правились они в
               «Составе», среди выборки и квот, где автор искал их последними. */}
           <TopicFeedbackCard model={model} updateModel={updateModel} />
-          <hr className="wf-sep" />
           {/* PRD-50 FR-50: тексты подтем — рядом с текстом теста, а не в «Оценке»: это
               содержание, которое человек прочитает, а не правило, по которому его судят. */}
           <BreakdownFeedbackCard model={model} updateModel={updateModel} />
           {/* Э2.5: тексты адаптивных уровней. Карточка сама решает, показываться ли:
               у стандартного теста лестницы нет, и пустой раздел о ней врал бы. */}
           {model.mode === "adaptive" && (
-            <>
-              <hr className="wf-sep" />
-              <LevelFeedbackCard model={model} updateModel={updateModel} />
-            </>
+            <LevelFeedbackCard model={model} updateModel={updateModel} />
           )}
         </>
       )}

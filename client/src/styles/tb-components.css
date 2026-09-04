@@ -140,16 +140,17 @@
 /* container-type: inline-size — точка отсчёта для @container ниже:
    адаптив реагирует на ширину самой колонки настроек, а не viewport
    (drawer может быть узким даже на широком экране). */
-.tb-settings-content { flex: 1; min-height: 0; overflow-y: auto; padding: var(--ou-space-5); container-type: inline-size; }
+/* Отступ от краёв — 6x (эскиз `editor-settings-target.html`: «проектный слой: 20 -> 24»). */
+.tb-settings-content { flex: 1; min-height: 0; overflow-y: auto; padding: var(--ou-space-6); container-type: inline-size; }
 
 /* Page-level баннеры сверху форм: остаются на виду при прокрутке. Z-index выше
    баннера, чтобы он перекрывал scroll-контент. Закрытие — через .ou-banner__close. */
 .tb-settings-content > .ou-banner,
 .tb-settings-content > .wf-annot-wrap--block:has(> .ou-banner) {
   position: sticky;
-  top: calc(var(--ou-space-5) * -1);
+  top: calc(var(--ou-space-6) * -1);
   z-index: 2;
-  margin: calc(var(--ou-space-5) * -1) calc(var(--ou-space-5) * -1) var(--ou-space-4);
+  margin: calc(var(--ou-space-6) * -1) calc(var(--ou-space-6) * -1) var(--ou-space-4);
   border-radius: 0;
   border-left: 0;
   border-right: 0;
@@ -161,7 +162,9 @@
   border-right: 0;
   border-top: 0;
 }
-.tb-settings-content .ou-formfield { display: flex; flex-direction: column; gap: var(--ou-space-2); margin-bottom: var(--ou-space-4); }
+/* Метка и контрол — одна пара: 1x. Интервал ДО соседнего блока задаёт панель, поэтому
+   собственной нижней отбивки у поля нет (иначе она складывалась бы с интервалом группы). */
+.tb-settings-content .ou-formfield { display: flex; flex-direction: column; gap: var(--ou-space-1); margin-bottom: 0; }
 .tb-settings-content .ou-formfield > .ou-field,
 .tb-settings-content .ou-formfield > .ou-textarea { display: flex; width: 100%; }
 .tb-settings-content .ou-formfield > .ou-select { width: 100%; }
@@ -169,6 +172,63 @@
    соседние поля разной длины). На верхнем уровне формы выравниваем по фиксированной
    ширине; max-width: 100% сжимается на узких viewport. */
 .tb-settings-content > .ou-formfield > .ou-number { width: var(--tb-input-w-md); max-width: 100%; }
+
+/* ── Проектный слой панели настроек (модульная сетка 4px) ───────────────────
+   Источник — утверждённый эскиз `docs/wireframes/editor-settings-target.html`,
+   блок «проектный слой». Эскиз ссылается на ЭТОТ файл, поэтому значения берутся
+   из него дословно: правило со своими числами меняло бы и вид самого эскиза.
+   1x = 4px внутри компонента, 4x = 16px между разными блоками, 6x = 24px от краёв
+   и перед группой. Разделительных ЛИНИЙ в панели нет — их работу делает интервал. */
+
+.tb-settings-content > * { margin-top: var(--ou-space-4); }
+.tb-settings-content > *:first-child { margin-top: 0; }
+.tb-settings-content > .ou-formsection { margin-top: var(--ou-space-6); }
+.tb-settings-content > .ou-formsection:first-child { margin-top: 0; }
+/* Баннер ПОСЛЕ карточки: у sticky-правила выше отрицательная верхняя отбивка, но она
+   про баннер в шапке панели, а не про баннер в середине списка карточек. */
+.tb-settings-content > :is(.ou-card, .ou-banner) + :is(.ou-card, .ou-banner) {
+  margin-top: var(--ou-space-4);
+}
+/* Внутри карточки действует та же сетка: собственной отбивки поля больше не носят. */
+.tb-settings-content .ou-card__body > * + * { margin-top: var(--ou-space-4); }
+
+/* Группа полей: ни границы, ни вертикальных полей дизайн-системы. Заголовок принадлежит
+   своему содержимому (1x), а группы разделяет 6x. */
+.tb-settings-content .ou-formsection,
+.ou-card__body .ou-formsection {
+  padding-block: 0;
+  border-bottom: 0;
+  gap: var(--ou-space-1);
+}
+.tb-settings-content .ou-formsection__body,
+.ou-card__body .ou-formsection__body {
+  gap: var(--ou-space-4);
+}
+/* Третий селектор — обёртка: панель надписей кладёт группы в свой `div`, и её первая
+   группа отбивается от предыдущего блока так же, как группа от группы. */
+.tb-settings-content .ou-formsection + .ou-formsection,
+.ou-card__body .ou-formsection + .ou-formsection,
+.tb-settings-content > * + * > .ou-formsection:first-child {
+  margin-top: var(--ou-space-6);
+}
+
+/* Родственные пары внутри компонента — 1x. */
+.tb-settings-content :is(.ou-select, .ou-number, .ou-textarea, .ou-switch-field),
+.tb-settings-content .ou-switch-field__text {
+  gap: var(--ou-space-1);
+}
+
+/* Хром ящика редактора: 6x от краёв, однородные строки списка — 1x. Правила адресованы
+   ИМЕННО этому ящику (рейл живёт только в его вкладках, подвал найден по телу
+   редактора): у остальных ящиков свои утверждённые эскизы. */
+.ou-drawer__split > .ou-drawer__rail {
+  padding: var(--ou-space-6);
+  gap: var(--ou-space-1);
+}
+.ou-drawer:has([data-testid="test-editor-body"]) > .ou-drawer__foot {
+  padding: var(--ou-space-6);
+  gap: var(--ou-space-1);
+}
 
 /* Section caption (subdued uppercase-like heading внутри формы). */
 .tb-section-label { font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); margin: 0 0 var(--ou-space-2); display: inline-flex; align-items: center; gap: var(--ou-space-2); }

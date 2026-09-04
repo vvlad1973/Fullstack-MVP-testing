@@ -67,9 +67,8 @@ function Harness({ onModel }: { onModel: (m: TestEditorModel) => void }) {
   );
 }
 
-/** Open «Вклады вопросов», expand the first question card, return its first cell. */
+/** Expand the first «Вклады вопросов» question card, return its first cell. */
 async function openFirstCell(): Promise<HTMLInputElement> {
-  fireEvent.click(screen.getByRole("button", { name: "Вклады вопросов" }));
   const card = await screen.findByTestId("contrib-card-0");
   fireEvent.click(card.querySelector("button.tb-level-card__chev")!);
   return (await screen.findByLabelText(/Вклад «A\. А» в шкалу comp/)) as HTMLInputElement;

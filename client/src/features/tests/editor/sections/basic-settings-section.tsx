@@ -336,8 +336,9 @@ export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) 
           />
         </CardBody>
       </Card>
-      <hr className="wf-sep" />
 
+      {/* Разделителя между карточками нет: границу рисует рамка карточки, а линия
+          поверх неё была бы второй границей на том же месте. Интервал задаёт CSS. */}
       <Card variant="outlined" data-testid="settings-intro-card">
         <CardHeader title="Вводный текст" />
         <CardBody>
@@ -1227,8 +1228,6 @@ export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
           data-testid="settings-protection-hide-on-blur-checkbox"
         />
       </div>
-
-      <hr className="wf-sep" />
     </>
   );
 }
@@ -1340,8 +1339,6 @@ export function BreakdownDisplayPane({ model, updateModel }: SettingsSectionProp
           </div>
         )}
       </FormSection>
-
-      <hr className="wf-sep" />
     </>
   );
 }

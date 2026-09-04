@@ -384,8 +384,10 @@ describe("<ScalesSection /> — calculation preview", () => {
 // ─── «Вклады вопросов» ───────────────────────────────────────────────────────────
 
 describe("<ScalesSection /> — «Вклады вопросов»", () => {
+  // Группа идёт стопкой под «Шкалами теста» в одной колонке (рейл принадлежит вкладке),
+  // поэтому открывать её больше нечем — она уже на экране.
   function openContributions() {
-    fireEvent.click(screen.getByRole("button", { name: "Вклады вопросов" }));
+    expect(screen.getByTestId("scales-pane-contributions")).toBeInTheDocument();
   }
 
   it("expands a question card and typing a contribution binds a measurement", async () => {

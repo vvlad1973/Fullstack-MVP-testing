@@ -1,10 +1,11 @@
 /**
  * @module features/tests/editor/sections/__tests__/scales-contributions.test
- * @description Tests for «Шкалы» → «Вклады вопросов»: the rail item is disabled
- * until a scale exists; once opened, questions are grouped by section (topic) and
- * each section folds; «Свернуть все» / «Развернуть все» fold and unfold every
- * section (numbering is global across sections); uncovered questions warn on the
- * card and on the section header.
+ * @description Tests for «Шкалы» → «Вклады вопросов»: без единой шкалы раздел —
+ * одно пустое состояние (вкладов нет вовсе), со шкалой обе группы идут стопкой в
+ * одной колонке (рейл принадлежит вкладке, своего под-рейла у шкал нет);
+ * questions are grouped by section (topic) and each section folds; «Свернуть все» /
+ * «Развернуть все» fold and unfold every section (numbering is global across
+ * sections); uncovered questions warn on the card and on the section header.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -94,16 +95,23 @@ function renderScales(opts: { withScale?: boolean } = {}) {
   );
 }
 
-/** Render with a scale (so the rail item is enabled) and open the pane. */
+/** Render with a scale: обе группы («Шкалы теста» и «Вклады») идут одной колонкой. */
 function openContributions() {
   renderScales({ withScale: true });
-  fireEvent.click(screen.getByRole("button", { name: "Вклады вопросов" }));
 }
 
 describe("«Шкалы» → «Вклады вопросов»", () => {
-  it("the rail item is disabled until a scale exists", () => {
+  it("without a single scale the section is the empty state only — no contributions", () => {
     renderScales({ withScale: false });
-    expect(screen.getByTestId("scales-rail-contributions")).toBeDisabled();
+    expect(screen.getByTestId("scales-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("scales-pane-contributions")).toBeNull();
+  });
+
+  it("with a scale both groups render stacked in one column (no nested rail)", () => {
+    renderScales({ withScale: true });
+    expect(screen.getByTestId("scales-pane-list")).toBeInTheDocument();
+    expect(screen.getByTestId("scales-pane-contributions")).toBeInTheDocument();
+    expect(document.querySelector(".ou-drawer__rail")).toBeNull();
   });
 
   it("groups questions under section headers with global numbering", async () => {

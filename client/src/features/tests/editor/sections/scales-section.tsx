@@ -1,19 +1,22 @@
 /**
  * @module features/tests/editor/sections/scales-section
- * @description «Шкалы» editor tab (PRD-5). A two-pane Drawer split: «Список
- * шкал» edits the test's measurement scales (key, label, aggregation,
- * normalization/direction, interpretation bands, LMS publication) and «Вклады
- * вопросов» — the contribution matrix — lands in a follow-up increment (B4b).
- * Edits flow into the test draft via `updateModel`; the single drawer
- * «Сохранить» persists them through the diff-on-save orchestrator (see
- * use-test-editor / scales-api). The «Предпросмотр расчёта» action runs the
- * shared scale engine over demo answers via the preview endpoint.
+ * @description «Шкалы» — раздел рейла вкладки «Оценка результата» (PRD-5). Две
+ * группы ОДНОЙ колонкой: «Шкалы теста» правит шкалы теста (ключ, метка,
+ * агрегация, нормализация/направление, диапазоны толкования, публикация в LMS),
+ * «Вклады вопросов» — матрица вкладов. Правки уходят в черновик теста через
+ * `updateModel`; единственное «Сохранить» ящика пишет их через оркестратор
+ * diff-on-save (use-test-editor / scales-api). «Предпросмотр расчёта» гоняет
+ * общий движок шкал по демо-ответам через endpoint предпросмотра.
  *
- * Source of truth for the layout:
- * docs/wireframes/approved/prd2-prd5-scoring-tabs.html (states s-scales /
- * s-scales-empty / s-scale-error / s-preview-calc). Composite scales
- * (s-scale-advanced, source = other scales) are deferred — the engine does not
- * yet compute scale-of-scales — so that source option is shown disabled.
+ * Раскладка — по утверждённому эскизу перестройки редактора
+ * `docs/wireframes/editor-settings-target.html` (вкладка «Оценка результата»,
+ * пункт рейла «Шкалы»): рейл принадлежит ВКЛАДКЕ, поэтому своего под-рейла у
+ * шкал нет — обе группы идут стопкой в одной колонке. Ранний эскиз PRD-5
+ * `docs/wireframes/approved/prd2-prd5-scoring-tabs.html` (s-scales /
+ * s-scales-empty / s-scale-error / s-preview-calc) остаётся источником по
+ * СОДЕРЖИМОМУ карточек, но не по навигации. Составные шкалы (s-scale-advanced,
+ * источник — другие шкалы) отложены: движок ещё не считает шкалу от шкал, —
+ * поэтому этот вариант источника показан погашенным.
  */
 
 import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
@@ -21,12 +24,13 @@ import {
   Banner,
   Button,
   Checkbox,
-  Cluster,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
   EmptyState,
+  FormActions,
   FormField,
+  FormSection,
   Grid,
   IconButton,
   Input,
@@ -83,8 +87,6 @@ export type ScalesSectionProps = {
    */
   fieldErrors?: FieldErrorIndex;
 };
-
-type ScalesSubTab = "list" | "contributions";
 
 /** The combined «Пересчёт итога» control maps to a (normalization, direction) pair. */
 type RecalcValue = "none" | "percent" | "inverse";
@@ -263,45 +265,24 @@ function bandErrorOf(s: ScaleModel): string | null {
 }
 
 export function ScalesSection({ model, testId, updateModel, readOnly = false }: ScalesSectionProps) {
-  const [subTab, setSubTab] = useState<ScalesSubTab>("list");
-
-  // «Вклады вопросов» is meaningless without at least one scale (nothing to
-  // contribute to), so its rail item is disabled until a scale exists. If the
-  // last scale is removed while on it, fall back to «Список шкал».
-  const hasScales = useMemo(() => model.scales.some((s) => s.key.trim() !== ""), [model.scales]);
-  const effectiveTab: ScalesSubTab = subTab === "contributions" && hasScales ? "contributions" : "list";
+  // Пустая вкладка (s-scales-empty): у теста нет ни одной шкалы — только пустое
+  // состояние, без заголовка группы и без матрицы вкладов (привязывать не к чему).
+  // Обёртка `FormSection` остаётся и здесь НАРОЧНО: подмени её на голую панель — и
+  // React пересоздаст `ScalesListPane` на переходе «0 шкал → 1», потеряв раскрытую
+  // карточку только что добавленной шкалы.
+  const hasScales = model.scales.length > 0;
 
   return (
-    <div className="ou-drawer__split" data-testid="scales-split">
-      <nav className="ou-drawer__rail" aria-label="Подразделы шкал">
-        <button
-          type="button"
-          className={"ou-drawer__rail-item" + (effectiveTab === "list" ? " is-active" : "")}
-          aria-current={effectiveTab === "list" ? "page" : undefined}
-          onClick={() => setSubTab("list")}
-        >
-          Список шкал
-        </button>
-        <button
-          type="button"
-          className={"ou-drawer__rail-item" + (effectiveTab === "contributions" ? " is-active" : "")}
-          aria-current={effectiveTab === "contributions" ? "page" : undefined}
-          disabled={!hasScales}
-          title={!hasScales ? "Сначала добавьте шкалу в разделе «Список шкал»" : undefined}
-          onClick={() => setSubTab("contributions")}
-          data-testid="scales-rail-contributions"
-        >
-          Вклады вопросов
-        </button>
-      </nav>
-      <div className="tb-settings-content" data-testid={`scales-pane-${effectiveTab}`}>
-        {effectiveTab === "list" ? (
-          <ScalesListPane model={model} testId={testId} updateModel={updateModel} readOnly={readOnly} />
-        ) : (
+    <>
+      <FormSection title={hasScales ? "Шкалы теста" : undefined} stacked data-testid="scales-pane-list">
+        <ScalesListPane model={model} testId={testId} updateModel={updateModel} readOnly={readOnly} />
+      </FormSection>
+      {hasScales && (
+        <FormSection title="Вклады вопросов" stacked data-testid="scales-pane-contributions">
           <ContributionsPane model={model} updateModel={updateModel} readOnly={readOnly} />
-        )}
-      </div>
-    </div>
+        </FormSection>
+      )}
+    </>
   );
 }
 
@@ -449,31 +430,29 @@ function ScalesListPane({
 
   return (
     <>
-      <Cluster justify="between" gap={0} wrap={false} style={{ marginBottom: "var(--ou-space-3)" }}>
-        <div className="tb-section-label">Шкалы теста</div>
-        <Cluster gap={2} wrap={false}>
+      {/* Заголовок группы рисует `FormSection` секции — здесь только её действия. */}
+      <FormActions align="between">
+        <Button
+          variant="ghost"
+          size="s"
+          disabled={!testId}
+          onClick={() => setPreviewOpen(true)}
+          data-testid="scales-preview-open"
+        >
+          Предпросмотр расчёта
+        </Button>
+        {!readOnly && (
           <Button
             variant="ghost"
             size="s"
-            disabled={!testId}
-            onClick={() => setPreviewOpen(true)}
-            data-testid="scales-preview-open"
+            leadingIcon={<Plus size={16} aria-hidden="true" />}
+            onClick={addScale}
+            data-testid="scales-add"
           >
-            Предпросмотр расчёта
+            Добавить шкалу
           </Button>
-          {!readOnly && (
-            <Button
-              variant="ghost"
-              size="s"
-              leadingIcon={<Plus size={16} aria-hidden="true" />}
-              onClick={addScale}
-              data-testid="scales-add"
-            >
-              Добавить шкалу
-            </Button>
-          )}
-        </Cluster>
-      </Cluster>
+        )}
+      </FormActions>
 
       {anyError && (
         <Banner
@@ -1393,7 +1372,7 @@ function ContributionsPane({
         <Banner
           tone="info"
           size="sm"
-          description="Сначала добавьте хотя бы одну шкалу в разделе «Список шкал» — тогда здесь появятся столбцы для вкладов."
+          description="Сначала задайте ключ хотя бы одной шкале выше, в группе «Шкалы теста», — тогда здесь появятся столбцы для вкладов."
           data-testid="contributions-no-scales"
         />
       ) : (
