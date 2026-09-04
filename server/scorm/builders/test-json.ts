@@ -754,6 +754,9 @@ export function buildTestJson(data: ExportData): string {
         // neither key and keeps both slots.
         showName: (s.configJson as Record<string, unknown>).showName !== false,
         showLevel: (s.configJson as Record<string, unknown>).showLevel !== false,
+        // PRD-53 §4.4: собственное описание шкалы — источник текста блока «вне профиля».
+        // Пустая строка вместо пропуска: рантайм читает поле безусловно.
+        description: s.description ?? "",
       };
     });
 

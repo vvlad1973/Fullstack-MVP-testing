@@ -30,7 +30,7 @@ import type {
 import type { BreakdownEntry } from "../breakdown/types";
 import { resolveBlockOrder, DEFAULT_BLOCK_ORDER, type ResultsBlockKey } from "./results-order";
 import { labelsTree } from "./labels";
-import { buildMeasureView, type RenderKind } from "./measure-view";
+import { buildMeasureView, type CtxMeasureView, type RenderKind } from "./measure-view";
 import { richTextToHtml, type RichTextFormat } from "./rich-text";
 import { buildScalesChart, type ChartKindSettings } from "./scales-chart";
 import { parseScaleAppearance } from "./scale-appearance";
@@ -270,6 +270,19 @@ export interface MeasureInput {
    */
   showName?: boolean;
   showLevel?: boolean;
+  /**
+   * PRD-53 §4.4. Собственное описание шкалы (`scales.description`). Читает только карточка
+   * «вне профиля»: она собирает текст ИЗ ШКАЛ, а не из копий, разложенных по исходам показателя.
+   */
+  description?: string;
+  /**
+   * PRD-53 §4.4. Показатель-профиль печатает вторую карточку — шкалы группы, не вошедшие в набор.
+   *
+   * `keys` дублируют группу из формулы намеренно: контекст отрисовки формулы не несёт — он
+   * получает уже посчитанные значения, — и разбирать её здесь значило бы тащить парсер в оба
+   * хоста ради списка, который редактор и так знает.
+   */
+  restScales?: { show: boolean; label: string; keys: string[] };
 }
 
 /** PRD-29 measurement input: the visible measures plus the design-param choices. */
@@ -473,6 +486,57 @@ function firedFeedback(m: MeasureInput): FeedbackBlock | null {
 }
 
 /**
+ * Вторая карточка показателя-профиля: шкалы группы, НЕ вошедшие в верхнюю зону (PRD-53 §4.4).
+ *
+ * Порядок — по убыванию значения, а не канонический: канонический порядок хранит КОД набора, а
+ * методика перечисляет оставшиеся стили от более выраженного к менее. Текст берётся из самих шкал,
+ * поэтому правка описания шкалы правит и этот блок, а не расходится с ним.
+ *
+ * `null` — печатать нечего: переключатель выключен, значение не код набора, или в набор вошла вся
+ * группа.
+ *
+ * @public
+ */
+export function buildRestScalesView(
+  indicator: MeasureInput,
+  scales: readonly MeasureInput[],
+): CtxMeasureView | null {
+  const config = indicator.restScales;
+  if (!config?.show) return null;
+  const code = typeof indicator.value === "string" ? indicator.value : "";
+  if (!code) return null;
+
+  const inProfile = new Set(code.split("+").filter(Boolean));
+  const group = new Set(config.keys);
+  const rest = scales
+    .filter((s) => group.has(s.key) && !inProfile.has(s.key))
+    .filter((s) => typeof s.value === "number" && Number.isFinite(s.value))
+    .sort((a, b) => (b.value as number) - (a.value as number));
+  if (rest.length === 0) return null;
+
+  const text = rest.map((s) => `${s.name}\n${s.description ?? ""}`.trimEnd()).join("\n\n");
+  return {
+    key: `${indicator.key}__rest`,
+    name: config.label,
+    renderKind: "label",
+    showValue: false,
+    // Заголовок уровня погашен: его роль у этой карточки играет её собственное имя.
+    hideLevel: true,
+    valueText: "",
+    maxText: "",
+    valueLabel: "",
+    levelLabel: "",
+    tone: "neutral",
+    toneClass: "tb-tone--neutral",
+    bannerVariant: "info",
+    text,
+    textHtml: richTextToHtml(text),
+    zones: [],
+    marks: [],
+  };
+}
+
+/**
  * What the measurement blocks resolve to for ONE attempt: the measures the learner may
  * see at all (`visibility !== "hidden"`) and the author's effective show/hide answer for
  * each block.
@@ -560,8 +624,16 @@ function fillMeasureBlocks(
     }
   }
   if (blocks.indicators && visibleIndicators.length) {
-    result.indicators = visibleIndicators.map((m) =>
-      buildMeasureView({ ...m, requestedKind: measures.indicatorKind, ramp: measures.ramp }));
+    result.indicators = visibleIndicators.flatMap((m) => {
+      const card = buildMeasureView({ ...m, requestedKind: measures.indicatorKind, ramp: measures.ramp });
+      // PRD-53 §4.4. Карточка «вне профиля» идёт СРАЗУ за своим профилем: она его продолжение, а
+      // не отдельный показатель, и чужая карточка между ними была бы разрывом мысли.
+      //
+      // Читается ПОЛНЫЙ список шкал, а не `visibleScales`: шкала, скрытая от ученика на своей
+      // карточке, всё равно может входить в группу профиля, и её описание блок печатает.
+      const rest = buildRestScalesView(m, measures.scales);
+      return rest ? [card, rest] : [card];
+    });
   }
   return [
     ...(blocks.indicators ? visibleIndicators.map(firedFeedback) : []),
