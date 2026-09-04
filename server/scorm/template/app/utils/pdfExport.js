@@ -103,6 +103,13 @@ function pdfReportMeta() {
   if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.breakdownDisplay) {
     meta.breakdownDisplay = TEST_DATA.breakdownDisplay;
   }
+  // PRD-50 FR-50: порог, по которому общий построитель отбирает тексты подтем. Тот же
+  // `TEST_DATA.overallPassRule`, что читает экран итогов (`viewResults.js`): без него
+  // правило теряет предмет сравнения и документ печатает рекомендации по подтемам,
+  // которые экран признал освоенными, — расхождение, запрещённое PRD-51 §5.2.
+  if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.overallPassRule) {
+    meta.overallPassRule = TEST_DATA.overallPassRule;
+  }
   // Вводный блок ОТЧЁТА — своя ветвь `intro_json`: у документа вводное слово не то же,
   // что на экране, и подмена одного другим была бы молчаливой ошибкой (PRD-27 §7.1).
   var intro = (typeof TEST_DATA !== 'undefined' && TEST_DATA) ? TEST_DATA.introJson : null;
