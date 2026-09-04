@@ -81,6 +81,9 @@ import {
   type AdaptiveTopicSource,
 } from "../utils/workbook-sheets";
 import type { ContentPage, DrawBlueprint, FormSet } from "@shared/schema";
+// Тот же нормализатор списка блоков, что и у экрана итогов: книга не должна показать
+// автору порядок, отличный от печатаемого.
+import { normalizeSectionGroups } from "@shared/scoring/section-groups";
 
 const router = Router();
 
@@ -267,6 +270,10 @@ router.get(
         (test.flowPolicyJson as {
           router?: { sectionUnlockRules?: Record<string, { mode?: string; sectionIds?: string[] }> };
         } | null)?.router?.sectionUnlockRules ?? {};
+      // PRD-50 FR-11: ключ блока в книгу не едет — по нему подбирается название.
+      const sectionGroupLabelByKey = new Map(
+        normalizeSectionGroups(test.sectionGroupsJson).map((g) => [g.key, g.label]),
+      );
       const structureRows = orderedSections.map((s) =>
         serializeStructureRow({
           topicName: topicName.get(s.topicId) || "",
@@ -288,6 +295,10 @@ router.get(
           // PRD-48 FR-16: одно значение на тему, поэтому оно едет листом, у которого
           // ровно одна строка на тему.
           failureFeedback: failureFeedbackByTopic.get(s.topicId) ?? null,
+          // PRD-50 FR-11: блок называется так, как он подписан на экране итогов. Ссылка на
+          // блок, которого в списке теста нет, означает «вне блоков» — ровно как её читает
+          // сам экран, а не выдуманное название.
+          groupLabel: s.groupKey ? sectionGroupLabelByKey.get(s.groupKey) ?? "" : "",
         }),
       );
       const quotaRows: Record<string, unknown>[] = [];

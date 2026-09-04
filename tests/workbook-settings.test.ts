@@ -74,6 +74,19 @@ const ROUND_TRIP_SOURCE = {
     report: { format: "plain" as const, text: "Отчёт" },
     reportSameAsResults: false,
   },
+  // Четыре настройки, которых у листа не было до 2026-09-04: смысл вердикта, результат для
+  // LMS, показ подытогов и блоки итогов.
+  passDecisionPolicy: "required_topics_only" as const,
+  lmsAttemptResult: "best" as const,
+  breakdownDisplayJson: {
+    visibility: "bar_and_value" as const,
+    basis: "points" as const,
+    placement: "both" as const,
+  },
+  sectionGroupsJson: [
+    { key: "block-1", label: "Теория", order: 0 },
+    { key: "block-2", label: "Практика", order: 1 },
+  ],
   folderPath: "Аттестация / 2026",
 };
 
@@ -309,7 +322,16 @@ describe("реестр листа «Настройки»", () => {
       protectionHideOnBlur: false,
       telemetryEnabled: true,
       webhookUrl: "https://example.test/hook",
+      passDecisionPolicy: "required_topics_only",
+      lmsAttemptResult: "best",
     });
+    expect(draft.breakdown).toEqual({
+      visibility: "bar_and_value",
+      basis: "points",
+      placement: "both",
+    });
+    // Ключи блоков в книгу не едут: у листа только названия, а ключ восстанавливает импорт.
+    expect(draft.sectionGroupLabels).toEqual(["Теория", "Практика"]);
     expect(draft.flowMode).toBe("linear_by_topics");
     expect(draft.overall).toEqual({ type: "percent", value: 70 });
     expect(draft.router).toEqual({ completionPolicy: "all_required_passed" });

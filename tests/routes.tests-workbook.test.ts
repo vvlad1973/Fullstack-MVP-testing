@@ -2267,6 +2267,76 @@ describe("Round-trip: экспорт → реимпорт", () => {
   });
 });
 
+// ─── PRD-50 FR-11: блоки итогов ──────────────────────────────────────────────
+
+describe("POST /:id/workbook/import — блоки итогов", () => {
+  const structureRow = (group?: string) => ({
+    "Раздел": "JavaScript", "Вопросов в выборке": "5",
+    ...(group === undefined ? {} : { "Блок итогов": group }),
+  });
+
+  it("книга объявляет блоки и раздаёт разделы по ним", async () => {
+    const buf = await makeWorkbook({
+      "Вопросы": [questionRow],
+      "Настройки": [{ "Параметр": "Блоки итогов", "Значение": "Теория; Практика" }],
+      "Структура": [structureRow("Практика")],
+    });
+    const res = await postWorkbook(buf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.errors).toEqual([]);
+    const payload = testSettingsMock.save.mock.calls[0][1];
+    // Ключи заводит импорт: в книге их нет, автор видит только названия.
+    expect(payload.test.sectionGroupsJson).toEqual([
+      { key: "block-1", label: "Теория", order: 0 },
+      { key: "block-2", label: "Практика", order: 1 },
+    ]);
+    expect(payload.sections[0].groupKey).toBe("block-2");
+  });
+
+  it("блок, которого нет в списке, — ошибка, а не молчаливое «вне блоков»", async () => {
+    const buf = await makeWorkbook({
+      "Вопросы": [questionRow],
+      "Настройки": [{ "Параметр": "Блоки итогов", "Значение": "Теория" }],
+      "Структура": [structureRow("Практика")],
+    });
+    const res = await postWorkbook(buf);
+
+    expect(res.body.errors.some((e: string) => /Практика/.test(e) && /Блоки итогов/.test(e))).toBe(true);
+  });
+
+  it("книга без колонки не разбирает блоки теста по одному разделу", async () => {
+    // Книга, выгруженная до появления колонки: «Структура» переписывает разделы целиком,
+    // и без переноса членство блока стёрлось бы молча.
+    storageMock.getTestSections.mockResolvedValue([
+      { topicId: "t1", drawCount: 5, sortOrder: 0, required: true, groupKey: "block-7" },
+    ]);
+    const buf = await makeWorkbook({
+      "Вопросы": [questionRow],
+      "Структура": [structureRow()],
+    });
+    const res = await postWorkbook(buf);
+
+    expect(res.status).toBe(200);
+    expect(testSettingsMock.save.mock.calls[0][1].sections[0].groupKey).toBe("block-7");
+  });
+
+  it("пустая ячейка при наличии колонки выводит раздел из блока", async () => {
+    storageMock.getTestSections.mockResolvedValue([
+      { topicId: "t1", drawCount: 5, sortOrder: 0, required: true, groupKey: "block-7" },
+    ]);
+    const buf = await makeWorkbook({
+      "Вопросы": [questionRow],
+      // Колонка есть у СОСЕДНЕЙ строки-заголовка: значение пустое, а сама колонка объявлена.
+      "Структура": [structureRow("")],
+    });
+    const res = await postWorkbook(buf);
+
+    expect(res.status).toBe(200);
+    expect(testSettingsMock.save.mock.calls[0][1].sections[0].groupKey).toBeNull();
+  });
+});
+
 // ─── PRD-24: лист «Пороги вариантов» ─────────────────────────────────────────
 
 describe("POST /:id/workbook/import — «Пороги вариантов» (PRD-24 FR-14)", () => {

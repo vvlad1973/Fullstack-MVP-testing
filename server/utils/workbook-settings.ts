@@ -29,6 +29,9 @@
  */
 import type { Test } from "@shared/schema";
 import { ELIGIBILITY_PLUGINS } from "@shared/eligibility/registry";
+// Порядок и отбраковку блоков читает тот же нормализатор, что и оба хоста при печати итогов:
+// иначе книга показала бы автору не тот список, который увидит ученик.
+import { normalizeSectionGroups } from "@shared/scoring/section-groups";
 
 /** Sheet headers. The sheet is a «параметр — значение» list, not a table of columns. */
 export const SETTINGS_HEADERS = ["Параметр", "Значение"];
@@ -60,6 +63,18 @@ export interface SettingsDraft {
   introResults: Record<string, unknown>;
   introReport: Record<string, unknown>;
   introRoot: Record<string, unknown>;
+  /** Merged onto `breakdown_display_json` (PRD-50 FR-13/FR-44). */
+  breakdown: Record<string, unknown>;
+  /**
+   * Названия блоков итогов в порядке автора (`tests.section_groups_json`, PRD-50 FR-11).
+   *
+   * Именно НАЗВАНИЯ, а не ключи: книга всюду адресует сущности так, как их видит автор, а
+   * `key` — внутренний идентификатор, на который ссылается раздел. Импорт сам сопоставляет
+   * названия с ключами теста-приёмника и заводит ключ только новому блоку.
+   *
+   * `undefined` = книга о блоках промолчала, и список теста остаётся как был.
+   */
+  sectionGroupLabels?: string[];
   /** Folder path; the import turns it into `folderId` — it is the one with storage access. */
   folderPath?: string;
 }
@@ -76,12 +91,13 @@ export function emptySettingsDraft(): SettingsDraft {
     introResults: {},
     introReport: {},
     introRoot: {},
+    breakdown: {},
   };
 }
 
 /** Draft branches available to plain parameters (everything except the scalar fields). */
 type Bucket = "test" | "router" | "overall" | "retake" | "attemptInterval" | "plugin"
-  | "introResults" | "introReport" | "introRoot";
+  | "introResults" | "introReport" | "introRoot" | "breakdown";
 
 export interface SettingParam {
   /** Text of the «Параметр» cell — the editor's label, verbatim. */
@@ -375,6 +391,38 @@ const OVERALL_TYPE_LABELS = {
   none: "Не задано",
 };
 
+/**
+ * «Тест пройден, если» — что ЗНАЧИТ пройденный тест (`tests.pass_decision_policy`).
+ *
+ * Подписи — продолжения фразы, как в радиогруппе редактора: ячейка книги читается вместе с
+ * именем параметра, и «достигнут общий проходной порог теста» в паре с ним складывается в то
+ * же предложение, что видит автор.
+ */
+const DECISION_POLICY_LABELS = {
+  overall_only: "достигнут общий проходной порог теста",
+  overall_and_required_topics: "достигнут общий проходной порог и пройдены все обязательные темы",
+  required_topics_only: "пройдены все обязательные темы",
+  all_topics_passed: "пройдена каждая выбранная тема",
+};
+
+/** Что SCORM-пакет отдаёт в LMS при нескольких попытках (`tests.lms_attempt_result`). */
+const LMS_ATTEMPT_LABELS = { best: "Лучшая попытка", last: "Последняя попытка" };
+
+/** PRD-50 FR-13/FR-44: показ подытогов по подтемам — вид, база и место. */
+const BREAKDOWN_VISIBILITY_LABELS = {
+  hidden: "Не показывать",
+  bar: "Полоса",
+  bar_and_value: "Полоса и число",
+};
+
+const BREAKDOWN_BASIS_LABELS = { units: "Доля вопросов", points: "Доля баллов" };
+
+const BREAKDOWN_PLACEMENT_LABELS = {
+  topics: "В карточках тем",
+  block: "Отдельным блоком в итогах",
+  both: "В карточках тем и отдельным блоком",
+};
+
 /** PRD-8 §3.2: the meaning of the policies cut down to a cell's length, terms from there. */
 const COMPLETION_LABELS = {
   all_required_completed: "После завершения всех обязательных разделов",
@@ -420,6 +468,41 @@ const FAIL_POLICY_LABELS = { failOpen: "Разрешить старт", failClos
 const PLUGIN_LABELS: Record<string, string> = Object.fromEntries(
   ELIGIBILITY_PLUGINS.map((p) => [p.key, p.name]),
 );
+
+/** Разделитель списка в одной ячейке — тот же, что у «Зависит от разделов». */
+const LIST_SEPARATOR = ";";
+
+/**
+ * «Блоки итогов» — именованные блоки разделов на экране итогов (PRD-50 FR-11).
+ *
+ * Единственный параметр листа, чьё значение — СПИСОК: блоков у теста несколько, а строка на
+ * листе одна. Поэтому у него собственные `read`/`write` вместо конструктора: значение — это
+ * названия блоков в порядке автора через «;», а членство разделов книга везёт колонкой
+ * «Блок итогов» листа «Структура» — одна строка на раздел там уже есть.
+ *
+ * Ключи блоков в книгу не попадают: `key` — внутренний идентификатор, на который ссылается
+ * раздел, и автору он не виден нигде. Импорт сопоставляет названия с ключами приёмника сам.
+ */
+const SECTION_GROUPS_PARAM: SettingParam = {
+  name: "Блоки итогов",
+  read: (s) => normalizeSectionGroups(s.sectionGroupsJson).map((g) => g.label).join(`${LIST_SEPARATOR} `),
+  write: (raw, draft) => {
+    const labels = String(raw)
+      .split(LIST_SEPARATOR)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const seen = new Set<string>();
+    for (const label of labels) {
+      const key = normalizeCell(label);
+      // Два блока с одним названием делают членство раздела неоднозначным: колонка
+      // «Структура» адресует блок именно названием, и выбирать за автора нельзя.
+      if (seen.has(key)) return `повторяющееся название блока: "${label}"`;
+      seen.add(key);
+    }
+    draft.sectionGroupLabels = labels;
+    return;
+  },
+};
 
 // ─── Registry ────────────────────────────────────────────────────────────────
 
@@ -468,6 +551,9 @@ export const SETTING_PARAMS: SettingParam[] = [
   boolParam("Показывать уровень сложности при прохождении", (s) => s.showDifficultyLevel, "test", "showDifficultyLevel"),
 
   // ── Pass rules ──
+  // Первым — то, что решает СМЫСЛ пройденного теста: общее правило ниже лишь одна из его
+  // составляющих, и книга, назвавшая порог без политики, читалась бы как полный ответ.
+  enumParam("Тест пройден, если", DECISION_POLICY_LABELS, (s) => s.passDecisionPolicy, "test", "passDecisionPolicy"),
   enumParam("Тип общего правила", OVERALL_TYPE_LABELS, (s) => branch(s.overallPassRuleJson).type, "overall", "type"),
   intParam("Порог", (s) => branch(s.overallPassRuleJson).value, "overall", "value"),
   enumParam(
@@ -506,6 +592,9 @@ export const SETTING_PARAMS: SettingParam[] = [
   // ── Integration ──
   textParam("Webhook URL", (s) => s.webhookUrl, "test", "webhookUrl"),
   boolParam("Отправлять телеметрию о прохождении", (s) => s.telemetryEnabled, "test", "telemetryEnabled"),
+  // Действует только в SCORM-пакете: в вебе внешней системы нет, и попытки показываются
+  // каждая сама по себе.
+  enumParam("Результат для LMS при нескольких попытках", LMS_ATTEMPT_LABELS, (s) => s.lmsAttemptResult, "test", "lmsAttemptResult"),
 
   // ── Intro blocks of the results screen and of the report ──
   textParam("Вводный текст на экране итогов", (s) => branch(s.introJson, "results").text, "introResults", "text"),
@@ -513,6 +602,12 @@ export const SETTING_PARAMS: SettingParam[] = [
   textParam("Вводный текст в отчёте", (s) => branch(s.introJson, "report").text, "introReport", "text"),
   enumParam("Формат вводного текста в отчёте", FORMAT_LABELS, (s) => branch(s.introJson, "report").format, "introReport", "format"),
   boolParam("В отчёте — тот же текст, что на экране итогов", (s) => branch(s.introJson).reportSameAsResults, "introRoot", "reportSameAsResults"),
+
+  // ── Состав итогов (PRD-50) ──
+  enumParam("Подытоги по подтемам (тегам)", BREAKDOWN_VISIBILITY_LABELS, (s) => branch(s.breakdownDisplayJson).visibility, "breakdown", "visibility"),
+  enumParam("База подытогов", BREAKDOWN_BASIS_LABELS, (s) => branch(s.breakdownDisplayJson).basis, "breakdown", "basis"),
+  enumParam("Где показывать подытоги", BREAKDOWN_PLACEMENT_LABELS, (s) => branch(s.breakdownDisplayJson).placement, "breakdown", "placement"),
+  SECTION_GROUPS_PARAM,
 ];
 
 /**

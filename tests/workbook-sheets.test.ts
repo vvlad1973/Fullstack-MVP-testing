@@ -264,7 +264,17 @@ describe("parseStructureRow", () => {
       unlockDependsOn: [],
       // PRD-48 FR-16: колонки нет — обратную связь темы книга не трогает.
       failureFeedback: null,
+      // PRD-50 FR-11: колонки «Блок итогов» нет — раздел о блоке ничего не говорит.
+      groupLabel: "",
     });
+  });
+
+  it("блок итогов читается названием, а лишние пробелы снимаются", () => {
+    const r = parseStructureRow(
+      { "Раздел": "X", "Вопросов в выборке": "5", "Блок итогов": "  Теория  " },
+      0,
+    );
+    expect(r.ok && r.value.groupLabel).toBe("Теория");
   });
 
   it("«Процент» → custom percent", () => {
@@ -304,6 +314,12 @@ describe("parseStructureRow", () => {
       required: parsed.value.required,
     });
     expect(out).toMatchObject({ "Раздел": "О компании", "Вопросов в выборке": 12, "Тип порога": "Сумма баллов", "Порог": 15, "Обязательный": "да" });
+    // Раздел вне блоков печатает пустую ячейку, а не выдуманное название.
+    expect(out["Блок итогов"]).toBe("");
+    expect(serializeStructureRow({
+      topicName: "X", sortOrder: 0, drawCount: 1, topicPassRuleJson: {}, required: true,
+      groupLabel: "Практика",
+    })["Блок итогов"]).toBe("Практика");
   });
 });
 

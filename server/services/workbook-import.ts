@@ -112,6 +112,9 @@ import {
 import { FlowPolicyValidationError, validateFlowPolicy } from "./flow-policy-validator";
 import { parseScoringCell } from "../utils/scoring-excel";
 import { hasOptionList, isMeasurementOnly, distributesBudget } from "@shared/questions/question-type";
+// Тот же нормализатор, которым читают список блоков оба хоста: книга обязана понимать
+// хранимое значение ровно так же, как экран итогов.
+import { normalizeSectionGroups } from "@shared/scoring/section-groups";
 
 import {
   parseScaleRow,
@@ -207,11 +210,12 @@ export interface WorkbookImportResult {
 function countSettingsParams(draft: SettingsDraft): number {
   const groups = [
     draft.test, draft.router, draft.overall, draft.retake, draft.attemptInterval,
-    draft.plugin, draft.introResults, draft.introReport, draft.introRoot,
+    draft.plugin, draft.introResults, draft.introReport, draft.introRoot, draft.breakdown,
   ];
   return groups.reduce((n, g) => n + Object.keys(g).length, 0)
     + (draft.flowMode !== undefined ? 1 : 0)
-    + (draft.folderPath !== undefined ? 1 : 0);
+    + (draft.folderPath !== undefined ? 1 : 0)
+    + (draft.sectionGroupLabels !== undefined ? 1 : 0);
 }
 
 /** Recommendations inside one owner's feedback: courses, materials and events together. */
@@ -336,7 +340,57 @@ function buildTestPatch(draft: SettingsDraft, current: Test | undefined): Record
     patch.introJson = intro;
   }
 
+  // PRD-50 FR-13/FR-44: показ подытогов. Умолчания подставляются ДО текущего значения, а не
+  // после: колонка необязательная, и книга, назвавшая одну только базу, обязана дать
+  // колонке целую настройку, а не половину, которую схема не примет.
+  if (Object.keys(draft.breakdown).length > 0) {
+    patch.breakdownDisplayJson = {
+      visibility: "hidden",
+      basis: "units",
+      ...((current?.breakdownDisplayJson ?? {}) as object),
+      ...draft.breakdown,
+    };
+  }
+
+  if (draft.sectionGroupLabels !== undefined) {
+    patch.sectionGroupsJson = resolveSectionGroups(
+      draft.sectionGroupLabels,
+      normalizeSectionGroups(current?.sectionGroupsJson),
+    );
+  }
+
   return patch;
+}
+
+/**
+ * Названия блоков из книги — в список блоков теста.
+ *
+ * Ключ блока автору не виден и в книгу не попадает, поэтому он ВОССТАНАВЛИВАЕТСЯ: блок,
+ * чьё название у теста уже есть, сохраняет свой ключ, и разделы, которые на него ссылаются,
+ * остаются в нём. Новый блок получает свободный ключ вида `block-N` — свободный именно
+ * среди сохранённых, иначе переименование одного блока могло бы отобрать ключ у другого.
+ *
+ * Порядок — тот, в котором названия перечислены в ячейке: это и есть порядок печати.
+ */
+export function resolveSectionGroups(
+  labels: string[],
+  current: Array<{ key: string; label: string }>,
+): Array<{ key: string; label: string; order: number }> {
+  const keyByLabel = new Map(current.map((g) => [normalizeName(g.label), g.key]));
+  const taken = new Set<string>();
+  const out: Array<{ key: string; label: string; order: number }> = [];
+  labels.forEach((label, index) => {
+    let key = keyByLabel.get(normalizeName(label));
+    if (key && taken.has(key)) key = undefined;
+    if (!key) {
+      let n = out.length + 1;
+      while (taken.has(`block-${n}`) || current.some((g) => g.key === `block-${n}`)) n += 1;
+      key = `block-${n}`;
+    }
+    taken.add(key);
+    out.push({ key, label, order: index });
+  });
+  return out;
 }
 
 /**
@@ -389,6 +443,31 @@ async function keepUnnamedSectionFeedback(
   for (const section of unnamed) {
     if (!feedbackByTopic.has(section.topicId)) continue;
     section.feedbackJson = feedbackByTopic.get(section.topicId);
+  }
+}
+
+/**
+ * Сохранить членство разделов в блоках итогов, если книга о нём НЕ говорила.
+ *
+ * Та же ловушка, что у обратной связи разделов: «Структура» переписывает разделы целиком, и
+ * поле, которого нет в полезной нагрузке, не «остаётся как было», а СТИРАЕТСЯ. Любая книга,
+ * выгруженная до появления колонки «Блок итогов», несёт «Структуру» без неё — и раньше
+ * такая загрузка молча разбирала блоки итогов теста по одному разделу.
+ *
+ * `hasColumn` — именно про колонку, а не про ячейку: пустая ячейка в книге с колонкой
+ * означает «вне блоков» и обязана стирать, отсутствие колонки означает «книга молчит».
+ */
+async function keepSectionGroupsWhenUnnamed(
+  testId: string,
+  sections: SectionPayload[],
+  hasColumn: boolean,
+): Promise<void> {
+  if (hasColumn || sections.length === 0) return;
+  const current = await storage.getTestSections(testId);
+  const groupByTopic = new Map(current.map((s) => [s.topicId, s.groupKey ?? null]));
+  for (const section of sections) {
+    if (!groupByTopic.has(section.topicId)) continue;
+    section.groupKey = groupByTopic.get(section.topicId) ?? null;
   }
 }
 
@@ -1750,6 +1829,15 @@ export async function importWorkbook(
   /** Sections the book describes; empty when it describes none (see the save below). */
   let sections: SectionPayload[] = [];
   /**
+   * PRD-50 FR-11: НАЗВАНИЕ блока итогов, которое «Структура» дала разделу. Ключ подставится
+   * позже: список блоков известен только вместе с настройками теста, а лист разделов
+   * читается раньше. Ключом карты служит сам объект строки — раздел теста ровно один на
+   * тему, но искать его по теме отсюда дороже, чем помнить ссылку.
+   */
+  const groupLabelBySection = new Map<SectionPayload, string>();
+  /** Есть ли на листе «Структура» колонка «Блок итогов» вообще (не «пуста ли ячейка»). */
+  let structureNamesGroups = false;
+  /**
    * Adaptive topics the book describes, empty when it describes none.
    *
    * Assembled together with the sections and handed to the SAME `save`: the service takes
@@ -1795,6 +1883,7 @@ export async function importWorkbook(
     const topicIdByName = new Map(topics.map((t) => [normalizeName(t.name), t.id]));
 
     const structRows = sheetToObjects(structureSheet);
+    structureNamesGroups = sheetHeaders(structureSheet).has("Блок итогов");
     const pending: Array<{ order: number; payload: SectionPayload }> = [];
     // PRD-48 FR-11: unlock rules by topic NAME for now — the ids the rules are keyed by
     // are known only once every row has resolved its topic.
@@ -1863,33 +1952,34 @@ export async function importWorkbook(
         });
       }
 
-      pending.push({
-        order: sec.sortOrder,
-        payload: {
-          topicId,
-          drawCount: sec.drawCount,
-          topicPassRuleJson: sec.passRule,
-          required: sec.required,
-          // PRD-30 FR-02/FR-15: delivery order («Случайный порядок вопросов»).
-          questionOrder: sec.questionOrder,
-          // PRD-48 FR-09: the section fields the book carries since «Структура» grew.
-          drawAll: sec.drawAll,
-          timeLimitMinutes: sec.timeLimitMinutes,
-          defaultPoints: sec.defaultPoints,
-          drawBlueprintJson: strata.length ? { strata } : null,
-          formSetJson,
-          // PRD-48 FR-12: the key is set ONLY for a section the «Обратная связь» sheet
-          // names. A section it does not name keeps the field absent, so a book without
-          // the sheet says nothing about feedback at all.
-          ...(feedback?.byTopic.has(key) ? { feedbackJson: feedback.byTopic.get(key) } : {}),
-          // PRD-50 FR-50: тексты подтем. Ключ ставится ТОЛЬКО разделу, чьи подтемы книга
-          // назвала: раздел, о подтемах которого она молчит, сохраняет свои как были.
-          // Подтема со стёртым текстом уходит из набора — так автор её и снимает.
-          ...(feedback?.byKey.has(key)
-            ? { breakdownFeedbackJson: breakdownFeedbackOf(feedback.byKey.get(key)!) }
-            : {}),
-        },
-      });
+      const payload: SectionPayload = {
+        topicId,
+        drawCount: sec.drawCount,
+        topicPassRuleJson: sec.passRule,
+        required: sec.required,
+        // PRD-30 FR-02/FR-15: delivery order («Случайный порядок вопросов»).
+        questionOrder: sec.questionOrder,
+        // PRD-48 FR-09: the section fields the book carries since «Структура» grew.
+        drawAll: sec.drawAll,
+        timeLimitMinutes: sec.timeLimitMinutes,
+        defaultPoints: sec.defaultPoints,
+        drawBlueprintJson: strata.length ? { strata } : null,
+        formSetJson,
+        // PRD-48 FR-12: the key is set ONLY for a section the «Обратная связь» sheet
+        // names. A section it does not name keeps the field absent, so a book without
+        // the sheet says nothing about feedback at all.
+        ...(feedback?.byTopic.has(key) ? { feedbackJson: feedback.byTopic.get(key) } : {}),
+        // PRD-50 FR-50: тексты подтем. Ключ ставится ТОЛЬКО разделу, чьи подтемы книга
+        // назвала: раздел, о подтемах которого она молчит, сохраняет свои как были.
+        // Подтема со стёртым текстом уходит из набора — так автор её и снимает.
+        ...(feedback?.byKey.has(key)
+          ? { breakdownFeedbackJson: breakdownFeedbackOf(feedback.byKey.get(key)!) }
+          : {}),
+      };
+      // PRD-50 FR-11: имя блока запоминается, ключ подставится, когда станет известен
+      // список блоков теста (он приходит с листа «Настройки», который читается позже).
+      if (structureNamesGroups) groupLabelBySection.set(payload, sec.groupLabel);
+      pending.push({ order: sec.sortOrder, payload });
       result.structure.quotas += strata.length;
 
       // PRD-48 FR-16: the topic's levels, with the materials «Рекомендации» attached to each
@@ -2139,6 +2229,29 @@ export async function importWorkbook(
   // PRD-48 §4.1: settings from «Настройки»; a key the sheet did not carry stays
   // absent, and the service leaves that column alone.
   const patch = buildTestPatch(settingsDraft, currentTest);
+
+  // PRD-50 FR-11: членство разделов в блоках — ПОСЛЕДНИМ, потому что раньше не из чего
+  // подставлять ключ: список блоков приходит с «Настроек», а имена блоков — со «Структуры»,
+  // и сходятся они только здесь. Список берётся из того, что уйдёт в базу: назвала книга
+  // блоки — из неё, промолчала — из теста, как он есть.
+  if (sections.length > 0) {
+    const groups = normalizeSectionGroups(patch.sectionGroupsJson ?? currentTest?.sectionGroupsJson);
+    const keyByLabel = new Map(groups.map((g) => [normalizeName(g.label), g.key]));
+    for (const [section, label] of groupLabelBySection) {
+      if (label === "") { section.groupKey = null; continue; }
+      const key = keyByLabel.get(normalizeName(label));
+      if (!key) {
+        // Молчаливое «вне блоков» здесь было бы хуже отказа: блок исчез бы у раздела, а
+        // автор узнал бы об этом на экране итогов, а не при загрузке книги.
+        result.errors.push(
+          `Структура: блок итогов "${label}" не объявлен — добавьте его в параметр «Блоки итогов» листа «Настройки»`,
+        );
+        continue;
+      }
+      section.groupKey = key;
+    }
+  }
+
   const saves = sections.length > 0 || Object.keys(patch).length > 0;
   const payload = {
     test: {
@@ -2170,6 +2283,7 @@ export async function importWorkbook(
       // and under `dryRun` there is no rewrite — the plan the preview reports does not
       // depend on it.
       if (sections.length > 0) await keepUnnamedSectionFeedback(testId, sections);
+      await keepSectionGroupsWhenUnnamed(testId, sections, structureNamesGroups);
       if (adaptiveTopics.length > 0) await keepUnnamedFailureFeedback(testId, adaptiveTopics);
       await saveOrCollect(testId, payload, result.errors);
     }

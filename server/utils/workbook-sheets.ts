@@ -677,8 +677,12 @@ export const STRUCTURE_HEADERS = [
   // «Структура» is the sheet with exactly one row per topic — on the levels sheet it would
   // have to be repeated in every row, with nothing to say which copy wins.
   "Обратная связь при непройденном уровне",
+  // PRD-50 FR-11: членство раздела в блоке итогов, по НАЗВАНИЮ блока. Список самих блоков
+  // и их порядок задаёт параметр «Блоки итогов» листа «Настройки»: там одна строка на тест,
+  // здесь — одна строка на раздел, и каждая говорит своё.
+  "Блок итогов",
 ];
-export const STRUCTURE_WIDTHS = [28, 22, 10, 20, 16, 10, 14, 26, 24, 20, 26, 34, 34, 60];
+export const STRUCTURE_WIDTHS = [28, 22, 10, 20, 16, 10, 14, 26, 24, 20, 26, 34, 34, 60, 26];
 
 /** Canonical «Квоты» headers (one row per PRD-11 stratum). */
 export const QUOTA_HEADERS = ["Раздел", "Тег", "Количество", "Режим"];
@@ -907,6 +911,16 @@ export interface ParsedSection {
    * editor's job — the book can only replace it.
    */
   failureFeedback: string | null;
+  /**
+   * PRD-50 FR-11: НАЗВАНИЕ блока итогов, которому принадлежит раздел; `""` — вне блоков.
+   *
+   * Название, а не ключ: ключ блока внутренний, автору он не виден нигде, и книга
+   * адресует блок так же, как всё остальное, — так, как это подписано на экране.
+   * «Ячейка пуста» и «колонки нет вовсе» здесь неразличимы намеренно: их разводит
+   * оркестратор по заголовкам листа, потому что решение у них разное — «вне блоков»
+   * против «книга о блоках молчит».
+   */
+  groupLabel: string;
 }
 
 /** Parse a «Структура» row. `rowIndex` (0-based) is the «Порядок» fallback. */
@@ -997,11 +1011,17 @@ export function parseStructureRow(
   const failureRaw = String(row["Обратная связь при непройденном уровне"] ?? "");
   const failureFeedback = failureRaw.trim() === "" ? null : failureRaw;
 
+  // PRD-50 FR-11: блок итогов назван так, как его видит автор. Пустая ячейка — «вне
+  // блоков»; отличать её от отсутствующей колонки приходится ВЫШЕ, по заголовкам листа:
+  // раздел переписывается целиком, и не сказанное здесь было бы стёрто.
+  const groupLabel = String(row["Блок итогов"] ?? "").replace(/[\s ​﻿]+/g, " ").trim();
+
   return {
     ok: true,
     value: {
       topicName, topicCode, sortOrder, drawCount, passRule, required, questionOrder,
       drawAll, timeLimitMinutes, defaultPoints, unlockMode, unlockDependsOn, failureFeedback,
+      groupLabel,
     },
   };
 }
@@ -1029,6 +1049,8 @@ export function serializeStructureRow(s: {
   unlockDependsOn?: string[];
   /** PRD-48 FR-16: the topic's adaptive «failed a level» text; null/absent = none. */
   failureFeedback?: string | null;
+  /** PRD-50 FR-11: название блока итогов; пусто/absent = раздел вне блоков. */
+  groupLabel?: string | null;
 }): Record<string, unknown> {
   const rule = (s.topicPassRuleJson ?? {}) as { source?: string; type?: string; value?: number };
   let passType = "Как у теста";
@@ -1058,6 +1080,7 @@ export function serializeStructureRow(s: {
       UNLOCK_MODE_TO[s.unlockMode ?? "always_available"] ?? UNLOCK_MODE_TO.always_available,
     "Зависит от разделов": (s.unlockDependsOn ?? []).join("; "),
     "Обратная связь при непройденном уровне": s.failureFeedback ?? "",
+    "Блок итогов": s.groupLabel ?? "",
   };
 }
 
