@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+    Wireframe: PRD-53 — Профиль по группе шкал (форма шаблона в «Показателях»)
+    Спека: docs/specs/prd-53/scale-group-profile.md §5.
+    Голова и хвост взяты ДОСЛОВНО из approved/prd2-prd5-scoring-tabs.html — карточка
+    показателя, селект шаблона и блок «Вывод» те же; дельта только в форме шаблона,
+    генераторе матрицы и предупреждениях.
+    Состояния:
+      s-profile-form      — конструктор · профиль по группе шкал, исходы не заданы
+      s-profile-matrix    — то же после «Собрать наборы»: пятнадцать исходов
+      s-profile-warnings  — три предупреждения формы
+    DRAFT — не перенесён в approved/ до согласования.
+  -->
+    <title>PRD-53 — Показатели: профиль по группе шкал</title>
+    <link rel="stylesheet" href="/docs/wireframes/ds/university-rt.css" />
+    <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
+    <script defer src="/docs/wireframes/prd7-shared.js"></script>
+    <link rel="stylesheet" href="/docs/wireframes/ds/wf-utils.css" />
+    <link rel="stylesheet" href="/docs/wireframes/tb-components.css" />
+    <style>
+      /* WIREFRAME-каркас: только эскизные утилиты и DS-override на токенах. */
+      .wf-sprite {
+        display: none;
+      }
+      /* DS sets ou-drawer__head align-items: flex-start; центрируем заголовок. */
+      .ou-drawer__head {
+        align-items: center;
+      }
+      /* Override legacy .ou-select fallback из wf-utils.css (двойная рамка). */
+      .ou-select {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        line-height: inherit;
+        cursor: default;
+        border-radius: 0;
+      }
+      /* Меню селекта закрыто по умолчанию (открывается классом is-open из prd7-shared.js). */
+      .ou-select:not(.is-open) .ou-select__menu {
+        display: none;
+      }
+      .wf-sep {
+        border: none;
+        border-top: var(--wf-border-w) solid var(--ou-border-soft);
+        margin: var(--ou-space-5) 0;
+      }
+      .wf-skel-textarea {
+        height: var(--wf-size-72);
+      }
+      /* Контейнер сопроводительных таблиц (Пояснения + DS Mapping) под состояниями. */
+      .wf-doc {
+        padding: var(--ou-space-6) var(--ou-space-6) var(--ou-space-10);
+      }
+      /* Заголовок списка с действием справа (кнопка «Добавить …» — наверх). */
+      .wf-list-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ou-space-3);
+        margin-bottom: var(--ou-space-3);
+      }
+      .wf-list-head .tb-section-label {
+        margin-bottom: 0;
+      }
+      /* Muted scale chip: a scale this question does NOT contribute to. */
+      .wf-chip-muted {
+        opacity: 0.45;
+      }
+      /* Narrow number inputs in the «вариант × шкала» grid. */
+      .wf-num-grid td .ou-field {
+        width: var(--ou-space-12);
+      }
+      /* Bands editor grid: keep min/max/level inputs compact, let «Метка» fill. */
+      .wf-bands-grid td .ou-field {
+        width: 100%;
+      }
+      .wf-bands-grid td:nth-child(1) .ou-field,
+      .wf-bands-grid td:nth-child(2) .ou-field {
+        width: var(--wf-size-72);
+      }
+      .wf-bands-grid td:nth-child(4) .ou-field {
+        width: var(--wf-size-110);
+      }
+      /* Read-only highlight of the correct variant row (edited in «Вопросы»). */
+      .wf-row-correct td {
+        background: var(--ou-bg-hover);
+      }
+      .wf-correct-mark {
+        color: var(--ou-accent-default);
+        font-weight: 600;
+        margin-left: var(--ou-space-2);
+      }
+    </style>
+
+    <style data-wf-template-overrides>
+      /* WIREFRAME.html contract: meta-навигация и state-контейнеры. */
+      .wf-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: var(--ou-space-2);
+        padding: var(--ou-space-2) var(--ou-space-4);
+        background: var(--ou-bg-elevated);
+        border-bottom: var(--wf-border-w) solid var(--ou-border-soft);
+        box-shadow: var(--ou-shadow-xs);
+        color: var(--ou-fg-default);
+        flex-wrap: wrap;
+      }
+      .wf-nav-title {
+        font: var(--ou-text-body-s);
+        font-weight: 600;
+        color: var(--ou-fg-muted);
+        margin-right: var(--ou-space-2);
+        white-space: nowrap;
+      }
+      .wf-nav button {
+        padding: var(--ou-space-1) var(--ou-space-3);
+        border: var(--wf-border-w) solid var(--ou-border-default);
+        border-radius: var(--ou-radius-s);
+        background: transparent;
+        color: var(--ou-fg-default);
+        font: var(--ou-text-body-s);
+        cursor: pointer;
+      }
+      .wf-nav button:hover {
+        background: var(--ou-bg-hover);
+      }
+      .wf-nav button.active {
+        background: var(--ou-accent-default);
+        color: var(--ou-fg-on-accent);
+        border-color: var(--ou-accent-default);
+      }
+      .wf-nav-sep {
+        width: var(--wf-border-w);
+        height: var(--ou-space-5);
+        background: var(--ou-border-soft);
+        margin: 0 var(--ou-space-2);
+      }
+      .wf-state {
+        display: none;
+        padding-top: var(--wf-nav-offset, var(--wf-size-52));
+      }
+      .wf-state.active {
+        display: block;
+      }
+      .wf-state > .ou-drawer-root {
+        top: var(--wf-nav-offset, var(--wf-size-52));
+        bottom: 0;
+        height: auto;
+      }
+      .wf-state > .ou-drawer-root > .ou-drawer {
+        height: calc(100vh - var(--wf-nav-offset, var(--wf-size-52)));
+        max-height: calc(100vh - var(--wf-nav-offset, var(--wf-size-52)));
+      }
+      /* Локальные эскизные помощники (на токенах) */
+      .wf-scope-toggle {
+        margin-bottom: var(--ou-space-4);
+      }
+      .wf-row-actions {
+        display: flex;
+        gap: var(--ou-space-2);
+        margin-top: var(--ou-space-4);
+      }
+      .wf-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--ou-space-3) var(--ou-space-4);
+      }
+      .wf-rows {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ou-space-3);
+      }
+      .wf-cond-row {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--ou-space-2);
+      }
+      .wf-cond-row > .wf-grow {
+        flex: 1 1 auto;
+      }
+      .wf-cond-sep {
+        font: var(--ou-text-body-s);
+        color: var(--ou-fg-muted);
+        white-space: nowrap;
+        padding-bottom: var(--ou-space-2);
+      }
+      .wf-fn-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: var(--ou-space-2);
+      }
+      .wf-fn-group {
+        margin-bottom: var(--ou-space-5);
+      }
+      .wf-fn-group__title {
+        font: var(--ou-text-body-s);
+        font-weight: 600;
+        color: var(--ou-fg-muted);
+        margin: 0 0 var(--ou-space-2);
+      }
+      .wf-fn-row {
+        display: grid;
+        grid-template-columns: max-content 1fr auto;
+        align-items: center;
+        gap: var(--ou-space-3);
+        padding: var(--ou-space-2) 0;
+        border-top: var(--wf-border-w) solid var(--ou-border-soft);
+      }
+      .wf-fn-desc {
+        color: var(--ou-fg-muted);
+        font: var(--ou-text-body-s);
+      }
+      .wf-opt-group {
+        padding: var(--ou-space-2) var(--ou-space-3) var(--ou-space-1);
+        font: var(--ou-text-body-s);
+        font-weight: 600;
+        color: var(--ou-fg-muted);
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body class="ou ou--light ou--normal">
+    <svg class="wf-sprite" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+      </symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+      </symbol>
+      <symbol id="i-alert-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12" />
+      </symbol>
+      <symbol id="i-rotate-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+      </symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <circle cx="9" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" />
+        <circle cx="15" cy="6" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="15" cy="18" r="1.4" />
+      </symbol>
+    </svg>
+
+﻿    <nav class="wf-nav" aria-label="Wireframe state switcher">
+      <span class="wf-nav-title">Профиль по группе шкал:</span>
+      <button type="button" class="active" onclick="showState(this, 'profile-form')">форма шаблона</button>
+      <button type="button" onclick="showState(this, 'profile-matrix')">матрица наборов</button>
+      <button type="button" onclick="showState(this, 'profile-warnings')">предупреждения</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="toggleTheme(this)">Dark</button>
+      <button type="button" onclick="toggleDensity(this)">Compact</button>
+      <button type="button" onclick="toggleAnnots(this)">Аннотации</button>
+      <span class="wf-nav-sep"></span>
+      <a class="wf-nav-link" href="approved/prd2-prd5-scoring-tabs.html">&larr; Шкалы / Показатели</a>
+    </nav>
+
+    <!-- ════════════════ s-profile-form: конструктор — профиль по группе шкал ════════════════ -->
+    <div id="wf-profile-form" class="wf-state active">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Определение ведущего стиля</h1></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m"><div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Настройки</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Структура</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Шкалы</button>
+            <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Показатели</button>
+          </div></nav>
+          <div class="ou-drawer__body" tabindex="0">
+            <div class="tb-settings-content">
+              <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
+                <header class="ou-card__head tb-level-card__head">
+                  <h5 class="ou-card__title tb-level-card__title">lead_style — Описание ваших результатов</h5>
+                  <div class="ou-card__trail tb-level-card__trail">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s tb-level-card__del" aria-label="Удалить показатель"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                    <button type="button" class="tb-level-card__chev" aria-label="Свернуть показатель" aria-expanded="true"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></button>
+                  </div>
+                </header>
+                <div class="ou-card__body tb-level-card__body">
+                  <div class="wf-grid-2">
+                    <div class="ou-formfield">
+                      <label class="ou-formfield__lbl" for="bp-name">Имя <span class="ou-formfield__lbl-req" aria-hidden="true">*</span></label>
+                      <div class="ou-field ou-field--m"><div class="ou-field__box"><input class="ou-field__input" id="bp-name" type="text" value="lead_style" /></div></div>
+                    </div>
+                    <div class="ou-formfield">
+                      <label class="ou-formfield__lbl" for="bp-label">Метка</label>
+                      <div class="ou-field ou-field--m"><div class="ou-field__box"><input class="ou-field__input" id="bp-label" type="text" value="Описание ваших результатов" /></div></div>
+                    </div>
+                  </div>
+
+                  <hr class="wf-sep" />
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl">Формула</label>
+                    <div class="ou-seg wf-scope-toggle" role="group" aria-label="Режим редактора формулы">
+                      <button type="button" class="ou-seg__item is-active" aria-pressed="true">Конструктор</button>
+                      <button type="button" class="ou-seg__item" aria-pressed="false">DSL</button>
+                    </div>
+                    <div class="ou-formfield">
+                      <label class="ou-formfield__lbl">Шаблон</label>
+                      <div class="ou-select ou-field--m ou-field--full" data-ou-options="Порог|Категория по уровням шкалы|Взвешенная сумма|Сертификация / вердикт|Профиль по группе шкал">
+                        <button type="button" class="ou-select__trigger"><span class="ou-select__value">Профиль по группе шкал</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button>
+                      </div>
+                    </div>
+
+                    <div class="ou-formfield">
+                      <label class="ou-formfield__lbl">Шкалы группы <span class="ou-formfield__lbl-req" aria-hidden="true">*</span></label>
+                      <div class="wf-rows">
+                        <div class="wf-cond-row">
+                          <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Целеустремленный в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                          <span class="wf-grow">Целеустремленный <span class="wf-cond-sep">cel</span></span>
+                        </div>
+                        <div class="wf-cond-row">
+                          <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Вдохновляющий в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                          <span class="wf-grow">Вдохновляющий <span class="wf-cond-sep">vdo</span></span>
+                        </div>
+                        <div class="wf-cond-row">
+                          <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Командный в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                          <span class="wf-grow">Командный <span class="wf-cond-sep">kom</span></span>
+                        </div>
+                        <div class="wf-cond-row">
+                          <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Процессный в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                          <span class="wf-grow">Процессный <span class="wf-cond-sep">pro</span></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="ou-formfield">
+                      <label class="ou-formfield__lbl" for="bp-delta">Порог верхней зоны</label>
+                      <div class="wf-cond-row">
+                        <div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" id="bp-delta" type="text" value="5" /></div></div>
+                        <div class="ou-seg" role="group" aria-label="Единица порога">
+                          <button type="button" class="ou-seg__item is-active" aria-pressed="true">баллы</button>
+                          <button type="button" class="ou-seg__item" aria-pressed="false">% от максимума</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="ou-banner ou-banner--subtle ou-banner--info">
+                      <svg class="ou-banner__icon" width="16" height="16"><use href="#i-info" /></svg>
+                      <div class="ou-banner__body"><div class="ou-banner__desc">Шкала входит в профиль, если отстала от максимума по группе не больше чем на порог. Граница включается: отставание ровно на 5 — ещё профиль.</div></div>
+                    </div>
+                  </div>
+
+                  <hr class="wf-sep" />
+                  <div class="tb-section-label">Исходы</div>
+                  <table class="tb-table tb-table--mb tb-bands-table">
+                    <colgroup><col /><col /><col /><col class="tb-bands-table__act" /></colgroup>
+                    <thead><tr><th>Код</th><th>Метка</th><th>Оценка</th><th><span class="wf-sr-only">Действия</span></th></tr></thead>
+                    <tbody>
+                      <tr><td colspan="4"><span class="tb-card-desc">Исходы не заданы</span></td></tr>
+                    </tbody>
+                  </table>
+                  <div class="wf-row-actions">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="16" height="16"><use href="#i-plus" /></svg> Собрать наборы</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="16" height="16"><use href="#i-plus" /></svg> Заготовки по размеру набора</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="16" height="16"><use href="#i-plus" /></svg> Добавить исход</button>
+                  </div>
+
+                  <hr class="wf-sep" />
+                  <div class="wf-toggle-row">
+                    <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Показывать шкалы вне профиля" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                    <div class="tb-section-label wf-seclbl">Показывать шкалы вне профиля</div>
+                  </div>
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl" for="bp-rest">Заголовок блока</label>
+                    <div class="ou-field ou-field--m"><div class="ou-field__box"><input class="ou-field__input" id="bp-rest" type="text" value="Ознакомьтесь с другими стилями" /></div></div>
+                  </div>
+                  <div class="ou-banner ou-banner--subtle ou-banner--info">
+                    <svg class="ou-banner__icon" width="16" height="16"><use href="#i-info" /></svg>
+                    <div class="ou-banner__body"><div class="ou-banner__desc">Блок печатает шкалы группы, не вошедшие в профиль, по убыванию балла. Текст берётся из описания самой шкалы — правка описания правит и этот блок.</div></div>
+                  </div>
+
+                  <hr class="wf-sep" />
+                  <div class="tb-section-label">Вывод</div>
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl" for="bp-target">Передавать в LMS</label>
+                    <div class="ou-select ou-field--m ou-field--full" data-ou-options="Не передавать|Только в пакете|Столбцом в отчёте|И то, и другое">
+                      <button type="button" class="ou-select__trigger" id="bp-target"><span class="ou-select__value">И то, и другое</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--ghost">Предпросмотр расчёта</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ════════════════ s-profile-matrix: исходы после «Собрать наборы» ════════════════ -->
+    <div id="wf-profile-matrix" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Определение ведущего стиля</h1></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m"><div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Настройки</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Структура</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Шкалы</button>
+            <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Показатели</button>
+          </div></nav>
+          <div class="ou-drawer__body" tabindex="0">
+            <div class="tb-settings-content">
+              <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
+                <header class="ou-card__head tb-level-card__head">
+                  <h5 class="ou-card__title tb-level-card__title">lead_style — Описание ваших результатов</h5>
+                  <div class="ou-card__trail tb-level-card__trail">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s tb-level-card__del" aria-label="Удалить показатель"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                    <button type="button" class="tb-level-card__chev" aria-label="Свернуть показатель" aria-expanded="true"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></button>
+                  </div>
+                </header>
+                <div class="ou-card__body tb-level-card__body">
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl">Шаблон</label>
+                    <div class="ou-select ou-field--m ou-field--full" data-ou-options="Порог|Категория по уровням шкалы|Взвешенная сумма|Сертификация / вердикт|Профиль по группе шкал">
+                      <button type="button" class="ou-select__trigger"><span class="ou-select__value">Профиль по группе шкал</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button>
+                    </div>
+                  </div>
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl">Порог верхней зоны</label>
+                    <div class="wf-cond-row">
+                      <div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="5" aria-label="Порог верхней зоны" /></div></div>
+                      <div class="ou-seg" role="group" aria-label="Единица порога">
+                        <button type="button" class="ou-seg__item is-active" aria-pressed="true">баллы</button>
+                        <button type="button" class="ou-seg__item" aria-pressed="false">% от максимума</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr class="wf-sep" />
+                  <div class="tb-section-label">Исходы</div>
+                  <table class="tb-table tb-table--mb tb-bands-table">
+                    <colgroup><col /><col /><col /><col class="tb-bands-table__act" /></colgroup>
+                    <thead><tr><th>Код</th><th>Метка</th><th>Оценка</th><th><span class="wf-sr-only">Действия</span></th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel" aria-label="код исхода 1" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Сфокусированный: Целеустремленный" aria-label="метка исхода 1" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 1"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 1" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="vdo" aria-label="код исхода 2" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Сфокусированный: Вдохновляющий" aria-label="метка исхода 2" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 2"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 2" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="kom" aria-label="код исхода 3" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Сфокусированный: Командный" aria-label="метка исхода 3" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 3"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 3" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="pro" aria-label="код исхода 4" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Сфокусированный: Процессный" aria-label="метка исхода 4" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 4"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 4" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+vdo" aria-label="код исхода 5" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Двухвекторный: Целеустремленный и Вдохновляющий" aria-label="метка исхода 5" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 5"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 5" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+kom" aria-label="код исхода 6" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Двухвекторный: Целеустремленный и Командный" aria-label="метка исхода 6" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 6"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 6" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="vdo+kom" aria-label="код исхода 7" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Двухвекторный: Вдохновляющий и Командный" aria-label="метка исхода 7" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 7"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 7" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+pro" aria-label="код исхода 8" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Двухвекторный: Целеустремленный и Процессный" aria-label="метка исхода 8" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 8"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 8" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="vdo+pro" aria-label="код исхода 9" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Двухвекторный: Вдохновляющий и Процессный" aria-label="метка исхода 9" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 9"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 9" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="kom+pro" aria-label="код исхода 10" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Двухвекторный: Командный и Процессный" aria-label="метка исхода 10" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 10"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 10" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+vdo+kom" aria-label="код исхода 11" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Широкий: Целеустремленный, Вдохновляющий и Командный" aria-label="метка исхода 11" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 11"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 11" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+vdo+pro" aria-label="код исхода 12" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Широкий: Целеустремленный, Вдохновляющий и Процессный" aria-label="метка исхода 12" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 12"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 12" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+kom+pro" aria-label="код исхода 13" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Широкий: Целеустремленный, Командный и Процессный" aria-label="метка исхода 13" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 13"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 13" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="vdo+kom+pro" aria-label="код исхода 14" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Широкий: Вдохновляющий, Командный и Процессный" aria-label="метка исхода 14" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 14"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 14" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="cel+vdo+kom+pro" aria-label="код исхода 15" /></div></div></td>
+                        <td><div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="Сбалансированный: Целеустремленный, Вдохновляющий, Командный и Процессный" aria-label="метка исхода 15" /></div></div></td>
+                        <td><div class="ou-select ou-field--s" data-ou-options="По направлению шкалы|Благоприятный|Нейтральный|Внимание|Критический"><button type="button" class="ou-select__trigger"><span class="ou-select__value">Нейтральный</span><svg class="ou-select__chev" width="14" height="14"><use href="#i-chevron-down" /></svg></button></div></td>
+                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить исход 15"><svg width="14" height="14"><use href="#i-trash" /></svg></button></td>
+                      </tr>
+                      <tr class="tb-bands-table__detail">
+                        <td colspan="4">
+                          <div class="ou-textarea ou-textarea--s ou-textarea--full"><div class="ou-textarea__box"><textarea class="ou-textarea__input" rows="2" aria-label="толкование исхода 15" placeholder="Что означает этот исход — текст для обучающегося"></textarea></div></div>
+                          <div><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Рекомендации</button></div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="wf-row-actions">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="16" height="16"><use href="#i-plus" /></svg> Собрать наборы</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="16" height="16"><use href="#i-plus" /></svg> Заготовки по размеру набора</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="16" height="16"><use href="#i-plus" /></svg> Добавить исход</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--ghost">Предпросмотр расчёта</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ════════════════ s-profile-warnings: предупреждения формы ════════════════ -->
+    <div id="wf-profile-warnings" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Опросник компетенций</h1></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m"><div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Настройки</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Структура</button>
+            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Шкалы</button>
+            <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Показатели</button>
+          </div></nav>
+          <div class="ou-drawer__body" tabindex="0">
+            <div class="tb-settings-content">
+              <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
+                <header class="ou-card__head tb-level-card__head">
+                  <h5 class="ou-card__title tb-level-card__title">profile — Профиль компетенций</h5>
+                  <div class="ou-card__trail tb-level-card__trail">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s tb-level-card__del" aria-label="Удалить показатель"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                    <button type="button" class="tb-level-card__chev" aria-label="Свернуть показатель" aria-expanded="true"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></button>
+                  </div>
+                </header>
+                <div class="ou-card__body tb-level-card__body">
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl">Шкалы группы <span class="ou-formfield__lbl-req" aria-hidden="true">*</span></label>
+                    <div class="wf-rows">
+                      <div class="wf-cond-row">
+                        <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Аналитика в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                        <span class="wf-grow">Аналитика <span class="wf-cond-sep">ana</span></span>
+                      </div>
+                      <div class="wf-cond-row">
+                        <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Коммуникация в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                        <span class="wf-grow">Коммуникация <span class="wf-cond-sep">com</span></span>
+                      </div>
+                      <div class="wf-cond-row">
+                        <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Организация в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                        <span class="wf-grow">Организация <span class="wf-cond-sep">org</span></span>
+                      </div>
+                      <div class="wf-cond-row">
+                        <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Развитие в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                        <span class="wf-grow">Развитие <span class="wf-cond-sep">dev</span></span>
+                      </div>
+                      <div class="wf-cond-row">
+                        <label class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Клиентоориентированность в группе" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                        <span class="wf-grow">Клиентоориентированность <span class="wf-cond-sep">cli</span></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="ou-banner ou-banner--subtle ou-banner--warning">
+                    <svg class="ou-banner__icon" width="16" height="16"><use href="#i-alert-circle" /></svg>
+                    <div class="ou-banner__body"><div class="ou-banner__desc">Пять шкал дают 31 набор — столько текстов пишут редко. Можно обойтись заготовками по размеру набора: пять текстов вместо тридцати одного.</div></div>
+                  </div>
+
+                  <div class="ou-banner ou-banner--subtle ou-banner--warning">
+                    <svg class="ou-banner__icon" width="16" height="16"><use href="#i-alert-circle" /></svg>
+                    <div class="ou-banner__body">
+                      <div class="ou-banner__title">Не для всех наборов есть текст</div>
+                      <div class="ou-banner__desc">Ни точного исхода, ни запасного по размеру набора нет для: ana+com+org, ana+com+dev, ana+org+dev, com+org+dev, ana+com+cli и ещё 12. Ученик с таким результатом увидит карточку без толкования.</div>
+                    </div>
+                  </div>
+
+                  <div class="ou-banner ou-banner--subtle ou-banner--warning">
+                    <svg class="ou-banner__icon" width="16" height="16"><use href="#i-alert-circle" /></svg>
+                    <div class="ou-banner__body">
+                      <div class="ou-banner__title">Блок «вне профиля» напечатает голые названия</div>
+                      <div class="ou-banner__desc">У шкал «Организация» и «Развитие» пустое описание. Блок собирает текст из описаний шкал — заполните их на вкладке «Шкалы».</div>
+                    </div>
+                  </div>
+
+                  <div class="ou-banner ou-banner--subtle ou-banner--error">
+                    <svg class="ou-banner__icon" width="16" height="16"><use href="#i-alert-circle" /></svg>
+                    <div class="ou-banner__body">
+                      <div class="ou-banner__title">Шкалы группы нормализованы по-разному</div>
+                      <div class="ou-banner__desc">Порог в баллах сравнивает несопоставимые величины: у «Аналитики» это сырой балл, у «Клиентоориентированности» — процент. Задайте порог долей от максимума.</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--ghost">Предпросмотр расчёта</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ════════════════ s-docs: пояснения ════════════════ -->
+    <div id="wf-docs" class="wf-state">
+      <div class="wf-doc">
+        <h3 class="wf-notes-title">Пояснения — Wireframe</h3>
+        <table class="tb-table wf-notes-table">
+          <thead><tr><th>Элемент</th><th>Что показано</th><th>Почему так</th></tr></thead>
+          <tbody>
+            <tr><td>Карточка показателя</td><td>Та же, что у остальных шаблонов: «Имя · Метка» → «Формула» → «Вывод»</td><td>Дельта только внутри блока «Формула» и в блоке исходов; каркас карточки, селект шаблона и «Передавать в LMS» взяты 1:1 из approved/prd2-prd5-scoring-tabs</td></tr>
+            <tr><td>Шаблон · пятый пункт</td><td>«Профиль по группе шкал» рядом с четырьмя прежними</td><td>Тип результата выставляется под шаблон (строка), как и у остальных — рассинхрона тип↔формула не возникает</td></tr>
+            <tr><td>Шкалы группы</td><td>Строка на шкалу с переключателем, ключ шкалы справа</td><td>Отдельного мультиселекта в системе нет, а строка-с-переключателем уже используется для «Обязательная» у тем и для квот. Ключ показан потому, что он попадает в КОД набора, и автор должен его видеть</td></tr>
+            <tr><td>Порог верхней зоны</td><td>Число плюс переключатель «баллы / % от максимума»</td><td>Доля нужна, когда шкалы группы нормализованы по-разному или домена нет вовсе. Строкой «10%» она и уходит в формулу</td></tr>
+            <tr><td>«Собрать наборы»</td><td>Заводит все непустые сочетания: у четырёх шкал — пятнадцать</td><td>Заполнять руками нельзя: при пяти шкалах наборов 31, при шести — 63. Кнопка ДОБАВЛЯЕТ недостающие коды и не трогает заполненные</td></tr>
+            <tr><td>«Заготовки по размеру набора»</td><td>Заводит четыре кода count:1 … count:4</td><td>Запасной текст по размеру набора — то, что делает выразимым опросник из шести шкал: четыре текста вместо шестидесяти трёх</td></tr>
+            <tr><td>Матрица · порядок строк</td><td>Сначала одиночные, затем пары, тройки, вся группа</td><td>Строки в состоянии «матрица наборов» сгенерированы НАСТОЯЩЕЙ функцией продукта (<code>profileMatrix</code>), а не набраны руками — эскиз показывает ровно то, что автор увидит</td></tr>
+            <tr><td>Метка набора</td><td>«Двухвекторный: Целеустремленный и Процессный»</td><td>Предложенная, автор правит. Название по размеру набора — предложение продукта, а не термин методики</td></tr>
+            <tr><td>Шкалы вне профиля</td><td>Переключатель и заголовок блока</td><td>Текст собирается из ОПИСАНИЙ шкал по убыванию балла. Это снимает рукописные копии: у ЧИЛ их было пятнадцать при четырёх описаниях</td></tr>
+            <tr><td>Предупреждения</td><td>Четыре: много наборов, непокрытые коды, пустые описания, разная нормализация</td><td>Первые три — предупреждения (работать можно), четвёртое — ошибка формы: абсолютный порог на разной нормализации даёт неверную зону молча</td></tr>
+          </tbody>
+        </table>
+
+        <h3 class="wf-notes-title">Открытый вопрос к согласованию</h3>
+        <table class="tb-table wf-notes-table">
+          <thead><tr><th>Вопрос</th><th>Что видно на эскизе</th><th>Варианты</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Высота блока исходов</td>
+              <td>Пятнадцать наборов дают тридцать строк таблицы: у каждого исхода своя строка с полем толкования. Карточка становится очень длинной — это видно в состоянии «матрица наборов»</td>
+              <td>Оставить как есть (редактор исходов один на все показатели); свернуть строку толкования до раскрытия; вынести матрицу в отдельное окно. Решение за владельцем — сам PRD-53 этого не требует</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 class="wf-mapping-title">DS Mapping</h2>
+        <table class="tb-table wf-notes-table">
+          <thead><tr><th>Элемент эскиза</th><th>Примитив</th></tr></thead>
+          <tbody>
+            <tr><td>Карточка показателя</td><td><code>ou-card--outlined</code> + <code>tb-level-card</code></td></tr>
+            <tr><td>Шаблон, «Передавать в LMS»</td><td><code>ou-select</code></td></tr>
+            <tr><td>Шкала в группе, «вне профиля»</td><td><code>ou-switch</code> в <code>wf-cond-row</code></td></tr>
+            <tr><td>Единица порога, режим формулы</td><td><code>ou-seg</code></td></tr>
+            <tr><td>Порог, имя, метка, заголовок блока</td><td><code>ou-field</code></td></tr>
+            <tr><td>Таблица исходов</td><td><code>tb-table</code> + <code>tb-bands-table</code></td></tr>
+            <tr><td>Толкование исхода</td><td><code>ou-field--textarea</code></td></tr>
+            <tr><td>Подсказки и предупреждения</td><td><code>ou-banner--info</code> / <code>--warning</code> / <code>--error</code></td></tr>
+            <tr><td>Кнопки под таблицей</td><td><code>ou-btn--ghost ou-btn--s</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      // Wireframe state switcher (как в approved/prd7-*). prd7-shared.js затем
+      // дооборачивает window.showState, чтобы пере-инициализировать ou-select.
+      window.showState = function showState(btn, id) {
+        var target = document.getElementById('wf-' + id) || document.getElementById(id);
+        document.querySelectorAll('.wf-state').forEach(function (el) {
+          el.classList.toggle('active', el === target);
+        });
+        document.querySelectorAll('.wf-nav button[onclick*="showState"]').forEach(function (button) {
+          button.classList.toggle('active', button === btn);
+        });
+      };
+      window.toggleTheme = function toggleTheme(btn) {
+        var dark = document.body.classList.toggle('ou--dark');
+        document.body.classList.toggle('ou--light', !dark);
+        btn.textContent = dark ? 'Light' : 'Dark';
+        btn.classList.toggle('active', dark);
+      };
+      window.toggleDensity = function toggleDensity(btn) {
+        var compact = document.body.classList.toggle('ou--compact');
+        document.body.classList.toggle('ou--normal', !compact);
+        btn.textContent = compact ? 'Normal' : 'Compact';
+        btn.classList.toggle('active', compact);
+      };
+      window.toggleAnnots = function toggleAnnots(btn) {
+        var on = document.body.classList.toggle('wf-annots-on');
+        if (btn) btn.classList.toggle('active', on);
+      };
+    </script>
+  </body>
+</html>
+
