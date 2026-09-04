@@ -282,27 +282,15 @@
 
     <!-- ════════════════ s-profile-form: конструктор — профиль по группе шкал ════════════════ -->
     <div id="wf-profile-form" class="wf-state active">
-      <div class="ou-drawer-root" role="dialog" aria-modal="true">
-        <div class="ou-drawer__backdrop"></div>
-        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
-          <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Определение ведущего стиля</h1></div>
-            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
-            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16"><use href="#i-x" /></svg></button>
-          </header>
-          <nav class="ou-tabs ou-tabs--underline ou-tabs--m"><div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Настройки</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Структура</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Шкалы</button>
-            <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Показатели</button>
-          </div></nav>
-          <div class="ou-drawer__body" tabindex="0">
+      <div class="wf-doc">
             <div class="tb-settings-content">
               <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
-                <header class="ou-card__head tb-level-card__head">
-                  <h5 class="ou-card__title tb-level-card__title">lead_style — Описание ваших результатов</h5>
+                <header class="ou-card__header tb-level-card__head">
+                  <span class="tb-status-dot tb-status-dot--ok" aria-hidden="true"></span>
+                  <div class="ou-card__heading tb-level-card__heading">
+                    <h5 class="ou-card__title tb-level-card__title">lead_style — Описание ваших результатов</h5>
+                    <p class="ou-card__subtitle tb-level-card__summary">строка · конструктор</p>
+                  </div>
                   <div class="ou-card__trail tb-level-card__trail">
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s tb-level-card__del" aria-label="Удалить показатель"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
                     <button type="button" class="tb-level-card__chev" aria-label="Свернуть показатель" aria-expanded="true"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></button>
@@ -407,39 +395,19 @@
                 </div>
               </section>
             </div>
-          </div>
-          <footer class="ou-drawer__foot">
-            <button type="button" class="ou-btn ou-btn--ghost">Закрыть</button>
-            <button type="button" class="ou-btn ou-btn--ghost">Предпросмотр расчёта</button>
-            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
-          </footer>
-        </aside>
-      </div>
     </div>
 
     <!-- ════════════════ s-profile-matrix: исходы после «Собрать наборы» ════════════════ -->
     <div id="wf-profile-matrix" class="wf-state">
-      <div class="ou-drawer-root" role="dialog" aria-modal="true">
-        <div class="ou-drawer__backdrop"></div>
-        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
-          <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Определение ведущего стиля</h1></div>
-            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
-            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16"><use href="#i-x" /></svg></button>
-          </header>
-          <nav class="ou-tabs ou-tabs--underline ou-tabs--m"><div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Настройки</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Структура</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Шкалы</button>
-            <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Показатели</button>
-          </div></nav>
-          <div class="ou-drawer__body" tabindex="0">
+      <div class="wf-doc">
             <div class="tb-settings-content">
               <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
-                <header class="ou-card__head tb-level-card__head">
-                  <h5 class="ou-card__title tb-level-card__title">lead_style — Описание ваших результатов</h5>
+                <header class="ou-card__header tb-level-card__head">
+                  <span class="tb-status-dot tb-status-dot--ok" aria-hidden="true"></span>
+                  <div class="ou-card__heading tb-level-card__heading">
+                    <h5 class="ou-card__title tb-level-card__title">lead_style — Описание ваших результатов</h5>
+                    <p class="ou-card__subtitle tb-level-card__summary">строка · конструктор</p>
+                  </div>
                   <div class="ou-card__trail tb-level-card__trail">
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s tb-level-card__del" aria-label="Удалить показатель"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
                     <button type="button" class="tb-level-card__chev" aria-label="Свернуть показатель" aria-expanded="true"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></button>
@@ -1015,39 +983,19 @@
                 </div>
               </section>
             </div>
-          </div>
-          <footer class="ou-drawer__foot">
-            <button type="button" class="ou-btn ou-btn--ghost">Закрыть</button>
-            <button type="button" class="ou-btn ou-btn--ghost">Предпросмотр расчёта</button>
-            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
-          </footer>
-        </aside>
-      </div>
     </div>
 
     <!-- ════════════════ s-profile-warnings: предупреждения формы ════════════════ -->
     <div id="wf-profile-warnings" class="wf-state">
-      <div class="ou-drawer-root" role="dialog" aria-modal="true">
-        <div class="ou-drawer__backdrop"></div>
-        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
-          <header class="ou-drawer__head">
-            <div class="ou-drawer__head-text"><h1 class="ou-drawer__title">Опросник компетенций</h1></div>
-            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
-            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16"><use href="#i-x" /></svg></button>
-          </header>
-          <nav class="ou-tabs ou-tabs--underline ou-tabs--m"><div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Настройки</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Структура</button>
-            <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Шкалы</button>
-            <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Показатели</button>
-          </div></nav>
-          <div class="ou-drawer__body" tabindex="0">
+      <div class="wf-doc">
             <div class="tb-settings-content">
               <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
-                <header class="ou-card__head tb-level-card__head">
-                  <h5 class="ou-card__title tb-level-card__title">profile — Профиль компетенций</h5>
+                <header class="ou-card__header tb-level-card__head">
+                  <span class="tb-status-dot tb-status-dot--ok" aria-hidden="true"></span>
+                  <div class="ou-card__heading tb-level-card__heading">
+                    <h5 class="ou-card__title tb-level-card__title">profile — Профиль компетенций</h5>
+                    <p class="ou-card__subtitle tb-level-card__summary">строка · конструктор</p>
+                  </div>
                   <div class="ou-card__trail tb-level-card__trail">
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s tb-level-card__del" aria-label="Удалить показатель"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
                     <button type="button" class="tb-level-card__chev" aria-label="Свернуть показатель" aria-expanded="true"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></button>
@@ -1111,14 +1059,6 @@
                 </div>
               </section>
             </div>
-          </div>
-          <footer class="ou-drawer__foot">
-            <button type="button" class="ou-btn ou-btn--ghost">Закрыть</button>
-            <button type="button" class="ou-btn ou-btn--ghost">Предпросмотр расчёта</button>
-            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
-          </footer>
-        </aside>
-      </div>
     </div>
 
     <!-- ════════════════ s-docs: пояснения ════════════════ -->
