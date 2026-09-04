@@ -97,6 +97,7 @@ const GRID_FILES: Record<string, string[]> = {
   "G-5": ["tb-components.css"],
   "G-6": ["tb-components.css"],
   "G-7": ["scales-section.tsx", "levels-editor.tsx"],
+  "G-8": ["tb-components.css"],
 };
 
 /**

@@ -3541,7 +3541,9 @@
     "kind": "нарушение сетки",
     "severity": "косметическое",
     "code": "«Состав и сценарий» / «Сценарий»",
-    "files": [],
+    "files": [
+      "tb-components.css"
+    ],
     "batch": "grid",
     "status": "open"
   },
