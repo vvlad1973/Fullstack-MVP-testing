@@ -49,6 +49,10 @@ function walk(node: Ast, out: Set<string>): void {
     case "var":
     case "nullary":
     case "count":
+    case "scaleRank":
+    case "scaleGroup":
+      // Строки внутри этих узлов — ключи сущностей и порог, а не коды исходов: они лежат в
+      // ПОЛЯХ узла, а не отдельными строковыми узлами, и в выдачу попасть не могут.
       return;
   }
 }
