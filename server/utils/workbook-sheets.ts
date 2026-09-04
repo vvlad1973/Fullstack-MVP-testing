@@ -51,10 +51,18 @@ export const MEASUREMENT_WIDTHS = [14, 16, 12, 16, 10, 8];
 // text and a grammar packed into one cell (as «Диапазоны» does for a scale) would
 // be unreadable and unfixable by hand.
 //
-// The outcome's FEEDBACK (attachments, links) deliberately stays out: the book is
-// a format for text, and the package (`.tbtest`) carries the rest.
-export const OUTCOME_HEADERS = ["Показатель", "Код", "Метка", "Текст", "Тональность"];
-export const OUTCOME_WIDTHS = [18, 14, 28, 60, 16];
+// The outcome's feedback ATTACHMENTS (links, events, assets) deliberately stay out:
+// the book is a format for text, and the package (`.tbtest`) carries the rest.
+//
+// «Рекомендации» добавлены PRD-53 §6: у профиля по группе шкал обратная связь это ВТОРОЙ
+// крупный текст методики — «как мне повысить человекоцентричность», — и лист без неё
+// переносил половину. Колонка везёт только `feedback.text`; формат, ссылки и вложения
+// остаются вне книги и при загрузке сохраняются (см. {@link mergeOutcomes}).
+//
+// Отдельного листа «Профили» не понадобилось: колонка «Код» — свободный текст, поэтому
+// коды-наборы (`cel+pro`) и запасные по размеру набора (`count:2`) лист везёт как есть.
+export const OUTCOME_HEADERS = ["Показатель", "Код", "Метка", "Текст", "Тональность", "Рекомендации"];
+export const OUTCOME_WIDTHS = [18, 14, 28, 60, 16, 60];
 
 // ─── «Варианты теста» column of the «Вопросы» sheet ──────────────────────────
 //
@@ -1274,6 +1282,8 @@ export interface ParsedOutcomeRow {
   label?: string;
   text?: string;
   tone?: string;
+  /** PRD-53: `feedback.text` исхода. Present only when the sheet HAS the column. */
+  feedbackText?: string;
 }
 
 /**
@@ -1304,6 +1314,7 @@ export function parseOutcomeRow(
     }
     parsed.tone = tone;
   }
+  if (headers.has("Рекомендации")) parsed.feedbackText = String(row["Рекомендации"] ?? "").trim();
   return { ok: true, value: parsed };
 }
 
@@ -1324,6 +1335,7 @@ export function serializeOutcomeRows(v: {
     "Метка": String(o.label ?? ""),
     "Текст": String(o.text ?? ""),
     "Тональность": String(o.tone ?? ""),
+    "Рекомендации": String((o.feedback as { text?: unknown } | undefined)?.text ?? ""),
   }));
 }
 
@@ -1360,6 +1372,17 @@ export function mergeOutcomes(
     if (row.tone !== undefined) {
       if (row.tone === "") delete merged.tone;
       else merged.tone = row.tone;
+    }
+    // PRD-53: колонка задаёт ТОЛЬКО текст обратной связи. Формат, ссылки и вложения книга
+    // выразить не может, поэтому переносятся с сохранённого исхода: опустошённая ячейка стирает
+    // текст и не должна забирать с собой прикреплённый курс. Если после стирания в обратной
+    // связи не осталось ничего — поле убирается целиком, чтобы не плодить пустых объектов.
+    if (row.feedbackText !== undefined) {
+      const feedback = { ...((kept.feedback as Record<string, unknown> | undefined) ?? {}) };
+      if (row.feedbackText === "") delete feedback.text;
+      else feedback.text = row.feedbackText;
+      if (Object.keys(feedback).length === 0) delete merged.feedback;
+      else merged.feedback = feedback;
     }
     return merged;
   });
