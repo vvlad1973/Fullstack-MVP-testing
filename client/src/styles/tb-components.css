@@ -832,6 +832,17 @@
   border-left: var(--wf-border-w) solid var(--ou-border-soft);
 }
 .tb-quota-block__avail { color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
+/* PRD-50 §16: знак тревоги рядом с невалидным значением строки квоты. Тон ошибки, а не
+   предупреждения: значение уже нарушает заданную автором квоту. Знак заменил чип в подвале
+   таблицы — тот говорил о таблице целиком и не показывал, какая именно строка виновата. */
+.tb-quota-block__alarm {
+  display: inline-flex; align-items: center; vertical-align: middle;
+  margin-left: var(--ou-space-1); color: var(--ou-error-default);
+}
+/* Пузырь подсказки внутри узкой ячейки таблицы ужимается по ширине ячейки, и текст встаёт
+   в колонку по одному слову. Ширина по содержимому это снимает; верхнюю границу по-прежнему
+   держит `--wrap` дизайн-системы. */
+.tb-quota-block .ou-tip__bubble--wrap { width: max-content; }
 .tb-quota-actions { margin-top: var(--ou-space-3); }
 .tb-quota-sum {
   display: flex; align-items: center; justify-content: space-between;

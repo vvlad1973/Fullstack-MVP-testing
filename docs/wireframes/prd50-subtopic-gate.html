@@ -499,7 +499,14 @@
                                 <button type="button" class="ou-seg__item is-active"><span>Не менее</span></button>
                               </div>
                             </td>
-                            <td><span class="ou-tag ou-tag--warning ou-tag--s">2</span></td>
+                            <td>
+                              <span class="tb-quota-block__avail">2</span>
+                              <span class="ou-tip ou-tip--error" data-placement="top" tabindex="0">
+                                <span class="tb-quota-block__alarm" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert-triangle" /></svg></span>
+                                <span class="ou-sr-only">Нехватка вопросов по подтеме «incident_triage»</span>
+                                <span class="ou-tip__bubble ou-tip__bubble--wrap" role="tooltip">Вопросов с этой подтемой меньше квоты: доступно 2, запрошено 3. Выдастся сколько есть — сохранение не блокируется.</span>
+                              </span>
+                            </td>
                             <td><span class="tb-quota-block__avail">A: 3 · </span><span class="tb-quota-block__avail">B: 2</span></td>
                             <td>
                               <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить квоту «incident_triage»">
@@ -519,7 +526,6 @@
 
                       <div class="tb-quota-sum">
                         <span>Σ квот: 5 из 6 · остаток 1</span>
-                        <span class="ou-tag ou-tag--warning ou-tag--s">нехватка по тегу</span>
                       </div>
 
                       <!-- Пояснения «Порог сравнивается с долей БАЛЛОВ…» здесь тоже больше нет:
