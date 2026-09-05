@@ -74,6 +74,19 @@ describe("applyBaseline", () => {
     expect(stale.map((s) => s.finding)).toEqual(["A-4"]);
   });
 
+  it("сопоставляет повторяющиеся записи один к одному, а не все к первой", () => {
+    const twice = [
+      { op: "missing", role: "label", text: "Порог", index: 0, state: "scoring" },
+      { op: "missing", role: "label", text: "Порог", index: 7, state: "scoring" },
+    ];
+    const baseline = [
+      { op: "missing", role: "label", text: "Порог", state: "scoring" },
+      { op: "missing", role: "label", text: "Порог", state: "scoring" },
+    ];
+
+    expect(applyBaseline(twice, baseline)).toEqual({ unexpected: [], stale: [] });
+  });
+
   it("сверяет записи по состоянию: одна и та же подпись на разных вкладках — разные записи", () => {
     const found = [{ op: "missing", role: "heading", text: "О тесте", index: 0, state: "basic" }];
     const baseline = [{ op: "missing", role: "heading", text: "О тесте", state: "rules", finding: "X-1" }];
