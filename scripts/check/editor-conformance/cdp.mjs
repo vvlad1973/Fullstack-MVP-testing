@@ -93,12 +93,24 @@ export async function launch({ port = 9222, width = 1600, height = 1000 } = {}) 
     }
   });
 
-  const send = (method, params = {}) =>
+  /**
+   * Sends one protocol command. The timeout is not decoration: a reply that never arrives
+   * (a navigation that ate the context, a page stuck on a modal) would otherwise hang the
+   * guard forever, and a guard that hangs is indistinguishable from a slow one until someone
+   * kills it ten minutes later.
+   */
+  const send = (method, params = {}, timeoutMs = 30000) =>
     new Promise((resolve, reject) => {
       const id = (nextId += 1);
-      pending.set(id, (msg) =>
-        msg.error ? reject(new Error(`${method}: ${msg.error.message}`)) : resolve(msg.result),
-      );
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error(`${method}: ответ не пришёл за ${timeoutMs} мс`));
+      }, timeoutMs);
+      pending.set(id, (msg) => {
+        clearTimeout(timer);
+        if (msg.error) reject(new Error(`${method}: ${msg.error.message}`));
+        else resolve(msg.result);
+      });
       ws.send(JSON.stringify({ id, method, params }));
     });
 
