@@ -35,7 +35,7 @@ import { richTextToHtml, type RichTextFormat } from "./rich-text";
 import { buildScalesChart, type ChartKindSettings } from "./scales-chart";
 import { parseScaleAppearance } from "./scale-appearance";
 import { collectRecommendations } from "./recommendations";
-import { collectBreakdownFeedback, passThresholdPercent } from "../breakdown/feedback";
+import { collectBreakdownFeedback } from "../breakdown/feedback";
 import { resolveResultsBlocks, type ResultsBlocks, type ResultsBlockSettings } from "./results-blocks";
 // PRD-29 §6.7 lives in the scoring layer, not here: the results screen was its first
 // reader, not its owner (see the two gates in `buildResultContext`).
@@ -1137,19 +1137,10 @@ export function buildResultContext(
   for (const topic of input.topicResults || []) {
     recommendationSources.push(...topicRecommendationSources(topic, topic.passed !== true));
   }
-  // PRD-50 FR-50: тексты ПОДТЕМ — последними, они самые узкие (одна подтема одного
-  // раздела), и дедуп оставит копию пошире, если автор написал то же самое теме.
-  //
-  // Вердикт здесь НЕ спрашивается — ни теста, ни темы. Правило владельца буквально: ниже
-  // общего порога теста -> выдаём, при любом вердикте. Провал по подтеме внутри сданного
-  // теста и есть тот случай, ради которого автор пишет этот текст; гасить его пройденным
-  // тестом значило бы отменять настройку ровно там, где она нужна.
-  recommendationSources.push(
-    ...collectBreakdownFeedback(
-      input.topicResults || [],
-      passThresholdPercent(opts.overallPassRule, input.possiblePoints),
-    ),
-  );
+  // PRD-50 FR-55: тексты ПОДТЕМ — последними, они самые узкие (одна подтема одного раздела),
+  // и дедуп оставит копию пошире, если автор написал то же самое теме. Вердикт теста и темы
+  // здесь не спрашивается: исход подтемы уже вынесен ядром по порогу её темы.
+  recommendationSources.push(...collectBreakdownFeedback(input.topicResults || []));
   const recommendations = collectRecommendations(recommendationSources);
   if (recommendations.hasAny) result.recommendations = recommendations;
   // PRD-49. The umbrella's sub-blocks + resolved labels, via the ONE rule shared with the
@@ -1554,19 +1545,10 @@ export function buildAdaptiveResultContext(
   for (const topic of input.topicResults || []) {
     recommendationSources.push(...topicRecommendationSources(topic, !hasAchievedLevel(topic)));
   }
-  // PRD-50 FR-50: тексты ПОДТЕМ — последними, они самые узкие (одна подтема одного
-  // раздела), и дедуп оставит копию пошире, если автор написал то же самое теме.
-  //
-  // Вердикт здесь НЕ спрашивается — ни теста, ни темы. Правило владельца буквально: ниже
-  // общего порога теста -> выдаём, при любом вердикте. Провал по подтеме внутри сданного
-  // теста и есть тот случай, ради которого автор пишет этот текст; гасить его пройденным
-  // тестом значило бы отменять настройку ровно там, где она нужна.
-  recommendationSources.push(
-    // Адаптивный экран не считает баллов теста, поэтому абсолютный порог перевести не во
-    // что: `null` вместо суммы означает «переводить нечем», и такой тест печатает тексты
-    // всех подтем, где они написаны. Процентный порог работает как на обычном экране.
-    ...collectBreakdownFeedback(input.topicResults || [], passThresholdPercent(opts.overallPassRule, null)),
-  );
+  // PRD-50 FR-55: тексты ПОДТЕМ — последними, они самые узкие (одна подтема одного раздела),
+  // и дедуп оставит копию пошире, если автор написал то же самое теме. Вердикт теста и темы
+  // здесь не спрашивается: исход подтемы уже вынесен ядром по порогу её темы.
+  recommendationSources.push(...collectBreakdownFeedback(input.topicResults || []));
   const recommendations = collectRecommendations(recommendationSources);
   if (recommendations.hasAny) result.recommendations = recommendations;
   // PRD-49. Same rule as the standard screen (see `attachBlocksAndLabels`), with
