@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module scripts/check/editor-conformance/diff
  * @description Pure comparison of two structural inventories against a baseline.

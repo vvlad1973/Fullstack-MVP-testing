@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module scripts/check/editor-conformance/static-server
  * @description Serves the repository over HTTP so a wireframe can be rendered as it was drawn.

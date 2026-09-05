@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module scripts/check/editor-conformance/cdp
  * @description Minimal Chrome DevTools Protocol client: launch, evaluate, real mouse input.
@@ -145,10 +144,32 @@ export async function launch({ port = 9222, width = 1600, height = 1000 } = {}) 
     },
 
     /**
+     * Waits until a selector matches. Fixed sleeps after navigation are a lie on a cold Vite
+     * server: the first compile can take longer than any number that looks reasonable, and the
+     * failure then reads as "the element does not exist" rather than "the page was not ready".
+     *
+     * @param {string} selector CSS selector to wait for.
+     * @param {number} timeoutMs How long to keep trying.
+     * @returns {Promise<boolean>} True once it matches; false if it never did.
+     */
+    async waitForSelector(selector, timeoutMs = 30000) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const found = await driver.evaluate(
+          `() => !!document.querySelector(${JSON.stringify(selector)})`,
+        );
+        if (found) return true;
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      return false;
+    },
+
+    /**
      * Clicks an element by REAL mouse events. `element.click()` does not open the drawer or
      * switch a design-system tab — do not "simplify" this back into a synthetic click.
      */
     async clickSelector(selector, settleMs = 1200) {
+      await driver.waitForSelector(selector);
       const box = await driver.evaluate(`() => {
         const el = document.querySelector(${JSON.stringify(selector)});
         if (!el) return null;

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module scripts/check/editor-conformance/inventory
  * @description Structural inventory of one settings panel, taken identically on the wireframe

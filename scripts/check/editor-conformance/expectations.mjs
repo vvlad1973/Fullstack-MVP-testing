@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module scripts/check/editor-conformance/expectations
  * @description Reads the spacing contract straight out of the approved wireframe.
