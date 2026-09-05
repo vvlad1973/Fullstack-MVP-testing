@@ -79,6 +79,22 @@ export interface ReportMeta {
    * `topicView`, which gates the rows on this flag first).
    */
   breakdownDisplay?: BreakdownDisplaySetting | null;
+  /**
+   * PRD-50 FR-50: общее проходное правило теста (`tests.overall_pass_rule_json`) — та
+   * величина, с которой сравнивается доля БАЛЛОВ подтемы, когда решается, печатать ли её
+   * текст с рекомендациями.
+   *
+   * Тот же класс факта, что {@link hasPassThreshold} и {@link breakdownDisplay} рядом:
+   * свойство теста, которое отчёт обязан показать так же, как экран, с которого документ
+   * скачали (PRD-51 §5.2), а не выводить заново. И ровно как они, оно живёт во ВХОДЕ
+   * отчёта: оба хоста собирают вход там, где факт известен.
+   *
+   * Отсутствие поля НЕ безобидно и означает «порога нет»: правило тогда печатает всё
+   * написанное автором (потерять текст хуже, чем показать лишний раз). Пока поле сюда не
+   * доезжало, документ печатал тексты ВСЕХ подтем, включая стопроцентные, — расхождение с
+   * экраном, запрещённое §5.2.
+   */
+  overallPassRule?: { type?: string | null; value?: number | null } | null;
 }
 
 /** Standard-mode report input — the SAME normalized result the results screen takes. */
