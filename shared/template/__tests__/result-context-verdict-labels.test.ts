@@ -72,9 +72,9 @@ describe("FR-34: подписи вердикта темы из словаря PR
     expect(result.topicResults![1].statusLabel).toBe("Не пройдено");
   });
 
-  it("строка разреза о вердикте молчит: подтема не судится (Э1)", () => {
-    // Словарь вердиктов обслуживает КАРТОЧКУ ТЕМЫ. У подтемы вердикта нет с Э1, поэтому
-    // печатать ей нечего — даже если сохранённая запись притащит `passed` от старой попытки.
+  it("строка разреза несёт исход, но СЛОВА не печатает (§16)", () => {
+    // Словарь вердиктов обслуживает КАРТОЧКУ ТЕМЫ. У строки исход с §16 есть, но выражен он
+    // классом, а не словом: строка узкая, и слово рядом с процентом дублировало бы цвет.
     const labels = { "topic.verdict.passed": "Зачёт", "topic.verdict.failed": "Незачёт" };
     const t = topic("A", false, [
       {
@@ -98,7 +98,8 @@ describe("FR-34: подписи вердикта темы из словаря PR
     });
     const row = (result.topicResults![0] as unknown as { breakdown: Array<Record<string, unknown>> }).breakdown[0];
     expect(row).not.toHaveProperty("statusLabel");
-    expect(row).not.toHaveProperty("passed");
+    expect(row.passed).toBe(true);
+    expect(row.passClass).toBe("is-pass");
     // А карточка темы своё слово печатает по-прежнему.
     expect(result.topicResults![0].statusLabel).toBe("Незачёт");
   });

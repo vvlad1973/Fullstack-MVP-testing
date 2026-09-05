@@ -758,6 +758,8 @@ function topicVerdictLabel(passed: boolean | null, labels?: Record<string, strin
 function breakdownRow(e: BreakdownEntry, display: BreakdownDisplaySetting): CtxBreakdownRow {
   const showValue = display.visibility === "bar_and_value";
   const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
+  const passed = e.passed ?? null;
+  const threshold = typeof e.thresholdPercent === "number" ? e.thresholdPercent : null;
   return {
     key: e.key,
     items: e.items,
@@ -773,6 +775,11 @@ function breakdownRow(e: BreakdownEntry, display: BreakdownDisplaySetting): CtxB
     barPercent: Math.round(value),
     showValue,
     valueLabel: showValue ? Math.round(value) + " %" : "",
+    // PRD-50 FR-54: исход ВЗЯТ у записи, а не вычислен здесь. Считать его в контексте значило
+    // бы завести вторую правду о пороге и перекрашивать старые попытки при смене настроек.
+    passed,
+    passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
+    ...(showValue && threshold !== null ? { requiredLabel: "Нужно " + Math.round(threshold) + " %" } : {}),
   };
 }
 
