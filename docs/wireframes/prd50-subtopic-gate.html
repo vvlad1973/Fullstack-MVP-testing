@@ -332,7 +332,7 @@
           <div class="ou-tabs ou-tabs--underline ou-tabs--m">
             <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
               <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
-              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Состав и сценарий</span><span class="status-dot warn" aria-label="есть предупреждения"></span></button>
               <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
               <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
               <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
@@ -344,11 +344,25 @@
           <div class="ou-drawer__body ou-drawer__body--flush" role="tabpanel" tabindex="0">
             <div class="ou-drawer__split">
               <nav class="ou-drawer__rail" aria-label="Подразделы состава и сценария">
-                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Состав</button>
+                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Состав<span class="status-dot warn" aria-label="есть предупреждения"></span></button>
                 <button type="button" class="ou-drawer__rail-item">Сценарий</button>
               </nav>
 
               <div class="tb-settings-content">
+                <!-- Правило индикации (контракт редактора, раздел «Индикация проблем»): сводный
+                     баннер стоит ВВЕРХУ ФОРМЫ, а не в карточке, к которой относится, — карточка
+                     бывает ниже сгиба. Действие переводит фокус на элемент с проблемой. -->
+                <div class="ou-banner ou-banner--warning ou-banner--subtle" role="status">
+                  <span class="ou-banner__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-alert-triangle" /></svg></span>
+                  <div class="ou-banner__body">
+                    <div class="ou-banner__title">Предупреждений: 1</div>
+                    <div class="ou-banner__desc">Для подтемы «incident_triage» вопросов меньше, чем запрошено квотой. Выдастся сколько есть.</div>
+                  </div>
+                  <div class="ou-banner__actions">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Перейти к предупреждениям</button>
+                  </div>
+                </div>
+
                 <div class="tb-topic-row">
                   <div class="tb-topic-row__header">
                     <span class="tb-topic-row__name">Работа с инцидентами</span>
@@ -424,13 +438,8 @@
                     <div class="wf-removed">Пороги по подтемам (тегам) — убрано, FR-56</div>
 
                     <div class="tb-quota-block">
-                      <div class="ou-banner ou-banner--subtle ou-banner--warning" role="status">
-                        <span class="ou-banner__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-alert-triangle" /></svg></span>
-                        <div class="ou-banner__body">
-                          <div class="ou-banner__desc">Для некоторых подтем вопросов меньше квоты — выдастся сколько есть, это не блокирует сохранение.</div>
-                        </div>
-                      </div>
-
+                      <!-- Баннера здесь больше нет: по правилу индикации сводный текст стоит
+                           вверху формы, а в самой карточке говорит знак у значения строки. -->
                       <table class="tb-table">
                         <thead>
                           <tr>
