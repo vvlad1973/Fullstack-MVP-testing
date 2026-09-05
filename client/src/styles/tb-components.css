@@ -258,7 +258,12 @@
 
 /* PRD-29 §7.1a: шапка строки темы в карточке «По темам» — подпись источника слева,
    «Сбросить до установок темы» справа, в одну строку над предпросмотром. */
-.tb-topic-feedback__head {
+/* Переопределённый текст помечается ТОЛЬКО полосой слева: подпись рядом с ней была бы
+   второй раз о том же (решение эскиза 13). Цвет — предупреждающий: это не ошибка, а
+   отступление от текста темы. */
+.tb-feedback-preview.is-overridden { border-left: var(--ou-space-1) solid var(--ou-warning-default); }
+
+.tb-feedback-head {
   display: flex;
   align-items: center;
   justify-content: space-between;

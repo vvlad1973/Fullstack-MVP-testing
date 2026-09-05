@@ -985,14 +985,6 @@
   },
   {
     "op": "missing",
-    "role": "heading",
-    "text": "По темам",
-    "index": 8,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "label",
     "text": "1. О компании",
     "index": 9,
@@ -1297,32 +1289,24 @@
   },
   {
     "op": "extra",
-    "role": "heading",
-    "text": "Демо: управленческие компетенции",
-    "index": 8,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "heading",
-    "text": "Демо: знания о компании",
+    "role": "label",
+    "text": "1. Демо: управленческие компетенции",
     "index": 9,
     "state": "texts",
     "finding": null
   },
   {
     "op": "extra",
-    "role": "heading",
-    "text": "Демо: управленческие компетенции",
+    "role": "label",
+    "text": "2. Демо: знания о компании",
     "index": 10,
     "state": "texts",
     "finding": null
   },
   {
     "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
+    "role": "heading",
+    "text": "Демо: управленческие компетенции",
     "index": 11,
     "state": "texts",
     "finding": null
@@ -1330,8 +1314,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 12,
+    "state": "texts",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "Обратная связь",
-    "index": 13,
+    "index": 14,
     "state": "texts",
     "finding": null
   },
@@ -1339,7 +1331,7 @@
     "op": "extra",
     "role": "label",
     "text": "Постановка задач",
-    "index": 15,
+    "index": 16,
     "state": "texts",
     "finding": null
   },
@@ -1347,14 +1339,6 @@
     "op": "extra",
     "role": "heading",
     "text": "Демо: знания о компании",
-    "index": 17,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
     "index": 18,
     "state": "texts",
     "finding": null
@@ -1362,8 +1346,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 19,
+    "state": "texts",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "Охрана труда",
-    "index": 20,
+    "index": 21,
     "state": "texts",
     "finding": null
   },
@@ -1371,7 +1363,7 @@
     "op": "extra",
     "role": "label",
     "text": "Регламенты и процессы",
-    "index": 22,
+    "index": 23,
     "state": "texts",
     "finding": null
   },
@@ -1379,7 +1371,7 @@
     "op": "order",
     "role": "button",
     "text": "",
-    "index": 12,
+    "index": 13,
     "state": "texts",
     "finding": null
   },

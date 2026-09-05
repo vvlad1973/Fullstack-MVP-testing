@@ -28,6 +28,8 @@ export type FeedbackPreviewProps = {
   editAriaLabel?: string;
   /** Placeholder shown when nothing is configured. */
   emptyLabel?: string;
+  /** Текст переопределён в этом тесте: рисуется полосой слева, без подписи. */
+  overridden?: boolean;
   /** data-testid for the preview root. The pencil gets `${testId}-edit`. */
   testId?: string;
 };
@@ -80,13 +82,15 @@ export function FeedbackPreview(props: FeedbackPreviewProps) {
     props.events.length === 0;
 
   if (isEmpty) {
-    const empty = props.emptyLabel ?? "Не задано — нажмите для редактирования";
+    const empty = props.emptyLabel ?? "Без текста";
     if (props.onEdit) {
       return (
         <div
           role="button"
           tabIndex={0}
-          className="tb-feedback-preview is-empty"
+          className={
+            props.overridden ? "tb-feedback-preview is-empty is-overridden" : "tb-feedback-preview is-empty"
+          }
           onClick={props.onEdit}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -109,7 +113,10 @@ export function FeedbackPreview(props: FeedbackPreviewProps) {
   }
 
   return (
-    <div className="tb-feedback-preview" data-testid={props.testId}>
+    <div
+      className={props.overridden ? "tb-feedback-preview is-overridden" : "tb-feedback-preview"}
+      data-testid={props.testId}
+    >
       <div className="tb-feedback-preview__head">
         {isRich && hasText ? (
           <div

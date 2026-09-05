@@ -96,7 +96,9 @@ const runUpdater = (fn: ReturnType<typeof vi.fn>, model: TestEditorModel) =>
 describe("<TopicFeedbackCard />", () => {
   it("без своей правки печатает текст ТЕМЫ и называет источник", () => {
     render(baseModel([section("law", "Право")]));
-    expect(screen.getByTestId("topic-feedback-law-source")).toHaveTextContent("Из темы");
+    // Источник показывает ТОЛЬКО полоса слева у превью: подписи рядом эскиз не рисует
+    // (решение 13). Текст темы — не переопределение, полосы нет.
+    expect(screen.getByTestId("topic-feedback-law")).not.toHaveClass("is-overridden");
     expect(screen.getByTestId("topic-feedback-law")).toHaveTextContent("Текст самой темы");
     // Сбрасывать нечего — кнопки нет.
     expect(screen.queryByTestId("topic-feedback-law-reset")).toBeNull();
@@ -104,7 +106,7 @@ describe("<TopicFeedbackCard />", () => {
 
   it("своя правка теста ЗАМЕНЯЕТ текст темы, а не дописывается к нему", () => {
     render(baseModel([section("law", "Право", "Текст этого теста")]));
-    expect(screen.getByTestId("topic-feedback-law-source")).toHaveTextContent("Задано в этом тесте");
+    expect(screen.getByTestId("topic-feedback-law")).toHaveClass("is-overridden");
     const preview = screen.getByTestId("topic-feedback-law");
     expect(preview).toHaveTextContent("Текст этого теста");
     expect(preview).not.toHaveTextContent("Текст самой темы");
