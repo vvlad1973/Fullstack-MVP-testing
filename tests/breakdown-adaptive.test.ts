@@ -229,9 +229,9 @@ describe("сводный блок разреза на адаптивном эк�
     expect(ctx.result.topicResults?.[0]).not.toHaveProperty("breakdown");
   });
 
-  it("строка разреза вердикта не несёт, а заголовок блока берётся из словаря", () => {
-    // Решение владельца 2026-09-03: подтема говорит о результате, но не судит его —
-    // ни `passed`, ни `passClass`, ни `statusLabel` в строке больше нет.
+  it("строка разреза СЛОВА не несёт, а заголовок блока берётся из словаря", () => {
+    // PRD-50 §16: исход у строки есть, но выражен классом, а не словом — `statusLabel` в
+    // ней не появляется. Адаптивный экран порогов подтем не штампует, поэтому исход пустой.
     const ctx = buildAdaptiveResultContext(
       { ...adaptiveInput, breakdowns: [entry("ПДн", 75)] },
       "Адаптивный",
@@ -244,7 +244,8 @@ describe("сводный блок разреза на адаптивном эк�
     const row = ctx.result.breakdown?.[0] as Record<string, unknown> | undefined;
     expect(row).toBeDefined();
     expect("statusLabel" in row!).toBe(false);
-    expect("passed" in row!).toBe(false);
+    expect(row!.passed).toBeNull();
+    expect(row!.passClass).toBe("");
     expect(ctx.result.blocks?.find((b) => b.key === "breakdown")?.heading).toBe("Разрез результата");
   });
 });
