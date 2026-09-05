@@ -200,10 +200,6 @@
   border-bottom: 0;
   gap: var(--ou-space-1);
 }
-.tb-settings-content .ou-formsection__body,
-.ou-card__body .ou-formsection__body {
-  gap: var(--ou-space-4);
-}
 /* Третий селектор — обёртка: панель надписей кладёт группы в свой `div`, и её первая
    группа отбивается от предыдущего блока так же, как группа от группы. */
 .tb-settings-content .ou-formsection + .ou-formsection,
@@ -213,28 +209,17 @@
 }
 
 /* Родственные пары внутри компонента — 1x. */
-.tb-settings-content :is(.ou-select, .ou-number, .ou-textarea, .ou-switch-field),
-.tb-settings-content .ou-switch-field__text {
-  gap: var(--ou-space-1);
-}
+/* `ou-switch-field` — единственное, что осталось за проектным слоем: правила зазора
+   «тумблер — текст» в дизайн-системе нет вовсе, задавать его там было бы не переносом
+   утверждённого значения, а новым решением за все продукты. */
+.tb-settings-content .ou-switch-field { gap: var(--ou-space-1); }
 
 /* Хром ящика редактора: 6x от краёв, однородные строки списка — 1x. Правила адресованы
    ИМЕННО этому ящику (рейл живёт только в его вкладках, подвал найден по телу
    редактора): у остальных ящиков свои утверждённые эскизы. */
-.ou-drawer__split > .ou-drawer__rail {
-  padding: var(--ou-space-6);
-  gap: var(--ou-space-1);
-}
-.ou-drawer:has([data-testid="test-editor-body"]) > .ou-drawer__foot {
-  padding: var(--ou-space-6);
-  gap: var(--ou-space-1);
-}
 /* Шапка и полоса вкладок: те же 6x от краёв, что у подвала и панели. Без этого вкладки
    прижаты к краю ящика, а поля тела начинаются правее — колонка визуально не собирается.
    ui-kit даёт шапке 20 и полосе 0 (`university-rt.css`), эскиз перебивает и то и другое. */
-.ou-drawer:has([data-testid="test-editor-body"]) > .ou-drawer__head {
-  padding: var(--ou-space-6);
-}
 .ou-drawer:has([data-testid="test-editor-body"]) .ou-tabs__list {
   padding-inline: var(--ou-space-6);
 }
@@ -242,15 +227,10 @@
    ставит 8px (`--ou-space-2`), а эскиз требует 16: свёртки тем — это разные блоки, а не
    родственная пара. Правило появилось, когда реестр обратной связи вопросов переехал с
    самодельной свёртки на `ou-acc` и впервые привёл аккордеон в ящик. */
-.tb-settings-content .ou-acc { gap: var(--ou-space-4); }
 
 /* Родственные пары внутри компонентов ящика — 1x: иконка и подпись кнопки, вариант и его
    метка, иконка и текст баннера. ui-kit ставит 8, 12 и 2 соответственно. */
-.ou-drawer:has([data-testid="test-editor-body"]) .ou-btn,
-.ou-drawer:has([data-testid="test-editor-body"]) .ou-radio-group__items,
-.ou-drawer:has([data-testid="test-editor-body"]) .ou-banner__body {
-  gap: var(--ou-space-1);
-}
+
 
 /* Section caption (subdued uppercase-like heading внутри формы). */
 .tb-section-label { font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); margin: 0 0 var(--ou-space-2); display: inline-flex; align-items: center; gap: var(--ou-space-2); }
@@ -471,7 +451,6 @@
 .tb-pass-card { margin-bottom: var(--ou-space-3); }
 .tb-pass-card > .ou-card__header { padding-bottom: var(--ou-space-2); }
 .tb-pass-card > .ou-card__body { padding-top: var(--ou-space-2); padding-bottom: var(--ou-space-3); }
-.tb-pass-card .ou-radio-group__items { gap: var(--ou-space-2); }
 
 .tb-pass-overall {
   display: grid;
