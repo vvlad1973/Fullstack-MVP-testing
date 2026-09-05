@@ -70,6 +70,13 @@ export const EXTRACT = `() => {
         const columns = [...child.querySelectorAll("th")].map((th) => norm(th.textContent).split(" ")[0]);
         items.push({ role: "table", text: columns.join(" | ") });
         continue;
+      } else if (tag === "button" && /ou-acc__trigger/.test(cls)) {
+        // Заголовок свёртки — ДАННЫЕ: имя темы и её счётчики. Сама кнопка структурна и
+        // одинакова у всех свёрток, поэтому в опись идёт без подписи; иначе каждая тема
+        // тестового теста читалась бы как лишняя кнопка, которой нет в эскизе.
+        items.push({ role: "fold", text: "" });
+        walk(child);
+        continue;
       } else if (tag === "button") {
         const variant = (cls.match(/ou-btn--(primary|secondary|ghost|destructive)/) || [])[1] || "";
         items.push({ role: "button", text: norm(child.textContent), variant });

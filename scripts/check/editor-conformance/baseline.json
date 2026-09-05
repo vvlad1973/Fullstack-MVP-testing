@@ -65,8 +65,8 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "1. О компании 41 вопрос в банке · выдаётся 16",
+    "role": "fold",
+    "text": "",
     "index": 8,
     "state": "composition",
     "finding": null
@@ -225,16 +225,16 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "2. Корпоративные финансы 25 вопросов в банке · выдаётся 10",
+    "role": "fold",
+    "text": "",
     "index": 51,
     "state": "composition",
     "finding": null
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "3. Технологии 28 вопросов в банке · выдаётся 12",
+    "role": "fold",
+    "text": "",
     "index": 53,
     "state": "composition",
     "finding": null
@@ -688,58 +688,10 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "Обратная связь вопросов",
-    "index": 3,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "1. О компании 16 вопросов · у 12 задана обратная связь",
-    "index": 6,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "table",
-    "text": "Вопрос | Режим | Текст | ",
-    "index": 7,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "2. Корпоративные финансы 10 вопросов · у 3 задана обратная связь",
-    "index": 8,
-    "state": "during",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "label",
     "text": "Показывать правильные ответы после ответа",
     "index": 1,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Демо: управленческие компетенциивопросов 9 · с обратной связью 0",
-    "index": 4,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Демо: знания о компаниивопросов 9 · с обратной связью 0",
-    "index": 5,
     "state": "during",
     "finding": null
   },
@@ -1762,14 +1714,6 @@
   {
     "op": "missing",
     "role": "button",
-    "text": "1. О компании 16 вопросов · 2 уровня Включено",
-    "index": 3,
-    "state": "adaptive",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
     "text": "Добавить уровень",
     "index": 5,
     "state": "adaptive",
@@ -2128,26 +2072,10 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "button",
-    "text": "2. Корпоративные финансы 10 вопросов · уровней нет Выключено",
-    "index": 50,
-    "state": "adaptive",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Стенд: адаптивная лестница12 вопросов · 3 уровняВключено",
-    "index": 0,
-    "state": "adaptive",
-    "finding": null
-  },
-  {
     "op": "order",
-    "role": "control",
-    "text": "input:checkbox",
-    "index": 1,
+    "role": "fold",
+    "text": "",
+    "index": 2,
     "state": "adaptive",
     "finding": null
   },

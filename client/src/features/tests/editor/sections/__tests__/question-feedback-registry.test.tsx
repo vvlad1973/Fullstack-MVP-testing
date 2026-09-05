@@ -111,18 +111,29 @@ function render(model: TestEditorModel, onOpenQuestion?: (id: string) => void) {
   );
 }
 
+/** Кнопка-триггер внутри элемента аккордеона: она и несёт `aria-expanded`. */
+function triggerOf(item: HTMLElement): HTMLElement {
+  const trigger = item.querySelector<HTMLElement>(".ou-acc__trigger");
+  if (!trigger) throw new Error("У элемента аккордеона нет триггера .ou-acc__trigger");
+  return trigger;
+}
+
 describe("<QuestionFeedbackRegistry />", () => {
   it("открывается свёрнутым до тем и считает, у скольких вопросов есть текст", () => {
     render(baseModel([section("law", "Право")]));
-    const trigger = screen.getByTestId("question-feedback-topic-law");
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(trigger).toHaveTextContent("вопросов 3 · с обратной связью 2");
-    expect(screen.queryByText("Что такое персональные данные?")).toBeNull();
+    const item = screen.getByTestId("question-feedback-topic-law");
+    // `aria-expanded` живёт на КНОПКЕ-триггере аккордеона ДС, а не на элементе темы.
+    expect(triggerOf(item)).toHaveAttribute("aria-expanded", "false");
+    expect(item).toHaveTextContent("3 вопросов · у 2 задана обратная связь");
+    // Аккордеон дизайн-системы держит тело в DOM и прячет его правилом
+    // `.ou-acc__item:not(.is-open) .ou-acc__body { display: none }`, поэтому свёрнутость
+    // проверяется состоянием элемента, а не отсутствием текста в разметке.
+    expect(screen.getByTestId("question-feedback-topic-law")).not.toHaveClass("is-open");
   });
 
   it("раскрытая тема показывает тексты по режиму вопроса", () => {
     render(baseModel([section("law", "Право")]));
-    fireEvent.click(screen.getByTestId("question-feedback-topic-law"));
+    fireEvent.click(triggerOf(screen.getByTestId("question-feedback-topic-law")));
     expect(screen.getByText("Смотрите статью 3")).toBeInTheDocument();
     expect(screen.getByText("Верно, только с согласия")).toBeInTheDocument();
     expect(screen.getByText("Нет: нужно согласие субъекта")).toBeInTheDocument();
@@ -133,9 +144,9 @@ describe("<QuestionFeedbackRegistry />", () => {
   it("«Развернуть все» и «Свернуть все» работают на все темы", () => {
     render(baseModel([section("law", "Право")]));
     fireEvent.click(screen.getByTestId("question-feedback-expand-all"));
-    expect(screen.getByTestId("question-feedback-topic-law")).toHaveAttribute("aria-expanded", "true");
+    expect(triggerOf(screen.getByTestId("question-feedback-topic-law"))).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(screen.getByTestId("question-feedback-collapse-all"));
-    expect(screen.getByTestId("question-feedback-topic-law")).toHaveAttribute("aria-expanded", "false");
+    expect(triggerOf(screen.getByTestId("question-feedback-topic-law"))).toHaveAttribute("aria-expanded", "false");
   });
 
   it("«Открыть вопрос» отдаёт идентификатор наверх, а не правит текст на месте", () => {

@@ -2546,7 +2546,7 @@
       "question-feedback-registry.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-4",
@@ -2561,7 +2561,7 @@
       "question-feedback-registry.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-5",
@@ -2576,7 +2576,7 @@
       "question-feedback-registry.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-6",
@@ -2591,7 +2591,7 @@
       "question-feedback-registry.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-7",
@@ -2606,7 +2606,7 @@
       "question-feedback-registry.tsx"
     ],
     "batch": "components",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-8",
@@ -2621,7 +2621,7 @@
       "question-feedback-registry.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-9",

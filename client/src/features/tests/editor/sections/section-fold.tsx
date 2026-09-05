@@ -25,9 +25,19 @@ export interface SectionFold {
   anyCollapsed: boolean;
 }
 
-/** Ephemeral folding state over the given section ids (all expanded on open). */
-export function useSectionFold(sectionIds: string[]): SectionFold {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+/**
+ * Ephemeral folding state over the given section ids; everything is expanded on open unless
+ * `startCollapsed` says otherwise.
+ *
+ * The flag exists for registries that list whole question banks: a test with a dozen topics of
+ * a dozen questions each opens as a wall of text in which nothing can be found, so those start
+ * folded down to topic headers. Everywhere else expanded is right — the author came to read
+ * what is there, not to click it open.
+ */
+export function useSectionFold(sectionIds: string[], startCollapsed = false): SectionFold {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() =>
+    startCollapsed ? new Set(sectionIds) : new Set(),
+  );
   const allCollapsed = sectionIds.length > 0 && sectionIds.every((id) => collapsed.has(id));
   const anyCollapsed = useMemo(() => sectionIds.some((id) => collapsed.has(id)), [sectionIds, collapsed]);
   return {
