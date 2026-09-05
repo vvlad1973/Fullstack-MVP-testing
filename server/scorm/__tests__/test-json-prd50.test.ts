@@ -67,10 +67,10 @@ describe("buildTestJson: теги адаптивных разделов", () => 
   });
 });
 
-/** Стандартный тест с ОДНОЙ секцией, несущей `breakdownRulesJson`. */
-function fixtureWithSectionRules(rules: unknown) {
+/** Стандартный тест с ОДНОЙ секцией и одним тегированным вопросом. */
+function standardFixture(testOver: Record<string, unknown> = {}) {
   return {
-    test: { ...baseTest, mode: "standard" },
+    test: { ...baseTest, mode: "standard", ...testOver },
     sections: [
       {
         id: "sec-1",
@@ -78,7 +78,6 @@ function fixtureWithSectionRules(rules: unknown) {
         drawCount: 1,
         required: true,
         feedbackJson: null,
-        breakdownRulesJson: rules,
         topic: { id: "t1", name: "Право", feedback: null, feedbackJson: null },
         questions: [
           {
@@ -99,32 +98,24 @@ function fixtureWithSectionRules(rules: unknown) {
   } as never;
 }
 
-describe("buildTestJson: пороги ключей в пакете", () => {
-  it("пороги подтем в пакет не пекутся — рантайм их не читает", () => {
-    // Решение владельца 2026-09-03: вердикт темы — её собственное правило, поэтому
-    // сохранённым порогам в доставке делать нечего. В базе и в переносе они остаются.
-    const json = bake(fixtureWithSectionRules({ axis: "tag", keys: { "ПДн": { type: "percent", value: 80 } } }));
-    expect("breakdownRules" in json.sections[0]).toBe(false);
+describe("buildTestJson: гейт подтем в пакете (PRD-50 FR-53)", () => {
+  it("включённый переключатель выпекается флагом", () => {
+    const json = bake(standardFixture({ breakdownGateEnabled: true }));
+    expect(json.breakdownGateEnabled).toBe(true);
   });
 
-  it("без порогов пакет тоже их не несёт", () => {
-    const json = bake(fixtureWithSectionRules(null));
-    expect("breakdownRules" in json.sections[0]).toBe(false);
+  it("выключенный переключатель в пакет не попадает — пакет остаётся байт-в-байт прежним", () => {
+    // Рантайм читает отсутствие как «выключено», поэтому тест, который переключателя не
+    // трогал, собирается ровно в тот же пакет, что и до §16.
+    expect("breakdownGateEnabled" in bake(standardFixture())).toBe(false);
+    expect("breakdownGateEnabled" in bake(standardFixture({ breakdownGateEnabled: false }))).toBe(false);
   });
 });
 
 describe("buildTestJson: список ключей разреза (PRD-36 FR-02)", () => {
   it("ключи собираются из тегов вопросов — их адресом станет НОМЕР в этом списке", () => {
-    const json = bake(fixtureWithSectionRules(null));
+    const json = bake(standardFixture());
     expect(json.breakdownKeys).toEqual(["ПДн"]);
-  });
-
-  it("порог по ключу, которого нет ни у одного вопроса, тоже получает адрес", () => {
-    const json = bake(
-      fixtureWithSectionRules({ axis: "tag", keys: { "Охрана труда": { type: "percent", value: 80 } } }),
-    );
-    // Иначе запись разреза по такому ключу потеряла бы адрес и молча выпала из сводки.
-    expect(json.breakdownKeys).toEqual(["ПДн", "Охрана труда"]);
   });
 
   it("тест без тегов и порогов списка не несёт — пакет остаётся прежним", () => {

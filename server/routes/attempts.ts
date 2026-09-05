@@ -1467,8 +1467,6 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
       topicPassRule: section?.topicPassRuleJson ?? null,
       // PRD-24: the variant delivered for this topic decides which threshold gates it.
       formId: variantSection.formId ?? null,
-      // Пороги подтем не передаём: вердикт темы — её собственное правило (решение
-      // владельца 2026-09-03). Сохранённые пороги остаются в данных как легаси.
       questions: questions.map((q) => {
         const effective = scoring.resolve(q);
         return {
@@ -1485,7 +1483,13 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
     };
     // Same overall pass rule as /finish so a topic with an inherit/none rule
     // resolves its verdict identically (resolveTopicRule -> overall).
-    const agg = aggregateStandardResult({ sections: [aggSection], overallPassRule: test.overallPassRuleJson });
+    // PRD-50 FR-53: гейт подтем передаётся и сюда — иначе вердикт темы на экране итогов
+    // раздела разошёлся бы с тем же вердиктом на экране итогов теста.
+    const agg = aggregateStandardResult({
+      sections: [aggSection],
+      overallPassRule: test.overallPassRuleJson,
+      breakdownGateEnabled: test.breakdownGateEnabled === true,
+    });
     const tr = agg.topicResults[0];
     // PRD-49: надписи ЭТОГО экрана (`section.eyebrow`, `facts.*`). Разрешает СЕРВЕР — тем
     // же адаптером и против того же манифеста, что и надписи экрана итогов, — а браузер
@@ -1616,6 +1620,10 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       // published with. A snapshot taken before the column existed carries none,
       // and the engine then falls back to the pre-policy verdict.
       passDecisionPolicy: test.passDecisionPolicy,
+      // PRD-50 FR-53: учитывать ли подтемы в вердикте темы. Читается из ТОЙ ЖЕ версии
+      // теста, против которой попытка и оценивается (снимок или живая): попытка,
+      // приколотая к снимку без этого поля, судится как судилась.
+      breakdownGateEnabled: test.breakdownGateEnabled === true,
     });
     const totalCorrect = agg.correct;
     const totalQuestions = agg.totalQuestions;

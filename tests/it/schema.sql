@@ -354,7 +354,6 @@ CREATE TABLE "test_sections" (
 	"feedback_json" jsonb,
 	"draw_blueprint_json" jsonb,
 	"form_set_json" jsonb,
-	"breakdown_rules_json" jsonb,
 	"breakdown_feedback_json" jsonb,
 	"group_key" text,
 	"question_order" text,
@@ -412,6 +411,7 @@ CREATE TABLE "tests" (
 	"report_settings_json" jsonb,
 	"intro_json" jsonb,
 	"breakdown_display_json" jsonb,
+	"breakdown_gate_enabled" boolean DEFAULT false NOT NULL,
 	"section_groups_json" jsonb
 );
 

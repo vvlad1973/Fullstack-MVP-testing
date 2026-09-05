@@ -23,7 +23,6 @@ import {
   templates,
 } from "@shared/schema";
 import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet, BreakdownDisplaySetting, SectionGroup } from "@shared/schema";
-import type { BreakdownRules } from "@shared/breakdown/types";
 import {
   planSystemPages,
   SYSTEM_KINDS,
@@ -121,8 +120,6 @@ export interface SectionPayload {
   drawBlueprintJson?: DrawBlueprint | null;
   /** PRD-17 (BR-12): optional fixed-variant set; null/absent = legacy draw. */
   formSetJson?: FormSet | null;
-  /** PRD-50 §4: per-key thresholds of this section; null/absent = keys are informational. */
-  breakdownRulesJson?: BreakdownRules | null;
   /**
    * PRD-50 FR-50: тексты подтем этого раздела; `null`/отсутствие = автор их не писал.
    *
@@ -177,6 +174,12 @@ export interface TestPayload {
     | "overall_and_required_topics"
     | "required_topics_only"
     | "all_topics_passed";
+  /**
+   * PRD-50 FR-53: учитывать ли подтемы в вердикте темы (`tests.breakdown_gate_enabled`).
+   * Отсутствие = сохранить прежнее значение; у нового теста действует умолчание колонки
+   * (`false`) — подтема говорит о результате, но не судит его.
+   */
+  breakdownGateEnabled?: boolean;
   webhookUrl?: string | null;
   /** PRD-7 §4.1: primary status field. */
   status?: "draft" | "published" | "archived";
@@ -322,6 +325,8 @@ export class TestSettingsService {
         // «Тест пройден, если»: новый тест решает итог по общему порогу — правил по
         // темам у него ещё нет (рекомендация §3.4 test-settings-parameter-structure).
         passDecisionPolicy: payload.test.passDecisionPolicy ?? "overall_only",
+        // PRD-50 FR-53: новый тест не судит темы подтемами, пока автор не включит.
+        breakdownGateEnabled: payload.test.breakdownGateEnabled ?? false,
         webhookUrl: payload.test.webhookUrl ?? null,
         status,
         published,
@@ -809,7 +814,6 @@ export class TestSettingsService {
         feedbackJson: s.feedbackJson ?? null,
         drawBlueprintJson: s.drawBlueprintJson ?? null,
         formSetJson: s.formSetJson ?? null,
-        breakdownRulesJson: s.breakdownRulesJson ?? null,
         breakdownFeedbackJson: (s.breakdownFeedbackJson ?? null) as never,
         groupKey: s.groupKey ?? null,
         defaultPoints: s.defaultPoints ?? null,

@@ -197,6 +197,13 @@
       "when": 1788463375751,
       "tag": "0027_prd19_free_section_navigation",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788588393722,
+      "tag": "0028_prd50_subtopic_gate",
+      "breakpoints": true
     }
   ]
 }

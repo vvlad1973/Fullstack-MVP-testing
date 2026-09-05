@@ -49,27 +49,6 @@ export interface BreakdownEntry {
 }
 
 /**
- * One key threshold. `none` says the key is INFORMATIONAL on purpose — it is not the same
- * as an absent entry, which falls back to {@link BreakdownRules.default} (FR-20).
- */
-export type BreakdownThreshold = { type: "percent"; value: number } | { type: "none" };
-
-/**
- * PRD-50 §4 (FR-09/FR-10): the grading rules of one section's breakdown axis, stored in
- * `test_sections.breakdown_rules_json`. Kept apart from `draw_blueprint_json` on purpose
- * (решение 5): a quota is about DELIVERY, a threshold about GRADING, and either is
- * meaningful without the other. Absent structure = every key is informational.
- */
-export interface BreakdownRules {
-  /** Axis the rules speak about. Only `"tag"` is registered in this edition (FR-06). */
-  axis: string;
-  /** Threshold for every key without an own entry (FR-20). Absent = no fallback gate. */
-  default?: BreakdownThreshold;
-  /** Per-key thresholds; a key absent here falls back to {@link BreakdownRules.default}. */
-  keys?: Record<string, BreakdownThreshold>;
-}
-
-/**
  * PRD-50 FR-50: обратная связь подтем ОДНОГО раздела, хранится в
  * `test_sections.breakdown_feedback_json`. Значение записи — то же содержимое, что у
  * обратной связи темы (`format`, `text`, `links`, `assets`, `events`), поэтому текст
