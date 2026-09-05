@@ -3,13 +3,15 @@
  * @description Shared per-section folding for the editor's section-grouped lists
  * («Оценка» and «Шкалы» → «Вклады вопросов»). `useSectionFold` keeps the ephemeral
  * collapsed set (all expanded on open) and the collapse-all / expand-all helpers;
- * `FoldAllButtons` renders the matching «Свернуть все / Развернуть все» toolbar.
- * The per-section disclosure itself stays in each tab (it wraps tab-specific
- * content) via the shadcn `Collapsible`, same pattern as the topics folders.
+ * `FoldAllButtons` renders the matching «Свернуть все / Развернуть все» toolbar, and
+ * `FoldSection` renders one collapsible section with the header, counter tag and body the
+ * approved wireframe draws. The three live together on purpose: a second copy of any of them
+ * drifts from the drawing — the button pair already did once and lost its icons.
  */
 
 import { useMemo, useState } from "react";
-import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import type * as React from "react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@universityrt/ui-kit";
 
 export interface SectionFold {
@@ -87,5 +89,54 @@ export function FoldAllButtons({
         Свернуть все
       </Button>
     </span>
+  );
+}
+
+/**
+ * Одна сворачиваемая секция списка: шапка с шевроном, именем и тегом-счётчиком, тело.
+ *
+ * Разметка (`tb-fold-sec` / `tb-fold-sec-head` / `tb-fold-trigger` / `tb-fold-sec__body`)
+ * задана утверждённым эскизом `docs/wireframes/editor-settings-target.html`. Она была
+ * вкопана в `scales-section.tsx`, и вторая её копия в другом файле разошлась бы с рисунком
+ * так же, как разошлась пара «Развернуть все / Свернуть все» — та потеряла иконки.
+ */
+export function FoldSection({
+  open,
+  onToggle,
+  name,
+  tag,
+  testId,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  name: string;
+  /** Счётчик справа от имени: «3 подтемы», «14 вопросов». Без него тег не рисуется. */
+  tag?: string;
+  testId?: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="tb-fold-sec" data-testid={testId}>
+      <div className="tb-fold-sec-head">
+        <button
+          type="button"
+          className="tb-fold-trigger"
+          aria-expanded={open ? "true" : "false"}
+          aria-label={open ? `Свернуть секцию ${name}` : `Развернуть секцию ${name}`}
+          onClick={onToggle}
+          data-testid={testId ? `${testId}-toggle` : undefined}
+        >
+          {open ? (
+            <ChevronDown className="tb-fold-chev" width={16} height={16} aria-hidden="true" />
+          ) : (
+            <ChevronRight className="tb-fold-chev" width={16} height={16} aria-hidden="true" />
+          )}
+          <span className="tb-fold-sec-name">{name}</span>
+        </button>
+        {tag && <span className="ou-tag ou-tag--neutral ou-tag--outline">{tag}</span>}
+      </div>
+      {open && <div className="tb-fold-sec__body">{children}</div>}
+    </div>
   );
 }

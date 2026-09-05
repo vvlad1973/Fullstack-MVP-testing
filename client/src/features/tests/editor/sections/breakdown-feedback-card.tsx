@@ -16,9 +16,10 @@
 import { useMemo, useState } from "react";
 import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Banner, Card, CardBody, CardHeader, FormSection } from "@universityrt/ui-kit";
+import { Banner, FormSection } from "@universityrt/ui-kit";
 import { FeedbackEditorModal, type FeedbackEditorValue } from "./feedback-editor-modal";
 import { FeedbackPreview } from "./feedback-preview";
+import { FoldAllButtons, FoldSection, useSectionFold } from "./section-fold";
 import { buildTagsByTopic, type QuestionTagRow } from "./topics-structure-section";
 import type { BreakdownFeedbackEntry, TestEditorModel } from "../test-editor.types";
 
@@ -59,6 +60,8 @@ export function BreakdownFeedbackCard({
     );
   }
 
+  const fold = useSectionFold(sections.map((s) => s.topicId));
+
   if (sections.length === 0) {
     return (
       <Banner
@@ -89,15 +92,25 @@ export function BreakdownFeedbackCard({
     }));
 
   return (
-    <Card variant="outlined" size="sm" data-testid="breakdown-feedback-card">
-      <CardHeader
-        title="По подтемам (тегам)"
-        subtitle="Текст выдаётся, когда результат по подтеме ниже общего проходного порога теста, — независимо от того, сдан тест или нет."
-      />
-      <CardBody>
-        {sections.map((section) => (
-          <FormSection key={section.topicId} title={section.topicName} stacked>
-            {(tagsByTopic.get(section.topicId)?.tags ?? []).map((tag) => {
+    <FormSection
+      stacked
+      title="По подтемам (тегам)"
+      subtitle="Текст выдаётся, когда результат по подтеме ниже общего проходного порога теста, — независимо от того, сдан тест или нет."
+      meta={<FoldAllButtons fold={fold} testIdPrefix="breakdown-feedback" />}
+      data-testid="breakdown-feedback-card"
+    >
+      {sections.map((section, index) => {
+        const tags = tagsByTopic.get(section.topicId)?.tags ?? [];
+        return (
+          <FoldSection
+            key={section.topicId}
+            open={fold.isOpen(section.topicId)}
+            onToggle={() => fold.toggle(section.topicId)}
+            name={`${index + 1}. ${section.topicName}`}
+            tag={pluralTags(tags.length)}
+            testId={`breakdown-feedback-sec-${section.topicId}`}
+          >
+            {tags.map((tag) => {
               const value = section.breakdownFeedback?.[tag] ?? EMPTY;
               return (
                 <TagFeedbackRow
@@ -109,10 +122,10 @@ export function BreakdownFeedbackCard({
                 />
               );
             })}
-          </FormSection>
-        ))}
-      </CardBody>
-    </Card>
+          </FoldSection>
+        );
+      })}
+    </FormSection>
   );
 }
 
@@ -174,4 +187,14 @@ function TagFeedbackRow(props: {
       />
     </div>
   );
+}
+
+/** «1 подтема» / «3 подтемы» / «5 подтем» — счётчик в теге шапки свёртки. */
+function pluralTags(count: number): string {
+  const tail = count % 100;
+  const last = count % 10;
+  if (tail >= 11 && tail <= 14) return `${count} подтем`;
+  if (last === 1) return `${count} подтема`;
+  if (last >= 2 && last <= 4) return `${count} подтемы`;
+  return `${count} подтем`;
 }

@@ -609,38 +609,6 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "О компании",
-    "index": 3,
-    "state": "answer",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Корпоративные финансы",
-    "index": 6,
-    "state": "answer",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Демо: управленческие компетенции",
-    "index": 3,
-    "state": "answer",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Демо: знания о компании",
-    "index": 6,
-    "state": "answer",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "heading",
     "text": "Тест пройден, если",
     "index": 0,
@@ -1017,38 +985,6 @@
   },
   {
     "op": "missing",
-    "role": "heading",
-    "text": "По подтемам (тегам)",
-    "index": 16,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 17,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 18,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "1. О компании",
-    "index": 19,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "label",
     "text": "Стратегия компании",
     "index": 20,
@@ -1073,41 +1009,9 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "2. Корпоративные финансы",
-    "index": 26,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "heading",
     "text": "По уровням",
     "index": 27,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 28,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 29,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "1. О компании",
-    "index": 30,
     "state": "texts",
     "finding": null
   },
@@ -1137,41 +1041,9 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "2. Корпоративные финансы",
-    "index": 37,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "heading",
     "text": "По уровням шкал",
     "index": 38,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 39,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 40,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "COMPANY_CULTURE — Корпоративная культура",
-    "index": 41,
     "state": "texts",
     "finding": null
   },
@@ -1201,41 +1073,9 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "LEADERSHIP — Лидерство",
-    "index": 48,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "heading",
     "text": "По уровням показателей",
     "index": 49,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 50,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 51,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "burnout_index — Индекс выгорания",
-    "index": 52,
     "state": "texts",
     "finding": null
   },
@@ -1260,14 +1100,6 @@
     "role": "label",
     "text": "Уровень «Риск»",
     "index": 57,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "readiness_level — Готовность к роли",
-    "index": 59,
     "state": "texts",
     "finding": null
   },
@@ -1305,17 +1137,9 @@
   },
   {
     "op": "extra",
-    "role": "heading",
-    "text": "Демо: управленческие компетенции",
-    "index": 11,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
     "role": "label",
     "text": "Корпоративные ценности",
-    "index": 12,
+    "index": 15,
     "state": "texts",
     "finding": null
   },
@@ -1323,7 +1147,7 @@
     "op": "extra",
     "role": "label",
     "text": "Обратная связь",
-    "index": 14,
+    "index": 17,
     "state": "texts",
     "finding": null
   },
@@ -1331,22 +1155,6 @@
     "op": "extra",
     "role": "label",
     "text": "Постановка задач",
-    "index": 16,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "heading",
-    "text": "Демо: знания о компании",
-    "index": 18,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
     "index": 19,
     "state": "texts",
     "finding": null
@@ -1354,8 +1162,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 22,
+    "state": "texts",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "Охрана труда",
-    "index": 21,
+    "index": 24,
     "state": "texts",
     "finding": null
   },
@@ -1363,7 +1179,7 @@
     "op": "extra",
     "role": "label",
     "text": "Регламенты и процессы",
-    "index": 23,
+    "index": 26,
     "state": "texts",
     "finding": null
   },
@@ -1371,7 +1187,7 @@
     "op": "order",
     "role": "button",
     "text": "",
-    "index": 13,
+    "index": 7,
     "state": "texts",
     "finding": null
   },
@@ -2681,33 +2497,9 @@
   },
   {
     "op": "missing",
-    "role": "button",
-    "text": "О компании",
-    "index": 91,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "table",
     "text": "Вариант | COMPANY_CULTURE | LEADERSHIP",
     "index": 95,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Корпоративные финансы",
-    "index": 96,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Человекоцентричное лидерство (ЧИЛ)",
-    "index": 14,
     "state": "scales",
     "finding": null
   },
