@@ -47,6 +47,7 @@ import {
   type ResolvedRule,
 } from "./pass-rule";
 import { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
+import { applyBreakdownGate, thresholdPercentOf } from "../breakdown/gate";
 import type { BreakdownEntry, BreakdownItem } from "../breakdown/types";
 import { groupSections } from "./section-groups";
 
@@ -83,14 +84,6 @@ export interface AggregateSection<E = unknown> {
    */
   required?: boolean;
   /**
-   * PRD-50 §4: stored `test_sections.breakdown_rules_json`. NO LONGER READ: the topic
-   * verdict is its own rule alone (решение владельца 2026-09-03), so a key threshold
-   * neither gates the topic nor stamps the breakdown rows. The field stays in the input
-   * shape so a host that still passes it (a legacy SCORM package, a stored snapshot)
-   * keeps type-checking; the value is ignored.
-   */
-  breakdownRules?: unknown;
-  /**
    * PRD-50 FR-11: `test_sections.group_key` — the group this section belongs to. Absent /
    * null / a key the test does not declare all mean the same thing: no group (FR-12).
    */
@@ -109,6 +102,12 @@ export interface AggregateInput<E = unknown> {
    * Absent/unrecognised keeps the pre-policy verdict (see {@link resolvePassDecisionPolicy}).
    */
   passDecisionPolicy?: unknown;
+  /**
+   * PRD-50 FR-53: `tests.breakdown_gate_enabled` — учитывать ли подтемы в вердикте темы.
+   * Отсутствие = ВЫКЛЮЧЕНО, и это ровно поведение до §16: попытка по старому снимку или
+   * пакету, собранному раньше, судится как судилась.
+   */
+  breakdownGateEnabled?: boolean;
   /**
    * PRD-50 FR-11: the test's declared groups (`tests.section_groups_json`), any shape —
    * normalised here like `topicPassRule`. Absent = no groups, and the result keeps exactly
@@ -297,18 +296,24 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
   // FR-16, шаги 2 и 3: сперва записи в области раздела, ПОТОМ вердикт темы, который на них
   // опирается. Накопители `allTopicsPassed`/`requiredTopicsPassed` — конъюнкции, поэтому
   // перенос их сложения в этот проход не может изменить ни один существующий вердикт.
+  const gateOn = input.breakdownGateEnabled === true;
   for (let i = 0; i < topicResults.length; i++) {
     const topic = topicResults[i];
     const gate = gates[i];
     topic.breakdown = bySection.get(sectionScope(topic.topicId)) ?? [];
-    // FR-09: a section with nothing to grade has no percent to compare, so it stays UNGATED
-    // (`null`) instead of failing its rule at 0%.
-    //
-    // The verdict is the section's OWN rule and nothing else: a key threshold no longer
-    // gates the topic (решение владельца 2026-09-03). A subtopic SPEAKS about the result —
-    // it does not judge it, so a stored `breakdown_rules_json` changes no verdict any more.
-    const passed =
+    // FR-52: порог подтем — разрешённое правило ТЕМЫ. Правила нет («Не проверять отдельно»
+    // либо у теста нет общего порога) — порога нет и у подтем: тема молчит, молчат и они.
+    const keysFailed = applyBreakdownGate(
+      topic.breakdown,
+      thresholdPercentOf(gate.rule, topic.possiblePoints),
+    );
+    // FR-09: раздел, где нечего оценивать, остаётся БЕЗ вердикта (`null`), а не проваливает
+    // своё правило на 0 %.
+    const ownPassed =
       gate.rule && gate.scored > 0 ? checkPassRule(gate.rule, topic.percent, topic.earnedPoints) : null;
+    // FR-53: подтема роняет тему только при включённом переключателе и только там, где тема
+    // вообще судит. Тема без вердикта его не получает — суд не возвращается вопреки настройке.
+    const passed = ownPassed === null ? null : ownPassed && !(gateOn && keysFailed);
     topic.passed = passed;
     if (passed === false) {
       allTopicsPassed = false;
@@ -335,6 +340,11 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
   // the meaning of such a run is carried by the PRD-2 indicators.
   const overallPassed = tScored > 0 ? checkPassRule(overall, percent, tEarned) : true;
 
+  // FR-52: у сводных записей темы нет — их судит общее правило теста. Гейта в области теста
+  // по-прежнему нет (FR-23): блок ГОВОРИТ о тесте, а вердикт теста выносит политика.
+  const testEntries = entries.filter((e) => e.scope === TEST_SCOPE);
+  applyBreakdownGate(testEntries, thresholdPercentOf(overall, tPossible));
+
   return {
     correct: tCorrect,
     totalQuestions: tQuestions,
@@ -345,7 +355,7 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     overallPassed,
     passed: decideVerdict(policy, { overallPassed, requiredTopicsPassed, allTopicsPassed }),
     topicResults,
-    breakdowns: entries.filter((e) => e.scope === TEST_SCOPE),
+    breakdowns: testEntries,
     // Absent, not empty: a test without groups keeps the result shape it always had.
     ...(sectionGroups.length ? { sectionGroups } : {}),
   };
