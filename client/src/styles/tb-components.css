@@ -229,6 +229,22 @@
   padding: var(--ou-space-6);
   gap: var(--ou-space-1);
 }
+/* Шапка и полоса вкладок: те же 6x от краёв, что у подвала и панели. Без этого вкладки
+   прижаты к краю ящика, а поля тела начинаются правее — колонка визуально не собирается.
+   ui-kit даёт шапке 20 и полосе 0 (`university-rt.css`), эскиз перебивает и то и другое. */
+.ou-drawer:has([data-testid="test-editor-body"]) > .ou-drawer__head {
+  padding: var(--ou-space-6);
+}
+.ou-drawer:has([data-testid="test-editor-body"]) .ou-tabs__list {
+  padding-inline: var(--ou-space-6);
+}
+/* Родственные пары внутри компонентов ящика — 1x: иконка и подпись кнопки, вариант и его
+   метка, иконка и текст баннера. ui-kit ставит 8, 12 и 2 соответственно. */
+.ou-drawer:has([data-testid="test-editor-body"]) .ou-btn,
+.ou-drawer:has([data-testid="test-editor-body"]) .ou-radio-group__items,
+.ou-drawer:has([data-testid="test-editor-body"]) .ou-banner__body {
+  gap: var(--ou-space-1);
+}
 
 /* Section caption (subdued uppercase-like heading внутри формы). */
 .tb-section-label { font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); margin: 0 0 var(--ou-space-2); display: inline-flex; align-items: center; gap: var(--ou-space-2); }
@@ -1052,7 +1068,11 @@
 .tb-changes-anchor { position: relative; display: flex; align-items: center; }
 .tb-changes-popover {
   position: absolute; bottom: calc(100% + var(--wf-space-10)); right: 0;
-  width: var(--wf-size-400); max-height: var(--wf-size-420); overflow: hidden;
+  /* Токены `--wf-size-400` / `--wf-size-420` не объявлены нигде в проекте, поэтому правило
+     было невалидным и поповер схлопывался по содержимому — вместо 420px около 170, значения
+     переносились по два-три слова. Эскиз задаёт ширину поповера и ограничивает высоту ЕГО
+     ТЕЛА, а не всего поповера: иначе шапка со счётчиком уезжает вместе с содержимым. */
+  width: 420px; overflow: hidden;
   background: var(--ou-bg-elevated);
   border: var(--wf-border-w) solid var(--ou-border-default);
   border-radius: var(--ou-radius-m);
@@ -1067,7 +1087,7 @@
 }
 .tb-changes-popover__title { font: var(--ou-text-body-s); font-weight: 600; }
 .tb-changes-popover__count { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tb-changes-popover__body { flex: 1; overflow-y: auto; }
+.tb-changes-popover__body { flex: 1; max-height: 320px; overflow-y: auto; }
 .tb-changes-popover__group { padding: var(--ou-space-2) var(--ou-space-4) var(--ou-space-3); }
 .tb-changes-popover__group + .tb-changes-popover__group {
   border-top: var(--wf-border-w) solid var(--ou-border-default);
@@ -1357,7 +1377,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ou-space-2);
+  /* 1x между бейджем, заголовком и действиями: это одна строка, а не разные блоки
+     (эскиз `editor-settings-target.html`, «проектный слой: 8 -> 4»). */
+  gap: var(--ou-space-1);
   padding: var(--wf-space-6, 6px) var(--wf-space-10, 10px) var(--wf-space-6, 6px) var(--wf-space-14, 14px);
   position: relative;
 }

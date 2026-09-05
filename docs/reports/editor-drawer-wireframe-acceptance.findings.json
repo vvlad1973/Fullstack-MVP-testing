@@ -192,7 +192,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-2",
@@ -207,7 +207,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-3",
@@ -269,7 +269,7 @@
       "university-rt.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-7",
@@ -285,7 +285,7 @@
       "university-rt.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-8",
@@ -3500,7 +3500,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "G-5",
@@ -3515,7 +3515,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "G-6",
@@ -3530,7 +3530,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "G-8",
@@ -3545,7 +3545,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "G-7",
