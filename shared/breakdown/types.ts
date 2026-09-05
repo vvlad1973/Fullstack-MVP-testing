@@ -37,6 +37,15 @@ export interface BreakdownEntry {
   percentPoints: number;
   /** `unitEarned / unitPossible`, 0…100. The display default (решение 4). */
   percentUnits: number;
+  /**
+   * PRD-50 FR-54: исход подтемы. `true`/`false` — взята или не взята по порогу FR-52,
+   * `null`/отсутствие — порога нет (тема не судит) либо запись сделана до §16. Штампуется
+   * ОДИН раз, при подведении итога попытки, и хранится с ней: цвет строки, выдача текста
+   * подтемы и гейт вердикта темы читают это одно поле.
+   */
+  passed?: boolean | null;
+  /** Порог, по которому вынесен {@link passed}, в процентах. Отсутствие = порога не было. */
+  thresholdPercent?: number | null;
 }
 
 /**
