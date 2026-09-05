@@ -3477,15 +3477,15 @@
     "area": "G",
     "place": "`.ou-select` `gap`",
     "expected": "4 px",
-    "actual": "8 px",
+    "actual": "СНЯТА: внутри ящика 4 px, замер был сделан вне его",
     "kind": "нарушение сетки",
-    "severity": "косметическое",
-    "code": "«Основное» и далее везде",
+    "severity": "снято",
+    "code": "ложное срабатывание",
     "files": [
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "G-4",

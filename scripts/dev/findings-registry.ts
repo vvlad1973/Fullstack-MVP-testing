@@ -47,9 +47,16 @@ export interface Finding {
   /** Base names of the source files the finding points at; the unit of work is one file. */
   files: string[];
   batch: Batch | null;
-  status: "open" | "fixed" | "deferred" | "duplicate";
+  status: "open" | "fixed" | "deferred" | "duplicate" | "withdrawn";
   duplicateOf?: string;
 }
+
+/**
+ * Findings the acceptance got wrong and that were later disproved. Kept in the registry rather
+ * than deleted: a report that quietly loses a row is indistinguishable from one that fixed it,
+ * and the next reader deserves to see that the measurement, not the code, was at fault.
+ */
+const WITHDRAWN = new Set(["G-3"]);
 
 /**
  * Findings whose batch cannot be read off the `kind` column without guessing at Russian
@@ -164,7 +171,7 @@ export function parseFindings(markdown: string): Finding[] {
       code: code.replace(/`/g, ""),
       files: GRID_FILES[id] ?? filesOf(code, place, expected, actual),
       batch: null,
-      status: duplicateOf ? "duplicate" : "open",
+      status: duplicateOf ? "duplicate" : WITHDRAWN.has(id) ? "withdrawn" : "open",
       ...(duplicateOf ? { duplicateOf } : {}),
     });
   }

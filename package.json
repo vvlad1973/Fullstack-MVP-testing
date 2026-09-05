@@ -25,6 +25,7 @@
     "check:author-numbers": "node scripts/check/check-author-numbers.mjs",
     "check:guards": "npm run check:author-numbers && npm run check:contrast",
     "check:contrast": "node scripts/check/check-contrast.mjs",
+    "check:editor-ui": "node scripts/check/check-editor-conformance.mjs",
     "scorm:sample": "tsx scripts/scorm/generate-sample-scorm.ts",
     "scorm:template": "tsx scripts/scorm/generate-template-scorm.ts",
     "scorm:player": "node scripts/scorm/scorm-player.mjs",
