@@ -591,6 +591,7 @@ export interface AdaptiveAsStandard {
 export function adaptiveResultAsStandard<E = unknown>(
   result: AdaptiveResult<E>,
   breakdownItems: readonly BreakdownItem[] = [],
+  overallPassRule?: unknown,
 ): AdaptiveAsStandard {
   let totalQuestions = 0;
   let correct = 0;
@@ -612,6 +613,12 @@ export function adaptiveResultAsStandard<E = unknown>(
     if (list) list.push(e);
     else bySection.set(e.scope, [e]);
   }
+  // PRD-50 §16: у ступени порога нет и быть не может, поэтому подтемы адаптива судит ОБЩИЙ
+  // порог теста — и записи раздела, и сводные. Иначе тексты подтем, которые адаптивный экран
+  // выдавал до §16, исчезли бы вместе с переездом отбора на исход записи. Балл адаптива —
+  // один за вопрос, поэтому достижимое здесь равно числу выданных вопросов.
+  const adaptiveThreshold = thresholdPercentOf(resolveOverallRule(overallPassRule), totalQuestions);
+  applyBreakdownGate(entries, adaptiveThreshold);
 
   return {
     correct,

@@ -2269,7 +2269,15 @@ async function buildAdaptiveResult(
       }
     }
   }
-  const flat = adaptiveResultAsStandard(aggregated, breakdownItems);
+  // PRD-50 §16: общее правило прохождения теста — ЕДИНСТВЕННЫЙ порог, которым адаптив может
+  // судить подтемы: у ступени лестницы своего порога нет. Тот же столбец, что читает
+  // стандартная ветка (`tests.overall_pass_rule_json`); нет правила — подтемы молчат.
+  const adaptiveTest = await storage.getTest(testId);
+  const flat = adaptiveResultAsStandard(
+    aggregated,
+    breakdownItems,
+    adaptiveTest?.overallPassRuleJson ?? null,
+  );
   const breakdownByTopic = new Map(flat.topicResults.map((t) => [t.topicId, t.breakdown]));
 
   // issue #33: scales and indicators of THIS attempt, through the SAME shared engines the

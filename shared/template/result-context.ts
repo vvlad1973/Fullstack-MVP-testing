@@ -1320,6 +1320,14 @@ export interface AdaptiveTopicInput extends TopicFeedbackInput {
   topicName: string;
   achievedLevelIndex: number | null;
   achievedLevelName?: string | null;
+  /**
+   * PRD-50 §16: подытоги подтем ЭТОГО раздела, с уже вынесенным исходом
+   * (`adaptiveResultAsStandard` судит их общим порогом теста).
+   *
+   * В карточку темы они не попадают сознательно — она говорит подтверждённым УРОВНЕМ, — но
+   * без них построителю не из чего отобрать тексты подтем ({@link TopicFeedbackInput.breakdownFeedback}).
+   */
+  breakdown?: BreakdownEntry[] | null;
 }
 
 /** Normalized adaptive result input. */
