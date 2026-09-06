@@ -157,7 +157,7 @@
     "text": "Подтема | Сколько | Режим | ",
     "index": 17,
     "state": "composition",
-    "finding": null
+    "finding": "main:prd50-quota-table"
   },
   {
     "op": "extra",
@@ -165,7 +165,7 @@
     "text": "Подтема | Сколько | Режим | ",
     "index": 30,
     "state": "composition",
-    "finding": null
+    "finding": "main:prd50-quota-table"
   },
   {
     "op": "order",
@@ -509,7 +509,7 @@
     "text": "input:checkbox",
     "index": 11,
     "state": "scoring",
-    "finding": null
+    "finding": "main:prd50-gate-switch"
   },
   {
     "op": "missing",
@@ -1021,7 +1021,7 @@
     "text": "Общая обратная связь теста",
     "index": 6,
     "state": "texts",
-    "finding": null
+    "finding": "data:intro-report-own-text"
   },
   {
     "op": "missing",
@@ -1085,7 +1085,7 @@
     "text": "Отчёт: сертификация",
     "index": 5,
     "state": "report",
-    "finding": null
+    "finding": "data:report-variant-name"
   },
   {
     "op": "extra",
@@ -1093,7 +1093,7 @@
     "text": "Параметры вида",
     "index": 6,
     "state": "report",
-    "finding": null
+    "finding": "data:report-variant-fields"
   },
   {
     "op": "extra",
@@ -2305,6 +2305,14 @@
   },
   {
     "op": "missing",
+    "role": "heading",
+    "text": "Вклады вопросов",
+    "index": 87,
+    "state": "scales",
+    "finding": "wf:scales-split-approved"
+  },
+  {
+    "op": "missing",
     "role": "banner",
     "text": "32 вопроса пока не привязаны ни к одной шкале — проверьте покрытие.",
     "index": 88,
@@ -2313,11 +2321,43 @@
   },
   {
     "op": "missing",
+    "role": "button",
+    "text": "Развернуть все",
+    "index": 89,
+    "state": "scales",
+    "finding": "wf:scales-split-approved"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "Свернуть все",
+    "index": 90,
+    "state": "scales",
+    "finding": "wf:scales-split-approved"
+  },
+  {
+    "op": "missing",
+    "role": "fold",
+    "text": "",
+    "index": 91,
+    "state": "scales",
+    "finding": "wf:scales-split-approved"
+  },
+  {
+    "op": "missing",
     "role": "table",
     "text": "Вариант | COMPANY_CULTURE | LEADERSHIP",
     "index": 95,
     "state": "scales",
     "finding": null
+  },
+  {
+    "op": "missing",
+    "role": "fold",
+    "text": "",
+    "index": 96,
+    "state": "scales",
+    "finding": "wf:scales-split-approved"
   },
   {
     "op": "order",

@@ -20,7 +20,7 @@ import type { FieldErrorIndex } from "../field-errors";
 import type { TestEditorModel } from "../test-editor.types";
 import type { UseDesignSettingsResult } from "../use-design-settings";
 import type { UseContentPagesResult } from "../use-content-pages";
-import { TabRail, useRailState, type RailItem } from "./tab-rail";
+import { TabRail, useRailState, type RailEntry, type RailItem } from "./tab-rail";
 import {
   AdaptivePane,
   BreakdownDisplayPane,
@@ -221,14 +221,7 @@ export function RulesTab({
 
 // ─── «Оценка результата» ──────────────────────────────────────────────────────
 
-type ScoringRail = "answer" | "verdict" | "scales" | "metrics";
-
-const SCORING_ITEMS: { key: ScoringRail; label: string }[] = [
-  { key: "answer", label: "Оценка ответа" },
-  { key: "verdict", label: "Вердикт" },
-  { key: "scales", label: "Шкалы" },
-  { key: "metrics", label: "Показатели" },
-];
+type ScoringRail = "answer" | "verdict" | "scales-list" | "scales-contrib" | "metrics";
 
 /**
  * Как считается результат: цена ответа, вердикт теста и тем, шкалы и показатели. Четыре
@@ -241,16 +234,42 @@ export function ScoringTab({
   fieldErrors,
   testId,
 }: EditorTabProps & { testId?: string }): React.JSX.Element {
-  const items: RailItem<ScoringRail>[] = SCORING_ITEMS.map((item) => ({
-    ...item,
-    dot:
-      (item.key === "verdict" && fieldErrors?.has("passRules")) ||
-      (item.key === "answer" && fieldErrors?.has("scoring")) ||
-      (item.key === "scales" && fieldErrors?.has("scales")) ||
-      (item.key === "metrics" && fieldErrors?.has("resultVariables"))
-        ? "error"
-        : undefined,
-  }));
+  // «Шкалы» — не один экран, а два: сами шкалы и матрица вкладов. Прежде они шли
+  // одной колонкой друг под другом, и матрица — самое широкое место ящика, её ширина
+  // растёт с каждой шкалой — делила панель с карточками шкал (эскиз ds-rail-nested).
+  const hasScales = model.scales.length > 0;
+  const scalesDot = fieldErrors?.has("scales") ? ("error" as const) : undefined;
+  const items: RailEntry<ScoringRail>[] = [
+    {
+      key: "answer",
+      label: "Оценка ответа",
+      dot: fieldErrors?.has("scoring") ? "error" : undefined,
+    },
+    {
+      key: "verdict",
+      label: "Вердикт",
+      dot: fieldErrors?.has("passRules") ? "error" : undefined,
+    },
+    {
+      label: "Шкалы",
+      items: [
+        { key: "scales-list", label: "Список шкал", dot: scalesDot },
+        {
+          key: "scales-contrib",
+          label: "Вклады вопросов",
+          // Вносить вклад не во что, пока нет ни одной шкалы. Пункт остаётся
+          // видимым: исчезнувший читался бы как «такой настройки нет».
+          disabled: !hasScales,
+          disabledHint: hasScales ? undefined : "Появятся, когда будет хотя бы одна шкала.",
+        },
+      ],
+    },
+    {
+      key: "metrics",
+      label: "Показатели",
+      dot: fieldErrors?.has("resultVariables") ? "error" : undefined,
+    },
+  ];
   const [active, setActive] = useRailState<ScoringRail>(items, "answer");
   return (
     <TabRail
@@ -266,8 +285,9 @@ export function ScoringTab({
       {active === "verdict" && (
         <VerdictPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
       )}
-      {active === "scales" && (
+      {(active === "scales-list" || active === "scales-contrib") && (
         <ScalesSection
+          pane={active === "scales-contrib" ? "contributions" : "list"}
           model={model}
           testId={testId}
           updateModel={updateModel}

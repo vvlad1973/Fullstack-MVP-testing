@@ -75,6 +75,12 @@ import { LevelsEditor } from "./levels-editor";
 import { bandsToDraft, draftErrors } from "./levels-model";
 
 export type ScalesSectionProps = {
+  /**
+   * Какую из двух панелей показывать. «Шкалы» — не один экран, а два, и выбор между
+   * ними делает рейл вкладки (эскиз `docs/wireframes/ds-rail-nested.html`). Значение
+   * по умолчанию оставлено ради вызовов, которым разделение не нужно.
+   */
+  pane?: "list" | "contributions";
   model: TestEditorModel;
   /** Test id; `undefined` in create mode — disables the calculation preview. */
   testId?: string;
@@ -264,25 +270,34 @@ function bandErrorOf(s: ScaleModel): string | null {
   return draftErrors(bandsToDraft(s.bands.filter((b) => !isEmptyBandRow(b)))).blocking;
 }
 
-export function ScalesSection({ model, testId, updateModel, readOnly = false }: ScalesSectionProps) {
+export function ScalesSection({
+  pane = "list",
+  model,
+  testId,
+  updateModel,
+  readOnly = false,
+}: ScalesSectionProps) {
   // Пустая вкладка (s-scales-empty): у теста нет ни одной шкалы — только пустое
-  // состояние, без заголовка группы и без матрицы вкладов (привязывать не к чему).
-  // Обёртка `FormSection` остаётся и здесь НАРОЧНО: подмени её на голую панель — и
-  // React пересоздаст `ScalesListPane` на переходе «0 шкал → 1», потеряв раскрытую
-  // карточку только что добавленной шкалы.
+  // состояние, без заголовка группы. Обёртка `FormSection` остаётся и здесь НАРОЧНО:
+  // подмени её на голую панель — и React пересоздаст `ScalesListPane` на переходе
+  // «0 шкал → 1», потеряв раскрытую карточку только что добавленной шкалы.
   const hasScales = model.scales.length > 0;
 
-  return (
-    <>
-      <FormSection title={hasScales ? "Шкалы теста" : undefined} stacked data-testid="scales-pane-list">
-        <ScalesListPane model={model} testId={testId} updateModel={updateModel} readOnly={readOnly} />
+  // Матрицу вкладов без единой шкалы показывать нечем; рейл в этом случае и не даёт
+  // на неё встать, но прямой вызов с `pane="contributions"` возможен — тогда честнее
+  // показать список, чем пустую матрицу.
+  if (pane === "contributions" && hasScales) {
+    return (
+      <FormSection title="Вклады вопросов" stacked data-testid="scales-pane-contributions">
+        <ContributionsPane model={model} updateModel={updateModel} readOnly={readOnly} />
       </FormSection>
-      {hasScales && (
-        <FormSection title="Вклады вопросов" stacked data-testid="scales-pane-contributions">
-          <ContributionsPane model={model} updateModel={updateModel} readOnly={readOnly} />
-        </FormSection>
-      )}
-    </>
+    );
+  }
+
+  return (
+    <FormSection title={hasScales ? "Шкалы теста" : undefined} stacked data-testid="scales-pane-list">
+      <ScalesListPane model={model} testId={testId} updateModel={updateModel} readOnly={readOnly} />
+    </FormSection>
   );
 }
 

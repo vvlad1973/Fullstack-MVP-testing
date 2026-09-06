@@ -128,14 +128,17 @@ function Harness({
   initial,
   testId,
   readOnly,
+  pane,
 }: {
   initial: TestEditorModel;
   testId?: string;
   readOnly?: boolean;
+  pane?: "list" | "contributions";
 }) {
   const [model, setModel] = useState(initial);
   return (
     <ScalesSection
+      pane={pane}
       model={model}
       testId={testId}
       updateModel={(updater) => setModel((m) => updater(m))}
@@ -144,11 +147,14 @@ function Harness({
   );
 }
 
-function renderStateful(initial: TestEditorModel, opts: { testId?: string; readOnly?: boolean } = {}) {
+function renderStateful(
+  initial: TestEditorModel,
+  opts: { testId?: string; readOnly?: boolean; pane?: "list" | "contributions" } = {},
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <Harness initial={initial} testId={opts.testId} readOnly={opts.readOnly} />
+      <Harness initial={initial} testId={opts.testId} readOnly={opts.readOnly} pane={opts.pane} />
     </QueryClientProvider>,
   );
 }
@@ -384,15 +390,16 @@ describe("<ScalesSection /> — calculation preview", () => {
 // ─── «Вклады вопросов» ───────────────────────────────────────────────────────────
 
 describe("<ScalesSection /> — «Вклады вопросов»", () => {
-  // Группа идёт стопкой под «Шкалами теста» в одной колонке (рейл принадлежит вкладке),
-  // поэтому открывать её больше нечем — она уже на экране.
+  // Вклады — отдельная сторона панели, её выбирает рейл вкладки. В тесте она
+  // запрашивается прямо, поэтому «открывать» нечего — достаточно проверить, что
+  // показана именно она.
   function openContributions() {
     expect(screen.getByTestId("scales-pane-contributions")).toBeInTheDocument();
   }
 
   it("expands a question card and typing a contribution binds a measurement", async () => {
     questionsBody = [dbQuestions[0]]; // single q1 only
-    renderStateful(baseModel({ scales: [makeScale()] }));
+    renderStateful(baseModel({ scales: [makeScale()] }), { pane: "contributions" });
     openContributions();
 
     const card = await screen.findByTestId("contrib-card-0");
@@ -419,7 +426,7 @@ describe("<ScalesSection /> — «Вклады вопросов»", () => {
 
   it("shows the answer-unit hint for a matching question", async () => {
     questionsBody = [dbQuestions[2]]; // matching q3 only
-    renderStateful(baseModel({ scales: [makeScale()] }));
+    renderStateful(baseModel({ scales: [makeScale()] }), { pane: "contributions" });
     openContributions();
 
     const card = await screen.findByTestId("contrib-card-0");
@@ -429,14 +436,14 @@ describe("<ScalesSection /> — «Вклады вопросов»", () => {
 
   it("renders the no-questions empty state", async () => {
     questionsBody = [];
-    renderStateful(baseModel({ scales: [makeScale()] }));
+    renderStateful(baseModel({ scales: [makeScale()] }), { pane: "contributions" });
     openContributions();
     expect(await screen.findByTestId("contributions-no-questions")).toBeInTheDocument();
   });
 
   it("renders the load-error banner when the questions request fails", async () => {
     failQuestions = true;
-    renderStateful(baseModel({ scales: [makeScale()] }));
+    renderStateful(baseModel({ scales: [makeScale()] }), { pane: "contributions" });
     openContributions();
     expect(await screen.findByText("Не удалось загрузить вопросы теста.")).toBeInTheDocument();
   });

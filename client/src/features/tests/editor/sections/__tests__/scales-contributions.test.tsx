@@ -90,7 +90,7 @@ function renderScales(opts: { withScale?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ScalesSection model={model} testId="test-1" updateModel={() => {}} />
+      <ScalesSection pane="contributions" model={model} testId="test-1" updateModel={() => {}} />
     </QueryClientProvider>,
   );
 }
@@ -107,11 +107,20 @@ describe("«Шкалы» → «Вклады вопросов»", () => {
     expect(screen.queryByTestId("scales-pane-contributions")).toBeNull();
   });
 
-  it("with a scale both groups render stacked in one column (no nested rail)", () => {
+  it("панель показывает ОДНУ сторону: вклады без списка шкал", () => {
+    // Разделение сделано ради матрицы: её ширина растёт с каждой шкалой, и делить
+    // панель со списком шкал ей нечем. Выбор между сторонами делает рейл вкладки.
     renderScales({ withScale: true });
-    expect(screen.getByTestId("scales-pane-list")).toBeInTheDocument();
     expect(screen.getByTestId("scales-pane-contributions")).toBeInTheDocument();
+    expect(screen.queryByTestId("scales-pane-list")).toBeNull();
+    // Свой рейл панель по-прежнему не рисует — рейл принадлежит вкладке.
     expect(document.querySelector(".ou-drawer__rail")).toBeNull();
+  });
+
+  it("без единой шкалы вклады подменяются списком: показывать матрицу нечем", () => {
+    renderScales({ withScale: false });
+    expect(screen.getByTestId("scales-pane-list")).toBeInTheDocument();
+    expect(screen.queryByTestId("scales-pane-contributions")).toBeNull();
   });
 
   it("groups questions under section headers with global numbering", async () => {

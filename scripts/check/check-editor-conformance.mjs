@@ -179,10 +179,32 @@ const spacingFailures = expectations
 const notSeen = expectations.filter((r) => !measured.has(`${r.selector}|${r.property}`));
 
 if (WRITE_BASELINE) {
-  const rows = structural.map((item) => ({ ...item, finding: null }));
+  // Пометки `finding` переносятся на совпавшие записи. Без этого каждая перезапись
+  // стирала объяснения — «почему эта запись принята», — и накопленные решения
+  // («разница данных», «долг пришёл из main», «эскиз ещё не знает решения») исчезали
+  // молча, оставляя линию из безымянных строк. Совпадение ищется один-к-одному: две
+  // одинаковые записи не должны обе забрать одну и ту же пометку.
+  const previous = existsSync(BASELINE_PATH)
+    ? JSON.parse(readFileSync(BASELINE_PATH, "utf8"))
+    : [];
+  const keyOfRow = (r) => JSON.stringify([r.op, r.role, r.text, r.state]);
+  const labels = new Map();
+  for (const row of previous) {
+    if (!row.finding) continue;
+    const key = keyOfRow(row);
+    labels.set(key, [...(labels.get(key) ?? []), row.finding]);
+  }
+  let carried = 0;
+  const rows = structural.map((item) => {
+    const queue = labels.get(keyOfRow(item));
+    const finding = queue?.length ? queue.shift() : null;
+    if (finding) carried += 1;
+    return { ...item, finding };
+  });
   writeFileSync(BASELINE_PATH, `${JSON.stringify(rows, null, 2)}\n`, "utf8");
   console.log(`Базовая линия записана: структурных расхождений ${rows.length} -> ${BASELINE_PATH}`);
-  console.log("Проставьте каждой записи поле finding — идентификатор из реестра находок.");
+  console.log(`Перенесено пометок с прежней линии: ${carried}.`);
+  console.log("Проставьте новым записям поле finding — идентификатор из реестра находок.");
   process.exit(0);
 }
 

@@ -60,6 +60,7 @@ function Harness({ onModel }: { onModel: (m: TestEditorModel) => void }) {
   );
   return (
     <ScalesSection
+      pane="contributions"
       model={model}
       testId="test-1"
       updateModel={(updater) => setModel((m) => { const next = updater(m); onModel(next); return next; })}
