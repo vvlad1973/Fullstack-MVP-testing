@@ -94,9 +94,9 @@ import { LevelsEditor } from "./levels-editor";
 import { OutcomesEditor } from "./outcomes-editor";
 
 const STATUS_OPTIONS: Array<{ value: ResultVariableControlsStatus; label: string }> = [
-  { value: "none", label: "Нет" },
-  { value: "success", label: "Успех (success_status)" },
-  { value: "completion", label: "Завершение (completion_status)" },
+  { value: "none", label: "Не управляет" },
+  { value: "success", label: "Ставит «Пройден», когда истина" },
+  { value: "completion", label: "Ставит «Завершён», когда истина" },
 ];
 
 const TARGET_OPTIONS: Array<{ value: ResultVariableScormTarget; label: string }> = [
@@ -602,6 +602,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               second copy. No «Рассчитать по вкладам»: an indicator's value comes
               from a formula, not enumerated question contributions, so there is
               nothing to suggest a range from. */}
+          <span className="ou-formfield__lbl">Границы показателя</span>
           <DomainFields
             domainMin={v.domainMin}
             domainMax={v.domainMax}
@@ -680,6 +681,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             size="m"
             fullWidth
             label="Управление статусом курса"
+            hint="Доступно только для показателей типа «да/нет»."
             value={v.controlsStatus}
             disabled={readOnly}
             options={STATUS_OPTIONS}

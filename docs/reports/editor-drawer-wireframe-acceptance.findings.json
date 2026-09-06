@@ -2381,7 +2381,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-51",
@@ -2501,7 +2501,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-1",
