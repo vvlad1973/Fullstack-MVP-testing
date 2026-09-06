@@ -8,6 +8,8 @@
       Файл: docs/wireframes/editor-settings-target.html
       Источник решений: docs/reports/AUDIT_TEST_EDITOR_SETTINGS.md §3.1 и §3.6.
       Состояния: s-basic, s-composition, s-rules, s-scoring, s-feedback, s-design.
+      2026-09-06: s-scales разделено на s-scales и s-contributions — решение владельца о
+      втором уровне рейла (эскиз ds-rail-nested.html).
       Каркас ящика, шапка, вкладки и рейл взяты из утверждённого эскиза
       docs/wireframes/approved/prd7-editor-settings-tab.html без изменений.
     -->
@@ -458,6 +460,7 @@
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'rules-limits')">s-rules-limits</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'rules-protect')">s-rules-protect</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scoring')">s-scoring</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'contributions')">s-contributions</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'metrics')">s-metrics</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scales')">s-scales</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'feedback')">s-feedback</button>
@@ -2788,7 +2791,13 @@
               <nav class="ou-drawer__rail" aria-label="Подразделы оценки результата">
                 <button type="button" class="ou-drawer__rail-item">Оценка ответа</button>
                 <button type="button" class="ou-drawer__rail-item">Вердикт</button>
-                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Шкалы</button>
+                <!-- Решение владельца 2026-09-06 (эскиз ds-rail-nested.html): «Шкалы» —
+                     не один экран, а два. Родитель — подпись: своего экрана у группы нет. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-scales-list">Шкалы</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-scales-list">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Список шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Вклады вопросов</button>
+                </div>
                 <button type="button" class="ou-drawer__rail-item">Показатели</button>
               </nav>
               
@@ -3051,7 +3060,53 @@
                   </section>
                 </div>
               </div>
-
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+<div id="wf-contributions" class="wf-state">
+      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы оценки результата">
+                <button type="button" class="ou-drawer__rail-item">Оценка ответа</button>
+                <button type="button" class="ou-drawer__rail-item">Вердикт</button>
+                <!-- Решение владельца 2026-09-06 (эскиз ds-rail-nested.html): «Шкалы» —
+                     не один экран, а два. Родитель — подпись: своего экрана у группы нет. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-scales-contrib">Шкалы</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-scales-contrib">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Список шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Вклады вопросов</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Показатели</button>
+              </nav>
+              
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro">
                   <h3 class="ou-formsection__title">Вклады вопросов</h3>

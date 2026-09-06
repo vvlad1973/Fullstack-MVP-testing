@@ -2304,68 +2304,36 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "Вклады вопросов",
-    "index": 87,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "banner",
-    "text": "32 вопроса пока не привязаны ни к одной шкале — проверьте покрытие.",
-    "index": 88,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 89,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 90,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 91,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "table",
-    "text": "Вариант | COMPANY_CULTURE | LEADERSHIP",
-    "index": 95,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 96,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
     "op": "order",
     "role": "button",
     "text": "",
     "index": 11,
     "state": "scales",
     "finding": null
+  },
+  {
+    "op": "missing",
+    "role": "banner",
+    "text": "32 вопроса пока не привязаны ни к одной шкале — проверьте покрытие.",
+    "index": 1,
+    "state": "contributions",
+    "finding": "data:contrib-card-state"
+  },
+  {
+    "op": "missing",
+    "role": "table",
+    "text": "Вариант | COMPANY_CULTURE | LEADERSHIP",
+    "index": 8,
+    "state": "contributions",
+    "finding": "data:contrib-card-state"
+  },
+  {
+    "op": "order",
+    "role": "fold",
+    "text": "",
+    "index": 7,
+    "state": "contributions",
+    "finding": "data:contrib-card-state"
   },
   {
     "op": "missing",
