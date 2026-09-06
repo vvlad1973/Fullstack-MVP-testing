@@ -210,8 +210,39 @@
 
 .tb-settings-content > * { margin-top: var(--ou-space-4); }
 .tb-settings-content > *:first-child { margin-top: 0; }
+
+/* Панели «Оформления» обёрнуты в собственный контейнер ради `data-testid`, и правило
+   выше до их блоков не доставало: строки параметров, таблица цветов и баннеры шли
+   вплотную. `display: contents` убирает обёртку из раскладки, оставляя её в разметке
+   для приёмочных проверок. */
+.tb-settings-content > [data-testid$="-pane"] { display: contents; }
 .tb-settings-content > .ou-formsection { margin-top: var(--ou-space-6); }
 .tb-settings-content > .ou-formsection:first-child { margin-top: 0; }
+
+/* Карточка объекта (тема, шкала, уровень): края 6x, содержимое 4x. Правила взяты из
+   проектного слоя эскиза дословно — эскиз ссылается на ЭТОТ файл, и свои числа здесь
+   меняли бы и его вид. Прежде тело темы имело собственные 12/16px, а строки внутри
+   отбивались на 8px: ни одно из этих значений сетке не принадлежит. */
+.tb-settings-content .ou-acc__trigger { padding: var(--ou-space-4) var(--ou-space-6); }
+.tb-settings-content .ou-acc__body { padding: 0 var(--ou-space-6) var(--ou-space-6); }
+.tb-settings-content .ou-acc__body > * { margin-top: var(--ou-space-4); }
+.tb-settings-content .ou-acc__body > *:first-child { margin-top: 0; }
+.tb-settings-content .ou-acc__body > .tb-table { margin-top: var(--ou-space-4); }
+
+/* Шапка карточки объекта: триггер, действия и шеврон одной строкой. Кнопка удаления
+   стоит РЯДОМ с триггером, а не внутри него: кнопка в кнопке невалидна, и клик по
+   удалению заодно сворачивал бы карточку. */
+.tb-acc-head { display: flex; align-items: center; gap: var(--ou-space-1); padding-right: var(--ou-space-6); }
+.tb-acc-head > .ou-acc__trigger { flex: 1 1 auto; min-width: 0; padding-right: var(--ou-space-3); }
+.tb-topic-actions { display: inline-flex; align-items: center; gap: var(--ou-space-1); }
+
+/* Числовое поле имеет свою ширину; в группе-flex оно растягивалось на весь ящик.
+   Прежнее правило адресовало только ПРЯМОГО потомка панели и до полей внутри раздела
+   не доставало — отсюда растянутые «Лимит времени» и «Максимум попыток». */
+.tb-settings-content .ou-formsection__body > .ou-number,
+.tb-settings-content .ou-formsection__body > .ou-formfield > .ou-number {
+  width: var(--tb-input-w-md); max-width: 100%;
+}
 /* Баннер ПОСЛЕ карточки: у sticky-правила выше отрицательная верхняя отбивка, но она
    про баннер в шапке панели, а не про баннер в середине списка карточек. */
 .tb-settings-content > :is(.ou-card, .ou-banner) + :is(.ou-card, .ou-banner) {
@@ -2208,7 +2239,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--ou-space-2);
+  gap: var(--ou-space-4);
 }
 .tpl-info__head {
   display: flex;
@@ -2218,14 +2249,14 @@
 }
 .tpl-name { font: var(--ou-text-body-m); font-weight: 600; }
 .tpl-desc { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tpl-actions { display: flex; gap: var(--ou-space-2); margin-top: var(--ou-space-1); }
+.tpl-actions { display: flex; gap: var(--ou-space-2); margin: 0; }
 
 /* Colour param row: the picker plus the origin of the current value — either
    «из шаблона» (no override yet) or the action that gives the colour back. */
 .design-color-field {
   display: flex;
   align-items: center;
-  gap: var(--ou-space-2);
+  gap: var(--ou-space-1);
 }
 .design-color-field__origin {
   font: var(--ou-text-body-s);
@@ -2238,8 +2269,7 @@
 .design-theme-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ou-space-3);
+  gap: var(--ou-space-4);
 }
 
 /* The parameter column carries the description and is therefore greedy: without a
@@ -2464,7 +2494,7 @@
 }
 .tb-fold-sec-head { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; }
 .tb-fold-sec-name { font: var(--ou-text-body-m); font-weight: 700; min-width: 0; }
-.tb-fold-sec__body { display: flex; flex-direction: column; gap: var(--ou-space-3); margin-top: var(--ou-space-3); }
+.tb-fold-sec__body { display: flex; flex-direction: column; gap: var(--ou-space-4); margin-top: var(--ou-space-4); }
 
 /* Disabled state for a Drawer rail item (DS has none): e.g. «Вклады вопросов»
    stays inert until a scale exists. */
@@ -2501,9 +2531,9 @@
 .tb-row-sep { border-bottom: 1px solid var(--ou-border-soft); }
 .tb-row-sep:last-child { border-bottom: 0; }
 /* Fixed field widths for the scoring condition row (was Tailwind w-20/24/36). */
-.tb-fw-sm { width: 5rem; }
+.tb-fw-sm { width: 88px; }
 .tb-fw-md { width: 6rem; }
-.tb-fw-lg { width: 9rem; }
+.tb-fw-lg { width: 152px; }
 /* The DS Select trigger carries min-width:180px; on the compact operator /
    counter selects that floor overrides the width above, so the trigger stays
    ~180px and the count field wraps under it. Relax the floor when one of these
@@ -2603,11 +2633,11 @@
 /* One width for the two boundary columns: the threshold field MUST line up under
    «Начало», and the whole layout is that alignment. Two literals could drift apart
    in separate edits; one token cannot. */
-.tb-levels { display: flex; flex-direction: column; gap: var(--ou-space-2); --tb-levels-bound-w: 88px; }
+.tb-levels { display: flex; flex-direction: column; gap: var(--ou-space-4); --tb-levels-bound-w: 88px; }
 
 .tb-levels__cover {
   display: grid; grid-template-columns: var(--tb-levels-bound-w) 1fr var(--tb-levels-bound-w);
-  column-gap: var(--ou-space-2); align-items: center;
+  column-gap: var(--ou-space-4); align-items: center;
   margin-bottom: var(--ou-space-3);
 }
 .tb-levels__caplbl { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
@@ -2683,7 +2713,7 @@
 .tb-levels__spacer { flex: 1; }
 .tb-levels__range { font: var(--ou-text-body-s); color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
 
-.tb-levels__grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--ou-space-3); }
+.tb-levels__grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--ou-space-4); }
 
 /* The tone row is a DS SegmentedControl: inline-flex, nowrap by design, natural
    width ~540px with all five labels. The drawer is `--xl` (1040px) minus a 240px
@@ -2692,7 +2722,7 @@
    the row would push out of the card. Scrolling the row inside its own strip keeps
    the card intact and keeps every label readable, which is the whole point of
    leaving the Select behind. */
-.tb-levels__tone { margin-top: var(--ou-space-3); overflow-x: auto; }
+.tb-levels__tone { margin-top: var(--ou-space-4); overflow-x: auto; }
 .tb-levels__tonelbl { display: block; font: var(--ou-text-caption); color: var(--ou-fg-muted); margin-bottom: var(--ou-space-1); }
 .tb-levels__tonehint { display: block; font: var(--ou-text-caption); color: var(--ou-fg-muted); margin-top: var(--ou-space-1); }
 

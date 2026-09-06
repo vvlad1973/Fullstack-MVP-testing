@@ -641,7 +641,7 @@ function ScaleForm({
 
   return (
     <>
-      <Grid cols={2} gap={3}>
+      <Grid cols={2} gap={4}>
         <Input
           size="m"
           fullWidth

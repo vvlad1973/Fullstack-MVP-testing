@@ -225,7 +225,7 @@ function LabelRow({
       }
       data-testid={`results-label-row-${decl.key}`}
     >
-      <Stack gap={2}>
+      <Stack gap={1}>
         <Switch
           label="Показывать"
           aria-label={`Показывать надпись «${decl.label}»`}
@@ -314,7 +314,7 @@ function BlockOrderList({
       title="Порядок подблоков"
       subtitle="Блоки печатаются под общим заголовком итогов в этом порядке. Выключенный заголовок блок не убирает — за видимость отвечают настройки самих блоков."
     >
-      <Stack gap={2} data-testid="results-block-order">
+      <Stack gap={1} data-testid="results-block-order">
         {resolved.map((key, index) => (
           <Stack
             key={key}
