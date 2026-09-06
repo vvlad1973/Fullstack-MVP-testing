@@ -258,6 +258,8 @@
    печаталась до §16. */
 .tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #22c55e; }
 .tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #ef4444; }
+/* Дорожка проваленной подтемы: при 0 % заливки нет, и строка читалась бы как «нет данных». */
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar { background: #fee2e2; }
 .tb-report__breakdown-req { font-size: 7px; color: #aca9a9; margin-top: 2px; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на

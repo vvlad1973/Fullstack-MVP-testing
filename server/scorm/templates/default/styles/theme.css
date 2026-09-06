@@ -682,6 +682,10 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
    и строка остаётся ровно такой, какой была до §16. */
 .tb-breakdown__row.is-pass .tb-breakdown__bar span { background: var(--ou-success-default); }
 .tb-breakdown__row.is-fail .tb-breakdown__bar span { background: var(--ou-error-default); }
+/* Дорожка проваленной подтемы тоже красится: при 0 % заливки нет вовсе, и строка без этого
+   выглядит как "нет данных", а не как провал. Взятая подтема дорожку не меняет — там о
+   результате говорит сама заливка. */
+.tb-breakdown__row.is-fail .tb-breakdown__bar { background: var(--ou-error-soft); }
 .tb-breakdown__req { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: 2px; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза по всему тесту. Своя обёртка, а не `tb-topic__breakdown`:
    тот живёт внутри карточки темы и получает от неё ширину и верхний отступ, а этот стоит
