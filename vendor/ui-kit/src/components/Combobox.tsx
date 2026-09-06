@@ -120,7 +120,9 @@ function ComboboxInner<T extends string = string>(
     emptyTitle = 'Ничего не найдено',
     footerAction, footerHint,
     renderChip, maxVisibleChips, highlightMatches = true,
-    id, name, className, style, ...rest
+    id, name, className, style,
+    'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledBy,
+    ...rest
   }: ComboboxProps<T>,
   ref: React.Ref<HTMLInputElement>,
 ) {
@@ -248,7 +250,14 @@ function ComboboxInner<T extends string = string>(
   const activeOptionId = open && activeIdx >= 0 && flatList[activeIdx]
     ? `${fieldId}-opt-${flatList[activeIdx].value}`
     : undefined;
+  // Имя поля берётся у того, кто его дал: собственная подпись, `aria-label`
+  // или `aria-labelledby` от потребителя — например, когда подпись рисует
+  // обёртка вроде `FormField`. Запасное «Выбор значения» ставится, только
+  // когда имени нет вовсе: иначе оно перебивало бы внешнюю подпись, и поле
+  // переставало находиться по ней.
+  const hasExternalName = Boolean(ariaLabel || ariaLabelledBy);
   const inputLabel = typeof label === 'string' ? label : 'Выбор значения';
+  const inputAriaLabel = label || hasExternalName ? ariaLabel : inputLabel;
   const inputPlaceholder = (!multiple && singleSelected) ? '' : (placeholder ?? '');
 
   return (
@@ -334,7 +343,8 @@ function ComboboxInner<T extends string = string>(
             disabled={disabled}
             autoComplete="off"
             role="combobox"
-            aria-label={label ? undefined : inputLabel}
+            aria-label={inputAriaLabel}
+            aria-labelledby={ariaLabelledBy}
             aria-expanded="true"
             aria-haspopup="listbox"
             aria-autocomplete="list"
@@ -355,7 +365,8 @@ function ComboboxInner<T extends string = string>(
             disabled={disabled}
             autoComplete="off"
             role="combobox"
-            aria-label={label ? undefined : inputLabel}
+            aria-label={inputAriaLabel}
+            aria-labelledby={ariaLabelledBy}
             aria-expanded="false"
             aria-haspopup="listbox"
             aria-autocomplete="list"
