@@ -647,7 +647,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-4",
@@ -722,7 +722,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-9",
@@ -737,7 +737,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-10",
@@ -767,7 +767,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-12",
@@ -933,7 +933,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-23",
@@ -978,7 +978,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-26",
@@ -1008,7 +1008,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-28",
@@ -1023,7 +1023,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-29",
@@ -1915,7 +1915,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-20",
@@ -1930,7 +1930,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-21",
@@ -1945,7 +1945,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-22",
@@ -1975,7 +1975,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-24",
@@ -2035,7 +2035,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-28",
@@ -2426,7 +2426,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-54",

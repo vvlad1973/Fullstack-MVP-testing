@@ -249,11 +249,13 @@ describe("<ScalesSection /> — «Список шкал»", () => {
     expect(label.value).toBe("Низкий");
 
     fireEvent.click(screen.getByTestId("scales-level-add-0"));
-    expect(screen.getByLabelText("Порог между уровнями 1 и 2")).toBeInTheDocument();
+    // Подписи называют уровни КОДАМИ, а не номерами. Второй уровень получает первый
+    // СВОБОДНЫЙ код: `level1` освободился, когда первому заменили код на «low».
+    expect(screen.getByLabelText("Порог между уровнями «low» и «level1»")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText("Удалить уровень 2"));
+    fireEvent.click(screen.getByLabelText("Удалить уровень «level1»"));
     // One level left → no threshold field, because a threshold needs two levels.
-    expect(screen.queryByLabelText("Порог между уровнями 1 и 2")).toBeNull();
+    expect(screen.queryByLabelText("Порог между уровнями «low» и «level1»")).toBeNull();
   });
 
   it("removing a scale also drops its measurements from the draft", () => {

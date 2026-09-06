@@ -276,7 +276,7 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           />
         </div>
         <div className="tb-test-order-row">
-          <span className="tb-test-order-row__label">Порядок выдачи вопросов</span>
+          <span className="tb-test-order-row__label">Порядок выдачи вопросов в тесте</span>
           <Select
             size="s"
             value={testOrder}
@@ -308,8 +308,8 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           <EmptyState
             layout="inline"
             well
-            title="Пока нет ни одной темы"
-            description="Добавьте темы, из которых будут отбираться вопросы. Минимум одна тема обязательна для сохранения теста."
+            title="В тесте нет тем"
+            description="Тема даёт тесту вопросы: из неё идёт выборка, по ней считается вердикт и печатается разбор. Добавьте первую тему."
             data-testid="composition-empty"
           />
           {/* Что именно недоступно, пока тем нет: иначе автор ищет пропавшие настройки
@@ -961,7 +961,7 @@ function TopicPickerModal(props: {
       onClose={props.onCancel}
       size="m"
       title="Добавить тему"
-      description="Выберите тему, вопросы из которой попадут в тест."
+      description="Темы, доступные вам и ещё не добавленные в тест"
       footer={
         <Button
           variant="ghost"
@@ -978,7 +978,7 @@ function TopicPickerModal(props: {
         size="m"
         fullWidth
         label="Поиск темы"
-        placeholder="Поиск по названию..."
+        placeholder="Название темы"
         iconRight={<Search size={16} aria-hidden="true" />}
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
@@ -1004,7 +1004,9 @@ function TopicPickerModal(props: {
             >
               <span>{topic.name}</span>
               <span className="tb-topic-picker__item-count">
-                {topic.questionCount} вопрос{plural(topic.questionCount)}
+                {topic.questionCount === 0
+                  ? "нет вопросов"
+                  : `${topic.questionCount} вопрос${plural(topic.questionCount)}`}
               </span>
             </button>
           </li>

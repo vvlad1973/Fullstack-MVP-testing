@@ -54,6 +54,11 @@ export type LevelsEditorProps = {
   onChange: (bands: ScaleBandModel[]) => void;
   /** Distinguishes the scale card's editor from the indicator card's one. */
   testIdPrefix?: string;
+  /**
+   * Подпись ленты покрытия. Редактор общий у шкал и показателей, и «Покрытие шкалы»
+   * у показателя было бы неправдой: шкалы там нет.
+   */
+  coverLabel?: string;
   /** Effective scale domain for the ribbon; null when nothing declares one. */
   domain?: { min: number; max: number } | null;
   /**
@@ -70,8 +75,21 @@ export type LevelsEditorProps = {
  * title, threshold caption, feedback modal — and a level with a code but no label
  * used to read as «high» in the header and «уровень 2» forty pixels below it.
  */
+/**
+ * Как уровень назван ОБУЧАЮЩЕМУСЯ: подпись полосы покрытия и её подсказка. Подсказка
+ * существует ради обрезанной подписи, поэтому обе берут одно и то же.
+ */
 function levelTitle(level: LevelDraft, i: number): string {
   return level.label.trim() || level.level.trim() || `Уровень ${i + 1}`;
+}
+
+/**
+ * Как уровень назван в МАШИНЕ: код, которым он назван в формулах показателей. Им
+ * подписаны заголовок карточки, кнопка удаления и порог — там уровень надо опознать,
+ * а не прочитать вслух.
+ */
+function levelCode(level: LevelDraft, i: number): string {
+  return level.level.trim() || level.label.trim() || `Уровень ${i + 1}`;
 }
 
 /** The computed «from … to» caption in a card header — text, never a field. */
@@ -100,6 +118,7 @@ export function LevelsEditor({
   readOnly,
   onChange,
   testIdPrefix = "scales",
+  coverLabel = "Покрытие шкалы",
   domain = null,
   valence,
 }: LevelsEditorProps) {
@@ -155,13 +174,13 @@ export function LevelsEditor({
     <div className="tb-levels" data-testid={`${testIdPrefix}-levels-${index}`}>
       <div className="tb-levels__cover">
         <span className="tb-levels__caplbl">Начало</span>
-        <span className="tb-levels__caplbl">Покрытие шкалы</span>
+        <span className="tb-levels__caplbl">{coverLabel}</span>
         <span className="tb-levels__caplbl tb-levels__caplbl--end">Конец</span>
 
         <Input
           size="s"
           fullWidth
-          aria-label="Начало"
+          aria-label="Начало шкалы"
           value={draft.start}
           disabled={readOnly}
           error={errors.start ?? undefined}
@@ -214,7 +233,7 @@ export function LevelsEditor({
         <Input
           size="s"
           fullWidth
-          aria-label="Конец"
+          aria-label="Конец шкалы"
           value={draft.end}
           disabled={readOnly}
           error={errors.end ?? undefined}
@@ -242,7 +261,7 @@ export function LevelsEditor({
                 <Input
                   size="s"
                   fullWidth
-                  aria-label={`Порог между уровнями ${i} и ${i + 1}`}
+                  aria-label={`Порог между уровнями «${levelCode(draft.levels[i - 1], i - 1)}» и «${levelCode(l, i)}»`}
                   value={draft.cuts[i - 1]}
                   disabled={readOnly}
                   error={errors.cuts[i - 1] ?? undefined}
@@ -266,7 +285,7 @@ export function LevelsEditor({
                 promise the card cannot keep. `moveLevel` in `levels-model` stays
                 ready for the day the debt is picked up. */}
             <header className="tb-levels__head">
-              <span className="tb-levels__title">{levelTitle(l, i)}</span>
+              <span className="tb-levels__title">{levelCode(l, i)}</span>
               <span className="tb-levels__spacer" />
               <span className="tb-levels__range" data-testid={`${testIdPrefix}-level-range-${index}-${i}`}>
                 {rangeOf(draft, i)}
@@ -274,7 +293,7 @@ export function LevelsEditor({
               {!readOnly && (
                 <IconButton
                   icon={<Trash2 width={14} height={14} aria-hidden="true" />}
-                  aria-label={`Удалить уровень ${i + 1}`}
+                  aria-label={`Удалить уровень «${levelCode(l, i)}»`}
                   variant="ghost"
                   size="s"
                   onClick={() => emit(removeLevel(draft, i))}
@@ -311,13 +330,12 @@ export function LevelsEditor({
               <ToneChips
                 value={l.tone}
                 disabled={readOnly}
-                ariaLabel={`Оценка уровня ${i + 1}`}
+                ariaLabel="Трактовка уровня"
                 onChange={(tone) => setLevel(i, { tone })}
                 testId={`${testIdPrefix}-level-tone-${index}-${i}`}
               />
               {/* `ToneChips` shortens «По направлению шкалы» to «Авто» so the row
                   cannot wrap; its full meaning is spelled out here (PRD-45 FR-06). */}
-              <span className="tb-levels__tonehint">Авто — цвет по направлению шкалы</span>
             </div>
 
             {/* A level that already has an interpretation opens with it visible: a

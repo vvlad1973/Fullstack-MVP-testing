@@ -589,6 +589,8 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             bands={v.bands}
             index={index}
             readOnly={readOnly}
+            // У показателя шкалы нет — лента показывает покрытие ЕГО значений.
+            coverLabel="Покрытие"
             valence={v.valence}
             testIdPrefix="metrics"
             domain={v.domainMin !== null && v.domainMax !== null
