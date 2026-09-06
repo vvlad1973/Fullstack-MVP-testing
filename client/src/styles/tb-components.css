@@ -161,6 +161,24 @@
   border-right: 0;
   border-top: 0;
 }
+/* Стопка баннеров РАЗНЫХ уровней (ошибки выше предупреждений) липнет ЦЕЛИКОМ, одним блоком.
+   Два отдельных sticky-баннера с одинаковым `top` при прокрутке наезжают друг на друга:
+   нижний останавливается на той же линии и закрывает верхний вместе с его действием. */
+.tb-settings-content > .tb-alerts {
+  position: sticky;
+  top: calc(var(--ou-space-5) * -1);
+  z-index: 2;
+  margin: calc(var(--ou-space-5) * -1) calc(var(--ou-space-5) * -1) var(--ou-space-4);
+  display: flex;
+  flex-direction: column;
+}
+.tb-settings-content > .tb-alerts > .ou-banner {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  margin: 0;
+}
 .tb-settings-content .ou-formfield { display: flex; flex-direction: column; gap: var(--ou-space-2); margin-bottom: var(--ou-space-4); }
 .tb-settings-content .ou-formfield > .ou-field,
 .tb-settings-content .ou-formfield > .ou-textarea { display: flex; width: 100%; }
