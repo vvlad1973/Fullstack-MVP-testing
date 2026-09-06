@@ -158,18 +158,21 @@ describe("<TestEditor /> DOM and focus", () => {
     expect(body.getAttribute("aria-labelledby")).toBe(activeTab.id);
   });
 
-  it("focuses the first interactive tab on open (NFR-19)", async () => {
+  it("фокус при открытии уходит в ТЕЛО ящика (NFR-19)", async () => {
+    // На первой вкладке фокус читался как «вы здесь», и стрелки листали вкладки
+    // вместо прокрутки содержимого. Эскиз держит фокус на теле.
     nextResponse(buildApiResponse());
     const client = makeClient();
-    render(
+    const { container } = render(
       withClient(
         client,
         <TestEditor testId="test-1" open onClose={() => {}} />,
       ),
     );
 
-    const firstTab = await screen.findByRole("tab", { name: /Основное/i });
-    await waitFor(() => expect(document.activeElement).toBe(firstTab));
+    await screen.findByRole("tab", { name: /Основное/i });
+    const body = container.querySelector(".ou-drawer__body");
+    await waitFor(() => expect(document.activeElement).toBe(body));
   });
 
   it("closes immediately when the editor is clean", async () => {

@@ -331,7 +331,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-11",
@@ -482,7 +482,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-21",
@@ -497,7 +497,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-22",
@@ -512,7 +512,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-23",
@@ -527,7 +527,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "A-24",
@@ -542,7 +542,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-25",
@@ -587,7 +587,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-28",
@@ -662,7 +662,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-5",
@@ -677,7 +677,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-6",
@@ -752,7 +752,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-11",
@@ -843,7 +843,7 @@
       "variants-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-17",
@@ -963,7 +963,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-25",
@@ -1038,7 +1038,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-30",

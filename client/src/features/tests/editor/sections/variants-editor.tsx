@@ -121,7 +121,6 @@ export function VariantsEditor({
           data-testid={`topic-variants-toggle-${topicId}`}
         />
         <span className="tb-section-label">
-          <List size={14} aria-hidden="true" />
           Варианты теста
         </span>
       </label>

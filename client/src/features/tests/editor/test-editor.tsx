@@ -28,7 +28,7 @@ import {
   useState,
 } from "react";
 import type * as React from "react";
-import { AlertTriangle, Loader2, X, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, X, XCircle } from "lucide-react";
 import {
   Banner,
   Button,
@@ -269,10 +269,10 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   useEffect(() => {
     if (!open) return;
     const handle = window.setTimeout(() => {
-      const firstTab = drawerRef.current?.querySelector<HTMLButtonElement>(
-        '[role="tab"]',
-      );
-      firstTab?.focus();
+      // NFR-19: фокус уходит в ТЕЛО ящика. На первой вкладке он читался как «вы
+      // здесь», и стрелки листали вкладки вместо прокрутки содержимого.
+      const body = drawerRef.current?.querySelector<HTMLElement>(".ou-drawer__body");
+      body?.focus();
     }, 0);
     return () => window.clearTimeout(handle);
   }, [open]);
@@ -965,12 +965,15 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
  * stable layout (badge slot reserved).
  */
 function StatusBadge({ status }: { status: TabStatus }) {
+  // Точка одна на весь ящик: вкладка, пункт рейла и карточка объекта показывают
+  // состояние ОДНИМ классом `tb-status-dot`. Своя копия с другими размерами и другим
+  // цветом «изменено» рассказывала бы про то же самое иначе.
   const cls = status.error
-    ? "status-dot error"
+    ? "tb-status-dot tb-status-dot--err"
     : status.warning
-      ? "status-dot warn"
+      ? "tb-status-dot tb-status-dot--warn"
       : status.dirty
-        ? "status-dot dirty"
+        ? "tb-status-dot tb-status-dot--warn"
         : null;
   if (!cls) return null;
   const aria = status.error
@@ -1094,7 +1097,7 @@ function ChangesPopover(props: {
                     >
                       <span className="tb-changes-popover__label">{d.label}</span>
                       <span className="tb-changes-popover__old">{d.old}</span>
-                      <span className="tb-changes-popover__arrow">→</span>
+                      <ArrowRight size={12} className="tb-changes-popover__arrow" aria-hidden="true" />
                       <span className="tb-changes-popover__new">{d.next}</span>
                     </div>
                   ))
@@ -1352,8 +1355,10 @@ function ConflictDialog(props: {
     <ModalDialog
       open={props.open}
       onClose={props.onCancel}
-      // size "l" so the three actions + the diff-table fit without overflow.
-      size="l"
+      // Размер m — как в эскизе. Три действия в него помещаются: замер утверждённого
+      // эскиза даёт 456px кнопок на 560px модалки. Таблица различий узкая (две
+      // колонки значений), и её ширины хватает.
+      size="m"
       icon={<AlertTriangle size={20} />}
       iconTone="warning"
       title="Конфликт версий"

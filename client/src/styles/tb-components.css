@@ -731,18 +731,11 @@
 /* Inline status dot for tabs / list rows (per prd7-editor-drawer.html
    и prd7-structure-*.html wireframes). Smaller than .tb-status-dot —
    renders next to text, not in a card lead slot. */
-.status-dot {
-  display: inline-block;
-  vertical-align: middle;
-  width: var(--ou-space-2);
-  height: var(--ou-space-2);
-  border-radius: 50%;
-  margin-left: var(--ou-space-1);
-  background: var(--ou-fg-muted);
-}
-.status-dot.dirty { background: var(--ou-accent-default); }
-.status-dot.warn  { background: var(--ou-warning-default); }
-.status-dot.error { background: var(--ou-error-default); }
+/* Точка состояния во вкладке и в рейле — тот же `tb-status-dot`, что и в карточках
+   объектов; своей копии больше нет. Отбивка от подписи — единственное, что нужно
+   добавить к общему правилу. */
+.ou-tabs__tab > .tb-status-dot,
+.ou-drawer__rail-item > .tb-status-dot { margin-left: var(--ou-space-1); }
 
 /* ── Adaptive block (адаптивность по темам) ──────────────────────────── */
 .tb-adaptive-topics { margin-bottom: var(--ou-space-3); }
@@ -1168,23 +1161,14 @@
 }
 .tb-changes-popover__item {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ou-space-2);
-  padding: var(--ou-space-2) 0; font: var(--ou-text-body-s);
-  border-top: var(--wf-border-w) dashed var(--ou-border-default);
+  padding: var(--ou-space-1) 0; font: var(--ou-text-body-s);
 }
-.tb-changes-popover__item:first-of-type { border-top: none; }
 .tb-changes-popover__label { font-weight: 500; flex-basis: 100%; }
 .tb-changes-popover__old {
-  padding: var(--wf-border-w) var(--wf-space-6); border-radius: var(--ou-radius-s);
-  font-family: ui-monospace, monospace;
-  color: var(--ou-error-on-soft); background: var(--ou-error-soft);
+  color: var(--ou-fg-muted);
   text-decoration: line-through;
 }
-.tb-changes-popover__new {
-  padding: var(--wf-border-w) var(--wf-space-6); border-radius: var(--ou-radius-s);
-  font-family: ui-monospace, monospace;
-  color: var(--ou-success-on-soft); background: var(--ou-success-soft);
-  font-weight: 500;
-}
+.tb-changes-popover__new { font-weight: 600; }
 .tb-changes-popover__arrow { color: var(--ou-fg-muted); }
 .tb-changes-popover__context { color: var(--ou-fg-muted); flex-basis: 100%; }
 

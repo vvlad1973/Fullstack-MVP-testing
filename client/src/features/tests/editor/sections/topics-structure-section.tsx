@@ -21,7 +21,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, Layers, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Info, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import {
@@ -302,17 +302,21 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
             data-testid="composition-search"
           />
         </div>
-        <div className="tb-test-order-row">
-          <span className="tb-test-order-row__label">Порядок выдачи вопросов в тесте</span>
+        {/* B-4: правило уровня теста — обычное поле формы с подписью НАД ним, как
+            соседние. Строкой «подпись слева · поле · хвост» оно выглядело сноской,
+            хотя управляет выдачей всего теста. */}
+        <div className="ou-formfield">
           <Select
-            size="s"
+            id="test-question-order"
+            size="m"
+            fullWidth
+            label="Порядок выдачи вопросов в тесте"
+            hint={TEST_ORDER_HINTS[testOrder](flatFlow)}
             value={testOrder}
             onChange={(value) => updateModel((m) => ({ ...m, questionOrder: value }))}
             options={flatFlow ? TEST_ORDER_OPTIONS : TEST_ORDER_OPTIONS.slice(0, 2)}
-            aria-label="Порядок выдачи вопросов в тесте"
             data-testid="test-question-order"
           />
-          <span className="tb-test-order-row__hint">{TEST_ORDER_HINTS[testOrder](flatFlow)}</span>
         </div>
         <div className="tb-fold-toolbar">
           <Button
@@ -333,8 +337,9 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
       {model.sections.length === 0 && (
         <>
           <EmptyState
-            layout="inline"
+            layout="page"
             well
+            art={<Info size={24} aria-hidden="true" />}
             title="В тесте нет тем"
             description="Тема даёт тесту вопросы: из неё идёт выборка, по ней считается вердикт и печатается разбор. Добавьте первую тему."
             data-testid="composition-empty"
@@ -756,10 +761,7 @@ function KeysTable(props: {
           aria-label={`Квоты по подтемам: ${topicName}`}
           data-testid={`topic-quota-toggle-${topicId}`}
         />
-        <span className="tb-section-label">
-          <Layers size={14} aria-hidden="true" />
-          Квоты по подтемам (тегам)
-        </span>
+        <span className="tb-section-label">Квоты по подтемам (тегам)</span>
       </label>
 
       {forcedDisabled ? (
@@ -996,7 +998,7 @@ function TopicPickerModal(props: {
       footer={
         <Button
           variant="ghost"
-          size="s"
+          size="m"
           onClick={props.onCancel}
           data-testid="topic-picker-cancel"
         >

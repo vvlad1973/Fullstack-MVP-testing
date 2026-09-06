@@ -241,7 +241,7 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
                 {item.label}
                 {showError && (
                   <span
-                    className="status-dot error"
+                    className="tb-status-dot tb-status-dot--err"
                     aria-label="Шаблон недоступен"
                     data-testid="design-rail-template-error-dot"
                   />
