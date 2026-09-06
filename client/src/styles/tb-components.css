@@ -269,6 +269,10 @@
 .tb-formula-builder { display: flex; flex-direction: column; gap: var(--ou-space-3); margin-top: var(--ou-space-2); }
 .tb-rows { display: flex; flex-direction: column; gap: var(--ou-space-2); }
 .tb-rows-actions { margin-top: var(--ou-space-2); }
+/* PRD-53: шкалы группы профиля — список тумблеров в столбик.
+   `.ou-switch-field` строчный, и без контейнера тумблеры сходятся в одну строку,
+   где название одной шкалы упирается в ключ соседней. Шаг 1x: строки родственные. */
+.tb-profile-scales { display: flex; flex-direction: column; gap: var(--ou-space-1); align-items: flex-start; }
 .tb-cond-row { display: flex; align-items: flex-end; gap: var(--ou-space-2); }
 .tb-cond-row > .tb-cond-row__grow { flex: 1 1 auto; min-width: 0; }
 .tb-cond-sep { font: var(--ou-text-body-s); color: var(--ou-fg-muted); white-space: nowrap; padding-bottom: var(--ou-space-2); }
