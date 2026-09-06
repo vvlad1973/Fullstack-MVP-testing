@@ -293,7 +293,7 @@ describe("<TestEditor /> — header status tag", () => {
   it("shows «Есть ошибки» when the model has blocking validation errors", async () => {
     nextResponse(buildApiResponse({ title: "" }));
     render(withClient(makeClient(), <TestEditor testId="test-1" open onClose={() => {}} />));
-    await screen.findByText("Основы ИБ");
+    await screen.findByText("1. Основы ИБ");
     await waitFor(() =>
       expect(screen.getByTestId("test-editor-status-tag")).toHaveTextContent("Есть ошибки"),
     );

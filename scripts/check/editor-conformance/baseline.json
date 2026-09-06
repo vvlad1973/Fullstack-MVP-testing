@@ -10,48 +10,8 @@
   {
     "op": "missing",
     "role": "label",
-    "text": "Поиск темы",
-    "index": 1,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
     "text": "Порядок выдачи вопросов в тесте",
     "index": 3,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 6,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 7,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 8,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Обязательная",
-    "index": 11,
     "state": "composition",
     "finding": null
   },
@@ -84,22 +44,6 @@
     "role": "label",
     "text": "Пороги по подтемам (тегам)",
     "index": 22,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 23,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 24,
     "state": "composition",
     "finding": null
   },
@@ -200,26 +144,10 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 51,
-    "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 53,
-    "state": "composition",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "button",
     "text": "Перемешивание",
-    "index": 1,
+    "index": 3,
     "state": "composition",
     "finding": null
   },
@@ -227,7 +155,7 @@
     "op": "extra",
     "role": "table",
     "text": "Подтема | Сколько | Режим | ",
-    "index": 10,
+    "index": 17,
     "state": "composition",
     "finding": null
   },
@@ -235,17 +163,17 @@
     "op": "extra",
     "role": "table",
     "text": "Подтема | Сколько | Режим | ",
-    "index": 21,
+    "index": 30,
     "state": "composition",
     "finding": null
   },
   {
     "op": "order",
-    "role": "control",
-    "text": "input:text",
-    "index": 1,
+    "role": "button",
+    "text": "Как в тесте",
+    "index": 3,
     "state": "composition",
-    "finding": null
+    "finding": "wf:test-order-value"
   },
   {
     "op": "extra",
@@ -1157,7 +1085,7 @@
     "text": "Отчёт: сертификация",
     "index": 5,
     "state": "report",
-    "finding": "data:report-variant-name"
+    "finding": null
   },
   {
     "op": "extra",
@@ -1165,7 +1093,7 @@
     "text": "Параметры вида",
     "index": 6,
     "state": "report",
-    "finding": "data:report-variant-fields"
+    "finding": null
   },
   {
     "op": "extra",

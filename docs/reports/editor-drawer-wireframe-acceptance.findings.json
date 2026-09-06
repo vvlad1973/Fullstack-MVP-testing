@@ -632,7 +632,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-3",
@@ -692,7 +692,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-7",
@@ -707,7 +707,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-8",
@@ -948,7 +948,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-24",

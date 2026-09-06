@@ -21,7 +21,7 @@
  */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Layers, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Layers, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import {
@@ -41,6 +41,7 @@ import {
 } from "@universityrt/ui-kit";
 import { effectiveSectionOrder, type TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import { VariantsEditor } from "./variants-editor";
+import { FoldAllButtons, useSectionFold } from "./section-fold";
 import type {
   EditorSection,
   TestEditorModel,
@@ -156,6 +157,20 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
     return map;
   }, [allQuestions]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Темы открываются СВЁРНУТЫМИ (комментарий эскиза): в списке на два десятка тем
+  // раскрытые тела превращают экран в простыню.
+  const fold = useSectionFold(model.sections.map((s) => s.topicId), true);
+
+  // Поиск сужает СПИСОК, а не модель: индекс темы остаётся прежним, иначе адреса
+  // ошибок `sections[i]` начали бы указывать не на ту тему.
+  const visibleSections = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return model.sections
+      .map((section, index) => ({ section, index }))
+      .filter(({ section }) => !needle || section.topicName.toLowerCase().includes(needle));
+  }, [model.sections, search]);
 
   const usedTopicIds = useMemo(
     () => new Set(model.sections.map((s) => s.topicId)),
@@ -246,6 +261,20 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           in the flat flow: the sectional flows carry the section screens on the
           topic boundary, so there is nothing to mix across. */}
       <FormSection stacked title="Темы теста">
+        {/* Поиск по уже добавленным темам: у теста их бывает под два десятка, и найти
+            нужную прокруткой — это и есть та работа, ради которой поле стоит здесь. */}
+        <div className="ou-formfield">
+          <Input
+            id="composition-search"
+            size="m"
+            fullWidth
+            label="Поиск темы"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            iconRight={<Search size={16} aria-hidden="true" />}
+            data-testid="composition-search"
+          />
+        </div>
         <div className="tb-test-order-row">
           <span className="tb-test-order-row__label">Порядок выдачи вопросов</span>
           <Select
@@ -258,23 +287,49 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           />
           <span className="tb-test-order-row__hint">{TEST_ORDER_HINTS[testOrder](flatFlow)}</span>
         </div>
+        <div className="tb-fold-toolbar">
+          <Button
+            className="tb-fold-toolbar__lead"
+            variant="secondary"
+            size="s"
+            leadingIcon={<Plus size={16} aria-hidden="true" />}
+            onClick={() => setPickerOpen(true)}
+            data-testid="composition-add-topic"
+            data-field="sections"
+          >
+            Добавить тему
+          </Button>
+          <FoldAllButtons fold={fold} testIdPrefix="composition-topics" />
+        </div>
       </FormSection>
 
       {model.sections.length === 0 && (
-        <EmptyState
-          layout="inline"
-          well
-          title="Пока нет ни одной темы"
-          description="Добавьте темы, из которых будут отбираться вопросы. Минимум одна тема обязательна для сохранения теста (FR-12)."
-          data-testid="composition-empty"
-        />
+        <>
+          <EmptyState
+            layout="inline"
+            well
+            title="Пока нет ни одной темы"
+            description="Добавьте темы, из которых будут отбираться вопросы. Минимум одна тема обязательна для сохранения теста."
+            data-testid="composition-empty"
+          />
+          {/* Что именно недоступно, пока тем нет: иначе автор ищет пропавшие настройки
+              по другим вкладкам, а их там нет и быть не может. */}
+          <Banner
+            tone="info"
+            description="Пока тем нет, правила оценки тем, квоты по подтемам и адаптивная лестница недоступны."
+            data-testid="composition-empty-consequences"
+          />
+        </>
       )}
 
-      {model.sections.map((section, index) => (
+      <div className="ou-acc ou-acc--separated" data-testid="composition-topics">
+      {visibleSections.map(({ section, index }) => (
         <TopicRow
           key={section.topicId}
           index={index}
           section={section}
+          open={fold.isOpen(section.topicId)}
+          onToggleOpen={() => fold.toggle(section.topicId)}
           unavailable={topicsLoaded && !visibleTopicIds.has(section.topicId)}
           adaptive={model.mode === "adaptive"}
           drawCountError={fieldErrors.get(`sections[${index}].drawCount`)}
@@ -307,18 +362,7 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           onRemove={() => removeSection(section.topicId)}
         />
       ))}
-
-      <Button
-        variant="secondary"
-        size="m"
-        fullWidth
-        leadingIcon={<Plus size={16} aria-hidden="true" />}
-        onClick={() => setPickerOpen(true)}
-        data-testid="composition-add-topic"
-        data-field="sections"
-      >
-        Добавить тему
-      </Button>
+      </div>
 
       <TopicPickerModal
         open={pickerOpen}
@@ -366,6 +410,9 @@ function TopicRow(props: {
   /** FR-20c: validation message for this section's variants. */
   variantsError?: string;
   onRemove: () => void;
+  /** Раскрыта ли тема (свёртками управляет список, чтобы работали «развернуть все»). */
+  open: boolean;
+  onToggleOpen: () => void;
   /** Called with a partial EditorSection patch when feedback is saved. */
   /** PRD-15 E-11: the author can no longer see this section's topic (grant
    * revoked / made private). The test still works and saves; only new draws
@@ -403,36 +450,61 @@ function TopicRow(props: {
 
   return (
     <>
-      <div className="tb-topic-row" data-testid={`topic-row-${section.topicId}`}>
-        <div className="tb-topic-row__header">
-          <span className="tb-topic-row__name">{section.topicName}</span>
+      <div
+        className={`ou-acc__item${props.open ? " is-open" : ""}`}
+        data-testid={`topic-row-${section.topicId}`}
+      >
+        {/* Шапка аккордеона отдельной строкой, а не содержимым триггера: кнопку удаления
+            нельзя вкладывать в кнопку раскрытия — это и невалидная разметка, и клик по
+            удалению заодно сворачивал бы тему. Так же устроена шапка в эскизе. */}
+        <div className="tb-acc-head">
+          <button
+            type="button"
+            className="ou-acc__trigger"
+            aria-expanded={props.open}
+            onClick={props.onToggleOpen}
+            data-testid={`topic-toggle-${section.topicId}`}
+          >
+            <span className="ou-acc__trigger-text">
+              <span className="ou-acc__title">{`${props.index + 1}. ${section.topicName}`}</span>
+              <span className="ou-acc__subtitle">
+                {`${section.maxQuestions} вопрос${plural(section.maxQuestions)} в банке · выдаётся ${
+                  effectiveDrawAll ? section.maxQuestions : section.drawCount
+                }`}
+              </span>
+            </span>
+          </button>
           {props.unavailable && (
             <Tag tone="warning" size="s" data-testid={`topic-unavailable-${section.topicId}`}>
               Тема недоступна
             </Tag>
           )}
-          <span className="tb-topic-row__count">
-            {section.maxQuestions} вопрос{plural(section.maxQuestions)}
+          <span className="tb-topic-actions">
+            <IconButton
+              icon={<Trash2 size={14} aria-hidden="true" />}
+              aria-label={`Убрать тему «${section.topicName}»`}
+              variant="ghost"
+              size="s"
+              onClick={props.onRemove}
+              data-testid={`topic-remove-${section.topicId}`}
+            />
           </span>
-          <label className="tb-topic-row__required">
+          <span className="ou-acc__chev" aria-hidden="true">
+            <ChevronDown size={16} />
+          </span>
+        </div>
+        <div className="ou-acc__body" role="region">
+          {/* «Обязательная» — свойство темы, а не строка списка: в эскизе она первым
+              полем тела, рядом с «все вопросы темы» и выборкой. */}
+          <div className="ou-formfield">
             <Switch
+              label="Обязательная"
               checked={section.required}
               onChange={(e) => props.onToggleRequired(e.target.checked)}
               aria-label={`Тема обязательная: ${section.topicName}`}
               data-testid={`topic-required-${section.topicId}`}
             />
-            <span className="tb-topic-row__required-lbl">Обязательная</span>
-          </label>
-          <IconButton
-            icon={<X size={14} aria-hidden="true" />}
-            aria-label={`Убрать тему «${section.topicName}»`}
-            variant="ghost"
-            size="s"
-            onClick={props.onRemove}
-            data-testid={`topic-remove-${section.topicId}`}
-          />
-        </div>
-        <div className="tb-topic-row__body">
+          </div>
           {/* PRD-17: variants mode overrides the whole-topic draw (the source
               becomes the drawn variant, delivered whole), and "draw all" overrides
               the partial-draw quotas. Per author request these controls are kept

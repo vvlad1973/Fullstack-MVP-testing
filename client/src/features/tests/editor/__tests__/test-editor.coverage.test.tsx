@@ -282,7 +282,7 @@ describe("<TestEditor /> — close-confirm error anchor", () => {
     }
 
     render(withClient(client, <Harness />));
-    await screen.findByText("Основы ИБ");
+    await screen.findByText("1. Основы ИБ");
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
     });
