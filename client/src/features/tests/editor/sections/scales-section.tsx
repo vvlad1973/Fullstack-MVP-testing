@@ -64,7 +64,7 @@ import {
 } from "../scales-api";
 import { pluralize } from "@/lib/i18n";
 import type { FieldErrorIndex } from "../field-errors";
-import { formatAuthorNumber, parseAuthorNumber, sanitizeAuthorNumberInput } from "../numeric-input";
+import { parseAuthorNumber } from "../numeric-input";
 import { isEmptyBandRow } from "../test-editor.validation";
 import { FoldAllButtons, useSectionFold } from "./section-fold";
 import { isSingleIndexChoice, distributesBudget, type QuestionType } from "@shared/questions/question-type";
@@ -1609,34 +1609,20 @@ function MatrixCell({
   ariaLabel: string;
   onCommit: (value: number | null) => void;
 }) {
-  const [text, setText] = useState(value === undefined ? "" : formatAuthorNumber(value));
-
-  useEffect(() => {
-    const current = text.trim() === "" ? null : parseAuthorNumber(text);
-    const target = value === undefined ? null : value;
-    if (current !== target) setText(value === undefined ? "" : formatAuthorNumber(value));
-    // Only `value` drives the re-sync; `text` is the live buffer we protect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
   return (
-    <Input
+    <NumberInput
       size="s"
       fullWidth
-      value={text}
+      allowEmpty
+      // Пусто — «вопрос в эту шкалу не вносит вклад», и это не то же, что вклад 0:
+      // по пустым ячейкам считается предупреждение о непокрытых вопросах.
+      value={value ?? null}
       disabled={disabled}
       inputMode="decimal"
       aria-label={ariaLabel}
-      onChange={(e) => {
-        const t = sanitizeAuthorNumberInput(e.target.value);
-        setText(t);
-        if (t.trim() === "") {
-          onCommit(null);
-          return;
-        }
-        const n = parseAuthorNumber(t);
-        if (n !== null) onCommit(n);
-      }}
+      decLabel="Меньше"
+      incLabel="Больше"
+      onChange={(next) => onCommit(next)}
     />
   );
 }

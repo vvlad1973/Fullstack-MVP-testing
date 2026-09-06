@@ -2109,8 +2109,8 @@
     "files": [
       "scales-section.tsx"
     ],
-    "batch": "owner",
-    "status": "open"
+    "batch": "components",
+    "status": "fixed"
   },
   {
     "id": "D-33",

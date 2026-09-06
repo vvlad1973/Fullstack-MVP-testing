@@ -196,7 +196,9 @@ export type {
   DialogHeaderProps, DialogContentProps,
 } from './components/Modal';
 export type { BudgetAllocationProps, BudgetAllocationItem } from './components/BudgetAllocation';
-export type { NumberInputProps, StepperLayout } from './components/NumberInput';
+export type {
+  NumberInputProps, NumberInputBaseProps, NumberInputEmptyProps, StepperLayout,
+} from './components/NumberInput';
 export type {
   PageNavProps, PageNavItem, PageNavVariant, PageNavOrientation,
 } from './components/PageNav';
