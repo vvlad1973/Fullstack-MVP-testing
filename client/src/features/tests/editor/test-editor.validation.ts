@@ -24,7 +24,7 @@ import {
 } from "./test-editor.types";
 import { parseAuthorNumber } from "./numeric-input";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
-import { normalizeTag, TAG_MAX_LENGTH } from "@shared/tags";
+import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 
 const VALID_PASS_DECISION_POLICIES: PassDecisionPolicy[] = [
   "overall_only",
@@ -99,15 +99,66 @@ function getSectionByTopicId(sections: EditorSection[], topicId: string): Editor
 }
 
 /**
+ * Факты, которых НЕТ в модели редактора, но без которых часть проверок невозможна.
+ *
+ * Проверка остаётся чистой функцией: данные приходят аргументом, а не вычитываются
+ * из запроса внутри неё. Иначе секции пришлось бы заводить свой канал индикации в
+ * обход общего — а по контракту «Индикация проблем» проблема, о которой говорят
+ * автору, обязана быть в общем контуре.
+ *
+ * Поле отсутствует — соответствующие проверки просто не выполняются: молчание лучше
+ * выдуманного предупреждения, посчитанного по пустому банку.
+ */
+export type ValidationContext = {
+  /**
+   * Сколько вопросов с таким ключом (подтемой) есть в банке у темы:
+   * `availableByTopicAndTag[topicId][tagKey]`. Источник — `/api/questions`, который
+   * ящик и так загружает.
+   */
+  availableByTopicAndTag?: Record<string, Record<string, number>>;
+};
+
+/**
  * Validate the entire editor model. Each issue carries a stable `code` and
  * targets a `field` path that the UI uses to anchor inline errors.
  *
  * @param model - Normalized editor model to validate.
+ * @param context - Факты вне модели; см. {@link ValidationContext}.
  * @returns Object with `errors` (block save) and `warnings` (non-blocking).
  */
-export function validateTestEditor(model: TestEditorModel): ValidationResult {
+export function validateTestEditor(
+  model: TestEditorModel,
+  context: ValidationContext = {},
+): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
+
+  // PRD-50 §16: квота требует больше вопросов, чем есть в банке темы. Это НЕ ошибка —
+  // выдача просто отдаст сколько сможет, — но автор почти наверняка имел в виду другое.
+  // Проверка живёт здесь, а не в карточке квот: посчитанная внутри секции, она не
+  // зажигала бы ни точку на вкладке, ни точку в рейле и не попадала бы в баннер.
+  const available = context.availableByTopicAndTag;
+  if (available) {
+    model.sections.forEach((section, index) => {
+      const strata = section.drawBlueprint?.strata ?? [];
+      const byTag = available[section.topicId] ?? {};
+      strata.forEach((stratum, stratumIndex) => {
+        const have = byTag[tagKey(stratum.tag)] ?? 0;
+        // «Не меньше» банк не нарушает: выдача возьмёт, сколько есть. Говорим только
+        // о точной квоте, которую банк заведомо не покроет.
+        if (stratum.mode !== "min" && stratum.count > have) {
+          warnings.push({
+            field: `sections[${index}].drawBlueprintJson[${stratumIndex}]`,
+            code: "quota_exceeds_bank",
+            message:
+              `Подтема «${stratum.tag}»: запрошено ${stratum.count}, в банке темы ` +
+              `${have}. В выдачу попадёт столько, сколько есть.`,
+            severity: "warning",
+          });
+        }
+      });
+    });
+  }
 
   // FR-11: title is required
   if (model.basic.title.trim() === "") {

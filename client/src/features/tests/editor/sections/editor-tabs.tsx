@@ -20,7 +20,9 @@ import type { FieldErrorIndex } from "../field-errors";
 import type { TestEditorModel } from "../test-editor.types";
 import type { UseDesignSettingsResult } from "../use-design-settings";
 import type { UseContentPagesResult } from "../use-content-pages";
-import { TabRail, useRailState, type RailEntry, type RailItem } from "./tab-rail";
+import {
+  TabRail, useRailState, type RailDot, type RailEntry, type RailItem,
+} from "./tab-rail";
 import {
   AdaptivePane,
   BreakdownDisplayPane,
@@ -54,7 +56,28 @@ export type EditorTabProps = {
   model: TestEditorModel;
   updateModel: (updater: (m: TestEditorModel) => TestEditorModel) => void;
   fieldErrors?: FieldErrorIndex;
+  /**
+   * Худший уровень проблемы по адресу поля — для точки на пункте рейла. Точка
+   * показывает ХУДШИЙ уровень внутри подраздела, а `fieldErrors` знает только ошибки:
+   * предупреждения в него не кладутся, чтобы не красить поле красным из-за замечания.
+   */
+  issueLevel?: (field: string) => "error" | "warning" | undefined;
 };
+
+/** Точка пункта рейла по адресу его содержимого. */
+function railDot(
+  issueLevel: EditorTabProps["issueLevel"],
+  ...fields: string[]
+): RailDot | undefined {
+  if (!issueLevel) return undefined;
+  let worst: RailDot | undefined;
+  for (const field of fields) {
+    const level = issueLevel(field);
+    if (level === "error") return "error";
+    if (level === "warning") worst = "warning";
+  }
+  return worst;
+}
 
 // ─── «Основное» ───────────────────────────────────────────────────────────────
 
@@ -62,7 +85,7 @@ export type EditorTabProps = {
  * Что это за тест: название, описание, режим и интеграция. Рейла нет — полей мало, и
  * лишний столбец только отодвигал бы их от края (эскиз `wf-basic`).
  */
-export function MainTab({ model, updateModel, fieldErrors }: EditorTabProps): React.JSX.Element {
+export function MainTab({ model, updateModel, fieldErrors, issueLevel }: EditorTabProps): React.JSX.Element {
   return (
     <div className="tb-settings-content" data-testid="settings-pane-main">
       <MainPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
@@ -84,6 +107,7 @@ export function CompositionTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   testId,
   content,
   savedFlowMode,
@@ -110,25 +134,26 @@ export function CompositionTab({
     {
       key: "composition",
       label: "Состав",
-      dot: fieldErrors?.has("sections") ? "error" : undefined,
+      dot: railDot(issueLevel, "sections"),
     },
     ...(isAdaptive
       ? [
           {
             key: "adaptive" as const,
             label: "Адаптивные уровни",
-            dot: (adaptiveError || fieldErrors?.has("adaptive")
+            // Ошибка лестницы известна вкладке напрямую (её нет в модели), поэтому
+            // она складывается с общим уровнем, а не подменяет его.
+            dot: (adaptiveError
               ? "error"
-              : adaptiveWarning
-                ? "warning"
-                : undefined) as RailItem<CompositionRail>["dot"],
+              : railDot(issueLevel, "adaptive") ?? (adaptiveWarning ? "warning" : undefined)
+            ) as RailItem<CompositionRail>["dot"],
           },
         ]
       : []),
     {
       key: "scenario",
       label: "Сценарий",
-      dot: fieldErrors?.has("flowMode") ? "error" : undefined,
+      dot: railDot(issueLevel, "flowMode"),
     },
   ];
   const [active, setActive] = useRailState<CompositionRail>(items, "composition");
@@ -180,6 +205,7 @@ export function RulesTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   design,
 }: EditorTabProps & { design?: UseDesignSettingsResult }): React.JSX.Element {
   const [active, setActive] = useRailState<RulesRail>(RULES_ITEMS, "navigation");
@@ -232,23 +258,24 @@ export function ScoringTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   testId,
 }: EditorTabProps & { testId?: string }): React.JSX.Element {
   // «Шкалы» — не один экран, а два: сами шкалы и матрица вкладов. Прежде они шли
   // одной колонкой друг под другом, и матрица — самое широкое место ящика, её ширина
   // растёт с каждой шкалой — делила панель с карточками шкал (эскиз ds-rail-nested).
   const hasScales = model.scales.length > 0;
-  const scalesDot = fieldErrors?.has("scales") ? ("error" as const) : undefined;
+  const scalesDot = railDot(issueLevel, "scales");
   const items: RailEntry<ScoringRail>[] = [
     {
       key: "answer",
       label: "Оценка ответа",
-      dot: fieldErrors?.has("scoring") ? "error" : undefined,
+      dot: railDot(issueLevel, "scoring"),
     },
     {
       key: "verdict",
       label: "Вердикт",
-      dot: fieldErrors?.has("passRules") ? "error" : undefined,
+      dot: railDot(issueLevel, "passRules"),
     },
     {
       label: "Шкалы",
@@ -267,7 +294,7 @@ export function ScoringTab({
     {
       key: "metrics",
       label: "Показатели",
-      dot: fieldErrors?.has("resultVariables") ? "error" : undefined,
+      dot: railDot(issueLevel, "resultVariables"),
     },
   ];
   const [active, setActive] = useRailState<ScoringRail>(items, "answer");
@@ -326,6 +353,7 @@ export function FeedbackTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   design,
   onOpenQuestion,
 }: EditorTabProps & {

@@ -39,7 +39,8 @@ import {
   mapEditorAdaptiveToPayload,
   mapEditorSectionsToPayload,
 } from "./test-editor.mappers";
-import { validateTestEditor } from "./test-editor.validation";
+import { validateTestEditor, type ValidationContext } from "./test-editor.validation";
+import { tagKey } from "@shared/tags";
 import { saveResultVariables } from "./result-variables-api";
 import { saveScales, saveMeasurements } from "./scales-api";
 import { saveQuestionOverrides } from "./scoring-api";
@@ -482,6 +483,33 @@ export function useTestEditor(
   // Debounced validation (NFR-18: 300 ms). Tracks the latest draft and emits a
   // ValidationResult only after the user pauses.
   const [validation, setValidation] = useState<ValidationResult>(EMPTY_VALIDATION);
+  /**
+   * Банк вопросов: сколько вопросов с каким ключом есть у каждой темы. Модель этого не
+   * знает, а часть проверок без этого невозможна — например, «квота больше, чем есть в
+   * банке» (контракт «Индикация проблем»: проблема обязана быть в общем контуре, иначе
+   * секция считает её в одиночку и снаружи её никто не видит).
+   *
+   * Запрос тот же, что у вкладки «Состав», — React Query отдаёт его из кэша.
+   */
+  const questionsQuery = useQuery<{ id: string; topicId?: string | null; tags?: string[] }[]>({
+    queryKey: ["/api/questions"],
+    enabled: Boolean(draft),
+  });
+  const validationContext = useMemo<ValidationContext>(() => {
+    const rows = questionsQuery.data;
+    if (!rows) return {};
+    const available: Record<string, Record<string, number>> = {};
+    for (const q of rows) {
+      if (!q.topicId) continue;
+      const byTag = (available[q.topicId] ??= {});
+      for (const tag of q.tags ?? []) {
+        const key = tagKey(tag);
+        if (key) byTag[key] = (byTag[key] ?? 0) + 1;
+      }
+    }
+    return { availableByTopicAndTag: available };
+  }, [questionsQuery.data]);
+
   const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!draft) {
@@ -490,12 +518,12 @@ export function useTestEditor(
     }
     if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
     validationTimerRef.current = setTimeout(() => {
-      setValidation(validateTestEditor(draft));
+      setValidation(validateTestEditor(draft, validationContext));
     }, 300);
     return () => {
       if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
     };
-  }, [draft]);
+  }, [draft, validationContext]);
 
   // Aggregated dirty mask per tab (FR-25b).
   const isDirty = useMemo(() => {

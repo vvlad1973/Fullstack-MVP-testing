@@ -49,7 +49,7 @@ import {
 } from "./use-test-editor";
 import { apiToEditorModel, type ApiTestResponse } from "./test-editor.mappers";
 import type { TestEditorModel } from "./test-editor.types";
-import { buildFieldErrorIndex } from "./field-errors";
+import { buildFieldErrorIndex, buildIssueLevel } from "./field-errors";
 import { useDesignSettings } from "./use-design-settings";
 import { useContentPages, hasStructureErrors, hasStructureWarnings } from "./use-content-pages";
 import { useToast } from "@/hooks/use-toast";
@@ -338,12 +338,26 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     () => new Set(editor.validation.errors.map((e) => e.field)).size,
     [editor.validation.errors],
   );
+  // Предупреждения считаются отдельно: у них своя строка и свой переход. Сливать их
+  // с ошибками в один баннер нельзя — автор перестанет понимать, что держит сохранение
+  // (контракт «Индикация проблем», правило про два баннера).
+  const warningFieldCount = useMemo(
+    () => new Set(editor.validation.warnings.map((w) => w.field)).size,
+    [editor.validation.warnings],
+  );
 
   // FR-20c: per-field error index passed to every section so the exact
   // offending control is marked invalid (not just the tab badge / banner).
   const fieldErrors = useMemo(
     () => buildFieldErrorIndex(editor.validation.errors),
     [editor.validation.errors],
+  );
+
+  // Уровень проблемы по адресу — для точек на пунктах рейла: точка показывает ХУДШИЙ
+  // уровень внутри подраздела, а индекс ошибок знает только ошибки.
+  const issueLevel = useMemo(
+    () => buildIssueLevel([...editor.validation.errors, ...editor.validation.warnings]),
+    [editor.validation.errors, editor.validation.warnings],
   );
 
   /**
@@ -656,19 +670,44 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
           {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
           {/* @ts-expect-error inert attribute lacks types in older React/dom-lib versions */}
           <div className="tb-saving-inert-wrap" inert={combinedSaving ? "" : undefined}>
-          {hasErrors && (
-            <Banner
-              tone="error"
-              title={`Поля с ошибками: ${errorFieldCount}`}
-              description="Исправьте отмеченные поля — сохранение недоступно, пока есть ошибки."
-              actions={[
-                {
-                  label: "Перейти к ошибкам",
-                  onClick: () => goToError(editor.validation.errors[0].field),
-                },
-              ]}
-              data-testid="test-editor-error-summary"
-            />
+          {/* Стопка баннеров липнет ЦЕЛИКОМ: два sticky-баннера с одинаковым `top`
+              наезжают друг на друга, и нижний закрывает верхний вместе с действием.
+              Ошибки выше предупреждений — у них разные последствия. */}
+          {(hasErrors || warningFieldCount > 0) && (
+            <div className="tb-alerts" data-testid="test-editor-alerts">
+              {hasErrors && (
+                <Banner
+                  tone="error"
+                  title={`Поля с ошибками: ${errorFieldCount}`}
+                  description="Исправьте отмеченные поля — сохранение недоступно, пока есть ошибки."
+                  actions={
+                    editor.validation.errors.length > 0
+                      ? [
+                          {
+                            label: "Перейти к ошибкам",
+                            onClick: () => goToError(editor.validation.errors[0].field),
+                          },
+                        ]
+                      : undefined
+                  }
+                  data-testid="test-editor-error-summary"
+                />
+              )}
+              {warningFieldCount > 0 && (
+                <Banner
+                  tone="warning"
+                  title={`Предупреждения: ${warningFieldCount}`}
+                  description="Сохранить можно, но посмотрите — вероятно, задумано было иначе."
+                  actions={[
+                    {
+                      label: "Перейти к предупреждениям",
+                      onClick: () => goToError(editor.validation.warnings[0].field),
+                    },
+                  ]}
+                  data-testid="test-editor-warning-summary"
+                />
+              )}
+            </div>
           )}
           {editor.saveError && (
             <Banner
@@ -684,6 +723,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
+              issueLevel={issueLevel}
             />
           )}
           {editor.model && activeTab === "composition" && (
@@ -691,6 +731,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
+              issueLevel={issueLevel}
               testId={editor.model.id}
               content={contentPages}
               savedFlowMode={editor.savedFlowMode}
@@ -702,6 +743,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
+              issueLevel={issueLevel}
               // Параметры прогресса объявляет шаблон: рисуются они ЧЕРНОВИКОМ
               // «Оформления», иначе автор правил бы уже выбранный, но не сохранённый
               // шаблон вслепую.
@@ -713,6 +755,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
+              issueLevel={issueLevel}
               testId={editor.model.id}
             />
           )}
@@ -721,6 +764,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               model={editor.model}
               updateModel={editor.updateModel}
               fieldErrors={fieldErrors}
+              issueLevel={issueLevel}
               design={design}
               // Э2.4: реестр «По вопросам» уводит правку в редактор вопроса. Открывается тем
               // же ящиком ПОВЕРХ, что и переход из комментария (PRD-52 FR-28): ящик теста

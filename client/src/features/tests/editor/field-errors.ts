@@ -56,3 +56,31 @@ export const EMPTY_FIELD_ERRORS: FieldErrorIndex = {
   get: () => undefined,
   has: () => false,
 };
+
+/**
+ * Худший уровень проблемы по адресу поля или по любому вложенному в него.
+ *
+ * Нужен рейлу: точка на пункте подраздела показывает ХУДШИЙ уровень внутри него, а
+ * `FieldErrorIndex` знает только ошибки — предупреждения в него намеренно не попадают,
+ * чтобы не подсвечивать поле красным из-за замечания (контракт «Индикация проблем»).
+ *
+ * @param issues Все находки проверки: и ошибки, и предупреждения.
+ * @returns Функция «адрес -> уровень»; `undefined` — внутри чисто.
+ */
+export function buildIssueLevel(
+  issues: ValidationIssue[],
+): (field: string) => "error" | "warning" | undefined {
+  const covers = (issueField: string, field: string) =>
+    issueField === field ||
+    issueField.startsWith(`${field}.`) ||
+    issueField.startsWith(`${field}[`);
+  return (field) => {
+    let worst: "error" | "warning" | undefined;
+    for (const issue of issues) {
+      if (!covers(issue.field, field)) continue;
+      if (issue.severity === "error") return "error";
+      worst = "warning";
+    }
+    return worst;
+  };
+}
