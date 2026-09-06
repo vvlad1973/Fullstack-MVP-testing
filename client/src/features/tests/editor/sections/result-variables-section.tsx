@@ -182,6 +182,7 @@ export function ResultVariablesSection({
       model.scales.map((s) => ({
         key: s.key,
         label: s.label,
+        description: s.description,
         levels: Array.from(
           new Set(s.bands.map((b) => b.level.trim()).filter((l) => l !== "")),
         ),
@@ -605,6 +606,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           group={profile}
           scales={scales}
           outcomes={v.outcomes}
+          restShown={v.restScales?.show === true}
           index={index}
         />
       )}
@@ -1162,11 +1164,14 @@ function ProfileDiagnostics({
   group,
   scales,
   outcomes,
+  restShown,
   index,
 }: {
   group: { keys: string[]; threshold: number | string };
   scales: ScaleRef[];
   outcomes: OutcomeModel[];
+  /** Блок «вне профиля» включён — тогда пустые описания шкал станут видны участнику. */
+  restShown: boolean;
   index: number;
 }) {
   const uncovered = useMemo(() => {
@@ -1185,6 +1190,20 @@ function ProfileDiagnostics({
 
   const total = group.keys.length >= 2 ? 2 ** group.keys.length - 1 : 0;
 
+  // Блок «вне профиля» берёт текст из описания САМОЙ шкалы; без описания он печатает
+  // одно название. Проверять есть смысл только когда блок включён — иначе описание
+  // участнику вообще не показывается.
+  const bare = useMemo(
+    () =>
+      !restShown
+        ? []
+        : group.keys
+            .map((key) => scales.find((s) => s.key === key))
+            .filter((s): s is ScaleRef => !!s && s.description.trim() === "")
+            .map((s) => s.label || s.key),
+    [restShown, group.keys, scales],
+  );
+
   return (
     <>
       {uncovered.length > 0 && (
@@ -1196,6 +1215,15 @@ function ProfileDiagnostics({
             uncovered.length > 5 ? ` и ещё ${uncovered.length - 5}` : ""
           }. Участник с таким результатом увидит карточку без толкования.`}
           data-testid={`metrics-profile-uncovered-${index}`}
+        />
+      )}
+      {bare.length > 0 && (
+        <Banner
+          tone="warning"
+          size="sm"
+          title="Блок «вне профиля» напечатает голые названия"
+          description={`Пустое описание у ${bare.length === 1 ? "шкалы" : "шкал"}: ${bare.join(", ")}. Блок собирает текст из описаний шкал — заполните их на вкладке «Шкалы».`}
+          data-testid={`metrics-profile-bare-${index}`}
         />
       )}
       {group.keys.length >= 5 && (

@@ -412,6 +412,13 @@ export type ScaleModel = {
   clientKey?: string;
   key: string;
   label: string;
+  /**
+   * PRD-53 §4.4: what the scale measures, in the author's words. Печатается
+   * обучающемуся в блоке «шкалы вне профиля» на экране итогов и возится книгой
+   * Excel (лист «Шкалы», колонка «Описание»). Всегда строка: пустая означает
+   * «не задано» и сохраняется как `null`.
+   */
+  description: string;
   type: ScaleType;
   aggregation: ScaleAggregation;
   normalization: ScaleNormalization;

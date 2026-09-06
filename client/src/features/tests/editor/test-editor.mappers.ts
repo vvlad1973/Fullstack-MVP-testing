@@ -859,6 +859,10 @@ function buildScalesFromApi(src: ApiTestResponse): ScaleModel[] {
       id: typeof r.id === "string" ? r.id : undefined,
       key: typeof r.key === "string" ? r.key : "",
       label: typeof r.label === "string" ? r.label : "",
+      // PRD-53: колонка есть в базе и возится книгой Excel, но редактор её не читал —
+      // и блок «шкалы вне профиля» печатал одни названия. NULL приводится к пустой
+      // строке: поле формы всегда строка, а обратно пустая строка станет null.
+      description: typeof r.description === "string" ? r.description : "",
       type: SCALE_TYPES.has(r.type as string) ? (r.type as ScaleModel["type"]) : "number",
       aggregation: SCALE_AGGREGATIONS.has(r.aggregation as string)
         ? (r.aggregation as ScaleModel["aggregation"])

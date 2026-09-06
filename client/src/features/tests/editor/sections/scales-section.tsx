@@ -37,6 +37,7 @@ import {
   Stack,
   Switch,
   Tag,
+  Textarea,
 } from "@universityrt/ui-kit";
 import { Check, ChevronDown, ChevronRight, Info, Plus, Trash2 } from "lucide-react";
 
@@ -172,6 +173,7 @@ function emptyScale(sortOrder: number): ScaleModel {
     clientKey: `scale-${localKeyCounter}`,
     key: "",
     label: "",
+    description: "",
     type: "number",
     aggregation: "sum",
     normalization: "none",
@@ -669,6 +671,26 @@ function ScaleForm({
           onChange={(e) => onChange({ label: e.target.value })}
           data-testid={`scales-label-${index}`}
         />
+      </Grid>
+
+      {/* PRD-53 §4.4. Стоит с «Ключом» и «Меткой», а не в механике ниже: это про то,
+          ЧТО шкала измеряет. Колонка была в базе и в книге Excel, но поля в редакторе
+          не было, и блок «шкалы вне профиля» печатал одни названия. */}
+      <div className="ou-formfield">
+        <Textarea
+          size="m"
+          fullWidth
+          rows={2}
+          label="Описание"
+          value={s.description}
+          disabled={readOnly}
+          hint="Показывается обучающемуся, когда шкала попала в блок «вне профиля» на экране итогов."
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onChange({ description: e.target.value })}
+          data-testid={`scales-description-${index}`}
+        />
+      </div>
+
+      <Grid cols={2} gap={3}>
         <Select<ScaleAggregation>
           size="m"
           fullWidth

@@ -28,6 +28,7 @@ function scale(key: string, label: string, sortOrder: number): ScaleModel {
     clientKey: `s-${key}`,
     key,
     label,
+    description: "",
     type: "number",
     aggregation: "sum",
     normalization: "none",
@@ -219,5 +220,36 @@ describe("форма шаблона (PRD-53 §5.1)", () => {
     const seen = renderExpanded(model({ formula: 'topGroup(["vdo"], 5).code' }));
     fireEvent.click(screen.getByTestId("metrics-profile-scale-cel"));
     expect(seen[0].resultVariables[0].formula).toBe('topGroup(["cel","vdo"], 5).code');
+  });
+});
+
+describe("пустое описание шкалы (PRD-53 §5.3.2)", () => {
+  const withDesc = (over: Partial<ResultVariableModel>, described: string[]) => {
+    const m = model(over);
+    return {
+      ...m,
+      scales: m.scales.map((s) => (described.includes(s.key) ? { ...s, description: "Текст" } : s)),
+    };
+  };
+
+  // Проверять есть смысл только при включённом блоке: без него описание участнику
+  // не показывается вовсе, и упрекать автора не в чем.
+  it("молчит, пока блок «вне профиля» выключен", () => {
+    renderExpanded(withDesc({}, []));
+    expect(screen.queryByTestId("metrics-profile-bare-0")).toBeNull();
+  });
+
+  it("при включённом блоке называет шкалы без описания", () => {
+    renderExpanded(withDesc({ restScales: { show: true, label: "", keys: ["cel", "vdo", "kom", "pro"] } }, ["cel", "vdo"]));
+    const banner = screen.getByTestId("metrics-profile-bare-0");
+    expect(banner).toHaveTextContent("KOM, PRO");
+    expect(banner).not.toHaveTextContent("CEL");
+  });
+
+  it("когда описания заполнены у всех, предупреждения нет", () => {
+    renderExpanded(
+      withDesc({ restScales: { show: true, label: "", keys: ["cel", "vdo", "kom", "pro"] } }, ["cel", "vdo", "kom", "pro"]),
+    );
+    expect(screen.queryByTestId("metrics-profile-bare-0")).toBeNull();
   });
 });

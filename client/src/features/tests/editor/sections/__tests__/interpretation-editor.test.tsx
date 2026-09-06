@@ -92,6 +92,7 @@ function scale(overrides: Partial<ScaleModel> = {}): ScaleModel {
   return {
     key: "ee",
     label: "Истощение",
+    description: "",
     type: "number",
     aggregation: "sum",
     normalization: "none",
@@ -178,7 +179,7 @@ describe("круговой обход толкований через config_jso
     const reloaded = apiToEditorModel({
       id: "t1",
       title: "T",
-      scales: [{ id: "s1", key: "ee", label: "Истощение", type: "number", configJson, sortOrder: 0 }],
+      scales: [{ id: "s1", key: "ee", label: "Истощение", description: "", type: "number", configJson, sortOrder: 0 }],
     });
     expect(reloaded.scales[0].bands).toEqual([RICH_BAND]);
   });

@@ -59,7 +59,13 @@ export function buildProfileFormula(t: ProfileTemplate): string {
 }
 
 export type TopicRef = { id: string; name: string; code?: string | null };
-export type ScaleRef = { key: string; label: string; levels: string[] };
+export type ScaleRef = {
+  key: string;
+  label: string;
+  levels: string[];
+  /** PRD-53 §5.3.2: пусто — блок «вне профиля» напечатает одно название без текста. */
+  description: string;
+};
 
 /** One condition in the «Порог»/«Вердикт» primitive. */
 export type Condition = {
