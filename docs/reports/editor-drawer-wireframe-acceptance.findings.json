@@ -2900,8 +2900,8 @@
     "files": [
       "report-settings-card.tsx"
     ],
-    "batch": "owner",
-    "status": "open"
+    "batch": "components",
+    "status": "fixed"
   },
   {
     "id": "E-27",

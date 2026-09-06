@@ -229,7 +229,7 @@
     "text": "Подтема | Сколько | Режим | ",
     "index": 10,
     "state": "composition",
-    "finding": "main:prd50-quota-table"
+    "finding": null
   },
   {
     "op": "extra",
@@ -237,7 +237,7 @@
     "text": "Подтема | Сколько | Режим | ",
     "index": 21,
     "state": "composition",
-    "finding": "main:prd50-quota-table"
+    "finding": null
   },
   {
     "op": "order",
@@ -581,7 +581,7 @@
     "text": "input:checkbox",
     "index": 11,
     "state": "scoring",
-    "finding": "main:prd50-gate-switch"
+    "finding": null
   },
   {
     "op": "missing",
@@ -1153,24 +1153,24 @@
   },
   {
     "op": "extra",
-    "role": "label",
-    "text": "Диаграмма по шкалам",
+    "role": "button",
+    "text": "Отчёт: сертификация",
     "index": 5,
     "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "button",
-    "text": "Выберите…",
-    "index": 6,
-    "state": "report",
-    "finding": null
+    "finding": "data:report-variant-name"
   },
   {
     "op": "extra",
     "role": "label",
-    "text": "Предел оси радара",
+    "text": "Параметры вида",
+    "index": 6,
+    "state": "report",
+    "finding": "data:report-variant-fields"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Диаграмма по шкалам",
     "index": 7,
     "state": "report",
     "finding": null
@@ -1185,9 +1185,25 @@
   },
   {
     "op": "extra",
+    "role": "label",
+    "text": "Предел оси радара",
+    "index": 9,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "button",
+    "text": "Выберите…",
+    "index": 10,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
     "role": "heading",
     "text": "Первый уровень",
-    "index": 45,
+    "index": 47,
     "state": "report",
     "finding": null
   },
@@ -1195,14 +1211,6 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок итогов",
-    "index": 46,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
     "index": 48,
     "state": "report",
     "finding": null
@@ -1210,7 +1218,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Заголовок рекомендаций",
+    "text": "Показывать",
     "index": 50,
     "state": "report",
     "finding": null
@@ -1218,8 +1226,16 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Показывать",
+    "text": "Заголовок рекомендаций",
     "index": 52,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Показывать",
+    "index": 54,
     "state": "report",
     "finding": null
   },
@@ -1227,7 +1243,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Второй уровень",
-    "index": 54,
+    "index": 56,
     "state": "report",
     "finding": null
   },
@@ -1235,14 +1251,6 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок шкал",
-    "index": 55,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
     "index": 57,
     "state": "report",
     "finding": null
@@ -1250,7 +1258,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Подзаголовок показателей",
+    "text": "Показывать",
     "index": 59,
     "state": "report",
     "finding": null
@@ -1258,7 +1266,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Показывать",
+    "text": "Подзаголовок показателей",
     "index": 61,
     "state": "report",
     "finding": null
@@ -1266,7 +1274,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Подзаголовок тем",
+    "text": "Показывать",
     "index": 63,
     "state": "report",
     "finding": null
@@ -1274,7 +1282,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Показывать",
+    "text": "Подзаголовок тем",
     "index": 65,
     "state": "report",
     "finding": null
@@ -1282,7 +1290,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Заголовок блока разреза",
+    "text": "Показывать",
     "index": 67,
     "state": "report",
     "finding": null
@@ -1290,8 +1298,16 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Показывать",
+    "text": "Заголовок блока разреза",
     "index": 69,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Показывать",
+    "index": 71,
     "state": "report",
     "finding": null
   },
@@ -1299,7 +1315,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Группы рекомендаций",
-    "index": 71,
+    "index": 73,
     "state": "report",
     "finding": null
   },
@@ -1307,14 +1323,6 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы курсов",
-    "index": 72,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
     "index": 74,
     "state": "report",
     "finding": null
@@ -1322,7 +1330,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Подпись группы мероприятий",
+    "text": "Показывать",
     "index": 76,
     "state": "report",
     "finding": null
@@ -1330,8 +1338,16 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Показывать",
+    "text": "Подпись группы мероприятий",
     "index": 78,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Показывать",
+    "index": 80,
     "state": "report",
     "finding": null
   },
