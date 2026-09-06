@@ -15,12 +15,11 @@
  * rule, so the topic always failed) and disagreed on the count basis.
  *
  * PRD-50 added a second half of the topic gate here — the thresholds of the section's
- * breakdown keys. It is GONE (решение владельца 2026-09-03): the topic verdict is its own
- * rule alone. What remains is the resolution of the stored thresholds, which the publish
- * warning and the test transfer still read.
+ * breakdown keys. It is GONE (решение владельца 2026-09-03), and §16 removed the stored
+ * thresholds themselves: the порог подтемы is derived from the topic's own rule, so
+ * nothing about keys is resolved here any more.
  */
 
-import type { BreakdownRules } from "../breakdown/types";
 
 /** A resolved, runtime-ready pass rule. `null` means "no gate" (topic informational). */
 export type ResolvedRule = { type: "percent" | "count"; value: number };
@@ -182,63 +181,3 @@ export function hasGradedScore(thresholdDeclared: boolean | undefined, possibleP
 export function hasPronouncedVerdict(thresholdDeclared: boolean | undefined, possiblePoints: number): boolean {
   return !(nothingToGrade(possiblePoints) || thresholdDeclared === false);
 }
-
-// ─── PRD-50: stored key thresholds (legacy, no longer a gate) ────────────────
-
-/**
- * Normalised, runtime-ready key thresholds of ONE section. `fallback` is the threshold every
- * key without an own entry falls back to; `byKey` holds explicit entries, where a `null`
- * VALUE means «declared informational» and therefore WINS over the fallback (FR-20).
- */
-export interface ResolvedBreakdownRules {
-  axis: string;
-  fallback: number | null;
-  byKey: Map<string, number | null>;
-}
-
-/** One stored threshold → its percent value, or `null` for «none» / anything unrecognised. */
-function breakdownThresholdValue(raw: unknown): number | null {
-  if (!raw || typeof raw !== "object") return null;
-  const t = raw as { type?: string; value?: unknown };
-  if (t.type !== "percent") return null;
-  const value = Number(t.value);
-  return Number.isFinite(value) ? value : null;
-}
-
-/**
- * Normalise stored `test_sections.breakdown_rules_json` (any shape — validated on write, but
- * a legacy snapshot or an old SCORM package may carry none at all). Returns `null` when
- * NOTHING is declared: no fallback and no explicit key. `null` is the pre-PRD-50 state and
- * must leave the topic verdict exactly as it was.
- */
-export function resolveBreakdownRules(raw: unknown): ResolvedBreakdownRules | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Partial<BreakdownRules>;
-  const byKey = new Map<string, number | null>();
-  const keys = r.keys;
-  if (keys && typeof keys === "object") {
-    for (const key of Object.keys(keys)) byKey.set(key, breakdownThresholdValue(keys[key]));
-  }
-  const fallback = breakdownThresholdValue(r.default);
-  if (fallback === null && byKey.size === 0) return null;
-  return { axis: typeof r.axis === "string" && r.axis ? r.axis : "tag", fallback, byKey };
-}
-
-/** The threshold that applies to one key, or `null` when the key is informational (FR-20). */
-export function breakdownThresholdFor(
-  rules: ResolvedBreakdownRules | null,
-  axis: string,
-  key: string,
-): number | null {
-  if (!rules || axis !== rules.axis) return null;
-  const own = rules.byKey.get(key);
-  // `undefined` = no entry at all → fall back; an entry holding `null` is a deliberate «none».
-  return own === undefined ? rules.fallback : own;
-}
-
-/*
- * `applyBreakdownGate` жил здесь до решения владельца 2026-09-03: он штамповал вердикт на
- * каждой строке разреза и складывал их в половину вердикта темы. Снят вместе с полем
- * `passed` записи разреза — подтема говорит о результате, но не судит его. Резольверы выше
- * остаются: сохранённые пороги читает предупреждение публикации и перенос теста.
- */

@@ -123,10 +123,11 @@ export interface CtxTopicGroup {
  * out of a bar width, and adding a field later is a contract change that has to be
  * carried across both hosts and every shipped package.
  *
- * The row carries NO verdict: `passed`, `passClass` and `statusLabel` are gone (решение
- * владельца 2026-09-03). A subtopic speaks about the result — how many questions, how many
- * points, what share — and the verdict belongs to the topic, which the card around the row
- * already states. A layout that still binds the old fields prints nothing for them.
+ * Строка снова несёт исход (PRD-50 §16, FR-54): `passed`, `passClass` и `requiredLabel`.
+ * Словесной метки у неё нет и не будет — строка узкая, и слово рядом с процентом дублировало
+ * бы цвет; вердикт СЛОВОМ говорит карточка темы вокруг. Шаблон, ничего о новых полях не
+ * знающий, печатает ровно то, что печатал: класс подставляется в атрибут, надпись гейтится
+ * своим `{{#if}}`.
  */
 export interface CtxBreakdownRow {
   key: string;
@@ -154,6 +155,15 @@ export interface CtxBreakdownRow {
   showValue: boolean;
   /** Ready-made value label, e.g. "50 %". Empty when showValue is false. */
   valueLabel: string;
+  /** Исход подтемы: `true` / `false` / `null` — порога не было (FR-52). */
+  passed?: boolean | null;
+  /** Готовый модификатор строки: `is-pass`, `is-fail` или пусто. */
+  passClass?: string;
+  /**
+   * Надпись порога, например «Нужно 70 %». Печатается только там, где автор включил показ
+   * значения: цвет без причины читается как приговор. Отсутствует, когда порога нет.
+   */
+  requiredLabel?: string;
 }
 
 /** A per-topic row for the adaptive results layout (level-based, no score). */

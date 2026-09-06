@@ -395,7 +395,9 @@
 .tb-report__topic.is-pass .tb-report__topic-bar-fill { background: #19D7A4; }
 
 /* PRD-50: полосы разреза по ключам. Заливка нейтральна, пока у ключа нет применившегося
-   порога; ширину заливки всегда задаёт инлайн-стиль из макета (`barPercent`).
+   порога; ширину заливки всегда задаёт инлайн-стиль из макета (`barPercent`). Цвета
+   литеральные, как везде в документе: отчёт печатается растром вне области DS-токенов,
+   поэтому тон исхода берётся теми же значениями, что у полосы карточки темы.
    У «Сертификации» разрезы стоят в ТРИ КОЛОНКИ по 76 px с шагом 106 px, а полоса — 5 px
    высотой (§10.3): строка раздела идёт во всю ширину карточки, и колонка референса сюда
    помещается целиком. */
@@ -422,17 +424,22 @@
 }
 .tb-report__breakdown-bar span { display: block; height: 100%; border-radius: 2px; background: #98A2B3; }
 .tb-report__breakdown-val { font-size: 7px; color: #5A6472; margin-top: 2px; }
+/* PRD-50 §16: тон строки разреза. Красится ОДНА полоса — слово вердикта принадлежит
+   карточке темы вокруг. Порога нет — класса нет, и строка печатается ровно так, как
+   печаталась до §16. */
+.tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #19D7A4; }
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #FF4F12; }
+.tb-report__breakdown-req { font-size: 7px; color: #5A6472; margin-top: 2px; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на
-   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Исхода у строки
-   нет вовсе (решение владельца 2026-09-03): подтема не судится, и полоса нейтральна в
-   обеих проекциях. */
+   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. */
 .tb-report__breakdown--block { margin-bottom: 0; }
 .tb-report__breakdown--block .tb-report__breakdown-row { margin-bottom: 8px; }
 .tb-report__breakdown--block .tb-report__breakdown-name { font-size: 10px; margin-bottom: 4px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar { height: 4px; border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar span { border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-val { font-size: 9px; }
+.tb-report__breakdown--block .tb-report__breakdown-req { font-size: 9px; }
 
 .tb-report__topic-fb {
   font-size: 10px;

@@ -596,6 +596,13 @@ export function buildAdaptiveResultContext(
           recommendedAssets: Array.isArray(t?.recommendedAssets)
             ? t.recommendedAssets.map((a: any) => ({ title: a?.title ?? "", url: a?.url }))
             : [],
+          // PRD-50 §16: подытоги подтем этого раздела, сохранённые ВМЕСТЕ с попыткой, и
+          // тексты подтем из ВЫДАННОЙ версии теста. Кого прочитает человек, решает общий
+          // построитель по исходу записи — здесь только доставка того и другого.
+          ...(Array.isArray(t?.breakdown) ? { breakdown: t.breakdown } : {}),
+          ...(measures?.breakdownFeedbackByTopic?.[t?.topicId]
+            ? { breakdownFeedback: measures.breakdownFeedbackByTopic[t.topicId] }
+            : {}),
         }),
       ),
       // PRD-50 FR-28: записи области ТЕСТА, сохранённые ВМЕСТЕ с попыткой
