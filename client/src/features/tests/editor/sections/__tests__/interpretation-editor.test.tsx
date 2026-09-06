@@ -76,9 +76,12 @@ describe("OutcomesEditor", () => {
     expect(screen.queryByText(/В формуле встречаются коды/i)).toBeNull();
   });
 
+  // PRD-53: толкование лежит в складке и у пустого исхода она закрыта — карточка,
+  // показывающая одну метку «не задано», прячет то, ради чего её открывают.
   it("правит толкование и оценку строки", () => {
     const onChange = vi.fn();
     render(<OutcomesEditor outcomes={OUTCOMES} index={0} readOnly={false} onChange={onChange} />);
+    fireEvent.click(screen.getByText("Толкование для обучающегося"));
     fireEvent.change(screen.getByLabelText("толкование исхода 1"), {
       target: { value: "Ресурс восстанавливается" },
     });
