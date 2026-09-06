@@ -8,7 +8,9 @@
  *   - `reply`  — места нет вовсе: ответ наследует якорь ветки.
  */
 import { useState } from "react";
-import { Button, Cluster, Select, Stack, Tag, Text, Textarea } from "@universityrt/ui-kit";
+import {
+  Button, Card, CardBody, CardHeader, Cluster, Select, Stack, Tag, Text, Textarea,
+} from "@universityrt/ui-kit";
 import type { ReviewAnchor } from "@shared/review/anchor";
 
 export interface ReviewCommentFormProps {
@@ -54,7 +56,9 @@ export function ReviewCommentForm({
     { value: "results", label: "Экран итогов" },
   ];
 
-  return (
+  // Эскиз ставит форму нового комментария в обведённую карточку с заголовком. Ответ в ветке
+  // карточки не получает: он и так вложен в свою ветку, и вторая рамка внутри неё лишняя.
+  const form = (
     <Stack gap={3} className="rvp__form">
       {mode === "player" ? (
         <Stack gap={1}>
@@ -99,5 +103,14 @@ export function ReviewCommentForm({
         </Button>
       </Cluster>
     </Stack>
+  );
+
+  if (mode === "reply") return form;
+
+  return (
+    <Card variant="outlined" size="sm" data-testid="review-comment-form-card">
+      <CardHeader title="Новый комментарий" />
+      <CardBody>{form}</CardBody>
+    </Card>
   );
 }

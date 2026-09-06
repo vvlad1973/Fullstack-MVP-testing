@@ -19,8 +19,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banner,
   Button,
-  Cluster,
   EmptyState,
+  FormActions,
+  FormSection,
   Grid,
   IconButton,
   Input,
@@ -268,22 +269,20 @@ export function ResultVariablesSection({
 
   return (
     <div className="tb-settings-content" data-testid="metrics-section">
-      <Cluster justify="between" gap={0} wrap={false} style={{ marginBottom: "var(--ou-space-3)" }}>
-        <div className="tb-section-label">
-          Показатели результата{vars.length > 1 ? " · порядок вычисления" : ""}
-        </div>
+      <FormSection stacked title="Показатели">
         {!readOnly && (
-          <Button
-            variant="ghost"
-            size="s"
-            leadingIcon={<Plus size={16} aria-hidden="true" />}
-            onClick={addVariable}
-            data-testid="metrics-add"
-          >
-            Добавить показатель
-          </Button>
+          <FormActions align="between">
+            <Button
+              variant="ghost"
+              size="s"
+              leadingIcon={<Plus size={16} aria-hidden="true" />}
+              onClick={addVariable}
+              data-testid="metrics-add"
+            >
+              Добавить показатель
+            </Button>
+          </FormActions>
         )}
-      </Cluster>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -309,6 +308,7 @@ export function ResultVariablesSection({
           })}
         </SortableContext>
       </DndContext>
+      </FormSection>
     </div>
   );
 }

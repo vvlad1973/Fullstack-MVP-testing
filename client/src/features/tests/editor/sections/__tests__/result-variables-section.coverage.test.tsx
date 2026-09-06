@@ -174,8 +174,9 @@ describe("<ResultVariablesSection /> — list & cards", () => {
     renderControlled(model);
 
     expect(screen.getByTestId("metrics-section")).toBeInTheDocument();
-    // >1 variable → the header gains the «порядок вычисления» affordance + add btn.
-    expect(screen.getByText(/порядок вычисления/)).toBeInTheDocument();
+    // Заголовок раздела — ровно «Показатели», как рисует утверждённый эскиз: прежняя
+    // подпись «Показатели результата · порядок вычисления» была подписью, а не заголовком.
+    expect(screen.getByRole("heading", { name: "Показатели" })).toBeInTheDocument();
     expect(screen.getByTestId("metrics-add")).toBeInTheDocument();
 
     const card0 = screen.getByTestId("metrics-card-0");

@@ -14,9 +14,7 @@ import { useMemo, useState } from "react";
 import {
   Banner,
   Button,
-  Card,
-  CardBody,
-  CardHeader,
+  FormSection,
   Input,
   NumberInput,
   Select,
@@ -235,9 +233,13 @@ export function ReportSettingsCard(props: {
   };
 
   return (
-    <Card variant="outlined" size="sm" data-testid={isContent ? "report-content-card" : "report-settings-card"}>
-      <CardHeader title={isContent ? "Отчёт о результатах" : "Оформление отчёта"} />
-      <CardBody>
+    // Эскиз рисует блок разделом, а не обведённой карточкой: рамка вокруг раздела была
+    // второй границей на том же месте (находка E-25).
+    <FormSection
+      stacked
+      title={isContent ? "Отчёт о результатах" : "Оформление отчёта"}
+      data-testid={isContent ? "report-content-card" : "report-settings-card"}
+    >
         <div className="tb-feedback-block">
           {/* Выдавать ли документ вообще — вопрос содержания, а не облика, поэтому
               переключатель стоит рядом с обратной связью и только там. Выключенный отчёт
@@ -378,7 +380,6 @@ export function ReportSettingsCard(props: {
             </div>
           )}
         </div>
-      </CardBody>
 
       <ReportPreviewModal
         open={previewOpen}
@@ -399,6 +400,6 @@ export function ReportSettingsCard(props: {
         // которого его открывают.
         document={doc ?? undefined}
       />
-    </Card>
+    </FormSection>
   );
 }

@@ -1,34 +1,10 @@
 [
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "О тесте",
-    "index": 0,
-    "state": "basic",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Интеграция",
-    "index": 8,
-    "state": "basic",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "hint",
     "text": "Оставьте пустым, если webhook не нужен.",
-    "index": 9,
+    "index": 11,
     "state": "basic",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Темы теста",
-    "index": 0,
-    "state": "composition",
     "finding": null
   },
   {
@@ -243,7 +219,7 @@
     "op": "extra",
     "role": "button",
     "text": "Перемешивание",
-    "index": 0,
+    "index": 1,
     "state": "composition",
     "finding": null
   },
@@ -251,7 +227,7 @@
     "op": "extra",
     "role": "table",
     "text": "Подтема | Сколько | Режим | Порог | ",
-    "index": 10,
+    "index": 11,
     "state": "composition",
     "finding": null
   },
@@ -259,7 +235,7 @@
     "op": "extra",
     "role": "table",
     "text": "Подтема | Сколько | Режим | Порог | ",
-    "index": 22,
+    "index": 23,
     "state": "composition",
     "finding": null
   },
@@ -267,23 +243,15 @@
     "op": "order",
     "role": "control",
     "text": "input:text",
-    "index": 0,
+    "index": 1,
     "state": "composition",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Сценарий",
-    "index": 0,
-    "state": "scenario",
     "finding": null
   },
   {
     "op": "extra",
     "role": "hint",
     "text": "После завершения раздела показывается экран с его результатом. Только для секционных тестов.",
-    "index": 4,
+    "index": 5,
     "state": "scenario",
     "finding": null
   },
@@ -291,16 +259,8 @@
     "op": "order",
     "role": "button",
     "text": "Добавить страницу",
-    "index": 9,
+    "index": 10,
     "state": "scenario",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Навигация",
-    "index": 0,
-    "state": "rules",
     "finding": null
   },
   {
@@ -323,7 +283,7 @@
     "op": "extra",
     "role": "hint",
     "text": "Ученик может пропускать вопросы и возвращаться к ним до завершения. Включает карту-индикатор прогресса и экран обзора.",
-    "index": 2,
+    "index": 3,
     "state": "rules",
     "finding": null
   },
@@ -331,7 +291,7 @@
     "op": "extra",
     "role": "hint",
     "text": "Ученик может открыть любой вопрос текущего раздела, в том числе ещё не показанный. За границу раздела перехода нет: соседний раздел откроется, когда текущий завершён.",
-    "index": 5,
+    "index": 6,
     "state": "rules",
     "finding": null
   },
@@ -339,7 +299,7 @@
     "op": "extra",
     "role": "hint",
     "text": "При возврате к уже отвеченному вопросу можно изменить ответ (до завершения раздела/теста).",
-    "index": 8,
+    "index": 9,
     "state": "rules",
     "finding": null
   },
@@ -347,7 +307,7 @@
     "op": "extra",
     "role": "banner",
     "text": "Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): иначе ученик увидит правильный ответ и переправит свой.",
-    "index": 9,
+    "index": 10,
     "state": "rules",
     "finding": null
   },
@@ -355,7 +315,7 @@
     "op": "extra",
     "role": "hint",
     "text": "Обзор нужен, чтобы вернуться к пропущенному вопросу. Когда пропущенных не осталось, ученик перейдёт сразу к завершению. Пока что-то пропущено, обзор показывается всегда.",
-    "index": 12,
+    "index": 13,
     "state": "rules",
     "finding": null
   },
@@ -363,7 +323,7 @@
     "op": "extra",
     "role": "hint",
     "text": "Без отдельного нажатия «Далее»: ответ фиксируется и сразу открывается следующий вопрос.",
-    "index": 15,
+    "index": 16,
     "state": "rules",
     "finding": null
   },
@@ -371,7 +331,7 @@
     "op": "extra",
     "role": "banner",
     "text": "Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): нужно увидеть правильный ответ, прежде чем переходить дальше.",
-    "index": 16,
+    "index": 17,
     "state": "rules",
     "finding": null
   },
@@ -379,7 +339,7 @@
     "op": "order",
     "role": "label",
     "text": "Переходить к следующему вопросу сразу после ответа",
-    "index": 7,
+    "index": 8,
     "state": "rules",
     "finding": null
   },
@@ -576,18 +536,10 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "Защита контента",
-    "index": 0,
-    "state": "rules-protect",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "hint",
     "text": "На экране вопроса и на экране обзора текст не выделяется, не копируется, не перетаскивается и не печатается. В тестовом прогоне автора защита не действует.",
-    "index": 2,
+    "index": 3,
     "state": "rules-protect",
     "finding": null
   },
@@ -595,7 +547,7 @@
     "op": "extra",
     "role": "hint",
     "text": "Поверх экранов вопроса, обзора, итогов раздела и итогов теста печатается обезличенный идентификатор и время. Снимок экрана остаётся возможным, но становится атрибутируемым.",
-    "index": 5,
+    "index": 6,
     "state": "rules-protect",
     "finding": null
   },
@@ -603,16 +555,8 @@
     "op": "extra",
     "role": "hint",
     "text": "Если ученик переключился на другую вкладку, задание закрывается заглушкой и открывается снова само, как только окно активно. Таймер и ответы не затрагиваются.",
-    "index": 8,
+    "index": 9,
     "state": "rules-protect",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Тест пройден, если",
-    "index": 0,
-    "state": "scoring",
     "finding": null
   },
   {
@@ -624,43 +568,11 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "Правила оценки тем",
-    "index": 11,
-    "state": "scoring",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "label",
     "text": "Порог (%)",
-    "index": 6,
+    "index": 7,
     "state": "scoring",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Показ правильных ответов",
-    "index": 0,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Показывать правильные ответы после прохождения",
-    "index": 2,
-    "state": "during",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать правильные ответы после ответа",
-    "index": 1,
-    "state": "during",
     "finding": null
   },
   {
@@ -937,22 +849,6 @@
   },
   {
     "op": "missing",
-    "role": "heading",
-    "text": "Вводный текст",
-    "index": 0,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Общая обратная связь теста",
-    "index": 6,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
     "role": "label",
     "text": "1. О компании",
     "index": 9,
@@ -1106,14 +1002,6 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Обратная связь после прохождения",
-    "index": 0,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
     "text": "В отчёте",
     "index": 6,
     "state": "texts",
@@ -1122,7 +1010,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "1. Демо: управленческие компетенции",
+    "text": "Обратная связь после прохождения",
     "index": 9,
     "state": "texts",
     "finding": null
@@ -1130,8 +1018,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "1. Демо: управленческие компетенции",
+    "index": 11,
+    "state": "texts",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "2. Демо: знания о компании",
-    "index": 10,
+    "index": 12,
     "state": "texts",
     "finding": null
   },
@@ -1139,14 +1035,6 @@
     "op": "extra",
     "role": "label",
     "text": "Корпоративные ценности",
-    "index": 15,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Обратная связь",
     "index": 17,
     "state": "texts",
     "finding": null
@@ -1154,7 +1042,7 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Постановка задач",
+    "text": "Обратная связь",
     "index": 19,
     "state": "texts",
     "finding": null
@@ -1162,15 +1050,15 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Корпоративные ценности",
-    "index": 22,
+    "text": "Постановка задач",
+    "index": 21,
     "state": "texts",
     "finding": null
   },
   {
     "op": "extra",
     "role": "label",
-    "text": "Охрана труда",
+    "text": "Корпоративные ценности",
     "index": 24,
     "state": "texts",
     "finding": null
@@ -1178,26 +1066,26 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Регламенты и процессы",
+    "text": "Охрана труда",
     "index": 26,
     "state": "texts",
     "finding": null
   },
   {
-    "op": "order",
-    "role": "button",
-    "text": "",
-    "index": 7,
+    "op": "extra",
+    "role": "label",
+    "text": "Регламенты и процессы",
+    "index": 28,
     "state": "texts",
     "finding": null
   },
   {
-    "op": "missing",
+    "op": "order",
     "role": "heading",
-    "text": "Отчёт о результатах",
-    "index": 0,
-    "state": "report",
-    "finding": null
+    "text": "Общая обратная связь теста",
+    "index": 6,
+    "state": "texts",
+    "finding": "data:intro-report-own-text"
   },
   {
     "op": "missing",
@@ -1251,7 +1139,7 @@
     "op": "extra",
     "role": "hint",
     "text": "Кнопка «Скачать отчёт» на экране результатов. Выключите, если документ по этому тесту не выдаётся.",
-    "index": 2,
+    "index": 3,
     "state": "report",
     "finding": null
   },
@@ -1259,7 +1147,7 @@
     "op": "extra",
     "role": "label",
     "text": "Диаграмма по шкалам",
-    "index": 4,
+    "index": 5,
     "state": "report",
     "finding": null
   },
@@ -1267,7 +1155,7 @@
     "op": "extra",
     "role": "button",
     "text": "Выберите…",
-    "index": 5,
+    "index": 6,
     "state": "report",
     "finding": null
   },
@@ -1275,7 +1163,7 @@
     "op": "extra",
     "role": "label",
     "text": "Предел оси радара",
-    "index": 6,
+    "index": 7,
     "state": "report",
     "finding": null
   },
@@ -1283,7 +1171,7 @@
     "op": "extra",
     "role": "button",
     "text": "Выберите…",
-    "index": 7,
+    "index": 8,
     "state": "report",
     "finding": null
   },
@@ -1291,14 +1179,6 @@
     "op": "extra",
     "role": "heading",
     "text": "Первый уровень",
-    "index": 44,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Заголовок итогов",
     "index": 45,
     "state": "report",
     "finding": null
@@ -1306,8 +1186,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "Заголовок итогов",
+    "index": 46,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "Показывать",
-    "index": 47,
+    "index": 48,
     "state": "report",
     "finding": null
   },
@@ -1315,7 +1203,7 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок рекомендаций",
-    "index": 49,
+    "index": 50,
     "state": "report",
     "finding": null
   },
@@ -1323,7 +1211,7 @@
     "op": "extra",
     "role": "label",
     "text": "Показывать",
-    "index": 51,
+    "index": 52,
     "state": "report",
     "finding": null
   },
@@ -1331,14 +1219,6 @@
     "op": "extra",
     "role": "heading",
     "text": "Второй уровень",
-    "index": 53,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подзаголовок шкал",
     "index": 54,
     "state": "report",
     "finding": null
@@ -1346,8 +1226,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "Подзаголовок шкал",
+    "index": 55,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "Показывать",
-    "index": 56,
+    "index": 57,
     "state": "report",
     "finding": null
   },
@@ -1355,7 +1243,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок показателей",
-    "index": 58,
+    "index": 59,
     "state": "report",
     "finding": null
   },
@@ -1363,7 +1251,7 @@
     "op": "extra",
     "role": "label",
     "text": "Показывать",
-    "index": 60,
+    "index": 61,
     "state": "report",
     "finding": null
   },
@@ -1371,7 +1259,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок тем",
-    "index": 62,
+    "index": 63,
     "state": "report",
     "finding": null
   },
@@ -1379,7 +1267,7 @@
     "op": "extra",
     "role": "label",
     "text": "Показывать",
-    "index": 64,
+    "index": 65,
     "state": "report",
     "finding": null
   },
@@ -1387,7 +1275,7 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок блока разреза",
-    "index": 66,
+    "index": 67,
     "state": "report",
     "finding": null
   },
@@ -1395,7 +1283,7 @@
     "op": "extra",
     "role": "label",
     "text": "Показывать",
-    "index": 68,
+    "index": 69,
     "state": "report",
     "finding": null
   },
@@ -1403,14 +1291,6 @@
     "op": "extra",
     "role": "heading",
     "text": "Группы рекомендаций",
-    "index": 70,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подпись группы курсов",
     "index": 71,
     "state": "report",
     "finding": null
@@ -1418,8 +1298,16 @@
   {
     "op": "extra",
     "role": "label",
+    "text": "Подпись группы курсов",
+    "index": 72,
+    "state": "report",
+    "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
     "text": "Показывать",
-    "index": 73,
+    "index": 74,
     "state": "report",
     "finding": null
   },
@@ -1427,7 +1315,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы мероприятий",
-    "index": 75,
+    "index": 76,
     "state": "report",
     "finding": null
   },
@@ -1435,7 +1323,7 @@
     "op": "extra",
     "role": "label",
     "text": "Показывать",
-    "index": 77,
+    "index": 78,
     "state": "report",
     "finding": null
   },
@@ -1443,7 +1331,7 @@
     "op": "order",
     "role": "button",
     "text": "",
-    "index": 9,
+    "index": 10,
     "state": "report",
     "finding": null
   },
@@ -1493,30 +1381,6 @@
     "text": "Параметр | Светлая | Тёмная | Цвет | Фон | Цвет | Фон | Граница | Границы | Фон | Подсветка | Цвет | Цвет | Цвет",
     "index": 6,
     "state": "design-colors",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Адаптивность по темам",
-    "index": 0,
-    "state": "adaptive",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 1,
-    "state": "adaptive",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 2,
-    "state": "adaptive",
     "finding": null
   },
   {
@@ -1883,7 +1747,7 @@
     "op": "order",
     "role": "fold",
     "text": "",
-    "index": 2,
+    "index": 5,
     "state": "adaptive",
     "finding": null
   },
@@ -2509,14 +2373,6 @@
     "text": "",
     "index": 11,
     "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "Показатели",
-    "index": 0,
-    "state": "metrics",
     "finding": null
   },
   {

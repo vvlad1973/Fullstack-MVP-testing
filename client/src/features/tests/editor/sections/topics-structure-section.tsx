@@ -29,6 +29,7 @@ import {
   Banner,
   Button,
   EmptyState,
+  FormSection,
   IconButton,
   Input,
   ModalDialog,
@@ -239,25 +240,25 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           data-testid="composition-adaptive-banner"
         />
       )}
-      <div className="tb-section-label">Темы и выборка вопросов</div>
-
       {/* PRD-30 FR-16/FR-17 (эскиз approved/prd30-test-level-order.html): the
           test-wide rule stands ABOVE the topic list — first the common rule,
           then the topics that inherit it. «Полное перемешивание» is offered only
           in the flat flow: the sectional flows carry the section screens on the
           topic boundary, so there is nothing to mix across. */}
-      <div className="tb-test-order-row">
-        <span className="tb-test-order-row__label">Порядок выдачи вопросов</span>
-        <Select
-          size="s"
-          value={testOrder}
-          onChange={(value) => updateModel((m) => ({ ...m, questionOrder: value }))}
-          options={flatFlow ? TEST_ORDER_OPTIONS : TEST_ORDER_OPTIONS.slice(0, 2)}
-          aria-label="Порядок выдачи вопросов в тесте"
-          data-testid="test-question-order"
-        />
-        <span className="tb-test-order-row__hint">{TEST_ORDER_HINTS[testOrder](flatFlow)}</span>
-      </div>
+      <FormSection stacked title="Темы теста">
+        <div className="tb-test-order-row">
+          <span className="tb-test-order-row__label">Порядок выдачи вопросов</span>
+          <Select
+            size="s"
+            value={testOrder}
+            onChange={(value) => updateModel((m) => ({ ...m, questionOrder: value }))}
+            options={flatFlow ? TEST_ORDER_OPTIONS : TEST_ORDER_OPTIONS.slice(0, 2)}
+            aria-label="Порядок выдачи вопросов в тесте"
+            data-testid="test-question-order"
+          />
+          <span className="tb-test-order-row__hint">{TEST_ORDER_HINTS[testOrder](flatFlow)}</span>
+        </div>
+      </FormSection>
 
       {model.sections.length === 0 && (
         <EmptyState
