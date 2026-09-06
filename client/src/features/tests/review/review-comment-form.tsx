@@ -9,9 +9,17 @@
  */
 import { useState } from "react";
 import {
-  Button, Card, CardBody, CardHeader, Cluster, Select, Stack, Tag, Text, Textarea,
+  Button, Card, CardBody, CardHeader, Cluster, FormGroup, Select, Stack, Tag, Text, Textarea,
 } from "@universityrt/ui-kit";
 import type { ReviewAnchor } from "@shared/review/anchor";
+
+/** Содержимое раздела, на которое можно поставить якорь: вопрос или страница. */
+export type ReviewAnchorItem = {
+  id: string;
+  label: string;
+  kind: "question" | "content-page";
+  topicId: string | null;
+};
 
 export interface ReviewCommentFormProps {
   mode: "player" | "editor" | "reply";
@@ -19,6 +27,11 @@ export interface ReviewCommentFormProps {
   screenAnchor?: ReviewAnchor;
   /** Разделы теста для выбора места — режим `editor`. */
   topics?: { id: string; name: string }[];
+  /**
+   * Содержимое разделов для второго поля. Пусто — поле остаётся выключенным: замечание
+   * тогда встаёт на раздел целиком, а не пропадает.
+   */
+  items?: ReviewAnchorItem[];
   busy?: boolean;
   onCancel: () => void;
   onSubmit: (input: { body: string; anchor?: ReviewAnchor }) => void | Promise<void>;
@@ -36,10 +49,17 @@ function anchorLabel(anchor?: ReviewAnchor): string {
 }
 
 export function ReviewCommentForm({
-  mode, screenAnchor, topics = [], busy, onCancel, onSubmit,
+  mode, screenAnchor, topics = [], items = [], busy, onCancel, onSubmit,
 }: ReviewCommentFormProps) {
   const [body, setBody] = useState("");
   const [place, setPlace] = useState<string>("test");
+  const [item, setItem] = useState<string>("");
+
+  // Второе поле живёт только у РАЗДЕЛА: у «теста в целом», стартового экрана и итогов
+  // содержимого, на которое можно указать, нет.
+  const topicChosen = topics.some((t) => t.id === place);
+  const itemsOfTopic = topicChosen ? items.filter((i) => i.topicId === place) : [];
+  const chosenItem = itemsOfTopic.find((i) => i.id === item);
 
   const anchor: ReviewAnchor | undefined =
     mode === "reply" ? undefined
@@ -47,7 +67,9 @@ export function ReviewCommentForm({
         : place === "test" ? { kind: "test" }
           : place === "start" ? { kind: "start" }
             : place === "results" ? { kind: "results" }
-              : { kind: "topic", topicId: place };
+              : chosenItem?.kind === "question" ? { kind: "question", questionId: chosenItem.id, topicId: place }
+                : chosenItem?.kind === "content-page" ? { kind: "content-page", contentPageId: chosenItem.id, topicId: place }
+                  : { kind: "topic", topicId: place };
 
   const placeOptions = [
     { value: "test", label: "Тест в целом" },
@@ -71,13 +93,32 @@ export function ReviewCommentForm({
       ) : null}
 
       {mode === "editor" ? (
-        <Select
-          label="Место"
-          value={place}
-          onChange={(value) => setPlace(String(value))}
-          options={placeOptions}
-          data-testid="anchor-place"
-        />
+        <FormGroup columns="two">
+          <Select
+            label="Место"
+            hint="По умолчанию — тест в целом."
+            value={place}
+            onChange={(value) => {
+              setPlace(String(value));
+              // Выбрали другой раздел — прежний вопрос к нему не относится.
+              setItem("");
+            }}
+            options={placeOptions}
+            data-testid="anchor-place"
+          />
+          <Select
+            label="Вопрос или страница"
+            hint={topicChosen ? "Пусто — замечание к разделу целиком." : "Доступно после выбора раздела."}
+            disabled={itemsOfTopic.length === 0}
+            value={item}
+            onChange={(value) => setItem(String(value))}
+            options={[
+              { value: "", label: topicChosen ? "Раздел целиком" : "Выберите раздел" },
+              ...itemsOfTopic.map((i) => ({ value: i.id, label: i.label })),
+            ]}
+            data-testid="anchor-item"
+          />
+        </FormGroup>
       ) : null}
 
       <Textarea

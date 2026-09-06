@@ -300,7 +300,7 @@
       "test-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-9",
@@ -315,7 +315,7 @@
       "test-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-10",
@@ -422,7 +422,7 @@
       "test-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-17",
@@ -452,7 +452,7 @@
       "test-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "A-19",
@@ -467,7 +467,7 @@
       "test-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-20",
@@ -602,7 +602,7 @@
       "test-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-1",
@@ -3214,7 +3214,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-11",
@@ -3246,7 +3246,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-13",
@@ -3310,7 +3310,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-17",
@@ -3342,7 +3342,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-19",
@@ -3358,7 +3358,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-20",
@@ -3422,7 +3422,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-24",

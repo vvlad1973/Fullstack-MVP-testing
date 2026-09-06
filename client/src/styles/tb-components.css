@@ -162,6 +162,16 @@
   border-right: 0;
   border-top: 0;
 }
+/* Кольцо у поля, к которому увёл переход «Перейти к ошибкам». Программный `focus()` не
+   поднимает `:focus-visible`, поэтому класс ставит сам ящик — см. `goToError`. Значения
+   из эскиза: кольцо 2px и такой же отступ. */
+.ou-field.is-focused .ou-field__box,
+.ou-textarea.is-focused .ou-textarea__box,
+.ou-select.is-focused .ou-select__trigger {
+  outline: 2px solid var(--ou-focus-ring, var(--ou-primary-default));
+  outline-offset: 2px;
+}
+
 /* Стопка баннеров РАЗНЫХ уровней (ошибки выше предупреждений) липнет ЦЕЛИКОМ, одним блоком.
    Два отдельных sticky-баннера с одинаковым `top` при прокрутке наезжают друг на друга:
    нижний останавливается на той же линии и закрывает верхний вместе с его действием. */

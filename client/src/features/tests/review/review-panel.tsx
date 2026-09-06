@@ -13,11 +13,12 @@
  */
 import { useState } from "react";
 import {
-  Banner, Button, Card, Cluster, EmptyState, SegmentedControl, Stack, Switch, Tag, Text, Textarea,
+  Avatar, Banner, Button, Card, Cluster, EmptyState, SegmentedControl, Stack, Switch, Tag, Text,
+  Textarea,
 } from "@universityrt/ui-kit";
 import { ArrowRight, MessageSquarePlus } from "lucide-react";
 import { useReviewComments } from "./use-review-comments";
-import { ReviewCommentForm } from "./review-comment-form";
+import { ReviewCommentForm, type ReviewAnchorItem } from "./review-comment-form";
 import type { ReviewThread } from "./review-api";
 import { resolveAnchorTarget, type ReviewAnchor, type AnchorTarget } from "@shared/review/anchor";
 import "./review-panel.css";
@@ -33,7 +34,7 @@ export interface ReviewPanelProps {
   /** Место текущего экрана прогона; в режиме `editor` не используется. */
   screenAnchor?: ReviewAnchor;
   /** Разделы и их содержимое для выбора места в режиме `editor`. */
-  anchorOptions?: { topics: { id: string; name: string }[] };
+  anchorOptions?: { topics: { id: string; name: string }[]; items?: ReviewAnchorItem[] };
   /** Переход по якорю: панель только зовёт, открывает редактор хозяин панели. */
   onNavigate?: (target: AnchorTarget, thread: ReviewThread) => void;
   /** Ветка, раскрытая по ссылке `?review=<id>`. */
@@ -45,6 +46,18 @@ function statusTag(thread: ReviewThread) {
   if (thread.status === "accepted") return <Tag size="s" tone="success">учтено</Tag>;
   if (thread.status === "rejected") return <Tag size="s" variant="soft">отклонено</Tag>;
   return <Tag size="s" tone="warning">открыто</Tag>;
+}
+
+/**
+ * Инициалы для аватара. Имя может не прийти вовсе (пользователь удалён, ответ сервера
+ * без него) — тогда кружок остаётся пустым, но с места не уходит: строка не должна
+ * прыгать из-за отсутствующего имени.
+ */
+function initialsOf(name: string | null | undefined, mine: boolean): string {
+  const source = (name ?? "").trim() || (mine ? "Вы" : "");
+  if (!source) return "";
+  const parts = source.split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
 }
 
 /** Дата в том виде, в каком её читают в списке: «2 сентября, 14:20». */
@@ -63,6 +76,25 @@ export function ReviewPanel({
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [resolving, setResolving] = useState<{ id: string; status: "accepted" | "rejected" } | null>(null);
   const [rejectReply, setRejectReply] = useState("");
+  const [cursor, setCursor] = useState(0);
+
+  // Порядок обхода — тот же, в каком ветки показаны: обход по списку, а не по времени.
+  const visibleThreads = review.groups.flatMap((group) => group.threads);
+
+  /**
+   * Переводит на следующую ветку по кругу: прокручивает к ней и отдаёт ей фокус.
+   * Круг, а не остановка на последней: рецензент обходит замечания несколько раз, и
+   * упершийся в конец список выглядел бы сломанной кнопкой.
+   */
+  function goToNextThread() {
+    if (visibleThreads.length === 0) return;
+    const next = cursor % visibleThreads.length;
+    setCursor(next + 1);
+    const thread = visibleThreads[next];
+    const el = document.querySelector<HTMLElement>(`[data-testid="thread-${thread.id}"]`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.focus?.();
+  }
 
   if (review.isLoading) {
     return <Text tone="muted" variant="body-s">Загружаем комментарии…</Text>;
@@ -112,6 +144,17 @@ export function ReviewPanel({
             data-testid="toggle-open-only"
           />
         </label>
+        {/* Обход веток по одной: с двумя десятками комментариев прокрутка перестаёт
+            быть навигацией, а рецензент читает их подряд, а не выбирает из списка. */}
+        <Button
+          variant="secondary"
+          size="s"
+          disabled={visibleThreads.length === 0}
+          onClick={goToNextThread}
+          data-testid="next-comment"
+        >
+          Следующий комментарий
+        </Button>
       </Cluster>
 
       {composing ? (
@@ -119,6 +162,7 @@ export function ReviewPanel({
           mode={mode}
           screenAnchor={screenAnchor}
           topics={anchorOptions?.topics ?? []}
+          items={anchorOptions?.items ?? []}
           busy={review.create.isPending}
           onCancel={() => setComposing(false)}
           onSubmit={async (input) => {
@@ -164,6 +208,9 @@ export function ReviewPanel({
                 data-expanded={thread.id === focusThreadId ? "true" : "false"}
               >
                 <Cluster gap={2} align="center" className="rvp__head">
+                  {/* Аватар с инициалами: в ветке на десяток реплик имя читается медленнее,
+                      чем цветной кружок, — по нему взгляд и находит своего собеседника. */}
+                  <Avatar size="xs" initials={initialsOf(thread.authorName, mine)} />
                   <strong className="rvp__who">{thread.authorName || (mine ? "Вы" : thread.authorId)}</strong>
                   <span className="rvp__when">{when(thread.createdAt)}</span>
                   <span className="rvp__spacer" />
@@ -177,6 +224,10 @@ export function ReviewPanel({
                     {thread.replies.map((reply) => (
                       <div key={reply.id}>
                         <Cluster gap={2} align="center" className="rvp__head">
+                          <Avatar
+                            size="xs"
+                            initials={initialsOf(reply.authorName, reply.authorId === currentUserId)}
+                          />
                           <strong className="rvp__who">
                             {reply.authorName || (reply.authorId === currentUserId ? "Вы" : reply.authorId)}
                           </strong>
@@ -223,6 +274,7 @@ export function ReviewPanel({
                       <Textarea
                         label="Ответ автора"
                         hint="При отклонении ответ обязателен: рецензент должен увидеть причину."
+                        placeholder="Почему комментарий отклонён"
                         rows={3}
                         value={rejectReply}
                         onChange={(e) => setRejectReply(e.target.value)}

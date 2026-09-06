@@ -226,18 +226,18 @@
   {
     "op": "extra",
     "role": "table",
-    "text": "Подтема | Сколько | Режим | Порог | ",
-    "index": 11,
+    "text": "Подтема | Сколько | Режим | ",
+    "index": 10,
     "state": "composition",
-    "finding": null
+    "finding": "main:prd50-quota-table"
   },
   {
     "op": "extra",
     "role": "table",
-    "text": "Подтема | Сколько | Режим | Порог | ",
-    "index": 23,
+    "text": "Подтема | Сколько | Режим | ",
+    "index": 21,
     "state": "composition",
-    "finding": null
+    "finding": "main:prd50-quota-table"
   },
   {
     "op": "order",
@@ -574,6 +574,14 @@
     "index": 7,
     "state": "scoring",
     "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "control",
+    "text": "input:checkbox",
+    "index": 11,
+    "state": "scoring",
+    "finding": "main:prd50-gate-switch"
   },
   {
     "op": "missing",
@@ -1085,7 +1093,7 @@
     "text": "Общая обратная связь теста",
     "index": 6,
     "state": "texts",
-    "finding": "data:intro-report-own-text"
+    "finding": null
   },
   {
     "op": "missing",
