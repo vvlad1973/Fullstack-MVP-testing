@@ -78,6 +78,8 @@ const ROUND_TRIP_SOURCE = {
   // LMS, показ подытогов и блоки итогов.
   passDecisionPolicy: "required_topics_only" as const,
   lmsAttemptResult: "best" as const,
+  // PRD-50 §16 (FR-53): учитывать ли подтемы в вердикте темы.
+  breakdownGateEnabled: true,
   breakdownDisplayJson: {
     visibility: "bar_and_value" as const,
     basis: "points" as const,
@@ -112,6 +114,21 @@ describe("реестр листа «Настройки»", () => {
     ]);
     expect(errors).toEqual([]);
     expect(draft.test.copyProtection).toBe(false);
+  });
+
+  // PRD-50 §16 (FR-53): гейт подтем — свойство ТЕСТА, и перенос теста книгой обязан его
+  // забирать: без строки книга молча возвращала бы вердикт к «подтемы не в счёт».
+  it("несёт строку гейта подтем", () => {
+    const on = serializeSettingsRows({ breakdownGateEnabled: true });
+    expect(cellOf(on, "Учитывать подтемы в вердикте темы")).toBe("Да");
+    const off = serializeSettingsRows({ breakdownGateEnabled: false });
+    expect(cellOf(off, "Учитывать подтемы в вердикте темы")).toBe("Нет");
+
+    const { draft, errors } = parseSettingsSheet([
+      row("Учитывать подтемы в вердикте темы", "да"),
+    ]);
+    expect(errors).toEqual([]);
+    expect(draft.test.breakdownGateEnabled).toBe(true);
   });
 
   it("отвергает логическое значение, которое не «Да» и не «Нет»", () => {
@@ -324,6 +341,7 @@ describe("реестр листа «Настройки»", () => {
       webhookUrl: "https://example.test/hook",
       passDecisionPolicy: "required_topics_only",
       lmsAttemptResult: "best",
+      breakdownGateEnabled: true,
     });
     expect(draft.breakdown).toEqual({
       visibility: "bar_and_value",

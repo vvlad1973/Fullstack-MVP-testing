@@ -37,27 +37,15 @@ export interface BreakdownEntry {
   percentPoints: number;
   /** `unitEarned / unitPossible`, 0…100. The display default (решение 4). */
   percentUnits: number;
-}
-
-/**
- * One key threshold. `none` says the key is INFORMATIONAL on purpose — it is not the same
- * as an absent entry, which falls back to {@link BreakdownRules.default} (FR-20).
- */
-export type BreakdownThreshold = { type: "percent"; value: number } | { type: "none" };
-
-/**
- * PRD-50 §4 (FR-09/FR-10): the grading rules of one section's breakdown axis, stored in
- * `test_sections.breakdown_rules_json`. Kept apart from `draw_blueprint_json` on purpose
- * (решение 5): a quota is about DELIVERY, a threshold about GRADING, and either is
- * meaningful without the other. Absent structure = every key is informational.
- */
-export interface BreakdownRules {
-  /** Axis the rules speak about. Only `"tag"` is registered in this edition (FR-06). */
-  axis: string;
-  /** Threshold for every key without an own entry (FR-20). Absent = no fallback gate. */
-  default?: BreakdownThreshold;
-  /** Per-key thresholds; a key absent here falls back to {@link BreakdownRules.default}. */
-  keys?: Record<string, BreakdownThreshold>;
+  /**
+   * PRD-50 FR-54: исход подтемы. `true`/`false` — взята или не взята по порогу FR-52,
+   * `null`/отсутствие — порога нет (тема не судит) либо запись сделана до §16. Штампуется
+   * ОДИН раз, при подведении итога попытки, и хранится с ней: цвет строки, выдача текста
+   * подтемы и гейт вердикта темы читают это одно поле.
+   */
+  passed?: boolean | null;
+  /** Порог, по которому вынесен {@link passed}, в процентах. Отсутствие = порога не было. */
+  thresholdPercent?: number | null;
 }
 
 /**

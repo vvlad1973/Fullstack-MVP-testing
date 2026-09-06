@@ -19,7 +19,7 @@
  * Drawer is responsible for save / validation / dirty tracking — this
  * section just renders inputs and reports changes.
  */
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Trash2 } from "lucide-react";
 import {
@@ -47,6 +47,7 @@ import {
   type FeedbackEditorValue,
 } from "./feedback-editor-modal";
 import { FeedbackPreview } from "./feedback-preview";
+import { FoldAllButtons, useSectionFold } from "./section-fold";
 import type {
   AdaptiveLevelConfig,
   AdaptiveLinkConfig,
@@ -109,7 +110,7 @@ export function MainPane({
   fieldErrors = EMPTY_FIELD_ERRORS,
 }: SettingsSectionProps) {
   return (
-    <>
+    <FormSection title="О тесте" stacked>
       <div className="ou-formfield" data-field="basic.title">
         <Input
           id="settings-title"
@@ -150,8 +151,6 @@ export function MainPane({
           data-testid="settings-description-input"
         />
       </div>
-
-      <hr className="wf-sep" />
 
       <div className="ou-formfield" data-testid="settings-mode-group">
         <label className="ou-formfield__lbl">Режим теста</label>
@@ -195,8 +194,7 @@ export function MainPane({
             }}
         />
       </div>
-
-    </>
+    </FormSection>
   );
 }
 
@@ -212,7 +210,7 @@ export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProp
   const showSectionResultsApplicable =
     model.flowMode !== "linear_flat" && model.sections.length > 0;
   return (
-    <>
+    <FormSection title="Сценарий" stacked>
       <div className="ou-formfield">
         <Select<FlowMode>
           id="settings-flow-mode"
@@ -266,7 +264,7 @@ export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProp
           />
         </div>
       )}
-    </>
+    </FormSection>
   );
 }
 
@@ -279,28 +277,28 @@ export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProp
  */
 export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
   return (
-    <>
-          <div className="ou-formfield">
-            <Switch
-              label="Показывать правильные ответы после ответа"
-              checked={model.runtime.showCorrectAnswers}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                updateModel((m) => ({
-                  ...m,
-                  runtime: {
-                    ...m.runtime,
-                    showCorrectAnswers: checked,
-                    // PRD-19 FR-04b: взаимоисключение — при показе правильных ответов
-                    // изменение ответа недоступно.
-                    allowAnswerChange: checked ? false : m.runtime.allowAnswerChange,
-                  },
-                }));
-              }}
-              data-testid="settings-show-correct-checkbox"
-            />
-          </div>
-    </>
+    <FormSection title="Показ правильных ответов" stacked>
+      <div className="ou-formfield">
+        <Switch
+          label="Показывать правильные ответы после прохождения"
+          checked={model.runtime.showCorrectAnswers}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              runtime: {
+                ...m.runtime,
+                showCorrectAnswers: checked,
+                // PRD-19 FR-04b: взаимоисключение — при показе правильных ответов
+                // изменение ответа недоступно.
+                allowAnswerChange: checked ? false : m.runtime.allowAnswerChange,
+              },
+            }));
+          }}
+          data-testid="settings-show-correct-checkbox"
+        />
+      </div>
+    </FormSection>
   );
 }
 
@@ -313,77 +311,71 @@ export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
 export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) {
   return (
     <>
-      <Card variant="outlined" data-testid="settings-feedback-card">
-        <CardHeader title="Общая обратная связь теста" />
-        <CardBody>
-          <TestFeedbackTrigger
-            feedback={model.basic.feedback}
-            links={model.basic.feedbackLinks}
-            assets={model.basic.feedbackAssets}
-            events={model.basic.feedbackEvents}
-            onSave={(next) => {
+      {/* Порядок разделов — по эскизу: вводное слово идёт раньше общей обратной связи,
+          как оно идёт и на экране итогов. */}
+      <FormSection stacked title="Вводный текст" data-testid="settings-intro-card">
+        <IntroEditTrigger
+          label="На экране итогов"
+          modalTitle="Вводный текст на экране итогов"
+          description="Идёт первым, до сводки и результатов по темам. Пусто — блока нет."
+          value={model.intro?.results ?? null}
+          onSave={(next) =>
+            updateModel((m) => ({ ...m, intro: { ...(m.intro ?? {}), results: next } }))
+          }
+          testId="settings-intro-results"
+        />
+        {/* Переключатель — ССЫЛКА, а не копия: включённый, он не переносит текст в
+            ветвь отчёта, поэтому правка на экране меняет обе выдачи разом, а
+            собственный текст отчёта дожидается своего часа нетронутым. */}
+        <div className="ou-formfield">
+          <Switch
+            id="intro-report-same"
+            label="В отчёте — тот же текст, что на экране итогов"
+            description="Правится в одном месте. Выключите, чтобы задать отчёту своё вводное слово."
+            checked={!!model.intro?.reportSameAsResults}
+            onChange={(e) =>
               updateModel((m) => ({
                 ...m,
-                basic: {
-                  ...m.basic,
-                  feedback: { format: next.format, text: next.text },
-                  feedbackLinks: next.links,
-                  feedbackAssets: next.assets,
-                  feedbackEvents: next.events,
-                },
-              }));
-            }}
-          />
-        </CardBody>
-      </Card>
-      <hr className="wf-sep" />
-
-      <Card variant="outlined" data-testid="settings-intro-card">
-        <CardHeader title="Вводный текст" />
-        <CardBody>
-          <IntroEditTrigger
-            label="На экране итогов"
-            modalTitle="Вводный текст на экране итогов"
-            description="Идёт первым, до сводки и результатов по темам. Пусто — блока нет."
-            value={model.intro?.results ?? null}
-            onSave={(next) =>
-              updateModel((m) => ({ ...m, intro: { ...(m.intro ?? {}), results: next } }))
+                intro: { ...(m.intro ?? {}), reportSameAsResults: e.target.checked },
+              }))
             }
-            testId="settings-intro-results"
+            data-testid="settings-intro-same-switch"
           />
-          <hr className="wf-sep" />
-          {/* Переключатель — ССЫЛКА, а не копия: включённый, он не переносит текст в
-              ветвь отчёта, поэтому правка на экране меняет обе выдачи разом, а
-              собственный текст отчёта дожидается своего часа нетронутым. */}
-          <div className="ou-formfield">
-            <Switch
-              id="intro-report-same"
-              label="В отчёте — тот же текст, что на экране итогов"
-              description="Правится в одном месте. Выключите, чтобы задать отчёту своё вводное слово."
-              checked={!!model.intro?.reportSameAsResults}
-              onChange={(e) =>
-                updateModel((m) => ({
-                  ...m,
-                  intro: { ...(m.intro ?? {}), reportSameAsResults: e.target.checked },
-                }))
-              }
-              data-testid="settings-intro-same-switch"
-            />
-          </div>
-          {!model.intro?.reportSameAsResults && (
-            <IntroEditTrigger
-              label="В отчёте"
-              modalTitle="Вводный текст в отчёте"
-              description="Идёт первым, до карточки результата. Задаётся отдельно от текста экрана."
-              value={model.intro?.report ?? null}
-              onSave={(next) =>
-                updateModel((m) => ({ ...m, intro: { ...(m.intro ?? {}), report: next } }))
-              }
-              testId="settings-intro-report"
-            />
-          )}
-        </CardBody>
-      </Card>
+        </div>
+        {!model.intro?.reportSameAsResults && (
+          <IntroEditTrigger
+            label="В отчёте"
+            modalTitle="Вводный текст в отчёте"
+            description="Идёт первым, до карточки результата. Задаётся отдельно от текста экрана."
+            value={model.intro?.report ?? null}
+            onSave={(next) =>
+              updateModel((m) => ({ ...m, intro: { ...(m.intro ?? {}), report: next } }))
+            }
+            testId="settings-intro-report"
+          />
+        )}
+      </FormSection>
+
+      <FormSection stacked title="Общая обратная связь теста" data-testid="settings-feedback-card">
+        <TestFeedbackTrigger
+          feedback={model.basic.feedback}
+          links={model.basic.feedbackLinks}
+          assets={model.basic.feedbackAssets}
+          events={model.basic.feedbackEvents}
+          onSave={(next) => {
+            updateModel((m) => ({
+              ...m,
+              basic: {
+                ...m.basic,
+                feedback: { format: next.format, text: next.text },
+                feedbackLinks: next.links,
+                feedbackAssets: next.assets,
+                feedbackEvents: next.events,
+              },
+            }));
+          }}
+        />
+      </FormSection>
     </>
   );
 }
@@ -926,7 +918,7 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
 
 export function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_ERRORS }: SettingsSectionProps) {
   return (
-    <>
+    <FormSection title="Интеграция" stacked>
       <div className="ou-formfield" data-field="basic.webhookUrl">
         <Input
           id="settings-webhook"
@@ -985,7 +977,7 @@ export function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_
           }
         />
       </div>
-    </>
+    </FormSection>
   );
 }
 
@@ -1010,7 +1002,7 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
   // отдельного шага перед переходом дальше.
   const quickAdvanceDisabled = model.runtime.showCorrectAnswers;
   return (
-    <>
+    <FormSection title="Навигация" stacked>
       <div className="ou-formfield">
         <Switch
           label="Разрешить возврат к неотвеченным вопросам"
@@ -1124,7 +1116,7 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
           />
         )}
       </div>
-    </>
+    </FormSection>
   );
 }
 
@@ -1178,7 +1170,7 @@ export function DuringRunPane({ model, updateModel }: SettingsSectionProps) {
  */
 export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
   return (
-    <>
+    <FormSection title="Защита контента" stacked>
       {/* PRD-34: блок «Защита». Три переключателя НЕЗАВИСИМЫ (FR-02) — водяной знак и
           скрытие при потере фокуса осмысленны и без основной защиты, поэтому
           подчинённости между ними нет ни здесь, ни в базе. */}
@@ -1227,9 +1219,7 @@ export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
           data-testid="settings-protection-hide-on-blur-checkbox"
         />
       </div>
-
-      <hr className="wf-sep" />
-    </>
+    </FormSection>
   );
 }
 
@@ -1340,8 +1330,6 @@ export function BreakdownDisplayPane({ model, updateModel }: SettingsSectionProp
           </div>
         )}
       </FormSection>
-
-      <hr className="wf-sep" />
     </>
   );
 }
@@ -1369,15 +1357,13 @@ export function VerdictPane({
 }: SettingsSectionProps) {
   return (
     <>
-      <Card
-        variant="outlined"
-        size="sm"
+      <FormSection
+        stacked
+        title="Тест пройден, если"
         className="tb-pass-card"
         data-testid="settings-pass-rules-card"
         data-field="passRules"
       >
-        <CardHeader title="Тест пройден, если:" />
-        <CardBody>
           <RadioGroup<PassDecisionPolicy>
             name="pass-decision-policy"
             value={model.passRules.decisionPolicy}
@@ -1389,8 +1375,6 @@ export function VerdictPane({
               }))
             }
           />
-
-          <hr className="wf-sep" />
 
           <div className="tb-pass-overall">
             <div className="ou-formfield">
@@ -1446,12 +1430,34 @@ export function VerdictPane({
               </div>
             )}
           </div>
-        </CardBody>
-      </Card>
+      </FormSection>
+
+      {/* PRD-50 §16 (FR-53): один переключатель на весь тест, сразу под блоком, вердикт
+          которого он уточняет, и ПЕРЕД правилами тем — гейт судит именно тему. */}
+      <div className="ou-formfield">
+        <label className="tb-quota-toggle">
+          <Switch
+            checked={model.passRules.breakdownGateEnabled === true}
+            onChange={(e) =>
+              updateModel((m) => ({
+                ...m,
+                passRules: { ...m.passRules, breakdownGateEnabled: e.target.checked },
+              }))
+            }
+            aria-label="Учитывать подтемы в вердикте темы"
+            data-testid="breakdown-gate-toggle"
+          />
+          <span className="tb-section-label">Учитывать подтемы в вердикте темы</span>
+        </label>
+        <div className="tb-card-desc">
+          Тема не пройдена, если хотя бы одна её подтема (тег) набрала меньше порога темы. Отдельных
+          порогов у подтем нет: подтема живёт по правилу своей темы, а тема с «Не проверять отдельно»
+          не судит и свои подтемы.
+        </div>
+      </div>
 
       {model.sections.length > 0 && (
-        <>
-          <h3 className="tb-topics-title">Правила оценки тем</h3>
+        <FormSection stacked title="Правила оценки тем">
           <table
             className="tb-table tb-pass-table"
             aria-label="Правила оценки тем"
@@ -1533,7 +1539,7 @@ export function VerdictPane({
               })}
             </tbody>
           </table>
-        </>
+        </FormSection>
       )}
 
       {model.sections.length === 0 && (
@@ -1857,6 +1863,13 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
   // re-introduce it (e.g., for a quick preview from standard mode), restore
   // the rail-item visibility predicate in SettingsSection first.
 
+  // Свёртка тем живёт в панели, а не в карточке темы: пара «Развернуть все / Свернуть все»
+  // из эскиза не может управлять состоянием, спрятанным в каждом аккордеоне по отдельности.
+  // Темы открываются свёрнутыми, как и раньше: у теста их десяток, и лестница уровней в
+  // каждой — простыня, в которой ничего не найти.
+  const topicIds = useMemo(() => model.sections.map((s) => s.topicId), [model.sections]);
+  const fold = useSectionFold(topicIds, true);
+
   const upsertTopic = (
     topicId: string,
     patcher: (
@@ -1886,7 +1899,13 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
 
   return (
     <>
-      <h3 className="tb-topics-title">Адаптивность по темам</h3>
+      {/* Эскиз рисует шапку разделом с пустым телом, а список тем — соседом раздела:
+          аккордеон идёт своим блоком `tb-adaptive-topics`, а не внутри `__body`. */}
+      <FormSection
+        stacked
+        title="Адаптивность по темам"
+        meta={<FoldAllButtons fold={fold} testIdPrefix="adaptive-topics" />}
+      />
 
       {model.sections.length === 0 ? (
         <Banner
@@ -1896,7 +1915,9 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
           data-testid="adaptive-no-topics"
         />
       ) : (
-        <div className="tb-adaptive-topics" data-testid="adaptive-topics-list">
+        // Корневые классы аккордеона обязательны: разделительный вид `--separated` живёт
+        // на корне, а без него `ou-acc__item` внутри остаются без рамок и отступов.
+        <div className="ou-acc ou-acc--separated tb-adaptive-topics" data-testid="adaptive-topics-list">
           {model.sections.every((section) => {
             const topic = model.adaptive.topics.find((t) => t.topicId === section.topicId);
             return !topic || !topic.enabled;
@@ -1917,6 +1938,8 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
             return (
               <AdaptiveTopicAccordion
                 key={section.topicId}
+                open={fold.isOpen(section.topicId)}
+                onToggleOpen={() => fold.toggle(section.topicId)}
                 topic={topic}
                 questionCount={section.maxQuestions}
                 onToggleEnabled={(enabled) =>
@@ -1960,6 +1983,9 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
 }
 
 function AdaptiveTopicAccordion(props: {
+  /** Свёрткой владеет панель: пара «Развернуть все / Свернуть все» правит все темы разом. */
+  open: boolean;
+  onToggleOpen: () => void;
   topic: AdaptiveTopicConfig & { enabled: boolean };
   questionCount: number;
   onToggleEnabled: (enabled: boolean) => void;
@@ -1968,14 +1994,15 @@ function AdaptiveTopicAccordion(props: {
   onLevelChange: (levelIndex: number, patch: Partial<AdaptiveLevelConfig>) => void;
   onLevelRemove: (levelIndex: number) => void;
 }) {
-  const { topic, questionCount } = props;
-  const [open, setOpen] = useState(false);
+  const { topic, questionCount, open } = props;
 
   // Warning only applies to enabled topics: disabled topics are excluded from
   // the adaptive test logic so missing levels are not a problem there.
   const levelCount = topic.levels.length;
-  const statusTone: "ok" | "warn" =
-    !topic.enabled || levelCount >= 2 ? "ok" : "warn";
+  // Три состояния, а не два: выключенная тема НЕ «в порядке», она вне игры, и эскиз
+  // красит её серым `--off`. Зелёным остаётся только включённая с готовой лестницей.
+  const statusTone: "ok" | "warn" | "off" =
+    !topic.enabled ? "off" : levelCount >= 2 ? "ok" : "warn";
   const levelsPlural =
     levelCount === 1 ? "уровень" : levelCount >= 2 && levelCount <= 4 ? "уровня" : "уровней";
   const subtitle = `${questionCount} вопросов · ${levelCount} ${levelsPlural}`;
@@ -1994,13 +2021,15 @@ function AdaptiveTopicAccordion(props: {
       <button
         type="button"
         className="ou-acc__trigger tb-adaptive-topics__trigger"
-        onClick={() => setOpen((v) => !v)}
+        onClick={props.onToggleOpen}
         aria-expanded={open}
         data-testid={`adaptive-topic-toggle-${topic.topicId}`}
       >
+        {/* Точка несёт смысл, поэтому она подписана, а не спрятана от скринридера
+            (NFR-21): цвет — единственный носитель состояния, и без подписи его нет. */}
         <span
           className={`tb-status-dot tb-status-dot--${statusTone}`}
-          aria-hidden="true"
+          aria-label="Состояние темы"
         />
         <span className="ou-acc__trigger-text">
           <span className="ou-acc__title">{topic.topicName}</span>

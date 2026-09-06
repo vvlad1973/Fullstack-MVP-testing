@@ -14,7 +14,7 @@
 import { useState } from "react";
 import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Banner, Button, Card, CardBody, CardHeader, FormSection, Tag } from "@universityrt/ui-kit";
+import { Banner, Button, FormSection } from "@universityrt/ui-kit";
 import { RotateCcw } from "lucide-react";
 import { FeedbackEditorModal, type FeedbackEditorValue } from "./feedback-editor-modal";
 import { FeedbackPreview } from "./feedback-preview";
@@ -86,27 +86,29 @@ export function TopicFeedbackCard({
     }));
 
   return (
-    <Card variant="outlined" size="sm" data-testid="topic-feedback-card">
-      <CardHeader
-        title="По темам"
-        subtitle="Участник получает ОДИН текст на тему: заданный в этом тесте, а если он не задан — текст самой темы."
-      />
-      <CardBody>
-        {model.sections.map((section) => (
-          <TopicFeedbackRow
-            key={section.topicId}
-            section={section}
-            topic={byId.get(section.topicId)}
-            onSave={(patch) => setSection(section.topicId, patch)}
-          />
-        ))}
-      </CardBody>
-    </Card>
+    <FormSection
+      stacked
+      title="По темам"
+      subtitle="Участник получает ОДИН текст на тему: заданный в этом тесте, а если он не задан — текст самой темы."
+      data-testid="topic-feedback-card"
+    >
+      {model.sections.map((section, index) => (
+        <TopicFeedbackRow
+          key={section.topicId}
+          index={index}
+          section={section}
+          topic={byId.get(section.topicId)}
+          onSave={(patch) => setSection(section.topicId, patch)}
+        />
+      ))}
+    </FormSection>
   );
 }
 
 /** Одна тема: разрешённый текст, подпись источника, правка и сброс. */
 function TopicFeedbackRow(props: {
+  /** Место темы в выдаче: эскиз подписывает темы «1. О компании». */
+  index: number;
   section: EditorSection;
   topic?: TopicRow;
   onSave: (patch: Partial<EditorSection>) => void;
@@ -135,12 +137,12 @@ function TopicFeedbackRow(props: {
       };
   const testId = `topic-feedback-${section.topicId}`;
   return (
-    <FormSection title={section.topicName} stacked>
+    <>
       <div className="ou-formfield">
-        <div className="tb-topic-feedback__head">
-          <Tag size="s" variant="soft" data-testid={`${testId}-source`}>
-            {own ? "Задано в этом тесте" : "Из темы"}
-          </Tag>
+        {/* Источник текста показывает ТОЛЬКО полоса слева у превью: подпись рядом была бы
+            вторым разом о том же (решение эскиза 13). */}
+        <div className="tb-feedback-head">
+          <label className="ou-formfield__lbl">{`${props.index + 1}. ${section.topicName}`}</label>
           {own && (
             <Button
               variant="ghost"
@@ -168,7 +170,7 @@ function TopicFeedbackRow(props: {
           events={resolved.events}
           onEdit={() => setOpen(true)}
           editAriaLabel={`Редактировать обратную связь темы «${section.topicName}»`}
-          emptyLabel="Не задано — ни в теме, ни в этом тесте"
+          overridden={own}
           testId={testId}
         />
       </div>
@@ -189,6 +191,6 @@ function TopicFeedbackRow(props: {
         }}
         testId={`${testId}-modal`}
       />
-    </FormSection>
+    </>
   );
 }

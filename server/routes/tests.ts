@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownRulesSchema, breakdownFeedbackSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownFeedbackSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -59,10 +59,6 @@ const sectionBodySchema = z
     // keys, so without this the editor's saved form set is silently dropped before
     // it reaches the storage layer (200 OK, but nothing persisted). null = legacy draw.
     formSetJson: formSetSchema.nullish(),
-    // PRD-50 §4 (FR-09): per-key thresholds. MUST be listed here for the same reason as
-    // formSetJson above — Zod strips an unlisted key, and the author's thresholds would
-    // vanish on save with a cheerful 200 OK.
-    breakdownRulesJson: breakdownRulesSchema.nullish(),
     // PRD-50 FR-50: тексты подтем. В `insertTestSectionSchema` эта схема не объявлена
     // (там она ссылалась бы на `feedbackContentSchema` до его объявления), поэтому
     // проверяет её ЗАПИСЬ — здесь. Без строки Zod срезал бы ключ, и автор получил бы
@@ -154,6 +150,9 @@ const testBodyBaseSchema = z.object({
   introJson: testIntroSchema.nullish(),
   // PRD-50 FR-13: subtotal-by-key display setting; null = hidden (system default).
   breakdownDisplayJson: breakdownDisplaySchema.nullish(),
+  // PRD-50 FR-53: учитывать ли подтемы в вердикте темы. Отсутствие = не трогать
+  // сохранённое; умолчание колонки (`false`) = поведение до §16.
+  breakdownGateEnabled: z.boolean().optional(),
   // PRD-50 FR-11: named groups of sections; null/empty = today's flat list (FR-27).
   sectionGroupsJson: sectionGroupsSchema.nullish(),
   // PRD-15 block D (FR-31): test-wide default price; null = system default (1).
@@ -701,6 +700,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       reportSettingsJson,
       introJson,
       breakdownDisplayJson,
+      breakdownGateEnabled,
       sectionGroupsJson,
       defaultQuestionPoints,
       folderId,
@@ -763,6 +763,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         reportSettingsJson: reportSettingsJson ?? null,
         introJson: introJson ?? null,
         breakdownDisplayJson: breakdownDisplayJson ?? null,
+        breakdownGateEnabled,
         sectionGroupsJson: sectionGroupsJson ?? null,
         defaultQuestionPoints: defaultQuestionPoints ?? null,
         folderId: folderId ?? null,
@@ -1156,6 +1157,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       reportSettingsJson,
       introJson,
       breakdownDisplayJson,
+      breakdownGateEnabled,
       sectionGroupsJson,
       defaultQuestionPoints,
     } = parsed.data;
@@ -1239,6 +1241,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         reportSettingsJson,
         introJson,
         breakdownDisplayJson,
+        breakdownGateEnabled,
         sectionGroupsJson,
         defaultQuestionPoints,
       },

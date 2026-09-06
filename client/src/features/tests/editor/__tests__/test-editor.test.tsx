@@ -689,7 +689,7 @@ describe("<TestEditor /> — close-confirmation with blocking errors (Gap 5)", (
 
     render(withClient(client, <Harness />));
     // Title is empty, so wait for a loaded-model marker (the default section topic).
-    await screen.findByText("Основы ИБ");
+    await screen.findByText("1. Основы ИБ");
 
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
@@ -735,7 +735,7 @@ describe("<TestEditor /> — footer «Отменить» discards and closes wit
     }
 
     render(withClient(client, <Harness />));
-    await screen.findByText("Основы ИБ");
+    await screen.findByText("1. Основы ИБ");
 
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
@@ -1066,7 +1066,7 @@ describe("<TestEditor /> — close-confirm chips + error banner", () => {
 
     render(withClient(client, <Harness />));
     // Title is empty → wait for the loaded section marker instead of "Sample Test".
-    await screen.findByText("Основы ИБ");
+    await screen.findByText("1. Основы ИБ");
 
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));

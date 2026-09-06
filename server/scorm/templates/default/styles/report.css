@@ -233,7 +233,9 @@
 
 /* PRD-50: полосы разреза по ключам. Тот же род, что полоса карточки выше — узкая
    дорожка с закруглением. Заливка нейтральна, пока у ключа нет применившегося
-   порога; ширина всегда задаётся инлайн-стилем из макета (`barPercent`). */
+   порога; ширина всегда задаётся инлайн-стилем из макета (`barPercent`). Цвета
+   литеральные, как везде в документе: отчёт печатается растром вне области DS-токенов,
+   поэтому тон исхода берётся теми же значениями, что у полосы карточки темы. */
 .tb-report__breakdown { margin-bottom: 6px; }
 .tb-report__breakdown-row { margin-bottom: 4px; }
 .tb-report__breakdown-row:last-child { margin-bottom: 0; }
@@ -251,17 +253,24 @@
 }
 .tb-report__breakdown-bar span { display: block; height: 100%; border-radius: 2px; background: #6b7280; }
 .tb-report__breakdown-val { font-size: 7px; color: #aca9a9; margin-top: 2px; }
+/* PRD-50 §16: тон строки разреза. Красится ОДНА полоса — слово вердикта принадлежит
+   карточке темы вокруг. Порога нет — класса нет, и строка печатается ровно так, как
+   печаталась до §16. */
+.tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #22c55e; }
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #ef4444; }
+/* Дорожка проваленной подтемы: при 0 % заливки нет, и строка читалась бы как «нет данных». */
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar { background: #fee2e2; }
+.tb-report__breakdown-req { font-size: 7px; color: #aca9a9; margin-top: 2px; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на
-   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. Исхода у строки
-   нет вовсе (решение владельца 2026-09-03): подтема не судится, и полоса нейтральна в
-   обеих проекциях. */
+   полной ширине читаются сноской, поэтому здесь всё на ступень крупнее. */
 .tb-report__breakdown--block { margin-bottom: 0; }
 .tb-report__breakdown--block .tb-report__breakdown-row { margin-bottom: 8px; }
 .tb-report__breakdown--block .tb-report__breakdown-name { font-size: 10px; margin-bottom: 4px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar { height: 4px; border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-bar span { border-radius: 3px; }
 .tb-report__breakdown--block .tb-report__breakdown-val { font-size: 9px; }
+.tb-report__breakdown--block .tb-report__breakdown-req { font-size: 9px; }
 
 .tb-report__topic-fb {
   font-size: 10px;

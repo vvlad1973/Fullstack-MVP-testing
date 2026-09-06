@@ -134,7 +134,6 @@ describe("aggregateStandardResult + блоки разделов", () => {
       sections: [
         section("law", [q(0, 0, ["ПДн"]), q(0, 1, ["ПДн"]), q(0, 0), q(0, 0)], {
           groupKey: "knowledge",
-          breakdownRules: { axis: "tag", keys: { "ПДн": { type: "percent", value: 80 } } },
         }),
       ],
       overallPassRule: { type: "percent", value: 60 },

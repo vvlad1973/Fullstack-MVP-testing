@@ -31,16 +31,22 @@ const LABELS = {
 /**
  * Ключ «ПДн» выдан в двух разделах — в блоке он ОДНА строка на весь тест.
  *
- * Вердикта в строке нет: подтема считается и показывается, но не судится (решение
- * владельца 2026-09-03), и `passed`/`passClass`/`statusLabel` ушли из контекста строки
- * (`CtxBreakdownRow`). Фикстура повторяет контракт дословно — иначе гард продолжил бы
- * требовать от раскладок разметку, которой ядро больше не питает.
+ * Исход у строки ЕСТЬ (PRD-50 §16), но говорит он ТОНОМ: `passed`/`passClass` и надпись
+ * порога `requiredLabel`. Словесной метки исхода у строки нет и не заводится — вердикт
+ * словом объявляет карточка темы вокруг. Порога у ключа может не быть вовсе, и тогда
+ * строка печатается ровно так, как печаталась до §16, — обе ветки в фикстуре ниже.
  */
 const ROWS = [
   { key: "ПДн", items: 4, answered: 4, earned: 3, possible: 4, percent: 75, percentUnits: 75,
-    percentPoints: 75, barPercent: 75, showValue: true, valueLabel: "75 %" },
+    percentPoints: 75, barPercent: 75, showValue: true, valueLabel: "75 %",
+    passed: true, passClass: "is-pass", requiredLabel: "Нужно 70 %" },
   { key: "Антикоррупция", items: 2, answered: 1, earned: 0, possible: 2, percent: 0, percentUnits: 0,
-    percentPoints: 0, barPercent: 0, showValue: true, valueLabel: "0 %" },
+    percentPoints: 0, barPercent: 0, showValue: true, valueLabel: "0 %",
+    passed: false, passClass: "is-fail", requiredLabel: "Нужно 60 %" },
+  // Порога нет — исхода нет: ни класса, ни надписи.
+  { key: "Этика", items: 3, answered: 3, earned: 2, possible: 3, percent: 67, percentUnits: 67,
+    percentPoints: 67, barPercent: 67, showValue: true, valueLabel: "67 %",
+    passed: null, passClass: "" },
 ];
 
 const topic = (topicName: string) => ({
@@ -93,14 +99,21 @@ for (const [templateId, dir] of Object.entries(TEMPLATES)) {
       expect(html).toContain("width: 75%;");
     });
 
-    it("строка несёт число выбранной базы и НЕ несёт вердикта", () => {
+    it("строка несёт число базы, тон исхода и надпись порога — но не слово вердикта", () => {
       const html = render(resultsContext(WITH_BLOCK, true));
       expect(html).toContain("75 %");
-      // Подтема не судится: ни класса исхода на строке, ни метки рядом с ключом.
-      expect(html).toContain('class="tb-breakdown__row"');
-      expect(html).not.toContain("tb-breakdown__row is-pass");
-      expect(html).not.toContain("tb-breakdown__row is-fail");
+      // Тон говорит об исходе; слово об исходе принадлежит карточке темы вокруг.
+      expect(html).toContain("tb-breakdown__row is-pass");
+      expect(html).toContain("tb-breakdown__row is-fail");
+      expect(html).toContain("Нужно 70 %");
       expect(html).not.toContain("tb-breakdown__status");
+    });
+
+    it("ключ без порога печатается нейтрально", () => {
+      const html = render(resultsContext(WITH_BLOCK, true));
+      // «Этика» порога не знает: строка без модификатора и без надписи порога.
+      expect(html).toContain('class="tb-breakdown__row " data-item="Этика"');
+      expect(times(html, "Нужно ")).toBe(2);
     });
 
     it("блок выключен — ни узла, ни заголовка", () => {
@@ -125,9 +138,10 @@ for (const [templateId, dir] of Object.entries(TEMPLATES)) {
       expect(html).toContain("Разрез результата");
       expect(times(html, "tb-report__breakdown--block")).toBe(1);
       expect(times(html, 'data-item="ПДн"')).toBe(1);
-      // Бумага повторяет экран и в этом: вердикта у строки нет ни там, ни здесь.
-      expect(html).not.toContain("tb-report__breakdown-row is-pass");
-      expect(html).not.toContain("tb-report__breakdown-row is-fail");
+      // Бумага повторяет экран и в этом: тон исхода есть, слова вердикта нет.
+      expect(html).toContain("tb-report__breakdown-row is-pass");
+      expect(html).toContain("tb-report__breakdown-row is-fail");
+      expect(html).toContain("Нужно 70 %");
       expect(html).not.toContain("tb-report__breakdown-status");
     });
 

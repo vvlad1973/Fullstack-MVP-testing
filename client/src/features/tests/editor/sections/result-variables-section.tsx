@@ -19,8 +19,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banner,
   Button,
-  Cluster,
   EmptyState,
+  FormActions,
+  FormSection,
   Grid,
   IconButton,
   Input,
@@ -100,9 +101,9 @@ import { LevelsEditor } from "./levels-editor";
 import { OutcomesEditor } from "./outcomes-editor";
 
 const STATUS_OPTIONS: Array<{ value: ResultVariableControlsStatus; label: string }> = [
-  { value: "none", label: "Нет" },
-  { value: "success", label: "Успех (success_status)" },
-  { value: "completion", label: "Завершение (completion_status)" },
+  { value: "none", label: "Не управляет" },
+  { value: "success", label: "Ставит «Пройден», когда истина" },
+  { value: "completion", label: "Ставит «Завершён», когда истина" },
 ];
 
 const TARGET_OPTIONS: Array<{ value: ResultVariableScormTarget; label: string }> = [
@@ -277,22 +278,20 @@ export function ResultVariablesSection({
 
   return (
     <div className="tb-settings-content" data-testid="metrics-section">
-      <Cluster justify="between" gap={0} wrap={false} style={{ marginBottom: "var(--ou-space-3)" }}>
-        <div className="tb-section-label">
-          Показатели результата{vars.length > 1 ? " · порядок вычисления" : ""}
-        </div>
+      <FormSection stacked title="Показатели">
         {!readOnly && (
-          <Button
-            variant="ghost"
-            size="s"
-            leadingIcon={<Plus size={16} aria-hidden="true" />}
-            onClick={addVariable}
-            data-testid="metrics-add"
-          >
-            Добавить показатель
-          </Button>
+          <FormActions align="between">
+            <Button
+              variant="ghost"
+              size="s"
+              leadingIcon={<Plus size={16} aria-hidden="true" />}
+              onClick={addVariable}
+              data-testid="metrics-add"
+            >
+              Добавить показатель
+            </Button>
+          </FormActions>
         )}
-      </Cluster>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -318,6 +317,7 @@ export function ResultVariablesSection({
           })}
         </SortableContext>
       </DndContext>
+      </FormSection>
     </div>
   );
 }
@@ -654,6 +654,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               second copy. No «Рассчитать по вкладам»: an indicator's value comes
               from a formula, not enumerated question contributions, so there is
               nothing to suggest a range from. */}
+          <span className="ou-formfield__lbl">Границы показателя</span>
           <DomainFields
             domainMin={v.domainMin}
             domainMax={v.domainMax}
@@ -745,6 +746,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             size="m"
             fullWidth
             label="Управление статусом курса"
+            hint="Доступно только для показателей типа «да/нет»."
             value={v.controlsStatus}
             disabled={readOnly}
             options={STATUS_OPTIONS}

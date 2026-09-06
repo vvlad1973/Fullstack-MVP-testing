@@ -253,7 +253,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
 
               <CollapsibleContent>
             {testId && questions.length > 0 && (
-              <table className="tb-table">
+              <table className="tb-table" aria-label={`Оценка вопросов темы «${section.topicName}»`}>
                 <thead>
                   <tr>
                     <th>Вопрос</th>
@@ -328,7 +328,11 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                           {difficulty}
                         </td>
                         <td>
-                          {effective.stale && (
+                          {/* Колонка «Состояние» говорит о ПЕРЕОПРЕДЕЛЕНИИ, а не только о
+                              его порче: подсветка ячеек показывает, ЧТО задано, а тег —
+                              что строка вообще настроена в тесте. Устаревание — частный
+                              случай, и тогда тег говорит о нём. */}
+                          {effective.stale ? (
                             <Tag
                               tone="warning"
                               title="Состав вариантов вопроса изменился после настройки оценки"
@@ -336,7 +340,11 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                             >
                               Настройка устарела
                             </Tag>
-                          )}
+                          ) : override ? (
+                            <Tag tone="warning" data-testid={`scoring-override-${q.id}`}>
+                              задано в тесте
+                            </Tag>
+                          ) : null}
                         </td>
                         <td>
                           <div className="tb-qscoring__actions">

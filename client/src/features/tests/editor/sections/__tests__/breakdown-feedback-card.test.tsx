@@ -92,7 +92,9 @@ afterEach(() => vi.restoreAllMocks());
 describe("<BreakdownFeedbackCard />", () => {
   it("перечисляет подтемы темы по тегам её вопросов", () => {
     render(baseModel([section("law", "Право")]));
-    expect(screen.getByText("Право")).toBeInTheDocument();
+    // Тема подписана с порядковым номером и счётчиком подтем — так её рисует эскиз.
+    expect(screen.getByText("1. Право")).toBeInTheDocument();
+    expect(screen.getByText("2 подтемы")).toBeInTheDocument();
     expect(screen.getByText("Коммерческая тайна")).toBeInTheDocument();
     expect(screen.getByText("Персональные данные")).toBeInTheDocument();
   });

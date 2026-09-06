@@ -63,9 +63,11 @@ describe("полный состав строки (§8.1)", () => {
       barPercent: 40,
       showValue: true,
       valueLabel: "40 %",
-      // Вердикта у подтемы НЕТ (Э1, решение владельца 2026-09-03): подтема считается и
-      // показывается, но не судится, — поэтому в составе строки нет ни `passed`, ни
-      // класса, ни подписи. `toEqual` это и стережёт: вернуть их обратно молча нельзя.
+      // PRD-50 §16 (FR-54): исход подтемы снова в составе строки. Запись фикстуры сделана
+      // без него, поэтому здесь он пустой: `null` и класс без модификатора. Надписи порога
+      // нет — порога не было. `toEqual` стережёт состав: третьего поля молча не добавить.
+      passed: null,
+      passClass: "",
     });
   });
 
@@ -98,20 +100,52 @@ describe("полный состав строки (§8.1)", () => {
   });
 });
 
-describe("подтема не судится (Э1)", () => {
-  it("строка разреза не несёт ни вердикта, ни его класса, ни подписи", () => {
-    // Даже если сохранённая запись притащит `passed` — так выглядят попытки, сданные до
-    // Э1, — строка контекста о нём молчит: судит тему её собственное правило.
-    const legacy = {
-      ...result,
-      topicResults: [{ ...topic, breakdown: [{ ...topic.breakdown[0], passed: false }] }],
-    };
-    const ctx = buildResultContext(legacy as never, "Тест", {
-      breakdownDisplay: { visibility: "bar", basis: "units" },
-    } as never);
-    const rows = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown;
-    expect(rows[0]).not.toHaveProperty("passed");
-    expect(rows[0]).not.toHaveProperty("passClass");
-    expect(rows[0]).not.toHaveProperty("statusLabel");
+describe("исход подтемы в строке (§16)", () => {
+  it("PRD-50 FR-54: строка несёт исход, класс и надпись порога", () => {
+    const ctx = buildResultContext(
+      {
+        ...result,
+        topicResults: [
+          {
+            ...topic,
+            breakdown: [
+              { scope: "section:s1", axis: "tag", key: "Право", items: 2, answered: 2,
+                earned: 1, possible: 2, unitEarned: 1, unitPossible: 2,
+                percentPoints: 50, percentUnits: 50, passed: false, thresholdPercent: 70 },
+            ],
+          },
+        ],
+      } as never,
+      "Тест",
+      { breakdownDisplay: { visibility: "bar_and_value", basis: "points" } } as never,
+    );
+    const row = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown[0];
+    expect(row.passed).toBe(false);
+    expect(row.passClass).toBe("is-fail");
+    expect(row.requiredLabel).toBe("Нужно 70 %");
+  });
+
+  it("PRD-50 FR-57: запись без исхода печатается нейтрально", () => {
+    const ctx = buildResultContext(
+      {
+        ...result,
+        topicResults: [
+          {
+            ...topic,
+            breakdown: [
+              { scope: "section:s1", axis: "tag", key: "Право", items: 2, answered: 2,
+                earned: 1, possible: 2, unitEarned: 1, unitPossible: 2,
+                percentPoints: 50, percentUnits: 50 },
+            ],
+          },
+        ],
+      } as never,
+      "Тест",
+      { breakdownDisplay: { visibility: "bar_and_value", basis: "points" } } as never,
+    );
+    const row = (ctx.result.topicResults![0] as never as { breakdown: Array<Record<string, unknown>> }).breakdown[0];
+    expect(row.passed).toBeNull();
+    expect(row.passClass).toBe("");
+    expect(row.requiredLabel).toBeUndefined();
   });
 });

@@ -606,9 +606,13 @@ function getAdaptiveResultForScorm() {
   if (!state.adaptiveState || !state.adaptiveState.result) {
     return null;
   }
+  // PRD-50 §16: the test's OVERALL pass rule is the only threshold the adaptive mode can
+  // judge subtopics by — a ladder step has none of its own. Read from `TEST_DATA`, the very
+  // place the standard branch reads it from, so the two modes cannot judge a key differently.
   var flat = window.TBTemplate.adaptiveResultAsStandard(
     state.adaptiveState.result,
-    adaptiveBreakdownItems()
+    adaptiveBreakdownItems(),
+    (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.overallPassRule) || null
   );
   // PRD-50 FR-35/FR-36: ONE flat array for `tag()`, assembled exactly as `calculateResults`
   // assembles it in the standard mode — the shared engine returns the test scope on

@@ -63,6 +63,8 @@ import {
 import { DesignSection } from "./sections/design-section";
 import { describeFeasibilityState } from "@/features/content-protection/issue-text";
 import { ReviewPanel } from "../review/review-panel";
+import type { ReviewAnchorItem } from "../review/review-comment-form";
+import { useReviewComments } from "../review/use-review-comments";
 import { QuestionEditorDrawer } from "@/features/questions/question-editor-drawer";
 import type { Question, Topic } from "@shared/schema";
 import { useOptionalAuth } from "@/lib/auth";
@@ -212,7 +214,9 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   const [reviewQuestionId, setReviewQuestionId] = useState<string | null>(null);
   const reviewQuestions = useQuery<Question[]>({
     queryKey: ["/api/questions"],
-    enabled: Boolean(reviewQuestionId),
+    // Нужны в двух местах: открыть карточку вопроса по якорю и предложить вопросы
+    // раздела во втором поле формы комментария. Второе — сразу на вкладке.
+    enabled: Boolean(reviewQuestionId) || activeTab === "review",
   });
   const reviewTopics = useQuery<Topic[]>({
     queryKey: ["/api/topics"],
@@ -367,6 +371,16 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
         ? anchor
         : anchor.querySelector<HTMLElement>("input, textarea, select, button, [tabindex]");
       control?.focus();
+      // Программный `focus()` не считается «видимым» фокусом: `:focus-visible` браузер
+      // ставит по клавиатуре, а не по вызову из кода, — и после перехода поле выглядит
+      // ровно как соседние. Кольцо ставим сами и снимаем, когда поле покинут.
+      const box = anchor.matches(".ou-field, .ou-textarea, .ou-select")
+        ? anchor
+        : anchor.querySelector<HTMLElement>(".ou-field, .ou-textarea, .ou-select");
+      if (box) {
+        box.classList.add("is-focused");
+        control?.addEventListener("blur", () => box.classList.remove("is-focused"), { once: true });
+      }
     }, 0);
   }, []);
 
@@ -455,7 +469,41 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     onClose();
   }, [contentPages, design, editor, onClose]);
 
-  const statusTag = useMemo(() => deriveStatusTag(editor), [editor]);
+  const statusTag = useMemo(() => deriveStatusTag(editor, combinedDirty), [editor, combinedDirty]);
+
+  /**
+   * Содержимое разделов для второго поля формы комментария: вопросы банка и страницы
+   * содержания этого теста. Собирается здесь, а не в панели: состав теста знает ящик,
+   * а панель не должна ходить за ним сама.
+   */
+  const reviewAnchorItems = useMemo<ReviewAnchorItem[]>(() => {
+    const topicIds = new Set((editor.model?.sections ?? []).map((s) => s.topicId));
+    const questions = (reviewQuestions.data ?? [])
+      .filter((q) => q.topicId && topicIds.has(q.topicId))
+      .map((q, index) => ({
+        id: q.id,
+        // Формулировка бывает длинной, и в списке от неё нужен только опознавательный
+        // кусок — номер несёт остальное.
+        label: `Вопрос ${index + 1}: ${(q.prompt ?? "").slice(0, 60)}`,
+        kind: "question" as const,
+        topicId: q.topicId ?? null,
+      }));
+    const pages = contentPages.pages
+      .filter((page) => page.topicId && topicIds.has(page.topicId))
+      .map((page) => ({
+        id: page.id,
+        label: `Страница: ${page.templateKey ?? page.type}`,
+        kind: "content-page" as const,
+        topicId: page.topicId,
+      }));
+    return [...questions, ...pages];
+  }, [editor.model?.sections, reviewQuestions.data, contentPages.pages]);
+
+  // Счётчик открытых веток на вкладке. Запрос тот же, что у панели рецензирования, —
+  // React Query отдаёт его из кэша, второго обращения к серверу не будет.
+  const { openCount: reviewOpenCount } = useReviewComments(editor.model?.id ?? "", {
+    enabled: Boolean(editor.model?.id) && editor.mode !== "create",
+  });
 
   const tabItems = useMemo<TabItem<EditorTabKey>[]>(
     () =>
@@ -482,12 +530,20 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
             label: (
               <>
                 {TAB_LABELS[tab]}
+                {/* PRD-52: на вкладке комментариев — счётчик ОТКРЫТЫХ веток. Точка
+                    состояния говорит «тут что-то есть», а число — сколько ещё ждёт
+                    ответа, и ради него не нужно открывать вкладку. */}
+                {tab === "review" && reviewOpenCount > 0 && (
+                  <Tag tone="warning" size="s" data-testid="tab-review-open-count">
+                    {reviewOpenCount}
+                  </Tag>
+                )}
                 <StatusBadge status={status} />
               </>
             ),
           };
         }),
-    [editor.mode, editor.tabStatuses, structureWarn],
+    [editor.mode, editor.tabStatuses, structureWarn, reviewOpenCount],
   );
 
   if (!open) return null;
@@ -503,7 +559,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
 
   return (
     <div
-      className="ou-drawer-root"
+      className="ou-drawer-root ou-drawer-root--right"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -693,6 +749,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
                 // не ходит за составом, его знает ящик.
                 anchorOptions={{
                   topics: editor.model.sections.map((s) => ({ id: s.topicId, name: s.topicName })),
+                  items: reviewAnchorItems,
                 }}
                 onNavigate={(target) => {
                   // Вопрос открывается ЯЩИКОМ ПОВЕРХ этого: ящик теста остаётся
@@ -740,8 +797,20 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
           data-testid="test-editor-foot"
           data-state={combinedDirty ? "dirty" : "default"}
         >
+          {/* Причина, по которой «Сохранить» заперто. Кнопка `disabled` не читается
+              скринридером, и без этой строки блокировка выглядит поломкой. */}
+          {hasErrors && (
+            <span id="test-editor-save-blocked" className="ou-sr-only">
+              Сначала исправьте ошибки в выделенных секциях.
+            </span>
+          )}
           {combinedDirty ? (
             <>
+              {/* Тег состояния стоит в подвале слева, как в эскизе: подвал — то место,
+                  где принимают решение сохранять, и статус нужен именно здесь. */}
+              <Tag tone="warning" data-testid="test-editor-foot-dirty-tag">
+                Изменено
+              </Tag>
               <div className="tb-changes-anchor">
                 <Button
                   variant="ghost"
@@ -779,6 +848,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
                 size="m"
                 disabled={saveDisabled}
                 aria-disabled={saveDisabled ? "true" : "false"}
+                aria-describedby={hasErrors ? "test-editor-save-blocked" : undefined}
                 onClick={handleSave}
                 loading={combinedSaving}
                 data-testid="test-editor-save"
@@ -802,6 +872,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
                 size="m"
                 disabled={saveDisabled}
                 aria-disabled={saveDisabled ? "true" : "false"}
+                aria-describedby={hasErrors ? "test-editor-save-blocked" : undefined}
                 onClick={handleSave}
                 loading={combinedSaving}
                 data-testid="test-editor-save"
@@ -1471,7 +1542,18 @@ function collectConflictRows(
 
 import type { TagProps } from "@universityrt/ui-kit";
 
-function deriveStatusTag(editor: ReturnType<typeof useTestEditor>): {
+/**
+ * Тег в шапке ящика.
+ *
+ * `dirty` приходит СНАРУЖИ и равен тому же признаку, по которому живёт подвал:
+ * несохранённой бывает не только правка настроек, но и оформление, и структура
+ * страниц. Пока тег считал только черновик настроек, правка оформления давала
+ * «грязный» подвал при спокойной шапке.
+ */
+function deriveStatusTag(
+  editor: ReturnType<typeof useTestEditor>,
+  dirty: boolean,
+): {
   tone: TagProps["tone"];
   label: string;
   ariaLabel: string;
@@ -1484,7 +1566,7 @@ function deriveStatusTag(editor: ReturnType<typeof useTestEditor>): {
       ariaLabel: "Статус: есть блокирующие ошибки",
     };
   }
-  if (editor.isDirty) {
+  if (dirty) {
     return {
       tone: "warning",
       label: "Изменено",

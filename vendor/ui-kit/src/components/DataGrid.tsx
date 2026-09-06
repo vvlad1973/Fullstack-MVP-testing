@@ -48,6 +48,15 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
   expandable?: boolean;
   /** Render содержимого раскрытой строки. */
   renderExpanded?: (row: T, index: number) => React.ReactNode;
+  /**
+   * Какие строки раскрываются. Без предиката раскрываются все.
+   *
+   * Строка, на которой предикат ложен, не получает шеврона вовсе — ячейка
+   * остаётся пустой, чтобы колонки соседних строк не разъезжались. Это про
+   * строки, под которыми нечего показать: раскрытие в пустоту читается как
+   * обещание, которого стол не держит.
+   */
+  canExpand?: (row: T, index: number) => boolean;
 
   /** Пагинация. */
   page?: number;
@@ -91,7 +100,7 @@ export function DataGrid<T>({
   query, onQueryChange, searchPlaceholder = 'Поиск',
   sortKey, sortDir, onSort,
   selectable, selected = [], onSelectChange, bulkActions,
-  expandable, renderExpanded,
+  expandable, renderExpanded, canExpand,
   page, pageSize, total, onPageChange, pageSizeOptions, onPageSizeChange,
   emptyMessage = 'Нет данных',
   className, style, ...rest
@@ -218,19 +227,22 @@ export function DataGrid<T>({
             ) : rows.map((row, idx) => {
               const id = rowKey(row);
               const isSel = selected.includes(id);
-              const isExp = expanded.has(id);
+              const canExp = expandable ? (canExpand ? canExpand(row, idx) : true) : false;
+              const isExp = canExp && expanded.has(id);
               return (
                 <React.Fragment key={id}>
                   <tr className={cn(isSel && 'is-selected')}>
                     {expandable && (
                       <td className="ou-grid__control-cell">
-                        <button
-                          type="button"
-                          className={cn('ou-grid__expand-btn', isExp && 'is-open')}
-                          aria-label={isExp ? 'Свернуть' : 'Развернуть'}
-                          {...(isExp ? { 'aria-expanded': 'true' as const } : { 'aria-expanded': 'false' as const })}
-                          onClick={() => toggleExpand(id)}
-                        ><ExpandChev /></button>
+                        {canExp && (
+                          <button
+                            type="button"
+                            className={cn('ou-grid__expand-btn', isExp && 'is-open')}
+                            aria-label={isExp ? 'Свернуть' : 'Развернуть'}
+                            {...(isExp ? { 'aria-expanded': 'true' as const } : { 'aria-expanded': 'false' as const })}
+                            onClick={() => toggleExpand(id)}
+                          ><ExpandChev /></button>
+                        )}
                       </td>
                     )}
                     {selectable && (
@@ -262,7 +274,7 @@ export function DataGrid<T>({
                       </td>
                     ))}
                   </tr>
-                  {expandable && isExp && renderExpanded && (
+                  {isExp && renderExpanded && (
                     <tr className="ou-grid__expanded">
                       <td colSpan={columns.length + (selectable ? 1 : 0) + 1}>
                         <div className="ou-grid__expanded-inner">

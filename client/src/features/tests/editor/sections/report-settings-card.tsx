@@ -14,13 +14,12 @@ import { useMemo, useState } from "react";
 import {
   Banner,
   Button,
-  Card,
-  CardBody,
-  CardHeader,
+  FormSection,
   Input,
   NumberInput,
   Select,
   Switch,
+  Tag,
 } from "@universityrt/ui-kit";
 import type { ReportSettings } from "@shared/schema";
 import type { ReportPreviewSection } from "@shared/report/report-preview";
@@ -235,9 +234,13 @@ export function ReportSettingsCard(props: {
   };
 
   return (
-    <Card variant="outlined" size="sm" data-testid={isContent ? "report-content-card" : "report-settings-card"}>
-      <CardHeader title={isContent ? "Отчёт о результатах" : "Оформление отчёта"} />
-      <CardBody>
+    // Эскиз рисует блок разделом, а не обведённой карточкой: рамка вокруг раздела была
+    // второй границей на том же месте (находка E-25).
+    <FormSection
+      stacked
+      title={isContent ? "Отчёт о результатах" : "Оформление отчёта"}
+      data-testid={isContent ? "report-content-card" : "report-settings-card"}
+    >
         <div className="tb-feedback-block">
           {/* Выдавать ли документ вообще — вопрос содержания, а не облика, поэтому
               переключатель стоит рядом с обратной связью и только там. Выключенный отчёт
@@ -269,14 +272,17 @@ export function ReportSettingsCard(props: {
             />
           ) : (
             <>
-              {/* Вид отчёта — выбор МАКЕТА, и живёт он на стороне оформления. */}
-              {!isContent && (
+              {/* Вид отчёта отвечает на вопрос «ЧТО в нём будет» — итоги, разбор по
+                  темам, сертификат, — поэтому живёт он рядом с содержанием. «Оформление»
+                  отвечает за шаблон и за то, КАК это показано, и лишь называет
+                  выбранный вид, чтобы автор знал, к чему относятся его параметры. */}
+              {isContent && (
                 <div className="ou-formfield">
                   <Select<string>
                     id="report-variant"
                     size="m"
                     fullWidth
-                    label="Вид отчёта"
+                    label="Что показывать в отчёте"
                     hint={
                       catalogue.templateName
                         ? `Виды предлагает шаблон оформления «${catalogue.templateName}»`
@@ -289,8 +295,22 @@ export function ReportSettingsCard(props: {
                   />
                 </div>
               )}
+              {!isContent && catalogue.selected && (
+                <div className="ou-formfield">
+                  <span className="ou-formfield__lbl">Вид отчёта</span>
+                  <div data-testid="report-variant-readonly">
+                    <Tag variant="outline">{catalogue.selected.label || catalogue.selected.key}</Tag>
+                  </div>
+                  <span className="ou-formfield__desc">
+                    Выбирается во вкладке «Обратная связь и итоги», раздел «Отчёт».
+                  </span>
+                </div>
+              )}
 
-              {dropped.length > 0 && !isContent && (
+              {/* Предупреждение идёт за ВЫБОРОМ вида, а не за полями: теряет значения тот,
+                  кто меняет вид, и узнать об этом он должен там, где меняет. Среди
+                  потерянных бывают и поля оформления — тем более важно сказать здесь. */}
+              {dropped.length > 0 && isContent && (
                 <div data-testid="report-drop-warning">
                   <Banner
                     tone="warning"
@@ -304,9 +324,7 @@ export function ReportSettingsCard(props: {
 
               {fields.length > 0 && (
                 <div className="ou-formfield">
-                  <label className="ou-formfield__lbl">
-                    {isContent ? "Что показывать в отчёте" : "Параметры вида"}
-                  </label>
+                  <label className="ou-formfield__lbl">Параметры вида</label>
                   <div className="tb-report-fields">
                     {fields.map((f) => (
                       <ReportField
@@ -378,7 +396,6 @@ export function ReportSettingsCard(props: {
             </div>
           )}
         </div>
-      </CardBody>
 
       <ReportPreviewModal
         open={previewOpen}
@@ -399,6 +416,6 @@ export function ReportSettingsCard(props: {
         // которого его открывают.
         document={doc ?? undefined}
       />
-    </Card>
+    </FormSection>
   );
 }

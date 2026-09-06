@@ -140,16 +140,17 @@
 /* container-type: inline-size — точка отсчёта для @container ниже:
    адаптив реагирует на ширину самой колонки настроек, а не viewport
    (drawer может быть узким даже на широком экране). */
-.tb-settings-content { flex: 1; min-height: 0; overflow-y: auto; padding: var(--ou-space-5); container-type: inline-size; }
+/* Отступ от краёв — 6x (эскиз `editor-settings-target.html`: «проектный слой: 20 -> 24»). */
+.tb-settings-content { flex: 1; min-height: 0; overflow-y: auto; padding: var(--ou-space-6); container-type: inline-size; }
 
 /* Page-level баннеры сверху форм: остаются на виду при прокрутке. Z-index выше
    баннера, чтобы он перекрывал scroll-контент. Закрытие — через .ou-banner__close. */
 .tb-settings-content > .ou-banner,
 .tb-settings-content > .wf-annot-wrap--block:has(> .ou-banner) {
   position: sticky;
-  top: calc(var(--ou-space-5) * -1);
+  top: calc(var(--ou-space-6) * -1);
   z-index: 2;
-  margin: calc(var(--ou-space-5) * -1) calc(var(--ou-space-5) * -1) var(--ou-space-4);
+  margin: calc(var(--ou-space-6) * -1) calc(var(--ou-space-6) * -1) var(--ou-space-4);
   border-radius: 0;
   border-left: 0;
   border-right: 0;
@@ -161,7 +162,37 @@
   border-right: 0;
   border-top: 0;
 }
-.tb-settings-content .ou-formfield { display: flex; flex-direction: column; gap: var(--ou-space-2); margin-bottom: var(--ou-space-4); }
+/* Кольцо у поля, к которому увёл переход «Перейти к ошибкам». Программный `focus()` не
+   поднимает `:focus-visible`, поэтому класс ставит сам ящик — см. `goToError`. Значения
+   из эскиза: кольцо 2px и такой же отступ. */
+.ou-field.is-focused .ou-field__box,
+.ou-textarea.is-focused .ou-textarea__box,
+.ou-select.is-focused .ou-select__trigger {
+  outline: 2px solid var(--ou-focus-ring, var(--ou-primary-default));
+  outline-offset: 2px;
+}
+
+/* Стопка баннеров РАЗНЫХ уровней (ошибки выше предупреждений) липнет ЦЕЛИКОМ, одним блоком.
+   Два отдельных sticky-баннера с одинаковым `top` при прокрутке наезжают друг на друга:
+   нижний останавливается на той же линии и закрывает верхний вместе с его действием. */
+.tb-settings-content > .tb-alerts {
+  position: sticky;
+  top: calc(var(--ou-space-6) * -1);
+  z-index: 2;
+  margin: calc(var(--ou-space-6) * -1) calc(var(--ou-space-6) * -1) var(--ou-space-4);
+  display: flex;
+  flex-direction: column;
+}
+.tb-settings-content > .tb-alerts > .ou-banner {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  margin: 0;
+}
+/* Метка и контрол — одна пара: 1x. Интервал ДО соседнего блока задаёт панель, поэтому
+   собственной нижней отбивки у поля нет (иначе она складывалась бы с интервалом группы). */
+.tb-settings-content .ou-formfield { display: flex; flex-direction: column; gap: var(--ou-space-1); margin-bottom: 0; }
 .tb-settings-content .ou-formfield > .ou-field,
 .tb-settings-content .ou-formfield > .ou-textarea { display: flex; width: 100%; }
 .tb-settings-content .ou-formfield > .ou-select { width: 100%; }
@@ -169,6 +200,65 @@
    соседние поля разной длины). На верхнем уровне формы выравниваем по фиксированной
    ширине; max-width: 100% сжимается на узких viewport. */
 .tb-settings-content > .ou-formfield > .ou-number { width: var(--tb-input-w-md); max-width: 100%; }
+
+/* ── Проектный слой панели настроек (модульная сетка 4px) ───────────────────
+   Источник — утверждённый эскиз `docs/wireframes/editor-settings-target.html`,
+   блок «проектный слой». Эскиз ссылается на ЭТОТ файл, поэтому значения берутся
+   из него дословно: правило со своими числами меняло бы и вид самого эскиза.
+   1x = 4px внутри компонента, 4x = 16px между разными блоками, 6x = 24px от краёв
+   и перед группой. Разделительных ЛИНИЙ в панели нет — их работу делает интервал. */
+
+.tb-settings-content > * { margin-top: var(--ou-space-4); }
+.tb-settings-content > *:first-child { margin-top: 0; }
+.tb-settings-content > .ou-formsection { margin-top: var(--ou-space-6); }
+.tb-settings-content > .ou-formsection:first-child { margin-top: 0; }
+/* Баннер ПОСЛЕ карточки: у sticky-правила выше отрицательная верхняя отбивка, но она
+   про баннер в шапке панели, а не про баннер в середине списка карточек. */
+.tb-settings-content > :is(.ou-card, .ou-banner) + :is(.ou-card, .ou-banner) {
+  margin-top: var(--ou-space-4);
+}
+/* Внутри карточки действует та же сетка: собственной отбивки поля больше не носят. */
+.tb-settings-content .ou-card__body > * + * { margin-top: var(--ou-space-4); }
+
+/* Группа полей: ни границы, ни вертикальных полей дизайн-системы. Заголовок принадлежит
+   своему содержимому (1x), а группы разделяет 6x. */
+.tb-settings-content .ou-formsection,
+.ou-card__body .ou-formsection {
+  padding-block: 0;
+  border-bottom: 0;
+  gap: var(--ou-space-1);
+}
+/* Третий селектор — обёртка: панель надписей кладёт группы в свой `div`, и её первая
+   группа отбивается от предыдущего блока так же, как группа от группы. */
+.tb-settings-content .ou-formsection + .ou-formsection,
+.ou-card__body .ou-formsection + .ou-formsection,
+.tb-settings-content > * + * > .ou-formsection:first-child {
+  margin-top: var(--ou-space-6);
+}
+
+/* Родственные пары внутри компонента — 1x. */
+/* `ou-switch-field` — единственное, что осталось за проектным слоем: правила зазора
+   «тумблер — текст» в дизайн-системе нет вовсе, задавать его там было бы не переносом
+   утверждённого значения, а новым решением за все продукты. */
+.tb-settings-content .ou-switch-field { gap: var(--ou-space-1); }
+
+/* Хром ящика редактора: 6x от краёв, однородные строки списка — 1x. Правила адресованы
+   ИМЕННО этому ящику (рейл живёт только в его вкладках, подвал найден по телу
+   редактора): у остальных ящиков свои утверждённые эскизы. */
+/* Шапка и полоса вкладок: те же 6x от краёв, что у подвала и панели. Без этого вкладки
+   прижаты к краю ящика, а поля тела начинаются правее — колонка визуально не собирается.
+   ui-kit даёт шапке 20 и полосе 0 (`university-rt.css`), эскиз перебивает и то и другое. */
+.ou-drawer:has([data-testid="test-editor-body"]) .ou-tabs__list {
+  padding-inline: var(--ou-space-6);
+}
+/* Аккордеон в панели настроек: между свёртками — 4x, как между разными блоками. ui-kit
+   ставит 8px (`--ou-space-2`), а эскиз требует 16: свёртки тем — это разные блоки, а не
+   родственная пара. Правило появилось, когда реестр обратной связи вопросов переехал с
+   самодельной свёртки на `ou-acc` и впервые привёл аккордеон в ящик. */
+
+/* Родственные пары внутри компонентов ящика — 1x: иконка и подпись кнопки, вариант и его
+   метка, иконка и текст баннера. ui-kit ставит 8, 12 и 2 соответственно. */
+
 
 /* Section caption (subdued uppercase-like heading внутри формы). */
 .tb-section-label { font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); margin: 0 0 var(--ou-space-2); display: inline-flex; align-items: center; gap: var(--ou-space-2); }
@@ -196,7 +286,12 @@
 
 /* PRD-29 §7.1a: шапка строки темы в карточке «По темам» — подпись источника слева,
    «Сбросить до установок темы» справа, в одну строку над предпросмотром. */
-.tb-topic-feedback__head {
+/* Переопределённый текст помечается ТОЛЬКО полосой слева: подпись рядом с ней была бы
+   второй раз о том же (решение эскиза 13). Цвет — предупреждающий: это не ошибка, а
+   отступление от текста темы. */
+.tb-feedback-preview.is-overridden { border-left: var(--ou-space-1) solid var(--ou-warning-default); }
+
+.tb-feedback-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -280,6 +375,12 @@
    keeps its full-width auto layout. The answer-text column is widened and pinned;
    the scale-value columns are narrowed; the table scrolls horizontally inside the
    card body when the scale columns overflow the drawer width. */
+/* Таблица весов опций в модалке оценки вопроса. Колонка балла узкая и постоянной
+   ширины: иначе поле растягивается на половину модалки и текст варианта прижимается
+   к левому краю. 120px — ширина из эскиза (`--wf-w-rhs`). */
+.tb-weights td:last-child,
+.tb-weights th:last-child { width: 120px; }
+
 .tb-contrib-grid-wrap { overflow-x: auto; }
 /* table-layout: fixed + an EXPLICIT table width = the exact column sum. With
    width:auto the table grows to max-content (the inputs' ~20ch intrinsic size)
@@ -389,7 +490,6 @@
 .tb-pass-card { margin-bottom: var(--ou-space-3); }
 .tb-pass-card > .ou-card__header { padding-bottom: var(--ou-space-2); }
 .tb-pass-card > .ou-card__body { padding-top: var(--ou-space-2); padding-bottom: var(--ou-space-3); }
-.tb-pass-card .ou-radio-group__items { gap: var(--ou-space-2); }
 
 .tb-pass-overall {
   display: grid;
@@ -832,6 +932,20 @@
   border-left: var(--wf-border-w) solid var(--ou-border-soft);
 }
 .tb-quota-block__avail { color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
+/* PRD-50 §16: знак тревоги рядом со значением строки квоты. Заменил чип в подвале таблицы —
+   тот говорил о таблице целиком и не показывал, какая именно строка виновата.
+   ТОН ЗНАКА = УРОВЕНЬ ПРОБЛЕМЫ (контракт редактора, «Индикация проблем»): жёлтый у
+   предупреждения, красный у ошибки. Нехватка вопросов под квоту сохранение не блокирует,
+   поэтому базовый тон здесь жёлтый, а красный включает модификатор. */
+/* Ячейка «Доступно»: значение и знак тревоги стоят одной строкой и центрируются по ней.
+   Без общей строки знак выравнивался бы по базовой линии текста и садился ниже числа. */
+.tb-quota-block__availrow { display: inline-flex; align-items: center; gap: var(--ou-space-1); }
+.tb-quota-block__alarm { display: inline-flex; color: var(--ou-warning-default); }
+.tb-quota-block__alarm--error { color: var(--ou-error-default); }
+/* Пузырь подсказки внутри узкой ячейки таблицы ужимается по ширине ячейки, и текст встаёт
+   в колонку по одному слову. Ширина по содержимому это снимает; верхнюю границу по-прежнему
+   держит `--wrap` дизайн-системы. */
+.tb-quota-block .ou-tip__bubble--wrap { width: max-content; }
 .tb-quota-actions { margin-top: var(--ou-space-3); }
 .tb-quota-sum {
   display: flex; align-items: center; justify-content: space-between;
@@ -995,7 +1109,11 @@
 .tb-changes-anchor { position: relative; display: flex; align-items: center; }
 .tb-changes-popover {
   position: absolute; bottom: calc(100% + var(--wf-space-10)); right: 0;
-  width: var(--wf-size-400); max-height: var(--wf-size-420); overflow: hidden;
+  /* Токены `--wf-size-400` / `--wf-size-420` не объявлены нигде в проекте, поэтому правило
+     было невалидным и поповер схлопывался по содержимому — вместо 420px около 170, значения
+     переносились по два-три слова. Эскиз задаёт ширину поповера и ограничивает высоту ЕГО
+     ТЕЛА, а не всего поповера: иначе шапка со счётчиком уезжает вместе с содержимым. */
+  width: 420px; overflow: hidden;
   background: var(--ou-bg-elevated);
   border: var(--wf-border-w) solid var(--ou-border-default);
   border-radius: var(--ou-radius-m);
@@ -1010,7 +1128,7 @@
 }
 .tb-changes-popover__title { font: var(--ou-text-body-s); font-weight: 600; }
 .tb-changes-popover__count { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tb-changes-popover__body { flex: 1; overflow-y: auto; }
+.tb-changes-popover__body { flex: 1; max-height: 320px; overflow-y: auto; }
 .tb-changes-popover__group { padding: var(--ou-space-2) var(--ou-space-4) var(--ou-space-3); }
 .tb-changes-popover__group + .tb-changes-popover__group {
   border-top: var(--wf-border-w) solid var(--ou-border-default);
@@ -1300,7 +1418,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ou-space-2);
+  /* 1x между бейджем, заголовком и действиями: это одна строка, а не разные блоки
+     (эскиз `editor-settings-target.html`, «проектный слой: 8 -> 4»). */
+  gap: var(--ou-space-1);
   padding: var(--wf-space-6, 6px) var(--wf-space-10, 10px) var(--wf-space-6, 6px) var(--wf-space-14, 14px);
   position: relative;
 }
@@ -2319,7 +2439,11 @@
 /* ─── Сворачиваемые секции списков (Оценка / Вклады вопросов) ──────────────────
    Общий примитив: триггер-заголовок (шеврон + название), глобальные
    «Свернуть все / Развернуть все», и обёртка-секция для «Вкладов». */
-.tb-fold-actions { margin-left: auto; display: inline-flex; gap: var(--ou-space-2); }
+/* Две кнопки одной группы («Развернуть все» / «Свернуть все») — родственная пара, 1x.
+   Эскиз `editor-settings-target.html` объявляет этот примитив сам и ставит 4px; продукт
+   держал 8px. Гейт этого не поймал: у правила эскиза нет комментария-перебивки, а ловит он
+   пока только правила с ним — см. раздел «чего гейт не покрывает» в отчёте приёмки. */
+.tb-fold-actions { margin-left: auto; display: inline-flex; gap: var(--ou-space-1); }
 .tb-fold-trigger {
   flex: 1;
   min-width: 0;

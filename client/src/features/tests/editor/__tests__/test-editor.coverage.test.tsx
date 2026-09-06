@@ -282,7 +282,7 @@ describe("<TestEditor /> — close-confirm error anchor", () => {
     }
 
     render(withClient(client, <Harness />));
-    await screen.findByText("Основы ИБ");
+    await screen.findByText("1. Основы ИБ");
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
     });
@@ -364,7 +364,9 @@ describe("<TestEditor /> — non-default tab panels", () => {
         screen.getByRole("tab", { name: /Оценка результата/i, selected: true }),
       ).toBeInTheDocument(),
     );
-    for (const rail of ["scales", "metrics"]) {
+    // «Шкалы» — группа второго уровня: у неё два пункта, а не один. «Вклады вопросов»
+    // у теста без шкал заблокированы, поэтому проверяются доступные.
+    for (const rail of ["scales-list", "metrics"]) {
       fireEvent.click(screen.getByTestId(`scoring-rail-${rail}`));
       expect(screen.getByTestId(`scoring-pane-${rail}`)).toBeInTheDocument();
     }

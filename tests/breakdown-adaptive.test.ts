@@ -83,6 +83,47 @@ describe("adaptiveResultAsStandard + разрезы", () => {
   });
 });
 
+/**
+ * PRD-50 §16: у ступени адаптивной лестницы порога нет и быть не может, поэтому подтемы
+ * адаптивного теста судит ОБЩИЙ порог теста — и сводные записи, и записи области раздела.
+ */
+describe("адаптив судит подтемы общим порогом теста (§16)", () => {
+  const gateItems = [
+    item("law", ["Охрана труда"], 1),
+    item("law", ["Охрана труда"], 0),
+    item("sec", ["Пожарная безопасность"], 1),
+  ];
+
+  it("PRD-50 §16: адаптив судит подтемы общим порогом теста", () => {
+    const out = adaptiveResultAsStandard(result, gateItems, { type: "percent", value: 70 });
+    const low = out.breakdowns.find((e) => e.key === "Охрана труда");
+    expect(low?.passed).toBe(false);
+    expect(low?.thresholdPercent).toBe(70);
+    expect(out.topicResults[0].breakdown.some((e) => e.passed === false)).toBe(true);
+  });
+
+  it("PRD-50 §16: без общего порога подтемы адаптива молчат", () => {
+    const out = adaptiveResultAsStandard(result, gateItems, { type: "none" });
+    for (const e of out.breakdowns) expect(e.passed).toBeNull();
+    for (const t of out.topicResults) for (const e of t.breakdown) expect(e.passed).toBeNull();
+  });
+
+  it("правило в БАЛЛАХ переводится в долю от выданных вопросов", () => {
+    // Балл адаптива — один за вопрос, поэтому достижимое равно числу выданных вопросов (3):
+    // порог «2 балла» = 66.7 %, и подтема с 50 % его не берёт.
+    const out = adaptiveResultAsStandard(result, gateItems, { type: "absolute", value: 2 });
+    const low = out.breakdowns.find((e) => e.key === "Охрана труда");
+    expect(low?.passed).toBe(false);
+    expect(low?.thresholdPercent).toBeCloseTo((2 / 3) * 100, 6);
+    expect(out.breakdowns.find((e) => e.key === "Пожарная безопасность")?.passed).toBe(true);
+  });
+
+  it("без третьего аргумента исход не выносится (обратная совместимость)", () => {
+    const out = adaptiveResultAsStandard(result, gateItems);
+    for (const e of out.breakdowns) expect(e.passed).toBeNull();
+  });
+});
+
 describe("хранение адаптивного результата", () => {
   const topicRow = {
     topicId: "law", topicName: "Право", achievedLevelIndex: 0, achievedLevelName: "Базовый",
@@ -229,9 +270,9 @@ describe("сводный блок разреза на адаптивном эк�
     expect(ctx.result.topicResults?.[0]).not.toHaveProperty("breakdown");
   });
 
-  it("строка разреза вердикта не несёт, а заголовок блока берётся из словаря", () => {
-    // Решение владельца 2026-09-03: подтема говорит о результате, но не судит его —
-    // ни `passed`, ни `passClass`, ни `statusLabel` в строке больше нет.
+  it("строка разреза СЛОВА не несёт, а заголовок блока берётся из словаря", () => {
+    // PRD-50 §16: исход у строки есть, но выражен классом, а не словом — `statusLabel` в
+    // ней не появляется. Адаптивный экран порогов подтем не штампует, поэтому исход пустой.
     const ctx = buildAdaptiveResultContext(
       { ...adaptiveInput, breakdowns: [entry("ПДн", 75)] },
       "Адаптивный",
@@ -244,7 +285,59 @@ describe("сводный блок разреза на адаптивном эк�
     const row = ctx.result.breakdown?.[0] as Record<string, unknown> | undefined;
     expect(row).toBeDefined();
     expect("statusLabel" in row!).toBe(false);
-    expect("passed" in row!).toBe(false);
+    expect(row!.passed).toBeNull();
+    expect(row!.passClass).toBe("");
     expect(ctx.result.blocks?.find((b) => b.key === "breakdown")?.heading).toBe("Разрез результата");
+  });
+});
+
+/**
+ * PRD-50 §16 / FR-55: тексты подтем на АДАПТИВНОМ экране итогов.
+ *
+ * Отбор один на оба режима — общий построитель читает исход записи, — но записи раздела
+ * должны до него доехать: без них адаптивный экран молчал бы, сколько бы автор ни написал.
+ */
+describe("тексты подтем на адаптивном экране итогов", () => {
+  const sectionEntry = (key: string, passed: boolean | null) => ({
+    scope: sectionScope("law"),
+    axis: "tag" as const,
+    key,
+    items: 2,
+    answered: 2,
+    earned: 1,
+    possible: 2,
+    percentPoints: 50,
+    percentUnits: 50,
+    passed,
+    thresholdPercent: passed === null ? null : 70,
+  });
+
+  const topicInput = (passed: boolean | null) => ({
+    passed: true,
+    topicResults: [
+      {
+        topicName: "Право",
+        achievedLevelIndex: 0,
+        achievedLevelName: "Базовый",
+        breakdown: [sectionEntry("Охрана труда", passed)],
+        breakdownFeedback: { "Охрана труда": { text: "Повторите охрану труда" } },
+      },
+    ],
+  });
+
+  it("непройденная подтема говорит даже у темы с подтверждённым уровнем", () => {
+    const ctx = buildAdaptiveResultContext(topicInput(false) as never, "Адаптивный", {} as never);
+    expect(ctx.result.recommendations?.texts).toEqual(["Повторите охрану труда"]);
+  });
+
+  it("взятая подтема и запись без исхода молчат", () => {
+    expect(
+      buildAdaptiveResultContext(topicInput(true) as never, "Адаптивный", {} as never)
+        .result.recommendations?.texts ?? [],
+    ).toEqual([]);
+    expect(
+      buildAdaptiveResultContext(topicInput(null) as never, "Адаптивный", {} as never)
+        .result.recommendations?.texts ?? [],
+    ).toEqual([]);
   });
 });

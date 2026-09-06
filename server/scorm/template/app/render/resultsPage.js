@@ -650,7 +650,10 @@ function calculateResults() {
     overallPassRule: TEST_DATA.overallPassRule,
     // «Тест пройден, если»: baked with the package. Absent in a package built before
     // the setting shipped — the shared engine then keeps the pre-policy verdict.
-    passDecisionPolicy: TEST_DATA.passDecisionPolicy
+    passDecisionPolicy: TEST_DATA.passDecisionPolicy,
+    // PRD-50 FR-53: учитывать ли подтемы в вердикте темы. Выпекается только когда автор
+    // включил; в пакете, собранном раньше, поля нет — ядро читает это как «выключено».
+    breakdownGateEnabled: TEST_DATA.breakdownGateEnabled
   });
 
   // PRD-50 FR-35/FR-36: both scopes in ONE flat array — its and only its `buildResultVarContext`

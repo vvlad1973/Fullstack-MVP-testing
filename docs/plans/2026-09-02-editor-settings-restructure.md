@@ -9,7 +9,7 @@
 подтемы: подтема считается и показывается, но не судится.
 
 **Источники решений:** аудит §3.6 (двадцать решений владельца),
-[PRD-50](../specs/prd-50/result-breakdowns.md) §14 (FR-49 - FR-51),
+[PRD-50](../specs/prd-50/result-breakdowns.md) §15 (FR-49 - FR-51),
 [PRD-29](../specs/prd-29/measurement-results.md) §7.1a (обратная связь темы — замена),
 [PRD-19](../specs/prd-19/skip-return-navigation.md) §3.1 (FR-11a - FR-11d).
 

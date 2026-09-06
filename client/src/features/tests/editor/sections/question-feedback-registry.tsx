@@ -11,14 +11,15 @@
  * Дерево свёрнуто до тем: у теста бывает десяток тем по десятку вопросов, и раскрытый
  * список сразу — это простыня, в которой ничего не найти.
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Banner, Button, Card, CardBody, CardHeader, Tag } from "@universityrt/ui-kit";
-import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { Accordion, AccordionItem, Banner, Button, FormSection } from "@universityrt/ui-kit";
+import { ArrowRight } from "lucide-react";
 import { t } from "@/lib/i18n";
 import type { Question } from "@shared/schema";
 import type { TestEditorModel } from "../test-editor.types";
+import { FoldAllButtons, useSectionFold } from "./section-fold";
 
 /**
  * Строка вопроса в том виде, в каком её отдаёт `/api/questions`.
@@ -69,7 +70,11 @@ export function QuestionFeedbackRegistry({
     }
     return map;
   }, [questions]);
-  const [openTopics, setOpenTopics] = useState<Set<string>>(new Set());
+  const sectionIds = useMemo(() => model.sections.map((s) => s.topicId), [model.sections]);
+  // Свёртка — общая с остальными реестрами редактора: один хук, одна пара кнопок, одна
+  // разметка `tb-fold-actions`. Своя копия здесь однажды уже разошлась с эскизом по иконкам.
+  const fold = useSectionFold(sectionIds, true);
+  const openIds = sectionIds.filter((id) => fold.isOpen(id));
 
   if (model.sections.length === 0) {
     return (
@@ -82,82 +87,62 @@ export function QuestionFeedbackRegistry({
     );
   }
 
-  const toggle = (topicId: string) =>
-    setOpenTopics((prev) => {
-      const next = new Set(prev);
-      if (next.has(topicId)) next.delete(topicId);
-      else next.add(topicId);
-      return next;
-    });
-
   return (
-    <Card variant="outlined" size="sm" data-testid="question-feedback-registry">
-      <CardHeader
-        title="По вопросам"
-        subtitle="Только чтение: обратная связь принадлежит вопросу и правится в его редакторе — тот же вопрос стоит и в других тестах."
-        trail={
-          <>
-            <Button
-              variant="ghost"
-              size="s"
-              onClick={() => setOpenTopics(new Set(model.sections.map((s) => s.topicId)))}
-              data-testid="question-feedback-expand-all"
-            >
-              Развернуть все
-            </Button>
-            <Button
-              variant="ghost"
-              size="s"
-              onClick={() => setOpenTopics(new Set())}
-              data-testid="question-feedback-collapse-all"
-            >
-              Свернуть все
-            </Button>
-          </>
-        }
-      />
-      <CardBody>
-        {model.sections.map((section) => {
+    <FormSection
+      stacked
+      title="Обратная связь вопросов"
+      meta={<FoldAllButtons fold={fold} testIdPrefix="question-feedback" />}
+      data-testid="question-feedback-registry"
+    >
+      <Accordion
+        variant="separated"
+        type="multiple"
+        value={openIds}
+        onChange={(next) => {
+          // Аккордеон отдаёт НОВЫЙ список раскрытых, а свёртка хранит свёрнутые: сводим их
+          // через `toggle` по расхождению, чтобы у состояния остался один владелец — хук.
+          const opened = new Set(Array.isArray(next) ? next : [next]);
+          for (const id of sectionIds) {
+            if (opened.has(id) !== fold.isOpen(id)) fold.toggle(id);
+          }
+        }}
+      >
+        {model.sections.map((section, index) => {
           const list = byTopic.get(section.topicId) ?? [];
           const withText = list.filter(hasFeedback).length;
-          const open = openTopics.has(section.topicId);
           return (
-            <div className="tb-qfeedback__topic" key={section.topicId}>
-              <button
-                type="button"
-                className="tb-qfeedback__trigger"
-                aria-expanded={open ? "true" : "false"}
-                onClick={() => toggle(section.topicId)}
-                data-testid={`question-feedback-topic-${section.topicId}`}
-              >
-                {open ? (
-                  <ChevronDown size={16} aria-hidden="true" />
-                ) : (
-                  <ChevronRight size={16} aria-hidden="true" />
-                )}
-                <span className="tb-qfeedback__name">{section.topicName}</span>
-                <span className="tb-qfeedback__count">
-                  {`вопросов ${list.length} · с обратной связью ${withText}`}
-                </span>
-              </button>
-              {open && (
-                <div className="tb-qfeedback__body">
-                  {list.length === 0 ? (
-                    <div className="tb-card-desc">В теме нет вопросов.</div>
-                  ) : (
-                    list.map((q) => (
-                      <div className="tb-qfeedback__row" key={q.id}>
-                        <div className="tb-qfeedback__q">
-                          <div className="tb-qfeedback__q-text">{q.prompt || "Без формулировки"}</div>
-                          {/* Э5.8: режим называется ровно так же, как в карточке вопроса —
-                              из одного словаря, чтобы реестр не завёл своих синонимов. */}
-                          <Tag size="s" variant="soft">
-                            {q.feedbackMode === "conditional"
-                              ? t.questions.feedbackModeConditional
-                              : t.questions.feedbackModeGeneral}
-                          </Tag>
-                        </div>
-                        <div className="tb-qfeedback__texts">
+            <AccordionItem
+              key={section.topicId}
+              value={section.topicId}
+              // Номер темы — её место в выдаче: эскиз подписывает темы «1. О компании».
+              title={`${index + 1}. ${section.topicName}`}
+              subtitle={`${list.length} вопросов · у ${withText} задана обратная связь`}
+              data-testid={`question-feedback-topic-${section.topicId}`}
+            >
+              {list.length === 0 ? (
+                <div className="tb-card-desc">В теме нет вопросов.</div>
+              ) : (
+                <table className="tb-table tb-table--mb" aria-label={`Обратная связь вопросов темы «${section.topicName}»`}>
+                  <thead>
+                    <tr>
+                      <th>Вопрос</th>
+                      <th>Режим</th>
+                      <th>Текст</th>
+                      <th aria-label="Действия" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {list.map((q) => (
+                      <tr key={q.id}>
+                        <td>{q.prompt || "Без формулировки"}</td>
+                        {/* Э5.8: режим называется ровно так же, как в карточке вопроса —
+                            из одного словаря, чтобы реестр не завёл своих синонимов. */}
+                        <td>
+                          {q.feedbackMode === "conditional"
+                            ? t.questions.feedbackModeConditional
+                            : t.questions.feedbackModeGeneral}
+                        </td>
+                        <td>
                           {q.feedbackMode === "conditional" ? (
                             <>
                               <FeedbackLine label="Верно" text={q.feedbackCorrect} />
@@ -166,28 +151,30 @@ export function QuestionFeedbackRegistry({
                           ) : (
                             <FeedbackLine label="Текст" text={q.feedback} />
                           )}
-                        </div>
-                        {onOpenQuestion && (
-                          <Button
-                            variant="ghost"
-                            size="s"
-                            leadingIcon={<Pencil size={14} aria-hidden="true" />}
-                            onClick={() => onOpenQuestion(q.id)}
-                            data-testid={`question-feedback-open-${q.id}`}
-                          >
-                            Открыть вопрос
-                          </Button>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
+                        </td>
+                        <td>
+                          {onOpenQuestion && (
+                            <Button
+                              variant="ghost"
+                              size="s"
+                              trailingIcon={<ArrowRight width={14} height={14} aria-hidden="true" />}
+                              onClick={() => onOpenQuestion(q.id)}
+                              data-testid={`question-feedback-open-${q.id}`}
+                            >
+                              К вопросу
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
-            </div>
+            </AccordionItem>
           );
         })}
-      </CardBody>
-    </Card>
+      </Accordion>
+    </FormSection>
   );
 }
 
