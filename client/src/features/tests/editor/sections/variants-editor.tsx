@@ -15,9 +15,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CircleDot, CheckSquare, Unplug, ListOrdered, List, Plus, Trash2, ThermometerSun, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { Button, ModalDialog, Switch, Tabs, Tag, TransferList, type TransferItem } from "@universityrt/ui-kit";
+import { pluralize } from "@/lib/i18n";
 import type { FormSet, Form } from "@shared/schema";
 import type { QuestionType } from "@shared/scales/engine";
-import { pluralize } from "@/lib/i18n";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -56,8 +56,13 @@ const TYPE_LABEL: Record<QuestionType, string> = {
   allocation: "Распределение баллов",
 };
 
+/** Буква варианта: A, B, C … Z, дальше — «Вариант 27» (столько вариантов не бывает). */
+function variantLetter(index: number): string {
+  return index >= 1 && index <= 26 ? String.fromCharCode(64 + index) : String(index);
+}
+
 function makeForm(index: number): Form {
-  return { id: crypto.randomUUID(), label: `Вариант ${index}`, questionIds: [] };
+  return { id: crypto.randomUUID(), label: `Вариант ${variantLetter(index)}`, questionIds: [] };
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -260,7 +265,7 @@ function VariantsModal(props: {
     const next = forms
       .filter((f) => f.id !== id)
       // Re-number remaining variants so labels stay «Вариант 1…N».
-      .map((f, i) => ({ ...f, label: `Вариант ${i + 1}` }));
+      .map((f, i) => ({ ...f, label: `Вариант ${variantLetter(i + 1)}` }));
     setForms(next);
     setActiveId(next[Math.min(activeIndex, next.length - 1)]?.id ?? "");
   };
@@ -314,8 +319,9 @@ function VariantsModal(props: {
       footer={
         <div className="tb-variants-modal__foot">
           <span className="tb-card-desc">
-            {forms.length} вариант(а/ов) · в вариантах задействовано {questions.length - orphan} из{" "}
-            {questions.length}
+            {`${forms.length} ${pluralize(forms.length, "вариант", "варианта", "вариантов")}`}
+            {` · в вариантах задействовано ${questions.length - orphan} из ${questions.length} `}
+            {pluralize(questions.length, "вопроса", "вопросов", "вопросов")}
             {orphan > 0 ? ` · ${orphan} не используются` : ""}
           </span>
           <Button variant="primary" onClick={onClose} data-testid="variants-modal-done">

@@ -165,7 +165,7 @@ export function validateTestEditor(
     errors.push({
       field: "basic.title",
       code: "required",
-      message: "Test title is required.",
+      message: "Название обязательно.",
       severity: "error",
     });
   }
@@ -175,7 +175,7 @@ export function validateTestEditor(
     errors.push({
       field: "sections",
       code: "required",
-      message: "At least one topic section is required.",
+      message: "Добавьте хотя бы одну тему.",
       severity: "error",
     });
   }
@@ -188,7 +188,7 @@ export function validateTestEditor(
     errors.push({
       field: "passRules.overall.value",
       code: "range",
-      message: "Overall pass threshold must be between 0 and 100 for percent type.",
+      message: "Порог в процентах — от 0 до 100.",
       severity: "error",
     });
   }
@@ -198,7 +198,7 @@ export function validateTestEditor(
     errors.push({
       field: "passRules.decisionPolicy",
       code: "required",
-      message: "Pass decision policy is missing or invalid.",
+      message: "Выберите, при каком условии тест считается пройденным.",
       severity: "error",
     });
   }
@@ -223,7 +223,7 @@ export function validateTestEditor(
     errors.push({
       field: "basic.webhookUrl",
       code: "invalid_url",
-      message: "Webhook URL must be a valid HTTP or HTTPS URL.",
+      message: "Адрес вебхука должен начинаться с http:// или https://.",
       severity: "error",
     });
   }
@@ -241,7 +241,7 @@ export function validateTestEditor(
       errors.push({
         field: `sections[${i}].drawCount`,
         code: "range",
-        message: `Draw count for topic "${section.topicName}" must be between 1 and ${section.maxQuestions}.`,
+        message: `Вопросов из темы «${section.topicName}» — от 1 до ${section.maxQuestions}.`,
         severity: "error",
       });
     }
@@ -330,7 +330,7 @@ export function validateTestEditor(
     errors.push({
       field: "passRules.overall.value",
       code: "range",
-      message: `Overall absolute pass threshold (${model.passRules.overall.value}) cannot exceed total points (${totalMaxPoints}).`,
+      message: `Порог ${model.passRules.overall.value} больше, чем можно набрать за тест (${totalMaxPoints}).`,
       severity: "error",
     });
   }
@@ -407,7 +407,7 @@ export function validateTestEditor(
           errors.push({
             field: `passRules.byTopic[${topicId}].value`,
             code: "range",
-            message: `Topic absolute pass threshold (${rule.value}) cannot exceed topic max points (${maxPoints}).`,
+            message: `Порог ${rule.value} больше, чем можно набрать по теме (${maxPoints}).`,
             severity: "error",
           });
         }
@@ -437,7 +437,7 @@ export function validateTestEditor(
       errors.push({
         field: "adaptive.topics",
         code: "no_enabled_topics",
-        message: "Adaptive mode requires at least one enabled topic.",
+        message: "Адаптивному тесту нужна хотя бы одна тема с включённой лестницей.",
         severity: "error",
       });
     }
@@ -470,7 +470,7 @@ export function validateTestEditor(
         warnings.push({
           field: `adaptive.topics[${topicIdx}].levels`,
           code: "missing_levels",
-          message: `Topic "${section.topicName}" has only one adaptive level; at least two are recommended.`,
+          message: `У темы «${section.topicName}» один уровень: лестница начинается с двух.`,
           severity: "warning",
         });
       }
@@ -486,7 +486,7 @@ export function validateTestEditor(
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].minDifficulty`,
           code: "range",
-          message: `Minimum difficulty must be less than maximum difficulty.`,
+          message: "Нижняя граница сложности должна быть меньше верхней.",
           severity: "error",
         });
       }
@@ -494,7 +494,7 @@ export function validateTestEditor(
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].minDifficulty`,
           code: "range",
-          message: `Minimum difficulty must be between 0 and 100.`,
+          message: "Нижняя граница сложности — от 0 до 100.",
           severity: "error",
         });
       }
@@ -502,7 +502,7 @@ export function validateTestEditor(
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].maxDifficulty`,
           code: "range",
-          message: `Maximum difficulty must be between 0 and 100.`,
+          message: "Верхняя граница сложности — от 0 до 100.",
           severity: "error",
         });
       }
@@ -518,7 +518,7 @@ export function validateTestEditor(
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].questionsCount`,
           code: "range",
-          message: `Questions count must be at least 1.`,
+          message: "Вопросов на уровне — не меньше одного.",
           severity: "error",
         });
       }
@@ -535,7 +535,7 @@ export function validateTestEditor(
           errors.push({
             field: `adaptive.topics[${i}].levels[${j}].passThreshold`,
             code: "range",
-            message: `Pass threshold for percent type must be between 0 and 100.`,
+            message: "Порог уровня в процентах — от 0 до 100.",
             severity: "error",
           });
         }
@@ -544,7 +544,7 @@ export function validateTestEditor(
           errors.push({
             field: `adaptive.topics[${i}].levels[${j}].passThreshold`,
             code: "range",
-            message: `Pass threshold for absolute type must be between 0 and ${level.questionsCount}.`,
+            message: `Порог уровня в баллах — от 0 до ${level.questionsCount}.`,
             severity: "error",
           });
         }
@@ -565,7 +565,7 @@ export function validateTestEditor(
           errors.push({
             field: `adaptive.topics[${i}].levels[${j}].links[${k}]`,
             code: "required",
-            message: "Link must have both title and URL, or neither.",
+            message: "У ссылки нужны и подпись, и адрес — либо ни того, ни другого.",
             severity: "error",
           });
         }

@@ -244,7 +244,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                     value={section.defaultPoints?.toString() ?? ""}
                     placeholder={(model.scoring.defaultQuestionPoints ?? 1).toString()}
                     disabled={readOnly}
-                    aria-label={`Балл по умолчанию секции ${section.topicName}`}
+                    aria-label={`Балл по умолчанию секции «${section.topicName}»`}
                     onChange={(e) => setSectionDefault(section.topicId, e.target.value)}
                     data-testid={`scoring-sec-default-${section.topicId}`}
                   />

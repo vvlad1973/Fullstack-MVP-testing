@@ -290,13 +290,17 @@ describe("<TestEditor /> — unified save persists a dirty design draft", () => 
 // ─── Status-tag derivations ───────────────────────────────────────────────────
 
 describe("<TestEditor /> — header status tag", () => {
-  it("shows «Есть ошибки» when the model has blocking validation errors", async () => {
+  it("при ошибке тег шапки НЕ подменяет статус публикации", async () => {
+    // Об ошибке говорят точки на вкладках и сводный баннер — три места на проблему,
+    // и тег шапки в их число не входит (контракт «Индикация проблем»). Подменяя
+    // статус, тег отнимал единственное место, где виден статус публикации.
     nextResponse(buildApiResponse({ title: "" }));
     render(withClient(makeClient(), <TestEditor testId="test-1" open onClose={() => {}} />));
     await screen.findByText("1. Основы ИБ");
     await waitFor(() =>
-      expect(screen.getByTestId("test-editor-status-tag")).toHaveTextContent("Есть ошибки"),
+      expect(screen.getByTestId("test-editor-error-summary")).toBeInTheDocument(),
     );
+    expect(screen.getByTestId("test-editor-status-tag")).not.toHaveTextContent("Есть ошибки");
   });
 
   it("shows «Изменено» when the draft is dirty but valid", async () => {

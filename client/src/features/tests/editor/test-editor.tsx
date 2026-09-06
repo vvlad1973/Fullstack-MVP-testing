@@ -974,10 +974,10 @@ function StatusBadge({ status }: { status: TabStatus }) {
         : null;
   if (!cls) return null;
   const aria = status.error
-    ? "есть блокирующие ошибки"
+    ? "Есть ошибки"
     : status.warning
-      ? "есть предупреждения"
-      : "есть изменения";
+      ? "Есть предупреждения"
+      : "Есть несохранённые изменения";
   return <span className={cls} aria-label={aria} />;
 }
 
@@ -1371,7 +1371,7 @@ function ConflictDialog(props: {
           <Button
             variant="destructive"
             size="m"
-            title="Записать ваши изменения поверх серверной версии."
+            title="Записать ваши изменения поверх серверной версии. Чужие правки будут перезаписаны."
             onClick={() => {
               void props.onOverwrite();
             }}
@@ -1383,7 +1383,7 @@ function ConflictDialog(props: {
             variant="primary"
             size="m"
             autoFocus
-            title="Загрузить серверную версию."
+            title="Загрузить серверную версию. Ваши несохранённые правки будут потеряны."
             onClick={() => {
               void props.onReload();
             }}
@@ -1472,7 +1472,7 @@ function ConflictDiffTable(props: { testId: string; localModel: TestEditorModel 
   return (
     <table
       className="tb-conflict-diff"
-      aria-label="Сравнение версий"
+      aria-label="Различия версий"
       data-testid="test-editor-conflict-diff"
     >
       <thead>
@@ -1602,14 +1602,9 @@ function deriveStatusTag(
   label: string;
   ariaLabel: string;
 } {
-  const hasErrors = editor.validation.errors.length > 0;
-  if (hasErrors) {
-    return {
-      tone: "error",
-      label: "Есть ошибки",
-      ariaLabel: "Статус: есть блокирующие ошибки",
-    };
-  }
+  // A-17: об ошибках говорят точки и баннер — три места на проблему, и тег шапки в
+  // их число не входит (контракт «Индикация проблем»). Подменяя статус публикации,
+  // тег отнимал у автора единственное место, где виден этот статус.
   if (dirty) {
     return {
       tone: "warning",

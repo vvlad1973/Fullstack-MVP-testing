@@ -55,6 +55,8 @@ export interface ReportBlockVariantOption {
   key: string;
   block: string;
   label?: string;
+  /** Чем вариант отличается от соседнего; объявляет шаблон. */
+  description?: string;
   isDefault?: boolean;
   /** Поля содержимого варианта: их показывает раскрытая строка авторской страницы. */
   placeholders?: ContentTemplatePlaceholder[];

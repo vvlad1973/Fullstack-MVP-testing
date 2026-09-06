@@ -91,6 +91,12 @@ export interface BlockVariant {
   layoutFile?: string;
   isDefault?: boolean;
   label?: string;
+  /**
+   * Чем этот вариант отличается от соседнего. Объявляет ШАБЛОН: варианты у него свои,
+   * и только он знает, что печатает каждый. Палитра блоков показывает это описание при
+   * выборе; отсутствует — печатается общая фраза про авторскую страницу.
+   */
+  description?: string;
   placeholders?: unknown;
 }
 

@@ -68,7 +68,9 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
         id: v.key,
         group: GROUP_PAGES,
         label: v.label ?? v.key,
-        description: "Авторская страница документа.",
+        // Описание берётся у САМОГО варианта: одна строка на все страницы не говорила,
+        // чем они отличаются, а выбирают их именно по этому.
+        description: v.description ?? "Авторская страница документа.",
         block: REPORT_PAGE_BLOCK,
         templateKey: v.key,
       }));
@@ -77,7 +79,7 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
         id: REPORT_PAGE_BREAK_BLOCK,
         group: GROUP_SERVICE,
         label: "Разрыв листа",
-        description: "Следующий блок начнётся с нового листа документа.",
+        description: "Следующий блок печатается с новой страницы",
         block: REPORT_PAGE_BREAK_BLOCK,
         templateKey: null,
       },

@@ -91,7 +91,7 @@ describe("<VariantsEditor /> — toggle & state copy", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     const next = onChange.mock.calls[0][0] as FormSet;
     expect(next.forms).toHaveLength(2);
-    expect(next.forms.map((f) => f.label)).toEqual(["Вариант 1", "Вариант 2"]);
+    expect(next.forms.map((f) => f.label)).toEqual(["Вариант A", "Вариант B"]);
   });
 
   it("turning the switch OFF clears the variant set (null)", () => {
@@ -206,7 +206,7 @@ describe("<VariantsEditor /> — configure modal", () => {
     fireEvent.click(removeBtn);
     const next = onChange.mock.calls.at(-1)![0] as FormSet;
     expect(next.forms).toHaveLength(2);
-    expect(next.forms.map((f) => f.label)).toEqual(["Вариант 1", "Вариант 2"]);
+    expect(next.forms.map((f) => f.label)).toEqual(["Вариант A", "Вариант B"]);
   });
 
   it("assigns the whole bank into the active variant via «Назначить всех»", async () => {

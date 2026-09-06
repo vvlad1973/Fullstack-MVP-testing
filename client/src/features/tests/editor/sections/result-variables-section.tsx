@@ -505,7 +505,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           <Input
             size="m"
             fullWidth
-            label="Имя"
+            label="Имя показателя"
             required
             value={v.name}
             disabled={readOnly}
@@ -613,7 +613,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             index={index}
             seed={bandSpan(v) ?? { min: 0, max: 0 }}
             switchLabel="Задать границы вручную"
-            switchDescription="Выключено — границы берутся из охвата уровней. Ноль — законная граница, а не признак «не задано»."
+            switchDescription="Выключено — границы берутся из охвата уровней."
             minLabel="Минимум"
             maxLabel="Максимум"
             onChange={onChange}
@@ -808,7 +808,7 @@ function FormulaBuilder({
 
       {template === "verdict" && (
         <div className="ou-formfield">
-          <label className="ou-formfield__lbl">Все условия должны выполняться (И)</label>
+          <label className="ou-formfield__lbl">Условия</label>
           <div className="tb-rows">
             {conditions.map((c, i) => (
               <ConditionRow

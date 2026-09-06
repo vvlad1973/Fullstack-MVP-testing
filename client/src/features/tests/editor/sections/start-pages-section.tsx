@@ -244,11 +244,23 @@ function synthSystemNode(
   };
 }
 
+/**
+ * Заголовки СИСТЕМНЫХ страниц в полотне сценария. Бейдж рядом называет вид узла
+ * коротко («Старт»), а заголовок — саму страницу, поэтому повторять бейдж он не может.
+ */
+const SYSTEM_PAGE_TITLE: Record<string, string> = {
+  start: "Стартовая страница",
+  results: "Итоги теста",
+  "section-results": "Итоги раздела",
+  router: "Страница-маршрутизатор",
+};
+
 function pageTitle(page: ContentPage): string {
   const values = page.valuesJson?.values ?? {};
   return (
     (values.title as string | undefined) ||
     (values.heading as string | undefined) ||
+    SYSTEM_PAGE_TITLE[page.kind] ||
     KIND_LABEL[page.kind] ||
     "Страница"
   );
@@ -1104,8 +1116,9 @@ function ReviewNodeRow(props: {
 }) {
   if (props.state === null) return null;
   const noun = props.scope === "section" ? "раздела" : "теста";
-  const finishLabel = props.scope === "section" ? "«Завершить раздел»" : "«Завершить тест»";
-  const title = `Обзор ${noun} — навигация по вопросам и ${finishLabel}`;
+  // Заголовок строки называет узел, а не пересказывает его устройство: что на экране
+  // обзора есть навигация и кнопка завершения, видно в самом экране.
+  const title = `Обзор ${noun}`;
   if (props.state === "enabled") {
     // Template-backed system node: variant badge + «Сменить вариант» + «Предпросмотр».
     if (props.page) {
@@ -1273,7 +1286,7 @@ function SystemPageRow(props: {
   const { cp, expandedId, setExpandedId, readOnly } = handlers;
   const variants = cp.contentTemplates.filter((v) => v.kind === page.kind);
   const variant = variants.find((v) => v.key === page.templateKey);
-  const badge = variant?.label ?? KIND_LABEL[page.kind] ?? page.kind;
+  const badge = KIND_LABEL[page.kind] ?? page.kind;
   const canSwitch = variants.length > 1 && !readOnly;
   // PRD-7 G21: when the active template declares NO variant of this system
   // kind, the planner falls back to the built-in `default` template. Surface
@@ -1357,7 +1370,7 @@ function SystemPageRow(props: {
         <button
           type="button"
           className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-          aria-label={`Предпросмотр системной страницы «${badge}»`}
+          aria-label="Предпросмотр страницы"
           onClick={() => handlers.onPreview(page)}
           data-testid={`${props.testId}-preview-inline`}
         >
@@ -1369,7 +1382,7 @@ function SystemPageRow(props: {
             <button
               type="button"
               className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-              aria-label={`Действия для системной страницы «${badge}»`}
+              aria-label="Действия для страницы"
               data-testid={`${props.testId}-actions`}
             >
               <MoreHorizontal size={12} aria-hidden="true" />
@@ -1413,6 +1426,13 @@ function SystemPageRow(props: {
             <Tag tone="warning" size="s" data-testid={`${props.testId}-fallback-tag`}>
               <AlertTriangle size={12} aria-hidden="true" />
               Из стандартного шаблона
+            </Tag>
+          )}
+          {/* Название выбранного МАКЕТА: бейдж слева называет вид узла (эскиз), а какой
+              именно макет выбран, автору всё равно надо видеть, не раскрывая строку. */}
+          {variant?.label && (
+            <Tag size="s" data-testid={`${props.testId}-variant-label`}>
+              {variant.label}
             </Tag>
           )}
           {canSwitch && (
@@ -1525,7 +1545,9 @@ function AfterTestZone(props: {
             ) : (
               <SortablePageItem page={item} handlers={handlers} />
             )}
-            {!handlers.readOnly && (
+            {/* После «Итогов теста» вставки нет: это последний экран прохождения, и
+                страница за ним недостижима — предлагать её значит обещать невозможное. */}
+            {!handlers.readOnly && item.kind !== "results" && (
               <InsertRow onClick={() => addAt(idx + 1)} testId={`structure-insert-after-test-${idx + 1}`} />
             )}
           </Fragment>

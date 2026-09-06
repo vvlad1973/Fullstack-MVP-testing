@@ -160,8 +160,8 @@ describe("result-variables-builder · topic addressing (PRD-2 §4.2)", () => {
 describe("result-variables-builder · pickers", () => {
   it("element options are grouped: overall, then Темы, then Шкалы", () => {
     const opts = elementOptions(TOPICS, SCALES);
-    expect(opts[0]).toEqual({ value: "overall", label: "Общий результат" });
-    expect(opts.find((o) => o.value === "topic:t-ethics")).toMatchObject({ label: "Этика", group: "Темы" });
+    expect(opts[0]).toEqual({ value: "overall", label: "Тест целиком" });
+    expect(opts.find((o) => o.value === "topic:t-ethics")).toMatchObject({ label: "Тема «Этика»", group: "Темы" });
     expect(opts.find((o) => o.value === "scale:fin")).toMatchObject({ label: "Финансы", group: "Шкалы" });
   });
 

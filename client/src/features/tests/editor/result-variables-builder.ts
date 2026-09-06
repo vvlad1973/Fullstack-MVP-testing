@@ -67,18 +67,18 @@ export const LEVEL_OPERATORS: Array<{ value: string; label: string }> = [
 type PropDef = { value: string; label: string; unit: Unit };
 
 const OVERALL_PROPS: PropDef[] = [
-  { value: "percent", label: "процент", unit: "num" },
-  { value: "score", label: "балл", unit: "num" },
+  { value: "percent", label: "Процент", unit: "num" },
+  { value: "score", label: "Балл", unit: "num" },
 ];
 const TOPIC_PROPS: PropDef[] = [
-  { value: "percent", label: "процент", unit: "num" },
-  { value: "score", label: "балл", unit: "num" },
+  { value: "percent", label: "Процент", unit: "num" },
+  { value: "score", label: "Балл", unit: "num" },
   { value: "passed", label: "пройдена", unit: "bool" },
 ];
 const SCALE_PROPS: PropDef[] = [
   { value: "raw", label: "сырой балл", unit: "num" },
-  { value: "percent", label: "процент", unit: "num" },
-  { value: "level", label: "уровень", unit: "level" },
+  { value: "percent", label: "Процент", unit: "num" },
+  { value: "level", label: "Уровень", unit: "level" },
 ];
 
 export type ElementKind = "overall" | "topic" | "scale";
@@ -117,8 +117,8 @@ export function firstProperty(el: string): string {
 
 /** Grouped «Элемент» options: «Общий результат», then «Темы», then «Шкалы». */
 export function elementOptions(topics: TopicRef[], scales: ScaleRef[]): BuilderOption[] {
-  const opts: BuilderOption[] = [{ value: "overall", label: "Общий результат" }];
-  for (const t of topics) opts.push({ value: `topic:${t.id}`, label: t.name, group: "Темы" });
+  const opts: BuilderOption[] = [{ value: "overall", label: "Тест целиком" }];
+  for (const t of topics) opts.push({ value: `topic:${t.id}`, label: `Тема «${t.name}»`, group: "Темы" });
   for (const s of scales) opts.push({ value: `scale:${s.key}`, label: s.label || s.key, group: "Шкалы" });
   return opts;
 }

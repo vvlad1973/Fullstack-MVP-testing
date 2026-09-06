@@ -969,7 +969,7 @@ export function CardSlotToggles({
   return (
     <FormField
       label="Слоты карточки"
-      hint="Выключается ПОКАЗ слота — на экране итогов и в отчёте. Название и метка уровня остаются в данных: их берут аналитика и выгрузка."
+      hint="Выключается показ слота — на экране итогов и в отчёте. Название и метка уровня остаются в данных: их берут аналитика и выгрузка."
       data-testid={`${testIdPrefix}-slots-${index}`}
     >
       <Stack gap={2}>
@@ -1020,7 +1020,7 @@ function DisplayMaxField(props: {
       <div className="ou-formfield">
         <Switch
           label="Задать предел показа на диаграмме"
-          description="Читается, только когда у экрана итогов выбран предел оси «заданный автором». Нужен, когда домен недостижимо велик: фигура иначе жмётся к центру и различия шкал пропадают."
+          description="Читается, только когда у экрана итогов выбран предел оси «заданный автором»."
           checked={value !== null}
           disabled={readOnly}
           onChange={(e) => onChange({ displayMax: e.target.checked ? seed : null })}
