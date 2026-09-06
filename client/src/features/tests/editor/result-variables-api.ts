@@ -75,6 +75,16 @@ function toConfigJson(v: ResultVariableModel): Record<string, unknown> {
   // touched keeps the exact config it had and never shows up as a change.
   if (v.showName === false) config.showName = false;
   if (v.showLevel === false) config.showLevel = false;
+  // PRD-53 §4.4: the «scales outside the profile» card. Written only when it is ON and
+  // has keys — that is exactly what `readRestScales` accepts on the server, and an
+  // off/empty block would be dead weight in every indicator's config.
+  if (v.restScales?.show && v.restScales.keys.length > 0) {
+    config.restScales = {
+      show: true,
+      label: v.restScales.label.trim(),
+      keys: v.restScales.keys,
+    };
+  }
   return config;
 }
 

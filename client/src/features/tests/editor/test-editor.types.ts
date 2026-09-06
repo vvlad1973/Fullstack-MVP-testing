@@ -336,6 +336,14 @@ export type ResultVariableModel = {
   showName?: boolean;
   /** PRD-49 §6: show the card's LEVEL slot (the outcome label). */
   showLevel?: boolean;
+  /**
+   * PRD-53 §4.4: the «scales outside the profile» card. Absent = no card, which is
+   * why it is optional rather than a filled default — an indicator nobody touched
+   * must round-trip byte-identical. `keys` repeats the profile group instead of
+   * being derived from the formula: the card is a PRESENTATION choice, and an
+   * author may later want it over a subset without re-parsing the DSL to find out.
+   */
+  restScales?: { show: boolean; label: string; keys: string[] };
   sortOrder: number;
 };
 

@@ -72,6 +72,44 @@ export function collectStringLiterals(formula: string): string[] {
   }
 }
 
+/** The profile group a formula declares: its scale keys and the upper-zone threshold. */
+export type ScaleGroupRef = { keys: string[]; threshold: number | string };
+
+/** Depth-first search for the first `topGroup(...)` node. */
+function findGroup(node: Ast): ScaleGroupRef | null {
+  switch (node.type) {
+    case "scaleGroup":
+      return { keys: [...node.keys], threshold: node.threshold };
+    case "if":
+      return findGroup(node.cond) ?? findGroup(node.then) ?? findGroup(node.otherwise);
+    case "unary":
+      return findGroup(node.operand);
+    case "binary":
+      return findGroup(node.left) ?? findGroup(node.right);
+    default:
+      return null;
+  }
+}
+
+/**
+ * The profile group of a formula, or `null` when it declares none.
+ *
+ * The editor needs the group WITHOUT re-deriving it from its own form state: the form
+ * is rebuilt from scratch when a card is reopened, while the formula is what was saved.
+ * Reading it back from the source keeps the matrix generator and the coverage warning
+ * honest about the indicator as it actually stands (PRD-53 §5.2, §5.3.2).
+ *
+ * The FIRST group wins. A formula with two of them is not a shape the template
+ * produces, and picking one arbitrarily beats refusing to help the author at all.
+ */
+export function readScaleGroup(formula: string): ScaleGroupRef | null {
+  try {
+    return findGroup(parse(formula));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Literals the formula can return that the outcome list does not declare. An empty
  * outcome list yields nothing: the author has not started declaring outcomes yet, and

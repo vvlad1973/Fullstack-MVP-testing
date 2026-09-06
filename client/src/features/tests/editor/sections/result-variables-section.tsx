@@ -27,6 +27,7 @@ import {
   ModalDialog,
   Select,
   SegmentedControl,
+  Switch,
   Textarea,
 } from "@universityrt/ui-kit";
 import { ChevronDown, GripVertical, Info, Plus, Trash2 } from "lucide-react";
@@ -45,11 +46,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import { collectStringLiterals, findUnknownOutcomes } from "@shared/formula/outcome-literals";
+import { collectStringLiterals, findUnknownOutcomes, readScaleGroup } from "@shared/formula/outcome-literals";
+import { parseGroupThreshold } from "@shared/formula/scale-group";
+import { outcomeMatchKey } from "@shared/scales/interpretation";
+import { profileMatrix, type ProfileMatrixRow } from "../profile-matrix";
 
 import type { LearnerVisibility, Valence } from "@shared/scales/interpretation";
 
 import type {
+  OutcomeModel,
   ResultVariableControlsStatus,
   ResultVariableModel,
   ResultVariableScormTarget,
@@ -71,6 +76,7 @@ import {
   verdictDsl,
   categoryDsl,
   weightedDsl,
+  buildProfileFormula,
   defaultCondition,
   elementOptions,
   propertyOptions,
@@ -431,8 +437,13 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
   const validation = useFormulaValidation(testId, v, index);
   // New (empty) variables open in the constructor; existing ones open in DSL so
   // the real stored formula is shown verbatim (the builder does not round-trip).
+  //
+  // Исключение — профиль (PRD-53): его форма ЧИТАЕТСЯ обратно из источника, группа и
+  // порог восстанавливаются точно. Показывать вместо неё сырой DSL значило бы прятать
+  // единственный экран, где эту механику настраивают, — и спорить с кнопками матрицы
+  // и предупреждениями, которые карточка печатает по той же формуле ниже.
   const [formulaMode, setFormulaMode] = useState<"builder" | "dsl">(
-    v.formula.trim() === "" ? "builder" : "dsl",
+    v.formula.trim() === "" || readScaleGroup(v.formula) ? "builder" : "dsl",
   );
 
   // In DSL mode the validator's inferred return type becomes the variable type —
@@ -474,6 +485,13 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
     () => collectStringLiterals(v.formula).filter((code) => !declaredCodes.includes(code)),
     [v.formula, declaredCodes],
   );
+
+  /**
+   * PRD-53: the profile group the SAVED formula declares. Read from the source rather
+   * than from the builder's form state, so the matrix generator and the warnings hold
+   * for an indicator opened fresh — and for one whose source the author wrote by hand.
+   */
+  const profile = useMemo(() => readScaleGroup(v.formula), [v.formula]);
 
   // DSL «Функции» reference + insert-at-cursor.
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -582,7 +600,43 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
       {/* PRD-29: the indicator's interpretation. A numeric result is interpreted by
           INTERVAL (the same editor the scales tab uses); a string or boolean one has
           no intervals — the formula returns a CODE, so the author enumerates them. */}
+      {profile && (
+        <ProfileDiagnostics
+          group={profile}
+          scales={scales}
+          outcomes={v.outcomes}
+          index={index}
+        />
+      )}
       <div className="tb-section-label">Толкование результата</div>
+      {profile && !readOnly && (
+        <div className="tb-rows-actions" data-testid={`metrics-profile-matrix-${index}`}>
+          <Button
+            variant="ghost"
+            size="s"
+            leadingIcon={<Plus size={16} aria-hidden="true" />}
+            disabled={profile.keys.length < 2}
+            onClick={() => onChange({ outcomes: addMissingOutcomes(v.outcomes, profileMatrix(profile.keys, scales)) })}
+            data-testid={`metrics-profile-build-${index}`}
+          >
+            Собрать наборы
+          </Button>
+          <Button
+            variant="ghost"
+            size="s"
+            leadingIcon={<Plus size={16} aria-hidden="true" />}
+            disabled={profile.keys.length < 2}
+            onClick={() =>
+              onChange({
+                outcomes: addMissingOutcomes(v.outcomes, profileMatrix(profile.keys, scales, { byCountOnly: true })),
+              })
+            }
+            data-testid={`metrics-profile-build-counts-${index}`}
+          >
+            Заготовки по размеру набора
+          </Button>
+        </div>
+      )}
       {v.type === "number" ? (
         <>
           <LevelsEditor
@@ -654,6 +708,19 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             : "Формула возвращает код исхода. Перечислите коды, которые она может вернуть, и что каждый из них означает для обучающегося."
         }
       />
+
+      {profile && (
+        <>
+          <hr className="wf-sep" />
+          <RestScalesFields
+            value={v.restScales}
+            groupKeys={profile.keys}
+            readOnly={readOnly}
+            index={index}
+            onChange={onChange}
+          />
+        </>
+      )}
 
       <hr className="wf-sep" />
 
@@ -729,13 +796,29 @@ function FormulaBuilder({
   readOnly: boolean;
   onChange: (patch: Partial<ResultVariableModel>) => void;
 }) {
-  const [template, setTemplate] = useState<BuilderTemplate>("threshold");
+  // Открывая показатель-профиль, конструктор показывает ЕГО шаблон, а не «Порог»:
+  // ниже уже стоят кнопки матрицы и предупреждения, прочитанные из той же формулы,
+  // и селект, говорящий «Порог», спорил бы с ними на одном экране. Для остальных
+  // шаблонов начальное значение прежнее — их формулу обратно не разобрать.
+  const [template, setTemplate] = useState<BuilderTemplate>(() =>
+    readScaleGroup(v.formula) ? "profile" : "threshold",
+  );
   const [conditions, setConditions] = useState<Condition[]>(() => [defaultCondition(scales)]);
   const [catScale, setCatScale] = useState<string>(() => scales[0]?.key ?? "");
   const [catRows, setCatRows] = useState<Array<{ level: string; label: string }>>(() => [{ level: "", label: "" }]);
   const [catElse, setCatElse] = useState("Недостаточно");
   const [wRows, setWRows] = useState<Array<{ scaleKey: string; weight: string }>>(
     () => [{ scaleKey: scales[0]?.key ?? "", weight: "1" }],
+  );
+  // PRD-53 §5.1. Seeded from the formula when the card already holds a profile, so
+  // reopening an indicator shows the group it was saved with instead of an empty form.
+  const savedGroup = useMemo(() => readScaleGroup(v.formula), [v.formula]);
+  const [pKeys, setPKeys] = useState<string[]>(() => savedGroup?.keys ?? []);
+  const [pThreshold, setPThreshold] = useState(() =>
+    String(savedGroup ? parseGroupThreshold(savedGroup.threshold)?.value ?? 0 : 0),
+  );
+  const [pUnit, setPUnit] = useState<"abs" | "pct">(() =>
+    savedGroup && parseGroupThreshold(savedGroup.threshold)?.kind === "pct" ? "pct" : "abs",
   );
 
   const generated = useMemo(() => {
@@ -748,10 +831,14 @@ function FormulaBuilder({
         return categoryDsl(catScale, catRows, catElse);
       case "weighted":
         return weightedDsl(wRows);
+      case "profile":
+        // A blank threshold is a half-typed number, not a zero: keeping the last valid
+        // value out of the formula would rewrite the indicator on every keystroke.
+        return buildProfileFormula({ keys: pKeys, threshold: Number(pThreshold) || 0, unit: pUnit });
       default:
         return "";
     }
-  }, [template, conditions, catScale, catRows, catElse, wRows, scales, topics]);
+  }, [template, conditions, catScale, catRows, catElse, wRows, pKeys, pThreshold, pUnit, scales, topics]);
 
   // Write the canonical DSL (and derived type) into the model immediately — on
   // mount for a fresh variable and on every builder change — so the formula is
@@ -969,7 +1056,300 @@ function FormulaBuilder({
           )}
         </div>
       )}
+
+      {template === "profile" && (
+        <ProfileTemplateFields
+          scales={scales}
+          keys={pKeys}
+          threshold={pThreshold}
+          unit={pUnit}
+          readOnly={readOnly}
+          onKeys={setPKeys}
+          onThreshold={setPThreshold}
+          onUnit={setPUnit}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Блок «шкалы вне профиля» (PRD-53 §4.4).
+ *
+ * `keys` пишутся ВСЕГДА из группы формулы, а не накапливаются: блок печатает шкалы
+ * группы, не вошедшие в профиль, и группа, разошедшаяся с формулой, дала бы карточку
+ * про шкалы, которые в профиле не участвуют.
+ */
+function RestScalesFields({
+  value,
+  groupKeys,
+  readOnly,
+  index,
+  onChange,
+}: {
+  value: ResultVariableModel["restScales"];
+  groupKeys: string[];
+  readOnly: boolean;
+  index: number;
+  onChange: (patch: Partial<ResultVariableModel>) => void;
+}) {
+  const show = value?.show === true;
+  return (
+    <>
+      <Switch
+        size="m"
+        label="Показывать шкалы вне профиля"
+        checked={show}
+        disabled={readOnly}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          onChange({ restScales: { show: e.target.checked, label: value?.label ?? "", keys: groupKeys } })
+        }
+        data-testid={`metrics-rest-show-${index}`}
+      />
+      {show && (
+        <div className="ou-formfield">
+          <Input
+            size="m"
+            fullWidth
+            label="Заголовок блока"
+            value={value?.label ?? ""}
+            disabled={readOnly}
+            onChange={(e) => onChange({ restScales: { show: true, label: e.target.value, keys: groupKeys } })}
+            data-testid={`metrics-rest-label-${index}`}
+          />
+        </div>
+      )}
+      {show && (
+        <Banner
+          tone="info"
+          size="sm"
+          description="Блок печатает шкалы группы, не вошедшие в профиль, по убыванию балла. Текст берётся из описания самой шкалы."
+        />
+      )}
+    </>
+  );
+}
+
+// ─── «Профиль по группе шкал» (PRD-53 §5.2, §5.3.2) ───────────────────────────
+
+/**
+ * Добавить недостающие заготовки, не тронув заполненные.
+ *
+ * Сравнение — по НАБОРУ, тем же ключом, что и в рантайме: иначе исход `pro+cel`,
+ * набранный автором вручную, считался бы отсутствующим и генератор завёл бы дубль
+ * `cel+pro`, который никогда не сработает — первым в списке стоял бы чужой.
+ */
+function addMissingOutcomes(existing: OutcomeModel[], rows: ProfileMatrixRow[]): OutcomeModel[] {
+  const known = new Set(existing.map((o) => outcomeMatchKey(o.code.trim())).filter((c) => c !== ""));
+  const added: OutcomeModel[] = [];
+  for (const row of rows) {
+    if (known.has(outcomeMatchKey(row.code))) continue;
+    known.add(outcomeMatchKey(row.code));
+    localKeyCounter += 1;
+    added.push({ clientKey: `oc-${localKeyCounter}`, code: row.code, label: row.label, text: "", tone: "" });
+  }
+  return added.length === 0 ? existing : [...existing, ...added];
+}
+
+/**
+ * Находки формы: то, чего валидатор формулы увидеть не может (PRD-53 §5.3.2).
+ *
+ * Все три говорят об одном и том же провале — участник получит карточку без текста, —
+ * но ловятся по разным данным, поэтому и печатаются раздельно. Порядок: предупреждения,
+ * затем подсказка, как задано в §5.3.4.
+ */
+function ProfileDiagnostics({
+  group,
+  scales,
+  outcomes,
+  index,
+}: {
+  group: { keys: string[]; threshold: number | string };
+  scales: ScaleRef[];
+  outcomes: OutcomeModel[];
+  index: number;
+}) {
+  const uncovered = useMemo(() => {
+    if (group.keys.length < 2) return [];
+    const rows = profileMatrix(group.keys, scales);
+    if (rows.length === 0) return [];
+    // Подавляется на пустом перечне — как и у соседнего unknownOutcomeCodes: автор ещё
+    // не начал заполнять, и упрекать его пока не в чем.
+    const declared = outcomes.map((o) => o.code.trim()).filter((c) => c !== "");
+    if (declared.length === 0) return [];
+    const known = new Set(declared.map(outcomeMatchKey));
+    return rows
+      .map((r) => r.code)
+      .filter((code) => !known.has(outcomeMatchKey(code)) && !known.has(`count:${code.split("+").length}`));
+  }, [group.keys, scales, outcomes]);
+
+  const total = group.keys.length >= 2 ? 2 ** group.keys.length - 1 : 0;
+
+  return (
+    <>
+      {uncovered.length > 0 && (
+        <Banner
+          tone="warning"
+          size="sm"
+          title="Не для всех наборов есть текст"
+          description={`Ни точного исхода, ни запасного по размеру набора нет для: ${uncovered.slice(0, 5).join(", ")}${
+            uncovered.length > 5 ? ` и ещё ${uncovered.length - 5}` : ""
+          }. Участник с таким результатом увидит карточку без толкования.`}
+          data-testid={`metrics-profile-uncovered-${index}`}
+        />
+      )}
+      {group.keys.length >= 5 && (
+        <Banner
+          tone="warning"
+          size="sm"
+          description={`${group.keys.length} шкал дают ${total} наборов — столько текстов пишут редко. Можно обойтись заготовками по размеру набора: ${group.keys.length} текстов вместо ${total}.`}
+          data-testid={`metrics-profile-many-${index}`}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── «Профиль по группе шкал» (PRD-53 §5.1) ───────────────────────────────────
+
+const THRESHOLD_UNITS: Array<{ value: "abs" | "pct"; label: string }> = [
+  { value: "abs", label: "баллы" },
+  { value: "pct", label: "% от максимума" },
+];
+
+/**
+ * Форма пятого шаблона: группа шкал и порог верхней зоны.
+ *
+ * Шкалы перечислены ТУМБЛЕРАМИ, а не мультиселектом: группа почти всегда — это все
+ * шкалы методики или все, кроме одной-двух, и в таком списке важнее видеть невыбранные,
+ * чем экономить высоту. Порядок ключей — авторский порядок шкал теста, тот же, что даёт
+ * канонический код набора; поэтому группа собирается фильтром по `scales`, а не в порядке
+ * нажатий.
+ *
+ * Удалённая из теста шкала группы (PRD-53 §5.3.4, FR-33) остаётся в списке отдельной
+ * отключённой строкой: иначе автор видит ошибку про её ключ и не может её снять.
+ */
+function ProfileTemplateFields({
+  scales,
+  keys,
+  threshold,
+  unit,
+  readOnly,
+  onKeys,
+  onThreshold,
+  onUnit,
+}: {
+  scales: ScaleRef[];
+  keys: string[];
+  threshold: string;
+  unit: "abs" | "pct";
+  readOnly: boolean;
+  onKeys: (keys: string[]) => void;
+  onThreshold: (value: string) => void;
+  onUnit: (unit: "abs" | "pct") => void;
+}) {
+  const selected = useMemo(() => new Set(keys), [keys]);
+  const missing = useMemo(
+    () => keys.filter((k) => !scales.some((s) => s.key === k)),
+    [keys, scales],
+  );
+  const toggle = useCallback(
+    (key: string, on: boolean) => {
+      const next = new Set(selected);
+      if (on) next.add(key);
+      else next.delete(key);
+      // Авторский порядок, а не порядок нажатий: он же определяет код набора.
+      onKeys(scales.map((s) => s.key).filter((k) => next.has(k)));
+    },
+    [selected, scales, onKeys],
+  );
+
+  const thresholdError =
+    parseGroupThreshold(unit === "pct" ? `${threshold}%` : Number(threshold)) === null
+      ? "Порог верхней зоны — неотрицательное число"
+      : undefined;
+
+  return (
+    <>
+      <div className="ou-formfield" data-testid="metrics-profile-group">
+        <label className="ou-formfield__lbl">
+          Шкалы группы <span className="ou-formfield__lbl-req" aria-hidden="true">*</span>
+        </label>
+        {scales.length === 0 ? (
+          <Banner
+            tone="warning"
+            size="sm"
+            description="У теста нет шкал. Профиль сравнивает шкалы между собой — заведите их на вкладке «Шкалы»."
+          />
+        ) : (
+          <div className="tb-profile-scales">
+            {scales.map((s) => (
+              <Switch
+                key={s.key}
+                size="m"
+                label={
+                  <>
+                    {s.label || s.key} <span className="tb-cond-sep">{s.key}</span>
+                  </>
+                }
+                checked={selected.has(s.key)}
+                disabled={readOnly}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => toggle(s.key, e.target.checked)}
+                data-testid={`metrics-profile-scale-${s.key}`}
+              />
+            ))}
+            {missing.map((key) => (
+              <Switch
+                key={key}
+                size="m"
+                label={
+                  <>
+                    {key} <span className="tb-cond-sep">шкала удалена из теста</span>
+                  </>
+                }
+                checked
+                disabled
+                data-testid={`metrics-profile-missing-${key}`}
+              />
+            ))}
+          </div>
+        )}
+        {keys.length < 2 && (
+          <div className="ou-formfield__msg ou-formfield__msg--error" data-testid="metrics-profile-group-error">
+            В группе профиля нужны хотя бы две шкалы
+          </div>
+        )}
+      </div>
+
+      <div className="ou-formfield">
+        <label className="ou-formfield__lbl" htmlFor="metrics-profile-threshold">
+          Порог верхней зоны
+        </label>
+        <div className="tb-cond-row">
+          <Input
+            size="s"
+            id="metrics-profile-threshold"
+            value={threshold}
+            disabled={readOnly}
+            error={thresholdError}
+            onChange={(e) => onThreshold(e.target.value)}
+            data-testid="metrics-profile-threshold"
+          />
+          <SegmentedControl<"abs" | "pct">
+            size="s"
+            items={THRESHOLD_UNITS}
+            value={unit}
+            onChange={(value) => !readOnly && onUnit(value)}
+          />
+        </div>
+      </div>
+
+      <Banner
+        tone="info"
+        size="sm"
+        description={`Шкала входит в профиль, если отстала от максимума по группе не больше чем на порог. Граница включается: отставание ровно на ${threshold || 0} — ещё профиль.`}
+      />
+    </>
   );
 }
 

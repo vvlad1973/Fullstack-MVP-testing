@@ -206,7 +206,7 @@ export function findBand(bands: InterpretationBand[], value: number): Interpreta
  * Код без «+» нормализуется сам в себя, поэтому правило безопасно для показателей, к профилям
  * отношения не имеющих: сравнение вырождается в прежнее точное равенство.
  */
-function outcomeMatchKey(code: string): string {
+export function outcomeMatchKey(code: string): string {
   if (!code.includes("+")) return code;
   return code
     .split("+")
