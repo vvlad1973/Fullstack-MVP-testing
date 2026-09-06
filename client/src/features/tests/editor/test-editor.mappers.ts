@@ -21,8 +21,7 @@
 import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
-import { breakdownFeedbackSchema, breakdownRulesSchema, formSetSchema, sectionGroupsSchema } from "@shared/schema";
-import type { BreakdownRules } from "@shared/breakdown/types";
+import { breakdownFeedbackSchema, formSetSchema, sectionGroupsSchema } from "@shared/schema";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 import type {
   AdaptiveLevelConfig,
@@ -81,6 +80,8 @@ export type ApiTestResponse = {
   showDifficultyLevel?: boolean | null;
   overallPassRuleJson?: unknown;
   passDecisionPolicy?: string | null;
+  /** PRD-50 §16 (FR-53): учитывать подтемы в вердикте темы (`tests.breakdown_gate_enabled`). */
+  breakdownGateEnabled?: boolean | null;
   webhookUrl?: string | null;
   feedback?: string | null;
   feedbackJson?: unknown;
@@ -346,17 +347,6 @@ function readFormSetFromApi(raw: unknown): FormSet | null {
 }
 
 /**
- * Read the per-key thresholds (PRD-50 §4) from the API jsonb. Validated with
- * `breakdownRulesSchema`; absence or any malformed shape degrades to `null` (keys are
- * informational), so a bad blob never breaks the editor.
- */
-function readBreakdownRulesFromApi(raw: unknown): BreakdownRules | null {
-  if (raw == null) return null;
-  const parsed = breakdownRulesSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
-}
-
-/**
  * Тексты подтем (PRD-50 FR-50) из jsonb API. Проверяются `breakdownFeedbackSchema`;
  * отсутствие и любая испорченная форма вырождаются в `null` — «автор их не писал», —
  * поэтому кривой блоб не роняет редактор, ровно как у порогов выше.
@@ -445,8 +435,6 @@ function buildSectionsFromApi(src: ApiTestResponse): {
       drawBlueprint: readDrawBlueprintFromApi(raw.drawBlueprintJson),
       // PRD-17 (BR-12): fixed-variant set (validate; invalid/absent = null).
       formSet: readFormSetFromApi(raw.formSetJson),
-      // PRD-50 §4: пороги ключей (валидируем; кривое/отсутствующее = null).
-      breakdownRules: readBreakdownRulesFromApi(raw.breakdownRulesJson),
       breakdownFeedback: readBreakdownFeedbackFromApi(raw.breakdownFeedbackJson),
       // PRD-50 FR-11/FR-12: this section's block, or null when it belongs to none —
       // including a legacy section saved before this PRD.
@@ -1144,6 +1132,8 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       decisionPolicy: "overall_only",
       overall: { type: "percent", value: 70 },
       byTopic: {},
+      // PRD-50 FR-53: новый тест — подтемы вердикт темы не судят, как у любого теста до §16.
+      breakdownGateEnabled: false,
     },
     sections: [],
     // PRD-50 FR-11: новый тест — блоков нет, как у любого теста без настройки.
@@ -1275,6 +1265,8 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
       decisionPolicy,
       overall,
       byTopic,
+      // PRD-50 FR-53: поля нет (тест до §16) → гейт выключен, вердикт как был.
+      breakdownGateEnabled: src.breakdownGateEnabled === true,
     },
     sections,
     // PRD-50 FR-11: поля нет (тест до PRD-50) → блоков нет (FR-27).
@@ -1341,6 +1333,8 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     flowPolicyJson: buildFlowPolicyForPayload(model),
     overallPassRuleJson: model.passRules.overall,
     passDecisionPolicy: model.passRules.decisionPolicy,
+    // PRD-50 FR-53: гейт подтем — свойство ТЕСТА, шлём всегда, чтобы выключение доехало.
+    breakdownGateEnabled: model.passRules.breakdownGateEnabled === true,
     timeLimitMinutes: model.runtime.timeLimitMinutes,
     maxAttempts: model.runtime.maxAttempts,
     showCorrectAnswers: model.runtime.showCorrectAnswers,
@@ -1507,9 +1501,6 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
       drawBlueprintJson,
       // PRD-17 (BR-12): fixed-variant set (null = legacy draw).
       formSetJson: section.formSet ?? null,
-      // PRD-50 §4: пороги ключей; пустой набор без умолчания шлём как null — пустая
-      // структура и её отсутствие означают одно и то же, а null короче в базе.
-      breakdownRulesJson: normalizeBreakdownRules(section.breakdownRules),
       // PRD-50 FR-50: тексты подтем. Пустая карта уходит как null: «ничего не написано» и
       // «структура есть, но пустая» — одно и то же, а null короче в базе.
       breakdownFeedbackJson:
@@ -1524,21 +1515,6 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
       questionOrder: section.questionOrder ?? null,
     };
   });
-}
-
-/** Empty rules (no default, no keys, or only `none` keys) collapse to `null`. */
-function normalizeBreakdownRules(rules: BreakdownRules | null | undefined): BreakdownRules | null {
-  if (!rules) return null;
-  const keys = rules.keys ?? {};
-  // PRD-50 Э2: явное `none` — это РЕШЕНИЕ автора («этот ключ не гейтит»), а не пустое
-  // место, и оно переживает сохранение наравне с порогом. Раньше выбрасывалось всё,
-  // кроме `percent`, и это сходило с рук: строка ключа без правила рисуется как «Не
-  // проверять», а движок считает отсутствие структуры информационным для всех ключей.
-  // Сойдёт с рук ровно до появления редактора умолчания: тогда «отсутствует» станет
-  // значить «наследует умолчание», и потерянный `none` молча поменяет смысл гейта.
-  const decided = Object.keys(keys).length > 0;
-  if (!rules.default && !decided) return null;
-  return rules;
 }
 
 /**
