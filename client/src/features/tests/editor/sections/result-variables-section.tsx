@@ -527,12 +527,10 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
         />
       </Grid>
 
-      <hr className="wf-sep" />
-
       <div className="ou-formfield" data-field={`resultVariables[${index}].formula`}>
         <label className="ou-formfield__lbl">Формула</label>
         <SegmentedControl<"builder" | "dsl">
-          size="m"
+          size="s"
           value={formulaMode}
           aria-label="Режим редактора формулы"
           items={[
@@ -559,7 +557,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               ref={textareaRef}
               size="m"
               fullWidth
-              rows={5}
+              rows={4}
               value={v.formula}
               disabled={readOnly}
               placeholder='напр. IF(percent >= 75, "Зачёт", "Незачёт")'
@@ -577,12 +575,10 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
         <Banner tone={validation.banner.tone} size="sm" description={validation.banner.text} />
       )}
 
-      <hr className="wf-sep" />
-
       {/* PRD-29: the indicator's interpretation. A numeric result is interpreted by
           INTERVAL (the same editor the scales tab uses); a string or boolean one has
           no intervals — the formula returns a CODE, so the author enumerates them. */}
-      <div className="tb-section-label">Толкование результата</div>
+      <label className="ou-formfield__lbl">Толкование результата</label>
       {v.type === "number" ? (
         <>
           <LevelsEditor
@@ -648,19 +644,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           data-testid={`metrics-unknown-outcomes-${index}`}
         />
       )}
-      <Banner
-        tone="info"
-        size="sm"
-        description={
-          v.type === "number"
-            ? "Толкование привязано к интервалу значения. «Оценка» — методологическое состояние уровня; как оно выглядит, решает шаблон."
-            : "Формула возвращает код исхода. Перечислите коды, которые она может вернуть, и что каждый из них означает для обучающегося."
-        }
-      />
-
-      <hr className="wf-sep" />
-
-      <div className="tb-section-label">Вывод</div>
+      <label className="ou-formfield__lbl">Вывод</label>
       <Grid cols={2} gap={3}>
         {/*
           PRD-29 (defect D-1): without this control `learnerVisibility` stays
@@ -691,17 +675,19 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             data-testid={`metrics-status-${index}`}
           />
         )}
-        <Select<ResultVariableScormTarget>
-          size="m"
-          fullWidth
-          label="Передавать в LMS"
-          value={v.scormTarget}
-          disabled={readOnly}
-          options={TARGET_OPTIONS}
-          onChange={(value) => onChange({ scormTarget: value })}
-          data-testid={`metrics-target-${index}`}
-        />
       </Grid>
+      {/* D-48: выдача в LMS — не пара к видимости, а отдельное решение о другом
+          адресате: одно про экран обучающегося, другое про запись в систему. */}
+      <Select<ResultVariableScormTarget>
+        size="m"
+        fullWidth
+        label="Передавать в LMS"
+        value={v.scormTarget}
+        disabled={readOnly}
+        options={TARGET_OPTIONS}
+        onChange={(value) => onChange({ scormTarget: value })}
+        data-testid={`metrics-target-${index}`}
+      />
 
       {/* PRD-49 §6: the card's other slots. «Показывать обучающемуся» above governs the
           VALUE slot only, so without these two an author who needs a card with just an

@@ -252,7 +252,6 @@ export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProp
         <div className="ou-formfield">
           <Switch
             label="Показывать итоги раздела"
-            description="После завершения раздела показывается экран с его результатом. Только для секционных тестов."
             checked={model.runtime.showSectionResults}
             onChange={(e) => {
               const checked = e.target.checked;
@@ -815,7 +814,6 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
           {currentKey === "webtutor_cooldown" && (
             <Banner
               tone="warning"
-              size="sm"
               description="Проверка через WebTutor находит прошлые попытки по названию курса. Ограничение сработает, только если название курса в WebTutor точно совпадает с названием этого теста."
               data-testid="settings-retake-webtutor-name-warning"
             />
@@ -846,7 +844,6 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
       {/* PRD-31 барьер B: интервал между попытками ВНУТРИ одного назначения.
           Отделён от группы выше, потому что барьеры независимы (FR-03) и стоят
           на разных границах: кулдаун — между назначениями, интервал — внутри. */}
-      <div className="ou-card__divider" />
 
       <label className="ou-switch-field">
         <Switch
@@ -895,7 +892,6 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
 
           <Banner
             tone="info"
-            size="sm"
             description={
               enabled
                 ? "Период охлаждения действует между назначениями, ограничение между попытками — внутри одного назначения."
@@ -933,7 +929,6 @@ export function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_
           }}
           data-testid="settings-webhook-input"
         />
-        <div className="ou-formfield__desc">Оставьте пустым, если webhook не нужен.</div>
       </div>
 
       <div className="ou-formfield">
@@ -957,7 +952,6 @@ export function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_
           size="m"
           fullWidth
           label="Результат для LMS при нескольких попытках"
-          hint="Действует только в SCORM-пакете. Многие LMS сами решают, какую попытку засчитать, — тогда выбирайте «последнюю»; если LMS хранит лишь последний результат, «лучшая» защитит удачную попытку от неудачной."
           value={model.runtime.lmsAttemptResult}
           options={[
             { value: "best", label: "Лучшая попытка" },
@@ -1363,7 +1357,7 @@ export function VerdictPane({
             }
           />
 
-          <div className="tb-pass-overall">
+          <>
             <div className="ou-formfield">
               <Select<OverallPassType>
                 id="pass-overall-type"
@@ -1412,7 +1406,7 @@ export function VerdictPane({
                 />
               </div>
             )}
-          </div>
+          </>
       </FormSection>
 
       {/* PRD-50 §16 (FR-53): один переключатель на весь тест, сразу под блоком, вердикт
@@ -2141,12 +2135,6 @@ function AdaptiveLevelCard(props: {
           />
         }
         title={level.levelName}
-        subtitle={
-          <>
-            {level.minDifficulty}–{level.maxDifficulty} · {level.questionsCount} вопросов · {level.passThreshold}
-            {level.passThresholdType === "percent" ? " %" : " б."} · {statusLabel}
-          </>
-        }
         trail={
           <>
             <Button
@@ -2337,7 +2325,6 @@ function TestFeedbackTrigger(props: {
 
   return (
     <>
-      <label className="ou-formfield__lbl">Обратная связь после прохождения</label>
       {/* TD-02: grouped-list preview (Материалы / Курсы / Мероприятия) + pencil. */}
       <FeedbackPreview
         format={props.feedback.format}

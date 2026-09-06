@@ -362,7 +362,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-13",
@@ -392,7 +392,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-15",
@@ -407,7 +407,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-16",
@@ -1113,7 +1113,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-35",
@@ -1158,7 +1158,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-38",
@@ -1459,7 +1459,7 @@
       "Banner.tsx",
       "basic-settings-section.tsx"
     ],
-    "batch": "cosmetics",
+    "batch": "ds",
     "status": "open"
   },
   {
@@ -1475,7 +1475,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "C-7",
@@ -1566,7 +1566,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-13",
@@ -1582,7 +1582,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-14",
@@ -1764,7 +1764,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-10",
@@ -1779,7 +1779,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-11",
@@ -2246,7 +2246,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-42",
@@ -2261,7 +2261,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-43",
@@ -2291,7 +2291,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-45",
@@ -2306,7 +2306,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-46",
@@ -2321,7 +2321,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-47",
@@ -2351,7 +2351,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-49",
@@ -2366,7 +2366,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-50",
@@ -2486,7 +2486,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "D-58",
@@ -2743,7 +2743,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-17",
@@ -2805,7 +2805,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-21",
