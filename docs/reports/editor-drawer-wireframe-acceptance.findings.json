@@ -377,7 +377,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-14",
@@ -1083,7 +1083,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-33",
@@ -1098,7 +1098,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-34",
@@ -1128,7 +1128,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-36",
@@ -1414,7 +1414,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-3",
@@ -1429,7 +1429,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-4",
@@ -1444,7 +1444,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "C-5",
@@ -1521,7 +1521,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-10",
@@ -1536,7 +1536,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-11",
@@ -1551,7 +1551,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-12",
@@ -1597,7 +1597,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-15",
@@ -1628,7 +1628,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-1",
@@ -1734,7 +1734,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-8",
@@ -1749,7 +1749,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-9",
@@ -1794,7 +1794,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-12",
@@ -2531,7 +2531,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-3",
@@ -2652,7 +2652,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "E-11",

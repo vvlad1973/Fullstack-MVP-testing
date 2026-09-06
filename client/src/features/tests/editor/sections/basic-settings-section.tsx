@@ -21,7 +21,8 @@
  */
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { pluralize } from "@/lib/i18n";
 import {
   Banner,
   Button,
@@ -555,7 +556,6 @@ function PerTopicLimitsBlock({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Индивидуальные лимиты для тем"
-          description="Если выключено, действует только общий лимит теста (см. выше)."
           checked={hasCustomLimits}
           onChange={(e) => {
             const checked = e.target.checked;
@@ -705,11 +705,6 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Ограничить повторное прохождение"
-          description={
-            enabled
-              ? "Допуск проверяется до старта курса."
-              : "Выключено — учащийся может перезапускать курс без ограничений (как сейчас)."
-          }
           checked={enabled}
           onChange={(e) => {
             const checked = e.target.checked;
@@ -773,24 +768,9 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
             <>
               <div className="ou-formfield">
                 <NumberInput
-                  id="settings-retake-cooldown-passed"
-                  size="m"
-                  label="При успешном прохождении, дней"
-                  hint="От 1 до 3650 дней."
-                  value={policy.cooldownPeriodDaysPassed ?? 30}
-                  min={1}
-                  max={3650}
-                  data-testid="settings-retake-cooldown-passed-input"
-                  onChange={(next) =>
-                    setPolicy({ cooldownPeriodDaysPassed: Math.min(3650, Math.max(1, next || 1)) })
-                  }
-                />
-              </div>
-              <div className="ou-formfield">
-                <NumberInput
                   id="settings-retake-cooldown-failed"
                   size="m"
-                  label="При неуспешном прохождении, дней"
+                  label="После неуспешной попытки, дней"
                   hint="От 1 до 3650 дней."
                   value={policy.cooldownPeriodDaysFailed ?? 30}
                   min={1}
@@ -798,6 +778,21 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
                   data-testid="settings-retake-cooldown-failed-input"
                   onChange={(next) =>
                     setPolicy({ cooldownPeriodDaysFailed: Math.min(3650, Math.max(1, next || 1)) })
+                  }
+                />
+              </div>
+              <div className="ou-formfield">
+                <NumberInput
+                  id="settings-retake-cooldown-passed"
+                  size="m"
+                  label="После успешной попытки, дней"
+                  hint="От 1 до 3650 дней."
+                  value={policy.cooldownPeriodDaysPassed ?? 30}
+                  min={1}
+                  max={3650}
+                  data-testid="settings-retake-cooldown-passed-input"
+                  onChange={(next) =>
+                    setPolicy({ cooldownPeriodDaysPassed: Math.min(3650, Math.max(1, next || 1)) })
                   }
                 />
               </div>
@@ -821,7 +816,7 @@ function RetakeBlock({ model, updateModel }: SettingsSectionProps) {
             <Banner
               tone="warning"
               size="sm"
-              description="Проверка через WebTutor находит прошлые попытки по НАЗВАНИЮ курса. Ограничение сработает только если название курса (модуля) в WebTutor точно совпадает с названием этого теста. Если при загрузке в LMS курс назван иначе — период охлаждения применяться не будет."
+              description="Проверка через WebTutor находит прошлые попытки по названию курса. Ограничение сработает, только если название курса в WebTutor точно совпадает с названием этого теста."
               data-testid="settings-retake-webtutor-name-warning"
             />
           )}
@@ -927,7 +922,7 @@ export function IntegrationPane({ model, updateModel, fieldErrors = EMPTY_FIELD_
           label="Webhook URL"
           type="url"
           value={model.basic.webhookUrl}
-          placeholder="https://example.com/webhook"
+          placeholder="https://some-lms.example.ru/hooks/scorm"
           error={fieldErrors.get("basic.webhookUrl")}
           onChange={(e) => {
             const value = e.target.value;
@@ -1006,7 +1001,6 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Разрешить возврат к неотвеченным вопросам"
-          description="Ученик может пропускать вопросы и возвращаться к ним до завершения. Включает карту-индикатор прогресса и экран обзора."
           checked={model.runtime.allowReturnToUnanswered}
           onChange={(e) => {
             const checked = e.target.checked;
@@ -1031,7 +1025,6 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Свободная навигация внутри раздела"
-          description="Ученик может открыть любой вопрос текущего раздела, в том числе ещё не показанный. За границу раздела перехода нет: соседний раздел откроется, когда текущий завершён."
           checked={model.runtime.allowFreeSectionNavigation && !freeNavDisabled}
           disabled={freeNavDisabled}
           onChange={(e) => {
@@ -1054,7 +1047,6 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Позволить изменять ответ до завершения"
-          description="При возврате к уже отвеченному вопросу можно изменить ответ (до завершения раздела/теста)."
           checked={model.runtime.allowAnswerChange && !changeDisabled}
           disabled={changeDisabled}
           onChange={(e) => {
@@ -1080,23 +1072,7 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
       </div>
       <div className="ou-formfield">
         <Switch
-          label="Не показывать обзор, если отвечены все вопросы"
-          description="Обзор нужен, чтобы вернуться к пропущенному вопросу. Когда пропущенных не осталось, ученик перейдёт сразу к завершению. Пока что-то пропущено, обзор показывается всегда."
-          checked={model.runtime.skipReviewWhenComplete}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, skipReviewWhenComplete: checked },
-            }));
-          }}
-          data-testid="settings-skip-review-complete-checkbox"
-        />
-      </div>
-      <div className="ou-formfield">
-        <Switch
           label="Переходить к следующему вопросу сразу после ответа"
-          description="Без отдельного нажатия «Далее»: ответ фиксируется и сразу открывается следующий вопрос."
           checked={model.runtime.quickAdvance && !quickAdvanceDisabled}
           disabled={quickAdvanceDisabled}
           onChange={(e) => {
@@ -1115,6 +1091,20 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
             description="Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): нужно увидеть правильный ответ, прежде чем переходить дальше."
           />
         )}
+      </div>
+      <div className="ou-formfield">
+        <Switch
+          label="Не показывать обзор, если отвечены все вопросы"
+          checked={model.runtime.skipReviewWhenComplete}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, skipReviewWhenComplete: checked },
+            }));
+          }}
+          data-testid="settings-skip-review-complete-checkbox"
+        />
       </div>
     </FormSection>
   );
@@ -1177,7 +1167,6 @@ export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Защищать текст задания от копирования"
-          description="На экране вопроса и на экране обзора текст не выделяется, не копируется, не перетаскивается и не печатается. В тестовом прогоне автора защита не действует."
           checked={model.runtime.copyProtection}
           onChange={(e) => {
             const checked = e.target.checked;
@@ -1192,7 +1181,6 @@ export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Показывать водяной знак"
-          description="Поверх экранов вопроса, обзора, итогов раздела и итогов теста печатается обезличенный идентификатор и время. Снимок экрана остаётся возможным, но становится атрибутируемым."
           checked={model.runtime.protectionWatermark}
           onChange={(e) => {
             const checked = e.target.checked;
@@ -1207,7 +1195,6 @@ export function ProtectionPane({ model, updateModel }: SettingsSectionProps) {
       <div className="ou-formfield">
         <Switch
           label="Скрывать задание при уходе из окна"
-          description="Если ученик переключился на другую вкладку, задание закрывается заглушкой и открывается снова само, как только окно активно. Таймер и ответы не затрагиваются."
           checked={model.runtime.protectionHideOnBlur}
           onChange={(e) => {
             const checked = e.target.checked;
@@ -1340,7 +1327,7 @@ const DECISION_POLICIES: { value: PassDecisionPolicy; label: string }[] = [
   { value: "overall_only", label: "достигнут общий проходной порог теста" },
   {
     value: "overall_and_required_topics",
-    label: "достигнут общий проходной порог и пройдены все обязательные темы",
+    label: "достигнут порог и пройдены все обязательные темы",
   },
   { value: "required_topics_only", label: "пройдены все обязательные темы" },
   { value: "all_topics_passed", label: "пройдена каждая выбранная тема" },
@@ -1406,11 +1393,7 @@ export function VerdictPane({
                 <NumberInput
                   id="pass-overall-value"
                   size="m"
-                  label={
-                    model.passRules.overall.type === "percent"
-                      ? "Порог (%)"
-                      : "Порог (баллы)"
-                  }
+                  label="Порог"
                   value={model.passRules.overall.value}
                   min={0}
                   max={model.passRules.overall.type === "percent" ? 100 : undefined}
@@ -2003,9 +1986,15 @@ function AdaptiveTopicAccordion(props: {
   // красит её серым `--off`. Зелёным остаётся только включённая с готовой лестницей.
   const statusTone: "ok" | "warn" | "off" =
     !topic.enabled ? "off" : levelCount >= 2 ? "ok" : "warn";
-  const levelsPlural =
-    levelCount === 1 ? "уровень" : levelCount >= 2 && levelCount <= 4 ? "уровня" : "уровней";
-  const subtitle = `${questionCount} вопросов · ${levelCount} ${levelsPlural}`;
+  // Число склоняется общим правилом языка, а не тремя ветками на месте: «21 вопрос»
+  // и «11 вопросов» отличаются, и ручная ветка это упускала.
+  const subtitle =
+    `${questionCount} ${pluralize(questionCount, "вопрос", "вопроса", "вопросов")} · ` +
+    // Отсутствие лестницы — не «0 уровней»: ноль читается как значение настройки, а
+    // уровней у темы просто нет.
+    (levelCount === 0
+      ? "уровней нет"
+      : `${levelCount} ${pluralize(levelCount, "уровень", "уровня", "уровней")}`);
   const levelHint =
     topic.enabled && levelCount === 0
       ? "Добавьте уровни сложности"
@@ -2078,10 +2067,11 @@ function AdaptiveTopicAccordion(props: {
                 <Button
                   variant="secondary"
                   size="s"
+                  leadingIcon={<Plus size={16} aria-hidden="true" />}
                   onClick={props.onAddLevel}
                   data-testid={`adaptive-add-level-${topic.topicId}`}
                 >
-                  + Добавить уровень
+                  Добавить уровень
                 </Button>
               </div>
             </div>
@@ -2167,7 +2157,7 @@ function AdaptiveLevelCard(props: {
               disabled={!props.canRemove}
               aria-label={
                 props.canRemove
-                  ? `Удалить уровень ${level.levelName}`
+                  ? `Удалить уровень «${level.levelName}»`
                   : "Нельзя удалить единственный уровень"
               }
               title={props.canRemove ? undefined : "Должен оставаться хотя бы один уровень"}
