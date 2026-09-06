@@ -993,7 +993,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-27",
@@ -1068,7 +1068,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-32",
@@ -1367,7 +1367,7 @@
     "files": [
       "variants-editor.tsx"
     ],
-    "batch": "actions",
+    "batch": "ds",
     "status": "open"
   },
   {
@@ -1658,7 +1658,7 @@
       "scoring-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-3",
@@ -1673,7 +1673,7 @@
       "scoring-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-4",
@@ -2095,7 +2095,7 @@
       "scales-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-32",
@@ -2336,7 +2336,7 @@
       "outcomes-editor.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-48",
@@ -2713,7 +2713,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-15",

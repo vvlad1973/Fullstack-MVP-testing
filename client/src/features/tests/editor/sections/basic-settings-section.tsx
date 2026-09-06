@@ -1999,8 +1999,10 @@ function AdaptiveTopicAccordion(props: {
   // Warning only applies to enabled topics: disabled topics are excluded from
   // the adaptive test logic so missing levels are not a problem there.
   const levelCount = topic.levels.length;
-  const statusTone: "ok" | "warn" =
-    !topic.enabled || levelCount >= 2 ? "ok" : "warn";
+  // Три состояния, а не два: выключенная тема НЕ «в порядке», она вне игры, и эскиз
+  // красит её серым `--off`. Зелёным остаётся только включённая с готовой лестницей.
+  const statusTone: "ok" | "warn" | "off" =
+    !topic.enabled ? "off" : levelCount >= 2 ? "ok" : "warn";
   const levelsPlural =
     levelCount === 1 ? "уровень" : levelCount >= 2 && levelCount <= 4 ? "уровня" : "уровней";
   const subtitle = `${questionCount} вопросов · ${levelCount} ${levelsPlural}`;
@@ -2023,9 +2025,11 @@ function AdaptiveTopicAccordion(props: {
         aria-expanded={open}
         data-testid={`adaptive-topic-toggle-${topic.topicId}`}
       >
+        {/* Точка несёт смысл, поэтому она подписана, а не спрятана от скринридера
+            (NFR-21): цвет — единственный носитель состояния, и без подписи его нет. */}
         <span
           className={`tb-status-dot tb-status-dot--${statusTone}`}
-          aria-hidden="true"
+          aria-label="Состояние темы"
         />
         <span className="ou-acc__trigger-text">
           <span className="ou-acc__title">{topic.topicName}</span>

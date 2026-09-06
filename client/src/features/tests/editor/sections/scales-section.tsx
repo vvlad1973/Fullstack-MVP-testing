@@ -1538,6 +1538,7 @@ function QuestionContribCard({
             <div className="tb-contrib-grid-wrap">
               <table
                 className="tb-table tb-table--mb tb-contrib-grid"
+                aria-label="Вклады вариантов ответа в шкалы"
                 style={{ "--tb-contrib-cols": scales.length } as CSSProperties}
                 data-testid={`contrib-grid-${index}`}
               >

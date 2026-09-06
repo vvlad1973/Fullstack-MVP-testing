@@ -977,8 +977,9 @@ function TopicPickerModal(props: {
       <Input
         size="m"
         fullWidth
+        label="Поиск темы"
         placeholder="Поиск по названию..."
-        aria-label="Поиск темы"
+        iconRight={<Search size={16} aria-hidden="true" />}
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         autoFocus

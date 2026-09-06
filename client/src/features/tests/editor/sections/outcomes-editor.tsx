@@ -87,7 +87,11 @@ export function OutcomesEditor({
 
   return (
     <>
-      <table className="tb-table tb-table--mb tb-bands-table" data-testid={`metrics-outcomes-${index}`}>
+      <table
+        className="tb-table tb-table--mb tb-bands-table"
+        aria-label="Исходы показателя"
+        data-testid={`metrics-outcomes-${index}`}
+      >
         <colgroup>
           <col />
           <col />
@@ -99,7 +103,7 @@ export function OutcomesEditor({
             <th>Код</th>
             <th>Метка</th>
             <th>Оценка</th>
-            <th><span className="sr-only">Действия</span></th>
+            <th>Действия</th>
           </tr>
         </thead>
         <tbody>
