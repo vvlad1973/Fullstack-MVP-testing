@@ -20,8 +20,10 @@ import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 export type ResultVariableFormulaValidation = {
   valid: boolean;
   returnType?: "number" | "string" | "boolean";
-  errors: Array<{ message: string; position?: number }>;
-  warnings: Array<{ message: string; position?: number }>;
+  // `code` — устойчивый идентификатор находки из `shared/formula/types`. Сервер слал его
+  // всегда; здесь он не был объявлен, и отличать сообщения приходилось бы по ТЕКСТУ.
+  errors: Array<{ code?: string; message: string; position?: number }>;
+  warnings: Array<{ code?: string; message: string; position?: number }>;
 };
 
 /** One outcome as persisted in `config_json.outcomes` (mirror of `InterpretationOutcome`). */

@@ -437,7 +437,6 @@ type FormProps = {
 };
 
 function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fieldErrors, onChange }: FormProps) {
-  const validation = useFormulaValidation(testId, v, index);
   // New (empty) variables open in the constructor; existing ones open in DSL so
   // the real stored formula is shown verbatim (the builder does not round-trip).
   //
@@ -448,6 +447,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
   const [formulaMode, setFormulaMode] = useState<"builder" | "dsl">(
     v.formula.trim() === "" || readScaleGroup(v.formula) ? "builder" : "dsl",
   );
+  const validation = useFormulaValidation(testId, v, index, formulaMode === "builder");
 
   // In DSL mode the validator's inferred return type becomes the variable type —
   // there is no manual «Тип» field. The builder sets the type per template.
@@ -1492,10 +1492,23 @@ type FormulaBanner = { tone: "success" | "error" | "info"; text: string };
  * only checked server-side on the first save. Returns the raw validation result
  * too, so the form can adopt the inferred return type in DSL mode.
  */
+/**
+ * Памятки, адресованные тому, кто пишет ИСТОЧНИК руками (PRD-53 FR-27).
+ *
+ * Валидатор формулы видит только строку и потому вместо проверки печатает правило:
+ * «коды исходов должны быть наборами ключей шкал». В конструкторе коды заводит
+ * генератор матрицы, автор их не набирает — и памятка там не подсказка, а шум,
+ * который вдобавок навсегда занимает единственную строку баннера и не даёт автору
+ * профиля увидеть подтверждение «синтаксис корректен». В режиме DSL она остаётся.
+ */
+const BUILDER_SILENCED_CODES = new Set(["scale-group-code"]);
+
 function useFormulaValidation(
   testId: string | undefined,
   v: ResultVariableModel,
   index: number,
+  /** Открыт конструктор (а не DSL): часть памяток адресована не этому автору. */
+  inBuilder: boolean,
 ): { banner: FormulaBanner | null; result: ResultVariableFormulaValidation | null } {
   const [banner, setBanner] = useState<FormulaBanner | null>(null);
   const [result, setResult] = useState<ResultVariableFormulaValidation | null>(null);
@@ -1515,7 +1528,10 @@ function useFormulaValidation(
         sortOrder: index,
         excludeId: v.id,
       })
-        .then((res) => {
+        .then((raw) => {
+          const res = inBuilder
+            ? { ...raw, warnings: raw.warnings.filter((w) => !BUILDER_SILENCED_CODES.has(w.code ?? "")) }
+            : raw;
           setResult(res);
           setBanner(toBanner(res, v.type));
         })
@@ -1527,7 +1543,7 @@ function useFormulaValidation(
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [testId, v.formula, v.type, v.id, index]);
+  }, [testId, v.formula, v.type, v.id, index, inBuilder]);
 
   return { banner, result };
 }

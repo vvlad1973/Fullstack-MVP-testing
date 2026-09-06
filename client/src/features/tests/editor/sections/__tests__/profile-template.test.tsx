@@ -8,9 +8,9 @@
  * Источник разметки — docs/wireframes/approved/prd53-profile-indicator.html.
  */
 
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { useState } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 
 import { ResultVariablesSection } from "../result-variables-section";
 import { emptyEditorModel } from "../../test-editor.mappers";
@@ -251,5 +251,58 @@ describe("пустое описание шкалы (PRD-53 §5.3.2)", () => {
       withDesc({ restScales: { show: true, label: "", keys: ["cel", "vdo", "kom", "pro"] } }, ["cel", "vdo", "kom", "pro"]),
     );
     expect(screen.queryByTestId("metrics-profile-bare-rest-0")).toBeNull();
+  });
+});
+
+// ─── Памятка про коды исходов (PRD-53 FR-27) ─────────────────────────────────
+//
+// Валидатор формулы видит только строку источника и потому вместо проверки печатает
+// правило. В конструкторе коды заводит генератор, и памятка там навсегда занимает
+// единственную строку баннера, не давая автору увидеть «синтаксис корректен».
+
+describe("памятка scale-group-code (PRD-53 FR-27)", () => {
+  const validation = (warnings: Array<{ code?: string; message: string }>) => ({
+    valid: true,
+    returnType: "string" as const,
+    errors: [],
+    warnings,
+  });
+
+  const renderWithValidation = async (mode: "builder" | "dsl") => {
+    const fetchMock = vi.fn(async () =>
+      ({
+        ok: true,
+        json: async () =>
+          validation([
+            { code: "scale-group-code", message: "Коды исходов должны быть наборами ключей шкал через «+»" },
+          ]),
+      }) as unknown as Response,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const initial = model();
+    // Показатель с ПУСТОЙ формулой открывается в конструкторе, с непустой не-профильной — в DSL.
+    if (mode === "dsl") initial.resultVariables[0].formula = 'IF(percent >= 70, "a", "b")';
+    render(<ResultVariablesSection model={initial} testId="t1" updateModel={() => {}} />);
+    fireEvent.click(screen.getByLabelText("Развернуть показатель"));
+    await act(async () => {
+      vi.advanceTimersByTime(600);
+      await Promise.resolve();
+    });
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("в конструкторе памятки нет", async () => {
+    await renderWithValidation("builder");
+    expect(screen.queryByText(/Коды исходов должны быть наборами/)).toBeNull();
+  });
+
+  it("в режиме DSL памятка остаётся", async () => {
+    await renderWithValidation("dsl");
+    expect(screen.getByText(/Коды исходов должны быть наборами/)).toBeInTheDocument();
   });
 });
