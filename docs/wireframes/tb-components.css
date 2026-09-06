@@ -442,8 +442,11 @@
 .tb-feedback-preview__rich p:last-child { margin-bottom: 0; }
 .tb-feedback-preview__rich ul,
 .tb-feedback-preview__rich ol { margin: 0; padding-left: 1.25em; }
+/* Pencil on the EMPTY placeholder. There the whole card is the button, so this
+   is a decorative icon, not a control — it only has to sit where the real
+   pencil button sits on a filled card, so the two states read alike. */
 .tb-feedback-preview__edit-hint {
-  display: flex; justify-content: flex-end; margin-top: var(--ou-space-1);
+  display: inline-flex; align-items: center; flex-shrink: 0;
   color: var(--ou-fg-muted);
 }
 /* TD-02: head row (snippet/rich text + pencil edit button) */
@@ -561,6 +564,9 @@
 .tb-rte__area em { font-style: italic; }
 .tb-rte__area a { color: var(--ou-accent-default); text-decoration: underline; }
 .tb-rte__area ul, .tb-rte__area ol { margin: 0 0 var(--ou-space-2); padding-left: var(--ou-space-5); }
+
+/* Общий примитив: глобальные «Свернуть все / Развернуть все» над списком. */
+.tb-fold-actions { margin-left: auto; display: inline-flex; gap: var(--ou-space-2); }
 
 /* ── Saving overlay (наложение со спиннером поверх Drawer body) ─────────
    Используется во время атомарного сохранения теста (PUT /api/tests/:id).

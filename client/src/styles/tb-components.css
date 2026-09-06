@@ -926,8 +926,11 @@
 .tb-feedback-preview__rich ul ul { list-style-type: circle; }
 .tb-feedback-preview__rich ul ul ul { list-style-type: square; }
 .tb-feedback-preview__rich ol { list-style: decimal outside; }
+/* Pencil on the EMPTY placeholder. There the whole card is the button, so this
+   is a decorative icon, not a control — it only has to sit where the real
+   pencil button sits on a filled card, so the two states read alike. */
 .tb-feedback-preview__edit-hint {
-  display: flex; justify-content: flex-end; margin-top: var(--ou-space-1);
+  display: inline-flex; align-items: center; flex-shrink: 0;
   color: var(--ou-fg-muted);
 }
 /* TD-02: head row (snippet/rich text + pencil edit button) */
