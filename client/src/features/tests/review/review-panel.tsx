@@ -12,7 +12,9 @@
  * «учтено» означает обещание правки, а правит автор.
  */
 import { useState } from "react";
-import { Banner, Button, Card, Cluster, EmptyState, Stack, Switch, Tag, Text, Textarea } from "@universityrt/ui-kit";
+import {
+  Banner, Button, Card, Cluster, EmptyState, SegmentedControl, Stack, Switch, Tag, Text, Textarea,
+} from "@universityrt/ui-kit";
 import { ArrowRight, MessageSquarePlus } from "lucide-react";
 import { useReviewComments } from "./use-review-comments";
 import { ReviewCommentForm } from "./review-comment-form";
@@ -200,22 +202,23 @@ export function ReviewPanel({
 
                 {resolving?.id === thread.id ? (
                   <Stack gap={2} className="rvp__resolve">
-                    <Cluster gap={2} align="center">
-                      <Button
-                        variant={resolving.status === "accepted" ? "primary" : "secondary"}
+                    {/* Исход — выбор ОДНОГО из двух, а не две команды: эскиз ставит здесь
+                        переключатель с подписью поля. Двумя кнопками выбранный исход
+                        читался как «нажми обе». */}
+                    <div className="ou-formfield">
+                      <span className="ou-formfield__lbl">Исход</span>
+                      <SegmentedControl<"accepted" | "rejected">
                         size="s"
-                        onClick={() => setResolving({ id: thread.id, status: "accepted" })}
-                      >
-                        Учтено
-                      </Button>
-                      <Button
-                        variant={resolving.status === "rejected" ? "primary" : "secondary"}
-                        size="s"
-                        onClick={() => setResolving({ id: thread.id, status: "rejected" })}
-                      >
-                        Отклонено
-                      </Button>
-                    </Cluster>
+                        variant="accent"
+                        aria-label="Исход комментария"
+                        value={resolving.status}
+                        items={[
+                          { value: "accepted", label: "Учтено" },
+                          { value: "rejected", label: "Отклонено" },
+                        ]}
+                        onChange={(status) => setResolving({ id: thread.id, status })}
+                      />
+                    </div>
                     {resolving.status === "rejected" ? (
                       <Textarea
                         label="Ответ автора"

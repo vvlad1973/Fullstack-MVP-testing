@@ -347,6 +347,12 @@
    keeps its full-width auto layout. The answer-text column is widened and pinned;
    the scale-value columns are narrowed; the table scrolls horizontally inside the
    card body when the scale columns overflow the drawer width. */
+/* Таблица весов опций в модалке оценки вопроса. Колонка балла узкая и постоянной
+   ширины: иначе поле растягивается на половину модалки и текст варианта прижимается
+   к левому краю. 120px — ширина из эскиза (`--wf-w-rhs`). */
+.tb-weights td:last-child,
+.tb-weights th:last-child { width: 120px; }
+
 .tb-contrib-grid-wrap { overflow-x: auto; }
 /* table-layout: fixed + an EXPLICIT table width = the exact column sum. With
    width:auto the table grows to max-content (the inputs' ~20ch intrinsic size)

@@ -2109,7 +2109,7 @@
     "files": [
       "scales-section.tsx"
     ],
-    "batch": "components",
+    "batch": "owner",
     "status": "open"
   },
   {
@@ -2185,7 +2185,7 @@
       "scoring-builder.tsx"
     ],
     "batch": "components",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-38",
@@ -2900,7 +2900,7 @@
     "files": [
       "report-settings-card.tsx"
     ],
-    "batch": "components",
+    "batch": "owner",
     "status": "open"
   },
   {
@@ -3406,7 +3406,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "components",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-23",
@@ -3576,6 +3576,6 @@
       "levels-editor.tsx"
     ],
     "batch": "components",
-    "status": "open"
+    "status": "withdrawn"
   }
 ]

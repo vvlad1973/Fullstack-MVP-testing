@@ -1891,7 +1891,9 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
           data-testid="adaptive-no-topics"
         />
       ) : (
-        <div className="tb-adaptive-topics" data-testid="adaptive-topics-list">
+        // Корневые классы аккордеона обязательны: разделительный вид `--separated` живёт
+        // на корне, а без него `ou-acc__item` внутри остаются без рамок и отступов.
+        <div className="ou-acc ou-acc--separated tb-adaptive-topics" data-testid="adaptive-topics-list">
           {model.sections.every((section) => {
             const topic = model.adaptive.topics.find((t) => t.topicId === section.topicId);
             return !topic || !topic.enabled;

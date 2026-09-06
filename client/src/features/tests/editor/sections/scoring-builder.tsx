@@ -167,24 +167,40 @@ export function ScoringBuilder({
       {/* weighted (single) — option weights. */}
       {mode === "weighted" && isSingleIndexChoice(type) && (
         <Stack gap={2} data-testid="scoring-weights">
-          <Grid template="label-control" gap={2} style={{ fontSize: "12px", fontWeight: 500, color: "var(--ou-fg-muted)" }}>
-            <div>Вариант ответа</div>
-            <div>Балл</div>
-          </Grid>
-          {options.map((opt, i) => (
-            <Grid key={i} template="label-control" gap={2}>
-              <div>{opt.trim() || `Вариант ${i + 1}`}</div>
-              <Input
-                type="number"
-                min={0}
-                fullWidth
-                value={weights[i] ?? ""}
-                onChange={(e) => setWeight(i, e.target.value)}
-                placeholder="0"
-                data-testid={`scoring-weight-${i}`}
-              />
-            </Grid>
-          ))}
+          {/* Эскиз рисует здесь таблицу: две колонки со своими заголовками — это перечень
+              строк с одинаковым устройством, а не пара «подпись — поле». Прежняя сетка
+              подписывала колонки инлайновым шрифтом мимо типографики ДС. */}
+          <table className="tb-table tb-weights">
+            <thead>
+              <tr>
+                <th>Вариант ответа</th>
+                <th>Балл</th>
+              </tr>
+            </thead>
+            <tbody>
+              {options.map((opt, i) => {
+                const label = opt.trim() || `Вариант ${i + 1}`;
+                return (
+                  <tr key={i}>
+                    <td>{label}</td>
+                    <td>
+                      <Input
+                        size="s"
+                        type="number"
+                        min={0}
+                        fullWidth
+                        value={weights[i] ?? ""}
+                        onChange={(e) => setWeight(i, e.target.value)}
+                        placeholder="0"
+                        aria-label={`Балл варианта «${label}»`}
+                        data-testid={`scoring-weight-${i}`}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           <Text as="p" variant="body-s" tone="muted">Балл = вес выбранного варианта; sMax = наибольший вес.</Text>
         </Stack>
       )}
