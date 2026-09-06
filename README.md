@@ -908,7 +908,7 @@ PostgreSQL + Drizzle ORM, **32 таблицы**. Схема и Zod-типы -- �
 | `tests.pass_decision_policy` | -- | «Тест пройден, если»: как общий порог и правила тем дают вердикт (drizzle `0016`/`0017`) |
 | `users.is_external`, `users.password_hash` (nullable) | PRD-28 | Внешний участник: учётка без пароля, вход только по ссылке (drizzle `0018`) |
 | `tests.breakdown_display_json` | PRD-50 | Показ разреза: видимость, база (вопросы/баллы), место (карточки/сводный блок/оба) (drizzle `0019`) |
-| `test_sections.breakdown_rules_json` | PRD-50 | Пороги по ключам разреза — второй, независимый от квот гейт темы (drizzle `0020`) |
+| `tests.breakdown_gate_enabled` | PRD-50 | Учитывать подтемы в вердикте темы: порог подтемы производный от порога её темы, отдельных порогов нет. Колонка `test_sections.breakdown_rules_json` (drizzle `0020`) снята той же миграцией (drizzle `0028`) |
 | `tests.section_groups_json`, `test_sections.group_key` | PRD-50 | Названные блоки разделов на экране итогов и принадлежность темы блоку (drizzle `0021`) |
 | `tests.lms_attempt_result` | PRD-36 | Что пакет отдаёт в LMS при нескольких попытках: `best` / `last` (drizzle `0022`/`0023`) |
 | `report_blocks` | PRD-51 | Документ отчёта: упорядоченные блоки по ветви на режим теста (обычный / адаптивный); отсутствие строк = документ шаблона по умолчанию (drizzle `0024`) |
