@@ -50,6 +50,7 @@ import { collectStringLiterals, findUnknownOutcomes, readScaleGroup } from "@sha
 import { parseGroupThreshold } from "@shared/formula/scale-group";
 import { outcomeMatchKey } from "@shared/scales/interpretation";
 import { profileMatrix, type ProfileMatrixRow } from "../profile-matrix";
+import { PROFILE_THRESHOLD_MESSAGE, profileFindings, profileSetCountHint } from "../profile-diagnostics";
 
 import type { LearnerVisibility, Valence } from "@shared/scales/interpretation";
 
@@ -183,6 +184,7 @@ export function ResultVariablesSection({
         key: s.key,
         label: s.label,
         description: s.description,
+        normalization: s.normalization,
         levels: Array.from(
           new Set(s.bands.map((b) => b.level.trim()).filter((l) => l !== "")),
         ),
@@ -602,13 +604,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           INTERVAL (the same editor the scales tab uses); a string or boolean one has
           no intervals — the formula returns a CODE, so the author enumerates them. */}
       {profile && (
-        <ProfileDiagnostics
-          group={profile}
-          scales={scales}
-          outcomes={v.outcomes}
-          restShown={v.restScales?.show === true}
-          index={index}
-        />
+        <ProfileDiagnostics variable={v} scales={scales} index={index} />
       )}
       <div className="tb-section-label">Толкование результата</div>
       {profile && !readOnly && (
@@ -863,6 +859,17 @@ function FormulaBuilder({
     onChange({ formula: generated, type, ...(type !== "boolean" ? { controlsStatus: "none" as const } : {}) });
   }, [generated, template, readOnly, onChange, v.formula]);
 
+  // Ошибки по ТЕКУЩЕМУ состоянию формы: тот же расчёт, что кладёт находки в общий контур,
+  // но спрошенный о ещё не записанной формуле — иначе сообщение отставало бы на такт.
+  const formErrors = useMemo(() => {
+    const map = new Map<string, string>();
+    if (template !== "profile") return map;
+    for (const f of profileFindings({ ...v, formula: generated }, scales)) {
+      if (f.severity === "error" && !map.has(f.code)) map.set(f.code, f.message);
+    }
+    return map;
+  }, [template, v, generated, scales]);
+
   const scaleOpts = scales.map((s) => ({ value: s.key, label: s.label || s.key }));
   const noScales = scaleOpts.length === 0;
 
@@ -1062,6 +1069,7 @@ function FormulaBuilder({
       {template === "profile" && (
         <ProfileTemplateFields
           scales={scales}
+          errors={formErrors}
           keys={pKeys}
           threshold={pThreshold}
           unit={pUnit}
@@ -1156,83 +1164,39 @@ function addMissingOutcomes(existing: OutcomeModel[], rows: ProfileMatrixRow[]):
 /**
  * Находки формы: то, чего валидатор формулы увидеть не может (PRD-53 §5.3.2).
  *
- * Все три говорят об одном и том же провале — участник получит карточку без текста, —
- * но ловятся по разным данным, поэтому и печатаются раздельно. Порядок: предупреждения,
- * затем подсказка, как задано в §5.3.4.
+ * Расчёт НЕ здесь: он один на всех в `profile-diagnostics` и оттуда же попадает в общий
+ * контур индикации через `validateTestEditor` — точка на вкладке, сводный баннер, переход
+ * по якорю (`docs/architecture/test-editor-contracts.md`). Секция только печатает то же
+ * самое у карточки: контракт требует пометки у самого элемента, а карточка может быть
+ * ниже сгиба, и один баннер вверху формы автора до неё не доведёт.
  */
 function ProfileDiagnostics({
-  group,
+  variable,
   scales,
-  outcomes,
-  restShown,
   index,
 }: {
-  group: { keys: string[]; threshold: number | string };
+  variable: ResultVariableModel;
   scales: ScaleRef[];
-  outcomes: OutcomeModel[];
-  /** Блок «вне профиля» включён — тогда пустые описания шкал станут видны участнику. */
-  restShown: boolean;
   index: number;
 }) {
-  const uncovered = useMemo(() => {
-    if (group.keys.length < 2) return [];
-    const rows = profileMatrix(group.keys, scales);
-    if (rows.length === 0) return [];
-    // Подавляется на пустом перечне — как и у соседнего unknownOutcomeCodes: автор ещё
-    // не начал заполнять, и упрекать его пока не в чем.
-    const declared = outcomes.map((o) => o.code.trim()).filter((c) => c !== "");
-    if (declared.length === 0) return [];
-    const known = new Set(declared.map(outcomeMatchKey));
-    return rows
-      .map((r) => r.code)
-      .filter((code) => !known.has(outcomeMatchKey(code)) && !known.has(`count:${code.split("+").length}`));
-  }, [group.keys, scales, outcomes]);
-
-  const total = group.keys.length >= 2 ? 2 ** group.keys.length - 1 : 0;
-
-  // Блок «вне профиля» берёт текст из описания САМОЙ шкалы; без описания он печатает
-  // одно название. Проверять есть смысл только когда блок включён — иначе описание
-  // участнику вообще не показывается.
-  const bare = useMemo(
-    () =>
-      !restShown
-        ? []
-        : group.keys
-            .map((key) => scales.find((s) => s.key === key))
-            .filter((s): s is ScaleRef => !!s && s.description.trim() === "")
-            .map((s) => s.label || s.key),
-    [restShown, group.keys, scales],
-  );
+  const findings = useMemo(() => profileFindings(variable, scales), [variable, scales]);
+  const hint = useMemo(() => profileSetCountHint(variable), [variable]);
 
   return (
     <>
-      {uncovered.length > 0 && (
-        <Banner
-          tone="warning"
-          size="sm"
-          title="Не для всех наборов есть текст"
-          description={`Ни точного исхода, ни запасного по размеру набора нет для: ${uncovered.slice(0, 5).join(", ")}${
-            uncovered.length > 5 ? ` и ещё ${uncovered.length - 5}` : ""
-          }. Участник с таким результатом увидит карточку без толкования.`}
-          data-testid={`metrics-profile-uncovered-${index}`}
-        />
-      )}
-      {bare.length > 0 && (
-        <Banner
-          tone="warning"
-          size="sm"
-          title="Блок «вне профиля» напечатает голые названия"
-          description={`Пустое описание у ${bare.length === 1 ? "шкалы" : "шкал"}: ${bare.join(", ")}. Блок собирает текст из описаний шкал — заполните их на вкладке «Шкалы».`}
-          data-testid={`metrics-profile-bare-${index}`}
-        />
-      )}
-      {group.keys.length >= 5 && (
-        <Banner
-          tone="warning"
-          size="sm"
-          description={`${group.keys.length} шкал дают ${total} наборов — столько текстов пишут редко. Можно обойтись заготовками по размеру набора: ${group.keys.length} текстов вместо ${total}.`}
-          data-testid={`metrics-profile-many-${index}`}
-        />
+      {findings
+        .filter((f) => f.severity === "warning")
+        .map((f) => (
+          <Banner
+            key={f.code}
+            tone="warning"
+            size="sm"
+            description={f.message}
+            data-testid={`metrics-${f.code.replace(/_/g, "-")}-${index}`}
+          />
+        ))}
+      {hint && (
+        <Banner tone="warning" size="sm" description={hint} data-testid={`metrics-profile-many-${index}`} />
       )}
     </>
   );
@@ -1262,6 +1226,7 @@ function ProfileTemplateFields({
   keys,
   threshold,
   unit,
+  errors,
   readOnly,
   onKeys,
   onThreshold,
@@ -1271,6 +1236,8 @@ function ProfileTemplateFields({
   keys: string[];
   threshold: string;
   unit: "abs" | "pct";
+  /** Сообщения общего расчёта по ТЕКУЩЕМУ состоянию формы, по коду находки. */
+  errors: Map<string, string>;
   readOnly: boolean;
   onKeys: (keys: string[]) => void;
   onThreshold: (value: string) => void;
@@ -1281,6 +1248,14 @@ function ProfileTemplateFields({
     () => keys.filter((k) => !scales.some((s) => s.key === k)),
     [keys, scales],
   );
+  // Порог проверяется по НАБРАННОМУ значению, а не по формуле: отрицательное число
+  // делает формулу неразбираемой, и находка по модели до автора не доходит вовсе.
+  // Правило при этом одно — тот же parseGroupThreshold и тот же текст.
+  const thresholdError =
+    parseGroupThreshold(unit === "pct" ? `${threshold}%` : Number(threshold)) === null
+      ? PROFILE_THRESHOLD_MESSAGE
+      : undefined;
+
   const toggle = useCallback(
     (key: string, on: boolean) => {
       const next = new Set(selected);
@@ -1292,10 +1267,6 @@ function ProfileTemplateFields({
     [selected, scales, onKeys],
   );
 
-  const thresholdError =
-    parseGroupThreshold(unit === "pct" ? `${threshold}%` : Number(threshold)) === null
-      ? "Порог верхней зоны — неотрицательное число"
-      : undefined;
 
   return (
     <>
@@ -1342,9 +1313,9 @@ function ProfileTemplateFields({
             ))}
           </div>
         )}
-        {keys.length < 2 && (
+        {errors.get("profile_group_small") && (
           <div className="ou-formfield__msg ou-formfield__msg--error" data-testid="metrics-profile-group-error">
-            В группе профиля нужны хотя бы две шкалы
+            {errors.get("profile_group_small")}
           </div>
         )}
       </div>

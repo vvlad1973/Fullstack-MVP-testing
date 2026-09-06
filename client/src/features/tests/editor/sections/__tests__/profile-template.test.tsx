@@ -213,7 +213,7 @@ describe("форма шаблона (PRD-53 §5.1)", () => {
   it("отрицательный порог помечается ошибкой у поля", () => {
     renderExpanded(model());
     fireEvent.change(screen.getByTestId("metrics-profile-threshold"), { target: { value: "-1" } });
-    expect(screen.getByText("Порог верхней зоны — неотрицательное число")).toBeInTheDocument();
+    expect(screen.getByText(/Порог верхней зоны — неотрицательное число/)).toBeInTheDocument();
   });
 
   it("правка группы переписывает формулу в авторском порядке шкал", () => {
@@ -236,12 +236,12 @@ describe("пустое описание шкалы (PRD-53 §5.3.2)", () => {
   // не показывается вовсе, и упрекать автора не в чем.
   it("молчит, пока блок «вне профиля» выключен", () => {
     renderExpanded(withDesc({}, []));
-    expect(screen.queryByTestId("metrics-profile-bare-0")).toBeNull();
+    expect(screen.queryByTestId("metrics-profile-bare-rest-0")).toBeNull();
   });
 
   it("при включённом блоке называет шкалы без описания", () => {
     renderExpanded(withDesc({ restScales: { show: true, label: "", keys: ["cel", "vdo", "kom", "pro"] } }, ["cel", "vdo"]));
-    const banner = screen.getByTestId("metrics-profile-bare-0");
+    const banner = screen.getByTestId("metrics-profile-bare-rest-0");
     expect(banner).toHaveTextContent("KOM, PRO");
     expect(banner).not.toHaveTextContent("CEL");
   });
@@ -250,6 +250,6 @@ describe("пустое описание шкалы (PRD-53 §5.3.2)", () => {
     renderExpanded(
       withDesc({ restScales: { show: true, label: "", keys: ["cel", "vdo", "kom", "pro"] } }, ["cel", "vdo", "kom", "pro"]),
     );
-    expect(screen.queryByTestId("metrics-profile-bare-0")).toBeNull();
+    expect(screen.queryByTestId("metrics-profile-bare-rest-0")).toBeNull();
   });
 });

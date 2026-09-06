@@ -23,6 +23,7 @@ import {
   type ValidationResult,
 } from "./test-editor.types";
 import { parseAuthorNumber } from "./numeric-input";
+import { profileFindings } from "./profile-diagnostics";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
 import { normalizeTag, TAG_MAX_LENGTH } from "@shared/tags";
 
@@ -524,6 +525,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
 
   validateResultVariables(model, errors);
   validateScales(model, errors);
+  validateProfileIndicators(model, errors, warnings);
 
   return { errors, warnings };
 }
@@ -541,6 +543,38 @@ const RESULT_VAR_NAME_RE = /^[a-z][a-z0-9_]{0,63}$/;
  * its interpretation bands, through the same {@link validateInterpretationBands}
  * the scales tab uses.
  */
+/**
+ * PRD-53: находки показателя-профиля попадают в ОБЩИЙ контур индикации.
+ *
+ * Правило владельца (`docs/architecture/test-editor-contracts.md`, «Индикация проблем»):
+ * проблема, о которой автору говорят, обязана быть здесь. Секция, считающая себя сама,
+ * делает индикацию лживой — точка на вкладке не загорается, сводный баннер молчит,
+ * «Перейти к ошибкам» вести некуда, а сохранение всё равно падает на серверной `422`,
+ * и автор со свёрнутой карточкой узнаёт о проблеме только после «Сохранить».
+ *
+ * Якорь грубый — путь КАРТОЧКИ, без поля: находки зависят не от одного контрола, а от
+ * сочетания формулы, перечня исходов и шкал теста. Так уже сделано для FR-12
+ * (`field: "sections"`); `FieldErrorIndex.has()` матчит потомков, поэтому подсветка
+ * карточки работает, а `tabOfField` уводит `resultVariables*` в «Оценку результата».
+ */
+function validateProfileIndicators(
+  model: TestEditorModel,
+  errors: ValidationIssue[],
+  warnings: ValidationIssue[],
+): void {
+  (model.resultVariables ?? []).forEach((v, i) => {
+    for (const finding of profileFindings(v, model.scales ?? [])) {
+      const issue: ValidationIssue = {
+        field: `resultVariables[${i}]`,
+        code: finding.code,
+        message: finding.message,
+        severity: finding.severity,
+      };
+      (finding.severity === "error" ? errors : warnings).push(issue);
+    }
+  });
+}
+
 function validateResultVariables(
   model: TestEditorModel,
   errors: ValidationIssue[],
