@@ -554,6 +554,13 @@ export const SETTING_PARAMS: SettingParam[] = [
   // Первым — то, что решает СМЫСЛ пройденного теста: общее правило ниже лишь одна из его
   // составляющих, и книга, назвавшая порог без политики, читалась бы как полный ответ.
   enumParam("Тест пройден, если", DECISION_POLICY_LABELS, (s) => s.passDecisionPolicy, "test", "passDecisionPolicy"),
+  // PRD-50 §16 (FR-53): гейт подтем стоит сразу за смыслом вердикта — он его уточняет.
+  boolParam(
+    "Учитывать подтемы в вердикте темы",
+    (s) => s.breakdownGateEnabled,
+    "test",
+    "breakdownGateEnabled",
+  ),
   enumParam("Тип общего правила", OVERALL_TYPE_LABELS, (s) => branch(s.overallPassRuleJson).type, "overall", "type"),
   intParam("Порог", (s) => branch(s.overallPassRuleJson).value, "overall", "value"),
   enumParam(

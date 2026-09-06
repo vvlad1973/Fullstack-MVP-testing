@@ -168,39 +168,34 @@ describe("1. apiToEditorModel — standard test with sections", () => {
     expect(payloads[0].topicPassRuleJson).toEqual({ source: "by_variant", byForm });
   });
 
-  // PRD-50 Э2, зафиксированный долг: явное «Не проверять» у ключа не переживало
-  // сохранения. Сегодня это незаметно — строка ключа без правила рисуется как «Не
-  // проверять», а движок считает отсутствие структуры информационным для всех ключей,
-  // — но как только у умолчания появится редактор, «отсутствует» станет значить
-  // «наследует умолчание», и потерянный `none` молча поменяет смысл гейта.
-  it("keeps an explicit «не проверять» on a key through the round-trip", () => {
-    const rules = { axis: "tag" as const, keys: { Коррупция: { type: "none" as const } } };
+  // PRD-50 §16 (FR-53): индивидуальных порогов подтем больше нет — есть ОДИН флаг теста,
+  // и он обязан пережить круг «ответ API → модель → payload». Живёт он в `passRules`:
+  // гейт уточняет вердикт ТЕМЫ и стоит рядом с «Тест пройден, если».
+  it("PRD-50 FR-53: гейт подтем читается и пишется", () => {
     const model = apiToEditorModel({
       id: "t",
       title: "T",
       mode: "standard",
       status: "draft",
       overallPassRuleJson: { type: "percent", value: 70 },
-      sections: [apiSection({ topicId: "topic-math", breakdownRulesJson: rules })],
+      breakdownGateEnabled: true,
     });
-    expect(model.sections[0].breakdownRules).toEqual(rules);
-
-    const payloads = mapEditorSectionsToPayload(model);
-    expect(payloads[0].breakdownRulesJson).toEqual(rules);
+    expect(model.passRules.breakdownGateEnabled).toBe(true);
+    expect(editorModelToPayload(model).breakdownGateEnabled).toBe(true);
   });
 
-  // Обратная сторона того же правила: пустая структура — это не выбор автора, а мусор,
-  // и писать её вместо `null` незачем.
-  it("still drops a breakdown structure that carries no decisions at all", () => {
+  // Тест, сохранённый до §16, судится ровно как судился: колонка `NOT NULL DEFAULT false`,
+  // а отсутствие поля в ответе — то же «выключено».
+  it("PRD-50 FR-53: отсутствие поля читается как выключено", () => {
     const model = apiToEditorModel({
       id: "t",
       title: "T",
       mode: "standard",
       status: "draft",
       overallPassRuleJson: { type: "percent", value: 70 },
-      sections: [apiSection({ topicId: "topic-math", breakdownRulesJson: { axis: "tag", keys: {} } })],
     });
-    expect(mapEditorSectionsToPayload(model)[0].breakdownRulesJson).toBeNull();
+    expect(model.passRules.breakdownGateEnabled).toBe(false);
+    expect(editorModelToPayload(model).breakdownGateEnabled).toBe(false);
   });
 
   it("drops malformed by_variant entries instead of trusting them", () => {

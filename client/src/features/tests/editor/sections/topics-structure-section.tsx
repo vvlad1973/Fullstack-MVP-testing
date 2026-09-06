@@ -21,9 +21,8 @@
  */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Layers, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Layers, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
-import type { BreakdownRules, BreakdownThreshold } from "@shared/breakdown/types";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import {
   Banner,
@@ -38,6 +37,7 @@ import {
   SegmentedControl,
   Switch,
   Tag,
+  Tooltip,
 } from "@universityrt/ui-kit";
 import { effectiveSectionOrder, type TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import { VariantsEditor } from "./variants-editor";
@@ -299,7 +299,6 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
             updateSection(section.topicId, { required })
           }
           onChangeBlueprint={(bp) => updateSection(section.topicId, { drawBlueprint: bp })}
-          onChangeBreakdownRules={(rules) => updateSection(section.topicId, { breakdownRules: rules })}
           // PRD-24: changing the variant set also re-syncs the topic's per-variant
           // pass rule (seed added / drop removed / normalise when mode goes off).
           onChangeFormSet={(formSet) =>
@@ -362,8 +361,6 @@ function TopicRow(props: {
   onToggleRequired: (required: boolean) => void;
   /** Replace this section's draw blueprint (`null` = uniform draw). */
   onChangeBlueprint: (bp: DrawBlueprint | null) => void;
-  /** PRD-50 §4 (FR-09): replace this section's key thresholds (`null` = informational). */
-  onChangeBreakdownRules: (rules: BreakdownRules | null) => void;
   /** PRD-17 (BR-12): replace this section's variant set (`null` = variants off). */
   onChangeFormSet: (formSet: FormSet | null) => void;
   /** FR-20c: validation message for this section's variants. */
@@ -527,8 +524,6 @@ function TopicRow(props: {
             onChange={props.onChangeBlueprint}
             disabled={partialDrawLocked}
             disabledReason={quotaReason}
-            rules={section.breakdownRules ?? null}
-            onChangeRules={props.onChangeBreakdownRules}
             formSet={variantsOn ? (section.formSet ?? null) : null}
             tagsByQuestion={props.tagsByQuestion}
           />
@@ -555,23 +550,24 @@ function TopicRow(props: {
 }
 
 /**
- * PRD-11 + PRD-50 FR-42: ONE «раздел × ключ» table inside a topic row, driven by two
- * independent switches — draw quotas (PRD-11) and key thresholds (PRD-50).
+ * PRD-11 + PRD-50 FR-42: ONE «раздел × ключ» table inside a topic row, driven by the draw-quota
+ * switch (PRD-11).
  *
- * A row is a KEY of the section (a sub-topic tag). Rows are the union of the quota strata
- * and the threshold keys, so quota and threshold — stored apart on purpose (решение 5:
- * a quota is about DELIVERY, a threshold about GRADING) — read as one line for the author.
+ * A row is a KEY of the section (a sub-topic tag): a quota stratum, or — in variants mode —
+ * a tag of the topic, shown as a reference of how the tags fall across the variants.
  *
  * Quota columns: the tag Select offers the topic's REAL question tags (FR-07); `count` is a
  * NumberInput capped at `drawCount`; the per-tag mode is a SegmentedControl (Ровно=exact /
  * Не менее=min). Σ quota counts must not exceed `drawCount` (FR-05 → error, blocks save); a
- * per-tag shortfall (available < count) is a non-blocking warning (FR-06). Absence of a
- * blueprint = uniform draw (FR-02). Mirrors docs/wireframes/prd11-draw-quotas.html (approved).
+ * per-tag shortfall (available < count) is a non-blocking warning (FR-06) — shown as an alarm
+ * sign next to the row's «Доступно» value, so the author sees WHICH row is at fault. Absence of
+ * a blueprint = uniform draw (FR-02). Mirrors docs/wireframes/prd11-draw-quotas.html and
+ * docs/wireframes/prd50-subtopic-gate.html (both approved).
  *
- * The quota columns go dead exactly where they went dead before (whole-topic draw / variants
- * mode), but the «Порог» column stays live there: the variant sections are precisely where
- * thresholds are needed. `В вариантах` counts, per variant, how many of its questions carry
- * the row's key — the author sees the delivery of a key BEFORE publishing.
+ * PRD-50 §16 (FR-56): individual sub-topic thresholds are gone — a sub-topic is judged by the
+ * rule of ITS TOPIC, and one test-wide switch decides whether they count at all. What is left
+ * here is DELIVERY only. `В вариантах` counts, per variant, how many of its questions carry the
+ * row's key — the author sees the delivery of a key BEFORE publishing.
  */
 function KeysTable(props: {
   topicId: string;
@@ -585,9 +581,6 @@ function KeysTable(props: {
   disabled?: boolean;
   /** Why the quota half is force-disabled — shown in place of the off-state hint. */
   disabledReason?: string;
-  /** PRD-50 §4: stored key thresholds; `null` = keys are informational. */
-  rules: BreakdownRules | null;
-  onChangeRules: (rules: BreakdownRules | null) => void;
   /** PRD-17 variant set when variants mode is ON — feeds the «В вариантах» column. */
   formSet: FormSet | null;
   /** PRD-50 FR-42: question id -> its tags. */
@@ -598,26 +591,21 @@ function KeysTable(props: {
   const enabled = blueprint != null;
   const noTags = topicTags.length === 0;
   const strata = blueprint?.strata ?? [];
-  const rules = props.rules;
-  const rulesOn = rules != null;
   // Quota editing is live only when quotas are on AND applicable — the same condition that
   // used to collapse the whole table.
   const quotasLive = enabled && !forcedDisabled;
-  // Строки таблицы — ОБЪЕДИНЕНИЕ ключей квот и ключей порогов, в порядке появления: квота и
-  // порог живут в разных структурах (решение 5), но автор видит их одной строкой (FR-42).
-  // При включённых порогах добираем остальные теги темы: порог задаётся ключу, а ключами
-  // раздела являются все его теги — иначе задать порог было бы негде.
+  const variants = props.formSet?.forms ?? null;
+  // Строки таблицы — ключи квот; в вариантном режиме добираем остальные теги темы, чтобы
+  // справка о раскладке тегов по вариантам была полной.
   const rowKeys: string[] = [];
   for (const s of strata) if (!rowKeys.some((t) => tagKey(t) === tagKey(s.tag))) rowKeys.push(s.tag);
-  for (const k of Object.keys(rules?.keys ?? {})) if (!rowKeys.some((t) => tagKey(t) === tagKey(k))) rowKeys.push(k);
-  if (rulesOn) {
+  if (variants) {
     for (const t of topicTags) if (!rowKeys.some((x) => tagKey(x) === tagKey(t))) rowKeys.push(t);
   }
-  // Таблица раскрыта, когда есть что показывать: квоты включены и применимы ЛИБО включены
-  // пороги. Прежнее условие (только квоты) прятало пороги в вариантном режиме, где они
-  // как раз и нужны — вариантные разделы это весь разобранный сертификационный тест.
-  const expanded = quotasLive || rulesOn;
-  const variants = props.formSet?.forms ?? null;
+  // Таблица раскрыта, когда есть что показывать: живые квоты ЛИБО вариантный режим, где
+  // квоты неприменимы (PRD-17 FR-03), но раскладка тегов по вариантам — единственная
+  // справка автору о том, ровно ли легли теги. Поля квот там неактивны, как и сейчас.
+  const expanded = quotasLive || variants != null;
   const variantCounts = (key: string): number[] =>
     (variants ?? []).map(
       (f) => f.questionIds.filter((id) => (props.tagsByQuestion.get(id) ?? []).some((t) => tagKey(t) === tagKey(key))).length,
@@ -668,22 +656,6 @@ function KeysTable(props: {
         <span className="tb-section-label">
           <Layers size={14} aria-hidden="true" />
           Квоты по подтемам (тегам)
-        </span>
-      </label>
-
-      {/* PRD-50 §4 (FR-09): второй, независимый переключатель — порог по ключу. Он не гаснет
-          в вариантном режиме: там квота неприменима, а порог применим. */}
-      <label className="tb-quota-toggle">
-        <Switch
-          checked={rulesOn}
-          disabled={noTags}
-          onChange={(e) => props.onChangeRules(e.target.checked ? { axis: "tag", keys: {} } : null)}
-          aria-label={`Пороги по подтемам: ${topicName}`}
-          data-testid={`topic-rules-toggle-${topicId}`}
-        />
-        <span className="tb-section-label">
-          <Layers size={14} aria-hidden="true" />
-          Пороги по подтемам (тегам)
         </span>
       </label>
 
@@ -738,7 +710,6 @@ function KeysTable(props: {
                 <th>Сколько</th>
                 <th>Режим</th>
                 {showAvail && <th>Доступно</th>}
-                <th>Порог</th>
                 {variants && <th>В вариантах</th>}
                 <th aria-label="Действия" />
               </tr>
@@ -750,8 +721,6 @@ function KeysTable(props: {
                 // mutators addressing the very same stratum they addressed before.
                 const si = strata.findIndex((s) => tagKey(s.tag) === tagKey(rowTag));
                 const stratum = si >= 0 ? strata[si] : null;
-                const threshold: BreakdownThreshold =
-                  rules?.keys?.[rowTag] ?? { type: "none" as const };
                 const avail = availOf(rowTag);
                 const short = stratum != null && stratum.count > avail;
                 const options = topicTags
@@ -812,45 +781,31 @@ function KeysTable(props: {
                     </td>
                     {showAvail && (
                       <td>
-                        {short ? (
-                          <Tag tone="warning" size="s">{avail}</Tag>
-                        ) : (
+                        {/* Знак тревоги стоит У ЗНАЧЕНИЯ строки-нарушителя, а не чипом в
+                            подвале карточки: чип говорил о карточке целиком и не показывал,
+                            какая строка виновата. Подсказка открывается и по наведению, и по
+                            фокусу с клавиатуры (эскиз prd50-subtopic-gate.html, состояние 2). */}
+                        <span className="tb-quota-block__availrow">
                           <span className="tb-quota-block__avail">{avail}</span>
-                        )}
+                          {short && stratum && (
+                            <Tooltip
+                              placement="top"
+                              wrap
+                              tabIndex={0}
+                              content={`Вопросов с этой подтемой меньше, чем запрошено: доступно ${avail} из ${stratum.count}. Выдастся сколько есть.`}
+                              data-testid={`quota-shortfall-${topicId}-${si}`}
+                            >
+                              <span className="tb-quota-block__alarm" aria-hidden="true">
+                                <AlertTriangle size={14} />
+                              </span>
+                              <span className="ou-sr-only">
+                                {`Нехватка вопросов по подтеме «${stratum.tag}»`}
+                              </span>
+                            </Tooltip>
+                          )}
+                        </span>
                       </td>
                     )}
-                    <td>
-                      <Select
-                        size="s"
-                        value={threshold.type}
-                        options={[
-                          { value: "none", label: "Не проверять" },
-                          { value: "percent", label: "Не менее, %" },
-                        ]}
-                        disabled={!rulesOn}
-                        onChange={(v) =>
-                          props.onChangeRules(
-                            withKeyThreshold(rules, rowTag, v === "percent" ? { type: "percent", value: 60 } : { type: "none" }),
-                          )
-                        }
-                        aria-label={`Порог для подтемы «${rowTag}»`}
-                        data-testid={`key-threshold-mode-${topicId}-${i}`}
-                      />
-                      {threshold.type === "percent" && (
-                        <NumberInput
-                          size="s"
-                          value={threshold.value}
-                          min={0}
-                          max={100}
-                          disabled={!rulesOn}
-                          onChange={(n) =>
-                            props.onChangeRules(withKeyThreshold(rules, rowTag, { type: "percent", value: n }))
-                          }
-                          aria-label={`Значение порога для подтемы «${rowTag}», проценты`}
-                          data-testid={`key-threshold-value-${topicId}-${i}`}
-                        />
-                      )}
-                    </td>
                     {variants && (
                       <td data-testid={`key-variants-${topicId}-${i}`}>
                         {variantCounts(rowTag).map((n, vi) => (
@@ -894,6 +849,9 @@ function KeysTable(props: {
             </div>
           )}
 
+          {/* Итог квот — только счёт. Чипа уровня здесь нет (эскиз prd50-subtopic-gate.html):
+              он говорил о карточке целиком и не показывал, какая строка виновата. Об ошибке
+              говорит баннер и невалидные поля, о нехватке — знак у значения строки. */}
           {quotasLive && (
             <div className={`tb-quota-sum${overflow ? " is-error" : ""}`}>
               <span>
@@ -901,36 +859,12 @@ function KeysTable(props: {
                   ? `Σ квот: ${sum} из ${drawCount} — превышение на ${sum - drawCount}`
                   : `Σ квот: ${sum} из ${drawCount} · остаток ${remainder}`}
               </span>
-              {overflow ? (
-                <Tag tone="error" size="s">ошибка</Tag>
-              ) : anyShortfall ? (
-                <Tag tone="warning" size="s">нехватка по тегу</Tag>
-              ) : (
-                <Tag tone="success" size="s">в пределах выборки</Tag>
-              )}
-            </div>
-          )}
-
-          {rulesOn && (
-            <div className="tb-card-desc">
-              Порог сравнивается с долей БАЛЛОВ по подтеме, независимо от того, что выбрано для показа.
-              Подтема, не попавшая в выдачу, вердикт темы не роняет.
             </div>
           )}
         </div>
       )}
     </>
   );
-}
-
-/** Replace ONE key's threshold, keeping the rest of the rules untouched. */
-function withKeyThreshold(
-  rules: BreakdownRules | null,
-  key: string,
-  threshold: BreakdownThreshold,
-): BreakdownRules {
-  const base = rules ?? { axis: "tag" as const, keys: {} };
-  return { ...base, axis: "tag", keys: { ...(base.keys ?? {}), [key]: threshold } };
 }
 
 

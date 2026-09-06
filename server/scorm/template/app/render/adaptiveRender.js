@@ -432,6 +432,18 @@ function renderAdaptiveResultsTemplated(app, result) {
   // Секционные записи блок не берёт сознательно — карточка адаптивной темы говорит УРОВНЕМ.
   var adaptiveTestRows = (flatResult && typeof vrTestBreakdown === 'function') ? vrTestBreakdown(flatResult) : [];
   if (adaptiveTestRows.length) input.breakdowns = adaptiveTestRows;
+  // PRD-50 §16: записи области РАЗДЕЛА — не для карточки темы (она говорит уровнем), а для
+  // отбора текстов подтем: общий построитель читает исход записи, и без записей на входе
+  // адаптивный экран промолчал бы, сколько бы автор ни написал. Порядок тем один и тот же —
+  // оба списка построены из `result.topicResults`, — поэтому сопоставление по индексу верно.
+  if (flatResult && flatResult.topicResults) {
+    for (var t = 0; t < input.topicResults.length; t++) {
+      var flatTopic = flatResult.topicResults[t];
+      if (flatTopic && flatTopic.breakdown && flatTopic.breakdown.length) {
+        input.topicResults[t].breakdown = flatTopic.breakdown;
+      }
+    }
+  }
   var measures = (flatResult && typeof currentAttemptMeasures === 'function')
     ? currentAttemptMeasures(flatResult)
     : null;

@@ -162,6 +162,24 @@
   border-right: 0;
   border-top: 0;
 }
+/* Стопка баннеров РАЗНЫХ уровней (ошибки выше предупреждений) липнет ЦЕЛИКОМ, одним блоком.
+   Два отдельных sticky-баннера с одинаковым `top` при прокрутке наезжают друг на друга:
+   нижний останавливается на той же линии и закрывает верхний вместе с его действием. */
+.tb-settings-content > .tb-alerts {
+  position: sticky;
+  top: calc(var(--ou-space-6) * -1);
+  z-index: 2;
+  margin: calc(var(--ou-space-6) * -1) calc(var(--ou-space-6) * -1) var(--ou-space-4);
+  display: flex;
+  flex-direction: column;
+}
+.tb-settings-content > .tb-alerts > .ou-banner {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  margin: 0;
+}
 /* Метка и контрол — одна пара: 1x. Интервал ДО соседнего блока задаёт панель, поэтому
    собственной нижней отбивки у поля нет (иначе она складывалась бы с интервалом группы). */
 .tb-settings-content .ou-formfield { display: flex; flex-direction: column; gap: var(--ou-space-1); margin-bottom: 0; }
@@ -904,6 +922,20 @@
   border-left: var(--wf-border-w) solid var(--ou-border-soft);
 }
 .tb-quota-block__avail { color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
+/* PRD-50 §16: знак тревоги рядом со значением строки квоты. Заменил чип в подвале таблицы —
+   тот говорил о таблице целиком и не показывал, какая именно строка виновата.
+   ТОН ЗНАКА = УРОВЕНЬ ПРОБЛЕМЫ (контракт редактора, «Индикация проблем»): жёлтый у
+   предупреждения, красный у ошибки. Нехватка вопросов под квоту сохранение не блокирует,
+   поэтому базовый тон здесь жёлтый, а красный включает модификатор. */
+/* Ячейка «Доступно»: значение и знак тревоги стоят одной строкой и центрируются по ней.
+   Без общей строки знак выравнивался бы по базовой линии текста и садился ниже числа. */
+.tb-quota-block__availrow { display: inline-flex; align-items: center; gap: var(--ou-space-1); }
+.tb-quota-block__alarm { display: inline-flex; color: var(--ou-warning-default); }
+.tb-quota-block__alarm--error { color: var(--ou-error-default); }
+/* Пузырь подсказки внутри узкой ячейки таблицы ужимается по ширине ячейки, и текст встаёт
+   в колонку по одному слову. Ширина по содержимому это снимает; верхнюю границу по-прежнему
+   держит `--wrap` дизайн-системы. */
+.tb-quota-block .ou-tip__bubble--wrap { width: max-content; }
 .tb-quota-actions { margin-top: var(--ou-space-3); }
 .tb-quota-sum {
   display: flex; align-items: center; justify-content: space-between;

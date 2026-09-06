@@ -8,12 +8,11 @@
  * The traps come straight from the reference workbook: two questions of «Технологии» belong
  * to no variant and can never be delivered, and nothing in the service ever said so.
  *
- * FR-46 («порог назначен ключу, которого выдача не даст») is GONE: a key threshold no
- * longer gates anything (решение владельца 2026-09-03), so an unreachable threshold has
- * nothing to make unreachable. Stored thresholds stay in the data as legacy.
+ * FR-46 («порог назначен ключу, которого выдача не даст») is GONE: individual key
+ * thresholds were dropped in §16, so an unreachable threshold has nothing to make
+ * unreachable. In its place stands FR-56 — the gate is on while the subtotals are hidden.
  */
 import { tagKey } from "../tags";
-import { resolveBreakdownRules } from "../scoring/pass-rule";
 
 export type BreakdownWarningCode =
   /** FR-45: Σ quotas ≠ the section's sample size — the keys do not partition it. */
@@ -25,25 +24,28 @@ export type BreakdownWarningCode =
   /** FR-47: quotas AND variants are both set; in variants mode quotas are not applied. */
   | "quotas_ignored_in_variants"
   /**
-   * The section still stores key thresholds, which no longer gate anything (решение
-   * владельца 2026-09-03). Said ONCE, at publication: the topic verdict of this test may
-   * come out different from the one the previous publication produced.
+   * FR-56: подтемы учитываются в вердикте темы, а подытоги по подтемам скрыты — участник
+   * получит «Не пройдена» без единой видимой причины. Правило уровня ТЕСТА, поэтому темы
+   * у предупреждения нет.
    */
-  | "key_thresholds_no_longer_gate";
+  | "gate_without_display";
 
 export interface BreakdownWarning {
   code: BreakdownWarningCode;
-  topicId: string;
-  topicName: string;
+  /** Тема, о которой речь. `null` у правил уровня теста (`gate_without_display`). */
+  topicId: string | null;
+  topicName: string | null;
   /** The key the warning speaks about (`threshold_key_never_delivered`). */
   key?: string;
   /** The number the message quotes: Σ quotas, or how many questions are affected. */
   count?: number;
   /** What `count` is compared against (the section's sample size). */
   total?: number;
+  /** Готовый текст — только у правил, которым его негде взять на стороне читателя. */
+  message?: string;
 }
 
-/** One section as the check sees it: delivery config, thresholds and the topic's pool. */
+/** One section as the check sees it: delivery config and the topic's pool. */
 export interface BreakdownPublishSection {
   topicId: string;
   topicName: string;
@@ -52,9 +54,19 @@ export interface BreakdownPublishSection {
   blueprint: { strata: Array<{ tag: string; count: number }> } | null;
   /** PRD-17 variants, or null when the section is not in variants mode. */
   variants: Array<{ id: string; label: string; questionIds: string[] }> | null;
-  /** Stored `test_sections.breakdown_rules_json` (any shape — normalised here). */
-  rules: unknown;
   questions: Array<{ id: string; tags: string[] }>;
+}
+
+/**
+ * The whole test as the check sees it: its sections plus the two test-level settings FR-56
+ * judges. Both flags absent = выключено, что и есть поведение любого теста до §16.
+ */
+export interface BreakdownPublishInput {
+  sections: readonly BreakdownPublishSection[];
+  /** `tests.breakdown_gate_enabled` (FR-53). */
+  breakdownGateEnabled?: boolean;
+  /** Видны ли подытоги по подтемам: `breakdown_display_json.visibility !== "hidden"`. */
+  breakdownVisible?: boolean;
 }
 
 /** Distinct normalised keys of one question. */
@@ -67,12 +79,24 @@ function keysOf(q: { tags: string[] }): Set<string> {
   return out;
 }
 
-export function checkBreakdownPublish(sections: readonly BreakdownPublishSection[]): BreakdownWarning[] {
+export function checkBreakdownPublish(input: BreakdownPublishInput): BreakdownWarning[] {
   const out: BreakdownWarning[] = [];
-  for (const s of sections) {
+
+  // FR-56: переключатель включён, а подытоги скрыты — участник получит «Не пройдена» без
+  // единой видимой причины. Публикацию не блокирует: это предупреждение, как и остальные три.
+  if (input.breakdownGateEnabled && !input.breakdownVisible) {
+    out.push({
+      code: "gate_without_display",
+      topicId: null,
+      topicName: null,
+      message:
+        "Подтемы учитываются в вердикте темы, но подытоги по подтемам скрыты — участник не увидит причину.",
+    });
+  }
+
+  for (const s of input.sections) {
     const at = (w: Omit<BreakdownWarning, "topicId" | "topicName">) =>
       out.push({ topicId: s.topicId, topicName: s.topicName, ...w });
-    const rules = resolveBreakdownRules(s.rules);
     const variants = s.variants && s.variants.length > 0 ? s.variants : null;
 
     // FR-47: quotas are silently inert in variants mode (PRD-17 FR-03). Saying so is the
@@ -92,7 +116,10 @@ export function checkBreakdownPublish(sections: readonly BreakdownPublishSection
     const deliverable = variants
       ? s.questions.filter((q) => variants.some((f) => f.questionIds.includes(q.id)))
       : s.questions;
-    const declaresKeys = s.blueprint != null || rules != null;
+    // Ключи «в игре», когда их объявили квотами ЛИБО когда тест их показывает или судит:
+    // индивидуальных порогов раздела с §16 нет, и признаком служат настройки теста.
+    const declaresKeys =
+      s.blueprint != null || input.breakdownVisible === true || input.breakdownGateEnabled === true;
 
     // FR-45, first half: quotas that do not add up to the sample are not a partition of it.
     if (!variants && !s.drawAll && s.blueprint) {
@@ -106,10 +133,6 @@ export function checkBreakdownPublish(sections: readonly BreakdownPublishSection
       const withoutKey = deliverable.filter((q) => keysOf(q).size === 0).length;
       if (withoutKey > 0) at({ code: "questions_without_key", count: withoutKey });
     }
-
-    // Тест, который раньше судился порогами подтем, теперь судится одним правилом темы.
-    // Автор должен узнать об этом ДО того, как увидит другой вердикт у той же попытки.
-    if (rules) at({ code: "key_thresholds_no_longer_gate" });
   }
   return out;
 }

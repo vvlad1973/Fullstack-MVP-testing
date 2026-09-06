@@ -10,7 +10,6 @@
 import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { DraftBlock } from "./use-report-document";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
-import type { BreakdownRules } from "@shared/breakdown/types";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
 import type { TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import type { QuestionScoringOverride } from "./scoring-api";
@@ -177,6 +176,16 @@ export type PassRules = {
   decisionPolicy: PassDecisionPolicy;
   overall: OverallPassRule;
   byTopic: Record<string, TopicPassRule>;
+  /**
+   * PRD-50 §16 (FR-53): учитывать ли подтемы (теги) в вердикте темы. Один флаг на весь
+   * тест, а не на тему: порог подтемы производный от порога её темы (FR-52), отдельных
+   * порогов у подтем нет.
+   *
+   * Необязательное, как и прочие поздние поля модели: черновик, собранный локально, и
+   * ответ API старше колонки просто не несут значения, а каждое чтение вырождает его в
+   * «выключено» — тема судится ровно как до §16.
+   */
+  breakdownGateEnabled?: boolean;
 };
 
 // ─── Sections ─────────────────────────────────────────────────────────────────
@@ -227,16 +236,10 @@ export type EditorSection = {
    */
   formSet?: FormSet | null;
   /**
-   * PRD-50 §4 (FR-09): пороги ключей разреза этого раздела. `null`/absent = ключи
-   * информационные, вердикт темы считается ровно как до PRD-50.
-   */
-  breakdownRules?: BreakdownRules | null;
-  /**
    * PRD-50 FR-50: обратная связь ПОДТЕМ этого раздела — ключ подтемы -> её текст с
    * рекомендациями в том же формате, что у темы.
    *
-   * Отдельно от {@link breakdownRules}: пороги — про оценку (и с Э1 они легаси), текст —
-   * про содержание. Хранятся тоже врозь, своей колонкой.
+   * Своя колонка, отдельно от выдачи: квота — про доставку, текст — про содержание.
    */
   breakdownFeedback?: Record<string, BreakdownFeedbackEntry> | null;
   /**
@@ -655,6 +658,8 @@ export type TestSettingsPayload = {
   flowPolicyJson?: FlowPolicyPayload;
   overallPassRuleJson: OverallPassRule;
   passDecisionPolicy: PassDecisionPolicy;
+  /** PRD-50 §16 (FR-53): `tests.breakdown_gate_enabled` — учитывать подтемы в вердикте темы. */
+  breakdownGateEnabled: boolean;
   timeLimitMinutes: number | null;
   maxAttempts: number | null;
   showCorrectAnswers: boolean;
@@ -732,8 +737,6 @@ export type TestSectionPayload = {
   drawBlueprintJson: DrawBlueprint | null;
   /** PRD-17 (BR-12): fixed-variant set; `null` = legacy draw. */
   formSetJson: FormSet | null;
-  /** PRD-50 §4: пороги ключей; `null` = ключи информационные. */
-  breakdownRulesJson: BreakdownRules | null;
   /** PRD-50 FR-50: тексты подтем; `null` = автор их не писал. */
   breakdownFeedbackJson: { axis: "tag"; keys: Record<string, BreakdownFeedbackEntry> } | null;
   /** PRD-50 FR-11/FR-12: the test's block this section belongs to; `null` = no block. */

@@ -1432,6 +1432,30 @@ export function VerdictPane({
           </div>
       </FormSection>
 
+      {/* PRD-50 §16 (FR-53): один переключатель на весь тест, сразу под блоком, вердикт
+          которого он уточняет, и ПЕРЕД правилами тем — гейт судит именно тему. */}
+      <div className="ou-formfield">
+        <label className="tb-quota-toggle">
+          <Switch
+            checked={model.passRules.breakdownGateEnabled === true}
+            onChange={(e) =>
+              updateModel((m) => ({
+                ...m,
+                passRules: { ...m.passRules, breakdownGateEnabled: e.target.checked },
+              }))
+            }
+            aria-label="Учитывать подтемы в вердикте темы"
+            data-testid="breakdown-gate-toggle"
+          />
+          <span className="tb-section-label">Учитывать подтемы в вердикте темы</span>
+        </label>
+        <div className="tb-card-desc">
+          Тема не пройдена, если хотя бы одна её подтема (тег) набрала меньше порога темы. Отдельных
+          порогов у подтем нет: подтема живёт по правилу своей темы, а тема с «Не проверять отдельно»
+          не судит и свои подтемы.
+        </div>
+      </div>
+
       {model.sections.length > 0 && (
         <FormSection stacked title="Правила оценки тем">
           <table

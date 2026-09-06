@@ -109,12 +109,14 @@ describe("подытог считается по эффективной оцен
     expect(agg.topicResults[0].total).toBe(1);
   });
 
-  it("запись разреза вердикта не несёт", () => {
+  it("без порога у теста запись разреза исхода не несёт (PRD-50 §16)", () => {
+    // Порог подтемы производный: правила нет ни у теста, ни у темы — значит, судить нечем,
+    // и запись остаётся с пустым исходом, а не проваливается на 0 %.
     const agg = aggregateStandardResult({
       sections: [section("law", [single(false, ["ПДн"], 1)])],
       overallPassRule: null,
     });
-    expect("passed" in agg.topicResults[0].breakdown[0]).toBe(false);
-    expect("passed" in agg.breakdowns[0]).toBe(false);
+    expect(agg.topicResults[0].breakdown[0].passed).toBeNull();
+    expect(agg.breakdowns[0].passed).toBeNull();
   });
 });

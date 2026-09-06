@@ -199,10 +199,6 @@ export function buildTestJson(data: ExportData): string {
   };
   for (const s of data.sections) {
     for (const q of s.questions) for (const tag of q.tags ?? []) noteBreakdownKey(tag);
-    // Пороги хранятся картой «ключ -> правило» (PRD-50 §4), поэтому ключи здесь — имена
-    // свойств, а не поле записи.
-    const rules = s.breakdownRulesJson as { keys?: Record<string, unknown> } | null | undefined;
-    for (const key of Object.keys(rules?.keys ?? {})) noteBreakdownKey(key);
   }
 
   const passPercent =
@@ -265,6 +261,9 @@ export function buildTestJson(data: ExportData): string {
     // verdict. Baked so the package decides exactly like the web host; a package built
     // before this shipped carries none and the shared engine then keeps the old rule.
     passDecisionPolicy: data.test.passDecisionPolicy ?? null,
+    // PRD-50 FR-53: выпекается ТОЛЬКО когда автор включил, поэтому пакет теста, который его не
+    // трогал, остаётся байт-в-байт прежним; рантайм читает отсутствие как «выключено».
+    ...(data.test.breakdownGateEnabled ? { breakdownGateEnabled: true } : {}),
     webhookUrl: data.test.webhookUrl,
     testFeedback: data.test.feedback || null,
     // PRD-29 §7.1: the test's OWN feedback block (`tests.feedback_json`) is one of the
