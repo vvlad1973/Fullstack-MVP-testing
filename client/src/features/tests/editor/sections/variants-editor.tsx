@@ -32,12 +32,18 @@ export type VariantsEditorProps = {
   error?: string;
   /** Adaptive mode: variants don't apply — show the toggle disabled, not hidden. */
   disabled?: boolean;
+  /**
+   * Цена ответа на вопрос в ЭТОМ тесте. Считает вызывающий: цена — свойство теста, а
+   * не вопроса (PRD-15 блок D), и разрешается по цепочке «переопределение вопроса →
+   * умолчание раздела → умолчание теста». Не передана — мета покажет тип вопроса.
+   */
+  pointsOf?: (questionId: string) => number;
 };
 
 // ─── Question display helpers ───────────────────────────────────────────────────
 
 /** Minimal question shape the editor needs from `/api/questions`. */
-type QuestionRow = { id: string; topicId: string; type: QuestionType; prompt: string };
+type QuestionRow = { id: string; topicId: string; type: QuestionType; prompt: string; tags?: string[] };
 
 const TYPE_ICON: Record<QuestionType, LucideIcon> = {
   single: CircleDot,
@@ -67,7 +73,9 @@ function makeForm(index: number): Form {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function VariantsEditor({ topicId, topicName, formSet, onChange, error, disabled = false }: VariantsEditorProps) {
+export function VariantsEditor({
+  topicId, topicName, formSet, onChange, error, disabled = false, pointsOf,
+}: VariantsEditorProps) {
   const [open, setOpen] = useState(false);
   const { data: allQuestions = [] } = useQuery<QuestionRow[]>({ queryKey: ["/api/questions"] });
   const topicQuestions = useMemo(
@@ -212,6 +220,7 @@ export function VariantsEditor({ topicId, topicName, formSet, onChange, error, d
           topicName={topicName}
           formSet={formSet}
           questions={topicQuestions}
+          pointsOf={pointsOf}
           onChange={onChange}
         />
       )}
@@ -230,8 +239,10 @@ function VariantsModal(props: {
   formSet: FormSet;
   questions: QuestionRow[];
   onChange: (formSet: FormSet) => void;
+  /** См. {@link VariantsEditorProps.pointsOf}. */
+  pointsOf?: (questionId: string) => number;
 }) {
-  const { open, onClose, topicName, formSet, questions, onChange } = props;
+  const { open, onClose, topicName, formSet, questions, onChange, pointsOf } = props;
   const forms = formSet.forms;
   const [activeId, setActiveId] = useState<string>(forms[0]?.id ?? "");
 
@@ -281,7 +292,14 @@ function VariantsModal(props: {
           <Icon size={16} aria-hidden="true" />
         </span>
       ),
-      meta: TYPE_LABEL[q.type],
+      meta: [
+        q.tags?.[0],
+        pointsOf
+          ? `${pointsOf(q.id)} ${pluralize(pointsOf(q.id), "балл", "балла", "баллов")}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || TYPE_LABEL[q.type],
       tag:
         others.length > 0 ? (
           <span title={`Также в вариантах: ${others.join(", ")}`}>

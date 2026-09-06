@@ -90,7 +90,7 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
       id: b.key,
       group: GROUP_REMOVED,
       label: b.label,
-      description: "Вернуть системный блок в документ.",
+      description: "Убран из документа — вернётся на прежнее место",
       block: b.key,
       templateKey: null,
     }));

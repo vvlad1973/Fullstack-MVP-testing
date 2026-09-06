@@ -1323,7 +1323,7 @@
       "variants-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-49",
@@ -1352,7 +1352,7 @@
     "files": [
       "TransferList.tsx"
     ],
-    "batch": "texts",
+    "batch": "ds",
     "status": "open"
   },
   {
@@ -3052,7 +3052,7 @@
       "report-block-palette.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-1",
@@ -3198,7 +3198,7 @@
       "editor-settings-target.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-10",
@@ -3262,7 +3262,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-14",
@@ -3278,7 +3278,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-15",
@@ -3438,7 +3438,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "G-1",

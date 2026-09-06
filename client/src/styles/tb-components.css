@@ -2284,7 +2284,9 @@
   color: var(--ou-fg-default);
 }
 .design-colors-table__hint {
-  font: var(--ou-text-caption);
+  /* Подпись под ячейкой цвета — обычный мелкий текст, а не капшен: капшен несёт
+     полужирное начертание и свой интерлиньяж, и строка выбивалась из соседних. */
+  font: var(--ou-text-body-xs);
   color: var(--ou-fg-muted);
   margin-top: var(--ou-space-1);
 }

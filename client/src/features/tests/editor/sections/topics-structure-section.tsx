@@ -19,7 +19,7 @@
  * прохождения» table column — has been retired; this is the single point of
  * control for `sections[].required`.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ChevronDown, Layers, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
@@ -47,6 +47,7 @@ import type {
   TestEditorModel,
 } from "../test-editor.types";
 import { applyFormSetChange } from "../test-editor.mappers";
+import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
 import { EMPTY_FIELD_ERRORS, type FieldErrorIndex } from "../field-errors";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -158,6 +159,32 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
   }, [allQuestions]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
+
+  const overrideByQuestion = useMemo(
+    () => new Map(model.scoring.questionOverrides.map((o) => [o.questionId, o])),
+    [model.scoring.questionOverrides],
+  );
+  /** Цена ответа в ЭТОМ тесте: переопределение вопроса → умолчание раздела → теста. */
+  const pointsOf = useCallback(
+    (questionId: string, sectionDefaultPoints: number | null) => {
+      const override = overrideByQuestion.get(questionId);
+      return resolveEffectiveScoring({
+        override: override
+          ? {
+              points: override.points,
+              scoring: override.scoringJson,
+              difficulty: override.difficulty,
+              pinnedContentHash: override.pinnedContentHash,
+            }
+          : null,
+        defaults: {
+          sectionDefaultPoints,
+          testDefaultPoints: model.scoring.defaultQuestionPoints,
+        },
+      }).points;
+    },
+    [overrideByQuestion, model.scoring.defaultQuestionPoints],
+  );
 
   // Темы открываются СВЁРНУТЫМИ (комментарий эскиза): в списке на два десятка тем
   // раскрытые тела превращают экран в простыню.
@@ -359,6 +386,7 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           onChangeFormSet={(formSet) =>
             updateModel((m) => applyFormSetChange(m, section.topicId, formSet))
           }
+          pointsOf={(questionId) => pointsOf(questionId, section.defaultPoints)}
           onRemove={() => removeSection(section.topicId)}
         />
       ))}
@@ -409,6 +437,8 @@ function TopicRow(props: {
   onChangeFormSet: (formSet: FormSet | null) => void;
   /** FR-20c: validation message for this section's variants. */
   variantsError?: string;
+  /** Цена ответа в этом тесте — для меты строк в наборе вариантов. */
+  pointsOf: (questionId: string) => number;
   onRemove: () => void;
   /** Раскрыта ли тема (свёртками управляет список, чтобы работали «развернуть все»). */
   open: boolean;
@@ -609,6 +639,7 @@ function TopicRow(props: {
             onChange={props.onChangeFormSet}
             error={props.variantsError}
             disabled={props.adaptive}
+            pointsOf={props.pointsOf}
           />
 
           {/* Обратная связь темы правится во вкладке «Обратная связь и итоги»,

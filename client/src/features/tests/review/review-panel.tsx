@@ -17,6 +17,7 @@ import {
   Textarea,
 } from "@universityrt/ui-kit";
 import { ArrowRight, MessageSquarePlus } from "lucide-react";
+import { pluralize } from "@/lib/i18n";
 import { useReviewComments } from "./use-review-comments";
 import { ReviewCommentForm, type ReviewAnchorItem } from "./review-comment-form";
 import type { ReviewThread } from "./review-api";
@@ -77,6 +78,12 @@ export function ReviewPanel({
   const [resolving, setResolving] = useState<{ id: string; status: "accepted" | "rejected" } | null>(null);
   const [rejectReply, setRejectReply] = useState("");
   const [cursor, setCursor] = useState(0);
+
+  // Сколько человек высказалось: авторы веток И ответов — отвечавший тоже участник
+  // разговора, и по одним веткам его не видно.
+  const expertCount = new Set(
+    review.threads.flatMap((t) => [t.authorId, ...t.replies.map((r) => r.authorId)]),
+  ).size;
 
   // Порядок обхода — тот же, в каком ветки показаны: обход по списку, а не по времени.
   const visibleThreads = review.groups.flatMap((group) => group.threads);
@@ -273,7 +280,7 @@ export function ReviewPanel({
                     {resolving.status === "rejected" ? (
                       <Textarea
                         label="Ответ автора"
-                        hint="При отклонении ответ обязателен: рецензент должен увидеть причину."
+                        hint="При отклонении ответ обязателен: эксперт должен увидеть причину."
                         placeholder="Почему комментарий отклонён"
                         rows={3}
                         value={rejectReply}
@@ -311,7 +318,7 @@ export function ReviewPanel({
                         onClick={() => canNavigate && onNavigate!(target!, thread)}
                         data-testid={`goto-${thread.id}`}
                       >
-                        <span>Перейти к месту</span>
+                        <span>Перейти к вопросу</span>
                         <ArrowRight size={13} />
                       </Button>
                     ) : null}
@@ -348,7 +355,11 @@ export function ReviewPanel({
 
       <div className="rvp__sum">
         <Text tone="muted" variant="body-s">
-          {`Всего ${review.threads.length} · открытых ${review.openCount}`}
+          {`Всего ${review.threads.length} ${pluralize(review.threads.length, "комментарий", "комментария", "комментариев")}`}
+          {` · открытых ${review.openCount}`}
+          {expertCount > 0
+            ? ` · от ${expertCount} ${pluralize(expertCount, "эксперта", "экспертов", "экспертов")}`
+            : ""}
         </Text>
       </div>
     </Stack>
