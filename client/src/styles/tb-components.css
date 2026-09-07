@@ -298,6 +298,17 @@
    A condition row is «Элемент(grow) · Свойство · Оператор · Значение · удалить»;
    the same primitive renders «Порог» (one row) and «Вердикт» (a list). */
 .tb-formula-builder { display: flex; flex-direction: column; gap: var(--ou-space-3); margin-top: var(--ou-space-2); }
+/* Собранное конструктором выражение. Пунктирная рамка отличает ПОКАЗ от ввода: править
+   строку здесь нельзя, для этого есть режим «Выражение». */
+.tb-formula-preview {
+  font: var(--ou-text-body-s);
+  font-family: var(--ou-font-family-mono);
+  color: var(--ou-fg-muted);
+  border: var(--wf-border-w) dashed var(--ou-border-default);
+  border-radius: var(--ou-radius-m);
+  padding: var(--ou-space-4);
+  overflow-x: auto;
+}
 .tb-rows { display: flex; flex-direction: column; gap: var(--ou-space-2); }
 .tb-rows-actions { margin-top: var(--ou-space-2); }
 .tb-cond-row { display: flex; align-items: flex-end; gap: var(--ou-space-2); }
@@ -979,6 +990,15 @@
    держит `--wrap` дизайн-системы. */
 .tb-quota-block .ou-tip__bubble--wrap { width: max-content; }
 .tb-quota-actions { margin-top: var(--ou-space-3); }
+/* Строка порядка подблоков итогов: имя слева, кнопки перемещения справа. Обведённая
+   строка, а не плоский текст — автор двигает СТРОКИ, и границу перетаскиваемого блока
+   надо видеть (эскиз `editor-settings-target.html`, `.wf-order-row`). */
+.tb-order-row {
+  padding: var(--ou-space-2) var(--ou-space-3);
+  border: var(--wf-border-w) solid var(--ou-border-soft);
+  border-radius: var(--ou-radius-s);
+}
+
 .tb-quota-sum {
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--ou-space-3); margin-top: var(--ou-space-3);
@@ -1796,6 +1816,36 @@
 /* TemplateScreen's host fills the fixed reference frame so the scene lays out against
    a definite size (its `height:100%` resolves) before the frame is scaled. */
 .variant-picker__frame > * { width: 100%; height: 100%; display: block; }
+/* Схема блока отчёта в палитре: лист с крупными штрихами. Не рендер — блок документа
+   не самостоятельный экран (эскиз `editor-settings-target.html`, `.tb-sheet`). */
+.tb-sheet {
+  width: 100%;
+  max-width: var(--wf-w-sheet, 320px);
+  align-self: center;
+  background: var(--ou-bg-surface);
+  border: var(--wf-border-w) solid var(--ou-border-soft);
+  border-radius: var(--ou-radius-s);
+  padding: var(--ou-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ou-space-1);
+}
+.tb-sheet__title { height: var(--ou-space-4); width: 60%; border-radius: var(--ou-radius-s); background: var(--ou-border-default); }
+.tb-sheet__line { height: var(--ou-space-2); border-radius: var(--ou-radius-s); background: var(--ou-border-soft); }
+.tb-sheet__line--short { width: 70%; }
+.tb-sheet__block {
+  height: var(--ou-space-12);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-surface-2);
+  border: var(--wf-border-w) solid var(--ou-border-soft);
+}
+/* Разрыв листа: единственный блок, который на листе не печатается, а делит его. */
+.tb-sheet__break {
+  height: 0;
+  margin: var(--ou-space-2) 0;
+  border-top: var(--wf-border-w) dashed var(--ou-border-default);
+}
+
 .variant-picker__empty {
   flex: 1;
   display: flex;

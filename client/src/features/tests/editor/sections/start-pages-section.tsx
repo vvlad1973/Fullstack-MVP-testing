@@ -875,39 +875,23 @@ function ZonesBlock(props: {
         </Zone>
       ) : (
         <SortableContext items={topicSortableIds} strategy={verticalListSortingStrategy}>
-          {model.flowMode === "router_by_topics" ? (
-            <InsideTestZone
-              router={router}
-              handlers={handlers}
-              sections={model.sections}
-              infoIn={infoIn}
-              questionsForTopic={questionsForTopic}
-              introForTopic={introForTopic}
-              reviewPage={reviewPage}
-              sectionResultsPage={sectionResultsPage}
-              reviewSlot={reviewSlot}
-              dragEnabled={Boolean(updateModel) && !handlers.readOnly}
-              dimGrip={handlers.readOnly}
-            />
-          ) : (
-            model.sections.map((section, idx) => (
-              <TopicBlock
-                key={section.topicId}
-                index={idx + 1}
-                section={section}
-                intro={introForTopic(section.topicId)}
-                reviewPage={reviewPage}
-                sectionResultsPage={sectionResultsPage}
-                before={infoIn("before_topic", section.topicId)}
-                after={infoIn("after_topic", section.topicId)}
-                questions={questionsForTopic(section.topicId)}
-                reviewSlot={reviewSlot}
-                handlers={handlers}
-                dragEnabled={Boolean(updateModel) && !handlers.readOnly}
-                dimGrip={handlers.readOnly}
-              />
-            ))
-          )}
+          {/* Зона «Внутри теста» — у ОБОИХ потемных сценариев (эскиз 2581-2721). Раньше её
+              получал только маршрутизаторный: у линейного темы шли прямо за зоной «До
+              теста», и полотно не говорило, где начинается сам тест. Маршрутизатора у
+              линейного нет — строка не рисуется, ветки остаются те же. */}
+          <InsideTestZone
+            router={model.flowMode === "router_by_topics" ? router : null}
+            handlers={handlers}
+            sections={model.sections}
+            infoIn={infoIn}
+            questionsForTopic={questionsForTopic}
+            introForTopic={introForTopic}
+            reviewPage={reviewPage}
+            sectionResultsPage={sectionResultsPage}
+            reviewSlot={reviewSlot}
+            dragEnabled={Boolean(updateModel) && !handlers.readOnly}
+            dimGrip={handlers.readOnly}
+          />
         </SortableContext>
       )}
 
@@ -1172,10 +1156,9 @@ function InsideTestZone(props: {
   const { router, handlers, sections, infoIn, questionsForTopic, introForTopic, reviewPage, sectionResultsPage, reviewSlot, dragEnabled, dimGrip } = props;
   return (
     <section className="inside-test" data-testid="structure-inside-test">
-      <div className="inside-test__label">
-        <ChevronRight size={14} aria-hidden="true" />
-        Внутри теста
-      </div>
+      {/* Только надпись: шеврон обещал бы свёртку зоны, которой нет (та же правка, что
+          у заголовков зон «До теста» / «После теста»). */}
+      <div className="inside-test__label">Внутри теста</div>
       <div className="inside-test__body">
         {router && (
           <SystemPageRow

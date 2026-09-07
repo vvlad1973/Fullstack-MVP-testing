@@ -298,6 +298,7 @@ export function ResultsBlockOrderPane({
         {resolved.map((key, index) => (
           <Stack
             key={key}
+            className="tb-order-row"
             direction="row"
             gap={2}
             align="center"

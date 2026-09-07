@@ -974,6 +974,19 @@ function FormulaBuilder({
           )}
         </div>
       )}
+
+      {/* Что получится: собранное выражение показывается ДО того, как автор переключится
+          на ручной режим. Конструктор пишет ту же строку в модель, и увидеть её здесь —
+          единственный способ понять, что именно посчитает движок. */}
+      <div className="ou-formfield">
+        <label className="ou-formfield__lbl">Что получится</label>
+        <div className="tb-formula-preview" data-testid="metrics-formula-generated">
+          {generated || "—"}
+        </div>
+        <span className="ou-formfield__desc">
+          Выражение собирается конструктором; переключение на «Выражение» оставляет его как есть.
+        </span>
+      </div>
     </div>
   );
 }
