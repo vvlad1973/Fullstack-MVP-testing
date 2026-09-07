@@ -31,7 +31,6 @@ import {
   Eye,
   ExternalLink,
   Image as ImageIcon,
-  Layout,
   Paperclip,
   RotateCcw,
   Trash2,
@@ -319,6 +318,19 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
                     : undefined
                 }
               />
+              {/* PRD-49 §7: слой ПЕРЕОПРЕДЕЛЕНИЙ надписей для документа. Он здесь, а не
+                  в «Обратной связи»: там задают, ЧТО показывать в отчёте, а формулировка
+                  заголовка — это КАК он выглядит. Перечень — только те надписи, которые
+                  печатает документ (`reportLabelKeys`): структура у него своя, и строка
+                  про заголовок, которого в нём нет, включалась бы вхолостую. */}
+              {reportLabelDeclarations.length > 0 && (
+                <ReportLabelsCard
+                  declarations={reportLabelDeclarations}
+                  sharedLabels={design.draft.labels ?? {}}
+                  report={model.report ?? {}}
+                  onChange={(next) => updateModel((m) => ({ ...m, report: next }))}
+                />
+              )}
               </>
             ) : null
           ) : effectiveActive === "layout" ? (
@@ -447,7 +459,10 @@ function TemplatePane({
   const tpl = design.template;
   if (!tpl) return null;
   return (
-    <div data-testid="design-template-pane">
+    // Баннер — ПРЯМОЙ ребёнок колонки настроек, а не карточки панели: полноширинным и
+    // липким его делает правило `.tb-settings-content > .ou-banner`, и внутри обёртки
+    // оно не срабатывало — сообщение об устаревшем шаблоне уезжало вверх при прокрутке.
+    <>
       {design.templateOutdated && (
         <Banner
           tone="warning"
@@ -470,6 +485,7 @@ function TemplatePane({
           data-testid="design-template-outdated"
         />
       )}
+      <div data-testid="design-template-pane">
       <div className="tpl-block" data-testid="design-template-card">
         <button
           type="button"
@@ -538,7 +554,6 @@ function TemplatePane({
             <Button
               variant="secondary"
               size="s"
-              leadingIcon={<Layout size={12} aria-hidden="true" />}
               data-testid="design-template-replace"
               onClick={onOpenGallery}
             >
@@ -556,7 +571,8 @@ function TemplatePane({
         </div>
       </div>
       <DesignSaveError design={design} />
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -785,6 +801,7 @@ function ColorsPane({
         </label>
         <div className="design-theme-head">
           <SegmentedControl<TestTheme>
+            size="s"
             items={themeItems}
             value={design.theme}
             onChange={(v) => design.setTheme(v)}

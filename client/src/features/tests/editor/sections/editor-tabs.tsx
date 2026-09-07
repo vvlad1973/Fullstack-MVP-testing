@@ -13,7 +13,6 @@
  * зовёт уже существующие панели. Сами панели живут там, где жили: логика не переезжала,
  * переехали только адреса.
  */
-import { useMemo } from "react";
 import type * as React from "react";
 import { Banner, FormSection } from "@universityrt/ui-kit";
 import type { FieldErrorIndex } from "../field-errors";
@@ -44,7 +43,7 @@ import { ScoringSection } from "./scoring-section";
 import { ScalesSection } from "./scales-section";
 import { ResultVariablesSection } from "./result-variables-section";
 import { ResultsLabelsPane } from "./results-labels-pane";
-import { ReportLabelsCard, SectionPane } from "./design-section";
+import { SectionPane } from "./design-section";
 import { BreakdownFeedbackCard } from "./breakdown-feedback-card";
 import { TopicFeedbackCard } from "./topic-feedback-card";
 import { LevelFeedbackCard } from "./level-feedback-card";
@@ -361,17 +360,6 @@ export function FeedbackTab({
   /** Э2.4: открыть редактор вопроса из реестра. Ящик вопроса монтирует хозяин вкладки. */
   onOpenQuestion?: (questionId: string) => void;
 }): React.JSX.Element {
-  // PRD-49: документ печатает НЕ все объявленные надписи — структура у него своя и
-  // фиксированная, поэтому перечень приходит с сервера, посчитанный по макетам отчёта
-  // (`reportLabelKeys`). Поля нет (старый сервер, шаблон не прочитался) — показываются
-  // все объявления, как раньше.
-  const reportLabelDeclarations = useMemo(() => {
-    const declared = design?.template?.manifest.labels ?? [];
-    const printed = design?.template?.reportLabelKeys;
-    if (!printed) return declared;
-    const allowed = new Set(printed);
-    return declared.filter((d) => allowed.has(d.key));
-  }, [design?.template]);
   const [active, setActive] = useRailState<FeedbackRail>(FEEDBACK_ITEMS, "during");
   return (
     <TabRail
@@ -434,23 +422,11 @@ export function FeedbackTab({
           )}
         </>
       )}
+      {/* Подраздел кончается предпросмотром: здесь задают, ЧТО показывать в отчёте.
+          Формулировки заголовков документа — это КАК он выглядит, и слой их
+          переопределений живёт в «Оформлении → Облик отчёта» (PRD-49 §7). */}
       {active === "report" && (
-        <>
-          <ReportContentPane model={model} updateModel={updateModel} design={design} />
-          {/* PRD-49 §7: тот же перечень надписей, но слоем ПЕРЕОПРЕДЕЛЕНИЙ. Пустая строка
-              значит «как на экране итогов», поэтому подсказкой поля стоит уже разрешённый
-              текст итогов, а не умолчание шаблона. Перечень — только те надписи, которые
-              печатает ДОКУМЕНТ (`reportLabelKeys`): структура у него своя и фиксированная,
-              и строка про заголовок, которого в нём нет, включалась бы вхолостую. */}
-          {design && reportLabelDeclarations.length > 0 && (
-            <ReportLabelsCard
-              declarations={reportLabelDeclarations}
-              sharedLabels={design.draft.labels ?? {}}
-              report={model.report ?? {}}
-              onChange={(next) => updateModel((m) => ({ ...m, report: next }))}
-            />
-          )}
-        </>
+        <ReportContentPane model={model} updateModel={updateModel} design={design} />
       )}
     </TabRail>
   );

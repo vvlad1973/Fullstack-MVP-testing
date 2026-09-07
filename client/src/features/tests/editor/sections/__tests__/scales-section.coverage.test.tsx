@@ -210,8 +210,11 @@ describe("<ScalesSection /> — «Список шкал»", () => {
     renderControlled(model);
 
     const covered = screen.getByTestId("scales-card-0");
-    expect(covered).toHaveTextContent("2 уровня");
-    expect(covered).toHaveTextContent("2 вопроса");
+    // Подзаголовок карточки — про расчёт и охват: агрегация, пересчёт, вклады. Число
+    // уровней в нём не считают, уровни целиком видны в теле карточки.
+    const summary = covered.querySelector(".tb-level-card__summary");
+    expect(summary?.textContent).not.toContain("уровня");
+    expect(summary?.textContent).toContain("2 вопроса");
     expect(covered.querySelector(".tb-status-dot--ok")).not.toBeNull();
 
     const bare = screen.getByTestId("scales-card-1");

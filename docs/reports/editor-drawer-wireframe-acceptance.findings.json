@@ -1173,7 +1173,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-39",
@@ -1203,7 +1203,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-41",
@@ -1263,7 +1263,8 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Закрыта частично: сняты пиктограмма вида строки и маркер «шаблон». Кнопка разворота и `page-row__meta` остаются — их объявляет проектный слой САМОГО эскиза (`.page-expand-toggle`, `.page-expand-slot`, `.page-actions__slot`, `.page-row__meta`), а полотно их просто не нарисовало; без разворота поля страницы не открыть, без меты не увидеть, что страница привязана к пропавшему макету."
   },
   {
     "id": "B-45",
@@ -1278,7 +1279,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-46",
@@ -1824,7 +1825,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-14",
@@ -1839,7 +1840,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-15",
@@ -1870,7 +1871,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-17",
@@ -1960,7 +1961,7 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-23",
@@ -1990,7 +1991,7 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-25",
@@ -2005,7 +2006,8 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: эскиз недорисован. Складка «Толкование для обучающегося» и строка «Рекомендации» — единственные редакторы полей `band.text` и `band.feedback`; убрать их значит сделать тексты уровня, которые видит обучающийся, недоступными для правки."
   },
   {
     "id": "D-26",
@@ -2020,7 +2022,7 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-27",
@@ -2065,7 +2067,7 @@
       "scales-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-30",
@@ -2080,7 +2082,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-31",
@@ -2125,7 +2127,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-34",
@@ -2977,7 +2979,8 @@
       "design-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Карточка не удалена, а переехала в «Оформление» → «Облик отчёта»: формулировка заголовка документа — это КАК он выглядит (правило владельца от 2026-09-06), и подраздел «Отчёт» в «Обратной связи» кончается предпросмотром, как в эскизе."
   },
   {
     "id": "E-32",
@@ -3068,7 +3071,8 @@
       "editor-settings-target.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: эскиз не знает решения владельца от 2026-09-06 («Оформление» — то, КАК показывать). «Облик отчёта» — не параметр шаблона, он есть у любого теста, поэтому рельс «Оформления» не схлопывается до одного пункта."
   },
   {
     "id": "F-2",
@@ -3084,7 +3088,7 @@
       "editor-settings-target.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-3",
@@ -3133,7 +3137,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-6",
@@ -3150,7 +3154,7 @@
       "editor-settings-target.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-7",

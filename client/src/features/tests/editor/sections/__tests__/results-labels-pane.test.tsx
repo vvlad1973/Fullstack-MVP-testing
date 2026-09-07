@@ -12,6 +12,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { ResultsLabelsPane } from "../results-labels-pane";
+import { DesignSection } from "../design-section";
 import { FeedbackTab } from "../editor-tabs";
 import { useDesignSettings } from "../../use-design-settings";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
@@ -350,6 +351,41 @@ function FeedbackHarness({ model }: { model: TestEditorModel }) {
   return <FeedbackTab model={model} updateModel={vi.fn()} design={design} />;
 }
 
+/**
+ * То же самое для «Оформления»: слой ПЕРЕОПРЕДЕЛЕНИЙ надписей отчёта живёт там, рядом с
+ * остальным обликом документа, — в «Обратной связи» задают, что отчёт показывает.
+ */
+function renderDesignPane(labels: LabelDeclaration[] | undefined, reportLabelKeys?: string[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            url === `/api/tests/${TEST_ID}/design`
+              ? { templateId: "default", params: {} }
+              : templateRow(labels, reportLabelKeys),
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    ),
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  render(
+    <QueryClientProvider client={client}>
+      <DesignHarness model={emptyModel()} />
+    </QueryClientProvider>,
+  );
+}
+
+function DesignHarness({ model }: { model: TestEditorModel }) {
+  const design = useDesignSettings(TEST_ID);
+  return (
+    <DesignSection testId={TEST_ID} design={design} model={model} updateModel={vi.fn()} />
+  );
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -378,15 +414,15 @@ describe("«Обратная связь и итоги» → «Состав ит�
  * вовсе. Перечень строк панели приходит теперь с сервера (`reportLabelKeys`), посчитанный
  * по макетам вариантов отчёта.
  */
-describe("«Обратная связь и итоги» → «Отчёт» → надписи документа", () => {
+describe("«Оформление» → «Облик отчёта» → надписи документа", () => {
   /** Карточки отчёта живут в модели теста, поэтому панель без неё не разворачивается. */
 
   function renderReportTab(reportLabelKeys?: string[]) {
-    renderDesignTab(DECLS, reportLabelKeys, emptyModel());
+    renderDesignPane(DECLS, reportLabelKeys);
   }
 
   async function openReportPane() {
-    fireEvent.click(screen.getByTestId("feedback-rail-report"));
+    fireEvent.click(screen.getByTestId("design-rail-report"));
     await waitFor(() => expect(screen.getByTestId("design-report-labels")).toBeInTheDocument());
   }
 
@@ -411,8 +447,8 @@ describe("«Обратная связь и итоги» → «Отчёт» → �
 
   it("документ, не печатающий ни одной надписи, карточки не получает", async () => {
     renderReportTab([]);
-    fireEvent.click(screen.getByTestId("feedback-rail-report"));
-    await waitFor(() => expect(screen.getByTestId("report-content-card")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("design-rail-report"));
+    await waitFor(() => expect(screen.getByTestId("report-settings-card")).toBeInTheDocument());
     expect(screen.queryByTestId("design-report-labels")).toBeNull();
   });
 });

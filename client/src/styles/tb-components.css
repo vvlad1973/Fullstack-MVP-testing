@@ -1288,24 +1288,10 @@
   white-space: nowrap;
 }
 
-/* ── Structure tab — flow-mode-bar / zone-block / topic-block / page-row
+/* ── Structure tab — zone-block / topic-block / page-row
    Ported from prd7-structure-linear-flat.html / prd7-structure-linear-by-topics.html
    (wireframe-local CSS); now lives in DS-extensions for use in
    features/tests/editor/sections/start-pages-section.tsx. */
-
-/* Inline flow-mode summary at the top of the Structure tab. */
-.flow-mode-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--ou-space-2);
-  padding: var(--wf-space-7, 6px) 0 var(--ou-space-3);
-  font: var(--ou-text-body-s);
-  color: var(--ou-fg-muted);
-  border-bottom: var(--wf-border-w) solid var(--ou-border-default);
-  margin-bottom: var(--ou-space-4);
-}
-.flow-mode-label { font-weight: 600; color: var(--ou-fg-default); }
-.flow-mode-hint { font: var(--ou-text-caption); }
 
 /* Zone blocks — outer container for «До теста» / «Внутри теста» / «После теста». */
 .zone-block {
@@ -1495,14 +1481,6 @@
   flex-shrink: 0;
   background: var(--ou-bg-surface-3);
   color: var(--ou-fg-default);
-}
-.tpl-page-marker {
-  font: var(--ou-text-caption);
-  color: var(--ou-fg-muted);
-  background: var(--ou-bg-surface-3);
-  border-radius: var(--wf-space-1q, 3px);
-  padding: var(--wf-border-w) var(--wf-space-tiny, 2px);
-  margin-left: var(--ou-space-1);
 }
 .page-title { font: var(--ou-text-body-s); flex: 1; min-width: 0; }
 .page-actions { display: flex; gap: var(--ou-space-1); flex-shrink: 0; }

@@ -301,9 +301,13 @@ export function LevelsEditor({
               )}
             </header>
 
+            {/* Поля карточки — размера m, как в эскизе: это основной ввод уровня, а не
+                служебная мелочь вроде порога между карточками. Что такое «Код уровня»,
+                сказано подписью всего блока уровней — здесь подсказка повторяла бы её
+                под каждой карточкой. */}
             <div className="tb-levels__grid">
               <Input
-                size="s"
+                size="m"
                 fullWidth
                 label="Название для обучающегося"
                 aria-label={`Название уровня ${i + 1}`}
@@ -312,12 +316,10 @@ export function LevelsEditor({
                 onChange={(e) => setLevel(i, { label: e.target.value })}
               />
               <Input
-                size="s"
+                size="m"
                 fullWidth
                 label="Код уровня"
                 aria-label={`Код уровня ${i + 1}`}
-                hint="Машинное имя для формул показателей"
-                placeholder="напр. high"
                 value={l.level}
                 disabled={readOnly}
                 error={errors.levels[i] ?? undefined}
@@ -389,15 +391,17 @@ export function LevelsEditor({
       ))}
 
       {!readOnly && (
-        <Button
-          variant="ghost"
-          size="s"
-          leadingIcon={<Plus size={16} aria-hidden="true" />}
-          onClick={() => emit(addLevel(draft, domain))}
-          data-testid={`${testIdPrefix}-level-add-${index}`}
-        >
-          Добавить уровень
-        </Button>
+        <div className="tb-levels__add">
+          <Button
+            variant="ghost"
+            size="m"
+            leadingIcon={<Plus size={16} aria-hidden="true" />}
+            onClick={() => emit(addLevel(draft, domain))}
+            data-testid={`${testIdPrefix}-level-add-${index}`}
+          >
+            Добавить уровень
+          </Button>
+        </div>
       )}
 
       {errors.blocking && (
@@ -428,16 +432,10 @@ export function LevelsEditor({
           data-testid={`${testIdPrefix}-levels-closed-gap-${index}`}
         />
       )}
-      {/* Deliberately path-free: the same editor serves the «Показатели» tab, where
-          no `scale.<key>` address exists, so naming one would be wrong half the time. */}
-      <Banner
-        tone="info"
-        size="sm"
-        description={
-          "«Код уровня» — машинное имя, по которому уровень доступен формулам показателей. " +
-          "«Название» видит обучающийся; пусто — покажется код."
-        }
-      />
+      {/* Постоянного пояснительного баннера здесь нет: у шкалы про код уровня сказано
+          подписью блока («Уровни шкалы»), где заодно назван и адрес публикации, —
+          баннер повторял бы её и оттеснял вниз те два, что говорят о РЕАЛЬНОЙ беде:
+          разрыве покрытия и сомкнутых границах. */}
 
       {open && feedbackFor !== null && (
         <FeedbackEditorModal
