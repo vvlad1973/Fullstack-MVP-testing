@@ -15,6 +15,9 @@ import { Eye } from "lucide-react";
 import {
   Banner,
   Button,
+  Card,
+  CardBody,
+  CardHeader,
   FormSection,
   Input,
   NumberInput,
@@ -322,21 +325,28 @@ export function ReportSettingsCard(props: {
                 </div>
               )}
 
+              {/* Карточка с шапкой, а не `ou-formfield__lbl`: «Параметры вида» — заголовок
+                  ГРУППЫ полей, а подпись поля рисуется ровно так же, как подписи полей
+                  внутри неё, и два уровня иерархии сливались в один. Карточка взята у
+                  соседа по экрану — «Заголовки и подписи отчёта» (см. `design-section`),
+                  чтобы обе группы этой вкладки выглядели одинаково. */}
               {fields.length > 0 && (
-                <div className="ou-formfield">
-                  <label className="ou-formfield__lbl">Параметры вида</label>
-                  <div className="tb-report-fields">
-                    {fields.map((f) => (
-                      <ReportField
-                        key={f.key}
-                        field={f}
-                        value={values[f.key]}
-                        disabled={props.readOnly}
-                        onChange={(v) => onFieldChange(f.key, v)}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <Card variant="outlined" size="sm">
+                  <CardHeader title="Параметры вида" />
+                  <CardBody>
+                    <div className="tb-report-fields">
+                      {fields.map((f) => (
+                        <ReportField
+                          key={f.key}
+                          field={f}
+                          value={values[f.key]}
+                          disabled={props.readOnly}
+                          onChange={(v) => onFieldChange(f.key, v)}
+                        />
+                      ))}
+                    </div>
+                  </CardBody>
+                </Card>
               )}
             </>
           )}

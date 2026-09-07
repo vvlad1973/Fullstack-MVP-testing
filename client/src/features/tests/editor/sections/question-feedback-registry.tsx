@@ -122,13 +122,16 @@ export function QuestionFeedbackRegistry({
               {list.length === 0 ? (
                 <div className="tb-card-desc">В теме нет вопросов.</div>
               ) : (
-                <table className="tb-table tb-table--mb" aria-label={`Обратная связь вопросов темы «${section.topicName}»`}>
+                <table
+                  className="tb-table tb-table--mb tb-qfeedback-table"
+                  aria-label={`Обратная связь вопросов темы «${section.topicName}»`}
+                >
                   <thead>
                     <tr>
-                      <th>Вопрос</th>
-                      <th>Режим</th>
+                      <th className="tb-qfeedback-table__q">Вопрос</th>
+                      <th className="tb-qfeedback-table__mode">Режим</th>
                       <th>Текст</th>
-                      <th aria-label="Действия" />
+                      <th className="tb-qfeedback-table__act" aria-label="Действия" />
                     </tr>
                   </thead>
                   <tbody>
@@ -149,7 +152,11 @@ export function QuestionFeedbackRegistry({
                               <FeedbackLine label="Неверно" text={q.feedbackIncorrect} />
                             </>
                           ) : (
-                            <FeedbackLine label="Текст" text={q.feedback} />
+                            // Подпись у общего текста не нужна: столбец уже называется
+                            // «Текст», и строка «Текст не задано» повторяла заголовок.
+                            // Подписи остаются только там, где различают ДВА текста, —
+                            // у условной обратной связи.
+                            <FeedbackLine text={q.feedback} />
                           )}
                         </td>
                         <td>
@@ -178,12 +185,16 @@ export function QuestionFeedbackRegistry({
   );
 }
 
-/** Одна строка текста: подпись и написанное, либо честное «не задано». */
-function FeedbackLine(props: { label: string; text?: string | null }): React.JSX.Element {
+/**
+ * Одна строка текста: написанное, либо честное «не задано». Подпись необязательна и
+ * нужна там, где в одной ячейке стоят ДВА текста (условная обратная связь): у общего
+ * текста её роль уже играет заголовок столбца.
+ */
+function FeedbackLine(props: { label?: string; text?: string | null }): React.JSX.Element {
   const text = (props.text ?? "").trim();
   return (
     <div className="tb-qfeedback__line">
-      <span className="tb-qfeedback__line-lbl">{props.label}</span>
+      {props.label && <span className="tb-qfeedback__line-lbl">{props.label}</span>}
       <span className={text ? "tb-qfeedback__line-text" : "tb-qfeedback__line-text is-empty"}>
         {text || "не задано"}
       </span>

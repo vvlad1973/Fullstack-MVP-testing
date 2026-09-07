@@ -850,14 +850,6 @@
   {
     "op": "extra",
     "role": "label",
-    "text": "Параметры вида",
-    "index": 5,
-    "state": "report",
-    "finding": "data:report-variant-fields"
-  },
-  {
-    "op": "extra",
-    "role": "label",
     "text": "Диаграмма по шкалам",
     "index": 6,
     "state": "report",

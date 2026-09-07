@@ -342,38 +342,21 @@
 }
 
 /* Э2.4: реестр «По вопросам» — дерево «тема -> вопрос», только чтение. Тема сворачивается,
-   потому что у теста бывает десяток тем по десятку вопросов. */
-.tb-qfeedback__topic + .tb-qfeedback__topic { margin-top: var(--ou-space-2); }
-.tb-qfeedback__trigger {
-  display: flex;
-  align-items: center;
-  gap: var(--ou-space-2);
-  width: 100%;
-  padding: var(--ou-space-2);
-  border: 0;
-  border-radius: var(--ou-radius-s);
-  background: var(--ou-bg-page);
-  cursor: pointer;
-  text-align: left;
-  color: var(--ou-fg-default);
-}
-.tb-qfeedback__trigger:hover { background: var(--ou-bg-subtle); }
-.tb-qfeedback__name { font: var(--ou-text-body-m); font-weight: 600; }
-.tb-qfeedback__count { margin-left: auto; font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tb-qfeedback__body { padding: var(--ou-space-2) 0 0 var(--ou-space-6); }
-.tb-qfeedback__row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--ou-space-4);
-  padding: var(--ou-space-2) 0;
-  border-bottom: 1px solid var(--ou-border-soft);
-}
-.tb-qfeedback__q { flex: 1 1 40%; min-width: 0; display: flex; align-items: center; gap: var(--ou-space-2); }
-.tb-qfeedback__q-text { font: var(--ou-text-body-s); overflow-wrap: anywhere; }
-.tb-qfeedback__texts { flex: 1 1 45%; min-width: 0; }
+   потому что у теста бывает десяток тем по десятку вопросов. Само дерево собрано из
+   `ou-acc` и `tb-table`; прежняя ручная раскладка строки (`__row`/`__q`/`__texts`, доли
+   40/45%) снята вместе с ней — но ШИРИНЫ, которые она задавала, таблице никто не передал,
+   и столбец «Текст» схлопывался. Ниже они возвращены столбцам. */
+.tb-qfeedback-table { table-layout: fixed; }
+.tb-qfeedback-table__q { width: 40%; }
+.tb-qfeedback-table__mode { width: 96px; }
+.tb-qfeedback-table__act { width: 136px; }
 .tb-qfeedback__line { display: flex; gap: var(--ou-space-2); font: var(--ou-text-body-s); }
 .tb-qfeedback__line-lbl { color: var(--ou-fg-muted); flex: 0 0 auto; }
-.tb-qfeedback__line-text { overflow-wrap: anywhere; }
+/* `break-word`, а НЕ `anywhere`: `anywhere` уменьшает min-content содержимого до одной
+   буквы, и в авторастяжке таблицы столбец «Текст» ужимался до нескольких пикселей —
+   «не задано» рассыпалось в столбик «не / зада / но». `break-word` рвёт только то, что
+   иначе вылезет за край, а собственную ширину столбца не занижает. */
+.tb-qfeedback__line-text { overflow-wrap: break-word; min-width: 0; }
 .tb-qfeedback__line-text.is-empty { color: var(--ou-fg-disabled); }
 
 /* Meta-count — компактный indicator «иконка + число» (например, число
@@ -430,9 +413,15 @@
    the width to (text col + N × value col) — N comes from the inline
    --tb-contrib-cols var — makes fixed layout honor each column exactly, and the
    table overflows the drawer when there are many scales → the wrapper scrolls. */
+/* 7rem хватало простому полю ввода, но в ячейке теперь счётчик со степперами, и две
+   кнопки съедают 56px из 112px: на число оставалось ~14px, туда не помещалось даже
+   «-1,5». 8.5rem возвращает полю ~40px под знаки — «-12,5» видно целиком. Ширина
+   объявлена ЗДЕСЬ, у таблицы: свойство наследуется, поэтому оба места ниже берут
+   одно значение и разъехаться не могут. */
 .tb-table.tb-contrib-grid {
+  --tb-contrib-val-w: 8.5rem;
   table-layout: fixed;
-  width: calc(var(--tb-contrib-unit-w, 18rem) + var(--tb-contrib-cols, 0) * var(--tb-contrib-val-w, 7rem));
+  width: calc(var(--tb-contrib-unit-w, 18rem) + var(--tb-contrib-cols, 0) * var(--tb-contrib-val-w));
 }
 
 /* Answer-text column: ~2x wider than its prior auto width, pinned on scroll. */
@@ -456,7 +445,7 @@
 .tb-contrib-grid__unit-text { min-width: 0; }
 
 /* Scale value columns: ~half their prior auto width (input fills the cell). */
-.tb-contrib-grid__val-col { width: var(--tb-contrib-val-w, 7rem); }
+.tb-contrib-grid__val-col { width: var(--tb-contrib-val-w); }
 /* A scale key ("EMOTIONAL_EXHAUSTION") is one unbreakable word — an underscore is
    not a break opportunity — so in a fixed-width column it overflows and paints
    over the neighbouring headers. The markup supplies <wbr> break points at each

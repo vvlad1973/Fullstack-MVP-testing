@@ -10,7 +10,7 @@
  * numeric indicator, exactly as its predecessor was — one notion, one editor.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Banner,
   Button,
@@ -106,6 +106,13 @@ function feedbackBadge(value: LevelDraft["feedback"]): string {
   return [hasText ? "текст" : "", materials].filter(Boolean).join(", ");
 }
 
+/**
+ * Наименьшая ширина полосы, при которой подпись ещё что-то сообщает. Подпись набрана
+ * `--ou-text-body-xs` и отбита `--ou-space-1` с боков: до этого предела в неё влезает
+ * от силы три буквы с многоточием, то есть ничего.
+ */
+const MIN_SEG_LABEL_PX = 56;
+
 export function LevelsEditor({
   bands,
   index,
@@ -119,10 +126,39 @@ export function LevelsEditor({
   // Which level's recommendations modal is open (level index, not the level).
   const [feedbackFor, setFeedbackFor] = useState<number | null>(null);
 
+  /**
+   * Измеренная ширина ленты. Нужна одному: решить, влезает ли в полосу подпись.
+   * У показателя бывает полтора десятка уровней, и тогда на полосу приходится
+   * ~30px — от названия остаётся огрызок «Св…», «Дв…», и лента из носителя
+   * пропорций превращается в частокол многоточий. Ноль означает «ещё не мерили»
+   * (первый кадр, jsdom без ResizeObserver) — в этом случае подписи показываются:
+   * скрывать их вслепую хуже, чем показать и убрать после замера.
+   */
+  const ribbonRef = useRef<HTMLDivElement | null>(null);
+  const [ribbonWidth, setRibbonWidth] = useState(0);
+  useEffect(() => {
+    const el = ribbonRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => setRibbonWidth(entries[0].contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const draft = bandsToDraft(bands);
   const errors = draftErrors(draft);
   const segments = coverageSegments(draft, domain);
   const total = draft.levels.length;
+
+  /**
+   * Доля полосы — та же величина, которой полоса растягивается (`flexGrow` ниже),
+   * поэтому расчётная ширина совпадает с нарисованной. Подпись показывается, только
+   * если полоса дотягивает до `MIN_SEG_LABEL_PX`: полное название всё равно остаётся
+   * в `title`, а под лентой стоят карточки уровней, где оно написано целиком.
+   */
+  const spanOf = (s: { from: number; to: number }) => Math.max(s.to - s.from, 0.001);
+  const totalSpan = (segments ?? []).reduce((sum, s) => sum + spanOf(s), 0);
+  const fitsLabel = (s: { from: number; to: number }) =>
+    ribbonWidth === 0 || totalSpan === 0 || (spanOf(s) / totalSpan) * ribbonWidth >= MIN_SEG_LABEL_PX;
 
   /**
    * The colour a level is actually drawn in — its explicit tone, else the one the
@@ -181,7 +217,7 @@ export function LevelsEditor({
           onChange={(e) => setBound({ start: e.target.value })}
           data-testid={`${testIdPrefix}-levels-start-${index}`}
         />
-        <div className="tb-levels__ribbon">
+        <div className="tb-levels__ribbon" ref={ribbonRef}>
           {segments === null ? (
             // Two different faults hide behind one `null`, and the author fixes
             // them differently. `errors.kind` names the one that actually fired
@@ -198,17 +234,17 @@ export function LevelsEditor({
                 <div
                   key={`gap-${i}`}
                   className="tb-levels__seg tb-levels__seg--gap"
-                  style={{ flexGrow: Math.max(s.to - s.from, 0.001) }}
+                  style={{ flexGrow: spanOf(s) }}
                   title="не разобрано"
                 >
-                  <span className="tb-levels__seglbl">не разобрано</span>
+                  {fitsLabel(s) && <span className="tb-levels__seglbl">не разобрано</span>}
                 </div>
               ) : (
                 <div
                   key={`seg-${s.index}`}
                   className="tb-levels__seg"
                   style={{
-                    flexGrow: Math.max(s.to - s.from, 0.001),
+                    flexGrow: spanOf(s),
                     background: toneRibbon(effectiveTone(draft.levels[s.index], s.index)).bg,
                     color: toneRibbon(effectiveTone(draft.levels[s.index], s.index)).fg,
                   }}
@@ -218,7 +254,9 @@ export function LevelsEditor({
                   title={levelTitle(draft.levels[s.index], s.index)}
                   data-testid={`${testIdPrefix}-level-seg-${index}-${s.index}`}
                 >
-                  <span className="tb-levels__seglbl">{levelTitle(draft.levels[s.index], s.index)}</span>
+                  {fitsLabel(s) && (
+                    <span className="tb-levels__seglbl">{levelTitle(draft.levels[s.index], s.index)}</span>
+                  )}
                 </div>
               ),
             )
