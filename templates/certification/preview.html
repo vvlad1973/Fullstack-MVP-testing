@@ -8469,11 +8469,26 @@ var TBTemplate = (() => {
     }
     return null;
   }
+  function outcomeMatchKey(code) {
+    if (!code.includes("+")) return code;
+    return code.split("+").map((part) => part.trim()).filter(Boolean).sort().join("+");
+  }
   function findOutcome(outcomes, value) {
     if (value === null || value === void 0) return null;
     const code = String(value);
+    if (code === "") return null;
     for (const outcome of outcomes) {
       if (outcome.code === code) return outcome;
+    }
+    const key = outcomeMatchKey(code);
+    if (key !== code) {
+      for (const outcome of outcomes) {
+        if (outcomeMatchKey(outcome.code) === key) return outcome;
+      }
+    }
+    const fallback = `count:${code.split("+").filter(Boolean).length}`;
+    for (const outcome of outcomes) {
+      if (outcome.code === fallback) return outcome;
     }
     return null;
   }
@@ -9401,20 +9416,54 @@ var TBTemplate = (() => {
     return sources;
   }
   function firedFeedback(m) {
-    var _a;
+    var _a, _b;
     const { interpretation } = m;
     if (typeof m.value === "number") {
       const band = interpretation.bands.find((b) => m.value >= b.min && m.value <= b.max);
       return normalizeFeedback(band == null ? void 0 : band.feedback);
     }
     const outcomes = (_a = interpretation.outcomes) != null ? _a : [];
-    const outcome = outcomes.find((o) => o.code === String(m.value));
-    return normalizeFeedback(outcome == null ? void 0 : outcome.feedback);
+    return normalizeFeedback((_b = findOutcome(outcomes, m.value)) == null ? void 0 : _b.feedback);
+  }
+  function buildRestScalesView(indicator, scales) {
+    const config = indicator.restScales;
+    if (!(config == null ? void 0 : config.show)) return null;
+    const code = typeof indicator.value === "string" ? indicator.value : "";
+    if (!code) return null;
+    const inProfile = new Set(code.split("+").filter(Boolean));
+    const group = new Set(config.keys);
+    const rest = scales.filter((s) => group.has(s.key) && !inProfile.has(s.key)).filter((s) => typeof s.value === "number" && Number.isFinite(s.value)).sort((a, b) => b.value - a.value);
+    if (rest.length === 0) return null;
+    const text = rest.map((s) => {
+      var _a;
+      return `${s.name}
+${(_a = s.description) != null ? _a : ""}`.trimEnd();
+    }).join("\n\n");
+    return {
+      key: `${indicator.key}__rest`,
+      name: config.label,
+      renderKind: "label",
+      showValue: false,
+      // Заголовок уровня погашен: его роль у этой карточки играет её собственное имя.
+      hideLevel: true,
+      valueText: "",
+      maxText: "",
+      valueLabel: "",
+      levelLabel: "",
+      tone: "neutral",
+      toneClass: "tb-tone--neutral",
+      bannerVariant: "info",
+      text,
+      textHtml: richTextToHtml(text),
+      zones: [],
+      marks: []
+    };
   }
   function resolveMeasures(measures, hasGradedScore2) {
     var _a;
-    const visibleScales = measures.scales.filter((m) => m.visibility !== "hidden");
-    const visibleIndicators = measures.indicators.filter((m) => m.visibility !== "hidden");
+    const hasValue = (m) => m.value !== null && m.value !== void 0;
+    const visibleScales = measures.scales.filter((m) => m.visibility !== "hidden" && hasValue(m));
+    const visibleIndicators = measures.indicators.filter((m) => m.visibility !== "hidden" && hasValue(m));
     return {
       visibleScales,
       visibleIndicators,
@@ -9452,7 +9501,11 @@ var TBTemplate = (() => {
       }
     }
     if (blocks.indicators && visibleIndicators.length) {
-      result.indicators = visibleIndicators.map((m) => buildMeasureView({ ...m, requestedKind: measures.indicatorKind, ramp: measures.ramp }));
+      result.indicators = visibleIndicators.flatMap((m) => {
+        const card = buildMeasureView({ ...m, requestedKind: measures.indicatorKind, ramp: measures.ramp });
+        const rest = buildRestScalesView(m, measures.scales);
+        return rest ? [card, rest] : [card];
+      });
     }
     return [
       ...blocks.indicators ? visibleIndicators.map(firedFeedback) : [],
