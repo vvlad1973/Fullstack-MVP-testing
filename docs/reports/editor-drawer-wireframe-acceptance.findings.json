@@ -12,7 +12,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-2",
@@ -27,7 +27,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-3",
@@ -42,7 +42,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-4",
@@ -57,7 +57,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-5",
@@ -72,7 +72,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-6",
@@ -87,7 +87,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-7",
@@ -102,7 +102,8 @@
       "prd7-editor-conflict.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed",
+    "note": "Заодно исправлена и разметка: в ДС `ou-tbl` — КОРЕНЬ таблицы (рамка, скругление, срез), а сама таблица внутри него своего класса не имеет (`.ou-tbl table`)."
   },
   {
     "id": "W-8",
@@ -117,7 +118,7 @@
       "prd7-editor-conflict.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-9",
@@ -132,7 +133,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-10",
@@ -147,7 +148,7 @@
       "prd52-review-player.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-11",
@@ -162,7 +163,7 @@
       "prd7-editor-settings-tab.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-12",
@@ -177,7 +178,8 @@
       "prd7-editor-settings-tab.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята как ошибка приёмки: `.ou-skel--w-1\\/4` в бандле ДС ОБЪЯВЛЕН (university-rt.css, экранированная косая) — поиском по `ou-skel--w-1/4` он не находился. Имя с дробью пришло из Tailwind, но в ДС оно принято."
   },
   {
     "id": "A-1",
@@ -253,7 +255,7 @@
       "test-editor.validation.ts"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-6",
@@ -331,7 +333,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-11",
@@ -346,7 +348,7 @@
       "test-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-12",
@@ -362,7 +364,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-13",
@@ -377,7 +379,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-14",
@@ -392,7 +394,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-15",
@@ -407,7 +409,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-16",
@@ -437,7 +439,7 @@
       "test-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-18",
@@ -482,7 +484,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-21",
@@ -497,7 +499,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-22",
@@ -512,7 +514,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-23",
@@ -527,7 +529,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "A-24",
@@ -542,7 +544,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-25",
@@ -557,7 +559,7 @@
       "test-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-26",
@@ -572,7 +574,7 @@
       "test-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-27",
@@ -587,7 +589,7 @@
       "test-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "A-28",
@@ -647,7 +649,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-4",
@@ -662,7 +664,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-5",
@@ -677,7 +679,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-6",
@@ -722,7 +724,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-9",
@@ -737,7 +739,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-10",
@@ -752,7 +754,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-11",
@@ -767,7 +769,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-12",
@@ -782,7 +784,8 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "fixed",
+    "note": "Карточки сделаны без полей порога: их отменил PRD-50 §16 уже после утверждения эскиза. Карточки открываются свёрнутыми — свёрнутая карточка говорит ровно то, что говорила строка таблицы («ровно 4 · доступно 3 · в вариантах …»)."
   },
   {
     "id": "B-13",
@@ -797,7 +800,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-14",
@@ -812,7 +815,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-15",
@@ -827,7 +830,8 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята как устаревшая: PRD-50 §16 (влит 2026-09-06) убрал индивидуальные пороги подтем вовсе — подтема судится правилом СВОЕЙ ТЕМЫ. Пояснения, которое просили сократить, в коде больше нет."
   },
   {
     "id": "B-16",
@@ -843,7 +847,7 @@
       "variants-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-17",
@@ -858,7 +862,8 @@
       "variants-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Строка баланса убрана из карточки, но сигнал не потерян: неравные варианты стали предупреждением `variants_unequal` общего контура — оно зажигает точку рейла «Состава» и попадает в баннер, куда ведёт «Перейти к ошибкам»."
   },
   {
     "id": "B-18",
@@ -873,7 +878,7 @@
       "variants-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-19",
@@ -888,7 +893,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-20",
@@ -903,7 +908,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-21",
@@ -918,7 +923,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "B-22",
@@ -933,7 +938,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-23",
@@ -963,7 +968,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-25",
@@ -978,7 +983,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-26",
@@ -1008,7 +1013,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-28",
@@ -1023,7 +1028,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-29",
@@ -1038,7 +1043,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-30",
@@ -1083,7 +1088,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-33",
@@ -1098,7 +1103,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-34",
@@ -1113,7 +1118,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-35",
@@ -1128,7 +1133,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-36",
@@ -1158,7 +1163,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-38",
@@ -1173,7 +1178,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-39",
@@ -1188,7 +1193,8 @@
       "start-pages-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed",
+    "note": "Зона «Внутри теста» теперь у ОБОИХ потемных сценариев: маршрутизаторная строка рисуется только там, где маршрутизатор есть, ветки одинаковы."
   },
   {
     "id": "B-40",
@@ -1203,7 +1209,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-41",
@@ -1218,7 +1224,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-42",
@@ -1233,7 +1239,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-43",
@@ -1248,7 +1254,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-44",
@@ -1263,7 +1269,8 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Закрыта частично: сняты пиктограмма вида строки и маркер «шаблон». Кнопка разворота и `page-row__meta` остаются — их объявляет проектный слой САМОГО эскиза (`.page-expand-toggle`, `.page-expand-slot`, `.page-actions__slot`, `.page-row__meta`), а полотно их просто не нарисовало; без разворота поля страницы не открыть, без меты не увидеть, что страница привязана к пропавшему макету."
   },
   {
     "id": "B-45",
@@ -1278,7 +1285,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-46",
@@ -1293,7 +1300,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-47",
@@ -1308,7 +1315,7 @@
       "start-pages-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-48",
@@ -1323,7 +1330,7 @@
       "variants-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-49",
@@ -1338,7 +1345,7 @@
       "variants-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-50",
@@ -1352,8 +1359,9 @@
     "files": [
       "TransferList.tsx"
     ],
-    "batch": "texts",
-    "status": "open"
+    "batch": "ds",
+    "status": "fixed",
+    "note": "Правка ДС одобрена владельцем 2026-09-07: «Выбрать всех» -> «Выбрать все» — форма для людей, а список бывает из вопросов, страниц и блоков. Четыре кнопки переноса оставлены: эскиз рисует две, но пакетные операции полезны."
   },
   {
     "id": "B-51",
@@ -1368,7 +1376,8 @@
       "variants-editor.tsx"
     ],
     "batch": "ds",
-    "status": "open"
+    "status": "fixed",
+    "note": "Правка ДС одобрена владельцем 2026-09-07: у `Tabs` появился `listAriaLabel`. `aria-label` из `...rest` доставался внешней обёртке `div.ou-tabs`, у которой роли нет, — список вкладок оставался безымянным."
   },
   {
     "id": "B-52",
@@ -1383,7 +1392,8 @@
       "variants-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: слот аватара занят той же пиктограммой типа вопроса, которую реестр сам требует в D-29, а номера «также в вариантах» — единственное место, где видно, что вопрос уже занят другим вариантом."
   },
   {
     "id": "C-1",
@@ -1414,7 +1424,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-3",
@@ -1429,7 +1439,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-4",
@@ -1444,7 +1454,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "C-5",
@@ -1459,8 +1469,9 @@
       "Banner.tsx",
       "basic-settings-section.tsx"
     ],
-    "batch": "cosmetics",
-    "status": "open"
+    "batch": "ds",
+    "status": "fixed",
+    "note": "Правка ДС одобрена владельцем 2026-09-07: `Banner` принимает `icon={false}`. Применено к баннерам блокировки в «Навигации»: баннер подчинён переключателю над ним и объясняет ЕГО состояние, а колонка треугольников в форме читается как список тревог."
   },
   {
     "id": "C-6",
@@ -1475,7 +1486,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "C-7",
@@ -1489,8 +1500,9 @@
     "files": [
       "editor-tabs.tsx"
     ],
-    "batch": "texts",
-    "status": "open"
+    "batch": "owner",
+    "status": "withdrawn",
+    "note": "Решение владельца 2026-09-07: оставить как есть. Подсказку объявил АВТОР ШАБЛОНА (`manifest.settings[].hint`), а не продукт; прятать её значит решать за него, что автору теста читать не нужно. Эскиз не знал, что текст приходит из манифеста."
   },
   {
     "id": "C-8",
@@ -1506,7 +1518,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-9",
@@ -1521,7 +1533,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-10",
@@ -1536,7 +1548,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-11",
@@ -1551,7 +1563,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-12",
@@ -1566,7 +1578,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-13",
@@ -1582,7 +1594,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-14",
@@ -1597,7 +1609,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "C-15",
@@ -1628,7 +1640,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-1",
@@ -1643,7 +1655,7 @@
       "scoring-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-2",
@@ -1689,7 +1701,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-5",
@@ -1704,7 +1716,7 @@
       "scoring-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-6",
@@ -1734,7 +1746,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-8",
@@ -1749,7 +1761,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-9",
@@ -1764,7 +1776,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-10",
@@ -1779,7 +1791,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-11",
@@ -1794,7 +1806,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-12",
@@ -1824,7 +1836,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-14",
@@ -1839,7 +1851,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-15",
@@ -1855,7 +1867,7 @@
       "university-rt.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-16",
@@ -1870,7 +1882,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-17",
@@ -1885,7 +1897,7 @@
       "scales-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-18",
@@ -1900,7 +1912,7 @@
       "scales-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-19",
@@ -1915,7 +1927,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-20",
@@ -1930,7 +1942,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-21",
@@ -1945,7 +1957,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-22",
@@ -1960,7 +1972,7 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-23",
@@ -1975,7 +1987,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-24",
@@ -1990,7 +2002,7 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-25",
@@ -2005,7 +2017,8 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: эскиз недорисован. Складка «Толкование для обучающегося» и строка «Рекомендации» — единственные редакторы полей `band.text` и `band.feedback`; убрать их значит сделать тексты уровня, которые видит обучающийся, недоступными для правки."
   },
   {
     "id": "D-26",
@@ -2020,7 +2033,7 @@
       "levels-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-27",
@@ -2035,7 +2048,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-28",
@@ -2050,7 +2063,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-29",
@@ -2065,7 +2078,7 @@
       "scales-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-30",
@@ -2080,7 +2093,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-31",
@@ -2125,7 +2138,7 @@
       "scales-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-34",
@@ -2140,7 +2153,7 @@
       "question-scoring-modal.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-35",
@@ -2155,7 +2168,8 @@
       "question-scoring-modal.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Эскиз спорит сам с собой (три состояния одной модалки: «Применить»/«Сохранить», «Секция»/«Тема»). Выбрано: «Применить» — модалка кладёт правку в черновик, а пишет её единственное «Сохранить» ящика; «Тема «…»» — так этот объект назван в «Составе» и в «Оценке ответа»."
   },
   {
     "id": "D-36",
@@ -2170,7 +2184,7 @@
       "scoring-builder.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-37",
@@ -2200,7 +2214,8 @@
       "question-scoring-modal.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: эскиз спорит сам с собой — состояние `s-qscoring-tiered` той же модалки поля «Балл за вопрос» и «Сложность» рисует. Убрать их нельзя и по существу: заработанное считается как `points × ratio` (`shared/scoring/aggregate.ts`), то есть цена вопроса управляет и весовым случаем."
   },
   {
     "id": "D-39",
@@ -2216,7 +2231,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-40",
@@ -2246,7 +2261,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-42",
@@ -2261,7 +2276,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-43",
@@ -2276,7 +2291,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-44",
@@ -2291,7 +2306,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-45",
@@ -2306,7 +2321,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-46",
@@ -2321,7 +2336,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-47",
@@ -2351,7 +2366,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-49",
@@ -2366,7 +2381,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-50",
@@ -2396,7 +2411,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-52",
@@ -2411,7 +2426,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-53",
@@ -2426,7 +2441,7 @@
       "levels-editor.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-54",
@@ -2441,7 +2456,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-55",
@@ -2456,7 +2471,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-56",
@@ -2471,7 +2486,7 @@
       "result-variables-builder.ts"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-57",
@@ -2486,7 +2501,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "D-58",
@@ -2531,7 +2546,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-3",
@@ -2637,7 +2652,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-10",
@@ -2652,7 +2667,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "withdrawn"
   },
   {
     "id": "E-11",
@@ -2667,7 +2682,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-12",
@@ -2682,7 +2697,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-13",
@@ -2698,7 +2713,7 @@
       "university-rt.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-14",
@@ -2728,7 +2743,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-16",
@@ -2743,7 +2758,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-17",
@@ -2758,7 +2773,8 @@
       "editor-tabs.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed",
+    "note": "Решение владельца 2026-09-07: «Обратная связь» стала группой рейла — «Общее», «По уровням шкал», «По уровням сложности», «По уровням показателей». Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего. Тексты уровней — те же поля модели, что правит конструктор уровней в «Оценке результата»; здесь они собраны в колонку."
   },
   {
     "id": "E-18",
@@ -2774,7 +2790,8 @@
       "level-feedback-card.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Решение владельца 2026-09-07: «нет смысла показывать то, что относится к адаптивному режиму, если он не включён». Эскиз опирается на потемную адаптивность, которой в модели нет: режим — свойство ТЕСТА. Раздел переименован в «По уровням сложности» и остаётся привилегией адаптивного теста."
   },
   {
     "id": "E-19",
@@ -2805,7 +2822,7 @@
       "basic-settings-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-21",
@@ -2916,7 +2933,7 @@
       "report-settings-card.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-28",
@@ -2931,7 +2948,7 @@
       "report-settings-card.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-29",
@@ -2946,7 +2963,7 @@
       "report-document-list.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-30",
@@ -2961,7 +2978,7 @@
       "report-document-list.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-31",
@@ -2977,7 +2994,8 @@
       "design-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Карточка не удалена, а переехала в «Оформление» → «Облик отчёта»: формулировка заголовка документа — это КАК он выглядит (правило владельца от 2026-09-06), и подраздел «Отчёт» в «Обратной связи» кончается предпросмотром, как в эскизе."
   },
   {
     "id": "E-32",
@@ -2992,7 +3010,7 @@
       "report-block-palette.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-33",
@@ -3007,7 +3025,8 @@
       "report-block-palette.tsx"
     ],
     "batch": "actions",
-    "status": "open"
+    "status": "fixed",
+    "note": "Правая колонка показывает СХЕМУ блока (лист с крупными штрихами), а не рендер: блок отчёта — не самостоятельный экран, и «как будет» до данных попытки показать нечем. Схема отвечает на вопрос, который автор задаёт палитре: это текст, таблица или картинка."
   },
   {
     "id": "E-34",
@@ -3022,7 +3041,7 @@
       "report-block-palette.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-35",
@@ -3037,7 +3056,7 @@
       "report-block-palette.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-36",
@@ -3052,7 +3071,7 @@
       "report-block-palette.tsx"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-1",
@@ -3068,7 +3087,8 @@
       "editor-settings-target.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: эскиз не знает решения владельца от 2026-09-06 («Оформление» — то, КАК показывать). «Облик отчёта» — не параметр шаблона, он есть у любого теста, поэтому рельс «Оформления» не схлопывается до одного пункта."
   },
   {
     "id": "F-2",
@@ -3084,7 +3104,7 @@
       "editor-settings-target.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-3",
@@ -3100,7 +3120,7 @@
       "editor-settings-target.html"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-4",
@@ -3116,7 +3136,7 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-5",
@@ -3133,7 +3153,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-6",
@@ -3150,7 +3170,7 @@
       "editor-settings-target.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-7",
@@ -3166,7 +3186,7 @@
       "editor-settings-target.html"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-8",
@@ -3182,7 +3202,7 @@
       "editor-settings-target.html"
     ],
     "batch": "grid",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-9",
@@ -3198,7 +3218,7 @@
       "editor-settings-target.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-10",
@@ -3230,7 +3250,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-12",
@@ -3262,7 +3282,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-14",
@@ -3278,7 +3298,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-15",
@@ -3294,7 +3314,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-16",
@@ -3374,7 +3394,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-21",
@@ -3390,7 +3410,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-22",
@@ -3438,7 +3458,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "texts",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "G-1",
@@ -3453,8 +3473,9 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "duplicate",
-    "duplicateOf": "A-7"
+    "status": "fixed",
+    "duplicateOf": "A-7",
+    "note": "Закрыта переносом ui-kit 0.3.0: `.ou-drawer__head` в бандле ДС теперь `var(--ou-space-6)`. Гейт меряет это правило и проходит."
   },
   {
     "id": "G-2",
@@ -3469,8 +3490,9 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "duplicate",
-    "duplicateOf": "A-6"
+    "status": "fixed",
+    "duplicateOf": "A-6",
+    "note": "Закрыта переносом ui-kit 0.3.0: `.ou-tabs__list` получил `padding-inline: var(--ou-space-6)`. Гейт меряет это правило и проходит."
   },
   {
     "id": "G-3",

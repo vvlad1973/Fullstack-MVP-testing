@@ -25,7 +25,7 @@ import {
 import { parseAuthorNumber } from "./numeric-input";
 import { profileFindings } from "./profile-diagnostics";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
-import { normalizeTag, TAG_MAX_LENGTH } from "@shared/tags";
+import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 
 const VALID_PASS_DECISION_POLICIES: PassDecisionPolicy[] = [
   "overall_only",
@@ -100,22 +100,73 @@ function getSectionByTopicId(sections: EditorSection[], topicId: string): Editor
 }
 
 /**
+ * Факты, которых НЕТ в модели редактора, но без которых часть проверок невозможна.
+ *
+ * Проверка остаётся чистой функцией: данные приходят аргументом, а не вычитываются
+ * из запроса внутри неё. Иначе секции пришлось бы заводить свой канал индикации в
+ * обход общего — а по контракту «Индикация проблем» проблема, о которой говорят
+ * автору, обязана быть в общем контуре.
+ *
+ * Поле отсутствует — соответствующие проверки просто не выполняются: молчание лучше
+ * выдуманного предупреждения, посчитанного по пустому банку.
+ */
+export type ValidationContext = {
+  /**
+   * Сколько вопросов с таким ключом (подтемой) есть в банке у темы:
+   * `availableByTopicAndTag[topicId][tagKey]`. Источник — `/api/questions`, который
+   * ящик и так загружает.
+   */
+  availableByTopicAndTag?: Record<string, Record<string, number>>;
+};
+
+/**
  * Validate the entire editor model. Each issue carries a stable `code` and
  * targets a `field` path that the UI uses to anchor inline errors.
  *
  * @param model - Normalized editor model to validate.
+ * @param context - Факты вне модели; см. {@link ValidationContext}.
  * @returns Object with `errors` (block save) and `warnings` (non-blocking).
  */
-export function validateTestEditor(model: TestEditorModel): ValidationResult {
+export function validateTestEditor(
+  model: TestEditorModel,
+  context: ValidationContext = {},
+): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
+
+  // PRD-50 §16: квота требует больше вопросов, чем есть в банке темы. Это НЕ ошибка —
+  // выдача просто отдаст сколько сможет, — но автор почти наверняка имел в виду другое.
+  // Проверка живёт здесь, а не в карточке квот: посчитанная внутри секции, она не
+  // зажигала бы ни точку на вкладке, ни точку в рейле и не попадала бы в баннер.
+  const available = context.availableByTopicAndTag;
+  if (available) {
+    model.sections.forEach((section, index) => {
+      const strata = section.drawBlueprint?.strata ?? [];
+      const byTag = available[section.topicId] ?? {};
+      strata.forEach((stratum, stratumIndex) => {
+        const have = byTag[tagKey(stratum.tag)] ?? 0;
+        // «Не меньше» банк не нарушает: выдача возьмёт, сколько есть. Говорим только
+        // о точной квоте, которую банк заведомо не покроет.
+        if (stratum.mode !== "min" && stratum.count > have) {
+          warnings.push({
+            field: `sections[${index}].drawBlueprintJson[${stratumIndex}]`,
+            code: "quota_exceeds_bank",
+            message:
+              `Подтема «${stratum.tag}»: запрошено ${stratum.count}, в банке темы ` +
+              `${have}. В выдачу попадёт столько, сколько есть.`,
+            severity: "warning",
+          });
+        }
+      });
+    });
+  }
 
   // FR-11: title is required
   if (model.basic.title.trim() === "") {
     errors.push({
       field: "basic.title",
       code: "required",
-      message: "Test title is required.",
+      message: "Название обязательно.",
       severity: "error",
     });
   }
@@ -125,7 +176,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
     errors.push({
       field: "sections",
       code: "required",
-      message: "At least one topic section is required.",
+      message: "Добавьте хотя бы одну тему.",
       severity: "error",
     });
   }
@@ -138,7 +189,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
     errors.push({
       field: "passRules.overall.value",
       code: "range",
-      message: "Overall pass threshold must be between 0 and 100 for percent type.",
+      message: "Порог в процентах — от 0 до 100.",
       severity: "error",
     });
   }
@@ -148,7 +199,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
     errors.push({
       field: "passRules.decisionPolicy",
       code: "required",
-      message: "Pass decision policy is missing or invalid.",
+      message: "Выберите, при каком условии тест считается пройденным.",
       severity: "error",
     });
   }
@@ -173,7 +224,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
     errors.push({
       field: "basic.webhookUrl",
       code: "invalid_url",
-      message: "Webhook URL must be a valid HTTP or HTTPS URL.",
+      message: "Адрес вебхука должен начинаться с http:// или https://.",
       severity: "error",
     });
   }
@@ -191,7 +242,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
       errors.push({
         field: `sections[${i}].drawCount`,
         code: "range",
-        message: `Draw count for topic "${section.topicName}" must be between 1 and ${section.maxQuestions}.`,
+        message: `Вопросов из темы «${section.topicName}» — от 1 до ${section.maxQuestions}.`,
         severity: "error",
       });
     }
@@ -265,6 +316,20 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
           severity: "error",
         });
       }
+      // Замечание, а не ошибка: неравные варианты — законная настройка, но участники
+      // получат разное число вопросов, и знать об этом автор должен ДО публикации.
+      // Говорит об этом общий контур, а не приписка под карточкой темы.
+      const sizes = forms.map((f) => f.questionIds.length);
+      if (empty === 0 && new Set(sizes).size > 1) {
+        warnings.push({
+          field: `sections[${i}].formSetJson`,
+          code: "variants_unequal",
+          message:
+            `Тема «${section.topicName}»: варианты неравны (${sizes.join(" / ")} вопросов). ` +
+            `Участники получат разное число вопросов.`,
+          severity: "warning",
+        });
+      }
     }
   }
 
@@ -280,7 +345,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
     errors.push({
       field: "passRules.overall.value",
       code: "range",
-      message: `Overall absolute pass threshold (${model.passRules.overall.value}) cannot exceed total points (${totalMaxPoints}).`,
+      message: `Порог ${model.passRules.overall.value} больше, чем можно набрать за тест (${totalMaxPoints}).`,
       severity: "error",
     });
   }
@@ -357,7 +422,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
           errors.push({
             field: `passRules.byTopic[${topicId}].value`,
             code: "range",
-            message: `Topic absolute pass threshold (${rule.value}) cannot exceed topic max points (${maxPoints}).`,
+            message: `Порог ${rule.value} больше, чем можно набрать по теме (${maxPoints}).`,
             severity: "error",
           });
         }
@@ -387,7 +452,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
       errors.push({
         field: "adaptive.topics",
         code: "no_enabled_topics",
-        message: "Adaptive mode requires at least one enabled topic.",
+        message: "Адаптивному тесту нужна хотя бы одна тема с включённой лестницей.",
         severity: "error",
       });
     }
@@ -420,7 +485,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
         warnings.push({
           field: `adaptive.topics[${topicIdx}].levels`,
           code: "missing_levels",
-          message: `Topic "${section.topicName}" has only one adaptive level; at least two are recommended.`,
+          message: `У темы «${section.topicName}» один уровень: лестница начинается с двух.`,
           severity: "warning",
         });
       }
@@ -436,7 +501,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].minDifficulty`,
           code: "range",
-          message: `Minimum difficulty must be less than maximum difficulty.`,
+          message: "Нижняя граница сложности должна быть меньше верхней.",
           severity: "error",
         });
       }
@@ -444,7 +509,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].minDifficulty`,
           code: "range",
-          message: `Minimum difficulty must be between 0 and 100.`,
+          message: "Нижняя граница сложности — от 0 до 100.",
           severity: "error",
         });
       }
@@ -452,7 +517,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].maxDifficulty`,
           code: "range",
-          message: `Maximum difficulty must be between 0 and 100.`,
+          message: "Верхняя граница сложности — от 0 до 100.",
           severity: "error",
         });
       }
@@ -468,7 +533,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
         errors.push({
           field: `adaptive.topics[${i}].levels[${j}].questionsCount`,
           code: "range",
-          message: `Questions count must be at least 1.`,
+          message: "Вопросов на уровне — не меньше одного.",
           severity: "error",
         });
       }
@@ -485,7 +550,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
           errors.push({
             field: `adaptive.topics[${i}].levels[${j}].passThreshold`,
             code: "range",
-            message: `Pass threshold for percent type must be between 0 and 100.`,
+            message: "Порог уровня в процентах — от 0 до 100.",
             severity: "error",
           });
         }
@@ -494,7 +559,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
           errors.push({
             field: `adaptive.topics[${i}].levels[${j}].passThreshold`,
             code: "range",
-            message: `Pass threshold for absolute type must be between 0 and ${level.questionsCount}.`,
+            message: `Порог уровня в баллах — от 0 до ${level.questionsCount}.`,
             severity: "error",
           });
         }
@@ -515,7 +580,7 @@ export function validateTestEditor(model: TestEditorModel): ValidationResult {
           errors.push({
             field: `adaptive.topics[${i}].levels[${j}].links[${k}]`,
             code: "required",
-            message: "Link must have both title and URL, or neither.",
+            message: "У ссылки нужны и подпись, и адрес — либо ни того, ни другого.",
             severity: "error",
           });
         }

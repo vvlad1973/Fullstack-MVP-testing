@@ -8,6 +8,8 @@
       Файл: docs/wireframes/editor-settings-target.html
       Источник решений: docs/reports/AUDIT_TEST_EDITOR_SETTINGS.md §3.1 и §3.6.
       Состояния: s-basic, s-composition, s-rules, s-scoring, s-feedback, s-design.
+      2026-09-06: s-scales разделено на s-scales и s-contributions — решение владельца о
+      втором уровне рейла (эскиз ds-rail-nested.html).
       Каркас ящика, шапка, вкладки и рейл взяты из утверждённого эскиза
       docs/wireframes/approved/prd7-editor-settings-tab.html без изменений.
     -->
@@ -458,12 +460,17 @@
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'rules-limits')">s-rules-limits</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'rules-protect')">s-rules-protect</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scoring')">s-scoring</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'contributions')">s-contributions</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'metrics')">s-metrics</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scales')">s-scales</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'feedback')">s-feedback</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'report')">s-report</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'during')">s-during</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'texts')">s-texts</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'topic-feedback')">s-topic-feedback</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scale-levels')">s-scale-levels</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'difficulty-levels')">s-difficulty-levels</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'metric-levels')">s-metric-levels</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'design')">s-design</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'design-colors')">s-design-colors</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'design-empty')">s-design-empty</button>
@@ -490,7 +497,7 @@
 
     <!-- ═══════════ STATE: s-basic — вкладка «Основное» ═══════════ -->
     <div id="wf-basic" class="wf-state active">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -588,7 +595,7 @@
 
     <!-- ═══════════ STATE: s-composition — «Состав и сценарий» ═══════════ -->
     <div id="wf-composition" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -741,7 +748,7 @@
                         <div class="ou-formgroup ou-formgroup--three">
                           <div class="ou-formfield">
                             <label class="ou-formfield__lbl">Режим квоты</label>
-                            <div class="ou-seg ou-seg--m" role="group" aria-label="Режим квоты для подтемы «Стратегия компании»">
+                            <div class="ou-seg" role="group" aria-label="Режим квоты для подтемы «Стратегия компании»">
                               <button type="button" class="ou-seg__item is-active"><span>Ровно</span></button>
                               <button type="button" class="ou-seg__item"><span>Не менее</span></button>
                             </div>
@@ -868,7 +875,7 @@
 
     <!-- ═══════════ STATE: s-rules — «Правила прохождения» ═══════════ -->
     <div id="wf-rules" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -957,7 +964,7 @@
 
     <!-- ═══════════ STATE: s-scoring — «Оценка результата» ═══════════ -->
     <div id="wf-scoring" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -1127,7 +1134,7 @@
 
     <!-- ═══════════ STATE: s-feedback — «Обратная связь и итоги» ═══════════ -->
     <div id="wf-feedback" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -1212,7 +1219,7 @@
                     <span class="ou-select__value">Полоса и число</span>
                     <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                   </button>
-                  <span class="ou-field__hint">Полосы по подтемам (тегам вопросов) на карточке темы: итоги раздела, итоги теста и отчёт. «Не показывать» убирает подытоги совсем и прячет два поля ниже.</span>
+                  <span class="ou-formfield__desc">Полосы по подтемам (тегам вопросов) на карточке темы: итоги раздела, итоги теста и отчёт. «Не показывать» убирает подытоги совсем и прячет два поля ниже.</span>
                 </div>
                 </div>
               
@@ -1232,7 +1239,7 @@
                     <span class="ou-select__value">В карточках тем и отдельным блоком</span>
                     <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                   </button>
-                  <span class="ou-field__hint">Сводный блок печатает подтему, живущую в нескольких разделах, одной строкой по всему тесту. В адаптивном тесте карточка темы говорит подтверждённым уровнем и полос не печатает — там работает только сводный блок.</span>
+                  <span class="ou-formfield__desc">Сводный блок печатает подтему, живущую в нескольких разделах, одной строкой по всему тесту. В адаптивном тесте карточка темы говорит подтверждённым уровнем и полос не печатает — там работает только сводный блок.</span>
                 </div>
               </div>
                 </div>
@@ -1258,7 +1265,7 @@
                   <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                 </label>
                 <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="f-h2" type="text" value="" placeholder="Разбор результатов" /></div></div>
-                <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
               </div>
               <div class="ou-formfield">
                 <label class="ou-formfield__lbl" for="f-h3">Заголовок блока по шкалам</label>
@@ -1267,7 +1274,7 @@
                   <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                 </label>
                 <div class="ou-field ou-field--m ou-field--full is-disabled"><div class="ou-field__box"><input class="ou-field__input" id="f-h3" type="text" value="Профиль по шкалам" disabled /></div></div>
-                <span class="ou-formfield__hint">Выключено — надпись не печатается на экране итогов и в отчёте.</span>
+                <span class="ou-formfield__desc">Выключено — надпись не печатается на экране итогов и в отчёте.</span>
               </div>
                 </div>
               </div>
@@ -1285,7 +1292,7 @@
 
     <!-- ═══════════ STATE: s-design — «Оформление» ═══════════ -->
     <div id="wf-design" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -1353,7 +1360,7 @@
 
     <!-- ═══════════ STATE: s-during — «Обратная связь и итоги → Во время теста» ═══════════ -->
     <div id="wf-during" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -1455,7 +1462,7 @@
 
     <!-- ═══════════ STATE: s-texts — «Обратная связь и итоги → Обратная связь» ═══════════ -->
     <div id="wf-texts" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -1480,7 +1487,17 @@
               <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
                 <button type="button" class="ou-drawer__rail-item">Во время теста</button>
                 <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
-                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Обратная связь</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-общее">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-общее">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
+                </div>
                 <button type="button" class="ou-drawer__rail-item">Отчёт</button>
               </nav>
               <div class="tb-settings-content">
@@ -1527,6 +1544,60 @@
                     </div>
                 </div>
               </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    
+    <!-- ═══════════ STATE: s-topic-feedback — тексты тем и подтем ═══════════ -->
+    <div id="wf-topic-feedback" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-общее">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-общее">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По темам</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro">
                   <h3 class="ou-formsection__title">По темам</h3>
@@ -1649,66 +1720,59 @@
                   </div>
                 </div>
               </div>
-              <div class="ou-formsection ou-formsection--stacked">
-                <div class="ou-formsection__intro tb-section-head">
-                  <h3 class="ou-formsection__title">По уровням</h3>
-                                  <div class="tb-fold-toolbar">
-                    <span class="tb-fold-actions">
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
-                    </span>
-                  </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    <!-- ═══════════ STATE: s-scale-levels — тексты уровней шкал ═══════════ -->
+    <div id="wf-scale-levels" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-шкалы">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-шкалы">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
                 </div>
-                <div class="ou-formsection__body">
-                  <div class="tb-fold-sec">
-                    <div class="tb-fold-sec-head">
-                      <button type="button" class="tb-fold-trigger" aria-expanded="true">
-                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
-                        <span class="tb-fold-sec-name">1. О компании</span>
-                      </button>
-                      <span class="ou-tag ou-tag--neutral ou-tag--outline">2 уровня</span>
-                    </div>
-                    <div class="tb-fold-sec__body">
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">При непройденном уровне</label>
-                        <div class="tb-feedback-preview">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Уровень не пройден: вернитесь к вводному курсу.</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Уровень «Базовый»</label>
-                        <div class="tb-feedback-preview">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Базовый уровень пройден, можно двигаться дальше.</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Уровень «Продвинутый»</label>
-                        <div class="tb-feedback-preview is-empty">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Без текста</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="tb-fold-sec">
-                    <div class="tb-fold-sec-head">
-                      <button type="button" class="tb-fold-trigger" aria-expanded="false">
-                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
-                        <span class="tb-fold-sec-name">2. Корпоративные финансы</span>
-                      </button>
-                      <span class="ou-tag ou-tag--neutral ou-tag--outline">адаптивность выключена</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro tb-section-head">
                   <h3 class="ou-formsection__title">По уровням шкал</h3>
@@ -1787,6 +1851,172 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    <!-- ═══════════ STATE: s-difficulty-levels — тексты уровней сложности ═══════════ -->
+    <div id="wf-difficulty-levels" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-сложность">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-сложность">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro tb-section-head">
+                  <h3 class="ou-formsection__title">По уровням сложности</h3>
+                                  <div class="tb-fold-toolbar">
+                    <span class="tb-fold-actions">
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
+                    </span>
+                  </div>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="tb-fold-sec">
+                    <div class="tb-fold-sec-head">
+                      <button type="button" class="tb-fold-trigger" aria-expanded="true">
+                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
+                        <span class="tb-fold-sec-name">1. О компании</span>
+                      </button>
+                      <span class="ou-tag ou-tag--neutral ou-tag--outline">2 уровня</span>
+                    </div>
+                    <div class="tb-fold-sec__body">
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl">При непройденном уровне</label>
+                        <div class="tb-feedback-preview">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Уровень не пройден: вернитесь к вводному курсу.</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl">Уровень «Базовый»</label>
+                        <div class="tb-feedback-preview">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Базовый уровень пройден, можно двигаться дальше.</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl">Уровень «Продвинутый»</label>
+                        <div class="tb-feedback-preview is-empty">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Без текста</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tb-fold-sec">
+                    <div class="tb-fold-sec-head">
+                      <button type="button" class="tb-fold-trigger" aria-expanded="false">
+                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
+                        <span class="tb-fold-sec-name">2. Корпоративные финансы</span>
+                      </button>
+                      <span class="ou-tag ou-tag--neutral ou-tag--outline">адаптивность выключена</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    <!-- ═══════════ STATE: s-metric-levels — тексты уровней показателей ═══════════ -->
+    <div id="wf-metric-levels" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-показатели">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-показатели">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням показателей</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro tb-section-head">
                   <h3 class="ou-formsection__title">По уровням показателей</h3>
@@ -1878,7 +2108,7 @@
 
     <!-- ═══════════ STATE: s-design-empty — «Оформление» без объявленных параметров ═══════════ -->
     <div id="wf-design-empty" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -1931,7 +2161,7 @@
     </div>
 
 <div id="wf-dirty" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -2047,7 +2277,7 @@
                 <div class="ou-tabs__list" role="tablist" aria-label="Варианты темы">
                   <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Вариант A</span><span class="ou-tabs__badge">16</span></button>
                   <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Вариант B</span><span class="ou-tabs__badge">16</span></button>
-                  <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-plus" /></svg></span><span class="ou-tabs__label">Вариант</span></button>
+                  <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__icon"><svg width="14" height="14" aria-hidden="true"><use href="#i-plus" /></svg></span><span class="ou-tabs__label">Вариант</span></button>
                 </div>
               </nav>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-trash" /></svg></span><span>Удалить вариант</span></button>
@@ -2136,7 +2366,7 @@
     </div>
 
 <div id="wf-answer" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -2292,7 +2522,7 @@
       </div>
     </div>
 <div id="wf-adaptive" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -2497,7 +2727,7 @@
       </div>
     </div>
 <div id="wf-scenario" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -2763,7 +2993,7 @@
       </div>
     </div>
 <div id="wf-scales" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -2788,7 +3018,13 @@
               <nav class="ou-drawer__rail" aria-label="Подразделы оценки результата">
                 <button type="button" class="ou-drawer__rail-item">Оценка ответа</button>
                 <button type="button" class="ou-drawer__rail-item">Вердикт</button>
-                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Шкалы</button>
+                <!-- Решение владельца 2026-09-06 (эскиз ds-rail-nested.html): «Шкалы» —
+                     не один экран, а два. Родитель — подпись: своего экрана у группы нет. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-scales-list">Шкалы</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-scales-list">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Список шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Вклады вопросов</button>
+                </div>
                 <button type="button" class="ou-drawer__rail-item">Показатели</button>
               </nav>
               
@@ -2837,7 +3073,7 @@
                         </div>
                       <div class="ou-formfield">
                         <label class="ou-formfield__lbl">Источник</label>
-                        <div class="ou-seg ou-seg--m" role="group" aria-label="Источник шкалы">
+                        <div class="ou-seg" role="group" aria-label="Источник шкалы">
                           <button type="button" class="ou-seg__item is-active"><span>Вопросы</span></button>
                           <button type="button" class="ou-seg__item" disabled><span>Другие шкалы</span></button>
                         </div>
@@ -2882,12 +3118,22 @@
                           </div>
                         </div>
                         <div class="tb-levels__coverstat">Шкала разобрана целиком, 3 уровня</div>
+                        <!-- Свёртка карточек уровня: у показателя их бывает полтора десятка,
+                             и без неё панель — бесконечная лента. Пара кнопок и шеврон в шапке
+                             карточки те же, что у квот, адаптивных уровней и вопросов. -->
+                        <div class="tb-fold-toolbar">
+                          <span class="tb-fold-actions">
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
+                          </span>
+                        </div>
                         <section class="tb-levels__card tb-levels__card--crit">
                           <header class="tb-levels__head">
                             <span class="tb-levels__title">basic</span>
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">0 … 39</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «basic»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «basic»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -2922,6 +3168,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">40 … 69</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «confident»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «confident»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -2956,6 +3203,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">70 … 100</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «advanced»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «advanced»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -3051,7 +3299,53 @@
                   </section>
                 </div>
               </div>
-
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+<div id="wf-contributions" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы оценки результата">
+                <button type="button" class="ou-drawer__rail-item">Оценка ответа</button>
+                <button type="button" class="ou-drawer__rail-item">Вердикт</button>
+                <!-- Решение владельца 2026-09-06 (эскиз ds-rail-nested.html): «Шкалы» —
+                     не один экран, а два. Родитель — подпись: своего экрана у группы нет. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-scales-contrib">Шкалы</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-scales-contrib">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Список шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Вклады вопросов</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Показатели</button>
+              </nav>
+              
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro">
                   <h3 class="ou-formsection__title">Вклады вопросов</h3>
@@ -3230,7 +3524,7 @@
       </div>
     </div>
 <div id="wf-metrics" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -3265,8 +3559,13 @@
                 </div>
                 <div class="ou-formsection__body">
                   <div class="ou-formactions ou-formactions--between">
+                    <!-- Свёртка карточек показателя: список открывается свёрнутым, и обе
+                         кнопки стоят рядом с «Добавить показатель». В пустом состоянии
+                         («Пока нет показателей») их нет — сворачивать нечего. -->
                     <span class="ou-formactions__buttons">
                       <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-plus" /></svg></span><span>Добавить показатель</span></button>
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
                     </span>
                   </div>
                   <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
@@ -3407,7 +3706,7 @@
       </div>
     </div>
 <div id="wf-report" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -3551,7 +3850,7 @@
                       </div>
                       <div class="ou-formfield">
                         <label class="ou-formfield__lbl" for="rf-text">Текст</label>
-                        <div class="ou-textarea ou-textarea--m ou-field--full"><textarea class="ou-textarea__input" id="rf-text" rows="3">Разберите темы, где результат ниже порога, и вернитесь к тесту через две недели.</textarea></div>
+                        <div class="ou-textarea ou-field--full"><textarea class="ou-textarea__input" id="rf-text" rows="3">Разберите темы, где результат ниже порога, и вернитесь к тесту через две недели.</textarea></div>
                       </div>
                       <div class="ou-formfield">
                         <label class="ou-formfield__lbl" for="rf-signature">Подпись</label>
@@ -3586,7 +3885,7 @@
       </div>
     </div>
 <div id="wf-rules-during" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -3652,7 +3951,7 @@
       </div>
     </div>
 <div id="wf-rules-limits" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -3802,7 +4101,7 @@
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl">При ошибке проверки допуска</label>
-                    <div class="ou-seg ou-seg--m" role="group" aria-label="Политика при ошибке проверки допуска">
+                    <div class="ou-seg" role="group" aria-label="Политика при ошибке проверки допуска">
                       <button type="button" class="ou-seg__item is-active"><span>Разрешить старт</span></button>
                       <button type="button" class="ou-seg__item"><span>Заблокировать</span></button>
                     </div>
@@ -3897,7 +4196,7 @@
     </div>
 
 <div id="wf-rules-protect" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -3964,7 +4263,7 @@
 
     
 <div id="wf-design-colors" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -4466,7 +4765,7 @@
 
     <!-- ═══════════ STATE: s-metrics-number — числовой показатель с уровнями ═══════════ -->
     <div id="wf-metrics-number" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -4525,7 +4824,7 @@
                       </div>
                       <div class="ou-formfield">
                         <label class="ou-formfield__lbl" for="mn-formula">Формула</label>
-                        <div class="ou-textarea ou-textarea--m ou-field--full"><textarea class="ou-textarea__input" id="mn-formula" rows="2">ROUND(scale.stress.percent * 0.6 + scale.load.percent * 0.4)</textarea></div>
+                        <div class="ou-textarea ou-field--full"><textarea class="ou-textarea__input" id="mn-formula" rows="2">ROUND(scale.stress.percent * 0.6 + scale.load.percent * 0.4)</textarea></div>
                         <span class="ou-formfield__desc">Формула вычисляется на сервере и в пакете SCORM одинаково.</span>
                       </div>
                       <div class="ou-banner ou-banner--subtle ou-banner--success" role="status">
@@ -4555,12 +4854,19 @@
                             </div>
                           </div>
                           <div class="tb-levels__coverstat">Шкала разобрана целиком, 3 уровня</div>
+                        <div class="tb-fold-toolbar">
+                          <span class="tb-fold-actions">
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
+                          </span>
+                        </div>
                         <section class="tb-levels__card tb-levels__card--good">
                           <header class="tb-levels__head">
                             <span class="tb-levels__title">norm</span>
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">0 … 39</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «norm»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «norm»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -4595,6 +4901,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">40 … 69</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «attention»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «attention»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -4629,6 +4936,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">70 … 100</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «risk»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «risk»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -4728,7 +5036,7 @@
 
     <!-- ═══════════ STATE: s-metrics-builder — конструктор формулы показателя ═══════════ -->
     <div id="wf-metrics-builder" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -4787,7 +5095,7 @@
                       </div>
                       <div class="ou-formfield">
                         <label class="ou-formfield__lbl">Как задать формулу</label>
-                        <div class="ou-seg ou-seg--m" role="group" aria-label="Способ задания формулы">
+                        <div class="ou-seg" role="group" aria-label="Способ задания формулы">
                           <button type="button" class="ou-seg__item is-active"><span>Конструктор</span></button>
                           <button type="button" class="ou-seg__item"><span>Выражение</span></button>
                         </div>
@@ -4848,7 +5156,7 @@
 
     <!-- ═══════════ STATE: s-labels — полный список надписей итогов ═══════════ -->
     <div id="wf-labels" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -4897,7 +5205,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-2" type="text" value="" placeholder="Рекомендации" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                 </div>
               </div>
@@ -4913,7 +5221,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-3" type="text" value="" placeholder="Общий балл" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-4">Подзаголовок шкал</label>
@@ -4922,7 +5230,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-4" type="text" value="" placeholder="По шкалам" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-5">Подзаголовок показателей</label>
@@ -4931,7 +5239,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full is-disabled"><div class="ou-field__box"><input class="ou-field__input" id="lb-5" type="text" value="По показателям" disabled /></div></div>
-                    <span class="ou-formfield__hint">Выключено — надпись не печатается на экране итогов и в отчёте.</span>
+                    <span class="ou-formfield__desc">Выключено — надпись не печатается на экране итогов и в отчёте.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-6">Подзаголовок тем</label>
@@ -4948,7 +5256,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-7" type="text" value="" placeholder="Разрез результата" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                 </div>
               </div>
@@ -4964,7 +5272,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-8" type="text" value="" placeholder="Пройти обучение" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-9">Подпись группы мероприятий</label>
@@ -4973,7 +5281,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-9" type="text" value="" placeholder="Мероприятия" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-10">Подпись группы материалов</label>
@@ -4982,7 +5290,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-10" type="text" value="" placeholder="Материалы" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                 </div>
               </div>
@@ -4998,7 +5306,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-11" type="text" value="" placeholder="вопросов" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-12">Подпись числа верных</label>
@@ -5007,7 +5315,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-12" type="text" value="" placeholder="верно" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-13">Подпись числа баллов</label>
@@ -5016,7 +5324,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-13" type="text" value="" placeholder="баллов" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                 </div>
               </div>
@@ -5032,7 +5340,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-14" type="text" value="" placeholder="Правильно" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-15">Строка «Баллов»</label>
@@ -5041,7 +5349,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-15" type="text" value="" placeholder="Баллов" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-16">Вердикт: пройдено</label>
@@ -5058,7 +5366,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-17" type="text" value="" placeholder="Не пройдено" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                   <div class="ou-formfield">
                     <label class="ou-formfield__lbl" for="lb-18">Вердикт: нет порога</label>
@@ -5067,7 +5375,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-18" type="text" value="" /></div></div>
-                    <span class="ou-formfield__hint">Шаблон не печатает эту надпись — задайте свою, если она нужна.</span>
+                    <span class="ou-formfield__desc">Шаблон не печатает эту надпись — задайте свою, если она нужна.</span>
                   </div>
                 </div>
               </div>
@@ -5083,7 +5391,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-19" type="text" value="" placeholder="{passed} / {total}" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                 </div>
               </div>
@@ -5099,7 +5407,7 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Показывать</span></span>
                     </label>
                     <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="lb-20" type="text" value="" placeholder="Итоги раздела" /></div></div>
-                    <span class="ou-formfield__hint">Пусто — печатается формулировка шаблона.</span>
+                    <span class="ou-formfield__desc">Пусто — печатается формулировка шаблона.</span>
                   </div>
                 </div>
               </div>
@@ -5116,7 +5424,7 @@
 
     <!-- ═══════════ STATE: s-errors — блокирующая валидация на «Основном» ═══════════ -->
 <div id="wf-errors" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -5225,7 +5533,7 @@
 
     <!-- ═══════════ STATE: s-empty-scales — в тесте ещё нет шкал ═══════════ -->
     <div id="wf-empty-scales" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -5277,7 +5585,7 @@
 
     <!-- ═══════════ STATE: s-empty-metrics — в тесте ещё нет показателей ═══════════ -->
     <div id="wf-empty-metrics" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -5329,7 +5637,7 @@
 
     <!-- ═══════════ STATE: s-empty-topics — тест без тем ═══════════ -->
     <div id="wf-empty-topics" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">
@@ -5391,7 +5699,7 @@
 
     <!-- ═══════════ STATE: s-changes — раскрытый список изменений черновика ═══════════ -->
     <div id="wf-changes" class="wf-state">
-      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
         <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
           <header class="ou-drawer__head">

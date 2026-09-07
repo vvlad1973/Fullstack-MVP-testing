@@ -63,7 +63,6 @@ import {
   type PreviewQuestionContext,
   type ScalePreviewResult,
 } from "../scales-api";
-import { pluralize } from "@/lib/i18n";
 import type { FieldErrorIndex } from "../field-errors";
 import { parseAuthorNumber } from "../numeric-input";
 import { isEmptyBandRow } from "../test-editor.validation";
@@ -73,6 +72,7 @@ import { achievableRange } from "@shared/scales/engine";
 import type { AllocationSpec } from "@shared/questions/allocation";
 import type { LearnerVisibility, Valence } from "@shared/scales/interpretation";
 import { LevelsEditor } from "./levels-editor";
+import { QuestionTypeIcon } from "./question-type-icon";
 import { bandsToDraft, draftErrors } from "./levels-model";
 
 export type ScalesSectionProps = {
@@ -317,7 +317,17 @@ function ScalesListPane({
   readOnly: boolean;
 }) {
   const scales = model.scales;
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  /**
+   * Свёртка карточек шкалы — та же, что у показателей и у остальных списков ящика.
+   * Прежде это был аккордеон на одну открытую карточку: две шкалы рядом было не
+   * сравнить, а «развернуть все» такой моделью не выражается. `startCollapsed`
+   * сохраняет прежнее начальное состояние — список открывается свёрнутым.
+   */
+  const fold = useSectionFold(
+    scales.map((s, i) => rowKey(s, i)),
+    true,
+  );
   const [previewOpen, setPreviewOpen] = useState(false);
   // PRD-29: `achievableRange` needs the question TYPES — without them a multiple
   // choice is read as a one-index pick and the computed maximum comes out wrong.
@@ -383,10 +393,9 @@ function ScalesListPane({
     [updateModel],
   );
 
+  // Новая шкала в наборе свёрнутых не значится, поэтому появляется раскрытой сама.
   const addScale = useCallback(() => {
-    const created = emptyScale(scales.length);
-    setScales([...scales, created]);
-    setExpandedKey(rowKey(created, scales.length));
+    setScales([...scales, emptyScale(scales.length)]);
   }, [scales, setScales]);
 
   const removeScale = useCallback(
@@ -458,17 +467,22 @@ function ScalesListPane({
         >
           Предпросмотр расчёта
         </Button>
-        {!readOnly && (
-          <Button
-            variant="ghost"
-            size="s"
-            leadingIcon={<Plus size={16} aria-hidden="true" />}
-            onClick={addScale}
-            data-testid="scales-add"
-          >
-            Добавить шкалу
-          </Button>
-        )}
+        {/* Добавление и свёртка — одна группа у правого края: `ou-formactions__group`
+            для того и есть, иначе `--between` растащило бы три кнопки по всей строке. */}
+        <span className="ou-formactions__group">
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="s"
+              leadingIcon={<Plus size={16} aria-hidden="true" />}
+              onClick={addScale}
+              data-testid="scales-add"
+            >
+              Добавить шкалу
+            </Button>
+          )}
+          {scales.length > 1 && <FoldAllButtons fold={fold} testIdPrefix="scales" />}
+        </span>
       </FormActions>
 
       {anyError && (
@@ -491,8 +505,8 @@ function ScalesListPane({
               coverage={coverageByKey.get(scale.key)?.size ?? 0}
               suggestedDomain={suggestedDomainOf(scale)}
               readOnly={readOnly}
-              expanded={expandedKey === key}
-              onToggle={() => setExpandedKey((cur) => (cur === key ? null : key))}
+              expanded={fold.isOpen(key)}
+              onToggle={() => fold.toggle(key)}
               onChange={(patch) => updateScale(index, patch)}
               onRemove={() => removeScale(index)}
             />
@@ -541,12 +555,11 @@ function ScaleCard({
 
   const heading = `${s.key ? s.key.toUpperCase() : "новая шкала"}${s.label ? ` — ${s.label}` : ""}`;
   const recalc = recalcOf(s);
+  // Три члена, как в эскизе: агрегация, пересчёт, охват. Число уровней отсюда убрано —
+  // уровни целиком видны в теле карточки, а в свёрнутом виде автор ищет здесь не их.
   const subtitle = [
     AGG_LABEL[s.aggregation],
     RECALC_LABEL[recalc],
-    // «уровень», not «диапазон»: PRD-45 retired ranges from the UI, and the card's
-    // subtitle was the last place still counting them.
-    s.bands.length > 0 ? `${s.bands.length} ${pluralize(s.bands.length, "уровень", "уровня", "уровней")}` : null,
     coverage > 0 ? pluralQuestions(coverage) : "без вкладов",
   ]
     .filter(Boolean)
@@ -643,7 +656,7 @@ function ScaleForm({
 
   return (
     <>
-      <Grid cols={2} gap={3}>
+      <Grid cols={2} gap={4}>
         <Input
           size="m"
           fullWidth
@@ -709,10 +722,8 @@ function ScaleForm({
               /* composite scales (source = other scales) are deferred; questions only */
             }}
           />
-          <p className="ou-formfield__desc">
-            «Другие шкалы» пока недоступны — расчёт шкалы из других шкал ещё не
-            реализован.
-          </p>
+          {/* Без пояснения под сегментом: «Другие шкалы» уже выключены, а выключенный
+              выбор сам говорит, что он недоступен. */}
         </div>
         <Select<RecalcValue>
           size="m"
@@ -736,30 +747,27 @@ function ScaleForm({
         />
       </Grid>
 
-      <hr className="wf-sep" />
-      <div className="tb-section-label">Уровни шкалы</div>
-      {/* The one thing the shared editor's own banner cannot say: this tab's
-          publication address. `LevelsEditor` also serves «Показатели», where no
-          `scale.<key>` path exists, so it stays path-free and the address lives
-          here. `tb-card-desc`, not `ou-formfield__desc`: the latter has no margins
-          of its own — it leans on `.ou-formfield`'s flex gap, which a card body
-          does not provide. */}
-      <p className="tb-card-desc">
-        Код уровня публикуется как scale.{"{"}ключ{"}"}.level и доступен формулам показателей.
-      </p>
-      <LevelsEditor
-        bands={s.bands}
-        index={index}
-        readOnly={readOnly}
-        valence={s.valence}
-        domain={s.domainMin !== null && s.domainMax !== null
-          ? { min: s.domainMin, max: s.domainMax }
-          : suggestedDomain}
-        onChange={setBands}
-      />
-
-      <hr className="wf-sep" />
-      <div className="tb-section-label">Границы шкалы и показ результата</div>
+      {/* Подпись ПОЛЯ, а не раздела: уровни — одна настройка шкалы наравне с
+          агрегацией, и линейка-разделитель вокруг неё разбивала бы тело карточки на
+          части, которых в эскизе нет. Адрес публикации живёт здесь, а не в самом
+          редакторе уровней: `LevelsEditor` служит и «Показателям», где пути
+          `scale.<ключ>` не существует. */}
+      <div className="ou-formfield">
+        <label className="ou-formfield__lbl">Уровни шкалы</label>
+        <span className="ou-formfield__desc">
+          Код уровня публикуется как scale.{"{"}ключ{"}"}.level и доступен формулам показателей.
+        </span>
+        <LevelsEditor
+          bands={s.bands}
+          index={index}
+          readOnly={readOnly}
+          valence={s.valence}
+          domain={s.domainMin !== null && s.domainMax !== null
+            ? { min: s.domainMin, max: s.domainMax }
+            : suggestedDomain}
+          onChange={setBands}
+        />
+      </div>
 
       <DomainFields
         domainMin={s.domainMin}
@@ -768,6 +776,7 @@ function ScaleForm({
         testIdPrefix="scales"
         index={index}
         seed={effectiveDomain(s, suggestedDomain)}
+        groupLabel="Границы шкалы и показ результата"
         switchLabel="Задать границы шкалы вручную"
         switchDescription="Выключено — границы берутся из охвата уровней. Ноль — законная граница, а не признак «не задано»."
         minLabel="Минимум шкалы"
@@ -883,6 +892,7 @@ export function DomainFields({
   testIdPrefix,
   index,
   seed,
+  groupLabel,
   switchLabel,
   switchDescription,
   minLabel,
@@ -896,6 +906,11 @@ export function DomainFields({
   index: number;
   /** Bounds to seed the fields with the moment manual entry is switched on. */
   seed: { min: number; max: number };
+  /**
+   * Caption of the whole block, above the switch. Optional: the «Показатели» card
+   * names the block itself, this one is named by the card that owns it.
+   */
+  groupLabel?: string;
   switchLabel: string;
   switchDescription: string;
   minLabel: string;
@@ -908,6 +923,7 @@ export function DomainFields({
   return (
     <>
       <div className="ou-formfield">
+        {groupLabel && <label className="ou-formfield__lbl">{groupLabel}</label>}
         <Switch
           label={switchLabel}
           description={switchDescription}
@@ -991,7 +1007,7 @@ export function CardSlotToggles({
   return (
     <FormField
       label="Слоты карточки"
-      hint="Выключается ПОКАЗ слота — на экране итогов и в отчёте. Название и метка уровня остаются в данных: их берут аналитика и выгрузка."
+      hint="Выключается показ слота — на экране итогов и в отчёте. Название и метка уровня остаются в данных: их берут аналитика и выгрузка."
       data-testid={`${testIdPrefix}-slots-${index}`}
     >
       <Stack gap={2}>
@@ -1042,7 +1058,7 @@ function DisplayMaxField(props: {
       <div className="ou-formfield">
         <Switch
           label="Задать предел показа на диаграмме"
-          description="Читается, только когда у экрана итогов выбран предел оси «заданный автором». Нужен, когда домен недостижимо велик: фигура иначе жмётся к центру и различия шкал пропадают."
+          description="Читается, только когда у экрана итогов выбран предел оси «заданный автором»."
           checked={value !== null}
           disabled={readOnly}
           onChange={(e) => onChange({ displayMax: e.target.checked ? seed : null })}
@@ -1243,15 +1259,6 @@ const UNIT_HEADER: Record<ContributionQuestion["type"], string> = {
   allocation: "Утверждение",
 };
 
-const QTYPE_LABEL: Record<ContributionQuestion["type"], string> = {
-  single: "один выбор",
-  multiple: "несколько выборов",
-  matching: "сопоставление",
-  ranking: "ранжирование",
-  scale: "шкала",
-  allocation: "распределение баллов",
-};
-
 const UNIT_HINT: Partial<Record<ContributionQuestion["type"], string>> = {
   matching:
     "Строка = направленная пара «левый → правый». Активна каждая фактически составленная пара, независимо от корректности.",
@@ -1431,8 +1438,6 @@ function ContributionsPane({
 
       {groups.map((group) => {
         const open = fold.isOpen(group.topicId);
-        // Coverage reflected at the section level (only meaningful with scales).
-        const sectionUncovered = group.items.filter(({ q }) => !contributedByQ.has(q.id)).length;
         return (
           <div className="tb-fold-sec" key={group.topicId} data-testid={`contrib-sec-${group.topicId}`}>
             <Collapsible open={open} onOpenChange={() => fold.toggle(group.topicId)}>
@@ -1450,14 +1455,9 @@ function ContributionsPane({
                     <span className="tb-fold-sec-name">{group.topicName}</span>
                   </button>
                 </CollapsibleTrigger>
-                {scales.length > 0 && sectionUncovered > 0 && (
-                  <span
-                    className="ou-tag ou-tag--warning ou-tag--outline"
-                    data-testid={`contrib-sec-uncovered-${group.topicId}`}
-                  >
-                    {sectionUncovered} не привязано
-                  </span>
-                )}
+                {/* Один тег — сколько вопросов в теме. О непривязанных говорит баннер
+                    над списком и точка на самой карточке: третий счётчик тех же
+                    вопросов в шапке свёртки повторял бы их обоих. */}
                 <span className="ou-tag ou-tag--neutral ou-tag--outline">{pluralQuestions(group.items.length)}</span>
               </div>
               <CollapsibleContent>
@@ -1525,9 +1525,13 @@ function QuestionContribCard({
       <header className="ou-card__header tb-level-card__head">
         <span className={"tb-status-dot " + dotClass} aria-hidden="true"></span>
         <div className="ou-card__heading tb-level-card__heading">
-          <h5 className="ou-card__title tb-level-card__title">{heading}</h5>
+          {/* Тип вопроса — пиктограммой в заголовке, как в списке «Оценки»: словами он
+              занимал первую половину подзаголовка, где автор ищет ключи шкал. */}
+          <h5 className="ou-card__title tb-level-card__title">
+            <QuestionTypeIcon type={q.type} />
+            {heading}
+          </h5>
           <p className="ou-card__subtitle tb-level-card__summary">
-            {QTYPE_LABEL[q.type]}
             {scales
               .filter((s) => contributed.has(s.key))
               .map((s) => (

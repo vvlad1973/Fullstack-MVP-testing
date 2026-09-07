@@ -40,6 +40,38 @@ interface PaletteOption {
   templateKey: string | null;
 }
 
+/**
+ * Схема блока на листе: из чего он состоит, крупными штрихами. Не рендер — блок отчёта
+ * не самостоятельный экран, и показать «как будет» до выбора данных попытки нечем. Схема
+ * отвечает на единственный вопрос, который автор задаёт палитре: это текст, таблица или
+ * картинка.
+ */
+type SheetRow = "title" | "line" | "short" | "block" | "break";
+
+const BLOCK_SHEET: Record<string, SheetRow[]> = {
+  header: ["title", "short"],
+  intro: ["title", "line", "line", "short"],
+  summary: ["title", "block"],
+  topics: ["title", "block"],
+  breakdown: ["title", "block"],
+  scales: ["title", "block", "line"],
+  indicators: ["title", "block", "line"],
+  recommendations: ["title", "line", "line", "short"],
+  courses: ["title", "line", "short", "line", "short"],
+  events: ["title", "line", "short", "line", "short"],
+  "page-break": ["line", "short", "break", "title", "line"],
+};
+
+const DEFAULT_SHEET: SheetRow[] = ["title", "line", "line", "short", "block"];
+
+const SHEET_CLASS: Record<SheetRow, string> = {
+  title: "tb-sheet__title",
+  line: "tb-sheet__line",
+  short: "tb-sheet__line tb-sheet__line--short",
+  block: "tb-sheet__block",
+  break: "tb-sheet__break",
+};
+
 /** Группы в порядке эскиза: сперва то, что автор добавляет чаще всего. */
 const GROUP_PAGES = "Страницы";
 const GROUP_SERVICE = "Служебное";
@@ -68,7 +100,9 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
         id: v.key,
         group: GROUP_PAGES,
         label: v.label ?? v.key,
-        description: "Авторская страница документа.",
+        // Описание берётся у САМОГО варианта: одна строка на все страницы не говорила,
+        // чем они отличаются, а выбирают их именно по этому.
+        description: v.description ?? "Авторская страница документа.",
         block: REPORT_PAGE_BLOCK,
         templateKey: v.key,
       }));
@@ -77,7 +111,7 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
         id: REPORT_PAGE_BREAK_BLOCK,
         group: GROUP_SERVICE,
         label: "Разрыв листа",
-        description: "Следующий блок начнётся с нового листа документа.",
+        description: "Следующий блок печатается с новой страницы",
         block: REPORT_PAGE_BREAK_BLOCK,
         templateKey: null,
       },
@@ -88,7 +122,7 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
       id: b.key,
       group: GROUP_REMOVED,
       label: b.label,
-      description: "Вернуть системный блок в документ.",
+      description: "Убран из документа — вернётся на прежнее место",
       block: b.key,
       templateKey: null,
     }));
@@ -98,8 +132,10 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
   const needle = query.trim().toLowerCase();
   const shown = needle ? options.filter((o) => o.label.toLowerCase().includes(needle)) : options;
 
+  const chosen = shown.find((o) => o.id === selected) ?? null;
+
   const pick = () => {
-    const option = shown.find((o) => o.id === selected);
+    const option = chosen;
     if (!option) return;
     props.onPick({
       block: option.block,
@@ -154,7 +190,7 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
     <ModalDialog
       open={props.open}
       onClose={props.onClose}
-      size="m"
+      size="xl"
       title="Добавить блок"
       description="Блок встанет в документ на место, откуда вы его добавляете."
       footer={
@@ -174,29 +210,52 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
         </>
       }
     >
-      <div className="variant-search">
-        <Search className="variant-search__icon" size={16} aria-hidden="true" />
-        <input
-          className="variant-search__input"
-          type="search"
-          placeholder="Поиск блока…"
-          aria-label="Поиск блока"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          data-testid="report-palette-search"
-        />
-      </div>
-      {shown.length ? (
-        <ul className="variant-list" role="listbox" aria-label="Блоки документа">
-          {group(GROUP_PAGES)}
-          {group(GROUP_SERVICE)}
-          {group(GROUP_REMOVED)}
-        </ul>
-      ) : (
-        <div className="variant-picker__empty" data-testid="report-palette-empty">
-          Ничего не нашлось
+      <div className="variant-picker">
+        <div className="variant-picker__list">
+          <div className="variant-search">
+            <Search className="variant-search__icon" size={16} aria-hidden="true" />
+            <input
+              className="variant-search__input"
+              type="search"
+              placeholder="Поиск блока…"
+              aria-label="Поиск блока"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              data-testid="report-palette-search"
+            />
+          </div>
+          {shown.length ? (
+            <ul className="variant-list" role="listbox" aria-label="Блоки документа">
+              {group(GROUP_PAGES)}
+              {group(GROUP_SERVICE)}
+              {group(GROUP_REMOVED)}
+            </ul>
+          ) : (
+            <div className="variant-picker__empty" data-testid="report-palette-empty">
+              Ничего не нашлось
+            </div>
+          )}
         </div>
-      )}
+        <div className="variant-picker__preview">
+          <div className="variant-picker__box">
+            {chosen ? (
+              <div
+                className="tb-sheet"
+                aria-label={`Схема блока «${chosen.label}»`}
+                data-testid="report-palette-preview"
+              >
+                {(BLOCK_SHEET[chosen.block] ?? DEFAULT_SHEET).map((row, i) => (
+                  <div key={i} className={SHEET_CLASS[row]} />
+                ))}
+              </div>
+            ) : (
+              <span className="variant-picker__empty" data-testid="report-palette-preview-empty">
+                Выберите блок слева
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
     </ModalDialog>
   );
 }

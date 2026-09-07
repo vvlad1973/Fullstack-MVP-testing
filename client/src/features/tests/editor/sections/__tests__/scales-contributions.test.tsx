@@ -155,13 +155,15 @@ describe("«Шкалы» → «Вклады вопросов»", () => {
     expect(screen.getByTestId("contrib-card-2")).toBeInTheDocument();
   });
 
-  it("uncovered questions warn on the card and the section header", async () => {
+  it("uncovered questions warn on the card; the section header only counts questions", async () => {
     openContributions();
     const card = await screen.findByTestId("contrib-card-0");
     // Inside the pane a scale always exists, so «не привязан» is actionable.
     expect(card.querySelector(".tb-status-dot--warn")).not.toBeNull();
     expect(card).toHaveTextContent("не привязан");
-    // Section header reflects coverage: top-1 holds q1+q2 = 2 uncovered.
-    expect(screen.getByTestId("contrib-sec-uncovered-top-1")).toHaveTextContent("2 не привязано");
+    // Шапка свёртки о непривязанных МОЛЧИТ: об этом уже говорят баннер над списком и
+    // точка карточки, а третий счётчик тех же вопросов только спорил бы с ними.
+    expect(screen.queryByTestId("contrib-sec-uncovered-top-1")).toBeNull();
+    expect(screen.getByTestId("contrib-sec-top-1")).toHaveTextContent("2 вопроса");
   });
 });

@@ -117,4 +117,20 @@ describe("палитра блоков документа", () => {
     fireEvent.change(screen.getByLabelText("Поиск блока"), { target: { value: "ыыы" } });
     expect(screen.getByTestId("report-palette-empty")).toBeInTheDocument();
   });
+
+  it("схема блока появляется только после выбора и зависит от блока", () => {
+    renderPalette();
+    // Пока не выбрано, правая колонка зовёт выбрать, а не показывает пустой лист.
+    expect(screen.getByTestId("report-palette-preview-empty")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("report-palette-option-topics"));
+    const sheet = screen.getByTestId("report-palette-preview");
+    expect(sheet).toHaveAttribute("aria-label", "Схема блока «Результаты по темам»");
+    // «Результаты по темам» — таблица: заголовок и крупный блок.
+    expect(sheet.querySelectorAll(".tb-sheet__block")).toHaveLength(1);
+
+    // Разрыв листа — единственный блок, который лист не заполняет, а делит.
+    fireEvent.click(screen.getByTestId("report-palette-option-page-break"));
+    expect(screen.getByTestId("report-palette-preview").querySelector(".tb-sheet__break")).not.toBeNull();
+  });
 });

@@ -1,21 +1,5 @@
 [
   {
-    "op": "extra",
-    "role": "hint",
-    "text": "Оставьте пустым, если webhook не нужен.",
-    "index": 11,
-    "state": "basic",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Порядок выдачи вопросов в тесте",
-    "index": 3,
-    "state": "composition",
-    "finding": null
-  },
-  {
     "op": "missing",
     "role": "label",
     "text": "Все вопросы темы",
@@ -147,41 +131,17 @@
     "op": "extra",
     "role": "button",
     "text": "Перемешивание",
-    "index": 3,
+    "index": 4,
     "state": "composition",
     "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "table",
-    "text": "Подтема | Сколько | Режим | ",
-    "index": 17,
-    "state": "composition",
-    "finding": "main:prd50-quota-table"
-  },
-  {
-    "op": "extra",
-    "role": "table",
-    "text": "Подтема | Сколько | Режим | ",
-    "index": 30,
-    "state": "composition",
-    "finding": "main:prd50-quota-table"
   },
   {
     "op": "order",
     "role": "button",
     "text": "Как в тесте",
-    "index": 3,
+    "index": 4,
     "state": "composition",
     "finding": "wf:test-order-value"
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "После завершения раздела показывается экран с его результатом. Только для секционных тестов.",
-    "index": 5,
-    "state": "scenario",
-    "finding": null
   },
   {
     "op": "order",
@@ -209,49 +169,9 @@
   },
   {
     "op": "extra",
-    "role": "hint",
-    "text": "Ученик может пропускать вопросы и возвращаться к ним до завершения. Включает карту-индикатор прогресса и экран обзора.",
-    "index": 3,
-    "state": "rules",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "Ученик может открыть любой вопрос текущего раздела, в том числе ещё не показанный. За границу раздела перехода нет: соседний раздел откроется, когда текущий завершён.",
-    "index": 6,
-    "state": "rules",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "При возврате к уже отвеченному вопросу можно изменить ответ (до завершения раздела/теста).",
-    "index": 9,
-    "state": "rules",
-    "finding": null
-  },
-  {
-    "op": "extra",
     "role": "banner",
     "text": "Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): иначе ученик увидит правильный ответ и переправит свой.",
-    "index": 10,
-    "state": "rules",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "Обзор нужен, чтобы вернуться к пропущенному вопросу. Когда пропущенных не осталось, ученик перейдёт сразу к завершению. Пока что-то пропущено, обзор показывается всегда.",
-    "index": 13,
-    "state": "rules",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "Без отдельного нажатия «Далее»: ответ фиксируется и сразу открывается следующий вопрос.",
-    "index": 16,
+    "index": 7,
     "state": "rules",
     "finding": null
   },
@@ -259,15 +179,7 @@
     "op": "extra",
     "role": "banner",
     "text": "Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): нужно увидеть правильный ответ, прежде чем переходить дальше.",
-    "index": 17,
-    "state": "rules",
-    "finding": null
-  },
-  {
-    "op": "order",
-    "role": "label",
-    "text": "Переходить к следующему вопросу сразу после ответа",
-    "index": 8,
+    "index": 10,
     "state": "rules",
     "finding": null
   },
@@ -434,24 +346,8 @@
   {
     "op": "extra",
     "role": "hint",
-    "text": "Если выключено, действует только общий лимит теста (см. выше).",
-    "index": 7,
-    "state": "rules-limits",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "Выключено — учащийся может перезапускать курс без ограничений (как сейчас).",
-    "index": 15,
-    "state": "rules-limits",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
     "text": "Выключено — попытки внутри одного назначения идут подряд.",
-    "index": 18,
+    "index": 16,
     "state": "rules-limits",
     "finding": null
   },
@@ -461,46 +357,6 @@
     "text": "",
     "index": 15,
     "state": "rules-limits",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "На экране вопроса и на экране обзора текст не выделяется, не копируется, не перетаскивается и не печатается. В тестовом прогоне автора защита не действует.",
-    "index": 3,
-    "state": "rules-protect",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "Поверх экранов вопроса, обзора, итогов раздела и итогов теста печатается обезличенный идентификатор и время. Снимок экрана остаётся возможным, но становится атрибутируемым.",
-    "index": 6,
-    "state": "rules-protect",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "hint",
-    "text": "Если ученик переключился на другую вкладку, задание закрывается заглушкой и открывается снова само, как только окно активно. Таймер и ответы не затрагиваются.",
-    "index": 9,
-    "state": "rules-protect",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Порог",
-    "index": 7,
-    "state": "scoring",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Порог (%)",
-    "index": 7,
-    "state": "scoring",
     "finding": null
   },
   {
@@ -571,7 +427,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Первый уровень",
-    "index": 7,
+    "index": 18,
     "state": "feedback",
     "finding": null
   },
@@ -579,7 +435,7 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок рекомендаций",
-    "index": 12,
+    "index": 23,
     "state": "feedback",
     "finding": null
   },
@@ -587,7 +443,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Второй уровень",
-    "index": 16,
+    "index": 27,
     "state": "feedback",
     "finding": null
   },
@@ -595,7 +451,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок сводки баллов",
-    "index": 17,
+    "index": 28,
     "state": "feedback",
     "finding": null
   },
@@ -603,7 +459,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок шкал",
-    "index": 21,
+    "index": 32,
     "state": "feedback",
     "finding": null
   },
@@ -611,7 +467,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок показателей",
-    "index": 25,
+    "index": 36,
     "state": "feedback",
     "finding": null
   },
@@ -619,7 +475,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок тем",
-    "index": 29,
+    "index": 40,
     "state": "feedback",
     "finding": null
   },
@@ -627,7 +483,7 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок блока разреза",
-    "index": 33,
+    "index": 44,
     "state": "feedback",
     "finding": null
   },
@@ -635,7 +491,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Группы рекомендаций",
-    "index": 37,
+    "index": 48,
     "state": "feedback",
     "finding": null
   },
@@ -643,7 +499,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы курсов",
-    "index": 38,
+    "index": 49,
     "state": "feedback",
     "finding": null
   },
@@ -651,7 +507,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы мероприятий",
-    "index": 42,
+    "index": 53,
     "state": "feedback",
     "finding": null
   },
@@ -659,7 +515,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы материалов",
-    "index": 46,
+    "index": 57,
     "state": "feedback",
     "finding": null
   },
@@ -667,7 +523,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Числа сводки",
-    "index": 50,
+    "index": 61,
     "state": "feedback",
     "finding": null
   },
@@ -675,7 +531,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись числа вопросов",
-    "index": 51,
+    "index": 62,
     "state": "feedback",
     "finding": null
   },
@@ -683,7 +539,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись числа верных",
-    "index": 55,
+    "index": 66,
     "state": "feedback",
     "finding": null
   },
@@ -691,7 +547,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись числа баллов",
-    "index": 59,
+    "index": 70,
     "state": "feedback",
     "finding": null
   },
@@ -699,7 +555,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Карточка темы",
-    "index": 63,
+    "index": 74,
     "state": "feedback",
     "finding": null
   },
@@ -707,7 +563,7 @@
     "op": "extra",
     "role": "label",
     "text": "Строка «Правильно»",
-    "index": 64,
+    "index": 75,
     "state": "feedback",
     "finding": null
   },
@@ -715,7 +571,7 @@
     "op": "extra",
     "role": "label",
     "text": "Строка «Баллов»",
-    "index": 68,
+    "index": 79,
     "state": "feedback",
     "finding": null
   },
@@ -723,7 +579,7 @@
     "op": "extra",
     "role": "label",
     "text": "Вердикт: пройдено",
-    "index": 72,
+    "index": 83,
     "state": "feedback",
     "finding": null
   },
@@ -731,7 +587,7 @@
     "op": "extra",
     "role": "label",
     "text": "Вердикт: не пройдено",
-    "index": 76,
+    "index": 87,
     "state": "feedback",
     "finding": null
   },
@@ -739,7 +595,7 @@
     "op": "extra",
     "role": "label",
     "text": "Вердикт: нет порога",
-    "index": 80,
+    "index": 91,
     "state": "feedback",
     "finding": null
   },
@@ -747,7 +603,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Группы разделов",
-    "index": 84,
+    "index": 95,
     "state": "feedback",
     "finding": null
   },
@@ -755,7 +611,7 @@
     "op": "extra",
     "role": "label",
     "text": "Формат счётчика блока",
-    "index": 85,
+    "index": 96,
     "state": "feedback",
     "finding": null
   },
@@ -763,7 +619,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Итоги раздела",
-    "index": 89,
+    "index": 100,
     "state": "feedback",
     "finding": null
   },
@@ -771,168 +627,8 @@
     "op": "extra",
     "role": "label",
     "text": "Надпись над итогами раздела",
-    "index": 90,
+    "index": 101,
     "state": "feedback",
-    "finding": null
-  },
-  {
-    "op": "order",
-    "role": "heading",
-    "text": "Порядок подблоков",
-    "index": 0,
-    "state": "feedback",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "1. О компании",
-    "index": 9,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Сбросить до установок темы",
-    "index": 10,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "2. Корпоративные финансы",
-    "index": 12,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "3. Технологии",
-    "index": 14,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Стратегия компании",
-    "index": 20,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Продукты компании",
-    "index": 22,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Корпоративная культура",
-    "index": 24,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "По уровням",
-    "index": 27,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "При непройденном уровне",
-    "index": 31,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Базовый»",
-    "index": 33,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Продвинутый»",
-    "index": 35,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "По уровням шкал",
-    "index": 38,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Базовый»",
-    "index": 42,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Уверенный»",
-    "index": 44,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Продвинутый»",
-    "index": 46,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "По уровням показателей",
-    "index": 49,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Норма»",
-    "index": 53,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Внимание»",
-    "index": 55,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Риск»",
-    "index": 57,
-    "state": "texts",
     "finding": null
   },
   {
@@ -944,84 +640,140 @@
     "finding": null
   },
   {
-    "op": "extra",
-    "role": "label",
-    "text": "Обратная связь после прохождения",
-    "index": 9,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "1. Демо: управленческие компетенции",
-    "index": 11,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "2. Демо: знания о компании",
-    "index": 12,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
-    "index": 17,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Обратная связь",
-    "index": 19,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Постановка задач",
-    "index": 21,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
-    "index": 24,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Охрана труда",
-    "index": 26,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Регламенты и процессы",
-    "index": 28,
-    "state": "texts",
-    "finding": null
-  },
-  {
     "op": "order",
     "role": "heading",
     "text": "Общая обратная связь теста",
     "index": 6,
     "state": "texts",
     "finding": "data:intro-report-own-text"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "1. О компании",
+    "index": 1,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "Сбросить до установок темы",
+    "index": 2,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "2. Корпоративные финансы",
+    "index": 4,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "3. Технологии",
+    "index": 6,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Стратегия компании",
+    "index": 12,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Продукты компании",
+    "index": 14,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Корпоративная культура",
+    "index": 16,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "1. Демо: управленческие компетенции",
+    "index": 1,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "2. Демо: знания о компании",
+    "index": 2,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 7,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Обратная связь",
+    "index": 9,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Постановка задач",
+    "index": 11,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 14,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Охрана труда",
+    "index": 16,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Регламенты и процессы",
+    "index": 18,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "order",
+    "role": "button",
+    "text": "",
+    "index": 1,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
   },
   {
     "op": "missing",
@@ -1049,6 +801,14 @@
   },
   {
     "op": "missing",
+    "role": "control",
+    "text": "input:text",
+    "index": 21,
+    "state": "report",
+    "finding": "data:report-block-expanded"
+  },
+  {
+    "op": "missing",
     "role": "label",
     "text": "Текст",
     "index": 22,
@@ -1072,34 +832,26 @@
     "finding": null
   },
   {
-    "op": "extra",
-    "role": "hint",
-    "text": "Кнопка «Скачать отчёт» на экране результатов. Выключите, если документ по этому тесту не выдаётся.",
-    "index": 3,
+    "op": "missing",
+    "role": "control",
+    "text": "input:text",
+    "index": 25,
     "state": "report",
-    "finding": null
+    "finding": "data:report-block-expanded"
   },
   {
     "op": "extra",
     "role": "button",
     "text": "Отчёт: сертификация",
-    "index": 5,
+    "index": 4,
     "state": "report",
     "finding": "data:report-variant-name"
   },
   {
     "op": "extra",
     "role": "label",
-    "text": "Параметры вида",
-    "index": 6,
-    "state": "report",
-    "finding": "data:report-variant-fields"
-  },
-  {
-    "op": "extra",
-    "role": "label",
     "text": "Диаграмма по шкалам",
-    "index": 7,
+    "index": 6,
     "state": "report",
     "finding": null
   },
@@ -1107,7 +859,7 @@
     "op": "extra",
     "role": "button",
     "text": "Выберите…",
-    "index": 8,
+    "index": 7,
     "state": "report",
     "finding": null
   },
@@ -1115,7 +867,7 @@
     "op": "extra",
     "role": "label",
     "text": "Предел оси радара",
-    "index": 9,
+    "index": 8,
     "state": "report",
     "finding": null
   },
@@ -1123,159 +875,7 @@
     "op": "extra",
     "role": "button",
     "text": "Выберите…",
-    "index": 10,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "heading",
-    "text": "Первый уровень",
-    "index": 47,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Заголовок итогов",
-    "index": 48,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 50,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Заголовок рекомендаций",
-    "index": 52,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 54,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "heading",
-    "text": "Второй уровень",
-    "index": 56,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подзаголовок шкал",
-    "index": 57,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 59,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подзаголовок показателей",
-    "index": 61,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 63,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подзаголовок тем",
-    "index": 65,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 67,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Заголовок блока разреза",
-    "index": 69,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 71,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "heading",
-    "text": "Группы рекомендаций",
-    "index": 73,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подпись группы курсов",
-    "index": 74,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 76,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Подпись группы мероприятий",
-    "index": 78,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Показывать",
-    "index": 80,
+    "index": 9,
     "state": "report",
     "finding": null
   },
@@ -1702,6 +1302,22 @@
     "index": 5,
     "state": "adaptive",
     "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Средний»",
+    "index": 7,
+    "state": "difficulty-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "order",
+    "role": "button",
+    "text": "",
+    "index": 7,
+    "state": "difficulty-levels",
+    "finding": "data:levels-demo-content"
   },
   {
     "op": "missing",
@@ -2304,68 +1920,36 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "Вклады вопросов",
-    "index": 87,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "banner",
-    "text": "32 вопроса пока не привязаны ни к одной шкале — проверьте покрытие.",
-    "index": 88,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Развернуть все",
-    "index": 89,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Свернуть все",
-    "index": 90,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 91,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
-    "op": "missing",
-    "role": "table",
-    "text": "Вариант | COMPANY_CULTURE | LEADERSHIP",
-    "index": 95,
-    "state": "scales",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "fold",
-    "text": "",
-    "index": 96,
-    "state": "scales",
-    "finding": "wf:scales-split-approved"
-  },
-  {
     "op": "order",
     "role": "button",
     "text": "",
     "index": 11,
     "state": "scales",
     "finding": null
+  },
+  {
+    "op": "missing",
+    "role": "banner",
+    "text": "32 вопроса пока не привязаны ни к одной шкале — проверьте покрытие.",
+    "index": 1,
+    "state": "contributions",
+    "finding": "data:contrib-card-state"
+  },
+  {
+    "op": "missing",
+    "role": "table",
+    "text": "Вариант | COMPANY_CULTURE | LEADERSHIP",
+    "index": 8,
+    "state": "contributions",
+    "finding": "data:contrib-card-state"
+  },
+  {
+    "op": "order",
+    "role": "fold",
+    "text": "",
+    "index": 7,
+    "state": "contributions",
+    "finding": "data:contrib-card-state"
   },
   {
     "op": "missing",
@@ -2566,5 +2150,517 @@
     "index": 29,
     "state": "metrics",
     "finding": null
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Норма»",
+    "index": 4,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Внимание»",
+    "index": 6,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Риск»",
+    "index": 8,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 4,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 5,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 6,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 7,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 8,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 9,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 10,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 11,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 12,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 13,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 14,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 15,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 16,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 17,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сбалансированный профиль»",
+    "index": 18,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Целеустремленный»",
+    "index": 20,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Вдохновляющий»",
+    "index": 22,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Целеустремленный и Вдохновляющий»",
+    "index": 24,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Командный»",
+    "index": 26,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Целеустремленный и Командный»",
+    "index": 28,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Вдохновляющий и Командный»",
+    "index": 30,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Целеустремленный, Вдохновляющий, Командный»",
+    "index": 32,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Процессный»",
+    "index": 34,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Целеустремленный и Процессный»",
+    "index": 36,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Вдохновляющий и Процессный»",
+    "index": 38,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Целеустремленный, Вдохновляющий, Процессный»",
+    "index": 40,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Командный и Процессный»",
+    "index": 42,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Целеустремленный, Командный, Процессный»",
+    "index": 44,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Вдохновляющий, Командный, Процессный»",
+    "index": 46,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сбалансированный профиль: Целеустремленный, Вдохновляющий, Командный и Процессный»",
+    "index": 48,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 53,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 54,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 55,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 56,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 57,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 58,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 59,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 60,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 61,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 62,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 63,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 64,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 65,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 66,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 67,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "order",
+    "role": "button",
+    "text": "",
+    "index": 4,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Базовый»",
+    "index": 4,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "",
+    "index": 5,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Уверенный»",
+    "index": 6,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "",
+    "index": 7,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Продвинутый»",
+    "index": 8,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "",
+    "index": 9,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «low»",
+    "index": 4,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «moderate»",
+    "index": 5,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «high»",
+    "index": 6,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «low»",
+    "index": 8,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «moderate»",
+    "index": 9,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «high»",
+    "index": 10,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «high»",
+    "index": 12,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «moderate»",
+    "index": 13,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «low»",
+    "index": 14,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
   }
 ]

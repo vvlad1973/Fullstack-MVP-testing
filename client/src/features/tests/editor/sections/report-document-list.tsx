@@ -25,7 +25,7 @@ import {
   GripVertical,
   Info,
   LayoutTemplate,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   Scissors,
   Trash2,
@@ -55,6 +55,8 @@ export interface ReportBlockVariantOption {
   key: string;
   block: string;
   label?: string;
+  /** Чем вариант отличается от соседнего; объявляет шаблон. */
+  description?: string;
   isDefault?: boolean;
   /** Поля содержимого варианта: их показывает раскрытая строка авторской страницы. */
   placeholders?: ContentTemplatePlaceholder[];
@@ -334,7 +336,7 @@ function ReportBlockRow(props: {
                   aria-label={`Действия для блока «${title}»`}
                   data-testid={`report-document-actions-${index}`}
                 >
-                  <MoreHorizontal size={13} aria-hidden="true" />
+                  <MoreVertical size={13} aria-hidden="true" />
                 </button>
               }
             >

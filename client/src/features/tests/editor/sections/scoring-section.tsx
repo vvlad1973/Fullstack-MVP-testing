@@ -25,16 +25,12 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  CheckSquare, ChevronDown, ChevronRight, CircleDot, ListOrdered, Pencil, RotateCcw, SlidersHorizontal, ThermometerSun, Unplug,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, CircleDot, Pencil, RotateCcw } from "lucide-react";
 import {
   Banner, Collapsible, CollapsibleContent, CollapsibleTrigger, IconButton, Input, Tag,
 } from "@universityrt/ui-kit";
 
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
-import { t } from "@/lib/i18n";
 import type { Question } from "@shared/schema";
 import type { TestEditorModel } from "../test-editor.types";
 import {
@@ -44,6 +40,7 @@ import {
 } from "../scoring-api";
 import { FoldAllButtons, useSectionFold } from "./section-fold";
 import { QuestionScoringModal } from "./question-scoring-modal";
+import { QUESTION_TYPE_ICON, QUESTION_TYPE_LABEL } from "./question-type-icon";
 
 export type ScoringSectionProps = {
   model: TestEditorModel;
@@ -57,23 +54,9 @@ type QuestionRow = Question & { topicName?: string };
 
 import type { QuestionType } from "@shared/questions/question-type";
 
-/** Question-type pictograms — same convention as the content tree (content-tree.tsx). */
-const TYPE_ICON: Record<QuestionType, LucideIcon> = {
-  single: CircleDot,
-  multiple: CheckSquare,
-  matching: Unplug,
-  ranking: ListOrdered,
-  scale: ThermometerSun,
-  allocation: SlidersHorizontal,
-};
-const TYPE_LABEL: Record<QuestionType, string> = {
-  single: t.questions.singleChoice,
-  multiple: t.questions.multipleChoice,
-  matching: t.questions.matching,
-  ranking: t.questions.ranking,
-  scale: t.questions.scaleChoice,
-  allocation: t.questions.allocation,
-};
+// Pictogram and label of a question type — shared with «Вклады вопросов».
+const TYPE_ICON = QUESTION_TYPE_ICON;
+const TYPE_LABEL = QUESTION_TYPE_LABEL;
 
 /** Human label of a graded-config kind (PRD-10). */
 const KIND_LABEL: Record<string, string> = {
@@ -181,7 +164,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
       <div className="tb-qscoring__default-row">
         <span className="tb-qscoring__default-lbl">Балл за вопрос по умолчанию</span>
         <Input
-          size="s"
+          size="m"
           className="tb-qscoring__num"
           inputMode="numeric"
           value={model.scoring.defaultQuestionPoints?.toString() ?? ""}
@@ -218,9 +201,9 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
         const open = fold.isOpen(section.topicId);
 
         return (
-          <div className="tb-qscoring__sec" key={section.topicId} data-testid={`scoring-sec-${section.topicId}`}>
+          <div className="tb-fold-sec" key={section.topicId} data-testid={`scoring-sec-${section.topicId}`}>
             <Collapsible open={open} onOpenChange={() => fold.toggle(section.topicId)}>
-              <div className="tb-qscoring__sec-head">
+              <div className="tb-fold-sec-head">
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
@@ -231,7 +214,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                     {open
                       ? <ChevronDown className="tb-fold-chev" width={16} height={16} aria-hidden="true" />
                       : <ChevronRight className="tb-fold-chev" width={16} height={16} aria-hidden="true" />}
-                    <span className="tb-qscoring__sec-name">{section.topicName}</span>
+                    <span className="tb-fold-sec-name">{section.topicName}</span>
                   </button>
                 </CollapsibleTrigger>
                 <Tag tone="neutral" variant="outline">{drawLabel}</Tag>
@@ -244,7 +227,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                     value={section.defaultPoints?.toString() ?? ""}
                     placeholder={(model.scoring.defaultQuestionPoints ?? 1).toString()}
                     disabled={readOnly}
-                    aria-label={`Балл по умолчанию секции ${section.topicName}`}
+                    aria-label={`Балл по умолчанию секции «${section.topicName}»`}
                     onChange={(e) => setSectionDefault(section.topicId, e.target.value)}
                     data-testid={`scoring-sec-default-${section.topicId}`}
                   />
@@ -252,6 +235,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
               </div>
 
               <CollapsibleContent>
+                <div className="tb-fold-sec__body">
             {testId && questions.length > 0 && (
               <table className="tb-table" aria-label={`Оценка вопросов темы «${section.topicName}»`}>
                 <thead>
@@ -376,6 +360,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                 </tbody>
               </table>
             )}
+                </div>
               </CollapsibleContent>
             </Collapsible>
           </div>

@@ -262,9 +262,11 @@ afterEach(() => vi.unstubAllGlobals());
 describe("<StructureSection /> — flow mode + lifecycle", () => {
   beforeEach(() => installApi([]));
 
-  it("shows the current flowMode in the banner", () => {
+  it("режим не пересказывается полосой над полотном", () => {
+    // Сценарий выбирают полем на этом же экране, выше. Полоса «Режим: …» повторяла
+    // выбранное значение и отодвигала полотно структуры вниз.
     renderSection(baseModel({ flowMode: "router_by_topics" }));
-    expect(screen.getByTestId("structure-mode-banner")).toHaveTextContent("Через страницу-маршрутизатор");
+    expect(screen.queryByTestId("structure-mode-banner")).toBeNull();
   });
 
   it("shows the empty state when there are no sections", async () => {

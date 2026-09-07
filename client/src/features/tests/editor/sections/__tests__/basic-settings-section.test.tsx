@@ -503,7 +503,7 @@ describe("<VerdictPane /> — вердикт теста и тем", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("radio", {
-        name: /достигнут общий проходной порог и пройдены все обязательные темы/i,
+        name: /достигнут порог и пройдены все обязательные темы/i,
       }),
     ).toBeInTheDocument();
     expect(

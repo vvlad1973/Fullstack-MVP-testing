@@ -210,8 +210,39 @@
 
 .tb-settings-content > * { margin-top: var(--ou-space-4); }
 .tb-settings-content > *:first-child { margin-top: 0; }
+
+/* Панели «Оформления» обёрнуты в собственный контейнер ради `data-testid`, и правило
+   выше до их блоков не доставало: строки параметров, таблица цветов и баннеры шли
+   вплотную. `display: contents` убирает обёртку из раскладки, оставляя её в разметке
+   для приёмочных проверок. */
+.tb-settings-content > [data-testid$="-pane"] { display: contents; }
 .tb-settings-content > .ou-formsection { margin-top: var(--ou-space-6); }
 .tb-settings-content > .ou-formsection:first-child { margin-top: 0; }
+
+/* Карточка объекта (тема, шкала, уровень): края 6x, содержимое 4x. Правила взяты из
+   проектного слоя эскиза дословно — эскиз ссылается на ЭТОТ файл, и свои числа здесь
+   меняли бы и его вид. Прежде тело темы имело собственные 12/16px, а строки внутри
+   отбивались на 8px: ни одно из этих значений сетке не принадлежит. */
+.tb-settings-content .ou-acc__trigger { padding: var(--ou-space-4) var(--ou-space-6); }
+.tb-settings-content .ou-acc__body { padding: 0 var(--ou-space-6) var(--ou-space-6); }
+.tb-settings-content .ou-acc__body > * { margin-top: var(--ou-space-4); }
+.tb-settings-content .ou-acc__body > *:first-child { margin-top: 0; }
+.tb-settings-content .ou-acc__body > .tb-table { margin-top: var(--ou-space-4); }
+
+/* Шапка карточки объекта: триггер, действия и шеврон одной строкой. Кнопка удаления
+   стоит РЯДОМ с триггером, а не внутри него: кнопка в кнопке невалидна, и клик по
+   удалению заодно сворачивал бы карточку. */
+.tb-acc-head { display: flex; align-items: center; gap: var(--ou-space-1); padding-right: var(--ou-space-6); }
+.tb-acc-head > .ou-acc__trigger { flex: 1 1 auto; min-width: 0; padding-right: var(--ou-space-3); }
+.tb-topic-actions { display: inline-flex; align-items: center; gap: var(--ou-space-1); }
+
+/* Числовое поле имеет свою ширину; в группе-flex оно растягивалось на весь ящик.
+   Прежнее правило адресовало только ПРЯМОГО потомка панели и до полей внутри раздела
+   не доставало — отсюда растянутые «Лимит времени» и «Максимум попыток». */
+.tb-settings-content .ou-formsection__body > .ou-number,
+.tb-settings-content .ou-formsection__body > .ou-formfield > .ou-number {
+  width: var(--tb-input-w-md); max-width: 100%;
+}
 /* Баннер ПОСЛЕ карточки: у sticky-правила выше отрицательная верхняя отбивка, но она
    про баннер в шапке панели, а не про баннер в середине списка карточек. */
 .tb-settings-content > :is(.ou-card, .ou-banner) + :is(.ou-card, .ou-banner) {
@@ -267,6 +298,17 @@
    A condition row is «Элемент(grow) · Свойство · Оператор · Значение · удалить»;
    the same primitive renders «Порог» (one row) and «Вердикт» (a list). */
 .tb-formula-builder { display: flex; flex-direction: column; gap: var(--ou-space-3); margin-top: var(--ou-space-2); }
+/* Собранное конструктором выражение. Пунктирная рамка отличает ПОКАЗ от ввода: править
+   строку здесь нельзя, для этого есть режим «Выражение». */
+.tb-formula-preview {
+  font: var(--ou-text-body-s);
+  font-family: var(--ou-font-family-mono);
+  color: var(--ou-fg-muted);
+  border: var(--wf-border-w) dashed var(--ou-border-default);
+  border-radius: var(--ou-radius-m);
+  padding: var(--ou-space-4);
+  overflow-x: auto;
+}
 .tb-rows { display: flex; flex-direction: column; gap: var(--ou-space-2); }
 .tb-rows-actions { margin-top: var(--ou-space-2); }
 /* PRD-53: шкалы группы профиля — список тумблеров в столбик.
@@ -307,38 +349,21 @@
 }
 
 /* Э2.4: реестр «По вопросам» — дерево «тема -> вопрос», только чтение. Тема сворачивается,
-   потому что у теста бывает десяток тем по десятку вопросов. */
-.tb-qfeedback__topic + .tb-qfeedback__topic { margin-top: var(--ou-space-2); }
-.tb-qfeedback__trigger {
-  display: flex;
-  align-items: center;
-  gap: var(--ou-space-2);
-  width: 100%;
-  padding: var(--ou-space-2);
-  border: 0;
-  border-radius: var(--ou-radius-s);
-  background: var(--ou-bg-page);
-  cursor: pointer;
-  text-align: left;
-  color: var(--ou-fg-default);
-}
-.tb-qfeedback__trigger:hover { background: var(--ou-bg-subtle); }
-.tb-qfeedback__name { font: var(--ou-text-body-m); font-weight: 600; }
-.tb-qfeedback__count { margin-left: auto; font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tb-qfeedback__body { padding: var(--ou-space-2) 0 0 var(--ou-space-6); }
-.tb-qfeedback__row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--ou-space-4);
-  padding: var(--ou-space-2) 0;
-  border-bottom: 1px solid var(--ou-border-soft);
-}
-.tb-qfeedback__q { flex: 1 1 40%; min-width: 0; display: flex; align-items: center; gap: var(--ou-space-2); }
-.tb-qfeedback__q-text { font: var(--ou-text-body-s); overflow-wrap: anywhere; }
-.tb-qfeedback__texts { flex: 1 1 45%; min-width: 0; }
+   потому что у теста бывает десяток тем по десятку вопросов. Само дерево собрано из
+   `ou-acc` и `tb-table`; прежняя ручная раскладка строки (`__row`/`__q`/`__texts`, доли
+   40/45%) снята вместе с ней — но ШИРИНЫ, которые она задавала, таблице никто не передал,
+   и столбец «Текст» схлопывался. Ниже они возвращены столбцам. */
+.tb-qfeedback-table { table-layout: fixed; }
+.tb-qfeedback-table__q { width: 40%; }
+.tb-qfeedback-table__mode { width: 96px; }
+.tb-qfeedback-table__act { width: 136px; }
 .tb-qfeedback__line { display: flex; gap: var(--ou-space-2); font: var(--ou-text-body-s); }
 .tb-qfeedback__line-lbl { color: var(--ou-fg-muted); flex: 0 0 auto; }
-.tb-qfeedback__line-text { overflow-wrap: anywhere; }
+/* `break-word`, а НЕ `anywhere`: `anywhere` уменьшает min-content содержимого до одной
+   буквы, и в авторастяжке таблицы столбец «Текст» ужимался до нескольких пикселей —
+   «не задано» рассыпалось в столбик «не / зада / но». `break-word` рвёт только то, что
+   иначе вылезет за край, а собственную ширину столбца не занижает. */
+.tb-qfeedback__line-text { overflow-wrap: break-word; min-width: 0; }
 .tb-qfeedback__line-text.is-empty { color: var(--ou-fg-disabled); }
 
 /* Meta-count — компактный indicator «иконка + число» (например, число
@@ -395,9 +420,15 @@
    the width to (text col + N × value col) — N comes from the inline
    --tb-contrib-cols var — makes fixed layout honor each column exactly, and the
    table overflows the drawer when there are many scales → the wrapper scrolls. */
+/* 7rem хватало простому полю ввода, но в ячейке теперь счётчик со степперами, и две
+   кнопки съедают 56px из 112px: на число оставалось ~14px, туда не помещалось даже
+   «-1,5». 8.5rem возвращает полю ~40px под знаки — «-12,5» видно целиком. Ширина
+   объявлена ЗДЕСЬ, у таблицы: свойство наследуется, поэтому оба места ниже берут
+   одно значение и разъехаться не могут. */
 .tb-table.tb-contrib-grid {
+  --tb-contrib-val-w: 8.5rem;
   table-layout: fixed;
-  width: calc(var(--tb-contrib-unit-w, 18rem) + var(--tb-contrib-cols, 0) * var(--tb-contrib-val-w, 7rem));
+  width: calc(var(--tb-contrib-unit-w, 18rem) + var(--tb-contrib-cols, 0) * var(--tb-contrib-val-w));
 }
 
 /* Answer-text column: ~2x wider than its prior auto width, pinned on scroll. */
@@ -421,7 +452,7 @@
 .tb-contrib-grid__unit-text { min-width: 0; }
 
 /* Scale value columns: ~half their prior auto width (input fills the cell). */
-.tb-contrib-grid__val-col { width: var(--tb-contrib-val-w, 7rem); }
+.tb-contrib-grid__val-col { width: var(--tb-contrib-val-w); }
 /* A scale key ("EMOTIONAL_EXHAUSTION") is one unbreakable word — an underscore is
    not a break opportunity — so in a fixed-width column it overflows and paints
    over the neighbouring headers. The markup supplies <wbr> break points at each
@@ -707,18 +738,11 @@
 /* Inline status dot for tabs / list rows (per prd7-editor-drawer.html
    и prd7-structure-*.html wireframes). Smaller than .tb-status-dot —
    renders next to text, not in a card lead slot. */
-.status-dot {
-  display: inline-block;
-  vertical-align: middle;
-  width: var(--ou-space-2);
-  height: var(--ou-space-2);
-  border-radius: 50%;
-  margin-left: var(--ou-space-1);
-  background: var(--ou-fg-muted);
-}
-.status-dot.dirty { background: var(--ou-accent-default); }
-.status-dot.warn  { background: var(--ou-warning-default); }
-.status-dot.error { background: var(--ou-error-default); }
+/* Точка состояния во вкладке и в рейле — тот же `tb-status-dot`, что и в карточках
+   объектов; своей копии больше нет. Отбивка от подписи — единственное, что нужно
+   добавить к общему правилу. */
+.ou-tabs__tab > .tb-status-dot,
+.ou-drawer__rail-item > .tb-status-dot { margin-left: var(--ou-space-1); }
 
 /* ── Adaptive block (адаптивность по темам) ──────────────────────────── */
 .tb-adaptive-topics { margin-bottom: var(--ou-space-3); }
@@ -933,11 +957,19 @@
   cursor: pointer;
 }
 .tb-quota-toggle .tb-section-label { margin: 0; }
+/* Квоты по подтемам — карточки: колонка с шагом 4x, как её задаёт проектный слой
+   эскиза. Собственные отступы у подвала блока при этом обнуляются: с общим шагом
+   колонки они складывались бы в двойной. */
 .tb-quota-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ou-space-4);
   margin-top: var(--ou-space-3);
   padding-left: var(--ou-space-4);
   border-left: var(--wf-border-w) solid var(--ou-border-soft);
 }
+.tb-quota-block > .tb-quota-actions,
+.tb-quota-block > .tb-quota-sum { margin-top: 0; }
 .tb-quota-block__avail { color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
 /* PRD-50 §16: знак тревоги рядом со значением строки квоты. Заменил чип в подвале таблицы —
    тот говорил о таблице целиком и не показывал, какая именно строка виновата.
@@ -954,6 +986,15 @@
    держит `--wrap` дизайн-системы. */
 .tb-quota-block .ou-tip__bubble--wrap { width: max-content; }
 .tb-quota-actions { margin-top: var(--ou-space-3); }
+/* Строка порядка подблоков итогов: имя слева, кнопки перемещения справа. Обведённая
+   строка, а не плоский текст — автор двигает СТРОКИ, и границу перетаскиваемого блока
+   надо видеть (эскиз `editor-settings-target.html`, `.wf-order-row`). */
+.tb-order-row {
+  padding: var(--ou-space-2) var(--ou-space-3);
+  border: var(--wf-border-w) solid var(--ou-border-soft);
+  border-radius: var(--ou-radius-s);
+}
+
 .tb-quota-sum {
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--ou-space-3); margin-top: var(--ou-space-3);
@@ -1147,23 +1188,14 @@
 }
 .tb-changes-popover__item {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ou-space-2);
-  padding: var(--ou-space-2) 0; font: var(--ou-text-body-s);
-  border-top: var(--wf-border-w) dashed var(--ou-border-default);
+  padding: var(--ou-space-1) 0; font: var(--ou-text-body-s);
 }
-.tb-changes-popover__item:first-of-type { border-top: none; }
 .tb-changes-popover__label { font-weight: 500; flex-basis: 100%; }
 .tb-changes-popover__old {
-  padding: var(--wf-border-w) var(--wf-space-6); border-radius: var(--ou-radius-s);
-  font-family: ui-monospace, monospace;
-  color: var(--ou-error-on-soft); background: var(--ou-error-soft);
+  color: var(--ou-fg-muted);
   text-decoration: line-through;
 }
-.tb-changes-popover__new {
-  padding: var(--wf-border-w) var(--wf-space-6); border-radius: var(--ou-radius-s);
-  font-family: ui-monospace, monospace;
-  color: var(--ou-success-on-soft); background: var(--ou-success-soft);
-  font-weight: 500;
-}
+.tb-changes-popover__new { font-weight: 600; }
 .tb-changes-popover__arrow { color: var(--ou-fg-muted); }
 .tb-changes-popover__context { color: var(--ou-fg-muted); flex-basis: 100%; }
 
@@ -1283,24 +1315,10 @@
   white-space: nowrap;
 }
 
-/* ── Structure tab — flow-mode-bar / zone-block / topic-block / page-row
+/* ── Structure tab — zone-block / topic-block / page-row
    Ported from prd7-structure-linear-flat.html / prd7-structure-linear-by-topics.html
    (wireframe-local CSS); now lives in DS-extensions for use in
    features/tests/editor/sections/start-pages-section.tsx. */
-
-/* Inline flow-mode summary at the top of the Structure tab. */
-.flow-mode-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--ou-space-2);
-  padding: var(--wf-space-7, 6px) 0 var(--ou-space-3);
-  font: var(--ou-text-body-s);
-  color: var(--ou-fg-muted);
-  border-bottom: var(--wf-border-w) solid var(--ou-border-default);
-  margin-bottom: var(--ou-space-4);
-}
-.flow-mode-label { font-weight: 600; color: var(--ou-fg-default); }
-.flow-mode-hint { font: var(--ou-text-caption); }
 
 /* Zone blocks — outer container for «До теста» / «Внутри теста» / «После теста». */
 .zone-block {
@@ -1491,14 +1509,6 @@
   background: var(--ou-bg-surface-3);
   color: var(--ou-fg-default);
 }
-.tpl-page-marker {
-  font: var(--ou-text-caption);
-  color: var(--ou-fg-muted);
-  background: var(--ou-bg-surface-3);
-  border-radius: var(--wf-space-1q, 3px);
-  padding: var(--wf-border-w) var(--wf-space-tiny, 2px);
-  margin-left: var(--ou-space-1);
-}
 .page-title { font: var(--ou-text-body-s); flex: 1; min-width: 0; }
 .page-actions { display: flex; gap: var(--ou-space-1); flex-shrink: 0; }
 .page-icon { color: var(--ou-fg-muted); flex-shrink: 0; }
@@ -1513,24 +1523,14 @@
 
 /* Разрыв листа — не карточка и не страница, а строка-разделитель: следующий блок
    начинается с нового листа. Пунктир справа договаривает то же самое. */
+/* Разрыв листа — такая же строка документа, как остальные: название обычным
+   регистром, без пунктирных линий по бокам. Отличает её ножницы перед названием и
+   отсутствие бейджа вида. */
 .page-row--break .page-title {
   display: flex;
   align-items: center;
   gap: var(--ou-space-2);
   color: var(--ou-fg-muted);
-  font: var(--ou-text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.page-row--break .page-title::after {
-  content: "";
-  flex: 1;
-  height: var(--wf-border-w);
-  background: repeating-linear-gradient(
-    90deg,
-    var(--ou-border-default) 0 var(--wf-space-6, 6px),
-    transparent var(--wf-space-6, 6px) var(--ou-space-3)
-  );
 }
 
 /* PRD-19 FR-08a: «Обзор раздела/теста» navigation slot (section-finish /
@@ -1815,6 +1815,36 @@
 /* TemplateScreen's host fills the fixed reference frame so the scene lays out against
    a definite size (its `height:100%` resolves) before the frame is scaled. */
 .variant-picker__frame > * { width: 100%; height: 100%; display: block; }
+/* Схема блока отчёта в палитре: лист с крупными штрихами. Не рендер — блок документа
+   не самостоятельный экран (эскиз `editor-settings-target.html`, `.tb-sheet`). */
+.tb-sheet {
+  width: 100%;
+  max-width: var(--wf-w-sheet, 320px);
+  align-self: center;
+  background: var(--ou-bg-surface);
+  border: var(--wf-border-w) solid var(--ou-border-soft);
+  border-radius: var(--ou-radius-s);
+  padding: var(--ou-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ou-space-1);
+}
+.tb-sheet__title { height: var(--ou-space-4); width: 60%; border-radius: var(--ou-radius-s); background: var(--ou-border-default); }
+.tb-sheet__line { height: var(--ou-space-2); border-radius: var(--ou-radius-s); background: var(--ou-border-soft); }
+.tb-sheet__line--short { width: 70%; }
+.tb-sheet__block {
+  height: var(--ou-space-12);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-surface-2);
+  border: var(--wf-border-w) solid var(--ou-border-soft);
+}
+/* Разрыв листа: единственный блок, который на листе не печатается, а делит его. */
+.tb-sheet__break {
+  height: 0;
+  margin: var(--ou-space-2) 0;
+  border-top: var(--wf-border-w) dashed var(--ou-border-default);
+}
+
 .variant-picker__empty {
   flex: 1;
   display: flex;
@@ -2218,7 +2248,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--ou-space-2);
+  gap: var(--ou-space-4);
 }
 .tpl-info__head {
   display: flex;
@@ -2228,14 +2258,14 @@
 }
 .tpl-name { font: var(--ou-text-body-m); font-weight: 600; }
 .tpl-desc { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
-.tpl-actions { display: flex; gap: var(--ou-space-2); margin-top: var(--ou-space-1); }
+.tpl-actions { display: flex; gap: var(--ou-space-2); margin: 0; }
 
 /* Colour param row: the picker plus the origin of the current value — either
    «из шаблона» (no override yet) or the action that gives the colour back. */
 .design-color-field {
   display: flex;
   align-items: center;
-  gap: var(--ou-space-2);
+  gap: var(--ou-space-1);
 }
 .design-color-field__origin {
   font: var(--ou-text-body-s);
@@ -2248,8 +2278,7 @@
 .design-theme-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ou-space-3);
+  gap: var(--ou-space-4);
 }
 
 /* The parameter column carries the description and is therefore greedy: without a
@@ -2264,7 +2293,9 @@
   color: var(--ou-fg-default);
 }
 .design-colors-table__hint {
-  font: var(--ou-text-caption);
+  /* Подпись под ячейкой цвета — обычный мелкий текст, а не капшен: капшен несёт
+     полужирное начертание и свой интерлиньяж, и строка выбивалась из соседних. */
+  font: var(--ou-text-body-xs);
   color: var(--ou-fg-muted);
   margin-top: var(--ou-space-1);
 }
@@ -2429,17 +2460,12 @@
    мягкая акцентная заливка каждой настроенной ячейки (tooltip на ячейке). */
 .tb-qscoring { display: flex; flex-direction: column; gap: var(--ou-space-4); padding: var(--ou-space-1) 0; }
 .tb-qscoring__default-row { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; }
+/* Шапка конструктора цены ответа: подпись слева, максимальный балл справа. */
+.tb-qscoring__price { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); }
+.tb-qscoring__price-lbl { font: var(--ou-text-heading-s); }
 .tb-qscoring__default-lbl { font: var(--ou-text-body-m); font-weight: 600; }
 .tb-qscoring__default-hint { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
 .tb-qscoring__num { width: var(--tb-input-w-sm); }
-.tb-qscoring__sec {
-  border: var(--wf-border-w) solid var(--ou-border-soft);
-  border-radius: var(--ou-radius-m);
-  padding: var(--ou-space-4);
-  background: var(--ou-bg-surface);
-}
-.tb-qscoring__sec-head { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; margin-bottom: var(--ou-space-2); }
-.tb-qscoring__sec-name { font: var(--ou-text-body-m); font-weight: 700; min-width: 0; }
 .tb-qscoring__sec-default { display: inline-flex; align-items: center; gap: var(--ou-space-2); }
 .tb-qscoring__sec-default-lbl { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
 
@@ -2474,7 +2500,7 @@
 }
 .tb-fold-sec-head { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; }
 .tb-fold-sec-name { font: var(--ou-text-body-m); font-weight: 700; min-width: 0; }
-.tb-fold-sec__body { display: flex; flex-direction: column; gap: var(--ou-space-3); margin-top: var(--ou-space-3); }
+.tb-fold-sec__body { display: flex; flex-direction: column; gap: var(--ou-space-4); margin-top: var(--ou-space-4); }
 
 /* Disabled state for a Drawer rail item (DS has none): e.g. «Вклады вопросов»
    stays inert until a scale exists. */
@@ -2511,9 +2537,9 @@
 .tb-row-sep { border-bottom: 1px solid var(--ou-border-soft); }
 .tb-row-sep:last-child { border-bottom: 0; }
 /* Fixed field widths for the scoring condition row (was Tailwind w-20/24/36). */
-.tb-fw-sm { width: 5rem; }
+.tb-fw-sm { width: 88px; }
 .tb-fw-md { width: 6rem; }
-.tb-fw-lg { width: 9rem; }
+.tb-fw-lg { width: 152px; }
 /* The DS Select trigger carries min-width:180px; on the compact operator /
    counter selects that floor overrides the width above, so the trigger stays
    ~180px and the count field wraps under it. Relax the floor when one of these
@@ -2613,11 +2639,11 @@
 /* One width for the two boundary columns: the threshold field MUST line up under
    «Начало», and the whole layout is that alignment. Two literals could drift apart
    in separate edits; one token cannot. */
-.tb-levels { display: flex; flex-direction: column; gap: var(--ou-space-2); --tb-levels-bound-w: 88px; }
+.tb-levels { display: flex; flex-direction: column; gap: var(--ou-space-4); --tb-levels-bound-w: 88px; }
 
 .tb-levels__cover {
   display: grid; grid-template-columns: var(--tb-levels-bound-w) 1fr var(--tb-levels-bound-w);
-  column-gap: var(--ou-space-2); align-items: center;
+  column-gap: var(--ou-space-4); align-items: center;
   margin-bottom: var(--ou-space-3);
 }
 .tb-levels__caplbl { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
@@ -2693,7 +2719,7 @@
 .tb-levels__spacer { flex: 1; }
 .tb-levels__range { font: var(--ou-text-body-s); color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
 
-.tb-levels__grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--ou-space-3); }
+.tb-levels__grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--ou-space-4); }
 
 /* The tone row is a DS SegmentedControl: inline-flex, nowrap by design, natural
    width ~540px with all five labels. The drawer is `--xl` (1040px) minus a 240px
@@ -2702,7 +2728,7 @@
    the row would push out of the card. Scrolling the row inside its own strip keeps
    the card intact and keeps every label readable, which is the whole point of
    leaving the Select behind. */
-.tb-levels__tone { margin-top: var(--ou-space-3); overflow-x: auto; }
+.tb-levels__tone { margin-top: var(--ou-space-4); overflow-x: auto; }
 .tb-levels__tonelbl { display: block; font: var(--ou-text-caption); color: var(--ou-fg-muted); margin-bottom: var(--ou-space-1); }
 .tb-levels__tonehint { display: block; font: var(--ou-text-caption); color: var(--ou-fg-muted); margin-top: var(--ou-space-1); }
 

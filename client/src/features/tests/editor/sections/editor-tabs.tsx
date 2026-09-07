@@ -13,14 +13,15 @@
  * зовёт уже существующие панели. Сами панели живут там, где жили: логика не переезжала,
  * переехали только адреса.
  */
-import { useMemo } from "react";
 import type * as React from "react";
 import { Banner, FormSection } from "@universityrt/ui-kit";
 import type { FieldErrorIndex } from "../field-errors";
 import type { TestEditorModel } from "../test-editor.types";
 import type { UseDesignSettingsResult } from "../use-design-settings";
 import type { UseContentPagesResult } from "../use-content-pages";
-import { TabRail, useRailState, type RailEntry, type RailItem } from "./tab-rail";
+import {
+  TabRail, useRailState, type RailDot, type RailEntry, type RailItem,
+} from "./tab-rail";
 import {
   AdaptivePane,
   BreakdownDisplayPane,
@@ -41,11 +42,12 @@ import { StructureSection } from "./start-pages-section";
 import { ScoringSection } from "./scoring-section";
 import { ScalesSection } from "./scales-section";
 import { ResultVariablesSection } from "./result-variables-section";
-import { ResultsLabelsPane } from "./results-labels-pane";
-import { ReportLabelsCard, SectionPane } from "./design-section";
+import { ResultsBlockOrderPane, ResultsLabelsPane } from "./results-labels-pane";
+import { SectionPane } from "./design-section";
 import { BreakdownFeedbackCard } from "./breakdown-feedback-card";
 import { TopicFeedbackCard } from "./topic-feedback-card";
 import { LevelFeedbackCard } from "./level-feedback-card";
+import { BandFeedbackSection, hasAnyBands } from "./band-feedback-section";
 import { QuestionFeedbackRegistry } from "./question-feedback-registry";
 import { templateBlockOrder } from "@shared/template/results-order";
 
@@ -54,7 +56,28 @@ export type EditorTabProps = {
   model: TestEditorModel;
   updateModel: (updater: (m: TestEditorModel) => TestEditorModel) => void;
   fieldErrors?: FieldErrorIndex;
+  /**
+   * Худший уровень проблемы по адресу поля — для точки на пункте рейла. Точка
+   * показывает ХУДШИЙ уровень внутри подраздела, а `fieldErrors` знает только ошибки:
+   * предупреждения в него не кладутся, чтобы не красить поле красным из-за замечания.
+   */
+  issueLevel?: (field: string) => "error" | "warning" | undefined;
 };
+
+/** Точка пункта рейла по адресу его содержимого. */
+function railDot(
+  issueLevel: EditorTabProps["issueLevel"],
+  ...fields: string[]
+): RailDot | undefined {
+  if (!issueLevel) return undefined;
+  let worst: RailDot | undefined;
+  for (const field of fields) {
+    const level = issueLevel(field);
+    if (level === "error") return "error";
+    if (level === "warning") worst = "warning";
+  }
+  return worst;
+}
 
 // ─── «Основное» ───────────────────────────────────────────────────────────────
 
@@ -62,7 +85,7 @@ export type EditorTabProps = {
  * Что это за тест: название, описание, режим и интеграция. Рейла нет — полей мало, и
  * лишний столбец только отодвигал бы их от края (эскиз `wf-basic`).
  */
-export function MainTab({ model, updateModel, fieldErrors }: EditorTabProps): React.JSX.Element {
+export function MainTab({ model, updateModel, fieldErrors, issueLevel }: EditorTabProps): React.JSX.Element {
   return (
     <div className="tb-settings-content" data-testid="settings-pane-main">
       <MainPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
@@ -84,6 +107,7 @@ export function CompositionTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   testId,
   content,
   savedFlowMode,
@@ -110,25 +134,26 @@ export function CompositionTab({
     {
       key: "composition",
       label: "Состав",
-      dot: fieldErrors?.has("sections") ? "error" : undefined,
+      dot: railDot(issueLevel, "sections"),
     },
     ...(isAdaptive
       ? [
           {
             key: "adaptive" as const,
             label: "Адаптивные уровни",
-            dot: (adaptiveError || fieldErrors?.has("adaptive")
+            // Ошибка лестницы известна вкладке напрямую (её нет в модели), поэтому
+            // она складывается с общим уровнем, а не подменяет его.
+            dot: (adaptiveError
               ? "error"
-              : adaptiveWarning
-                ? "warning"
-                : undefined) as RailItem<CompositionRail>["dot"],
+              : railDot(issueLevel, "adaptive") ?? (adaptiveWarning ? "warning" : undefined)
+            ) as RailItem<CompositionRail>["dot"],
           },
         ]
       : []),
     {
       key: "scenario",
       label: "Сценарий",
-      dot: fieldErrors?.has("flowMode") ? "error" : undefined,
+      dot: railDot(issueLevel, "flowMode"),
     },
   ];
   const [active, setActive] = useRailState<CompositionRail>(items, "composition");
@@ -180,6 +205,7 @@ export function RulesTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   design,
 }: EditorTabProps & { design?: UseDesignSettingsResult }): React.JSX.Element {
   const [active, setActive] = useRailState<RulesRail>(RULES_ITEMS, "navigation");
@@ -232,23 +258,24 @@ export function ScoringTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   testId,
 }: EditorTabProps & { testId?: string }): React.JSX.Element {
   // «Шкалы» — не один экран, а два: сами шкалы и матрица вкладов. Прежде они шли
   // одной колонкой друг под другом, и матрица — самое широкое место ящика, её ширина
   // растёт с каждой шкалой — делила панель с карточками шкал (эскиз ds-rail-nested).
   const hasScales = model.scales.length > 0;
-  const scalesDot = fieldErrors?.has("scales") ? ("error" as const) : undefined;
+  const scalesDot = railDot(issueLevel, "scales");
   const items: RailEntry<ScoringRail>[] = [
     {
       key: "answer",
       label: "Оценка ответа",
-      dot: fieldErrors?.has("scoring") ? "error" : undefined,
+      dot: railDot(issueLevel, "scoring"),
     },
     {
       key: "verdict",
       label: "Вердикт",
-      dot: fieldErrors?.has("passRules") ? "error" : undefined,
+      dot: railDot(issueLevel, "passRules"),
     },
     {
       label: "Шкалы",
@@ -267,7 +294,7 @@ export function ScoringTab({
     {
       key: "metrics",
       label: "Показатели",
-      dot: fieldErrors?.has("resultVariables") ? "error" : undefined,
+      dot: railDot(issueLevel, "resultVariables"),
     },
   ];
   const [active, setActive] = useRailState<ScoringRail>(items, "answer");
@@ -308,14 +335,15 @@ export function ScoringTab({
 
 // ─── «Обратная связь и итоги» ─────────────────────────────────────────────────
 
-type FeedbackRail = "during" | "results" | "texts" | "report";
-
-const FEEDBACK_ITEMS: { key: FeedbackRail; label: string }[] = [
-  { key: "during", label: "Во время теста" },
-  { key: "results", label: "Состав итогов" },
-  { key: "texts", label: "Обратная связь" },
-  { key: "report", label: "Отчёт" },
-];
+type FeedbackRail =
+  | "during"
+  | "results"
+  | "texts"
+  | "topics"
+  | "scale-levels"
+  | "difficulty-levels"
+  | "metric-levels"
+  | "report";
 
 /**
  * Что участник узнаёт о своём результате: по ходу теста, на экране итогов, в текстах
@@ -326,6 +354,7 @@ export function FeedbackTab({
   model,
   updateModel,
   fieldErrors,
+  issueLevel,
   design,
   onOpenQuestion,
 }: EditorTabProps & {
@@ -333,21 +362,41 @@ export function FeedbackTab({
   /** Э2.4: открыть редактор вопроса из реестра. Ящик вопроса монтирует хозяин вкладки. */
   onOpenQuestion?: (questionId: string) => void;
 }): React.JSX.Element {
-  // PRD-49: документ печатает НЕ все объявленные надписи — структура у него своя и
-  // фиксированная, поэтому перечень приходит с сервера, посчитанный по макетам отчёта
-  // (`reportLabelKeys`). Поля нет (старый сервер, шаблон не прочитался) — показываются
-  // все объявления, как раньше.
-  const reportLabelDeclarations = useMemo(() => {
-    const declared = design?.template?.manifest.labels ?? [];
-    const printed = design?.template?.reportLabelKeys;
-    if (!printed) return declared;
-    const allowed = new Set(printed);
-    return declared.filter((d) => allowed.has(d.key));
-  }, [design?.template]);
-  const [active, setActive] = useRailState<FeedbackRail>(FEEDBACK_ITEMS, "during");
+  // Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа. Тексты
+  // уровней перечисляются отдельно от текстов теста и тем, как в эскизе (`s-texts`).
+  //
+  // Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: раздел из одних тегов «уровни не
+  // заданы» сообщал бы о настройке, которой автор ещё не делал, а у стандартного теста
+  // лестницы сложности нет вовсе. Это единственное место рейла с таким правилом: у
+  // «Вкладов вопросов» пункт остаётся видимым и погашенным, потому что там настройка
+  // ЕСТЬ и лишь ждёт первой шкалы.
+  const items: RailEntry<FeedbackRail>[] = [
+    { key: "during", label: "Во время теста" },
+    { key: "results", label: "Состав итогов" },
+    {
+      label: "Обратная связь",
+      items: [
+        { key: "texts", label: "Общее" },
+        ...(model.sections.length > 0
+          ? [{ key: "topics" as const, label: "По темам" }]
+          : []),
+        ...(hasAnyBands(model, "scales")
+          ? [{ key: "scale-levels" as const, label: "По уровням шкал" }]
+          : []),
+        ...(model.mode === "adaptive"
+          ? [{ key: "difficulty-levels" as const, label: "По уровням сложности" }]
+          : []),
+        ...(hasAnyBands(model, "metrics")
+          ? [{ key: "metric-levels" as const, label: "По уровням показателей" }]
+          : []),
+      ],
+    },
+    { key: "report", label: "Отчёт" },
+  ];
+  const [active, setActive] = useRailState<FeedbackRail>(items, "during");
   return (
     <TabRail
-      items={FEEDBACK_ITEMS}
+      items={items}
       active={active}
       onChange={setActive}
       ariaLabel="Подразделы обратной связи и итогов"
@@ -361,14 +410,12 @@ export function FeedbackTab({
           <QuestionFeedbackRegistry model={model} onOpenQuestion={onOpenQuestion} />
         </>
       )}
+      {/* Порядок разделов — как в эскизе: сначала ЧТО и в каком порядке печатается,
+          затем подытоги, и только потом формулировки надписей. */}
       {active === "results" && (
         <>
-          <BreakdownDisplayPane model={model} updateModel={updateModel} />
           {design && !design.templateMissing && (
-            <ResultsLabelsPane
-              declarations={design.template?.manifest.labels ?? []}
-              labels={design.draft.labels ?? {}}
-              onChange={design.setLabels}
+            <ResultsBlockOrderPane
               order={design.draft.resultsBlockOrder}
               // Состав и порядок объявляет ШАБЛОН, и берётся объявление ЭКРАНА ИТОГОВ:
               // настройка одна на все экраны, а адаптивные итоги, например, сводки
@@ -377,7 +424,18 @@ export function FeedbackTab({
                 design.template?.manifest.resultsBlockOrder,
                 "results",
               )}
-              onOrderChange={design.setResultsBlockOrder}
+              labels={design.draft.labels ?? {}}
+              declarations={design.template?.manifest.labels ?? []}
+              readOnly={false}
+              onChange={design.setResultsBlockOrder}
+            />
+          )}
+          <BreakdownDisplayPane model={model} updateModel={updateModel} />
+          {design && !design.templateMissing && (
+            <ResultsLabelsPane
+              declarations={design.template?.manifest.labels ?? []}
+              labels={design.draft.labels ?? {}}
+              onChange={design.setLabels}
             />
           )}
           {design?.templateMissing && (
@@ -390,39 +448,39 @@ export function FeedbackTab({
           )}
         </>
       )}
+      {/* «Общее» — только тексты теста целиком: вводный и общий. Разборы по темам и по
+          уровням стоят своими пунктами: их пишут не в один присест с общим текстом. */}
       {active === "texts" && (
+        <FeedbackTextsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
+      )}
+      {/* PRD-29 §7.1a: тексты тем — РАЗРЕШЁННЫЕ, по одному на тему. Правились они в
+          «Составе», среди выборки и квот, где автор искал их последними.
+          PRD-50 FR-50: тексты подтем идут следом, а не отдельным пунктом: подтема —
+          разрез ТЕМЫ, и её текст автор пишет, дописав текст самой темы. */}
+      {active === "topics" && (
         <>
-          <FeedbackTextsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-          {/* PRD-29 §7.1a: тексты тем — РАЗРЕШЁННЫЕ, по одному на тему. Правились они в
-              «Составе», среди выборки и квот, где автор искал их последними. */}
           <TopicFeedbackCard model={model} updateModel={updateModel} />
-          {/* PRD-50 FR-50: тексты подтем — рядом с текстом теста, а не в «Оценке»: это
-              содержание, которое человек прочитает, а не правило, по которому его судят. */}
           <BreakdownFeedbackCard model={model} updateModel={updateModel} />
-          {/* Э2.5: тексты адаптивных уровней. Карточка сама решает, показываться ли:
-              у стандартного теста лестницы нет, и пустой раздел о ней врал бы. */}
-          {model.mode === "adaptive" && (
-            <LevelFeedbackCard model={model} updateModel={updateModel} />
-          )}
         </>
       )}
+      {/* Тексты уровней — те же поля, что правит конструктор уровней в «Оценке
+          результата»; здесь они собраны в колонку, чтобы писать их подряд. */}
+      {active === "scale-levels" && (
+        <BandFeedbackSection kind="scales" model={model} updateModel={updateModel} />
+      )}
+      {/* Э2.5: тексты адаптивных уровней. Пункт есть только у адаптивного теста —
+          у стандартного лестницы сложности нет, и раздел о ней врал бы. */}
+      {active === "difficulty-levels" && (
+        <LevelFeedbackCard model={model} updateModel={updateModel} />
+      )}
+      {active === "metric-levels" && (
+        <BandFeedbackSection kind="metrics" model={model} updateModel={updateModel} />
+      )}
+      {/* Подраздел кончается предпросмотром: здесь задают, ЧТО показывать в отчёте.
+          Формулировки заголовков документа — это КАК он выглядит, и слой их
+          переопределений живёт в «Оформлении → Облик отчёта» (PRD-49 §7). */}
       {active === "report" && (
-        <>
-          <ReportContentPane model={model} updateModel={updateModel} design={design} />
-          {/* PRD-49 §7: тот же перечень надписей, но слоем ПЕРЕОПРЕДЕЛЕНИЙ. Пустая строка
-              значит «как на экране итогов», поэтому подсказкой поля стоит уже разрешённый
-              текст итогов, а не умолчание шаблона. Перечень — только те надписи, которые
-              печатает ДОКУМЕНТ (`reportLabelKeys`): структура у него своя и фиксированная,
-              и строка про заголовок, которого в нём нет, включалась бы вхолостую. */}
-          {design && reportLabelDeclarations.length > 0 && (
-            <ReportLabelsCard
-              declarations={reportLabelDeclarations}
-              sharedLabels={design.draft.labels ?? {}}
-              report={model.report ?? {}}
-              onChange={(next) => updateModel((m) => ({ ...m, report: next }))}
-            />
-          )}
-        </>
+        <ReportContentPane model={model} updateModel={updateModel} design={design} />
       )}
     </TabRail>
   );

@@ -282,6 +282,18 @@ describe("<ResultVariablesSection /> — formula builder", () => {
     expect(screen.getByRole("button", { name: /Добавить условие/ })).toBeInTheDocument();
   });
 
+  it("«Что получится» показывает собранное выражение и меняется вместе с ним", () => {
+    renderStateful(baseModel({ scales: [scaleWithLevels()], resultVariables: [makeVar()] }));
+    expandFirstCard();
+    // Строку, которую конструктор пишет в модель, автор видит ДО перехода в ручной режим.
+    const shown = screen.getByTestId("metrics-formula-generated");
+    const threshold = shown.textContent ?? "";
+    expect(threshold).not.toBe("");
+
+    pickLabeledOption("Шаблон", "Взвешенная сумма");
+    expect(screen.getByTestId("metrics-formula-generated").textContent).not.toBe(threshold);
+  });
+
   it("threshold: edits the condition value input", () => {
     renderStateful(baseModel({ scales: [scaleWithLevels()], resultVariables: [makeVar()] }));
     expandFirstCard();

@@ -68,6 +68,7 @@ import {
   validateResultVariableFormula,
   type ResultVariableFormulaValidation,
 } from "../result-variables-api";
+import { FoldAllButtons, useSectionFold } from "./section-fold";
 import {
   TEMPLATE_OPTIONS,
   TEMPLATE_TYPE,
@@ -168,7 +169,19 @@ export function ResultVariablesSection({
   fieldErrors = EMPTY_FIELD_ERRORS,
 }: ResultVariablesSectionProps) {
   const vars = model.resultVariables;
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  /**
+   * Свёртка карточек показателя. Прежде это был аккордеон на одну открытую карточку:
+   * раскрыть второй показатель значило закрыть первый, и сравнить два рядом было нельзя,
+   * а «развернуть все» такой моделью не выражается вовсе. Теперь — та же свёртка, что у
+   * остальных списков ящика: открыто может быть сколько угодно, и есть пара кнопок.
+   * `startCollapsed`, потому что список открывается свёрнутым, как и раньше; новый
+   * показатель в набор свёрнутых не попадает и появляется раскрытым.
+   */
+  const fold = useSectionFold(
+    vars.map((v, i) => rowKey(v, i)),
+    true,
+  );
 
   // Topics feed the «Элемент» picker (topicById(...)) — by name for the author,
   // by id in the generated DSL.
@@ -213,10 +226,7 @@ export function ResultVariablesSection({
   );
 
   const addVariable = useCallback(() => {
-    const created = emptyVariable(vars.length);
-    const key = rowKey(created, vars.length);
-    setVars([...vars, created]);
-    setExpandedKey(key);
+    setVars([...vars, emptyVariable(vars.length)]);
   }, [vars, setVars]);
 
   const removeVariable = useCallback(
@@ -279,17 +289,24 @@ export function ResultVariablesSection({
   return (
     <div className="tb-settings-content" data-testid="metrics-section">
       <FormSection stacked title="Показатели">
-        {!readOnly && (
+        {/* Строка действий рисуется и в режиме чтения: свёртка — это навигация по
+            списку, а не правка, и читателю она нужна не меньше. */}
+        {(!readOnly || vars.length > 1) && (
           <FormActions align="between">
-            <Button
-              variant="ghost"
-              size="s"
-              leadingIcon={<Plus size={16} aria-hidden="true" />}
-              onClick={addVariable}
-              data-testid="metrics-add"
-            >
-              Добавить показатель
-            </Button>
+            {!readOnly ? (
+              <Button
+                variant="ghost"
+                size="s"
+                leadingIcon={<Plus size={16} aria-hidden="true" />}
+                onClick={addVariable}
+                data-testid="metrics-add"
+              >
+                Добавить показатель
+              </Button>
+            ) : (
+              <span />
+            )}
+            {vars.length > 1 && <FoldAllButtons fold={fold} testIdPrefix="metrics" />}
           </FormActions>
         )}
 
@@ -308,8 +325,8 @@ export function ResultVariablesSection({
                 testId={testId}
                 readOnly={readOnly}
                 fieldErrors={fieldErrors}
-                expanded={expandedKey === key}
-                onToggle={() => setExpandedKey((cur) => (cur === key ? null : key))}
+                expanded={fold.isOpen(key)}
+                onToggle={() => fold.toggle(key)}
                 onChange={(patch) => updateVar(index, patch)}
                 onRemove={() => removeVariable(index)}
               />
@@ -526,7 +543,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           <Input
             size="m"
             fullWidth
-            label="Имя"
+            label="Имя показателя"
             required
             value={v.name}
             disabled={readOnly}
@@ -548,12 +565,10 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
         />
       </Grid>
 
-      <hr className="wf-sep" />
-
       <div className="ou-formfield" data-field={`resultVariables[${index}].formula`}>
         <label className="ou-formfield__lbl">Формула</label>
         <SegmentedControl<"builder" | "dsl">
-          size="m"
+          size="s"
           value={formulaMode}
           aria-label="Режим редактора формулы"
           items={[
@@ -580,7 +595,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               ref={textareaRef}
               size="m"
               fullWidth
-              rows={5}
+              rows={4}
               value={v.formula}
               disabled={readOnly}
               placeholder='напр. IF(percent >= 75, "Зачёт", "Незачёт")'
@@ -598,15 +613,15 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
         <Banner tone={validation.banner.tone} size="sm" description={validation.banner.text} />
       )}
 
-      <hr className="wf-sep" />
-
       {/* PRD-29: the indicator's interpretation. A numeric result is interpreted by
           INTERVAL (the same editor the scales tab uses); a string or boolean one has
           no intervals — the formula returns a CODE, so the author enumerates them. */}
       {profile && (
         <ProfileDiagnostics variable={v} scales={scales} index={index} />
       )}
-      <div className="tb-section-label">Толкование результата</div>
+      {/* Заголовок блока — из ствола (`ou-formfield__lbl`): приёмка ящика по эскизам
+          привела к нему ВСЕ подписи блоков, и своя разметка тут разошлась бы с ними. */}
+      <label className="ou-formfield__lbl">Толкование результата</label>
       {profile && !readOnly && (
         <div className="tb-rows-actions" data-testid={`metrics-profile-matrix-${index}`}>
           <Button
@@ -641,6 +656,8 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             bands={v.bands}
             index={index}
             readOnly={readOnly}
+            // У показателя шкалы нет — лента показывает покрытие ЕГО значений.
+            coverLabel="Покрытие"
             valence={v.valence}
             testIdPrefix="metrics"
             domain={v.domainMin !== null && v.domainMax !== null
@@ -663,12 +680,15 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             index={index}
             seed={bandSpan(v) ?? { min: 0, max: 0 }}
             switchLabel="Задать границы вручную"
-            switchDescription="Выключено — границы берутся из охвата уровней. Ноль — законная граница, а не признак «не задано»."
+            switchDescription="Выключено — границы берутся из охвата уровней."
             minLabel="Минимум"
             maxLabel="Максимум"
             onChange={onChange}
           />
-          <div className="ou-formfield">
+          {/* Направление и видимость — пара в одной строке: оба отвечают на вопрос «как
+              этот показатель прочитают», и разносить их по разным разделам значило бы
+              заставлять автора решать половину вопроса дважды. */}
+          <Grid cols={2} gap={3}>
             <Select<Valence>
               size="m"
               fullWidth
@@ -679,7 +699,17 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               onChange={(value) => onChange({ valence: value })}
               data-testid={`metrics-valence-${index}`}
             />
-          </div>
+            <Select<LearnerVisibility>
+              size="m"
+              fullWidth
+              label="Показывать обучающемуся"
+              value={v.learnerVisibility}
+              disabled={readOnly}
+              options={VISIBILITY_OPTIONS}
+              onChange={(value) => onChange({ learnerVisibility: value })}
+              data-testid={`metrics-visibility-${index}`}
+            />
+          </Grid>
         </>
       ) : (
         <OutcomesEditor
@@ -698,16 +728,9 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           data-testid={`metrics-unknown-outcomes-${index}`}
         />
       )}
-      <Banner
-        tone="info"
-        size="sm"
-        description={
-          v.type === "number"
-            ? "Толкование привязано к интервалу значения. «Оценка» — методологическое состояние уровня; как оно выглядит, решает шаблон."
-            : "Формула возвращает код исхода. Перечислите коды, которые она может вернуть, и что каждый из них означает для обучающегося."
-        }
-      />
-
+      {/* Блок «вне профиля» стоит ЗА толкованием и ПЕРЕД «Выводом»: он про то, что
+          участник прочитает, а не про то, куда показатель уедет. Порядок из эскиза
+          `prd53-profile-indicator.html`. */}
       {profile && (
         <>
           <hr className="wf-sep" />
@@ -720,51 +743,52 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           />
         </>
       )}
-
-      <hr className="wf-sep" />
-
-      <div className="tb-section-label">Вывод</div>
-      <Grid cols={2} gap={3}>
-        {/*
-          PRD-29 (defect D-1): without this control `learnerVisibility` stays
-          `hidden` forever and the methodology verdict — the very result a
-          measurement test exists for — can never reach the learner. Same option
-          list as the scales tab, deliberately imported rather than duplicated.
-        */}
-        <Select<LearnerVisibility>
-          size="m"
-          fullWidth
-          label="Показывать обучающемуся"
-          value={v.learnerVisibility}
-          disabled={readOnly}
-          options={VISIBILITY_OPTIONS}
-          onChange={(value) => onChange({ learnerVisibility: value })}
-          data-testid={`metrics-visibility-${index}`}
-        />
-        {isBoolean && (
-          <Select<ResultVariableControlsStatus>
-            size="m"
-            fullWidth
-            label="Управление статусом курса"
-            hint="Доступно только для показателей типа «да/нет»."
-            value={v.controlsStatus}
-            disabled={readOnly}
-            options={STATUS_OPTIONS}
-            onChange={(value) => onChange({ controlsStatus: value })}
-            data-testid={`metrics-status-${index}`}
-          />
-        )}
-        <Select<ResultVariableScormTarget>
-          size="m"
-          fullWidth
-          label="Передавать в LMS"
-          value={v.scormTarget}
-          disabled={readOnly}
-          options={TARGET_OPTIONS}
-          onChange={(value) => onChange({ scormTarget: value })}
-          data-testid={`metrics-target-${index}`}
-        />
-      </Grid>
+      {/* PRD-29 (дефект D-1): без управления видимостью `learnerVisibility` навсегда
+          остаётся `hidden`, и вердикт методики — то, ради чего измерительный тест и
+          существует, — до обучающегося не доходит. У числового показателя это поле стоит
+          парой к направлению, выше; здесь — для остальных типов. */}
+      {v.type !== "number" && (
+        <>
+          <label className="ou-formfield__lbl">Вывод</label>
+          <Grid cols={2} gap={3}>
+            <Select<LearnerVisibility>
+              size="m"
+              fullWidth
+              label="Показывать обучающемуся"
+              value={v.learnerVisibility}
+              disabled={readOnly}
+              options={VISIBILITY_OPTIONS}
+              onChange={(value) => onChange({ learnerVisibility: value })}
+              data-testid={`metrics-visibility-${index}`}
+            />
+            {isBoolean && (
+              <Select<ResultVariableControlsStatus>
+                size="m"
+                fullWidth
+                label="Управление статусом курса"
+                hint="Доступно только для показателей типа «да/нет»."
+                value={v.controlsStatus}
+                disabled={readOnly}
+                options={STATUS_OPTIONS}
+                onChange={(value) => onChange({ controlsStatus: value })}
+                data-testid={`metrics-status-${index}`}
+              />
+            )}
+          </Grid>
+        </>
+      )}
+      {/* D-48: выдача в LMS — не пара к видимости, а отдельное решение о другом
+          адресате: одно про экран обучающегося, другое про запись в систему. */}
+      <Select<ResultVariableScormTarget>
+        size="m"
+        fullWidth
+        label="Передавать в LMS"
+        value={v.scormTarget}
+        disabled={readOnly}
+        options={TARGET_OPTIONS}
+        onChange={(value) => onChange({ scormTarget: value })}
+        data-testid={`metrics-target-${index}`}
+      />
 
       {/* PRD-49 §6: the card's other slots. «Показывать обучающемуся» above governs the
           VALUE slot only, so without these two an author who needs a card with just an
@@ -902,7 +926,7 @@ function FormulaBuilder({
 
       {template === "verdict" && (
         <div className="ou-formfield">
-          <label className="ou-formfield__lbl">Все условия должны выполняться (И)</label>
+          <label className="ou-formfield__lbl">Условия</label>
           <div className="tb-rows">
             {conditions.map((c, i) => (
               <ConditionRow
@@ -1081,6 +1105,18 @@ function FormulaBuilder({
           onUnit={setPUnit}
         />
       )}
+      {/* Что получится: собранное выражение показывается ДО того, как автор переключится
+          на ручной режим. Конструктор пишет ту же строку в модель, и увидеть её здесь —
+          единственный способ понять, что именно посчитает движок. */}
+      <div className="ou-formfield">
+        <label className="ou-formfield__lbl">Что получится</label>
+        <div className="tb-formula-preview" data-testid="metrics-formula-generated">
+          {generated || "—"}
+        </div>
+        <span className="ou-formfield__desc">
+          Выражение собирается конструктором; переключение на «Выражение» оставляет его как есть.
+        </span>
+      </div>
     </div>
   );
 }

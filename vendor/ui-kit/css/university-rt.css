@@ -3953,6 +3953,12 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 /* Перенесено из продукта test-builder вместе с компонентом: у продукта есть только
    собранный бандл, исходник стилей живёт здесь. */
 
+/* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
+   правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
+   повторами выбросил базовые правила и части составных селекторов.
+   Базовое правило стоит ПЕРЕД модификаторами: у `.ou-iconbadge` и `.ou-iconbadge--s`
+   специфичность одна и та же, поэтому база, приписанная снизу, гасила бы размеры. */
+.ou-iconbadge { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: var(--ou-radius-pill); flex-shrink: 0; }
 .ou-iconbadge svg { width: 24px; height: 24px; }
 .ou-iconbadge--s { width: 36px; height: 36px; }
 .ou-iconbadge--s svg { width: 18px; height: 18px; }
@@ -3964,11 +3970,6 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-iconbadge--warning { background: var(--ou-warning-soft); color: var(--ou-warning-on-soft); }
 .ou-iconbadge--error { background: var(--ou-error-soft); color: var(--ou-error-on-soft); }
 .ou-iconbadge--info { background: var(--ou-info-soft); color: var(--ou-info-on-soft); }
-
-/* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
-   правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
-   повторами выбросил базовые правила и части составных селекторов. */
-.ou-iconbadge { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: var(--ou-radius-pill); flex-shrink: 0; }
 
 
 /* ─── IconButton.css ───────────────────────────────── */
@@ -4302,6 +4303,13 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 /* Перенесено из продукта test-builder вместе с компонентом: у продукта есть только
    собранный бандл, исходник стилей живёт здесь. */
 
+/* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
+   правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
+   повторами выбросил базовые правила и части составных селекторов.
+   Базовое правило стоит ПЕРЕД модификаторами: специфичность у `.ou-stack` и
+   `.ou-stack--row` одна и та же, поэтому база, приписанная снизу, возвращала колонку
+   каждому ряду — а `Cluster` собран именно из `.ou-stack.ou-stack--row`. */
+.ou-stack { display: flex; flex-direction: column; min-width: 0; }
 .ou-stack--row { flex-direction: row; }
 .ou-stack--wrap { flex-wrap: wrap; }
 .ou-stack--full { width: 100%; }
@@ -4437,7 +4445,6 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 /* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
    правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
    повторами выбросил базовые правила и части составных селекторов. */
-.ou-stack { display: flex; flex-direction: column; min-width: 0; }
 .ou-lgrid--list-action > .ou-card__divider { grid-column: 1 / -1; }
 .ou-box--padx-0 { padding-inline: 0; }
 .ou-box--full { width: 100%; }
@@ -5031,6 +5038,12 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 /* ─── NumberInput.css ───────────────────────────────── */
 /* UniversityRT · NumberInput (Stepper) */
 .ou-number { display: inline-flex; flex-direction: column; gap: var(--ou-space-1); }
+/* `fullWidth` у счётчика объявлен пропом и класс вешался, но правила под него не было
+   вовсе: счётчик оставался `inline-flex` и занимал ширину своего нутра (~230px), из-за
+   чего в узкой ячейке таблицы наползал на соседние столбцы. Пара к `.ou-field--full`
+   у Input — та же запись, тот же смысл. Бокс тянуть отдельно не нужно: в колоночном
+   флексе он и так растягивается по поперечной оси. */
+.ou-number--full { display: flex; width: 100%; }
 .ou-number__lbl { font: var(--ou-text-body-s); color: var(--ou-fg-default); font-weight: 500; }
 .ou-number__hint { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
 .ou-number__hint--error { color: var(--ou-error-default); }
@@ -6083,6 +6096,13 @@ span.ou-quiz__dot:hover { transform: none; }
 /* Перенесено из продукта test-builder вместе с компонентом: у продукта есть только
    собранный бандл, исходник стилей живёт здесь. */
 
+/* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
+   правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
+   повторами выбросил базовые правила и части составных селекторов.
+   Базовое правило стоит ПЕРЕД модификаторами: у `.ou-rte` и `.ou-rte--full`
+   специфичность одна и та же, поэтому база, приписанная снизу, возвращала редактору
+   `inline-flex` и отменяла растяжку по ширине. */
+.ou-rte { display: inline-flex; flex-direction: column; gap: var(--ou-space-2); min-width: 0; }
 .ou-rte--full { display: flex; width: 100%; }
 .ou-rte__lbl { font: var(--ou-text-body-s); font-weight: 500; color: var(--ou-fg-default); }
 .ou-rte__lbl-req { color: var(--ou-error-default); }
@@ -6109,7 +6129,6 @@ span.ou-quiz__dot:hover { transform: none; }
 /* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
    правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
    повторами выбросил базовые правила и части составных селекторов. */
-.ou-rte { display: inline-flex; flex-direction: column; gap: var(--ou-space-2); min-width: 0; }
 .ou-rte__tools .ou-iconbtn svg { width: 14px; height: 14px; }
 
 

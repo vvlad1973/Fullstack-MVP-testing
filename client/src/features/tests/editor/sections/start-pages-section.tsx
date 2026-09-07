@@ -38,18 +38,11 @@ import {
   AlertTriangle,
   ChevronRight,
   Eye,
-  FileText,
   GripVertical,
-  HelpCircle,
   Image as ImageIcon,
   Info,
-  Layout,
-  List,
-  Lock,
-  MoreHorizontal,
-  PieChart,
+  MoreVertical,
   Plus,
-  Route,
   Search,
   Upload,
   X,
@@ -244,11 +237,23 @@ function synthSystemNode(
   };
 }
 
+/**
+ * Заголовки СИСТЕМНЫХ страниц в полотне сценария. Бейдж рядом называет вид узла
+ * коротко («Старт»), а заголовок — саму страницу, поэтому повторять бейдж он не может.
+ */
+const SYSTEM_PAGE_TITLE: Record<string, string> = {
+  start: "Стартовая страница",
+  results: "Итоги теста",
+  "section-results": "Итоги раздела",
+  router: "Страница-маршрутизатор",
+};
+
 function pageTitle(page: ContentPage): string {
   const values = page.valuesJson?.values ?? {};
   return (
     (values.title as string | undefined) ||
     (values.heading as string | undefined) ||
+    SYSTEM_PAGE_TITLE[page.kind] ||
     KIND_LABEL[page.kind] ||
     "Страница"
   );
@@ -486,8 +491,9 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
           data-testid="structure-mode-change-banner"
         />
       )}
-      <FlowModeBar mode={model.flowMode} />
-
+      {/* Полосы «Режим: …» здесь нет: сценарий выбирают полем выше, на этом же экране,
+          и повторять выбранное значение под ним значит отодвигать полотно структуры
+          ради строки, которая ничего не говорит. О СМЕНЕ режима говорит баннер выше. */}
       <UnmappedPagesBanner pages={cp.pages} onMap={(page) => setReplaceCtx({ page })} />
 
       {testId === undefined ? (
@@ -570,19 +576,6 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
 export const StartPagesSection = StructureSection;
 
 // ─── Top banner ───────────────────────────────────────────────────────────────
-
-function FlowModeBar({ mode }: { mode: TestEditorModel["flowMode"] }) {
-  return (
-    <div className="flow-mode-bar" data-testid="structure-mode-banner">
-      <Layout size={14} aria-hidden="true" />
-      <span>Режим:</span>
-      <span className="flow-mode-label">{FLOW_LABEL[mode]}</span>
-      <span className="flow-mode-hint">
-        — задаётся выше, полем «Сценарий прохождения»
-      </span>
-    </div>
-  );
-}
 
 function CreateModeNotice() {
   return (
@@ -882,39 +875,23 @@ function ZonesBlock(props: {
         </Zone>
       ) : (
         <SortableContext items={topicSortableIds} strategy={verticalListSortingStrategy}>
-          {model.flowMode === "router_by_topics" ? (
-            <InsideTestZone
-              router={router}
-              handlers={handlers}
-              sections={model.sections}
-              infoIn={infoIn}
-              questionsForTopic={questionsForTopic}
-              introForTopic={introForTopic}
-              reviewPage={reviewPage}
-              sectionResultsPage={sectionResultsPage}
-              reviewSlot={reviewSlot}
-              dragEnabled={Boolean(updateModel) && !handlers.readOnly}
-              dimGrip={handlers.readOnly}
-            />
-          ) : (
-            model.sections.map((section, idx) => (
-              <TopicBlock
-                key={section.topicId}
-                index={idx + 1}
-                section={section}
-                intro={introForTopic(section.topicId)}
-                reviewPage={reviewPage}
-                sectionResultsPage={sectionResultsPage}
-                before={infoIn("before_topic", section.topicId)}
-                after={infoIn("after_topic", section.topicId)}
-                questions={questionsForTopic(section.topicId)}
-                reviewSlot={reviewSlot}
-                handlers={handlers}
-                dragEnabled={Boolean(updateModel) && !handlers.readOnly}
-                dimGrip={handlers.readOnly}
-              />
-            ))
-          )}
+          {/* Зона «Внутри теста» — у ОБОИХ потемных сценариев (эскиз 2581-2721). Раньше её
+              получал только маршрутизаторный: у линейного темы шли прямо за зоной «До
+              теста», и полотно не говорило, где начинается сам тест. Маршрутизатора у
+              линейного нет — строка не рисуется, ветки остаются те же. */}
+          <InsideTestZone
+            router={model.flowMode === "router_by_topics" ? router : null}
+            handlers={handlers}
+            sections={model.sections}
+            infoIn={infoIn}
+            questionsForTopic={questionsForTopic}
+            introForTopic={introForTopic}
+            reviewPage={reviewPage}
+            sectionResultsPage={sectionResultsPage}
+            reviewSlot={reviewSlot}
+            dragEnabled={Boolean(updateModel) && !handlers.readOnly}
+            dimGrip={handlers.readOnly}
+          />
         </SortableContext>
       )}
 
@@ -952,10 +929,8 @@ function flatCountLabel(model: TestEditorModel): string {
 function Zone(props: { title: string; testId: string; children: React.ReactNode }) {
   return (
     <section className="zone-block" data-testid={props.testId}>
-      <div className="zone-header">
-        <ChevronRight size={14} aria-hidden="true" />
-        {props.title}
-      </div>
+      {/* Только надпись: шеврон обещал бы свёртку зоны, которой нет. */}
+      <div className="zone-header">{props.title}</div>
       <div className="topic-body">{props.children}</div>
     </section>
   );
@@ -1029,7 +1004,6 @@ function TopicBlock(props: {
           <SystemPageRow
             page={props.intro}
             title="Введение раздела"
-            icon="content"
             handlers={props.handlers}
             testId={`structure-system-intro-${section.topicId}`}
           />
@@ -1070,7 +1044,6 @@ function TopicBlock(props: {
           <SystemPageRow
             page={props.sectionResultsPage}
             title="Итоги раздела"
-            icon="section-results"
             handlers={props.handlers}
             testId={`structure-system-section-results-${section.topicId}`}
           />
@@ -1104,8 +1077,9 @@ function ReviewNodeRow(props: {
 }) {
   if (props.state === null) return null;
   const noun = props.scope === "section" ? "раздела" : "теста";
-  const finishLabel = props.scope === "section" ? "«Завершить раздел»" : "«Завершить тест»";
-  const title = `Обзор ${noun} — навигация по вопросам и ${finishLabel}`;
+  // Заголовок строки называет узел, а не пересказывает его устройство: что на экране
+  // обзора есть навигация и кнопка завершения, видно в самом экране.
+  const title = `Обзор ${noun}`;
   if (props.state === "enabled") {
     // Template-backed system node: variant badge + «Сменить вариант» + «Предпросмотр».
     if (props.page) {
@@ -1113,7 +1087,6 @@ function ReviewNodeRow(props: {
         <SystemPageRow
           page={props.page}
           title={title}
-          icon="review"
           handlers={props.handlers}
           testId={props.testId}
         />
@@ -1126,7 +1099,6 @@ function ReviewNodeRow(props: {
         data-testid={props.testId}
         data-kind="review-slot"
       >
-        <List className="page-icon" size={14} aria-hidden="true" />
         <span className="page-variant-badge">Обзор</span>
         <span className="page-title">{title}</span>
       </div>
@@ -1140,7 +1112,6 @@ function ReviewNodeRow(props: {
         data-kind="review-slot"
         data-disabled="true"
       >
-        <Lock className="page-icon" size={14} aria-hidden="true" />
         <span className="page-variant-badge">Обзор</span>
         <span className="page-title">Обзор {noun} — недоступен</span>
       </div>
@@ -1185,17 +1156,15 @@ function InsideTestZone(props: {
   const { router, handlers, sections, infoIn, questionsForTopic, introForTopic, reviewPage, sectionResultsPage, reviewSlot, dragEnabled, dimGrip } = props;
   return (
     <section className="inside-test" data-testid="structure-inside-test">
-      <div className="inside-test__label">
-        <ChevronRight size={14} aria-hidden="true" />
-        Внутри теста
-      </div>
+      {/* Только надпись: шеврон обещал бы свёртку зоны, которой нет (та же правка, что
+          у заголовков зон «До теста» / «После теста»). */}
+      <div className="inside-test__label">Внутри теста</div>
       <div className="inside-test__body">
         {router && (
           <SystemPageRow
             page={router}
             title={pageTitle(router)}
             handlers={handlers}
-            icon="router"
             testId="structure-system-router"
           />
         )}
@@ -1243,7 +1212,6 @@ function QuestionsRow(props: {
         data-testid={props.testId}
         data-kind="questions"
       >
-        <HelpCircle className="page-icon" size={14} aria-hidden="true" />
         <span className="page-variant-badge">Вопросы</span>
         <span className="page-title">{props.countLabel}</span>
       </div>
@@ -1254,7 +1222,6 @@ function QuestionsRow(props: {
       page={props.page}
       title={props.countLabel}
       handlers={props.handlers}
-      icon="questions"
       testId={props.testId}
     />
   );
@@ -1266,14 +1233,13 @@ function SystemPageRow(props: {
   page: ContentPage;
   title: string;
   handlers: ZoneHandlers;
-  icon?: "questions" | "router" | "content" | "review" | "section-results";
   testId: string;
 }) {
   const { page, handlers } = props;
   const { cp, expandedId, setExpandedId, readOnly } = handlers;
   const variants = cp.contentTemplates.filter((v) => v.kind === page.kind);
   const variant = variants.find((v) => v.key === page.templateKey);
-  const badge = variant?.label ?? KIND_LABEL[page.kind] ?? page.kind;
+  const badge = KIND_LABEL[page.kind] ?? page.kind;
   const canSwitch = variants.length > 1 && !readOnly;
   // PRD-7 G21: when the active template declares NO variant of this system
   // kind, the planner falls back to the built-in `default` template. Surface
@@ -1293,24 +1259,12 @@ function SystemPageRow(props: {
     (variant?.placeholders.length ?? 0) + (variant?.settings?.length ?? 0) > 0;
   const expanded = isExpandable && expandedId === page.id;
   // PRD-7 G25 heuristic: an intro/summary page is "template-driven" until
-  // the author has saved at least one non-empty placeholder value. Rendered
-  // as `.page-row--template` with a small «шаблон» marker per wireframe
-  // `s-main` linear-by-topics (lines 560-563, 649-652). The classification
-  // is purely cosmetic — saving values flips it back to plain `--system`.
+  // the author has saved at least one non-empty placeholder value. The only trace
+  // left is the muted `.page-row--template` colour: purely cosmetic — saving values
+  // flips it back to plain `--system`.
   const isFromTemplate =
     (page.kind === "intro" || page.kind === "summary") &&
     Object.values(values).every((v) => v === null || v === undefined || v === "");
-
-  const Icon =
-    props.icon === "router"
-      ? Route
-      : props.icon === "questions"
-        ? HelpCircle
-        : props.icon === "review"
-          ? List
-          : props.icon === "section-results"
-            ? PieChart
-            : FileText;
 
   return (
     <>
@@ -1338,30 +1292,22 @@ function SystemPageRow(props: {
           <ChevronRight size={14} aria-hidden="true" />
         </button>
       )}
-      <Icon className="page-icon" size={14} aria-hidden="true" />
+      {/* Ни пиктограммы вида, ни маркера «шаблон»: вид узла назван бейджем рядом, а
+          «страница ещё вся из шаблона» — не состояние, с которым автор что-то делает.
+          Классификация осталась классом строки, она красит её приглушённее. */}
       <span className="page-variant-badge">{badge}</span>
-      <span className="page-title">
-        {props.title}
-        {isFromTemplate && (
-          <span
-            className="tpl-page-marker"
-            data-testid={`${props.testId}-template-marker`}
-          >
-            шаблон
-          </span>
-        )}
-      </span>
+      <span className="page-title">{props.title}</span>
       <div className="page-actions">
         {/* Предпросмотр — прямой кнопкой перед меню: смотреть страницу приходится
             чаще, чем менять её вариант, и прятать это за меню незачем. */}
         <button
           type="button"
           className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-          aria-label={`Предпросмотр системной страницы «${badge}»`}
+          aria-label="Предпросмотр страницы"
           onClick={() => handlers.onPreview(page)}
           data-testid={`${props.testId}-preview-inline`}
         >
-          <Eye size={12} aria-hidden="true" />
+          <Eye size={14} aria-hidden="true" />
         </button>
         <MenuTrigger
           placement="bottom-end"
@@ -1369,10 +1315,10 @@ function SystemPageRow(props: {
             <button
               type="button"
               className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-              aria-label={`Действия для системной страницы «${badge}»`}
+              aria-label="Действия для страницы"
               data-testid={`${props.testId}-actions`}
             >
-              <MoreHorizontal size={12} aria-hidden="true" />
+              <MoreVertical size={13} aria-hidden="true" />
             </button>
           }
         >
@@ -1413,6 +1359,13 @@ function SystemPageRow(props: {
             <Tag tone="warning" size="s" data-testid={`${props.testId}-fallback-tag`}>
               <AlertTriangle size={12} aria-hidden="true" />
               Из стандартного шаблона
+            </Tag>
+          )}
+          {/* Название выбранного МАКЕТА: бейдж слева называет вид узла (эскиз), а какой
+              именно макет выбран, автору всё равно надо видеть, не раскрывая строку. */}
+          {variant?.label && (
+            <Tag size="s" data-testid={`${props.testId}-variant-label`}>
+              {variant.label}
             </Tag>
           )}
           {canSwitch && (
@@ -1525,7 +1478,9 @@ function AfterTestZone(props: {
             ) : (
               <SortablePageItem page={item} handlers={handlers} />
             )}
-            {!handlers.readOnly && (
+            {/* После «Итогов теста» вставки нет: это последний экран прохождения, и
+                страница за ним недостижима — предлагать её значит обещать невозможное. */}
+            {!handlers.readOnly && item.kind !== "results" && (
               <InsertRow onClick={() => addAt(idx + 1)} testId={`structure-insert-after-test-${idx + 1}`} />
             )}
           </Fragment>
@@ -1693,7 +1648,7 @@ function AuthorPageRow(props: {
               onClick={() => props.onPreview(page)}
               data-testid={`structure-page-preview-inline-${page.id}`}
             >
-              <Eye size={12} aria-hidden="true" />
+              <Eye size={14} aria-hidden="true" />
             </button>
           )}
           {props.readOnly ? null : !confirming ? (
@@ -1706,7 +1661,7 @@ function AuthorPageRow(props: {
                   aria-label={`Действия для страницы ${title}`}
                   data-testid={`structure-page-actions-${page.id}`}
                 >
-                  <MoreHorizontal size={12} aria-hidden="true" />
+                  <MoreVertical size={13} aria-hidden="true" />
                 </button>
               }
             >

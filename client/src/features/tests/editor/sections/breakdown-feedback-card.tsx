@@ -31,6 +31,31 @@ export type BreakdownFeedbackCardProps = {
 /** Пустое содержимое подтемы: так выглядит подтема, о которой автор ещё не писал. */
 const EMPTY: BreakdownFeedbackEntry = { format: "plain", text: "", links: [], assets: [], events: [] };
 
+/** Заголовок карточки — один и тот же и когда подтемы есть, и когда их нет. */
+const CARD_TITLE = "По подтемам (тегам)";
+const CARD_SUBTITLE =
+  "Текст выдаётся, когда результат по подтеме ниже общего проходного порога теста, — независимо от того, сдан тест или нет.";
+
+/**
+ * Пустое состояние карточки. Баннер стоит ВНУТРИ секции, а не вместо неё: голым он
+ * оказывался прямым потомком панели настроек, где действует правило «баннер уровня
+ * страницы липнет к верху» (`.tb-settings-content > .ou-banner`), — пустое состояние
+ * делалось липким, вылезало за отступы панели и наползало на карточку «По темам»,
+ * стоящую выше. Секция вокруг возвращает баннер в поток и заодно называет карточку,
+ * о которой речь.
+ */
+function EmptyCard(props: {
+  title: string;
+  testId: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <FormSection stacked title={CARD_TITLE} subtitle={CARD_SUBTITLE} data-testid="breakdown-feedback-card">
+      <Banner tone="info" title={props.title} description={props.children} data-testid={props.testId} />
+    </FormSection>
+  );
+}
+
 /**
  * Карточка правки текстов подтем: раздел -> его подтемы -> предпросмотр с карандашом.
  *
@@ -51,12 +76,10 @@ export function BreakdownFeedbackCard({
 
   if (model.sections.length === 0) {
     return (
-      <Banner
-        tone="info"
-        title="Сначала добавьте темы"
-        description="Подтемы — это теги вопросов внутри темы. Добавьте темы во вкладке «Состав и сценарий», и их подтемы появятся здесь."
-        data-testid="breakdown-feedback-no-topics"
-      />
+      <EmptyCard testId="breakdown-feedback-no-topics" title="Сначала добавьте темы">
+        Подтемы — это теги вопросов внутри темы. Добавьте темы во вкладке «Состав и
+        сценарий», и их подтемы появятся здесь.
+      </EmptyCard>
     );
   }
 
@@ -64,12 +87,10 @@ export function BreakdownFeedbackCard({
 
   if (sections.length === 0) {
     return (
-      <Banner
-        tone="info"
-        title="У вопросов нет подтем"
-        description="Подтема — это тег вопроса. Разметьте вопросы тегами в редакторе вопросов, и здесь появится текст на каждую подтему."
-        data-testid="breakdown-feedback-no-tags"
-      />
+      <EmptyCard testId="breakdown-feedback-no-tags" title="У вопросов нет подтем">
+        Подтема — это тег вопроса. Разметьте вопросы тегами в редакторе вопросов, и здесь
+        появится текст на каждую подтему.
+      </EmptyCard>
     );
   }
 
@@ -94,8 +115,8 @@ export function BreakdownFeedbackCard({
   return (
     <FormSection
       stacked
-      title="По подтемам (тегам)"
-      subtitle="Текст выдаётся, когда результат по подтеме ниже общего проходного порога теста, — независимо от того, сдан тест или нет."
+      title={CARD_TITLE}
+      subtitle={CARD_SUBTITLE}
       meta={<FoldAllButtons fold={fold} testIdPrefix="breakdown-feedback" />}
       data-testid="breakdown-feedback-card"
     >

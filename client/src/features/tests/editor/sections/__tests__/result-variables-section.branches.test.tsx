@@ -361,7 +361,7 @@ describe("<ResultVariablesSection /> — condition unit matrix", () => {
     // Threshold default condition targets the first scale with a numeric property.
     expect(screen.getByLabelText("Значение")).toBeInTheDocument();
     // Switch the property to «уровень» → the value becomes a level Select.
-    pickLabeledOption("Свойство", "уровень");
+    pickLabeledOption("Свойство", "Уровень");
     expect(screen.getByLabelText("Уровень")).toBeInTheDocument();
     // Level operators are only = / ≠ — open the operator select and pick «≠».
     pickLabeledOption("Оператор", "≠");
@@ -372,7 +372,7 @@ describe("<ResultVariablesSection /> — condition unit matrix", () => {
     expandFirstCard();
     // Threshold's default condition targets the level-less scale; the level unit
     // then renders a Select whose only option is the «—» placeholder.
-    pickLabeledOption("Свойство", "уровень");
+    pickLabeledOption("Свойство", "Уровень");
     expect(screen.getByLabelText("Уровень")).toBeInTheDocument();
   });
 
@@ -386,7 +386,7 @@ describe("<ResultVariablesSection /> — condition unit matrix", () => {
     );
     expandFirstCard();
     // Point the condition at a topic, then choose the boolean «пройдена» property.
-    pickLabeledOption("Элемент", "Тема А");
+    pickLabeledOption("Элемент", "Тема «Тема А»");
     pickLabeledOption("Свойство", "пройдена");
     // Boolean unit → no operator select and no numeric/level value control.
     expect(screen.queryByLabelText("Оператор")).toBeNull();

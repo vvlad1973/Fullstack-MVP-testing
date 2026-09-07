@@ -11,7 +11,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { ResultsLabelsPane } from "../results-labels-pane";
+import { ResultsBlockOrderPane, ResultsLabelsPane } from "../results-labels-pane";
+import { DesignSection } from "../design-section";
 import { FeedbackTab } from "../editor-tabs";
 import { useDesignSettings } from "../../use-design-settings";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
@@ -155,21 +156,35 @@ describe("ResultsLabelsPane — надписи", () => {
   });
 });
 
-describe("ResultsLabelsPane — порядок подблоков", () => {
-  it("без обработчика порядка блок не рисуется", () => {
-    render(<ResultsLabelsPane declarations={DECLS} labels={{}} onChange={vi.fn()} />);
-    expect(screen.queryByTestId("results-block-order")).toBeNull();
+describe("ResultsBlockOrderPane — порядок подблоков", () => {
+  /** Панель порядка — отдельный раздел: в эскизе она идёт ПЕРЕД подытогами и надписями. */
+  function renderOrder(props: {
+    labels?: Record<string, { on?: boolean; text?: string }>;
+    order?: string[];
+    templateOrder?: string[];
+    onChange?: () => void;
+  } = {}) {
+    render(
+      <ResultsBlockOrderPane
+        declarations={DECLS}
+        labels={(props.labels ?? {}) as never}
+        order={props.order as never}
+        templateOrder={props.templateOrder as never}
+        readOnly={false}
+        onChange={props.onChange ?? vi.fn()}
+      />,
+    );
+  }
+
+  it("подписи надписей в панель порядка не попадают", () => {
+    renderOrder();
+    // Панель называет БЛОКИ, а не поля формулировок: те живут своим разделом ниже.
+    expect(screen.queryByLabelText("Заголовок итогов")).toBeNull();
+    expect(screen.getByTestId("results-block-order")).toBeInTheDocument();
   });
 
   it("по умолчанию порядок — тот, что печатал экран до этой настройки", () => {
-    render(
-      <ResultsLabelsPane
-        declarations={DECLS}
-        labels={{}}
-        onChange={vi.fn()}
-        onOrderChange={vi.fn()}
-      />,
-    );
+    renderOrder();
     const names = screen
       .getByTestId("results-block-order")
       .querySelectorAll("[data-testid^='results-block-order-']");
@@ -184,57 +199,27 @@ describe("ResultsLabelsPane — порядок подблоков", () => {
   });
 
   it("перестановка подблока отдаёт новый порядок целиком", () => {
-    const onOrderChange = vi.fn();
-    render(
-      <ResultsLabelsPane
-        declarations={DECLS}
-        labels={{}}
-        onChange={vi.fn()}
-        onOrderChange={onOrderChange}
-      />,
-    );
+    const onChange = vi.fn();
+    renderOrder({ onChange });
     fireEvent.click(screen.getByLabelText("Переместить «По шкалам» выше"));
-    expect(onOrderChange).toHaveBeenCalledWith(["scales", "summary", "indicators", "topics", "breakdown"]);
+    expect(onChange).toHaveBeenCalledWith(["scales", "summary", "indicators", "topics", "breakdown"]);
   });
 
   it("подписи подблоков берутся из формулировки автора", () => {
-    render(
-      <ResultsLabelsPane
-        declarations={DECLS}
-        labels={{ "results.scales": { on: true, text: "Профиль стилей" } }}
-        onChange={vi.fn()}
-        onOrderChange={vi.fn()}
-      />,
-    );
+    renderOrder({ labels: { "results.scales": { on: true, text: "Профиль стилей" } } });
     expect(screen.getByLabelText("Переместить «Профиль стилей» ниже")).toBeInTheDocument();
   });
 
   it("состав списка объявляет шаблон: сводки нет — её нет и в списке", () => {
-    const onOrderChange = vi.fn();
-    render(
-      <ResultsLabelsPane
-        declarations={DECLS}
-        labels={{}}
-        templateOrder={["scales", "indicators", "topics"]}
-        onChange={vi.fn()}
-        onOrderChange={onOrderChange}
-      />,
-    );
+    const onChange = vi.fn();
+    renderOrder({ templateOrder: ["scales", "indicators", "topics"], onChange });
     expect(screen.queryByTestId("results-block-order-summary")).toBeNull();
     fireEvent.click(screen.getByLabelText("Переместить «По темам» выше"));
-    expect(onOrderChange).toHaveBeenCalledWith(["scales", "topics", "indicators"]);
+    expect(onChange).toHaveBeenCalledWith(["scales", "topics", "indicators"]);
   });
 
   it("сохранённый порядок показывается как задан", () => {
-    render(
-      <ResultsLabelsPane
-        declarations={DECLS}
-        labels={{}}
-        order={["topics", "scales"]}
-        onChange={vi.fn()}
-        onOrderChange={vi.fn()}
-      />,
-    );
+    renderOrder({ order: ["topics", "scales"] });
     const rows = screen
       .getByTestId("results-block-order")
       .querySelectorAll("[data-testid^='results-block-order-']");
@@ -350,6 +335,41 @@ function FeedbackHarness({ model }: { model: TestEditorModel }) {
   return <FeedbackTab model={model} updateModel={vi.fn()} design={design} />;
 }
 
+/**
+ * То же самое для «Оформления»: слой ПЕРЕОПРЕДЕЛЕНИЙ надписей отчёта живёт там, рядом с
+ * остальным обликом документа, — в «Обратной связи» задают, что отчёт показывает.
+ */
+function renderDesignPane(labels: LabelDeclaration[] | undefined, reportLabelKeys?: string[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            url === `/api/tests/${TEST_ID}/design`
+              ? { templateId: "default", params: {} }
+              : templateRow(labels, reportLabelKeys),
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    ),
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  render(
+    <QueryClientProvider client={client}>
+      <DesignHarness model={emptyModel()} />
+    </QueryClientProvider>,
+  );
+}
+
+function DesignHarness({ model }: { model: TestEditorModel }) {
+  const design = useDesignSettings(TEST_ID);
+  return (
+    <DesignSection testId={TEST_ID} design={design} model={model} updateModel={vi.fn()} />
+  );
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -378,15 +398,15 @@ describe("«Обратная связь и итоги» → «Состав ит�
  * вовсе. Перечень строк панели приходит теперь с сервера (`reportLabelKeys`), посчитанный
  * по макетам вариантов отчёта.
  */
-describe("«Обратная связь и итоги» → «Отчёт» → надписи документа", () => {
+describe("«Оформление» → «Облик отчёта» → надписи документа", () => {
   /** Карточки отчёта живут в модели теста, поэтому панель без неё не разворачивается. */
 
   function renderReportTab(reportLabelKeys?: string[]) {
-    renderDesignTab(DECLS, reportLabelKeys, emptyModel());
+    renderDesignPane(DECLS, reportLabelKeys);
   }
 
   async function openReportPane() {
-    fireEvent.click(screen.getByTestId("feedback-rail-report"));
+    fireEvent.click(screen.getByTestId("design-rail-report"));
     await waitFor(() => expect(screen.getByTestId("design-report-labels")).toBeInTheDocument());
   }
 
@@ -411,8 +431,8 @@ describe("«Обратная связь и итоги» → «Отчёт» → �
 
   it("документ, не печатающий ни одной надписи, карточки не получает", async () => {
     renderReportTab([]);
-    fireEvent.click(screen.getByTestId("feedback-rail-report"));
-    await waitFor(() => expect(screen.getByTestId("report-content-card")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("design-rail-report"));
+    await waitFor(() => expect(screen.getByTestId("report-settings-card")).toBeInTheDocument());
     expect(screen.queryByTestId("design-report-labels")).toBeNull();
   });
 });

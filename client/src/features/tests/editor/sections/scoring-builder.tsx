@@ -25,7 +25,6 @@ import {
   Grid,
   IconButton,
   Input,
-  Label,
   SegmentedControl,
   Select,
   Stack,
@@ -140,12 +139,12 @@ export function ScoringBuilder({
 
   return (
     <Stack gap={4} data-testid="scoring-builder">
-      <Cluster justify="between" gap={2} wrap={false}>
-        <Label>Цена ответа</Label>
-        <Tag variant="outline" data-testid="scoring-smax">
+      <div className="tb-qscoring__price">
+        <span className="tb-qscoring__price-lbl">Цена ответа</span>
+        <Tag tone="neutral" variant="outline" data-testid="scoring-smax">
           Макс. балл sMax = {sMax}
         </Tag>
-      </Cluster>
+      </div>
 
       {/* Mode selector (segmented). */}
       <SegmentedControl
