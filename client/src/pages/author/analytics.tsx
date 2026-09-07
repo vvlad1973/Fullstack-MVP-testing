@@ -1650,8 +1650,11 @@ export default function AnalyticsPage() {
                               fontSize={12}
                             />
                             <YAxis fontSize={12} />
+                            {/* `labelFormatter` у recharts объявлен через `ReactNode`, а не через
+                                тип значения оси. По оси идёт `date: string`, поэтому приведение
+                                строкой честно и разбор даты не меняет. */}
                             <Tooltip
-                              labelFormatter={(val) => new Date(val).toLocaleDateString("ru-RU")}
+                              labelFormatter={(val) => new Date(String(val)).toLocaleDateString("ru-RU")}
                               contentStyle={chartTooltipStyle}
                             />
                             <Legend />

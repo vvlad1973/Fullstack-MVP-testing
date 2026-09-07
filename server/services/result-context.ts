@@ -215,6 +215,30 @@ function resolveRamp(params: Record<string, unknown>): LevelRamp {
   };
 }
 
+/**
+ * PRD-53 §4.4: настройка карточки «вне профиля» из `config_json` показателя.
+ *
+ * Читается защитно — это jsonb, который правит автор: `undefined` при выключенном переключателе,
+ * при отсутствующей настройке и при пустом списке ключей. Пустой список означал бы карточку,
+ * которой не из чего собраться, и лучше не печатать её вовсе.
+ *
+ * Экспортируется, потому что ту же настройку запекает в пакет `server/scorm/builders/test-json.ts`:
+ * два чтения одного jsonb — два шанса разойтись.
+ *
+ * @public
+ */
+export function readRestScales(
+  configJson: unknown,
+): { show: boolean; label: string; keys: string[] } | undefined {
+  const raw = (configJson as { restScales?: unknown } | null)?.restScales as
+    | { show?: unknown; label?: unknown; keys?: unknown }
+    | undefined;
+  if (!raw || raw.show !== true) return undefined;
+  const keys = Array.isArray(raw.keys) ? raw.keys.map(String).filter(Boolean) : [];
+  if (keys.length === 0) return undefined;
+  return { show: true, label: String(raw.label ?? ""), keys };
+}
+
 /** Build the PRD-29 measures input for the results context. */
 export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
   const params = source.params ?? {};
@@ -234,6 +258,8 @@ export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
       // would silently hide the name/level slot of every scale saved before this PRD.
       showName: (s.configJson as Record<string, unknown>)?.showName !== false,
       showLevel: (s.configJson as Record<string, unknown>)?.showLevel !== false,
+      // PRD-53 §4.4: собственное описание шкалы — источник текста блока «вне профиля».
+      description: s.description ?? "",
     }));
 
   const indicators: MeasureInput[] = source.variables
@@ -248,6 +274,8 @@ export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
       // PRD-49 §6: same toggle pair, saved by the result-variable editor.
       showName: (v.configJson as Record<string, unknown>)?.showName !== false,
       showLevel: (v.configJson as Record<string, unknown>)?.showLevel !== false,
+      // PRD-53 §4.4: карточка «вне профиля».
+      restScales: readRestScales(v.configJson),
     }));
 
   return {

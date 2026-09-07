@@ -22,6 +22,8 @@ function scale(over: Partial<ScaleModel> = {}): ScaleModel {
     clientKey: "s1",
     key: "company_culture",
     label: "Корпоративная культура",
+    // PRD-53 §4.4: описание шкалы — обязательное поле модели; пустая строка = «не задано».
+    description: "",
     type: "number",
     aggregation: "sum",
     normalization: "none",

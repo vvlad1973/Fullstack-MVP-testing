@@ -339,6 +339,14 @@ export type ResultVariableModel = {
   showName?: boolean;
   /** PRD-49 §6: show the card's LEVEL slot (the outcome label). */
   showLevel?: boolean;
+  /**
+   * PRD-53 §4.4: the «scales outside the profile» card. Absent = no card, which is
+   * why it is optional rather than a filled default — an indicator nobody touched
+   * must round-trip byte-identical. `keys` repeats the profile group instead of
+   * being derived from the formula: the card is a PRESENTATION choice, and an
+   * author may later want it over a subset without re-parsing the DSL to find out.
+   */
+  restScales?: { show: boolean; label: string; keys: string[] };
   sortOrder: number;
 };
 
@@ -407,6 +415,13 @@ export type ScaleModel = {
   clientKey?: string;
   key: string;
   label: string;
+  /**
+   * PRD-53 §4.4: what the scale measures, in the author's words. Печатается
+   * обучающемуся в блоке «шкалы вне профиля» на экране итогов и возится книгой
+   * Excel (лист «Шкалы», колонка «Описание»). Всегда строка: пустая означает
+   * «не задано» и сохраняется как `null`.
+   */
+  description: string;
   type: ScaleType;
   aggregation: ScaleAggregation;
   normalization: ScaleNormalization;

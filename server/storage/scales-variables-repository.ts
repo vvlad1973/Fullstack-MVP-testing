@@ -122,12 +122,18 @@ export class ScalesVariablesRepository {
     // collecting them here would need extra queries this method doesn't otherwise make,
     // and an absent set simply leaves the (already warning-only) `tag-unresolved` check
     // disabled, same as before.
+    // PRD-53: режим нормализации каждой шкалы — для предупреждения об АБСОЛЮТНОМ пороге
+    // верхней зоны на группе, шкалы которой нормализованы по-разному. Берётся из уже
+    // прочитанных строк, лишнего запроса не нужно; шкала, объявленная той же книгой, но ещё
+    // не сохранённая (`extraScaleKeys`), в карту не попадает — проверка её просто пропустит.
+    const scaleNormalizations = Object.fromEntries(scaleRows.map((s) => [s.key, s.normalization]));
     return validate(formula, type, {
       topicIds,
       topicNames,
       scopeKeys: topicIds,
       priorVarNames,
       scaleKeys,
+      scaleNormalizations,
     });
   }
 

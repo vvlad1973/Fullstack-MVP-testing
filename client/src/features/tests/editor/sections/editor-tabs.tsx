@@ -45,6 +45,7 @@ import { ResultVariablesSection } from "./result-variables-section";
 import { ResultsBlockOrderPane, ResultsLabelsPane } from "./results-labels-pane";
 import { SectionPane } from "./design-section";
 import { BreakdownFeedbackCard } from "./breakdown-feedback-card";
+import { ProfileFeedbackCard, profileVariables } from "./profile-feedback-card";
 import { TopicFeedbackCard } from "./topic-feedback-card";
 import { LevelFeedbackCard } from "./level-feedback-card";
 import { BandFeedbackSection, hasAnyBands } from "./band-feedback-section";
@@ -340,6 +341,7 @@ type FeedbackRail =
   | "results"
   | "texts"
   | "topics"
+  | "profiles"
   | "scale-levels"
   | "difficulty-levels"
   | "metric-levels"
@@ -379,6 +381,11 @@ export function FeedbackTab({
         { key: "texts", label: "Общее" },
         ...(model.sections.length > 0
           ? [{ key: "topics" as const, label: "По темам" }]
+          : []),
+        // PRD-53 §5.4: рекомендации профилей. Пункт прячется по тому же правилу, что и
+        // соседи: без показателя-профиля перечислять нечего.
+        ...(profileVariables(model).length > 0
+          ? [{ key: "profiles" as const, label: "По профилям" }]
           : []),
         ...(hasAnyBands(model, "scales")
           ? [{ key: "scale-levels" as const, label: "По уровням шкал" }]
@@ -463,6 +470,10 @@ export function FeedbackTab({
           <BreakdownFeedbackCard model={model} updateModel={updateModel} />
         </>
       )}
+      {/* PRD-53 §5.4: рекомендации исходов профиля. Толкование остаётся в самом
+          показателе — это часть определения исхода; сюда вынесено то, что участнику
+          с профилем делать, и лежит оно рядом с остальной обратной связью теста. */}
+      {active === "profiles" && <ProfileFeedbackCard model={model} updateModel={updateModel} />}
       {/* Тексты уровней — те же поля, что правит конструктор уровней в «Оценке
           результата»; здесь они собраны в колонку, чтобы писать их подряд. */}
       {active === "scale-levels" && (

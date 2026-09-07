@@ -408,6 +408,29 @@ function measuresBySortOrder(rows) {
  * @param {object|null} varComputation   `{ values }` — this attempt's indicator values.
  * @returns {object|null} MeasuresInput for `buildResultContext`, or null.
  */
+/**
+ * PRD-53 §4.4: настройка карточки «вне профиля» из `config_json` показателя.
+ *
+ * Двойник `readRestScales` веб-хоста (server/services/result-context.ts) — правила чтения обязаны
+ * совпадать до мелочей: разойдись они, пакет и веб напечатали бы разные блоки на одном тесте.
+ *
+ * @param {object} config `configJson` показателя, как его запёк пакет.
+ * @returns {{show: boolean, label: string, keys: string[]}|undefined}
+ */
+function restScalesOf(config) {
+  var raw = config && config.restScales;
+  if (!raw || raw.show !== true) return undefined;
+  var keys = [];
+  if (Object.prototype.toString.call(raw.keys) === '[object Array]') {
+    for (var i = 0; i < raw.keys.length; i++) {
+      var key = String(raw.keys[i]);
+      if (key) keys.push(key);
+    }
+  }
+  if (!keys.length) return undefined;
+  return { show: true, label: String(raw.label == null ? '' : raw.label), keys: keys };
+}
+
 function buildResultsMeasures(scaleComputation, varComputation) {
   var TD = (typeof TEST_DATA !== 'undefined' && TEST_DATA) || {};
   var rawScales = TD.scales || [];
@@ -437,7 +460,9 @@ function buildResultsMeasures(scaleComputation, varComputation) {
       // answer. `!== false` because an absent key means "show", so a scale baked before
       // this field existed keeps printing both slots.
       showName: s.showName !== false,
-      showLevel: s.showLevel !== false
+      showLevel: s.showLevel !== false,
+      // PRD-53 §4.4: собственное описание шкалы — источник текста блока «вне профиля».
+      description: s.description || ''
     };
   });
 
@@ -451,7 +476,12 @@ function buildResultsMeasures(scaleComputation, varComputation) {
       visibility: v.learnerVisibility || 'hidden',
       interpretation: TB.parseIndicatorInterpretation(v.configJson),
       showName: varConfig.showName !== false,
-      showLevel: varConfig.showLevel !== false
+      showLevel: varConfig.showLevel !== false,
+      // PRD-53 §4.4: карточка «вне профиля». Пакет везёт `configJson` показателя целиком, так что
+      // настройка уже здесь — её остаётся прочитать теми же защитными правилами, что и на вебе
+      // (`readRestScales` в server/services/result-context.ts): выключенный переключатель и
+      // пустой список ключей дают `undefined`, то есть карточки не будет.
+      restScales: restScalesOf(varConfig)
     };
   });
 

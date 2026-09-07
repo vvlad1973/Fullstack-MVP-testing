@@ -7,6 +7,12 @@
  * The whole card is NO LONGER the edit trigger (that conflicted with the now
  * real item links). Editing is opened by a dedicated pencil IconButton; item
  * names are functional links. The empty placeholder stays click-to-edit.
+ *
+ * The empty placeholder carries the SAME pencil as a filled card, so an
+ * unfilled field is recognisable as editable at a glance instead of reading
+ * as inert text. There the whole card is already the button, so the pencil is
+ * decorative (`aria-hidden`) — a real button inside would nest one control in
+ * another.
  */
 import { CalendarDays, FileText, Link as LinkIcon, Pencil } from "lucide-react";
 import { IconButton } from "@universityrt/ui-kit";
@@ -101,7 +107,12 @@ export function FeedbackPreview(props: FeedbackPreviewProps) {
           aria-label={props.editAriaLabel}
           data-testid={props.testId}
         >
-          {empty}
+          <div className="tb-feedback-preview__head">
+            <span className="tb-feedback-preview__snippet">{empty}</span>
+            <span className="tb-feedback-preview__edit-hint" aria-hidden="true">
+              <Pencil size={14} />
+            </span>
+          </div>
         </div>
       );
     }

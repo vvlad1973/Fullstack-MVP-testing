@@ -95,7 +95,7 @@ function buildSection(over: Partial<EditorSection> = {}): EditorSection {
 /** Scale carrying two named band levels — feeds level pickers. */
 function scaleWithLevels(over: Partial<ScaleModel> = {}): ScaleModel {
   return {
-    key: "comp", label: "Компетенция", type: "number", aggregation: "sum",
+    key: "comp", label: "Компетенция", description: "", type: "number", aggregation: "sum",
     normalization: "none", direction: "positive",
     bands: [
       { min: "0", max: "5", label: "Низкий", level: "low", text: "", tone: "" },

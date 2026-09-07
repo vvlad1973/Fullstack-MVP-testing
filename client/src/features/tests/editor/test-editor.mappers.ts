@@ -647,6 +647,7 @@ function buildResultVariablesFromApi(src: ApiTestResponse): ResultVariableModel[
       ...buildScaleDomain(r.configJson),
       valence: buildScaleValence(r.configJson),
       ...buildSlotToggles(r.configJson),
+      ...buildRestScales(r.configJson),
       sortOrder: typeof r.sortOrder === "number" ? r.sortOrder : index,
     });
   });
@@ -722,6 +723,30 @@ function buildScaleDisplayMax(configJson: unknown): number | null {
 function buildSlotToggles(configJson: unknown): { showName: boolean; showLevel: boolean } {
   const config = isPlainObject(configJson) ? (configJson as Record<string, unknown>) : {};
   return { showName: config.showName !== false, showLevel: config.showLevel !== false };
+}
+
+/**
+ * PRD-53 §4.4: the «scales outside the profile» card from `config_json`.
+ *
+ * Returns an EMPTY patch when the block is absent, so an indicator that never had one
+ * round-trips without gaining an empty object — the dirty check compares by
+ * `JSON.stringify`, and a spurious `restScales: undefined` would read as a change.
+ * The same three-part shape is parsed on the server by `readRestScales`; keep them
+ * in step. A block without keys is not a block: it would print an empty card.
+ */
+function buildRestScales(configJson: unknown): Pick<ResultVariableModel, "restScales"> | Record<string, never> {
+  const raw = isPlainObject(configJson) ? (configJson as { restScales?: unknown }).restScales : undefined;
+  if (!isPlainObject(raw)) return {};
+  const src = raw as { show?: unknown; label?: unknown; keys?: unknown };
+  const keys = Array.isArray(src.keys) ? src.keys.filter((k): k is string => typeof k === "string" && k !== "") : [];
+  if (keys.length === 0) return {};
+  return {
+    restScales: {
+      show: src.show === true,
+      label: typeof src.label === "string" ? src.label : "",
+      keys,
+    },
+  };
 }
 
 /** PRD-29: the favourable direction stored in `config_json`; unknown degrades to "none". */
@@ -822,6 +847,10 @@ function buildScalesFromApi(src: ApiTestResponse): ScaleModel[] {
       id: typeof r.id === "string" ? r.id : undefined,
       key: typeof r.key === "string" ? r.key : "",
       label: typeof r.label === "string" ? r.label : "",
+      // PRD-53: колонка есть в базе и возится книгой Excel, но редактор её не читал —
+      // и блок «шкалы вне профиля» печатал одни названия. NULL приводится к пустой
+      // строке: поле формы всегда строка, а обратно пустая строка станет null.
+      description: typeof r.description === "string" ? r.description : "",
       type: SCALE_TYPES.has(r.type as string) ? (r.type as ScaleModel["type"]) : "number",
       aggregation: SCALE_AGGREGATIONS.has(r.aggregation as string)
         ? (r.aggregation as ScaleModel["aggregation"])

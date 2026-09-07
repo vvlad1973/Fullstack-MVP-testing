@@ -12,8 +12,8 @@
  */
 import type { ResultVariableType } from "./test-editor.types";
 
-/** Visual-builder templates (PRD-2 §4.1.3). */
-export type BuilderTemplate = "threshold" | "category" | "weighted" | "verdict";
+/** Visual-builder templates (PRD-2 §4.1.3; PRD-53 добавил «profile»). */
+export type BuilderTemplate = "threshold" | "category" | "weighted" | "verdict" | "profile";
 
 /** Minimal option shape compatible with the DS `Select` `options` prop. */
 export type BuilderOption = { value: string; label: string; group?: string };
@@ -23,6 +23,7 @@ export const TEMPLATE_OPTIONS: Array<{ value: BuilderTemplate; label: string }> 
   { value: "category", label: "Категория по уровням шкалы" },
   { value: "weighted", label: "Взвешенная сумма" },
   { value: "verdict", label: "Сертификация / вердикт" },
+  { value: "profile", label: "Профиль по группе шкал" },
 ];
 
 /** Result type each template produces (derived, never author-chosen). */
@@ -31,10 +32,45 @@ export const TEMPLATE_TYPE: Record<BuilderTemplate, ResultVariableType> = {
   category: "string",
   weighted: "number",
   verdict: "boolean",
+  profile: "string",
 };
 
+/** Настройка шаблона «Профиль по группе шкал» (PRD-53 §5.1). */
+export type ProfileTemplate = {
+  /** Ключи шкал группы в авторском порядке. */
+  keys: string[];
+  /** Порог верхней зоны. */
+  threshold: number;
+  /** Единица порога: баллы шкалы или доля от максимума по группе. */
+  unit: "abs" | "pct";
+};
+
+/**
+ * Каноничный DSL шаблона «Профиль по группе шкал».
+ *
+ * Доля пишется СТРОКОЙ «N%» — так её отличает парсер; голое число всегда означает абсолютный
+ * порог. Ключи и порог-строка экранируются через `JSON.stringify`, как и во всех прочих
+ * шаблонах: тот же приём, что уберегает `topicByName` от кавычек внутри названия темы.
+ */
+export function buildProfileFormula(t: ProfileTemplate): string {
+  const keys = t.keys.map((key) => JSON.stringify(key)).join(",");
+  const threshold = t.unit === "pct" ? JSON.stringify(`${t.threshold}%`) : String(t.threshold);
+  return `topGroup([${keys}], ${threshold}).code`;
+}
+
 export type TopicRef = { id: string; name: string; code?: string | null };
-export type ScaleRef = { key: string; label: string; levels: string[] };
+export type ScaleRef = {
+  key: string;
+  label: string;
+  levels: string[];
+  /** PRD-53 §5.3.2: пусто — блок «вне профиля» напечатает одно название без текста. */
+  description: string;
+  /**
+   * PRD-53 §5.3.2: абсолютный порог на группе шкал с РАЗНОЙ нормализацией сравнивает
+   * несопоставимые величины — у одной шкалы «5» это пять баллов, у другой пять процентов.
+   */
+  normalization: string;
+};
 
 /** One condition in the «Порог»/«Вердикт» primitive. */
 export type Condition = {

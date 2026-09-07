@@ -774,7 +774,7 @@ export default function TestAnalyticsPage() {
                                     />
                                     <YAxis fontSize={12} />
                                     <Tooltip
-                                        labelFormatter={(val) => new Date(val).toLocaleDateString("ru-RU")}
+                                        labelFormatter={(val) => new Date(String(val)).toLocaleDateString("ru-RU")}
                                         contentStyle={chartTooltipStyle}
                                     />
                                     <Line

@@ -311,6 +311,13 @@
 }
 .tb-rows { display: flex; flex-direction: column; gap: var(--ou-space-2); }
 .tb-rows-actions { margin-top: var(--ou-space-2); }
+/* PRD-53: шкалы группы профиля — список тумблеров в столбик.
+   `.ou-switch-field` строчный, и без контейнера тумблеры сходятся в одну строку,
+   где название одной шкалы упирается в ключ соседней. Шаг 1x: строки родственные. */
+/* PRD-53: перечень исходов — карточки одного списка, шаг 1x. Раньше это была
+   таблица, где строка показывала только первую строку значения. */
+.tb-outcome-list { display: flex; flex-direction: column; gap: var(--ou-space-1); margin-bottom: var(--ou-space-2); }
+.tb-profile-scales { display: flex; flex-direction: column; gap: var(--ou-space-1); align-items: flex-start; }
 .tb-cond-row { display: flex; align-items: flex-end; gap: var(--ou-space-2); }
 .tb-cond-row > .tb-cond-row__grow { flex: 1 1 auto; min-width: 0; }
 .tb-cond-sep { font: var(--ou-text-body-s); color: var(--ou-fg-muted); white-space: nowrap; padding-bottom: var(--ou-space-2); }
@@ -1081,8 +1088,11 @@
 .tb-feedback-preview__rich ul ul { list-style-type: circle; }
 .tb-feedback-preview__rich ul ul ul { list-style-type: square; }
 .tb-feedback-preview__rich ol { list-style: decimal outside; }
+/* Pencil on the EMPTY placeholder. There the whole card is the button, so this
+   is a decorative icon, not a control — it only has to sit where the real
+   pencil button sits on a filled card, so the two states read alike. */
 .tb-feedback-preview__edit-hint {
-  display: flex; justify-content: flex-end; margin-top: var(--ou-space-1);
+  display: inline-flex; align-items: center; flex-shrink: 0;
   color: var(--ou-fg-muted);
 }
 /* TD-02: head row (snippet/rich text + pencil edit button) */

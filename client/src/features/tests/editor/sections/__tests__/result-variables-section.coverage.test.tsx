@@ -74,7 +74,7 @@ function makeVar(over: Partial<ResultVariableModel> = {}): ResultVariableModel {
 /** A scale with two band levels — feeds the «Категория» / «Взвешенная сумма» pickers. */
 function scaleWithLevels(): ScaleModel {
   return {
-    key: "comp", label: "Компетенция", type: "number", aggregation: "sum",
+    key: "comp", label: "Компетенция", description: "", type: "number", aggregation: "sum",
     normalization: "none", direction: "positive",
     bands: [
       { min: "0", max: "5", label: "Низкий", level: "low", text: "", tone: "" },
