@@ -47,7 +47,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import { collectStringLiterals, findUnknownOutcomes, readScaleGroup } from "@shared/formula/outcome-literals";
+import {
+  collectStringLiterals,
+  findUnknownOutcomes,
+  readScaleGroup,
+  resolveScaleGroup,
+} from "@shared/formula/outcome-literals";
 import { parseGroupThreshold } from "@shared/formula/scale-group";
 import { outcomeMatchKey } from "@shared/scales/interpretation";
 import { profileMatrix, type ProfileMatrixRow } from "../profile-matrix";
@@ -181,6 +186,12 @@ export function ResultVariablesSection({
   const fold = useSectionFold(
     vars.map((v, i) => rowKey(v, i)),
     true,
+  );
+
+  /** Формула соседа по имени: карточке нужно пройти по `var()` (см. `carriedProfile`). */
+  const formulaOf = useCallback(
+    (name: string) => vars.find((x) => x.name === name)?.formula,
+    [vars],
   );
 
   // Topics feed the «Элемент» picker (topicById(...)) — by name for the author,
@@ -325,6 +336,7 @@ export function ResultVariablesSection({
                 testId={testId}
                 readOnly={readOnly}
                 fieldErrors={fieldErrors}
+                formulaOf={formulaOf}
                 expanded={fold.isOpen(key)}
                 onToggle={() => fold.toggle(key)}
                 onChange={(patch) => updateVar(index, patch)}
@@ -350,6 +362,7 @@ type CardProps = {
   testId?: string;
   readOnly: boolean;
   fieldErrors: FieldErrorIndex;
+  formulaOf: (name: string) => string | undefined;
   expanded: boolean;
   onToggle: () => void;
   onChange: (patch: Partial<ResultVariableModel>) => void;
@@ -432,6 +445,7 @@ function SortableVariableCard(props: CardProps) {
             testId={props.testId}
             readOnly={readOnly}
             fieldErrors={props.fieldErrors}
+            formulaOf={props.formulaOf}
             onChange={props.onChange}
           />
         </div>
@@ -450,10 +464,12 @@ type FormProps = {
   testId?: string;
   readOnly: boolean;
   fieldErrors: FieldErrorIndex;
+  /** Формула показателя по имени — чтобы пройти по `var()` (см. `carriedProfile`). */
+  formulaOf: (name: string) => string | undefined;
   onChange: (patch: Partial<ResultVariableModel>) => void;
 };
 
-function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fieldErrors, onChange }: FormProps) {
+function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fieldErrors, formulaOf, onChange }: FormProps) {
   // New (empty) variables open in the constructor; existing ones open in DSL so
   // the real stored formula is shown verbatim (the builder does not round-trip).
   //
@@ -512,6 +528,20 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
    * for an indicator opened fresh — and for one whose source the author wrote by hand.
    */
   const profile = useMemo(() => readScaleGroup(v.formula), [v.formula]);
+
+  /**
+   * Профиль, который показатель НЕСЁТ, — свой или взятый по `var()` у соседа.
+   *
+   * Отличается от `profile` ровно в одном месте — карточке «шкалы вне профиля»: её поля
+   * правятся там, где она печатается, а печатается она у владельца, который не обязан
+   * быть вычислителем (см. `resolveScaleGroup`). Всё остальное — форма шаблона, генератор
+   * матрицы, диагностика порога — остаётся у того, кто СЧИТАЕТ: у читателя ни порога, ни
+   * группы нет, и предлагать их правку значило бы предлагать править чужое.
+   */
+  const carriedProfile = useMemo(
+    () => resolveScaleGroup(v.formula, formulaOf),
+    [v.formula, formulaOf],
+  );
 
   // DSL «Функции» reference + insert-at-cursor.
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -731,12 +761,12 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
       {/* Блок «вне профиля» стоит ЗА толкованием и ПЕРЕД «Выводом»: он про то, что
           участник прочитает, а не про то, куда показатель уедет. Порядок из эскиза
           `prd53-profile-indicator.html`. */}
-      {profile && (
+      {carriedProfile && (
         <>
           <hr className="wf-sep" />
           <RestScalesFields
             value={v.restScales}
-            groupKeys={profile.keys}
+            groupKeys={carriedProfile.keys}
             readOnly={readOnly}
             index={index}
             onChange={onChange}

@@ -110,6 +110,53 @@ export function readScaleGroup(formula: string): ScaleGroupRef | null {
   }
 }
 
+/** The indicator a formula reads WHOLE, or `null` when it reads none. */
+function readVarRef(formula: string): string | null {
+  try {
+    const ast = parse(formula);
+    return ast.type === "var" ? ast.name : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The profile group an indicator's VALUE carries — its own, or that of the indicator it
+ * reads through `var()`.
+ *
+ * Нужен там, где решение зависит не от того, КТО считает набор, а от того, ЧТО показатель
+ * несёт. Такова карточка «шкалы вне профиля»: её поля правятся у показателя, который её
+ * печатает, а печатает её не обязательно тот, кто считает. Разойтись они обязаны по
+ * устройству продукта: карточка печатается вместе со СВОИМ владельцем и по методике идёт
+ * последней, значит владелец стоит НИЖЕ по порядку, — а `var()` читает только то, что
+ * посчитано РАНЬШЕ, то есть выше. Владелец блока и вычислитель не могут быть одним
+ * показателем (находка F6 приёмки PRD-53, 2026-09-07).
+ *
+ * Ссылка разбирается, только когда формула читает показатель ЦЕЛИКОМ (`var("x")`): в
+ * выражении вроде `IF(var("a") > 1, …)` единого профиля нет, и угадывать его — врать.
+ * Цепочка ограничена и защищена от круга: сослаться на себя или закольцеваться формулы
+ * автору никто не запрещает, а зациклиться редактор не имеет права.
+ */
+export function resolveScaleGroup(
+  formula: string,
+  formulaOf: (name: string) => string | undefined,
+  maxHops = 4,
+): ScaleGroupRef | null {
+  let current = formula;
+  const seen = new Set<string>();
+  for (let hop = 0; hop <= maxHops; hop += 1) {
+    const own = readScaleGroup(current);
+    if (own) return own;
+    const ref = readVarRef(current);
+    if (ref === null || seen.has(ref)) return null;
+    seen.add(ref);
+    const next = formulaOf(ref);
+    if (next === undefined) return null;
+    current = next;
+  }
+  return null;
+}
+
 /**
  * Literals the formula can return that the outcome list does not declare. An empty
  * outcome list yields nothing: the author has not started declaring outcomes yet, and
