@@ -171,6 +171,56 @@ describe("хвост не превращается в почти пустую с
   });
 });
 
+describe("принудительный разрыв между блоками документа", () => {
+  /**
+   * Документ с меткой разрыва между блоками. Метка — блок нулевой высоты, ровно как её
+   * рисует `renderReportInto`; её индекс и уходит в `breakBefore`.
+   */
+  const withMark = (before: number[], markGap: number, after: number[]) => {
+    const boxes = stack([...before, 0, ...after], markGap);
+    return { boxes, mark: before.length };
+  };
+
+  it("раздел за меткой набирается заново: заголовок не остаётся один", () => {
+    // Ровно случай из отчёта ЧИЛ: вводный блок 700, за меткой — зонтик «Ваш результат»
+    // (30) и карточка шкал (470). По высоте зонтик влезал к вводному блоку, а карточка
+    // уже нет, и разрез по метке оставлял его на странице в одиночестве.
+    const { boxes, mark } = withMark([700], 0, [30, 470]);
+    const pages = paginateBlocks(boxes, 746, new Set([mark]));
+    expect(pages).toHaveLength(2);
+    expect(pages[0].blocks).toEqual([0]);
+    expect(pages[1].blocks).toEqual([1, 2, 3]);
+  });
+
+  it("метка перед первым блоком пустой страницы не даёт", () => {
+    const pages = paginateBlocks(stack([0, 300, 200]), 746, new Set([0]));
+    expect(pages).toHaveLength(1);
+    expect(pages[0].blocks).toEqual([0, 1, 2]);
+  });
+
+  it("две метки подряд дают один разрыв, а не пустой лист между ними", () => {
+    const boxes = stack([300, 0, 0, 200]);
+    const pages = paginateBlocks(boxes, 746, new Set([1, 2]));
+    expect(pages).toHaveLength(2);
+    // Обе метки едут на втором листе вместе с содержимым: высоты у них нет, места они не
+    // занимают, а разрыв между ними уже отработан.
+    expect(pages[1].blocks).toEqual([1, 2, 3]);
+  });
+
+  it("высота листа продолжает работать внутри раздела", () => {
+    // За меткой — больше, чем помещается: раздел делится обычным правилом.
+    const { boxes, mark } = withMark([300], 0, [500, 400]);
+    const pages = paginateBlocks(boxes, 746, new Set([mark]));
+    expect(pages.map((p) => p.blocks)).toEqual([[0], [1, 2], [3]]);
+  });
+
+  it("без меток раскладка прежняя", () => {
+    expect(paginateBlocks(stack([500, 400, 300], 0), 802)).toEqual(
+      paginateBlocks(stack([500, 400, 300], 0), 802, new Set()),
+    );
+  });
+});
+
 describe("принудительный разрыв страницы", () => {
   /** Строки одинаковой высоты — так выглядит абзац после раскладки. */
   const rows = (step: number, count: number) =>
