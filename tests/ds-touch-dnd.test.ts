@@ -80,6 +80,36 @@ describe("сетка сопоставления переопределяема",
   });
 });
 
+describe("строка распределения баллов", () => {
+  /** Объявления первого правила с ровно таким списком селекторов, комментарии сняты. */
+  function block(css: string, selector: string): string {
+    const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (m[1].trim() === selector) return m[2];
+    }
+    throw new Error(`нет правила с селектором ровно "${selector}"`);
+  }
+
+  it("базовое правило задаёт саму сетку", () => {
+    // Перенос кита 0.3.0 выбросил это правило, и `grid-template-*` с `grid-area` стали
+    // мёртвыми объявлениями: подпись, ползунок и поле вставали друг под друга на любой
+    // ширине. Симптом в вопросе на распределение баллов, где поле уезжало под дорожку.
+    const base = block(vendorCss, ".ou-alloc__row");
+    expect(base).toMatch(/display:\s*grid/);
+    expect(base).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)\s*220px\s*108px/);
+  });
+
+  it("узкая раскладка живёт ТОЛЬКО внутри медиазапроса", () => {
+    // Тот же перенос развернул `@media`, и раскладка «ползунок под текстом» применялась
+    // всегда. Проверяется по месту: правило с областями обязано стоять после `@media`.
+    const at = vendorCss.indexOf('grid-template-areas: "label label" "slider field"');
+    expect(at, "нет узкой раскладки строки").toBeGreaterThan(-1);
+    const media = vendorCss.lastIndexOf("@media (max-width: 700px)", at);
+    expect(media, "узкая раскладка вынесена из медиазапроса").toBeGreaterThan(-1);
+    expect(vendorCss.slice(media, at)).not.toContain("}\n}");
+  });
+});
+
 describe("движок перетаскивания", () => {
   const src = fs.readFileSync(
     path.resolve(__dirname, "../shared/template/dnd/pointer-dnd.ts"),
