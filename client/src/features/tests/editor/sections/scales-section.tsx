@@ -315,7 +315,17 @@ function ScalesListPane({
   readOnly: boolean;
 }) {
   const scales = model.scales;
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  /**
+   * Свёртка карточек шкалы — та же, что у показателей и у остальных списков ящика.
+   * Прежде это был аккордеон на одну открытую карточку: две шкалы рядом было не
+   * сравнить, а «развернуть все» такой моделью не выражается. `startCollapsed`
+   * сохраняет прежнее начальное состояние — список открывается свёрнутым.
+   */
+  const fold = useSectionFold(
+    scales.map((s, i) => rowKey(s, i)),
+    true,
+  );
   const [previewOpen, setPreviewOpen] = useState(false);
   // PRD-29: `achievableRange` needs the question TYPES — without them a multiple
   // choice is read as a one-index pick and the computed maximum comes out wrong.
@@ -381,10 +391,9 @@ function ScalesListPane({
     [updateModel],
   );
 
+  // Новая шкала в наборе свёрнутых не значится, поэтому появляется раскрытой сама.
   const addScale = useCallback(() => {
-    const created = emptyScale(scales.length);
-    setScales([...scales, created]);
-    setExpandedKey(rowKey(created, scales.length));
+    setScales([...scales, emptyScale(scales.length)]);
   }, [scales, setScales]);
 
   const removeScale = useCallback(
@@ -456,17 +465,22 @@ function ScalesListPane({
         >
           Предпросмотр расчёта
         </Button>
-        {!readOnly && (
-          <Button
-            variant="ghost"
-            size="s"
-            leadingIcon={<Plus size={16} aria-hidden="true" />}
-            onClick={addScale}
-            data-testid="scales-add"
-          >
-            Добавить шкалу
-          </Button>
-        )}
+        {/* Добавление и свёртка — одна группа у правого края: `ou-formactions__group`
+            для того и есть, иначе `--between` растащило бы три кнопки по всей строке. */}
+        <span className="ou-formactions__group">
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="s"
+              leadingIcon={<Plus size={16} aria-hidden="true" />}
+              onClick={addScale}
+              data-testid="scales-add"
+            >
+              Добавить шкалу
+            </Button>
+          )}
+          {scales.length > 1 && <FoldAllButtons fold={fold} testIdPrefix="scales" />}
+        </span>
       </FormActions>
 
       {anyError && (
@@ -489,8 +503,8 @@ function ScalesListPane({
               coverage={coverageByKey.get(scale.key)?.size ?? 0}
               suggestedDomain={suggestedDomainOf(scale)}
               readOnly={readOnly}
-              expanded={expandedKey === key}
-              onToggle={() => setExpandedKey((cur) => (cur === key ? null : key))}
+              expanded={fold.isOpen(key)}
+              onToggle={() => fold.toggle(key)}
               onChange={(patch) => updateScale(index, patch)}
               onRemove={() => removeScale(index)}
             />

@@ -21,7 +21,7 @@ import {
   Input,
   Textarea,
 } from "@universityrt/ui-kit";
-import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { deriveLevelTone } from "@shared/template/measure-view";
 import type { LevelTone, Valence } from "@shared/scales/interpretation";
@@ -32,6 +32,7 @@ import { hasFeedbackContent } from "../scales-api";
 import type { ScaleBandModel } from "../test-editor.types";
 import { FeedbackEditorModal } from "./feedback-editor-modal";
 import { emptyFeedbackValue } from "./outcomes-editor";
+import { FoldAllButtons, useSectionFold } from "./section-fold";
 import { ToneChips, toneColour, toneRibbon } from "./tone-chips";
 import {
   addLevel,
@@ -86,10 +87,27 @@ function levelCode(level: LevelDraft, i: number): string {
   return level.level.trim() || level.label.trim() || `Уровень ${i + 1}`;
 }
 
-/** The computed «from … to» caption in a card header — text, never a field. */
+/**
+ * The computed «from … to» caption in a card header — text, never a field.
+ *
+ * Первый уровень занимает отрезок целиком: «Начало … первый порог». Каждый следующий
+ * начинается ВЫШЕ своего порога, потому что порог достаётся соседу снизу, — ровно это
+ * говорит подпись между карточками («N и ниже — предыдущий, выше — этот»). Печатать
+ * «1 … 2» у уровня, который начинается выше 1, значит спорить с ней: у показателя с
+ * пятнадцатью уровнями по одному целому автор задал 1…1, 2…2, 3…3, а карточки читались
+ * как 1…1, 1…2, 2…3.
+ *
+ * В ХРАНИЛИЩЕ нижняя граница по-прежнему равна порогу, и это не потеря: сомкнутые
+ * границы (`bands[i].max === bands[i + 1].min`) — каноническая форма редактора, её знает
+ * проверка (`band_overlap` ругается только на настоящий заход друг на друга), а поиск
+ * полосы везде берёт ПЕРВУЮ подходящую, поэтому значение порога достаётся нижнему
+ * уровню. Меняется только то, как диапазон прочитан вслух.
+ */
 function rangeOf(draft: LevelsDraft, i: number): string {
   const { from, to } = levelBounds(draft, i);
-  return `${from || "?"} … ${to || "?"}`;
+  const lo = from || "?";
+  const hi = to || "?";
+  return i === 0 ? `${lo} … ${hi}` : `выше ${lo} … ${hi}`;
 }
 
 /**
@@ -148,6 +166,17 @@ export function LevelsEditor({
   const errors = draftErrors(draft);
   const segments = coverageSegments(draft, domain);
   const total = draft.levels.length;
+
+  /**
+   * Свёртка карточек уровня. Эскиз рисует их всегда раскрытыми — и на трёх уровнях
+   * демо-шкалы это незаметно; у показателя их пятнадцать, и панель превращается в
+   * бесконечную ленту, по которой нельзя ни окинуть взглядом разбор, ни добраться до
+   * нижнего уровня. Механика взята готовой: тот же `useSectionFold`, что у «Вкладов
+   * вопросов» и «Адаптивности по темам», и та же пара кнопок — своей копии не заводим.
+   * Уровни ключуются `clientKey`, а не индексом: индекс сдвигается при удалении, и
+   * свёрнутым оказался бы сосед.
+   */
+  const fold = useSectionFold(draft.levels.map((l) => l.clientKey));
 
   /**
    * Доля полосы — та же величина, которой полоса растягивается (`flexGrow` ниже),
@@ -210,7 +239,9 @@ export function LevelsEditor({
         <Input
           size="s"
           fullWidth
-          aria-label="Начало шкалы"
+          // «Покрытия», а не «шкалы»: редактор общий у шкал и показателей, у показателя
+          // шкалы нет (см. `coverLabel`). Подпись ленты рядом называется так же.
+          aria-label="Начало покрытия"
           value={draft.start}
           disabled={readOnly}
           error={errors.start ?? undefined}
@@ -265,7 +296,7 @@ export function LevelsEditor({
         <Input
           size="s"
           fullWidth
-          aria-label="Конец шкалы"
+          aria-label="Конец покрытия"
           value={draft.end}
           disabled={readOnly}
           error={errors.end ?? undefined}
@@ -278,12 +309,22 @@ export function LevelsEditor({
             verdict is what the author is looking for, not the digits again. */}
         {segments !== null && (
           <div className="tb-levels__coverstat">
+            {/* Без слова «шкала»: у показателя её нет, а редактор здесь общий. Обе
+                формулировки одинаково верны и для шкалы, и для показателя. */}
             {segments.some((s) => s.kind === "gap") && domain !== null
-              ? `Границы шкалы ${domain.min} … ${domain.max}, уровнями закрыто ${draft.start} … ${draft.end}`
-              : `Шкала разобрана целиком, ${total} ${pluralize(total, "уровень", "уровня", "уровней")}`}
+              ? `Границы ${domain.min} … ${domain.max}, уровнями закрыто ${draft.start} … ${draft.end}`
+              : `Разобрано целиком, ${total} ${pluralize(total, "уровень", "уровня", "уровней")}`}
           </div>
         )}
       </div>
+
+      {/* Пара «Развернуть все / Свернуть все» — та же, что у остальных списков ящика.
+          Стоит над карточками, потому что относится к ним, а не к ленте покрытия. */}
+      {total > 1 && (
+        <div className="tb-fold-toolbar">
+          <FoldAllButtons fold={fold} testIdPrefix={`${testIdPrefix}-levels-${index}`} />
+        </div>
+      )}
 
       {draft.levels.map((l, i) => (
         <div key={l.clientKey}>
@@ -303,8 +344,16 @@ export function LevelsEditor({
               </div>
               <div className="tb-levels__cutrule">
                 <span className="tb-levels__cutline" />
+                {/* Уровни названы КОДАМИ, как в заголовках карточек сверху и снизу и как
+                    в `aria-label` поля порога. Именем для обучающегося подпись быть не
+                    может: имя не обязано быть уникальным и сплошь и рядом не уникально —
+                    у показателя-битовой маски четыре уровня зовутся «Сфокусированный»,
+                    шесть — «Двойственный», и подпись выходила «порог: 1 и ниже —
+                    «Сфокусированный», выше — «Сфокусированный»», то есть не опознавала
+                    ни один из двух. В эскизе имена демо-уровней уникальны, и этот случай
+                    там не встречается. */}
                 <span className="tb-levels__cutlbl">
-                  {`порог: ${draft.cuts[i - 1] || "?"} и ниже — «${levelTitle(draft.levels[i - 1], i - 1)}», выше — «${levelTitle(l, i)}»`}
+                  {`порог: ${draft.cuts[i - 1] || "?"} и ниже — «${levelCode(draft.levels[i - 1], i - 1)}», выше — «${levelCode(l, i)}»`}
                 </span>
                 <span className="tb-levels__cutline" />
               </div>
@@ -331,8 +380,27 @@ export function LevelsEditor({
                   onClick={() => emit(removeLevel(draft, i))}
                 />
               )}
+              {/* Шеврон той же формы, какой эскиз рисует все свёртки ящика — квоты,
+                  адаптивные уровни, шкалы, вопросы, показатели: `IconButton` с классом
+                  `tb-level-card__chev`, а не голая кнопка. */}
+              <IconButton
+                className="tb-level-card__chev"
+                icon={<ChevronDown width={14} height={14} aria-hidden="true" />}
+                variant="ghost"
+                size="s"
+                aria-expanded={fold.isOpen(l.clientKey)}
+                aria-label={
+                  fold.isOpen(l.clientKey)
+                    ? `Свернуть уровень «${levelCode(l, i)}»`
+                    : `Развернуть уровень «${levelCode(l, i)}»`
+                }
+                onClick={() => fold.toggle(l.clientKey)}
+                data-testid={`${testIdPrefix}-level-toggle-${index}-${i}`}
+              />
             </header>
 
+            {fold.isOpen(l.clientKey) && (
+              <>
             {/* Поля карточки — размера m, как в эскизе: это основной ввод уровня, а не
                 служебная мелочь вроде порога между карточками. Что такое «Код уровня»,
                 сказано подписью всего блока уровней — здесь подсказка повторяла бы её
@@ -418,6 +486,8 @@ export function LevelsEditor({
               <span className="tb-levels__spacer" />
               <span className="tb-levels__badge">{feedbackBadge(l.feedback)}</span>
             </button>
+              </>
+            )}
           </section>
         </div>
       ))}
@@ -448,7 +518,13 @@ export function LevelsEditor({
         <Banner
           tone="warning"
           size="sm"
-          description={`Баллы вне ${draft.start} … ${draft.end} останутся без уровня. Растяните крайние поля до границ шкалы или сузьте границы.`}
+          // Вместо «до границ шкалы» — сами числа: у показателя шкалы нет, а числа
+          // одинаково понятны в обоих случаях и прямо говорят, куда тянуть.
+          description={
+            `Баллы вне ${draft.start} … ${draft.end} останутся без уровня. Растяните крайние поля` +
+            (domain !== null ? ` до ${domain.min} … ${domain.max}` : " до крайних значений") +
+            " или сузьте границы."
+          }
           data-testid={`${testIdPrefix}-levels-uncovered-${index}`}
         />
       )}

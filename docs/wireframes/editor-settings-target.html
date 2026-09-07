@@ -3118,12 +3118,22 @@
                           </div>
                         </div>
                         <div class="tb-levels__coverstat">Шкала разобрана целиком, 3 уровня</div>
+                        <!-- Свёртка карточек уровня: у показателя их бывает полтора десятка,
+                             и без неё панель — бесконечная лента. Пара кнопок и шеврон в шапке
+                             карточки те же, что у квот, адаптивных уровней и вопросов. -->
+                        <div class="tb-fold-toolbar">
+                          <span class="tb-fold-actions">
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
+                          </span>
+                        </div>
                         <section class="tb-levels__card tb-levels__card--crit">
                           <header class="tb-levels__head">
                             <span class="tb-levels__title">basic</span>
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">0 … 39</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «basic»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «basic»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -3158,6 +3168,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">40 … 69</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «confident»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «confident»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -3192,6 +3203,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">70 … 100</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «advanced»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «advanced»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -3547,8 +3559,13 @@
                 </div>
                 <div class="ou-formsection__body">
                   <div class="ou-formactions ou-formactions--between">
+                    <!-- Свёртка карточек показателя: список открывается свёрнутым, и обе
+                         кнопки стоят рядом с «Добавить показатель». В пустом состоянии
+                         («Пока нет показателей») их нет — сворачивать нечего. -->
                     <span class="ou-formactions__buttons">
                       <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-plus" /></svg></span><span>Добавить показатель</span></button>
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
                     </span>
                   </div>
                   <section class="ou-card ou-card--outlined ou-card--sm tb-level-card">
@@ -4837,12 +4854,19 @@
                             </div>
                           </div>
                           <div class="tb-levels__coverstat">Шкала разобрана целиком, 3 уровня</div>
+                        <div class="tb-fold-toolbar">
+                          <span class="tb-fold-actions">
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                            <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
+                          </span>
+                        </div>
                         <section class="tb-levels__card tb-levels__card--good">
                           <header class="tb-levels__head">
                             <span class="tb-levels__title">norm</span>
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">0 … 39</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «norm»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «norm»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -4877,6 +4901,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">40 … 69</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «attention»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «attention»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">
@@ -4911,6 +4936,7 @@
                             <span class="tb-levels__spacer"></span>
                             <span class="tb-levels__range">70 … 100</span>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить уровень «risk»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s tb-level-card__chev" aria-expanded="true" aria-label="Свернуть уровень «risk»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-down" /></svg></span></button>
                           </header>
                           <div class="tb-levels__grid">
                             <div class="ou-formfield">

@@ -54,8 +54,8 @@ function Host({
 describe("LevelsEditor", () => {
   it("shows one start, one end and N-1 cuts — not a min/max pair per level", () => {
     render(<Host initial={THREE} />);
-    expect((screen.getByLabelText("Начало шкалы") as HTMLInputElement).value).toBe("0");
-    expect((screen.getByLabelText("Конец шкалы") as HTMLInputElement).value).toBe("98");
+    expect((screen.getByLabelText("Начало покрытия") as HTMLInputElement).value).toBe("0");
+    expect((screen.getByLabelText("Конец покрытия") as HTMLInputElement).value).toBe("98");
     expect((screen.getByLabelText("Порог между уровнями «low» и «mid»") as HTMLInputElement).value).toBe("15");
     expect((screen.getByLabelText("Порог между уровнями «mid» и «high»") as HTMLInputElement).value).toBe("29");
     expect(screen.queryByLabelText(/^min /)).toBeNull();
@@ -194,7 +194,7 @@ describe("LevelsEditor", () => {
 
   it("shows the coverage status under the ribbon", () => {
     render(<Host initial={THREE} />);
-    expect(screen.getByText("Шкала разобрана целиком, 3 уровня")).toBeInTheDocument();
+    expect(screen.getByText("Разобрано целиком, 3 уровня")).toBeInTheDocument();
   });
 
   it("keeps focus and caret in the field being typed into", () => {
@@ -253,6 +253,6 @@ describe("LevelsEditor", () => {
     render(<LevelsEditor bands={THREE} index={0} readOnly valence="none" domain={null} onChange={vi.fn()} />);
     expect(screen.queryByTestId("scales-level-add-0")).toBeNull();
     expect(screen.queryByLabelText("Удалить уровень «low»")).toBeNull();
-    expect((screen.getByLabelText("Начало шкалы") as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Начало покрытия") as HTMLInputElement).disabled).toBe(true);
   });
 });

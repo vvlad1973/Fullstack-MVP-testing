@@ -62,6 +62,7 @@ import {
   validateResultVariableFormula,
   type ResultVariableFormulaValidation,
 } from "../result-variables-api";
+import { FoldAllButtons, useSectionFold } from "./section-fold";
 import {
   TEMPLATE_OPTIONS,
   TEMPLATE_TYPE,
@@ -161,7 +162,19 @@ export function ResultVariablesSection({
   fieldErrors = EMPTY_FIELD_ERRORS,
 }: ResultVariablesSectionProps) {
   const vars = model.resultVariables;
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  /**
+   * Свёртка карточек показателя. Прежде это был аккордеон на одну открытую карточку:
+   * раскрыть второй показатель значило закрыть первый, и сравнить два рядом было нельзя,
+   * а «развернуть все» такой моделью не выражается вовсе. Теперь — та же свёртка, что у
+   * остальных списков ящика: открыто может быть сколько угодно, и есть пара кнопок.
+   * `startCollapsed`, потому что список открывается свёрнутым, как и раньше; новый
+   * показатель в набор свёрнутых не попадает и появляется раскрытым.
+   */
+  const fold = useSectionFold(
+    vars.map((v, i) => rowKey(v, i)),
+    true,
+  );
 
   // Topics feed the «Элемент» picker (topicById(...)) — by name for the author,
   // by id in the generated DSL.
@@ -204,10 +217,7 @@ export function ResultVariablesSection({
   );
 
   const addVariable = useCallback(() => {
-    const created = emptyVariable(vars.length);
-    const key = rowKey(created, vars.length);
-    setVars([...vars, created]);
-    setExpandedKey(key);
+    setVars([...vars, emptyVariable(vars.length)]);
   }, [vars, setVars]);
 
   const removeVariable = useCallback(
@@ -270,17 +280,24 @@ export function ResultVariablesSection({
   return (
     <div className="tb-settings-content" data-testid="metrics-section">
       <FormSection stacked title="Показатели">
-        {!readOnly && (
+        {/* Строка действий рисуется и в режиме чтения: свёртка — это навигация по
+            списку, а не правка, и читателю она нужна не меньше. */}
+        {(!readOnly || vars.length > 1) && (
           <FormActions align="between">
-            <Button
-              variant="ghost"
-              size="s"
-              leadingIcon={<Plus size={16} aria-hidden="true" />}
-              onClick={addVariable}
-              data-testid="metrics-add"
-            >
-              Добавить показатель
-            </Button>
+            {!readOnly ? (
+              <Button
+                variant="ghost"
+                size="s"
+                leadingIcon={<Plus size={16} aria-hidden="true" />}
+                onClick={addVariable}
+                data-testid="metrics-add"
+              >
+                Добавить показатель
+              </Button>
+            ) : (
+              <span />
+            )}
+            {vars.length > 1 && <FoldAllButtons fold={fold} testIdPrefix="metrics" />}
           </FormActions>
         )}
 
@@ -299,8 +316,8 @@ export function ResultVariablesSection({
                 testId={testId}
                 readOnly={readOnly}
                 fieldErrors={fieldErrors}
-                expanded={expandedKey === key}
-                onToggle={() => setExpandedKey((cur) => (cur === key ? null : key))}
+                expanded={fold.isOpen(key)}
+                onToggle={() => fold.toggle(key)}
                 onChange={(patch) => updateVar(index, patch)}
                 onRemove={() => removeVariable(index)}
               />
