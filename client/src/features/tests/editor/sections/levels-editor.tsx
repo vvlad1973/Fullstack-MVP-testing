@@ -41,6 +41,7 @@ import {
   draftToBands,
   hasStoredGap,
   levelBounds,
+  levelDisplayName,
   removeLevel,
   type LevelDraft,
   type LevelsDraft,
@@ -70,18 +71,11 @@ export type LevelsEditorProps = {
 };
 
 /**
- * What the author sees as this level's name: their label, else its code, else its
- * ordinal. One helper because the name appears in four places — ribbon stripe, card
- * title, threshold caption, feedback modal — and a level with a code but no label
- * used to read as «high» in the header and «уровень 2» forty pixels below it.
- */
-/**
  * Как уровень назван ОБУЧАЮЩЕМУСЯ: подпись полосы покрытия и её подсказка. Подсказка
- * существует ради обрезанной подписи, поэтому обе берут одно и то же.
+ * существует ради обрезанной подписи, поэтому обе берут одно и то же. Правило общее с
+ * разделом текстов уровней («Обратная связь»), поэтому живёт в модели.
  */
-function levelTitle(level: LevelDraft, i: number): string {
-  return level.label.trim() || level.level.trim() || `Уровень ${i + 1}`;
-}
+const levelTitle = levelDisplayName;
 
 /**
  * Как уровень назван в МАШИНЕ: код, которым он назван в формулах показателей. Им

@@ -688,102 +688,6 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "heading",
-    "text": "По уровням",
-    "index": 27,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "При непройденном уровне",
-    "index": 31,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Базовый»",
-    "index": 33,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Продвинутый»",
-    "index": 35,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "По уровням шкал",
-    "index": 38,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Базовый»",
-    "index": 42,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Уверенный»",
-    "index": 44,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Продвинутый»",
-    "index": 46,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "heading",
-    "text": "По уровням показателей",
-    "index": 49,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Норма»",
-    "index": 53,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Внимание»",
-    "index": 55,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Уровень «Риск»",
-    "index": 57,
-    "state": "texts",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "label",
     "text": "В отчёте",
@@ -1398,6 +1302,22 @@
     "index": 5,
     "state": "adaptive",
     "finding": null
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Средний»",
+    "index": 7,
+    "state": "difficulty-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "order",
+    "role": "button",
+    "text": "",
+    "index": 7,
+    "state": "difficulty-levels",
+    "finding": "data:levels-demo-content"
   },
   {
     "op": "missing",
@@ -2230,5 +2150,517 @@
     "index": 29,
     "state": "metrics",
     "finding": null
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Норма»",
+    "index": 4,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Внимание»",
+    "index": 6,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Риск»",
+    "index": 8,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 4,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 5,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 6,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 7,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 8,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 9,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 10,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный»",
+    "index": 11,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 12,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 13,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 14,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль»",
+    "index": 15,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 16,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль»",
+    "index": 17,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сбалансированный профиль»",
+    "index": 18,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Целеустремленный»",
+    "index": 20,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Вдохновляющий»",
+    "index": 22,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Целеустремленный и Вдохновляющий»",
+    "index": 24,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Командный»",
+    "index": 26,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Целеустремленный и Командный»",
+    "index": 28,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Вдохновляющий и Командный»",
+    "index": 30,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Целеустремленный, Вдохновляющий, Командный»",
+    "index": 32,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сфокусированный: Процессный»",
+    "index": 34,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Целеустремленный и Процессный»",
+    "index": 36,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Вдохновляющий и Процессный»",
+    "index": 38,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Целеустремленный, Вдохновляющий, Процессный»",
+    "index": 40,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Двухвекторный профиль: Командный и Процессный»",
+    "index": 42,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Целеустремленный, Командный, Процессный»",
+    "index": 44,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Широкий профиль: Вдохновляющий, Командный, Процессный»",
+    "index": 46,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Сбалансированный профиль: Целеустремленный, Вдохновляющий, Командный и Процессный»",
+    "index": 48,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 53,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 54,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 55,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 56,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 57,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 58,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 59,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 60,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 61,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 62,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 63,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 64,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 65,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 66,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «Стили, не вошедшие в ваш профиль»",
+    "index": 67,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "order",
+    "role": "button",
+    "text": "",
+    "index": 4,
+    "state": "metric-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Базовый»",
+    "index": 4,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "",
+    "index": 5,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Уверенный»",
+    "index": 6,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "",
+    "index": 7,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Уровень «Продвинутый»",
+    "index": 8,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "",
+    "index": 9,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «low»",
+    "index": 4,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «moderate»",
+    "index": 5,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «high»",
+    "index": 6,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «low»",
+    "index": 8,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «moderate»",
+    "index": 9,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «high»",
+    "index": 10,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «high»",
+    "index": 12,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «moderate»",
+    "index": 13,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Уровень «low»",
+    "index": 14,
+    "state": "scale-levels",
+    "finding": "data:levels-demo-content"
   }
 ]

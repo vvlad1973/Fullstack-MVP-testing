@@ -47,6 +47,7 @@ import { SectionPane } from "./design-section";
 import { BreakdownFeedbackCard } from "./breakdown-feedback-card";
 import { TopicFeedbackCard } from "./topic-feedback-card";
 import { LevelFeedbackCard } from "./level-feedback-card";
+import { BandFeedbackSection, hasAnyBands } from "./band-feedback-section";
 import { QuestionFeedbackRegistry } from "./question-feedback-registry";
 import { templateBlockOrder } from "@shared/template/results-order";
 
@@ -334,14 +335,14 @@ export function ScoringTab({
 
 // ─── «Обратная связь и итоги» ─────────────────────────────────────────────────
 
-type FeedbackRail = "during" | "results" | "texts" | "report";
-
-const FEEDBACK_ITEMS: { key: FeedbackRail; label: string }[] = [
-  { key: "during", label: "Во время теста" },
-  { key: "results", label: "Состав итогов" },
-  { key: "texts", label: "Обратная связь" },
-  { key: "report", label: "Отчёт" },
-];
+type FeedbackRail =
+  | "during"
+  | "results"
+  | "texts"
+  | "scale-levels"
+  | "difficulty-levels"
+  | "metric-levels"
+  | "report";
 
 /**
  * Что участник узнаёт о своём результате: по ходу теста, на экране итогов, в текстах
@@ -360,10 +361,38 @@ export function FeedbackTab({
   /** Э2.4: открыть редактор вопроса из реестра. Ящик вопроса монтирует хозяин вкладки. */
   onOpenQuestion?: (questionId: string) => void;
 }): React.JSX.Element {
-  const [active, setActive] = useRailState<FeedbackRail>(FEEDBACK_ITEMS, "during");
+  // Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа. Тексты
+  // уровней перечисляются отдельно от текстов теста и тем, как в эскизе (`s-texts`).
+  //
+  // Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: раздел из одних тегов «уровни не
+  // заданы» сообщал бы о настройке, которой автор ещё не делал, а у стандартного теста
+  // лестницы сложности нет вовсе. Это единственное место рейла с таким правилом: у
+  // «Вкладов вопросов» пункт остаётся видимым и погашенным, потому что там настройка
+  // ЕСТЬ и лишь ждёт первой шкалы.
+  const items: RailEntry<FeedbackRail>[] = [
+    { key: "during", label: "Во время теста" },
+    { key: "results", label: "Состав итогов" },
+    {
+      label: "Обратная связь",
+      items: [
+        { key: "texts", label: "Общее" },
+        ...(hasAnyBands(model, "scales")
+          ? [{ key: "scale-levels" as const, label: "По уровням шкал" }]
+          : []),
+        ...(model.mode === "adaptive"
+          ? [{ key: "difficulty-levels" as const, label: "По уровням сложности" }]
+          : []),
+        ...(hasAnyBands(model, "metrics")
+          ? [{ key: "metric-levels" as const, label: "По уровням показателей" }]
+          : []),
+      ],
+    },
+    { key: "report", label: "Отчёт" },
+  ];
+  const [active, setActive] = useRailState<FeedbackRail>(items, "during");
   return (
     <TabRail
-      items={FEEDBACK_ITEMS}
+      items={items}
       active={active}
       onChange={setActive}
       ariaLabel="Подразделы обратной связи и итогов"
@@ -424,12 +453,20 @@ export function FeedbackTab({
           {/* PRD-50 FR-50: тексты подтем — рядом с текстом теста, а не в «Оценке»: это
               содержание, которое человек прочитает, а не правило, по которому его судят. */}
           <BreakdownFeedbackCard model={model} updateModel={updateModel} />
-          {/* Э2.5: тексты адаптивных уровней. Карточка сама решает, показываться ли:
-              у стандартного теста лестницы нет, и пустой раздел о ней врал бы. */}
-          {model.mode === "adaptive" && (
-            <LevelFeedbackCard model={model} updateModel={updateModel} />
-          )}
         </>
+      )}
+      {/* Тексты уровней — те же поля, что правит конструктор уровней в «Оценке
+          результата»; здесь они собраны в колонку, чтобы писать их подряд. */}
+      {active === "scale-levels" && (
+        <BandFeedbackSection kind="scales" model={model} updateModel={updateModel} />
+      )}
+      {/* Э2.5: тексты адаптивных уровней. Пункт есть только у адаптивного теста —
+          у стандартного лестницы сложности нет, и раздел о ней врал бы. */}
+      {active === "difficulty-levels" && (
+        <LevelFeedbackCard model={model} updateModel={updateModel} />
+      )}
+      {active === "metric-levels" && (
+        <BandFeedbackSection kind="metrics" model={model} updateModel={updateModel} />
       )}
       {/* Подраздел кончается предпросмотром: здесь задают, ЧТО показывать в отчёте.
           Формулировки заголовков документа — это КАК он выглядит, и слой их

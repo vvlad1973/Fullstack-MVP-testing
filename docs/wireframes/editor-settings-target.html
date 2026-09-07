@@ -467,6 +467,9 @@
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'report')">s-report</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'during')">s-during</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'texts')">s-texts</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scale-levels')">s-scale-levels</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'difficulty-levels')">s-difficulty-levels</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'metric-levels')">s-metric-levels</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'design')">s-design</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'design-colors')">s-design-colors</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'design-empty')">s-design-empty</button>
@@ -1483,7 +1486,16 @@
               <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
                 <button type="button" class="ou-drawer__rail-item">Во время теста</button>
                 <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
-                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Обратная связь</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-общее">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-общее">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
+                </div>
                 <button type="button" class="ou-drawer__rail-item">Отчёт</button>
               </nav>
               <div class="tb-settings-content">
@@ -1652,66 +1664,58 @@
                   </div>
                 </div>
               </div>
-              <div class="ou-formsection ou-formsection--stacked">
-                <div class="ou-formsection__intro tb-section-head">
-                  <h3 class="ou-formsection__title">По уровням</h3>
-                                  <div class="tb-fold-toolbar">
-                    <span class="tb-fold-actions">
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
-                    </span>
-                  </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    <!-- ═══════════ STATE: s-scale-levels — тексты уровней шкал ═══════════ -->
+    <div id="wf-scale-levels" class="wf-state">
+      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-шкалы">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-шкалы">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
                 </div>
-                <div class="ou-formsection__body">
-                  <div class="tb-fold-sec">
-                    <div class="tb-fold-sec-head">
-                      <button type="button" class="tb-fold-trigger" aria-expanded="true">
-                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
-                        <span class="tb-fold-sec-name">1. О компании</span>
-                      </button>
-                      <span class="ou-tag ou-tag--neutral ou-tag--outline">2 уровня</span>
-                    </div>
-                    <div class="tb-fold-sec__body">
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">При непройденном уровне</label>
-                        <div class="tb-feedback-preview">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Уровень не пройден: вернитесь к вводному курсу.</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Уровень «Базовый»</label>
-                        <div class="tb-feedback-preview">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Базовый уровень пройден, можно двигаться дальше.</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Уровень «Продвинутый»</label>
-                        <div class="tb-feedback-preview is-empty">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Без текста</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="tb-fold-sec">
-                    <div class="tb-fold-sec-head">
-                      <button type="button" class="tb-fold-trigger" aria-expanded="false">
-                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
-                        <span class="tb-fold-sec-name">2. Корпоративные финансы</span>
-                      </button>
-                      <span class="ou-tag ou-tag--neutral ou-tag--outline">адаптивность выключена</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro tb-section-head">
                   <h3 class="ou-formsection__title">По уровням шкал</h3>
@@ -1790,6 +1794,170 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    <!-- ═══════════ STATE: s-difficulty-levels — тексты уровней сложности ═══════════ -->
+    <div id="wf-difficulty-levels" class="wf-state">
+      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-сложность">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-сложность">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro tb-section-head">
+                  <h3 class="ou-formsection__title">По уровням сложности</h3>
+                                  <div class="tb-fold-toolbar">
+                    <span class="tb-fold-actions">
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
+                    </span>
+                  </div>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="tb-fold-sec">
+                    <div class="tb-fold-sec-head">
+                      <button type="button" class="tb-fold-trigger" aria-expanded="true">
+                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
+                        <span class="tb-fold-sec-name">1. О компании</span>
+                      </button>
+                      <span class="ou-tag ou-tag--neutral ou-tag--outline">2 уровня</span>
+                    </div>
+                    <div class="tb-fold-sec__body">
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl">При непройденном уровне</label>
+                        <div class="tb-feedback-preview">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Уровень не пройден: вернитесь к вводному курсу.</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl">Уровень «Базовый»</label>
+                        <div class="tb-feedback-preview">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Базовый уровень пройден, можно двигаться дальше.</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl">Уровень «Продвинутый»</label>
+                        <div class="tb-feedback-preview is-empty">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Без текста</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tb-fold-sec">
+                    <div class="tb-fold-sec-head">
+                      <button type="button" class="tb-fold-trigger" aria-expanded="false">
+                        <span class="tb-fold-chev"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></span>
+                        <span class="tb-fold-sec-name">2. Корпоративные финансы</span>
+                      </button>
+                      <span class="ou-tag ou-tag--neutral ou-tag--outline">адаптивность выключена</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    <!-- ═══════════ STATE: s-metric-levels — тексты уровней показателей ═══════════ -->
+    <div id="wf-metric-levels" class="wf-state">
+      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-показатели">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-показатели">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням показателей</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro tb-section-head">
                   <h3 class="ou-formsection__title">По уровням показателей</h3>
