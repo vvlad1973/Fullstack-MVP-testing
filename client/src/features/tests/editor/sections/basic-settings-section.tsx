@@ -1052,10 +1052,13 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
           }}
           data-testid="settings-allow-change-checkbox"
         />
+        {/* Без иконки тона: баннер подчинён переключателю над ним и объясняет ЕГО
+            состояние, а колонка треугольников в форме читается как список тревог. */}
         {changeDisabled && (
           <Banner
             tone="warning"
             size="sm"
+            icon={false}
             description={
               !model.runtime.allowReturnToUnanswered
                 ? "Доступно только при включённом возврате к неотвеченным."
@@ -1082,6 +1085,7 @@ export function NavigationPane({ model, updateModel }: SettingsSectionProps) {
           <Banner
             tone="warning"
             size="sm"
+            icon={false}
             description="Недоступно при включённом показе правильных ответов («Обратная связь и итоги» → «Во время теста»): нужно увидеть правильный ответ, прежде чем переходить дальше."
           />
         )}

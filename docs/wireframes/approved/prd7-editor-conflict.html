@@ -129,8 +129,10 @@
         </div>
         <div class="ou-modal__body">
           <p>Кто-то сохранил свои правки раньше вас. Выберите, как разрешить конфликт:</p>
-          <div class="ou-table-wrap">
-            <table class="ou-table" aria-label="Различия версий">
+          <!-- В ДС `ou-tbl` — КОРЕНЬ таблицы (рамка, скругление, срез), а сама таблица
+               внутри него своего класса не имеет: `.ou-tbl table`. -->
+          <div class="ou-tbl">
+            <table aria-label="Различия версий">
               <thead>
                 <tr>
                   <th>Поле</th>

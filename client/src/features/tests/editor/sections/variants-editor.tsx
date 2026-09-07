@@ -327,6 +327,7 @@ function VariantsModal(props: {
     >
       <div className="tb-variants-modal__toolbar">
         <Tabs
+          listAriaLabel="Варианты темы"
           items={tabItems}
           value={active?.id}
           onChange={(id) => (id === ADD_TAB ? addVariant() : setActiveId(id))}

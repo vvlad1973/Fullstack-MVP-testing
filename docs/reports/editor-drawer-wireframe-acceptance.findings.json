@@ -12,7 +12,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-2",
@@ -27,7 +27,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-3",
@@ -42,7 +42,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-4",
@@ -57,7 +57,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-5",
@@ -72,7 +72,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-6",
@@ -87,7 +87,7 @@
       "editor-settings-target.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-7",
@@ -102,7 +102,8 @@
       "prd7-editor-conflict.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed",
+    "note": "Заодно исправлена и разметка: в ДС `ou-tbl` — КОРЕНЬ таблицы (рамка, скругление, срез), а сама таблица внутри него своего класса не имеет (`.ou-tbl table`)."
   },
   {
     "id": "W-8",
@@ -117,7 +118,7 @@
       "prd7-editor-conflict.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-9",
@@ -132,7 +133,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-10",
@@ -147,7 +148,7 @@
       "prd52-review-player.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-11",
@@ -162,7 +163,7 @@
       "prd7-editor-settings-tab.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "W-12",
@@ -177,7 +178,8 @@
       "prd7-editor-settings-tab.html"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята как ошибка приёмки: `.ou-skel--w-1\\/4` в бандле ДС ОБЪЯВЛЕН (university-rt.css, экранированная косая) — поиском по `ou-skel--w-1/4` он не находился. Имя с дробью пришло из Tailwind, но в ДС оно принято."
   },
   {
     "id": "A-1",
@@ -1358,7 +1360,8 @@
       "TransferList.tsx"
     ],
     "batch": "ds",
-    "status": "open"
+    "status": "fixed",
+    "note": "Правка ДС одобрена владельцем 2026-09-07: «Выбрать всех» -> «Выбрать все» — форма для людей, а список бывает из вопросов, страниц и блоков. Четыре кнопки переноса оставлены: эскиз рисует две, но пакетные операции полезны."
   },
   {
     "id": "B-51",
@@ -1373,7 +1376,8 @@
       "variants-editor.tsx"
     ],
     "batch": "ds",
-    "status": "open"
+    "status": "fixed",
+    "note": "Правка ДС одобрена владельцем 2026-09-07: у `Tabs` появился `listAriaLabel`. `aria-label` из `...rest` доставался внешней обёртке `div.ou-tabs`, у которой роли нет, — список вкладок оставался безымянным."
   },
   {
     "id": "B-52",
@@ -1466,7 +1470,8 @@
       "basic-settings-section.tsx"
     ],
     "batch": "ds",
-    "status": "open"
+    "status": "fixed",
+    "note": "Правка ДС одобрена владельцем 2026-09-07: `Banner` принимает `icon={false}`. Применено к баннерам блокировки в «Навигации»: баннер подчинён переключателю над ним и объясняет ЕГО состояние, а колонка треугольников в форме читается как список тревог."
   },
   {
     "id": "C-6",
@@ -1496,7 +1501,8 @@
       "editor-tabs.tsx"
     ],
     "batch": "owner",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Решение владельца 2026-09-07: оставить как есть. Подсказку объявил АВТОР ШАБЛОНА (`manifest.settings[].hint`), а не продукт; прятать её значит решать за него, что автору теста читать не нужно. Эскиз не знал, что текст приходит из манифеста."
   },
   {
     "id": "C-8",
