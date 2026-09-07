@@ -57,11 +57,6 @@ export type ResultsLabelsPaneProps = {
    * экрана итогов, чтобы автор видел, от чего он отступает. Пусто — умолчания шаблона.
    */
   baseLabels?: Record<string, string>;
-  /** Сохранённый порядок подблоков. Блок порядка рисуется только с `onOrderChange`. */
-  order?: readonly ResultsBlockKey[];
-  /** Состав и порядок, объявленные шаблоном для экрана итогов. */
-  templateOrder?: readonly ResultsBlockKey[];
-  onOrderChange?: (next: ResultsBlockKey[]) => void;
   readOnly?: boolean;
 };
 
@@ -138,9 +133,6 @@ export function ResultsLabelsPane({
   onChange,
   screen = "results",
   baseLabels,
-  order,
-  templateOrder,
-  onOrderChange,
   readOnly = false,
 }: ResultsLabelsPaneProps) {
   const groups = useMemo(() => groupDeclarations(declarations), [declarations]);
@@ -179,16 +171,6 @@ export function ResultsLabelsPane({
           ))}
         </FormSection>
       ))}
-      {onOrderChange && (
-        <BlockOrderList
-          order={order}
-          templateOrder={templateOrder}
-          labels={labels}
-          declarations={declarations}
-          readOnly={readOnly}
-          onChange={onOrderChange}
-        />
-      )}
     </div>
   );
 }
@@ -268,7 +250,7 @@ function LabelRow({
  * прогоняется через `resolveBlockOrder`: ключ, которого шаблон не знает, исчезает, а
  * подблок, о котором автор ещё не слышал, дописывается в конец.
  */
-function BlockOrderList({
+export function ResultsBlockOrderPane({
   order,
   templateOrder,
   labels,
@@ -309,11 +291,9 @@ function BlockOrderList({
   };
 
   return (
-    <FormSection
-      stacked
-      title="Порядок подблоков"
-      subtitle="Блоки печатаются под общим заголовком итогов в этом порядке. Выключенный заголовок блок не убирает — за видимость отвечают настройки самих блоков."
-    >
+    // Без подзаголовка: список сам показывает, что и в каком порядке печатается, а
+    // оговорка про выключенный заголовок относится к надписям — они ниже, своим разделом.
+    <FormSection stacked title="Порядок подблоков">
       <Stack gap={1} data-testid="results-block-order">
         {resolved.map((key, index) => (
           <Stack

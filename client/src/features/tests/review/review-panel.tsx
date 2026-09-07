@@ -142,14 +142,16 @@ export function ReviewPanel({
           {mode === "player" ? "Комментарий к этому экрану" : "Добавить комментарий"}
         </Button>
         <span className="rvp__spacer" />
+        {/* Переключатель, затем подпись — как везде в ящике: сначала состояние, потом
+            то, чем оно управляет. */}
         <label className="rvp__toggle">
-          <span className="rvp__toggle-lbl">Только открытые</span>
           <Switch
             checked={review.openOnly}
             onChange={(e) => review.setOpenOnly(e.target.checked)}
             aria-label="Только открытые"
             data-testid="toggle-open-only"
           />
+          <span className="rvp__toggle-lbl">Только открытые</span>
         </label>
         {/* Обход веток по одной: с двумя десятками комментариев прокрутка перестаёт
             быть навигацией, а рецензент читает их подряд, а не выбирает из списка. */}
@@ -193,7 +195,8 @@ export function ReviewPanel({
 
       {review.groups.map((group) => (
         <Stack gap={2} key={group.key}>
-          <div className="rvp__group-title">{group.title}</div>
+          {/* Общий заголовок группы ящика, а не свой: эскиз прямо называет этот класс. */}
+          <div className="tb-section-label">{group.title}</div>
           {group.threads.map((thread) => {
             // Ветка несёт якорь плоскими полями — резолвер ждёт его отдельным объектом.
             const anchor: ReviewAnchor = {

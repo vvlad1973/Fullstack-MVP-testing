@@ -614,7 +614,10 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             maxLabel="Максимум"
             onChange={onChange}
           />
-          <div className="ou-formfield">
+          {/* Направление и видимость — пара в одной строке: оба отвечают на вопрос «как
+              этот показатель прочитают», и разносить их по разным разделам значило бы
+              заставлять автора решать половину вопроса дважды. */}
+          <Grid cols={2} gap={3}>
             <Select<Valence>
               size="m"
               fullWidth
@@ -625,7 +628,17 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               onChange={(value) => onChange({ valence: value })}
               data-testid={`metrics-valence-${index}`}
             />
-          </div>
+            <Select<LearnerVisibility>
+              size="m"
+              fullWidth
+              label="Показывать обучающемуся"
+              value={v.learnerVisibility}
+              disabled={readOnly}
+              options={VISIBILITY_OPTIONS}
+              onChange={(value) => onChange({ learnerVisibility: value })}
+              data-testid={`metrics-visibility-${index}`}
+            />
+          </Grid>
         </>
       ) : (
         <OutcomesEditor
@@ -644,38 +657,40 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
           data-testid={`metrics-unknown-outcomes-${index}`}
         />
       )}
-      <label className="ou-formfield__lbl">Вывод</label>
-      <Grid cols={2} gap={3}>
-        {/*
-          PRD-29 (defect D-1): without this control `learnerVisibility` stays
-          `hidden` forever and the methodology verdict — the very result a
-          measurement test exists for — can never reach the learner. Same option
-          list as the scales tab, deliberately imported rather than duplicated.
-        */}
-        <Select<LearnerVisibility>
-          size="m"
-          fullWidth
-          label="Показывать обучающемуся"
-          value={v.learnerVisibility}
-          disabled={readOnly}
-          options={VISIBILITY_OPTIONS}
-          onChange={(value) => onChange({ learnerVisibility: value })}
-          data-testid={`metrics-visibility-${index}`}
-        />
-        {isBoolean && (
-          <Select<ResultVariableControlsStatus>
-            size="m"
-            fullWidth
-            label="Управление статусом курса"
-            hint="Доступно только для показателей типа «да/нет»."
-            value={v.controlsStatus}
-            disabled={readOnly}
-            options={STATUS_OPTIONS}
-            onChange={(value) => onChange({ controlsStatus: value })}
-            data-testid={`metrics-status-${index}`}
-          />
-        )}
-      </Grid>
+      {/* PRD-29 (дефект D-1): без управления видимостью `learnerVisibility` навсегда
+          остаётся `hidden`, и вердикт методики — то, ради чего измерительный тест и
+          существует, — до обучающегося не доходит. У числового показателя это поле стоит
+          парой к направлению, выше; здесь — для остальных типов. */}
+      {v.type !== "number" && (
+        <>
+          <label className="ou-formfield__lbl">Вывод</label>
+          <Grid cols={2} gap={3}>
+            <Select<LearnerVisibility>
+              size="m"
+              fullWidth
+              label="Показывать обучающемуся"
+              value={v.learnerVisibility}
+              disabled={readOnly}
+              options={VISIBILITY_OPTIONS}
+              onChange={(value) => onChange({ learnerVisibility: value })}
+              data-testid={`metrics-visibility-${index}`}
+            />
+            {isBoolean && (
+              <Select<ResultVariableControlsStatus>
+                size="m"
+                fullWidth
+                label="Управление статусом курса"
+                hint="Доступно только для показателей типа «да/нет»."
+                value={v.controlsStatus}
+                disabled={readOnly}
+                options={STATUS_OPTIONS}
+                onChange={(value) => onChange({ controlsStatus: value })}
+                data-testid={`metrics-status-${index}`}
+              />
+            )}
+          </Grid>
+        </>
+      )}
       {/* D-48: выдача в LMS — не пара к видимости, а отдельное решение о другом
           адресате: одно про экран обучающегося, другое про запись в систему. */}
       <Select<ResultVariableScormTarget>

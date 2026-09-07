@@ -66,6 +66,44 @@ describe("уровень проблемы по адресу поля", () => {
   });
 });
 
+/** Тест с одной темой в режиме вариантов: варианты заданных размеров. */
+function modelWithVariants(sizes: number[]): TestEditorModel {
+  const base = modelWithQuota(1);
+  const forms = sizes.map((n, i) => ({
+    id: `f${i + 1}`,
+    label: `Вариант ${i + 1}`,
+    questionIds: Array.from({ length: n }, (_, j) => `q${i}-${j}`),
+  }));
+  return {
+    ...base,
+    sections: [{ ...base.sections[0], drawBlueprint: null, formSet: { forms } }],
+  };
+}
+
+describe("неравные варианты доходят до общего контура", () => {
+  it("разные размеры — предупреждение с адресом темы", () => {
+    const result = validateTestEditor(modelWithVariants([5, 3]));
+    const found = result.warnings.filter((w) => w.code === "variants_unequal");
+    expect(found).toHaveLength(1);
+    expect(found[0].field).toBe("sections[0].formSetJson");
+    expect(found[0].message).toContain("5 / 3");
+    // Замечание, а не ошибка: неравные варианты — законная настройка.
+    expect(result.errors.filter((e) => e.code === "variants_unequal")).toHaveLength(0);
+    expect(buildIssueLevel([...result.errors, ...result.warnings])("sections")).toBe("warning");
+  });
+
+  it("равные варианты молчат", () => {
+    const result = validateTestEditor(modelWithVariants([4, 4]));
+    expect(result.warnings.filter((w) => w.code === "variants_unequal")).toHaveLength(0);
+  });
+
+  it("пустой вариант — уже ошибка, о неравенстве второй раз не говорим", () => {
+    const result = validateTestEditor(modelWithVariants([4, 0]));
+    expect(result.errors.some((e) => e.field === "sections[0].formSetJson")).toBe(true);
+    expect(result.warnings.filter((w) => w.code === "variants_unequal")).toHaveLength(0);
+  });
+});
+
 describe("находки, которым нужны данные вне модели", () => {
   it("без контекста молчит: выдумывать предупреждение по пустому банку нельзя", () => {
     const result = validateTestEditor(modelWithQuota(10));

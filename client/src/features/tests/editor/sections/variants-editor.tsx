@@ -102,14 +102,6 @@ export function VariantsEditor({
   const present = topicQuestions.filter((q) => usedIds.has(q.id)).length;
   const orphan = topicQuestions.length - present;
 
-  // R-9: unequal variant sizes skew fairness (an absolute pass threshold loses
-  // meaning across differently sized variants) — surface a non-blocking warning.
-  // Only meaningful once every variant has questions; empty variants are flagged
-  // by their own «0» tag and a save-blocking validation error instead.
-  const sizes = formSet?.forms.map((f) => f.questionIds.length) ?? [];
-  const allFilled = sizes.length > 0 && sizes.every((n) => n > 0);
-  const balanced = allFilled && sizes.every((n) => n === sizes[0]);
-
   return (
     <>
       <label className="tb-quota-toggle">
@@ -185,24 +177,9 @@ export function VariantsEditor({
             )}
           </div>
 
-          {allFilled && (
-            <div className="tb-quota-sum" data-testid={`topic-variants-balance-${topicId}`}>
-              {balanced ? (
-                <>
-                  <span>
-                    {sizes.length} {pluralize(sizes.length, "вариант", "варианта", "вариантов")} по{" "}
-                    {sizes[0]} · при старте темы выпадает один, выдаётся целиком; на повторе — другой
-                  </span>
-                  <Tag tone="success" size="s">сбалансировано</Tag>
-                </>
-              ) : (
-                <>
-                  <span>Варианты {sizes.join(" / ")} — неравные</span>
-                  <Tag tone="warning" size="s">неравные варианты</Tag>
-                </>
-              )}
-            </div>
-          )}
+          {/* Строка итога одна — охват банка. О неравных вариантах говорит общий контур
+              (предупреждение `variants_unequal`): приписка под карточкой темы не зажигает
+              ни точку рейла, ни баннер, и «Перейти к ошибкам» вести к ней некуда. */}
 
           {error && (
             <p className="tb-field-error" role="alert" data-testid={`topic-variants-error-${topicId}`}>

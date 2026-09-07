@@ -124,7 +124,9 @@ export function QuestionScoringModal(props: QuestionScoringModalProps) {
       onClose={onClose}
       size="l"
       title="Оценка вопроса в тесте"
-      description={`Секция «${sectionName}»`}
+      // Тема, а не «секция»: так этот же объект назван в «Составе» и в «Оценке ответа», а
+      // два имени у одного места заставляют автора гадать, одно ли это.
+      description={`Тема «${sectionName}»`}
       footer={
         <>
           {/* Левая зона футера (эскиз: ou-modal__foot--between). */}
@@ -143,7 +145,7 @@ export function QuestionScoringModal(props: QuestionScoringModalProps) {
           </Button>
           {gradable && (
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={() => setPreviewOpen(true)}
               data-testid="qscoring-preview"
             >

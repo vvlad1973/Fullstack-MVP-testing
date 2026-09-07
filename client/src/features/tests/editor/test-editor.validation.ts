@@ -315,6 +315,20 @@ export function validateTestEditor(
           severity: "error",
         });
       }
+      // Замечание, а не ошибка: неравные варианты — законная настройка, но участники
+      // получат разное число вопросов, и знать об этом автор должен ДО публикации.
+      // Говорит об этом общий контур, а не приписка под карточкой темы.
+      const sizes = forms.map((f) => f.questionIds.length);
+      if (empty === 0 && new Set(sizes).size > 1) {
+        warnings.push({
+          field: `sections[${i}].formSetJson`,
+          code: "variants_unequal",
+          message:
+            `Тема «${section.topicName}»: варианты неравны (${sizes.join(" / ")} вопросов). ` +
+            `Участники получат разное число вопросов.`,
+          severity: "warning",
+        });
+      }
     }
   }
 

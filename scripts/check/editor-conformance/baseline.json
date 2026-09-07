@@ -443,7 +443,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Первый уровень",
-    "index": 7,
+    "index": 18,
     "state": "feedback",
     "finding": null
   },
@@ -451,7 +451,7 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок рекомендаций",
-    "index": 12,
+    "index": 23,
     "state": "feedback",
     "finding": null
   },
@@ -459,7 +459,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Второй уровень",
-    "index": 16,
+    "index": 27,
     "state": "feedback",
     "finding": null
   },
@@ -467,7 +467,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок сводки баллов",
-    "index": 17,
+    "index": 28,
     "state": "feedback",
     "finding": null
   },
@@ -475,7 +475,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок шкал",
-    "index": 21,
+    "index": 32,
     "state": "feedback",
     "finding": null
   },
@@ -483,7 +483,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок показателей",
-    "index": 25,
+    "index": 36,
     "state": "feedback",
     "finding": null
   },
@@ -491,7 +491,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подзаголовок тем",
-    "index": 29,
+    "index": 40,
     "state": "feedback",
     "finding": null
   },
@@ -499,7 +499,7 @@
     "op": "extra",
     "role": "label",
     "text": "Заголовок блока разреза",
-    "index": 33,
+    "index": 44,
     "state": "feedback",
     "finding": null
   },
@@ -507,7 +507,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Группы рекомендаций",
-    "index": 37,
+    "index": 48,
     "state": "feedback",
     "finding": null
   },
@@ -515,7 +515,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы курсов",
-    "index": 38,
+    "index": 49,
     "state": "feedback",
     "finding": null
   },
@@ -523,7 +523,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы мероприятий",
-    "index": 42,
+    "index": 53,
     "state": "feedback",
     "finding": null
   },
@@ -531,7 +531,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись группы материалов",
-    "index": 46,
+    "index": 57,
     "state": "feedback",
     "finding": null
   },
@@ -539,7 +539,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Числа сводки",
-    "index": 50,
+    "index": 61,
     "state": "feedback",
     "finding": null
   },
@@ -547,7 +547,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись числа вопросов",
-    "index": 51,
+    "index": 62,
     "state": "feedback",
     "finding": null
   },
@@ -555,7 +555,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись числа верных",
-    "index": 55,
+    "index": 66,
     "state": "feedback",
     "finding": null
   },
@@ -563,7 +563,7 @@
     "op": "extra",
     "role": "label",
     "text": "Подпись числа баллов",
-    "index": 59,
+    "index": 70,
     "state": "feedback",
     "finding": null
   },
@@ -571,7 +571,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Карточка темы",
-    "index": 63,
+    "index": 74,
     "state": "feedback",
     "finding": null
   },
@@ -579,7 +579,7 @@
     "op": "extra",
     "role": "label",
     "text": "Строка «Правильно»",
-    "index": 64,
+    "index": 75,
     "state": "feedback",
     "finding": null
   },
@@ -587,7 +587,7 @@
     "op": "extra",
     "role": "label",
     "text": "Строка «Баллов»",
-    "index": 68,
+    "index": 79,
     "state": "feedback",
     "finding": null
   },
@@ -595,7 +595,7 @@
     "op": "extra",
     "role": "label",
     "text": "Вердикт: пройдено",
-    "index": 72,
+    "index": 83,
     "state": "feedback",
     "finding": null
   },
@@ -603,7 +603,7 @@
     "op": "extra",
     "role": "label",
     "text": "Вердикт: не пройдено",
-    "index": 76,
+    "index": 87,
     "state": "feedback",
     "finding": null
   },
@@ -611,7 +611,7 @@
     "op": "extra",
     "role": "label",
     "text": "Вердикт: нет порога",
-    "index": 80,
+    "index": 91,
     "state": "feedback",
     "finding": null
   },
@@ -619,7 +619,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Группы разделов",
-    "index": 84,
+    "index": 95,
     "state": "feedback",
     "finding": null
   },
@@ -627,7 +627,7 @@
     "op": "extra",
     "role": "label",
     "text": "Формат счётчика блока",
-    "index": 85,
+    "index": 96,
     "state": "feedback",
     "finding": null
   },
@@ -635,7 +635,7 @@
     "op": "extra",
     "role": "heading",
     "text": "Итоги раздела",
-    "index": 89,
+    "index": 100,
     "state": "feedback",
     "finding": null
   },
@@ -643,15 +643,7 @@
     "op": "extra",
     "role": "label",
     "text": "Надпись над итогами раздела",
-    "index": 90,
-    "state": "feedback",
-    "finding": null
-  },
-  {
-    "op": "order",
-    "role": "heading",
-    "text": "Порядок подблоков",
-    "index": 0,
+    "index": 101,
     "state": "feedback",
     "finding": null
   },
@@ -953,17 +945,9 @@
   },
   {
     "op": "extra",
-    "role": "hint",
-    "text": "Кнопка «Скачать отчёт» на экране результатов. Выключите, если документ по этому тесту не выдаётся.",
-    "index": 3,
-    "state": "report",
-    "finding": null
-  },
-  {
-    "op": "extra",
     "role": "button",
     "text": "Отчёт: сертификация",
-    "index": 5,
+    "index": 4,
     "state": "report",
     "finding": "data:report-variant-name"
   },
@@ -971,7 +955,7 @@
     "op": "extra",
     "role": "label",
     "text": "Параметры вида",
-    "index": 6,
+    "index": 5,
     "state": "report",
     "finding": "data:report-variant-fields"
   },
@@ -979,7 +963,7 @@
     "op": "extra",
     "role": "label",
     "text": "Диаграмма по шкалам",
-    "index": 7,
+    "index": 6,
     "state": "report",
     "finding": null
   },
@@ -987,7 +971,7 @@
     "op": "extra",
     "role": "button",
     "text": "Выберите…",
-    "index": 8,
+    "index": 7,
     "state": "report",
     "finding": null
   },
@@ -995,7 +979,7 @@
     "op": "extra",
     "role": "label",
     "text": "Предел оси радара",
-    "index": 9,
+    "index": 8,
     "state": "report",
     "finding": null
   },
@@ -1003,7 +987,7 @@
     "op": "extra",
     "role": "button",
     "text": "Выберите…",
-    "index": 10,
+    "index": 9,
     "state": "report",
     "finding": null
   },

@@ -1496,24 +1496,14 @@
 
 /* Разрыв листа — не карточка и не страница, а строка-разделитель: следующий блок
    начинается с нового листа. Пунктир справа договаривает то же самое. */
+/* Разрыв листа — такая же строка документа, как остальные: название обычным
+   регистром, без пунктирных линий по бокам. Отличает её ножницы перед названием и
+   отсутствие бейджа вида. */
 .page-row--break .page-title {
   display: flex;
   align-items: center;
   gap: var(--ou-space-2);
   color: var(--ou-fg-muted);
-  font: var(--ou-text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.page-row--break .page-title::after {
-  content: "";
-  flex: 1;
-  height: var(--wf-border-w);
-  background: repeating-linear-gradient(
-    90deg,
-    var(--ou-border-default) 0 var(--wf-space-6, 6px),
-    transparent var(--wf-space-6, 6px) var(--ou-space-3)
-  );
 }
 
 /* PRD-19 FR-08a: «Обзор раздела/теста» navigation slot (section-finish /
@@ -2413,17 +2403,12 @@
    мягкая акцентная заливка каждой настроенной ячейки (tooltip на ячейке). */
 .tb-qscoring { display: flex; flex-direction: column; gap: var(--ou-space-4); padding: var(--ou-space-1) 0; }
 .tb-qscoring__default-row { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; }
+/* Шапка конструктора цены ответа: подпись слева, максимальный балл справа. */
+.tb-qscoring__price { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); }
+.tb-qscoring__price-lbl { font: var(--ou-text-heading-s); }
 .tb-qscoring__default-lbl { font: var(--ou-text-body-m); font-weight: 600; }
 .tb-qscoring__default-hint { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
 .tb-qscoring__num { width: var(--tb-input-w-sm); }
-.tb-qscoring__sec {
-  border: var(--wf-border-w) solid var(--ou-border-soft);
-  border-radius: var(--ou-radius-m);
-  padding: var(--ou-space-4);
-  background: var(--ou-bg-surface);
-}
-.tb-qscoring__sec-head { display: flex; align-items: center; gap: var(--ou-space-3); flex-wrap: wrap; margin-bottom: var(--ou-space-2); }
-.tb-qscoring__sec-name { font: var(--ou-text-body-m); font-weight: 700; min-width: 0; }
 .tb-qscoring__sec-default { display: inline-flex; align-items: center; gap: var(--ou-space-2); }
 .tb-qscoring__sec-default-lbl { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
 

@@ -858,7 +858,8 @@
       "variants-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Строка баланса убрана из карточки, но сигнал не потерян: неравные варианты стали предупреждением `variants_unequal` общего контура — оно зажигает точку рейла «Состава» и попадает в баннер, куда ведёт «Перейти к ошибкам»."
   },
   {
     "id": "B-18",
@@ -1384,7 +1385,8 @@
       "variants-editor.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: слот аватара занят той же пиктограммой типа вопроса, которую реестр сам требует в D-29, а номера «также в вариантах» — единственное место, где видно, что вопрос уже занят другим вариантом."
   },
   {
     "id": "C-1",
@@ -1644,7 +1646,7 @@
       "scoring-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-2",
@@ -1690,7 +1692,7 @@
       "tb-components.css"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-5",
@@ -2142,7 +2144,7 @@
       "question-scoring-modal.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-35",
@@ -2157,7 +2159,8 @@
       "question-scoring-modal.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed",
+    "note": "Эскиз спорит сам с собой (три состояния одной модалки: «Применить»/«Сохранить», «Секция»/«Тема»). Выбрано: «Применить» — модалка кладёт правку в черновик, а пишет её единственное «Сохранить» ящика; «Тема «…»» — так этот объект назван в «Составе» и в «Оценке ответа»."
   },
   {
     "id": "D-36",
@@ -2172,7 +2175,7 @@
       "scoring-builder.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-37",
@@ -2202,7 +2205,8 @@
       "question-scoring-modal.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята: эскиз спорит сам с собой — состояние `s-qscoring-tiered` той же модалки поля «Балл за вопрос» и «Сложность» рисует. Убрать их нельзя и по существу: заработанное считается как `points × ratio` (`shared/scoring/aggregate.ts`), то есть цена вопроса управляет и весовым случаем."
   },
   {
     "id": "D-39",
@@ -2413,7 +2417,7 @@
       "result-variables-section.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "D-53",
@@ -2639,7 +2643,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-10",
@@ -2669,7 +2673,7 @@
       "results-labels-pane.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-12",
@@ -2918,7 +2922,7 @@
       "report-settings-card.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-28",
@@ -2933,7 +2937,7 @@
       "report-settings-card.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-29",
@@ -2948,7 +2952,7 @@
       "report-document-list.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-30",
@@ -2963,7 +2967,7 @@
       "report-document-list.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-31",
@@ -2995,7 +2999,7 @@
       "report-block-palette.tsx"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "E-33",
@@ -3234,7 +3238,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-12",
@@ -3298,7 +3302,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-16",
@@ -3378,7 +3382,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-21",
@@ -3394,7 +3398,7 @@
       "prd52-review-panel.html"
     ],
     "batch": "cosmetics",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "F-22",

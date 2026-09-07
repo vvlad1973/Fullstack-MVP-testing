@@ -11,6 +11,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { Eye } from "lucide-react";
 import {
   Banner,
   Button,
@@ -251,7 +252,6 @@ export function ReportSettingsCard(props: {
               <Switch
                 id="report-enabled"
                 label="Выдавать отчёт обучающемуся"
-                description="Кнопка «Скачать отчёт» на экране результатов. Выключите, если документ по этому тесту не выдаётся."
                 checked={enabled}
                 disabled={props.readOnly}
                 onChange={(e) => props.onChange({ ...props.value, enabled: e.target.checked })}
@@ -387,7 +387,8 @@ export function ReportSettingsCard(props: {
             <div className="ou-formfield">
               <Button
                 variant="secondary"
-                size="m"
+                size="s"
+                leadingIcon={<Eye size={16} aria-hidden="true" />}
                 onClick={() => setPreviewOpen(true)}
                 data-testid="report-preview-open"
               >

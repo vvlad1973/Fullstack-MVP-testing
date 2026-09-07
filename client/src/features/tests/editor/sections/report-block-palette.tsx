@@ -156,7 +156,7 @@ export function ReportBlockPalette(props: ReportBlockPaletteProps) {
     <ModalDialog
       open={props.open}
       onClose={props.onClose}
-      size="m"
+      size="xl"
       title="Добавить блок"
       description="Блок встанет в документ на место, откуда вы его добавляете."
       footer={

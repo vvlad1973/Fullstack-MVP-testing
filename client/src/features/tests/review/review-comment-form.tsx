@@ -95,6 +95,7 @@ export function ReviewCommentForm({
       {mode === "editor" ? (
         <FormGroup columns="two">
           <Select
+            size="s"
             label="Место"
             hint="По умолчанию — тест в целом."
             value={place}
@@ -107,6 +108,7 @@ export function ReviewCommentForm({
             data-testid="anchor-place"
           />
           <Select
+            size="s"
             label="Вопрос или страница"
             hint={topicChosen ? "Пусто — замечание к разделу целиком." : "Доступно после выбора раздела."}
             disabled={itemsOfTopic.length === 0}
@@ -121,10 +123,13 @@ export function ReviewCommentForm({
         </FormGroup>
       ) : null}
 
+      {/* Без подписи: поле занимает всю ширину формы и стоит там, где текст и ждут, —
+          заполнитель говорит достаточно. Скринридеру имя даёт `aria-label`. */}
       <Textarea
-        label={mode === "reply" ? "Ответ" : "Комментарий"}
+        fullWidth
         rows={4}
         value={body}
+        aria-label={mode === "reply" ? "Ответ" : "Комментарий"}
         placeholder="Что не так и что предлагаете изменить"
         onChange={(e) => setBody(e.target.value)}
         data-testid="comment-body"

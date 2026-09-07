@@ -6,12 +6,6 @@
 .rvp__spacer { flex: 1; }
 .rvp__toggle { display: inline-flex; align-items: center; gap: var(--ou-space-2); cursor: pointer; }
 .rvp__toggle-lbl { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
-.rvp__group-title {
-  font: var(--ou-text-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ou-fg-muted);
-}
 .rvp__thread { display: block; }
 /* Ветка, раскрытая по ссылке `?review=<id>`: её надо найти глазами сразу. */
 .rvp__thread.is-focused { border-color: var(--ou-accent-default); }

@@ -42,7 +42,7 @@ import { StructureSection } from "./start-pages-section";
 import { ScoringSection } from "./scoring-section";
 import { ScalesSection } from "./scales-section";
 import { ResultVariablesSection } from "./result-variables-section";
-import { ResultsLabelsPane } from "./results-labels-pane";
+import { ResultsBlockOrderPane, ResultsLabelsPane } from "./results-labels-pane";
 import { SectionPane } from "./design-section";
 import { BreakdownFeedbackCard } from "./breakdown-feedback-card";
 import { TopicFeedbackCard } from "./topic-feedback-card";
@@ -377,14 +377,12 @@ export function FeedbackTab({
           <QuestionFeedbackRegistry model={model} onOpenQuestion={onOpenQuestion} />
         </>
       )}
+      {/* Порядок разделов — как в эскизе: сначала ЧТО и в каком порядке печатается,
+          затем подытоги, и только потом формулировки надписей. */}
       {active === "results" && (
         <>
-          <BreakdownDisplayPane model={model} updateModel={updateModel} />
           {design && !design.templateMissing && (
-            <ResultsLabelsPane
-              declarations={design.template?.manifest.labels ?? []}
-              labels={design.draft.labels ?? {}}
-              onChange={design.setLabels}
+            <ResultsBlockOrderPane
               order={design.draft.resultsBlockOrder}
               // Состав и порядок объявляет ШАБЛОН, и берётся объявление ЭКРАНА ИТОГОВ:
               // настройка одна на все экраны, а адаптивные итоги, например, сводки
@@ -393,7 +391,18 @@ export function FeedbackTab({
                 design.template?.manifest.resultsBlockOrder,
                 "results",
               )}
-              onOrderChange={design.setResultsBlockOrder}
+              labels={design.draft.labels ?? {}}
+              declarations={design.template?.manifest.labels ?? []}
+              readOnly={false}
+              onChange={design.setResultsBlockOrder}
+            />
+          )}
+          <BreakdownDisplayPane model={model} updateModel={updateModel} />
+          {design && !design.templateMissing && (
+            <ResultsLabelsPane
+              declarations={design.template?.manifest.labels ?? []}
+              labels={design.draft.labels ?? {}}
+              onChange={design.setLabels}
             />
           )}
           {design?.templateMissing && (

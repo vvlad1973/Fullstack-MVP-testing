@@ -164,7 +164,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
       <div className="tb-qscoring__default-row">
         <span className="tb-qscoring__default-lbl">Балл за вопрос по умолчанию</span>
         <Input
-          size="s"
+          size="m"
           className="tb-qscoring__num"
           inputMode="numeric"
           value={model.scoring.defaultQuestionPoints?.toString() ?? ""}
@@ -201,9 +201,9 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
         const open = fold.isOpen(section.topicId);
 
         return (
-          <div className="tb-qscoring__sec" key={section.topicId} data-testid={`scoring-sec-${section.topicId}`}>
+          <div className="tb-fold-sec" key={section.topicId} data-testid={`scoring-sec-${section.topicId}`}>
             <Collapsible open={open} onOpenChange={() => fold.toggle(section.topicId)}>
-              <div className="tb-qscoring__sec-head">
+              <div className="tb-fold-sec-head">
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
@@ -214,7 +214,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                     {open
                       ? <ChevronDown className="tb-fold-chev" width={16} height={16} aria-hidden="true" />
                       : <ChevronRight className="tb-fold-chev" width={16} height={16} aria-hidden="true" />}
-                    <span className="tb-qscoring__sec-name">{section.topicName}</span>
+                    <span className="tb-fold-sec-name">{section.topicName}</span>
                   </button>
                 </CollapsibleTrigger>
                 <Tag tone="neutral" variant="outline">{drawLabel}</Tag>
@@ -235,6 +235,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
               </div>
 
               <CollapsibleContent>
+                <div className="tb-fold-sec__body">
             {testId && questions.length > 0 && (
               <table className="tb-table" aria-label={`Оценка вопросов темы «${section.topicName}»`}>
                 <thead>
@@ -359,6 +360,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
                 </tbody>
               </table>
             )}
+                </div>
               </CollapsibleContent>
             </Collapsible>
           </div>
