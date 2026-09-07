@@ -18,6 +18,7 @@
 import { readScaleGroup } from "@shared/formula/outcome-literals";
 import { parseGroupThreshold } from "@shared/formula/scale-group";
 import { outcomeMatchKey } from "@shared/scales/interpretation";
+import { pluralize } from "@/lib/i18n";
 import { profileMatrix } from "./profile-matrix";
 import type { ResultVariableModel } from "./test-editor.types";
 
@@ -136,6 +137,11 @@ export function profileFindings(
 
   // Абсолютный порог на группе с разной нормализацией сравнивает несопоставимые
   // величины. Долевой порог от этого свободен, поэтому условие сужено.
+  // Условие видит и валидатор формулы (§5.3.1, код `scale-group-normalization`), но находка
+  // нужна ИМЕННО ЗДЕСЬ: отсюда она попадает в общий контур индикации — точку на вкладке,
+  // сводный баннер и переход по якорю, — куда ответ валидатора не идёт. Чтобы у автора не
+  // стояло два одинаковых баннера подряд (приёмка 2026-09-07 нашла их различающимися одной
+  // точкой), гасится КОПИЯ ВАЛИДАТОРА в карточке — см. `CARD_DUPLICATED_CODES`.
   if (threshold?.kind === "abs") {
     const modes = new Set(
       group.keys.map((key) => byKey.get(key)?.normalization).filter((m) => m !== undefined),
@@ -164,8 +170,12 @@ export function profileSetCountHint(variable: ResultVariableModel): string | nul
   const group = readScaleGroup(variable.formula);
   if (!group || group.keys.length < 5) return null;
   const total = 2 ** group.keys.length - 1;
+  // Число подставляется, поэтому и слово при нём склоняется: «31 набор», а не «31 наборов»
+  // (приёмка 2026-09-07). Тексты считаются отдельно: их столько же, сколько шкал.
+  const наборов = pluralize(total, "набор", "набора", "наборов");
+  const текстов = pluralize(group.keys.length, "текст", "текста", "текстов");
   return (
-    `${group.keys.length} шкал дают ${total} наборов — столько текстов пишут редко.` +
-    ` Можно обойтись заготовками по размеру набора: ${group.keys.length} текстов вместо ${total}.`
+    `${group.keys.length} шкал дают ${total} ${наборов} — столько текстов пишут редко.` +
+    ` Можно обойтись заготовками по размеру набора: ${group.keys.length} ${текстов} вместо ${total}.`
   );
 }

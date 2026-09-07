@@ -1569,6 +1569,18 @@ type FormulaBanner = { tone: "success" | "error" | "info"; text: string };
  */
 const BUILDER_SILENCED_CODES = new Set(["scale-group-code"]);
 
+/**
+ * Находки валидатора, которые форма профиля печатает САМА — и в обоих режимах.
+ *
+ * Условие «разная нормализация при абсолютном пороге» видят оба: валидатор через
+ * `refs.scaleNormalizations`, форма — по шкалам теста. Но находка формы не только
+ * печатается у карточки, она ещё и кормит общий контур индикации (точка на вкладке,
+ * сводный баннер, переход по якорю), куда ответ валидатора не идёт, — поэтому убирать
+ * надо копию ВАЛИДАТОРА, а не её. Приёмка 2026-09-07 застала оба баннера подряд:
+ * различались они одной точкой в конце.
+ */
+const CARD_DUPLICATED_CODES = new Set(["scale-group-normalization"]);
+
 function useFormulaValidation(
   testId: string | undefined,
   v: ResultVariableModel,
@@ -1595,9 +1607,14 @@ function useFormulaValidation(
         excludeId: v.id,
       })
         .then((raw) => {
-          const res = inBuilder
-            ? { ...raw, warnings: raw.warnings.filter((w) => !BUILDER_SILENCED_CODES.has(w.code ?? "")) }
-            : raw;
+          const res = {
+            ...raw,
+            warnings: raw.warnings.filter(
+              (w) =>
+                !CARD_DUPLICATED_CODES.has(w.code ?? "") &&
+                !(inBuilder && BUILDER_SILENCED_CODES.has(w.code ?? "")),
+            ),
+          };
           setResult(res);
           setBanner(toBanner(res, v.type));
         })
