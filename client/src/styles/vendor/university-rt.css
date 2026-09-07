@@ -3354,6 +3354,10 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-uploader__title { font: var(--ou-text-body-l); font-weight: 600; }
 .ou-uploader__sub { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
 .ou-uploader__cta {
+  /* Это SPAN, а не кнопка (управляющий элемент — вся зона), поэтому подпись внутри
+     фиксированной высоты сама по себе не центрируется: без этих трёх объявлений она
+     садилась на верхнюю строку. Перенос кита 0.3.0 их выбросил. */
+  display: inline-flex; align-items: center; justify-content: center;
   margin-top: var(--ou-space-2);
   height: 36px; padding: 0 var(--ou-space-4);
   background: var(--ou-bg-hover);
@@ -4380,8 +4384,13 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-lgrid--main-aside { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
 .ou-lgrid--main-aside > :nth-child(2) { position: -webkit-sticky; position: sticky; top: var(--ou-space-4); }
 .ou-lgrid--list-action { grid-template-columns: 1fr -webkit-max-content; grid-template-columns: 1fr max-content; align-items: center; }
-.ou-lgrid--main-aside { grid-template-columns: minmax(0, 1fr); }
-.ou-lgrid--main-aside > :nth-child(2) { position: static; }
+/* Узкий экран: боковая колонка уходит ПОД основную и перестаёт быть липкой. МЕДИАЗАПРОС
+   ОБЯЗАТЕЛЕН: перенос кита 0.3.0 развернул его, и главная страница всегда рисовалась одной
+   колонкой, а липкость боковой (PRD-25, 4fcaa5d1) была мертва на любой ширине. */
+@media (max-width: 63.99rem) {
+  .ou-lgrid--main-aside { grid-template-columns: minmax(0, 1fr); }
+  .ou-lgrid--main-aside > :nth-child(2) { position: static; }
+}
 .ou-box--pad-1 { padding: var(--ou-space-1); }
 .ou-box--pad-2 { padding: var(--ou-space-2); }
 .ou-box--pad-3 { padding: var(--ou-space-3); }
@@ -4463,6 +4472,10 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-box--maxw-3xl { max-width: 48rem; }
 .ou-box--maxw-4xl { max-width: 56rem; }
 .ou-box--maxw-5xl { max-width: 64rem; }
+/* Ограничение ширины без auto-полей прижимало коробку к левому краю: перенос кита 0.3.0
+   выбросил эту строку как «повтор уже объявленных классов». */
+.ou-box--maxw-xs, .ou-box--maxw-sm, .ou-box--maxw-md, .ou-box--maxw-lg, .ou-box--maxw-xl,
+.ou-box--maxw-2xl, .ou-box--maxw-3xl, .ou-box--maxw-4xl, .ou-box--maxw-5xl { margin-inline: auto; }
 
 /* Восстановлено при сверке с прежним бандлом продукта: перенос кита 0.3.0 потерял эти
    правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
@@ -6179,7 +6192,9 @@ span.ou-quiz__dot:hover { transform: none; }
 .ou-scroll--vertical { overflow-y: auto; overflow-x: hidden; }
 .ou-scroll--horizontal { overflow-x: auto; overflow-y: hidden; }
 .ou-scroll--both { overflow: auto; }
-.ou-scroll { scrollbar-width: thin; scrollbar-color: var(--ou-border-default) transparent; }
+/* `position: relative` — не украшение: тени и «шторки» краёв позиционируются внутри области
+   прокрутки. Перенос кита 0.3.0 строку выбросил. */
+.ou-scroll { position: relative; scrollbar-width: thin; scrollbar-color: var(--ou-border-default) transparent; }
 .ou-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .ou-scroll::-webkit-scrollbar-track { background: transparent; }
 .ou-scroll::-webkit-scrollbar-thumb { background: var(--ou-border-default); border-radius: 4px; }
@@ -6886,7 +6901,9 @@ button.ou-stepper__step:disabled { cursor: not-allowed; opacity: 0.6; }
 /* UniversityRT · Table */
 .ou-tbl { background: var(--ou-bg-elevated); border: 1px solid var(--ou-border-soft); border-radius: var(--ou-radius-l); overflow: hidden; }
 .ou-tbl table { width: 100%; border-collapse: collapse; font: var(--ou-text-body-m); text-align: left; }
-.ou-tbl th, .ou-tbl td { border-bottom: 1px solid var(--ou-border-soft); vertical-align: middle; }
+/* Выравнивание влево ЯВНОЕ: без него браузер центрирует `th` по своему умолчанию, и шапка
+   таблицы разъезжается с телом. Перенос кита 0.3.0 это объявление потерял. */
+.ou-tbl th, .ou-tbl td { text-align: left; border-bottom: 1px solid var(--ou-border-soft); vertical-align: middle; }
 /* Mirrors DataGrid: a numeric column reads right-aligned with lining figures. */
 .ou-tbl tbody td.is-numeric { text-align: right; font-variant-numeric: tabular-nums; }
 .ou-tbl thead th {
