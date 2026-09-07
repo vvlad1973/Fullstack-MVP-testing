@@ -706,6 +706,10 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
    и строка остаётся ровно такой, какой была до §16. */
 .tb-breakdown__row.is-pass .tb-breakdown__bar span { background: var(--ou-success-default); }
 .tb-breakdown__row.is-fail .tb-breakdown__bar span { background: var(--ou-error-default); }
+/* Дорожка проваленной подтемы тоже красится: при 0 % заливки нет вовсе, и строка без этого
+   выглядит как "нет данных", а не как провал. Взятая подтема дорожку не меняет — там о
+   результате говорит сама заливка. */
+.tb-breakdown__row.is-fail .tb-breakdown__bar { background: var(--ou-error-soft); }
 .tb-breakdown__req { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: 2px; }
 /* PRD-50 Э4: the SUMMARY breakdown block of the whole test. Its own wrapper rather than
    `tb-topic__breakdown`: that one lives inside a topic card and takes its width and top
@@ -2077,6 +2081,11 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
    печаталась до §16. */
 .tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #19D7A4; }
 .tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #FF4F12; }
+/* Дорожка проваленной подтемы: при 0 % заливки нет вовсе, и строка читалась бы как «нет
+   данных», а не как провал. Стандартный шаблон держит то же правило (`#fee2e2` от своего
+   красного); здесь взят осветлённый оранжевый САМОГО сертификата — своего светлого тона
+   провала в его палитре не было. Паритет селекторов стережёт `template-layout-parity`. */
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar { background: #FFE4DB; }
 .tb-report__breakdown-req { font-size: 7px; color: #5A6472; margin-top: 2px; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на

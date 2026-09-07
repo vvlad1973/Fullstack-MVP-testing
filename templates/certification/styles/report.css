@@ -429,6 +429,11 @@
    печаталась до §16. */
 .tb-report__breakdown-row.is-pass .tb-report__breakdown-bar span { background: #19D7A4; }
 .tb-report__breakdown-row.is-fail .tb-report__breakdown-bar span { background: #FF4F12; }
+/* Дорожка проваленной подтемы: при 0 % заливки нет вовсе, и строка читалась бы как «нет
+   данных», а не как провал. Стандартный шаблон держит то же правило (`#fee2e2` от своего
+   красного); здесь взят осветлённый оранжевый САМОГО сертификата — своего светлого тона
+   провала в его палитре не было. Паритет селекторов стережёт `template-layout-parity`. */
+.tb-report__breakdown-row.is-fail .tb-report__breakdown-bar { background: #FFE4DB; }
 .tb-report__breakdown-req { font-size: 7px; color: #5A6472; margin-top: 2px; }
 /* PRD-50 Э4: СВОДНЫЙ блок разреза — своя карточка документа во всю ширину, а не строки
    в тесной ячейке сетки тем. Размеры выше подобраны под колонку карточки темы и на
