@@ -136,22 +136,6 @@
     "finding": null
   },
   {
-    "op": "extra",
-    "role": "table",
-    "text": "Подтема | Сколько | Режим | ",
-    "index": 18,
-    "state": "composition",
-    "finding": "main:prd50-quota-table"
-  },
-  {
-    "op": "extra",
-    "role": "table",
-    "text": "Подтема | Сколько | Режим | ",
-    "index": 31,
-    "state": "composition",
-    "finding": "main:prd50-quota-table"
-  },
-  {
     "op": "order",
     "role": "button",
     "text": "Как в тесте",

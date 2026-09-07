@@ -6,7 +6,7 @@
  */
 import type * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CompositionSection } from "../topics-structure-section";
 import type { TestEditorModel, EditorSection } from "../../test-editor.types";
@@ -83,6 +83,8 @@ describe("таблица «раздел x ключ»", () => {
     expect(screen.queryByTestId("key-threshold-value-top-1-0")).toBeNull();
     // Квоты остались: они про выдачу, а не про оценку.
     expect(screen.getByTestId("topic-quota-toggle-top-1")).toBeInTheDocument();
+    // Карточка квоты открывается свёрнутой — поля живут в её теле.
+    fireEvent.click(screen.getByTestId("quota-fold-top-1-0"));
     expect(screen.getByTestId("quota-tag-top-1-0")).toBeInTheDocument();
   });
 

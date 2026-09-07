@@ -950,11 +950,19 @@
   cursor: pointer;
 }
 .tb-quota-toggle .tb-section-label { margin: 0; }
+/* Квоты по подтемам — карточки: колонка с шагом 4x, как её задаёт проектный слой
+   эскиза. Собственные отступы у подвала блока при этом обнуляются: с общим шагом
+   колонки они складывались бы в двойной. */
 .tb-quota-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ou-space-4);
   margin-top: var(--ou-space-3);
   padding-left: var(--ou-space-4);
   border-left: var(--wf-border-w) solid var(--ou-border-soft);
 }
+.tb-quota-block > .tb-quota-actions,
+.tb-quota-block > .tb-quota-sum { margin-top: 0; }
 .tb-quota-block__avail { color: var(--ou-fg-muted); font-variant-numeric: tabular-nums; }
 /* PRD-50 §16: знак тревоги рядом со значением строки квоты. Заменил чип в подвале таблицы —
    тот говорил о таблице целиком и не показывал, какая именно строка виновата.

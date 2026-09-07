@@ -782,7 +782,8 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "fixed",
+    "note": "Карточки сделаны без полей порога: их отменил PRD-50 §16 уже после утверждения эскиза. Карточки открываются свёрнутыми — свёрнутая карточка говорит ровно то, что говорила строка таблицы («ровно 4 · доступно 3 · в вариантах …»)."
   },
   {
     "id": "B-13",
@@ -797,7 +798,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-14",
@@ -812,7 +813,7 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "fixed"
   },
   {
     "id": "B-15",
@@ -827,7 +828,8 @@
       "topics-structure-section.tsx"
     ],
     "batch": "quotas",
-    "status": "open"
+    "status": "withdrawn",
+    "note": "Снята как устаревшая: PRD-50 §16 (влит 2026-09-06) убрал индивидуальные пороги подтем вовсе — подтема судится правилом СВОЕЙ ТЕМЫ. Пояснения, которое просили сократить, в коде больше нет."
   },
   {
     "id": "B-16",
@@ -3461,8 +3463,9 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "duplicate",
-    "duplicateOf": "A-7"
+    "status": "fixed",
+    "duplicateOf": "A-7",
+    "note": "Закрыта переносом ui-kit 0.3.0: `.ou-drawer__head` в бандле ДС теперь `var(--ou-space-6)`. Гейт меряет это правило и проходит."
   },
   {
     "id": "G-2",
@@ -3477,8 +3480,9 @@
       "tb-components.css"
     ],
     "batch": "grid",
-    "status": "duplicate",
-    "duplicateOf": "A-6"
+    "status": "fixed",
+    "duplicateOf": "A-6",
+    "note": "Закрыта переносом ui-kit 0.3.0: `.ou-tabs__list` получил `padding-inline: var(--ou-space-6)`. Гейт меряет это правило и проходит."
   },
   {
     "id": "G-3",

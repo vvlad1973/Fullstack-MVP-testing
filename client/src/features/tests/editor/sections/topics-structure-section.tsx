@@ -29,6 +29,7 @@ import {
   Button,
   EmptyState,
   FormSection,
+  Grid,
   IconButton,
   Input,
   ModalDialog,
@@ -41,7 +42,7 @@ import {
 } from "@universityrt/ui-kit";
 import { effectiveSectionOrder, type TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import { VariantsEditor } from "./variants-editor";
-import { FoldAllButtons, useSectionFold } from "./section-fold";
+import { FoldAllButtons, useSectionFold, type SectionFold } from "./section-fold";
 import type {
   EditorSection,
   TestEditorModel,
@@ -719,6 +720,12 @@ function KeysTable(props: {
       (f) => f.questionIds.filter((id) => (props.tagsByQuestion.get(id) ?? []).some((t) => tagKey(t) === tagKey(key))).length,
     );
 
+  // Свёртка карточек квот. Состояние хранит РАСКРЫТЫЕ, а не свёрнутые: теги темы
+  // приезжают запросом, и набор «свернуть всё», посчитанный на первом рендере, оказался
+  // бы пустым — карточки открылись бы все. Свёрнутая карточка говорит то же, что говорила
+  // строка таблицы, поэтому исходное состояние — свёрнуто.
+  const [openQuotas, setOpenQuotas] = useState<Set<string>>(new Set());
+
   const usedKeys = new Set(strata.map((s) => tagKey(s.tag)));
   const unusedTags = topicTags.filter((t) => !usedKeys.has(tagKey(t)));
   const availOf = (tag: string) => availByKey[tagKey(tag)] ?? 0;
@@ -734,18 +741,35 @@ function KeysTable(props: {
     return t.length < 1 || t.length > TAG_MAX_LENGTH;
   };
   const anyBadTag = strata.some((s) => badTag(s.tag));
-  // The «Доступно» column only ever spoke about a live quota.
-  const showAvail = quotasLive && anyShortfall;
-
   const setStrata = (next: DrawBlueprint["strata"]) => onChange({ strata: next });
   const toggle = (on: boolean) => {
     if (!on) return onChange(null);
     if (noTags) return;
     onChange({ strata: [{ tag: topicTags[0], count: 1, mode: "exact" }] });
   };
+  const quotaKeys = strata.map((s) => tagKey(s.tag));
+  const quotaFold: SectionFold = {
+    isOpen: (id) => openQuotas.has(id),
+    toggle: (id) =>
+      setOpenQuotas((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    collapseAll: () => setOpenQuotas(new Set()),
+    expandAll: () => setOpenQuotas(new Set(quotaKeys)),
+    allCollapsed: quotaKeys.every((k) => !openQuotas.has(k)),
+    anyCollapsed: quotaKeys.some((k) => !openQuotas.has(k)),
+  };
+
   const addStratum = () => {
     if (unusedTags.length === 0) return;
-    setStrata([...strata, { tag: unusedTags[0], count: 1, mode: "exact" }]);
+    const tag = unusedTags[0];
+    setStrata([...strata, { tag, count: 1, mode: "exact" }]);
+    // Новая квота открывается сама: тег в ней ещё не выбран, и свёрнутая карточка
+    // предложила бы автору угадать, что именно он только что добавил.
+    setOpenQuotas((prev) => new Set([...prev, tagKey(tag)]));
   };
   const updateStratum = (i: number, patch: Partial<DrawBlueprint["strata"][number]>) =>
     setStrata(strata.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -808,136 +832,152 @@ function KeysTable(props: {
             />
           )}
 
-          <table className="tb-table">
-            <thead>
-              <tr>
-                <th>Подтема (тег вопроса)</th>
-                <th>Сколько</th>
-                <th>Режим</th>
-                {showAvail && <th>Доступно</th>}
-                {variants && <th>В вариантах</th>}
-                <th aria-label="Действия" />
-              </tr>
-            </thead>
-            <tbody>
-              {rowKeys.map((rowTag, i) => {
-                // Quota half of the row: the stratum with this key, if the author set one.
-                // Its index in `strata` (not the row index) keeps the quota test ids and the
-                // mutators addressing the very same stratum they addressed before.
-                const si = strata.findIndex((s) => tagKey(s.tag) === tagKey(rowTag));
-                const stratum = si >= 0 ? strata[si] : null;
-                const avail = availOf(rowTag);
-                const short = stratum != null && stratum.count > avail;
-                const options = topicTags
-                  .filter((t) => tagKey(t) === tagKey(rowTag) || !usedKeys.has(tagKey(t)))
-                  .map((t) => ({ value: t, label: t }));
-                return (
-                  <tr key={`${tagKey(rowTag)}-${i}`}>
-                    <td>
-                      {stratum ? (
-                        <Select
-                          size="m"
-                          fullWidth
-                          value={stratum.tag}
-                          options={options}
-                          tone={badTag(stratum.tag) ? "error" : undefined}
-                          disabled={!quotasLive}
-                          onChange={(v) => updateStratum(si, { tag: v })}
-                          aria-label={`Подтема для квоты ${si + 1}`}
-                          data-testid={`quota-tag-${topicId}-${si}`}
-                        />
-                      ) : (
-                        <span className="tb-quota-block__avail">{rowTag}</span>
+          {/* Карточка на подтему, а не строка таблицы (эскиз 710-792): в строке поля
+              сжимались до неразличимости, а подписей у них не было вовсе — колонка
+              «Сколько» не говорит, сколько чего. Свёрнутая карточка сообщает ровно то,
+              что говорила строка: режим, число, доступно и раскладку по вариантам. */}
+          <div className="tb-fold-toolbar">
+            <FoldAllButtons fold={quotaFold} testIdPrefix={`quota-${topicId}`} />
+          </div>
+
+          {rowKeys.map((rowTag, i) => {
+            // Quota half of the row: the stratum with this key, if the author set one.
+            // Its index in `strata` (not the row index) keeps the quota test ids and the
+            // mutators addressing the very same stratum they addressed before.
+            const si = strata.findIndex((s) => tagKey(s.tag) === tagKey(rowTag));
+            const stratum = si >= 0 ? strata[si] : null;
+            const avail = availOf(rowTag);
+            const short = stratum != null && stratum.count > avail;
+            const options = topicTags
+              .filter((t) => tagKey(t) === tagKey(rowTag) || !usedKeys.has(tagKey(t)))
+              .map((t) => ({ value: t, label: t }));
+            // Разворачивать нечего у справочной строки вариантного режима: квоты у неё нет,
+            // и в теле карточки не оказалось бы ни одного поля.
+            const foldable = stratum != null && quotasLive;
+            const open = foldable && quotaFold.isOpen(tagKey(rowTag));
+            return (
+              <section
+                key={`${tagKey(rowTag)}-${i}`}
+                className={"ou-card ou-card--outlined ou-card--sm tb-level-card" + (open ? "" : " is-collapsed")}
+                data-testid={`quota-card-${topicId}-${i}`}
+              >
+                <header className="ou-card__header tb-level-card__head">
+                  <div className="ou-card__heading tb-level-card__heading">
+                    <h5 className="ou-card__title tb-level-card__title">{rowTag}</h5>
+                    <p className="ou-card__subtitle tb-level-card__summary">
+                      {stratum && (
+                        <span>
+                          {stratum.mode === "min" ? "не менее" : "ровно"} {stratum.count}
+                          {" · "}
+                        </span>
                       )}
-                    </td>
-                    <td>
-                      {stratum ? (
-                        <NumberInput
-                          size="s"
-                          value={stratum.count}
-                          min={1}
-                          max={drawCount}
-                          invalid={quotasLive && overflow}
-                          disabled={!quotasLive}
-                          onChange={(n) => updateStratum(si, { count: n })}
-                          aria-label={`Сколько вопросов для подтемы «${stratum.tag}»`}
-                          data-testid={`quota-count-${topicId}-${si}`}
-                        />
-                      ) : (
-                        <span className="tb-quota-block__avail">—</span>
+                      <span>доступно {avail}</span>
+                      {/* Знак тревоги стоит У ЗНАЧЕНИЯ карточки-нарушителя, а не чипом в
+                          подвале блока: чип говорил о блоке целиком и не показывал, какая
+                          подтема виновата. Подсказка открывается и по наведению, и по
+                          фокусу с клавиатуры (эскиз prd50-subtopic-gate.html, состояние 2). */}
+                      {short && stratum && (
+                        <Tooltip
+                          placement="top"
+                          wrap
+                          tabIndex={0}
+                          content={`Вопросов с этой подтемой меньше, чем запрошено: доступно ${avail} из ${stratum.count}. Выдастся сколько есть.`}
+                          data-testid={`quota-shortfall-${topicId}-${si}`}
+                        >
+                          <span className="tb-quota-block__alarm" aria-hidden="true">
+                            <AlertTriangle size={14} />
+                          </span>
+                          <span className="ou-sr-only">
+                            {`Нехватка вопросов по подтеме «${stratum.tag}»`}
+                          </span>
+                        </Tooltip>
                       )}
-                    </td>
-                    <td>
-                      {stratum ? (
+                      {variants && (
+                        <span data-testid={`key-variants-${topicId}-${i}`}>
+                          {" · в вариантах "}
+                          {variantCounts(rowTag).map((n, vi) => (
+                            <span key={vi}>
+                              {variants[vi].label}: {n}
+                              {vi < variants.length - 1 ? " · " : ""}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="ou-card__trail tb-level-card__trail">
+                    {stratum && quotasLive && (
+                      <IconButton
+                        icon={<Trash2 size={14} aria-hidden="true" />}
+                        variant="ghost"
+                        size="s"
+                        aria-label={`Удалить квоту «${stratum.tag}»`}
+                        onClick={() => removeStratum(si)}
+                        data-testid={`quota-remove-${topicId}-${si}`}
+                      />
+                    )}
+                    {foldable && (
+                      <button
+                        type="button"
+                        className="tb-level-card__chev"
+                        aria-label={open ? `Свернуть квоту «${rowTag}»` : `Развернуть квоту «${rowTag}»`}
+                        aria-expanded={open}
+                        onClick={() => quotaFold.toggle(tagKey(rowTag))}
+                        data-testid={`quota-fold-${topicId}-${i}`}
+                      >
+                        <ChevronDown width={16} height={16} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                </header>
+
+                {open && stratum && (
+                  <div className="ou-card__body tb-level-card__body">
+                    <Grid cols={2} gap={4}>
+                      <Select
+                        size="m"
+                        fullWidth
+                        label="Подтема (тег вопроса)"
+                        value={stratum.tag}
+                        options={options}
+                        tone={badTag(stratum.tag) ? "error" : undefined}
+                        onChange={(v) => updateStratum(si, { tag: v })}
+                        aria-label={`Подтема для квоты ${si + 1}`}
+                        data-testid={`quota-tag-${topicId}-${si}`}
+                      />
+                      <NumberInput
+                        size="m"
+                        fullWidth
+                        label="Сколько вопросов"
+                        value={stratum.count}
+                        min={1}
+                        max={drawCount}
+                        invalid={overflow}
+                        onChange={(n) => updateStratum(si, { count: n })}
+                        aria-label={`Сколько вопросов для подтемы «${stratum.tag}»`}
+                        data-testid={`quota-count-${topicId}-${si}`}
+                      />
+                    </Grid>
+                    <Grid cols={2} gap={4}>
+                      <div className="ou-formfield">
+                        <label className="ou-formfield__lbl">Режим квоты</label>
                         <SegmentedControl<"exact" | "min">
-                          size="s"
+                          size="m"
                           value={stratum.mode ?? "exact"}
                           items={[
-                            // SegmentedControl disables per item, not as a whole.
-                            { value: "exact", label: "Ровно", disabled: !quotasLive },
-                            { value: "min", label: "Не менее", disabled: !quotasLive },
+                            { value: "exact", label: "Ровно" },
+                            { value: "min", label: "Не менее" },
                           ]}
                           onChange={(v) => updateStratum(si, { mode: v })}
                           aria-label={`Режим квоты для подтемы «${stratum.tag}»`}
                         />
-                      ) : (
-                        <span className="tb-quota-block__avail">—</span>
-                      )}
-                    </td>
-                    {showAvail && (
-                      <td>
-                        {/* Знак тревоги стоит У ЗНАЧЕНИЯ строки-нарушителя, а не чипом в
-                            подвале карточки: чип говорил о карточке целиком и не показывал,
-                            какая строка виновата. Подсказка открывается и по наведению, и по
-                            фокусу с клавиатуры (эскиз prd50-subtopic-gate.html, состояние 2). */}
-                        <span className="tb-quota-block__availrow">
-                          <span className="tb-quota-block__avail">{avail}</span>
-                          {short && stratum && (
-                            <Tooltip
-                              placement="top"
-                              wrap
-                              tabIndex={0}
-                              content={`Вопросов с этой подтемой меньше, чем запрошено: доступно ${avail} из ${stratum.count}. Выдастся сколько есть.`}
-                              data-testid={`quota-shortfall-${topicId}-${si}`}
-                            >
-                              <span className="tb-quota-block__alarm" aria-hidden="true">
-                                <AlertTriangle size={14} />
-                              </span>
-                              <span className="ou-sr-only">
-                                {`Нехватка вопросов по подтеме «${stratum.tag}»`}
-                              </span>
-                            </Tooltip>
-                          )}
-                        </span>
-                      </td>
-                    )}
-                    {variants && (
-                      <td data-testid={`key-variants-${topicId}-${i}`}>
-                        {variantCounts(rowTag).map((n, vi) => (
-                          <span key={vi} className="tb-quota-block__avail">
-                            {variants[vi].label}: {n}
-                            {vi < variants.length - 1 ? " · " : ""}
-                          </span>
-                        ))}
-                      </td>
-                    )}
-                    <td>
-                      {stratum && quotasLive && (
-                        <IconButton
-                          icon={<Trash2 size={14} aria-hidden="true" />}
-                          variant="ghost"
-                          size="s"
-                          aria-label={`Удалить квоту «${stratum.tag}»`}
-                          onClick={() => removeStratum(si)}
-                          data-testid={`quota-remove-${topicId}-${si}`}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </div>
+                    </Grid>
+                  </div>
+                )}
+              </section>
+            );
+          })}
 
           {quotasLive && (
             <div className="tb-quota-actions">
