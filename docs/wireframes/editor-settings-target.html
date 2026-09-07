@@ -467,6 +467,7 @@
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'report')">s-report</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'during')">s-during</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'texts')">s-texts</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'topic-feedback')">s-topic-feedback</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'scale-levels')">s-scale-levels</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'difficulty-levels')">s-difficulty-levels</button>
       <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'metric-levels')">s-metric-levels</button>
@@ -1492,6 +1493,7 @@
                 <span class="ou-drawer__rail-grouplbl" id="rail-feedback-общее">Обратная связь</span>
                 <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-общее">
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
@@ -1542,6 +1544,60 @@
                     </div>
                 </div>
               </div>
+            </div>
+          </div>
+          </div>
+                    <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    
+    
+    <!-- ═══════════ STATE: s-topic-feedback — тексты тем и подтем ═══════════ -->
+    <div id="wf-topic-feedback" class="wf-state">
+      <div class="ou-drawer-root ou-drawer-root--right" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Сертификация руководителей в «Ростелекоме»</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v8</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <!-- Решение владельца 2026-09-07: «Обратная связь» — не один экран, а группа.
+                     Дочерний пункт ПРЯЧЕТСЯ, когда перечислять нечего: уровней шкал или
+                     показателей не задано, адаптивный режим выключен. -->
+                <span class="ou-drawer__rail-grouplbl" id="rail-feedback-общее">Обратная связь</span>
+                <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-общее">
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По темам</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
+                </div>
+                <button type="button" class="ou-drawer__rail-item">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro">
                   <h3 class="ou-formsection__title">По темам</h3>
@@ -1709,6 +1765,7 @@
                 <span class="ou-drawer__rail-grouplbl" id="rail-feedback-шкалы">Обратная связь</span>
                 <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-шкалы">
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням шкал</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
@@ -1839,6 +1896,7 @@
                 <span class="ou-drawer__rail-grouplbl" id="rail-feedback-сложность">Обратная связь</span>
                 <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-сложность">
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням сложности</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням показателей</button>
@@ -1951,6 +2009,7 @@
                 <span class="ou-drawer__rail-grouplbl" id="rail-feedback-показатели">Обратная связь</span>
                 <div class="ou-drawer__rail-group" role="group" aria-labelledby="rail-feedback-показатели">
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                  <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням шкал</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По уровням сложности</button>
                   <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child is-active" aria-current="page">По уровням показателей</button>

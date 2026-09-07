@@ -92,6 +92,33 @@ describe("рейл «Обратная связь и итоги» — дочер�
     expect(screen.queryByTestId("feedback-rail-difficulty-levels")).toBeNull();
   });
 
+  it("«По темам» — свой пункт, и только когда темы есть", () => {
+    // Тексты тем и подтем пишут не в один присест с общим текстом теста.
+    renderTab(baseModel());
+    expect(screen.queryByTestId("feedback-rail-topics")).toBeNull();
+
+    const withTopic = baseModel({
+      sections: [
+        {
+          topicId: "top-1",
+          topicName: "Финансы",
+          maxQuestions: 10,
+          drawCount: 5,
+          drawAll: false,
+          required: true,
+          timeLimit: { source: "inherit_test" },
+          feedback: { format: "plain", text: "" },
+          feedbackLinks: [],
+          feedbackAssets: [],
+          feedbackEvents: [],
+          defaultPoints: null,
+        },
+      ] as TestEditorModel["sections"],
+    });
+    renderTab(withTopic);
+    expect(screen.getByTestId("feedback-rail-topics")).toHaveTextContent("По темам");
+  });
+
   it("уровни шкалы открывают «По уровням шкал»", () => {
     renderTab(baseModel({ scales: [scale({ bands: [band()] })] }));
     expect(screen.getByTestId("feedback-rail-scale-levels")).toHaveTextContent("По уровням шкал");

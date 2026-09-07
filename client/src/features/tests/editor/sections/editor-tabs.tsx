@@ -339,6 +339,7 @@ type FeedbackRail =
   | "during"
   | "results"
   | "texts"
+  | "topics"
   | "scale-levels"
   | "difficulty-levels"
   | "metric-levels"
@@ -376,6 +377,9 @@ export function FeedbackTab({
       label: "Обратная связь",
       items: [
         { key: "texts", label: "Общее" },
+        ...(model.sections.length > 0
+          ? [{ key: "topics" as const, label: "По темам" }]
+          : []),
         ...(hasAnyBands(model, "scales")
           ? [{ key: "scale-levels" as const, label: "По уровням шкал" }]
           : []),
@@ -444,14 +448,18 @@ export function FeedbackTab({
           )}
         </>
       )}
+      {/* «Общее» — только тексты теста целиком: вводный и общий. Разборы по темам и по
+          уровням стоят своими пунктами: их пишут не в один присест с общим текстом. */}
       {active === "texts" && (
+        <FeedbackTextsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
+      )}
+      {/* PRD-29 §7.1a: тексты тем — РАЗРЕШЁННЫЕ, по одному на тему. Правились они в
+          «Составе», среди выборки и квот, где автор искал их последними.
+          PRD-50 FR-50: тексты подтем идут следом, а не отдельным пунктом: подтема —
+          разрез ТЕМЫ, и её текст автор пишет, дописав текст самой темы. */}
+      {active === "topics" && (
         <>
-          <FeedbackTextsPane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
-          {/* PRD-29 §7.1a: тексты тем — РАЗРЕШЁННЫЕ, по одному на тему. Правились они в
-              «Составе», среди выборки и квот, где автор искал их последними. */}
           <TopicFeedbackCard model={model} updateModel={updateModel} />
-          {/* PRD-50 FR-50: тексты подтем — рядом с текстом теста, а не в «Оценке»: это
-              содержание, которое человек прочитает, а не правило, по которому его судят. */}
           <BreakdownFeedbackCard model={model} updateModel={updateModel} />
         </>
       )}

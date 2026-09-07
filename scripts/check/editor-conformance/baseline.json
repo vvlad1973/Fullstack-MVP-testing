@@ -632,130 +632,10 @@
     "finding": null
   },
   {
-    "op": "missing",
-    "role": "label",
-    "text": "1. О компании",
-    "index": 9,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "button",
-    "text": "Сбросить до установок темы",
-    "index": 10,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "2. Корпоративные финансы",
-    "index": 12,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "3. Технологии",
-    "index": 14,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Стратегия компании",
-    "index": 20,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Продукты компании",
-    "index": 22,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "missing",
-    "role": "label",
-    "text": "Корпоративная культура",
-    "index": 24,
-    "state": "texts",
-    "finding": null
-  },
-  {
     "op": "extra",
     "role": "label",
     "text": "В отчёте",
     "index": 6,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "1. Демо: управленческие компетенции",
-    "index": 10,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "2. Демо: знания о компании",
-    "index": 11,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
-    "index": 16,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Обратная связь",
-    "index": 18,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Постановка задач",
-    "index": 20,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Корпоративные ценности",
-    "index": 23,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Охрана труда",
-    "index": 25,
-    "state": "texts",
-    "finding": null
-  },
-  {
-    "op": "extra",
-    "role": "label",
-    "text": "Регламенты и процессы",
-    "index": 27,
     "state": "texts",
     "finding": null
   },
@@ -766,6 +646,134 @@
     "index": 6,
     "state": "texts",
     "finding": "data:intro-report-own-text"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "1. О компании",
+    "index": 1,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "button",
+    "text": "Сбросить до установок темы",
+    "index": 2,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "2. Корпоративные финансы",
+    "index": 4,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "3. Технологии",
+    "index": 6,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Стратегия компании",
+    "index": 12,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Продукты компании",
+    "index": 14,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "missing",
+    "role": "label",
+    "text": "Корпоративная культура",
+    "index": 16,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "1. Демо: управленческие компетенции",
+    "index": 1,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "2. Демо: знания о компании",
+    "index": 2,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 7,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Обратная связь",
+    "index": 9,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Постановка задач",
+    "index": 11,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Корпоративные ценности",
+    "index": 14,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Охрана труда",
+    "index": 16,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "extra",
+    "role": "label",
+    "text": "Регламенты и процессы",
+    "index": 18,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
+  },
+  {
+    "op": "order",
+    "role": "button",
+    "text": "",
+    "index": 1,
+    "state": "topic-feedback",
+    "finding": "data:topic-feedback-content"
   },
   {
     "op": "missing",
