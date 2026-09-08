@@ -483,8 +483,6 @@ function StatusBar({ snap }: { snap: InspectorSnapshot }) {
             )}
           </span>
         </div>
-        <span className="dbg__bar-sep" />
-        <RunStateStat run={snap.runState} />
         {s.alarm ? (
           <>
             <span className="dbg__bar-sep" />
@@ -503,13 +501,19 @@ function StatusBar({ snap }: { snap: InspectorSnapshot }) {
  * PRD-36 FR-17: занятая доля бюджета `cmi.suspend_data`. Переполнение состояния проявляется
  * молча — LMS обрезает строку, и разом теряются счётчик попыток, таймер и оба барьера, — поэтому
  * запас показывается ДО того, как он кончится, а не диагностируется по последствиям.
+ *
+ * МЕСТО — ВКЛАДКА «LMS», а не статусная панель. Панель по эскизу несёт методологический
+ * минимум — прогресс, оценку и алярм расчёта, — а всё, что относится к обмену с LMS
+ * (`completion_status`, `entry`, длина `suspend_data`), эскиз прямо отправляет в LMS-журнал:
+ * «плумбинг, не зона методолога». Показатель приехал из PRD-36 позже плеера и осел на панели
+ * не по правилу, а по месту, где было свободно.
  */
 function RunStateStat({ run }: { run: InspectorSnapshot["runState"] }) {
   const percent = Math.round(run.share * 100);
   const tone = run.share >= 1 ? "error" : run.share >= 0.8 ? "warning" : "success";
   return (
-    <div className="dbg__stat">
-      <span className="dbg__stat-lbl">Состояние прогона</span>
+    <div className="dbg__stat dbg__stat--inline">
+      <span className="dbg__stat-lbl">Состояние прогона · suspend_data</span>
       <span className="dbg__stat-val">
         <span className="dbg__stat-num">{`${run.length} из ${run.budget}`}</span>
         <Tag tone={tone} size="s">{`${percent}% бюджета`}</Tag>
@@ -929,6 +933,9 @@ function LmsPanel({ snap }: { snap: InspectorSnapshot }) {
   ];
   return (
     <Stack gap={3}>
+      {/* Запас состояния — над журналом: он про ту же строку `suspend_data`, что журнал
+          пишет, и читается как её итог, а не как отдельная метрика прогона. */}
+      <RunStateStat run={snap.runState} />
       <Table
         columns={columns}
         rows={snap.lmsRows}

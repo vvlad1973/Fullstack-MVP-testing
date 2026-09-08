@@ -211,6 +211,17 @@ describe("DebugPlayerPage — ready", () => {
     expect(screen.getByText("completion_status")).toBeInTheDocument(); // structured LMS table
   });
 
+  it("keeps the suspend_data budget on the LMS tab, not on the status bar", () => {
+    // Эскиз PRD-18 держит на статусной панели методологический минимум, а всё про обмен
+    // с LMS отправляет в LMS-журнал: «плумбинг, не зона методолога». Показатель PRD-36
+    // приехал позже плеера и однажды уже осел на панели.
+    const { container } = render(<DebugPlayerPage />);
+    expect(container.querySelector(".dbg__status")?.textContent ?? "").not.toContain("бюджета");
+    fireEvent.click(screen.getByRole("tab", { name: "LMS" }));
+    expect(screen.getByText(/Состояние прогона/)).toBeInTheDocument();
+    expect(screen.getByText(/% бюджета/)).toBeInTheDocument();
+  });
+
   it("filters the state table by path", () => {
     render(<DebugPlayerPage />);
     fireEvent.click(screen.getByRole("tab", { name: "Состояние" }));

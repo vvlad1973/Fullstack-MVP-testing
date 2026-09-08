@@ -64,6 +64,9 @@
   gap: var(--ou-space-2) var(--ou-space-4);
 }
 .dbg__stat { display: flex; flex-direction: column; gap: var(--ou-space-1); }
+/* Тот же показатель ВНУТРИ панели инспектора: там он строка над журналом, а не колонка
+   статусной панели, — подпись и значение стоят рядом. */
+.dbg__stat--inline { flex-direction: row; align-items: baseline; gap: var(--ou-space-3); }
 .dbg__stat-lbl {
   font: var(--ou-text-caption);
   text-transform: uppercase;
