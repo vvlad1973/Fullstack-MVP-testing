@@ -232,6 +232,13 @@ export default function DebugPlayerPage() {
             <div className="dbg__frame">
               <div className="dbg__ribbon">
                 <span>SCORM-пакет{state.template ? ` · шаблон «${state.template}»` : ""}</span>
+                {/*
+                  Распорка, как в эскизе (`docs/wireframes/approved/prd52-review-player.html`,
+                  `.wf-frame-ribbon .spacer`) и как на экране рецензирования: тумблеры стоят
+                  ПАРОЙ у правого края. Без неё `justify-content: space-between` растаскивал
+                  три элемента риббона по всей ширине, и «Эталон» повисал посередине.
+                */}
+                <span className="dbg__bar-spacer" />
                 <label className="dbg__ref-toggle" title="Подсветить правильные ответы (debug; на баллы не влияет)">
                   <span className="dbg__ref-lbl">Эталон</span>
                   <Switch

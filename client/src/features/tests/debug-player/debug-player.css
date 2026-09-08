@@ -102,8 +102,10 @@
 .dbg__ribbon {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ou-space-2);
+  /* Раскладку держит РАСПОРКА после подписи (`.dbg__bar-spacer`), как в эскизе: тумблеры
+     стоят парой у правого края. `justify-content: space-between` тут стоял вместо неё и
+     растаскивал три элемента по всей ширине — «Эталон» повисал посередине риббона. */
+  gap: var(--ou-space-4);
   font: var(--ou-text-caption);
   color: var(--ou-fg-muted);
   background: var(--ou-bg-muted);
