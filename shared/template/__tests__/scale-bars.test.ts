@@ -1,9 +1,9 @@
 /**
- * Линейчатая диаграмма шкал: общая ось, столбики и числа.
+ * Линейчатая диаграмма шкал: столбики и числа.
  *
- * Закрепляется главное, ради чего вид заведён, — ОДНА ось на все строки. Карточки, которые
- * он заменяет, масштабируются доменом своей шкалы, и «27 из 45» рядом с «30 из 98» давали
- * почти одинаковую длину; здесь длина обязана говорить о величине.
+ * Закрепляется главное правило фигуры — масштаб задаёт САМЫЙ БОЛЬШОЙ БАЛЛ попытки, а не
+ * домен. Это не линейка прогресса: доля от максимума шкалы здесь не показывается, поэтому
+ * домен для построения не нужен вовсе, а нужен он только для ЦВЕТА столбика.
  */
 import { describe, expect, it } from "vitest";
 import { buildScaleBars } from "../scale-bars";
@@ -11,8 +11,15 @@ import { buildMeasureView } from "../measure-view";
 import { LEVEL_SCHEMES } from "../level-ramp";
 import type { ScaleInterpretation } from "../../scales/interpretation";
 
-function interp(domainMax: number, extra: Partial<ScaleInterpretation> = {}): ScaleInterpretation {
-  return { domainMin: 0, domainMax, displayMax: null, valence: "none", bands: [], ...extra };
+function interp(domainMax: number | null, extra: Partial<ScaleInterpretation> = {}): ScaleInterpretation {
+  return {
+    domainMin: domainMax === null ? null : 0,
+    domainMax,
+    displayMax: null,
+    valence: "none",
+    bands: [],
+    ...extra,
+  };
 }
 
 function measure(key: string, name: string, value: number, interpretation: ScaleInterpretation) {
@@ -28,16 +35,35 @@ function bars(measures: ReturnType<typeof measure>[], showMax = true) {
 }
 
 describe("линейчатая диаграмма шкал", () => {
-  it("кладёт все шкалы на ОДНУ ось — наибольший максимум из показанных", () => {
+  it("меряет столбики НАИБОЛЬШИМ баллом попытки", () => {
+    const out = bars([
+      measure("a", "Целеустремленный", 21, interp(98)),
+      measure("b", "Командный", 35, interp(98)),
+    ]);
+    // 35 — самый большой балл, он и занимает всю ширину; 21 короче ровно во столько же раз.
+    expect(out?.rows[1].widthPercent).toBe(100);
+    expect(out?.rows[0].widthPercent).toBeCloseTo(60, 1);
+  });
+
+  it("не смотрит на домен: доля от максимума шкалы тут не показывается", () => {
+    // Обе шкалы с одним баллом, но разными диапазонами. Линейка прогресса нарисовала бы их
+    // разной длины (60 % и 30.6 %), диаграмма — одинаковой: баллы равны.
     const out = bars([
       measure("a", "Короткая", 27, interp(45)),
-      measure("b", "Длинная", 30, interp(98)),
+      measure("b", "Длинная", 27, interp(98)),
     ]);
-    expect(out?.axisMinText).toBe("0");
-    expect(out?.axisMaxText).toBe("98");
-    // 27 и 30 от одной оси 0..98 — 27.6 % и 30.6 %. От своих доменов было бы 60 % и 30.6 %.
-    expect(out?.rows[0].widthPercent).toBeCloseTo(27.6, 1);
-    expect(out?.rows[1].widthPercent).toBeCloseTo(30.6, 1);
+    expect(out?.rows[0].widthPercent).toBe(100);
+    expect(out?.rows[1].widthPercent).toBe(100);
+  });
+
+  it("строится и для шкал БЕЗ домена", () => {
+    const out = bars([
+      measure("a", "Без границ", 30, interp(null)),
+      measure("b", "Тоже без границ", 15, interp(null)),
+    ]);
+    expect(out?.rows).toHaveLength(2);
+    expect(out?.rows[0].widthPercent).toBe(100);
+    expect(out?.rows[1].widthPercent).toBe(50);
   });
 
   it("печатает число тем же текстом, что карточка", () => {
@@ -48,24 +74,15 @@ describe("линейчатая диаграмма шкал", () => {
     expect(withoutMax?.rows[0].valueText).toBe("21");
   });
 
-  it("берёт предел рисунка автора, когда он задан", () => {
-    // `displayMax` — то же, чем роза укорачивает луч: две фигуры одного экрана не должны
-    // спорить о масштабе.
-    const out = bars([measure("a", "Шкала", 20, interp(98, { displayMax: 40 }))]);
-    expect(out?.axisMaxText).toBe("40");
-    expect(out?.rows[0].widthPercent).toBeCloseTo(50, 1);
-  });
-
-  it("красит столбик по положению в СВОЁМ домене, а не на общей оси", () => {
+  it("красит столбик по положению в СВОЁМ домене, а не по доле на фигуре", () => {
     // Иначе высокий балл короткой шкалы читался бы как низкий: цвет говорит об уровне.
     const ramp = LEVEL_SCHEMES.traffic;
-    const graded = interp(45, { valence: "higher_is_better" });
+    const short = interp(45, { valence: "higher_is_better" });
+    const long = interp(98, { valence: "higher_is_better" });
+    const ms = [measure("a", "Короткая", 45, short), measure("b", "Длинная", 45, long)];
     const out = buildScaleBars({
-      measures: [measure("a", "Короткая", 45, graded), measure("b", "Длинная", 45, interp(98, { valence: "higher_is_better" }))],
-      views: [
-        buildMeasureView({ ...measure("a", "Короткая", 45, graded), requestedKind: "bars", ramp }),
-        buildMeasureView({ ...measure("b", "Длинная", 45, interp(98, { valence: "higher_is_better" })), requestedKind: "bars", ramp }),
-      ],
+      measures: ms,
+      views: ms.map((m) => buildMeasureView({ ...m, requestedKind: "bars", ramp })),
       ramp,
     });
     // Первая шкала на своём максимуме — благоприятный край рампы; вторая на 46 % — нет.
@@ -73,25 +90,14 @@ describe("линейчатая диаграмма шкал", () => {
     expect(out?.rows[1].color).not.toBe(ramp.favorable);
   });
 
-  it("не строится, когда домена нет ни у одной шкалы", () => {
-    const out = bars([measure("a", "Без домена", 12, { domainMin: null, domainMax: null, displayMax: null, valence: "none", bands: [] })]);
-    // Строка без столбика — это число, притворяющееся диаграммой; такую шкалу печатает
-    // карточка, куда её отправил откат вида.
-    expect(out).toBeNull();
+  it("не строится, когда все баллы нулевые", () => {
+    // Ни один столбик не имел бы длины, и фигура сказала бы неправду о равенстве шкал.
+    expect(bars([measure("a", "Ноль", 0, interp(98)), measure("b", "Ноль", 0, interp(98))])).toBeNull();
   });
 
-  it("пропускает шкалу без домена, оставляя остальные на общей оси", () => {
-    const out = bars([
-      measure("a", "С доменом", 49, interp(98)),
-      measure("b", "Без домена", 12, { domainMin: null, domainMax: null, displayMax: null, valence: "none", bands: [] }),
-    ]);
-    expect(out?.rows).toHaveLength(1);
-    expect(out?.rows[0].key).toBe("a");
-    expect(out?.rows[0].widthPercent).toBeCloseTo(50, 1);
-  });
-
-  it("держит значение за пределом домена в границах оси", () => {
-    const out = bars([measure("a", "Перебор", 120, interp(98))]);
-    expect(out?.rows[0].widthPercent).toBe(100);
+  it("пропускает нечисловую меру, оставляя остальные", () => {
+    const numericOnly = bars([measure("a", "Число", 40, interp(98))]);
+    expect(numericOnly?.rows).toHaveLength(1);
+    expect(numericOnly?.rows[0].key).toBe("a");
   });
 });

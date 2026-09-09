@@ -244,11 +244,11 @@ const FALLBACK_CHAINS: Record<RenderKind, RenderKind[]> = {
 function isFeasible(kind: RenderKind, caps: MeasureCapabilities): boolean {
   if (!caps.isNumeric) return kind === "label";
   switch (kind) {
-    // Диаграмме нужен домен — по нему шкала ложится на общую ось. Интервалы ей не мешают:
-    // строка печатает столбик и число, а уровень остаётся тегом, поэтому методика с
-    // уровнями рисуется диаграммой так же, как и без них.
+    // Диаграмме довольно ЧИСЛА: масштаб ей задаёт наибольший балл попытки, а не домен
+    // (см. `shared/template/scale-bars`), поэтому методика без объявленных границ рисуется
+    // ею так же. Интервалы тоже не мешают — уровень остаётся тегом в строке.
     case "bars":
-      return caps.hasDomain;
+      return true;
     case "gradient_bar":
       return caps.hasDomain && !caps.hasBands;
     case "band_ruler":

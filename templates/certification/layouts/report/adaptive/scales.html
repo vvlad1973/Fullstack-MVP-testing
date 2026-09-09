@@ -52,14 +52,10 @@
       {{#each result.scaleBars.rows}}
       <div class="tb-report__bar">
         <div class="tb-report__bar-name">{{#unless hideName}}{{name}}{{/unless}}</div>
-        <div class="tb-report__bar-track"><span class="tb-report__bar-fill" style="width:{{widthPercent}}%;--tb-zone:{{color}}"></span></div>
+        <div class="tb-report__bar-field"><span class="tb-report__bar-fill" style="width:{{widthPercent}}%;--tb-zone:{{color}}"></span></div>
         <div class="tb-report__bar-val">{{#if showValue}}{{valueLabel}}{{/if}}</div>
       </div>
       {{/each}}
-      <div class="tb-report__bar-axis">
-        <span>{{result.scaleBars.axisMinText}}</span>
-        <span>{{result.scaleBars.axisMaxText}}</span>
-      </div>
     </div>
     {{/if}}
     {{#unless result.scaleBars}}

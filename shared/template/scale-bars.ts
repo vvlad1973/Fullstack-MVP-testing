@@ -5,14 +5,15 @@
  * у каждого. Печатается вместо списка карточек и уживается с розой или радаром рядом —
  * это другой способ показать те же шкалы, а не другая диаграмма.
  *
- * Зачем отдельный модуль, если карточка-градусник рисует такой же столбик: у карточек нет
- * и не может быть ОБЩЕЙ оси. Каждая масштабируется доменом своей шкалы, поэтому «27 из 45»
- * и «30 из 98» дают почти одинаковую длину, а профиль читается ровно по сравнению шкал
- * между собой. Ось здесь одна на всю фигуру, и решить это можно только видя весь список —
- * то есть выше карточки.
+ * Масштаб задаёт САМЫЙ БОЛЬШОЙ БАЛЛ этой попытки: он занимает всю ширину поля, остальные
+ * столбики короче ровно во столько раз, во сколько меньше их баллы. Это не линейка
+ * прогресса: доли домена здесь не показываются, дорожки до максимума шкалы нет, и вопрос,
+ * на который отвечает фигура, — «какая шкала выражена сильнее и насколько», а не «сколько
+ * набрано из возможного». Поэтому домен шкале и не нужен: диаграмма строится и там, где
+ * методика границ не объявила.
  *
- * Числа при этом остаются НЕ нормированными: столбик приводится к общей оси, а печатается
- * сырой балл методики. Проценты были бы вторым, не существующим у методики показателем.
+ * Числа печатаются сырыми баллами методики. Проценты были бы вторым, не существующим у
+ * методики показателем, а длина столбика и так сообщает соотношение.
  *
  * Чистый — ни DOM, ни Node; бандлится в SCORM-пакет как есть.
  */
@@ -33,7 +34,7 @@ export interface CtxScaleBar {
   valueLabel: string;
   /** Печатать ли число: скрытое значение (видимость «уровень») его не раскрывает. */
   showValue: boolean;
-  /** Длина столбика в процентах ОБЩЕЙ оси. */
+  /** Длина столбика в процентах от САМОГО БОЛЬШОГО балла фигуры. */
   widthPercent: number;
   /** Цвет столбика — HSL-тройка, как везде в оформлении (`hsl(var(--tb-zone))`). */
   color: HslTriple;
@@ -46,9 +47,6 @@ export interface CtxScaleBar {
 /** Диаграмма целиком. `null` — печатать нечего, список карточек остаётся за старшего. */
 export interface CtxScaleBars {
   rows: CtxScaleBar[];
-  /** Подписи краёв общей оси. */
-  axisMinText: string;
-  axisMaxText: string;
   ariaLabel: string;
 }
 
@@ -74,63 +72,47 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+function numeric(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 /**
- * Верхняя граница оси меры: объявленный автором предел рисунка, иначе домен. Тот же выбор
- * делает роза для длины луча (`displayMax`), поэтому шкала, укороченная автором на розе,
- * укорачивается и здесь — две фигуры одного экрана не должны спорить о масштабе.
+ * Положение балла в СВОЁМ домене, 0..1 — этим красится столбик. Домена нет — середина
+ * рампы: цвет обязан что-то значить, а без границ сказать «высоко» или «низко» не о чем.
  */
-function axisTopOf(interpretation: ScaleInterpretation | IndicatorInterpretation): number | null {
-  const declared = (interpretation as ScaleInterpretation).displayMax;
-  if (typeof declared === "number" && Number.isFinite(declared)) return declared;
-  return interpretation.domainMax;
+function ownRatio(interpretation: ScaleInterpretation | IndicatorInterpretation, value: number): number {
+  const { domainMin, domainMax } = interpretation;
+  if (domainMin === null || domainMax === null) return 0.5;
+  const span = domainMax - domainMin;
+  if (!(span > 0)) return 0.5;
+  const r = (value - domainMin) / span;
+  return r < 0 ? 0 : r > 1 ? 1 : r;
 }
 
 /**
  * Построить диаграмму, или `null`, когда её не из чего собрать.
  *
- * Отказ — не ошибка, а обычный ход: у методики может не быть домена ни у одной шкалы, и
- * тогда откладывать столбики не от чего. Макет в этом случае печатает карточки, как раньше.
- *
- * В диаграмму попадают только меры С ДОМЕНОМ. Мера без него осталась бы строкой без
- * столбика — то есть числом, притворяющимся диаграммой; её печатает карточка-фолбэк, куда
- * её и отправил откат вида ({@link module:shared/template/measure-view resolveRenderKind}).
+ * Отказ — не ошибка, а обычный ход: измерений может не быть числовых вовсе, либо все баллы
+ * равны нулю, и тогда рисовать нечего — ни один столбик не имел бы длины. Макет в этом
+ * случае печатает карточки, как раньше.
  */
 export function buildScaleBars(input: ScaleBarsInput): CtxScaleBars | null {
-  const rows: CtxScaleBar[] = [];
-  const tops: number[] = [];
-  const bottoms: number[] = [];
-
+  const values: number[] = [];
   input.measures.forEach((m, i) => {
-    const view = input.views[i];
-    if (!view) return;
-    const top = axisTopOf(m.interpretation);
-    const bottom = m.interpretation.domainMin;
-    if (top === null || bottom === null || typeof m.value !== "number" || !Number.isFinite(m.value)) return;
-    tops.push(top);
-    bottoms.push(bottom);
+    if (input.views[i] && numeric(m.value)) values.push(m.value);
   });
-  if (!tops.length) return null;
+  if (!values.length) return null;
 
-  // Одна ось на фигуру: нижний край — самый низкий из доменов, верхний — самый высокий.
-  // Не среднее и не отдельная ось на строку: ось, разная у соседних столбиков, снимает
-  // единственное, ради чего диаграмму строят.
-  const axisMin = Math.min(...bottoms);
-  const axisMax = Math.max(...tops);
-  const span = axisMax - axisMin;
-  if (!(span > 0)) return null;
+  // Ось — самый большой балл фигуры. Отрицательные и нулевые баллы длины не дают: столбик
+  // растёт вправо от общего начала, и рисовать влево здесь нечем.
+  const top = Math.max(...values);
+  if (!(top > 0)) return null;
 
+  const rows: CtxScaleBar[] = [];
   input.measures.forEach((m, i) => {
     const view = input.views[i];
-    if (!view) return;
-    const top = axisTopOf(m.interpretation);
-    if (top === null || m.interpretation.domainMin === null) return;
-    if (typeof m.value !== "number" || !Number.isFinite(m.value)) return;
-    const ratio = (m.value - axisMin) / span;
-    const clamped = ratio < 0 ? 0 : ratio > 1 ? 1 : ratio;
-    // Цвет — от положения в СВОЁМ домене, а не на общей оси: он говорит об уровне шкалы,
-    // и на общей оси высокий балл короткой шкалы выглядел бы низким.
-    const ownSpan = top - m.interpretation.domainMin;
-    const ownRatio = ownSpan > 0 ? (m.value - m.interpretation.domainMin) / ownSpan : 0;
+    if (!view || !numeric(m.value)) return;
+    const share = m.value / top;
     rows.push({
       key: m.key,
       name: m.name,
@@ -138,13 +120,10 @@ export function buildScaleBars(input: ScaleBarsInput): CtxScaleBars | null {
       valueText: view.valueText,
       valueLabel: view.valueLabel,
       showValue: view.showValue,
-      widthPercent: round1(clamped * 100),
-      color: measureBarColor(
-        m.interpretation.valence,
-        input.ramp,
-        m.color,
-        ownRatio < 0 ? 0 : ownRatio > 1 ? 1 : ownRatio,
-      ),
+      widthPercent: round1((share < 0 ? 0 : share > 1 ? 1 : share) * 100),
+      // Цвет — от положения в СВОЁМ домене, а не от доли на фигуре: он говорит об уровне
+      // шкалы, и на общем масштабе высокий балл короткой шкалы выглядел бы низким.
+      color: measureBarColor(m.interpretation.valence, input.ramp, m.color, ownRatio(m.interpretation, m.value)),
       levelLabel: view.levelLabel,
       ...(view.hideLevel ? { hideLevel: true } : {}),
       toneClass: view.toneClass,
@@ -154,12 +133,8 @@ export function buildScaleBars(input: ScaleBarsInput): CtxScaleBars | null {
 
   return {
     rows,
-    axisMinText: String(round1(axisMin)),
-    axisMaxText: String(round1(axisMax)),
     // Стопка полос ничего не говорит читалке сама по себе — то же соображение, что у
     // линейки в карточке: подпись собирается ядром, потому что макету не из чего.
-    ariaLabel: `Шкалы на общей оси от ${round1(axisMin)} до ${round1(axisMax)}: ${rows
-      .map((r) => `${r.name} — ${r.valueText}`)
-      .join(", ")}`,
+    ariaLabel: `Шкалы: ${rows.map((r) => `${r.name} — ${r.valueText}`).join(", ")}`,
   };
 }

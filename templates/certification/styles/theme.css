@@ -880,12 +880,10 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   gap: var(--ou-space-4);
 }
 .tb-bars__name { font: var(--ou-text-body-m); color: var(--ou-fg-default); }
-/* Дорожка и заливка — те же токены, что у карточки-градусника: одна шкала не должна
-   выглядеть двумя разными приборами в зависимости от выбранного вида. */
-.tb-bars__track {
-  position: relative; height: var(--ou-space-4);
-  background: var(--tb-track); border-radius: var(--ou-radius-pill);
-}
+/* Поле столбика — ПУСТОЕ: дорожки нет. Столбик меряется наибольшим баллом попытки, а не
+   долей домена, и серая полоса до правого края обещала бы шкале максимум, которого фигура
+   не показывает. Поле держит только ширину, от которой считается доля. */
+.tb-bars__field { position: relative; height: var(--ou-space-4); }
 .tb-bars__fill {
   position: absolute; inset: 0 auto 0 0;
   background: hsl(var(--tb-zone)); border-radius: var(--ou-radius-pill);
@@ -899,27 +897,11 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 }
 .tb-bars__val strong { font: var(--ou-text-display-s); }
 .tb-bars__lvl { align-self: center; }
-/* Края оси печатаются ПОД полем столбиков, в его же колонке: подпись, сдвинутая под имя
-   шкалы, называла бы границу не того, что измеряется. */
-.tb-bars__axis {
-  display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr) auto;
-  gap: var(--ou-space-4);
-  font: var(--ou-text-body-s); color: var(--ou-fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-/* Обе подписи — в ОДНОЙ ячейке колонки столбиков, разведённые по её краям. Без явного
-   ряда автораскладка сетки уводит вторую подпись на строку ниже, и «98» повисает под
-   «0» вместо правого края оси. */
-.tb-bars__axis > span { grid-row: 1; grid-column: 2; }
-.tb-bars__axis > span:first-child { justify-self: start; }
-.tb-bars__axis > span:last-child { justify-self: end; }
 /* Узкая сцена: имя уходит НАД столбиком, иначе на телефоне на долю столбика остаётся
    меньше половины ряда и диаграмма перестаёт быть диаграммой. */
 @container tbscene (max-width: 520px) {
   .tb-bars__row { grid-template-columns: minmax(0, 1fr) auto; }
   .tb-bars__name { grid-column: 1 / -1; }
-  .tb-bars__axis { grid-template-columns: minmax(0, 1fr) auto; }
-  .tb-bars__axis > span { grid-column: 1; }
 }
 
 /* ── PRD-35: competency radar ──────────────────────────────────────────────────

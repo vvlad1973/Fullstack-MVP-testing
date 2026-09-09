@@ -361,28 +361,12 @@
   gap: 10px;
 }
 .tb-report__bar-name { font-size: 12px; }
-.tb-report__bar-track {
-  position: relative; height: 8px;
-  background: rgba(128, 128, 128, 0.45); border-radius: 999px;
-}
+.tb-report__bar-field { position: relative; height: 8px; }
 .tb-report__bar-fill {
   position: absolute; inset: 0 auto 0 0;
   background: hsl(var(--tb-zone)); border-radius: 999px;
 }
 .tb-report__bar-val { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* Края оси — под полем столбиков, в его колонке: подпись под именем шкалы называла бы
-   границу не того, что измеряется. */
-.tb-report__bar-axis {
-  display: grid;
-  grid-template-columns: minmax(90px, 160px) minmax(0, 1fr) auto;
-  gap: 10px;
-  font-size: 10px; opacity: 0.65; font-variant-numeric: tabular-nums;
-}
-/* Обе подписи — в ОДНОЙ ячейке колонки столбиков: без явного ряда автораскладка сетки
-   уводит вторую на строку ниже, и «98» повисает под «0» вместо правого края оси. */
-.tb-report__bar-axis > span { grid-row: 1; grid-column: 2; }
-.tb-report__bar-axis > span:first-child { justify-self: start; }
-.tb-report__bar-axis > span:last-child { justify-self: end; }
 
 /* Линейка шкалы. Ту же фигуру рисует экран итогов, но повторить её стилями оттуда
    нельзя: отчёт печатается ВНЕ сцены, токенов дизайн-системы не видит и правила

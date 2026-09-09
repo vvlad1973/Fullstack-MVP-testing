@@ -96,11 +96,13 @@
           {{/if}}
         </div>
         {{/if}}
-        <!-- ЛИНЕЙЧАТАЯ ДИАГРАММА (вид шкал «Линейчатая диаграмма»): столбики всех шкал на
-             ОДНОЙ оси, вместо списка карточек. Стоит рядом с розой или радаром, а не
-             вместо них: те отвечают на «как делится целое», эта — на «сколько по каждой
-             шкале». Ядро отдаёт её только тогда, когда собрало (`scaleBars`), поэтому и
-             гейт диаграммы, и обратный гейт списка ниже — одна и та же проверка. -->
+        <!-- ЛИНЕЙЧАТАЯ ДИАГРАММА (вид шкал «Линейчатая диаграмма»): столбики всех шкал в
+             одной фигуре, вместо списка карточек. Стоит рядом с розой или радаром, а не
+             вместо них: те отвечают на «как делится целое», эта — на «какая шкала выражена
+             сильнее». Длину задаёт наибольший балл попытки, поэтому ни дорожки до максимума
+             шкалы, ни подписей оси здесь нет: это не линейка прогресса. Ядро отдаёт фигуру
+             только тогда, когда собрало (`scaleBars`), поэтому гейт диаграммы и обратный
+             гейт списка ниже — одна и та же проверка. -->
         {{#if @root.result.scaleBars}}
         <div class="tb-bars" role="img" aria-label="{{@root.result.scaleBars.ariaLabel}}">
           {{#each @root.result.scaleBars.rows}}
@@ -109,18 +111,13 @@
                  сетка, и пропуск ячейки сдвинул бы столбик этой строки относительно
                  соседних. -->
             <div class="tb-bars__name">{{#unless hideName}}{{name}}{{/unless}}</div>
-            <div class="tb-bars__track"><span class="tb-bars__fill" style="width:{{widthPercent}}%;--tb-zone:{{color}}"></span></div>
+            <div class="tb-bars__field"><span class="tb-bars__fill" style="width:{{widthPercent}}%;--tb-zone:{{color}}"></span></div>
             <div class="tb-bars__val">
               {{#if showValue}}<strong>{{valueLabel}}</strong>{{/if}}
               {{#unless hideLevel}}{{#if levelLabel}}<span class="ou-tag ou-tag--s tb-bars__lvl {{toneClass}}">{{levelLabel}}</span>{{/if}}{{/unless}}
             </div>
           </div>
           {{/each}}
-          <!-- Края общей оси: без них длина столбика — величина сама по себе, а не доля. -->
-          <div class="tb-bars__axis">
-            <span>{{@root.result.scaleBars.axisMinText}}</span>
-            <span>{{@root.result.scaleBars.axisMaxText}}</span>
-          </div>
         </div>
         {{/if}}
         {{#unless @root.result.scaleBars}}
