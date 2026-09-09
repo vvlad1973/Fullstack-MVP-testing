@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -200,7 +200,8 @@
         "value_of_max",
         "ring",
         "band_ruler",
-        "gradient_bar"
+        "gradient_bar",
+        "bars"
       ],
       "optionLabels": {
         "label": "Только уровень",
@@ -208,9 +209,19 @@
         "value_of_max": "Значение из максимума",
         "ring": "Кольцо",
         "band_ruler": "Линейка с зонами",
-        "gradient_bar": "Полоса-градусник"
+        "gradient_bar": "Полоса-градусник",
+        "bars": "Линейчатая диаграмма"
       },
       "description": "Применяется там, где выполним; иначе откатывается на ближайший доступный."
+    },
+    {
+      "key": "scaleShowMax",
+      "type": "boolean",
+      "label": "Показывать максимум шкалы",
+      "default": true,
+      "group": "Итоги",
+      "section": "branding",
+      "description": "Выключено — рядом со значением печатается только оно само, без «из N». На линейку и её подписи границ не влияет."
     },
     {
       "key": "indicatorRenderKind",

@@ -20,6 +20,7 @@
 
 import type { CtxMeasureView } from "./measure-view";
 import type { CtxScalesChart } from "./scales-chart";
+import type { CtxScaleBars } from "./scale-bars";
 import type { CtxRecommendations } from "./recommendations";
 
 /** Test-level info shown on the start screen and as the screen title (`course.*`). */
@@ -284,6 +285,17 @@ export interface CtxResult {
    * each with a domain, and for the rose a whole to divide.
    */
   scalesChart?: CtxScalesChart;
+  /**
+   * Линейчатая диаграмма шкал (вид шкал «Линейчатая диаграмма»): столбики всех шкал на
+   * ОДНОЙ оси. Печатается ВМЕСТО списка карточек и уживается с розой или радаром рядом —
+   * в отличие от них, это не выбор фигуры, а способ показать сами шкалы.
+   *
+   * Присутствует, только когда автор выбрал этот вид и диаграмму есть из чего собрать
+   * (хотя бы одна видимая шкала с доменом). Карточки при этом остаются в контексте:
+   * шаблон, чей макет о диаграмме не знает, обязан продолжать печатать их, поэтому выбор
+   * между списком и диаграммой стоит В РАЗМЕТКЕ, а не здесь.
+   */
+  scaleBars?: CtxScaleBars;
   /**
    * Class of the scales block: `tb-measures`, plus the `--chart` modifier when the
    * radar is drawn. Core-prepared because the DSL cannot append a class

@@ -490,6 +490,9 @@ function buildResultsMeasures(scaleComputation, varComputation) {
     ramp: resultsLevelRamp(params),
     scaleKind: String(params.scaleRenderKind || 'band_ruler'),
     indicatorKind: String(params.indicatorRenderKind || 'label'),
+    // «Показывать максимум шкалы». Explicit `false` only: a package baked before the
+    // param carries no key at all, and `||` would have read that absence as «hide».
+    showMax: params.scaleShowMax !== false,
     scales: scales,
     indicators: indicators,
     // ONE reading of the pass rule, shared with the top-level option the builder gates

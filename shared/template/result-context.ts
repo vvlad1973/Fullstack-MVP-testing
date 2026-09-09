@@ -33,6 +33,7 @@ import { labelsTree } from "./labels";
 import { buildMeasureView, type CtxMeasureView, type RenderKind } from "./measure-view";
 import { richTextToHtml, type RichTextFormat } from "./rich-text";
 import { buildScalesChart, type ChartKindSettings } from "./scales-chart";
+import { buildScaleBars, type CtxScaleBars } from "./scale-bars";
 import { parseScaleAppearance } from "./scale-appearance";
 import { collectRecommendations } from "./recommendations";
 import { collectBreakdownFeedback } from "../breakdown/feedback";
@@ -290,6 +291,12 @@ export interface MeasuresInput {
   ramp: LevelRamp;
   scaleKind: RenderKind;
   indicatorKind: RenderKind;
+  /**
+   * Print «из N» beside a measure's value, or the value alone. A design param of the
+   * test (`scaleShowMax`), read here by both hosts exactly like the two kinds above;
+   * absent = print it, so a test saved before the param keeps its readout.
+   */
+  showMax?: boolean;
   scales: MeasureInput[];
   indicators: MeasureInput[];
   /** Whether the test has a pass threshold — the `auto` answer for the score summary. */
@@ -605,6 +612,7 @@ function fillMeasureBlocks(
         requestedKind: measures.scaleKind,
         ramp: measures.ramp,
         color: appearance[m.key]?.color,
+        showMax: measures.showMax,
       }));
     // PRD-35/46. The chart is built INSIDE the scales branch: a hidden block must not
     // leave a dangling diagram on the screen. `buildScalesChart` returns null on every
@@ -622,10 +630,32 @@ function fillMeasureBlocks(
       result.scalesChart = chart;
       result.scalesBlockClass = "tb-measures tb-measures--chart";
     }
+    // ЛИНЕЙЧАТАЯ ДИАГРАММА печатается ВМЕСТО списка карточек и НЕ вместо розы: роза
+    // отвечает на «как делится целое», диаграмма — на «сколько по каждой шкале», и обе
+    // могут стоять на одном экране. Поэтому строится она здесь, рядом с карточками, а не
+    // в `buildScalesChart`, который выбирает ОДНУ фигуру из взаимоисключающих.
+    //
+    // Карточки при этом остаются в контексте: макет старого шаблона о диаграмме не знает и
+    // обязан продолжать печатать их (гейт стоит в разметке, а не тут). Диаграмма же берёт
+    // из карточек готовые надписи, чтобы число под столбиком и число в карточке не
+    // разошлись форматом.
+    if (measures.scaleKind === "bars") {
+      const bars = buildScaleBars({
+        measures: visibleScales.map((m) => ({ ...m, color: appearance[m.key]?.color })),
+        views: result.scales,
+        ramp: measures.ramp,
+      });
+      if (bars) result.scaleBars = bars;
+    }
   }
   if (blocks.indicators && visibleIndicators.length) {
     result.indicators = visibleIndicators.flatMap((m) => {
-      const card = buildMeasureView({ ...m, requestedKind: measures.indicatorKind, ramp: measures.ramp });
+      const card = buildMeasureView({
+        ...m,
+        requestedKind: measures.indicatorKind,
+        ramp: measures.ramp,
+        showMax: measures.showMax,
+      });
       // PRD-53 §4.4. Карточка «вне профиля» идёт СРАЗУ за своим профилем: она его продолжение, а
       // не отдельный показатель, и чужая карточка между ними была бы разрывом мысли.
       //

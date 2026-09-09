@@ -282,6 +282,10 @@ export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
     ramp: resolveRamp(params),
     scaleKind: String(params.scaleRenderKind ?? "band_ruler") as RenderKind,
     indicatorKind: String(params.indicatorRenderKind ?? "label") as RenderKind,
+    // «Показывать максимум шкалы»: отсутствие ключа = печатать, поэтому проверка на
+    // явный `false`, а не приведение к булеву — иначе тест, сохранённый до параметра,
+    // потерял бы «из N» молча.
+    showMax: params.scaleShowMax !== false,
     scales,
     indicators,
     hasPassThreshold: source.hasPassThreshold,

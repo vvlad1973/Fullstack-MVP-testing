@@ -45,6 +45,25 @@
       {{/if}}
     </div>
     {{/if}}
+    <!-- ЛИНЕЙЧАТАЯ ДИАГРАММА: тот же вид шкал, что на экране итогов, — документ обязан
+         показать то же, что показал экран. Ядро отдаёт готовые длины и цвета
+         (`buildScaleBars`), отчёт растеризуется и не считает ничего сам. -->
+    {{#if result.scaleBars}}
+    <div class="tb-report__bars">
+      {{#each result.scaleBars.rows}}
+      <div class="tb-report__bar">
+        <div class="tb-report__bar-name">{{#unless hideName}}{{name}}{{/unless}}</div>
+        <div class="tb-report__bar-track"><span class="tb-report__bar-fill" style="width:{{widthPercent}}%;--tb-zone:{{color}}"></span></div>
+        <div class="tb-report__bar-val">{{#if showValue}}{{valueLabel}}{{/if}}</div>
+      </div>
+      {{/each}}
+      <div class="tb-report__bar-axis">
+        <span>{{result.scaleBars.axisMinText}}</span>
+        <span>{{result.scaleBars.axisMaxText}}</span>
+      </div>
+    </div>
+    {{/if}}
+    {{#unless result.scaleBars}}
     <div class="tb-report__scale-list">
       {{#each result.scales}}
       <div class="tb-report__scale">
@@ -73,6 +92,7 @@
       </div>
       {{/each}}
     </div>
+    {{/unless}}
   </div>
 </section>
 {{/if}}
