@@ -789,7 +789,8 @@ export function AssignTestDialog({
           { id: "groups", label: t.assignments.groups, icon: <UsersRound size={16} />, content: groupsPanel },
           {
             id: "bulk",
-            label: "Списком из файла",
+            // Не «Списком из файла»: с PRD-28 раздела 16 список можно и набрать.
+            label: "Списком",
             icon: <FileSpreadsheet size={16} />,
             content: (
               <BulkInviteTab

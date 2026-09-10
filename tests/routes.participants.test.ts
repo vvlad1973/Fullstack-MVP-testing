@@ -1,7 +1,8 @@
 /**
  * @module tests/routes.participants
  * @description PRD-28 (FR-09, FR-10, FR-14, FR-22): the three endpoints behind
- * the «Списком из файла» tab — preview, run and file template.
+ * the «Списком» tab — preview (of a workbook OR a typed list, раздел 16), run
+ * and file template.
  *
  * What is pinned here is the ROUTE layer only: who may call it, how an uploaded
  * file turns into an answer, and how the two conditions the pipeline refuses on

@@ -1,12 +1,13 @@
 /**
  * @module features/tests/assign/__tests__/bulk-invite-tab.test
- * @description Component tests for the PRD-28 «Списком из файла» tab: the four
- * states of one canvas (upload -> preview -> running -> report). `fetch` is
- * stubbed per URL, so the preview parse, the run and the audit mark all resolve
- * against fixtures. Covers that parsed rows appear with their statuses, that an
- * error row cannot be ticked, that the invite button carries the number of
- * chosen rows, and that a taken group name is reported without leaving the
- * preview.
+ * @description Component tests for the PRD-28 «Списком» tab: the four states of
+ * one canvas (upload -> preview -> running -> report). `fetch` is stubbed per
+ * URL, so the preview parse, the run and the audit mark all resolve against
+ * fixtures. Covers that parsed rows appear with their statuses, that an error
+ * row cannot be ticked, that the invite button carries the number of chosen
+ * rows, that a taken group name is reported without leaving the preview, and
+ * (раздел 16) that the typed list and the workbook are alternatives which reach
+ * the right routes for each purpose.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ExcelJS from "exceljs";
@@ -59,23 +60,29 @@ beforeEach(() => {
   inviteResponse = () => jsonRes(report);
   fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.endsWith("/participants/preview")) return previewResponse();
-    if (url.endsWith("/participants/invite")) return inviteResponse();
-    if (url.endsWith("/participants/links-exported")) return jsonRes(null, true, 204);
+    // У назначения и рецензирования маршруты разные, конвейер один (PRD-52, 14).
+    if (url.endsWith("/participants/preview") || url.endsWith("/review/preview")) return previewResponse();
+    if (url.endsWith("/participants/invite") || url.endsWith("/review/invite")) return inviteResponse();
+    if (url.endsWith("/links-exported")) return jsonRes(null, true, 204);
     return jsonRes({});
   });
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function renderTab() {
+function renderTab(props: { purpose?: "assign" | "review" } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, queryFn: getQueryFn({ on401: "throw" }) } },
   });
   const onGoToAssignments = vi.fn();
   const utils = render(
     <QueryClientProvider client={client}>
-      <BulkInviteTab testId="t1" testTitle="Основы ИБ" onGoToAssignments={onGoToAssignments} />
+      <BulkInviteTab
+        testId="t1"
+        testTitle="Основы ИБ"
+        onGoToAssignments={onGoToAssignments}
+        purpose={props.purpose}
+      />
     </QueryClientProvider>,
   );
   return { ...utils, onGoToAssignments };
@@ -120,6 +127,61 @@ describe("<BulkInviteTab /> — загрузка", () => {
     fireEvent.change(input, { target: { files: [xlsx()] } });
     expect(await screen.findByText("uchastniki.xlsx")).toBeInTheDocument();
     expect(screen.queryByText("Перетащите книгу или нажмите, чтобы выбрать")).toBeNull();
+  });
+});
+
+describe("<BulkInviteTab /> — набранный список", () => {
+  it("отдаёт предпросмотру разобранные строки, а не файл", async () => {
+    renderTab();
+    fireEvent.change(screen.getByLabelText(/Адреса почты/), {
+      target: { value: "Ирина Петрова <i.petrova@example.com>\ns.kovalev@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Проверить список" }));
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/participants/preview"))).toBe(true));
+    const call = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/participants/preview"))!;
+    const init = call[1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual({
+      rows: [
+        { index: 0, email: "i.petrova@example.com", name: "Ирина Петрова" },
+        { index: 1, email: "s.kovalev@example.com", name: null },
+      ],
+    });
+  });
+
+  it("заполненное поле гасит зону файла, очистка возвращает её", () => {
+    const { container } = renderTab();
+    const emails = screen.getByLabelText(/Адреса почты/);
+
+    fireEvent.change(emails, { target: { value: "a@x.ru" } });
+    expect(container.querySelector(".ou-uploader")).toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.change(emails, { target: { value: "" } });
+    expect(container.querySelector(".ou-uploader")).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("выбранный файл гасит поле адресов", () => {
+    const { container } = renderTab();
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [xlsx()] },
+    });
+    expect(screen.getByLabelText(/Адреса почты/)).toBeDisabled();
+  });
+
+  it("кнопка проверки мертва, пока не задан ни один источник", () => {
+    renderTab();
+    expect(screen.getByRole("button", { name: "Проверить список" })).toBeDisabled();
+  });
+
+  it("на рецензировании ходит в свои маршруты, а не в маршруты участников", async () => {
+    renderTab({ purpose: "review" });
+    fireEvent.change(screen.getByLabelText(/Адреса почты/), { target: { value: "e@x.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Проверить список" }));
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/review/preview"))).toBe(true));
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/participants/preview"))).toBe(false);
   });
 });
 
