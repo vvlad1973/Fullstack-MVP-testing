@@ -5,7 +5,7 @@
  * отладчика автора: ровно три вкладки, выключенные по умолчанию тумблеры, гашение
  * вердикта в режиме полной выдачи и экран отказа без гранта.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
@@ -57,6 +57,11 @@ beforeEach(() => {
   snapshotMock.buildSnapshot.mockReturnValue(snapshot());
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+  delete (window as { TBInspector?: unknown }).TBInspector;
+});
+
 describe("окно рецензента", () => {
   it("показывает ровно три вкладки инспектора", async () => {
     renderPage();
@@ -68,6 +73,26 @@ describe("окно рецензента", () => {
     renderPage();
     expect(await screen.findByTestId("toggle-reference")).not.toBeChecked();
     expect(screen.getByTestId("toggle-full-draw")).not.toBeChecked();
+  });
+
+  it("эталон возвращается на следующем вопросе сам, без выкл/вкл тумблера", async () => {
+    const applyReference = vi.fn();
+    const clearReference = vi.fn();
+    (window as { TBInspector?: unknown }).TBInspector = { applyReference, clearReference };
+    renderPage();
+    // Ждём первый снимок: после него `status.drawn` постоянен до конца прогона,
+    // поэтому переход к следующему вопросу его уже не меняет.
+    await waitFor(() => expect(snapshotMock.buildSnapshot).toHaveBeenCalled());
+    await userEvent.click(await screen.findByTestId("toggle-reference"));
+    const onToggle = applyReference.mock.calls.length;
+    expect(onToggle).toBeGreaterThan(0);
+    // Переход к следующему вопросу перерисовывает экран внутри пакета — разметка
+    // эталона стирается вместе со старым DOM, а `status.drawn` при этом не меняется.
+    // Оверлей обязан вернуться сам, на ближайшем тике.
+    await waitFor(
+      () => expect(applyReference.mock.calls.length).toBeGreaterThan(onToggle),
+      { timeout: 3000 },
+    );
   });
 
   it("включение полной выдачи перестраивает прогон и уходит в стейдж хешем", async () => {
@@ -89,7 +114,9 @@ describe("окно рецензента", () => {
     renderPage();
     await userEvent.click(await screen.findByTestId("toggle-full-draw"));
     await userEvent.click(screen.getByRole("tab", { name: "Результаты" }));
-    expect(await screen.findByText(/Не считается в режиме полной выдачи/i)).toBeInTheDocument();
+    // Точным текстом, а не подстрокой: иначе проверка совпадает с нижней плашкой
+    // прогона («оценка не считается…») и проходит, даже если баннера в панели нет.
+    expect(await screen.findByText("Не считается в режиме полной выдачи")).toBeInTheDocument();
     expect(screen.queryByText("Не пройден")).not.toBeInTheDocument();
   });
 

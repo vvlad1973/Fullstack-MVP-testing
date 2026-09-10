@@ -47,10 +47,16 @@ export default function ReviewPlayerPage() {
   const screenAnchor = useScreenAnchor(frameRef, snap);
 
   // Снимок инспектора снимается по тику с ЖИВОГО рантайма пакета: подписаться не на
-  // что — пакет ничего не публикует наружу, кроме своих глобалей.
+  // что — пакет ничего не публикует наружу, кроме своих глобалей. Тем же тиком
+  // перерисовывается «Эталон» — оверлей поверх реального рендера вопроса (на баллы
+  // не влияет). Именно ПО ТИКУ, а не по смене экрана: пакет строит разметку вопроса
+  // заново на каждом переходе и уносит с ней подсветку, а снаружи об этом узнать
+  // неоткуда — счётчик выданных вопросов при переходе не меняется. Повторное
+  // наложение дёшево и само по себе идемпотентно (`applyReference` начинает со
+  // сброса и стоит на месте, пока идёт перетаскивание).
   useEffect(() => {
     if (state.status !== "ready") return;
-    const id = window.setInterval(() => {
+    const tick = () => {
       const win = frameRef.current?.contentWindow;
       if (!win) return;
       try {
@@ -58,23 +64,18 @@ export default function ReviewPlayerPage() {
       } catch {
         // Кадр ещё не готов или сменил документ — следующий тик снимет заново.
       }
-    }, TICK_MS);
+      try {
+        const inspector = window.TBInspector;
+        if (reference) inspector?.applyReference?.(win);
+        else inspector?.clearReference?.(win);
+      } catch {
+        // Рендер вопроса ещё не построен — тумблер применится на следующем тике.
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, TICK_MS);
     return () => window.clearInterval(id);
-  }, [state.status, runKey]);
-
-  // «Эталон» — оверлей поверх реального рендера вопроса; на баллы не влияет.
-  useEffect(() => {
-    if (state.status !== "ready") return;
-    const win = frameRef.current?.contentWindow;
-    const inspector = window.TBInspector;
-    if (!win || !inspector) return;
-    try {
-      if (reference) inspector.applyReference?.(win);
-      else inspector.clearReference?.(win);
-    } catch {
-      // Рендер вопроса ещё не построен — тумблер применится на следующем экране.
-    }
-  }, [reference, state.status, snap?.status.drawn, runKey]);
+  }, [state.status, runKey, reference]);
 
   if (state.status === "loading") {
     return <Box className="dbg dbg--center"><Text tone="muted">Собираем прогон…</Text></Box>;
