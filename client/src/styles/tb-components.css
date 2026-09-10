@@ -2868,3 +2868,17 @@
   background: var(--ou-accent-soft);
   color: var(--ou-fg-default);
 }
+
+/* ── Разделитель «или» между двумя способами задать список (PRD-28 раздел 16) ──
+   Верхняя половина вкладки «Списком» — набранные адреса, нижняя — книга; они
+   альтернативы, и жёлоб с подписью говорит об этом до того, как оператор
+   заполнит одну из них. */
+.tb-orsep { display: flex; align-items: center; gap: var(--ou-space-3); }
+.tb-orsep::before,
+.tb-orsep::after {
+  content: "";
+  flex: 1;
+  height: var(--wf-border-w, 1px);
+  background: var(--ou-border-soft);
+}
+.tb-orsep__word { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }

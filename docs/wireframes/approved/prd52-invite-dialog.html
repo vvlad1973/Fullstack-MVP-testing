@@ -9,6 +9,8 @@
     Канон — реальный диалог назначения теста (client/src/components/assign-test-dialog.tsx:
     ModalDialog size=xl + Tabs variant=segment align=stretch) и эскизы prd28-bulk-invite-*.
     Состояния — кнопки навбара (адресуемы через ?state=<id>). СОГЛАСОВАН 2026-09-03.
+    Редакция 2026-09-10: вкладка переименована в «Списком» и получила вторую половину —
+    набранный вручную список адресов (PRD-28 раздел 16). НА СОГЛАСОВАНИИ.
     -->
     <title>PRD-52 — Отправить на рецензирование</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/university-rt.css" />
@@ -30,6 +32,9 @@
       .wf-list { display: flex; flex-direction: column; gap: var(--ou-space-2); }
       .wf-drop { border: var(--wf-border-w) dashed var(--ou-border-default); border-radius: var(--ou-radius-m); padding: var(--ou-space-6); text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--ou-space-2); }
       .wf-drop__hint { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+      /* Погашенная половина: в проде это `ou-uploader is-disabled` (PRD-28 §16). */
+      .wf-drop.is-disabled { border-color: var(--ou-border-soft); background: var(--ou-bg-disabled); color: var(--ou-fg-disabled); cursor: not-allowed; }
+      .wf-drop.is-disabled .wf-drop__hint { color: var(--ou-fg-disabled); }
       .wf-sum { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-3); font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
       .wf-inline { display: flex; flex-wrap: wrap; gap: var(--ou-space-2); align-items: center; }
       .ou-select:has(.ou-select__trigger) { padding: 0; border: 0; border-radius: 0; background: transparent; cursor: default; }
@@ -82,7 +87,8 @@
       <span class="wf-nav-title">Отправка на рецензирование:</span>
       <button type="button" class="active" onclick="showState(this, 'invited')">приглашены</button>
       <button type="button" onclick="showState(this, 'users')">пользователи</button>
-      <button type="button" onclick="showState(this, 'bulk')">списком из файла</button>
+      <button type="button" onclick="showState(this, 'bulk'); setTyped(false)">списком</button>
+      <button type="button" onclick="showState(this, 'bulk'); setTyped(true)">списком: набран</button>
       <button type="button" onclick="showState(this, 'report')">отчёт рассылки</button>
       <span class="wf-nav-sep"></span>
       <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
@@ -110,7 +116,7 @@
                   <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Приглашены (3)</span></button>
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('users'), 'users')"><span class="ou-tabs__label">Пользователи</span></button>
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab"><span class="ou-tabs__label">Группы</span></button>
-                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('bulk'), 'bulk')"><span class="ou-tabs__label">Списком из файла</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('bulk'), 'bulk'); setTyped(false)"><span class="ou-tabs__label">Списком</span></button>
                 </div>
               </div>
 
@@ -184,7 +190,7 @@
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('invited'), 'invited')"><span class="ou-tabs__label">Приглашены (3)</span></button>
                   <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Пользователи</span></button>
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab"><span class="ou-tabs__label">Группы</span></button>
-                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('bulk'), 'bulk')"><span class="ou-tabs__label">Списком из файла</span></button>
+                  <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('bulk'), 'bulk'); setTyped(false)"><span class="ou-tabs__label">Списком</span></button>
                 </div>
               </div>
 
@@ -262,27 +268,39 @@
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('invited'), 'invited')"><span class="ou-tabs__label">Приглашены (3)</span></button>
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab" onclick="showState(navBtn('users'), 'users')"><span class="ou-tabs__label">Пользователи</span></button>
                   <button type="button" role="tab" aria-selected="false" class="ou-tabs__tab"><span class="ou-tabs__label">Группы</span></button>
-                  <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Списком из файла</span></button>
+                  <button type="button" role="tab" aria-selected="true" class="ou-tabs__tab is-active"><span class="ou-tabs__label">Списком</span></button>
                 </div>
               </div>
 
-              <div class="wf-drop">
+              <label class="ou-textarea ou-textarea--full" id="wf-emails-box" for="wf-emails">
+                <span class="ou-textarea__lbl">Адреса почты</span>
+                <div class="ou-textarea__box">
+                  <textarea class="ou-textarea__input" id="wf-emails" rows="4"
+                    placeholder="Ирина Петрова &lt;i.petrova@example.com&gt;&#10;s.kovalev@example.com"></textarea>
+                </div>
+                <span class="ou-textarea__msg">По одному в строке или через запятую. Запись «Имя &lt;адрес&gt;» задаёт имя, голый адрес — только адрес.</span>
+              </label>
+
+              <div class="tb-orsep"><span class="tb-orsep__word">или</span></div>
+
+              <div class="wf-drop" id="wf-drop">
                 <span class="ou-avatar ou-avatar--m ou-avatar--c-slate"><span class="ou-avatar__visual"><span class="ou-avatar__icon"><svg width="20" height="20"><use href="#i-file" /></svg></span></span></span>
                 <span class="wf-drop__hint">Перетащите книгу Excel со списком экспертов или выберите файл</span>
-                <button class="ou-btn ou-btn--secondary ou-btn--s">Выбрать файл</button>
+                <button class="ou-btn ou-btn--secondary ou-btn--s" id="wf-drop-cta">Выбрать файл</button>
                 <span class="wf-drop__hint">Колонки: адрес почты, имя, фамилия. До 500 строк за раз.</span>
               </div>
 
               <div class="ou-banner ou-banner--subtle ou-banner--sm">
                 <span class="ou-banner__ico"><svg width="16" height="16"><use href="#i-info" /></svg></span>
-                <div class="ou-banner__body"><div class="ou-banner__desc">Тот же разбор книги, что и при назначении теста: строки классифицируются, для новых адресов заводятся внешние участники, каждому выпускается персональная ссылка.</div></div>
+                <div class="ou-banner__body"><div class="ou-banner__desc">Тот же разбор списка, что и при назначении теста: записи классифицируются, для новых адресов заводятся внешние участники, каждому выпускается персональная ссылка. Имя из записи «Имя &lt;адрес&gt;» становится подписью рецензента в комментариях; у голого адреса подписью служит сам адрес.</div></div>
               </div>
             </div>
             <footer class="ou-modal__foot ou-modal__foot--between">
-              <button class="ou-btn ou-btn--ghost ou-btn--m"><span class="ou-btn__ico"><svg width="16" height="16"><use href="#i-download" /></svg></span><span>Шаблон книги</span></button>
+              <button class="ou-btn ou-btn--ghost ou-btn--m" id="wf-tpl"><span class="ou-btn__ico"><svg width="16" height="16"><use href="#i-download" /></svg></span><span>Шаблон книги</span></button>
               <span>
                 <button class="ou-btn ou-btn--secondary ou-btn--m">Отмена</button>
-                <button class="ou-btn ou-btn--primary ou-btn--m" disabled>Пригласить</button>
+                <!-- Мертва, пока не задан ни один источник (PRD-28 §16, FR-24). -->
+                <button class="ou-btn ou-btn--primary ou-btn--m" id="wf-invite" disabled>Пригласить</button>
               </span>
             </footer>
           </div>
@@ -344,10 +362,15 @@
           <h3 class="wf-notes-title">Тот же диалог, что и назначение</h3>
           <ul>
             <li>Раскладка повторяет реальный диалог назначения теста: модал <code>xl</code>, вкладки-сегменты
-              «Приглашены (N)», «Пользователи», «Группы», «Списком из файла».</li>
-            <li>Конвейер PRD-28 переиспользуется целиком: разбор книги, классификация строк, заведение внешних
-              участников, письмо и выгрузка ссылок. Отличие одно — вместо назначения выдаётся грант
-              <code>review</code>, а токен выпускается с назначением «рецензирование».</li>
+              «Приглашены (N)», «Пользователи», «Группы», «Списком».</li>
+            <li>Конвейер PRD-28 переиспользуется целиком: разбор списка, классификация строк, заведение внешних
+              участников, письмо и выгрузка ссылок. Отличия два — вместо назначения выдаётся грант
+              <code>review</code>, токен выпускается с назначением «рецензирование», и маршруты у рецензирования
+              свои: конвейер общий, а право своё — <code>tests.review.invite</code> (спека, раздел 14).</li>
+            <li>Вкладка «Списком» принимает получателей двумя способами: набранным вручную полем «Адреса почты»
+              и книгой. Способы — альтернативы, заполненный гасит второй (состояние «списком: набран»).
+              Запись «Имя &lt;адрес&gt;» задаёт имя рецензента, и оно же становится подписью его комментариев;
+              у голого адреса подписью служит адрес (PRD-28, раздел 16).</li>
           </ul>
 
           <h3 class="wf-notes-title">Что сказано словами прямо в диалоге</h3>
@@ -378,7 +401,9 @@
               <tr><td>Предупреждения и итог рассылки</td><td><code>ou-banner ou-banner--subtle</code></td></tr>
               <tr><td>Отчёт по строкам книги</td><td><code>tb-table</code> + <code>ou-tag</code></td></tr>
               <tr><td>Подвал диалога</td><td><code>ou-modal__foot ou-modal__foot--between</code></td></tr>
-              <tr><td>Зона загрузки файла</td><td>faux-chrome <code>wf-drop</code> — в проде компонент загрузки PRD-28</td></tr>
+              <tr><td>Поле адресов</td><td><code>Textarea</code> (<code>ou-textarea</code>)</td></tr>
+              <tr><td>Разделитель «или»</td><td><code>tb-orsep</code> — проектный слой <code>tb-components.css</code>, не каркас эскиза</td></tr>
+              <tr><td>Зона загрузки файла</td><td>faux-chrome <code>wf-drop</code> — в проде компонент загрузки PRD-28 (<code>ou-uploader</code>, погашенная — <code>is-disabled</code>)</td></tr>
             </tbody>
           </table>
         </div>
@@ -386,6 +411,45 @@
     </div>
 
     <script>
+      /* Половины вкладки «Списком» — альтернативы: набранный список гасит зону
+         книги (PRD-28 §16, FR-24). Состояние показывается на том же холсте, а не
+         копией диалога: отличается только то, что задано. */
+      function setTyped(typed) {
+        var emails = document.getElementById('wf-emails');
+        var emailsBox = document.getElementById('wf-emails-box');
+        var drop = document.getElementById('wf-drop');
+        var cta = document.getElementById('wf-drop-cta');
+        if (!emails || !drop) return;
+        emails.value = typed ? 'Ирина Петрова <i.petrova@example.com>\ns.kovalev@example.com' : '';
+        emailsBox.classList.remove('is-disabled');
+        emails.disabled = false;
+        drop.classList.toggle('is-disabled', typed);
+        if (typed) drop.setAttribute('aria-disabled', 'true');
+        else drop.removeAttribute('aria-disabled');
+        cta.hidden = typed;
+        /* Шаблон книги — принадлежность нижней половины: набранному списку он не
+           нужен. Приглашение оживает, как только задан хоть один источник. */
+        document.getElementById('wf-tpl').disabled = typed;
+        document.getElementById('wf-invite').disabled = !typed;
+      }
+
+      /* Тема и плотность. Кнопки навбара звали эти функции с первой редакции, но
+         определены они нигде не были (`prd7-shared.js` их не даёт), и обе кнопки
+         молча падали с ReferenceError — тёмную тему на этом эскизе было не
+         посмотреть. Определения те же, что в соседнем prd28-bulk-invite-upload. */
+      function toggleTheme(btn) {
+        var dark = document.body.classList.toggle('ou--dark');
+        document.body.classList.toggle('ou--light', !dark);
+        btn.textContent = dark ? 'Light' : 'Dark';
+        btn.classList.toggle('active', dark);
+      }
+      function toggleDensity(btn) {
+        var compact = document.body.classList.toggle('ou--compact');
+        document.body.classList.toggle('ou--normal', !compact);
+        btn.textContent = compact ? 'Normal' : 'Compact';
+        btn.classList.toggle('active', compact);
+      }
+
       function navBtn(id) {
         return document.querySelector('.wf-nav button[onclick*="\'' + id + '\'"]');
       }
