@@ -41,6 +41,19 @@ export interface MagicScopeMatch {
 export const MAGIC_SCOPE_RULES: MagicScopeRule[] = [
   { method: "GET", pattern: "/api/auth/me", bind: "none" },
   { method: "POST", pattern: "/api/auth/logout", bind: "none" },
+  // The ways OUT of the link. A magic session is a narrow room, and these four are
+  // its door: a password login (which clears the mark — server/routes/auth.ts) and
+  // the recovery flow that lets someone who has no working password reach that
+  // login. Without them a person who followed a link is locked in until the cookie
+  // is deleted by hand — the login form itself answered 403, indistinguishable from
+  // a wrong password. None of them widens the scope: they either replace the
+  // session's own authentication or act purely on a token from the mailbox.
+  // `change-password` is deliberately NOT here — it acts INSIDE the application on
+  // an already-authenticated session, which is not what a link grants.
+  { method: "POST", pattern: "/api/auth/login", bind: "none" },
+  { method: "POST", pattern: "/api/auth/forgot-password", bind: "none" },
+  { method: "GET", pattern: "/api/auth/verify-reset-token", bind: "none" },
+  { method: "POST", pattern: "/api/auth/reset-password", bind: "none" },
   // The route handler itself narrows the payload down to the magic test; see
   // `server/routes/attempts.ts` (covered by `tests/routes.attempts-tests.test.ts`)
   // for where that narrowing is actually enforced.

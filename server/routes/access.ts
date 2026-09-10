@@ -70,6 +70,17 @@ router.get("/:token", async (req: Request, res: Response) => {
       return res.status(403).send(renderErrorPage("Срок действия ссылки истёк. Обратитесь к организатору теста."));
     }
 
+    // The link opens its OWN session rather than moving into whatever session the
+    // browser already holds. Writing the mark into the existing one silently
+    // demoted it: an author who clicked a link kept a single cookie that was now
+    // "this test only", under a session id minted before the link was presented.
+    // A fresh id also means a link handed to someone cannot fix their session id
+    // in advance. The old session is dropped from the store by `regenerate`, which
+    // is the honest outcome — it was going to be overwritten either way.
+    await new Promise<void>((resolve, reject) =>
+      req.session.regenerate(err => err ? reject(err) : resolve())
+    );
+
     // The link is access to ONE test, not a login: the session is marked so the
     // scope guard can hold it inside that test. A password login clears the mark.
     req.session.userId = record.userId;

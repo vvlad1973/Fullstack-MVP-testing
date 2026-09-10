@@ -39,6 +39,23 @@ function makeApp() {
 // storage.getAssignmentAccessToken is (mock-)queried with, so the value is opaque.
 const validToken = "a".repeat(40);
 
+/**
+ * The session id a response hands back, or `null` when it issues no cookie.
+ * Only the value matters here — comparing two of them says whether the session
+ * was reused or replaced.
+ */
+function sessionId(setCookie: string[] | string | undefined): string | null {
+  const cookie = firstCookie(setCookie);
+  return cookie ? cookie.slice("connect.sid=".length).split(";")[0] : null;
+}
+
+/** The bare `connect.sid=...` pair of a Set-Cookie header, ready to be sent back. */
+function firstCookie(setCookie: string[] | string | undefined): string {
+  const headers = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+  const cookie = headers.find(value => value.startsWith("connect.sid="));
+  return cookie ? cookie.split(";")[0] : "";
+}
+
 /** Build a token record with sensible non-revoked, non-expired defaults. */
 function makeRecord(overrides: Partial<{
   id: string; assignmentId: string | null; userId: string; testId: string; purpose: string;
@@ -216,6 +233,47 @@ describe("GET /access/:token", () => {
     // PRD-52: в области ссылки теперь есть её назначение — по нему клиент решает,
     // какой экран держать открытым.
     expect(probe.body.magic).toEqual({ assignmentId: "asgn1", testId: "test1", purpose: "attempt" });
+  });
+
+  // A link must not swallow the session that is already open in the browser. It
+  // used to write its mark straight into it, so an author who clicked a link kept
+  // one cookie whose session had silently become "this test only" — and the
+  // author's own session id was reused for it. A fresh session id per redemption
+  // keeps the two apart and closes the session-fixation hole in the same move.
+  it("opens a NEW session instead of overwriting the one already in the browser", async () => {
+    storageMock.getAssignmentAccessToken.mockResolvedValue(makeRecord());
+    const app = makeApp();
+    app.get("/sign-in", (req, res) => {
+      (req.session as unknown as { userId?: string }).userId = "author1";
+      res.json({ ok: true });
+    });
+    app.get("/probe", (req, res) => res.json({
+      userId: (req.session as unknown as { userId?: string }).userId ?? null,
+      magic: (req.session as unknown as { magic?: unknown }).magic ?? null,
+    }));
+
+    const agent = request.agent(app);
+    const signedIn = await agent.get("/sign-in");
+    const cookieBefore = firstCookie(signedIn.headers["set-cookie"]);
+    const sidBefore = sessionId(signedIn.headers["set-cookie"]);
+    expect(sidBefore).toBeTruthy();
+
+    const redeemed = await agent.get(`/access/${validToken}`);
+    expect(redeemed.status).toBe(302);
+    const sidAfter = sessionId(redeemed.headers["set-cookie"]);
+    expect(sidAfter).toBeTruthy();
+    expect(sidAfter).not.toBe(sidBefore);
+
+    // The link's own scope is what the browser now carries.
+    const probe = await agent.get("/probe");
+    expect(probe.body.userId).toBe("learner1");
+    expect(probe.body.magic).toEqual({ assignmentId: "asgn1", testId: "test1", purpose: "attempt" });
+
+    // And the session that existed before was NOT turned into the link's one: it is
+    // gone, rather than still open and now restricted to somebody else's test.
+    const stale = await request(app).get("/probe").set("Cookie", cookieBefore);
+    expect(stale.body.userId).toBeNull();
+    expect(stale.body.magic).toBeNull();
   });
 
   it("sends the hygiene headers so the raw token cannot leak", async () => {

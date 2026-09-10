@@ -79,6 +79,8 @@ export const t = {
     loginSuccess: "Вы успешно вошли в систему.",
     loginFailed: "Ошибка входа",
     invalidCredentials: "Неверный email или пароль.",
+    linkScopeBlocksLogin:
+      "Сеанс был открыт по ссылке-приглашению и ограничен одним тестом. Он завершён — повторите вход.",
     somethingWentWrong: "Что-то пошло не так. Попробуйте ещё раз.",
     demoAccounts: "Демо-аккаунты:",
     author: "Автор",

@@ -36,6 +36,17 @@ describe("matchMagicScopeRule", () => {
     expect(matchMagicScopeRule("DELETE", "/api/auth/me")).toBeNull();
   });
 
+  // The exits from a link. Losing any of these locks a person inside the link:
+  // the login form is where the client sends them, and answering 403 there reads
+  // as a wrong password, leaving no way out but deleting the cookie by hand.
+  it("keeps the ways out of a link reachable from inside it", () => {
+    expect(matchMagicScopeRule("POST", "/api/auth/login")?.rule.bind).toBe("none");
+    expect(matchMagicScopeRule("POST", "/api/auth/forgot-password")?.rule.bind).toBe("none");
+    expect(matchMagicScopeRule("GET", "/api/auth/verify-reset-token")?.rule.bind).toBe("none");
+    expect(matchMagicScopeRule("POST", "/api/auth/reset-password")?.rule.bind).toBe("none");
+    expect(matchMagicScopeRule("POST", "/api/auth/logout")?.rule.bind).toBe("none");
+  });
+
   it("denies anything absent from the table", () => {
     expect(matchMagicScopeRule("GET", "/api/learner/attempts")).toBeNull();
     expect(matchMagicScopeRule("GET", "/api/home")).toBeNull();

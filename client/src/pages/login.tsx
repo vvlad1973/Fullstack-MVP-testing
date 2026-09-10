@@ -23,7 +23,7 @@ import { t } from "@/lib/i18n";
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -36,10 +36,21 @@ export default function LoginPage() {
     if (isLoading) return;
     setIsLoading(true);
     try {
-      const success = await login(data.email, data.password);
-      if (success) {
+      const outcome = await login(data.email, data.password);
+      if (outcome === "ok") {
         toast({ title: t.auth.welcomeBack, description: t.auth.loginSuccess });
         navigate("/");
+      } else if (outcome === "link-scope") {
+        // The session still carries an invitation link, and a link admits nothing
+        // outside its test — the sign-in included. Ending it here turns a dead end
+        // into a second attempt that works, instead of a password the person is
+        // told is wrong while it is right.
+        await logout();
+        toast({
+          variant: "destructive",
+          title: t.auth.loginFailed,
+          description: t.auth.linkScopeBlocksLogin,
+        });
       } else {
         toast({
           variant: "destructive",
