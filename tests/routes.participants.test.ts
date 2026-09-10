@@ -180,11 +180,57 @@ describe("POST /api/tests/:id/participants/preview", () => {
     expect(res.body.code).toBe("empty_file");
   });
 
-  it("отсутствие файла — ошибка запроса, а не сбой сервера", async () => {
+  // ── Второй источник строк: набранный вручную список (PRD-28 раздел 16) ──────
+
+  it("принимает набранные строки телом JSON и классифицирует их так же", async () => {
+    const res = await as("mgr1", request(app).post("/api/tests/t1/participants/preview"))
+      .send({ rows: [{ index: 0, email: "a@x.ru", name: "Анна" }, { index: 1, email: "b@x.ru", name: null }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0]).toMatchObject({ email: "a@x.ru", name: "Анна", status: "new" });
+  });
+
+  it("не доверяет телу: берёт только адрес, имя и позицию", async () => {
+    const res = await as("mgr1", request(app).post("/api/tests/t1/participants/preview"))
+      .send({ rows: [{ index: 0, email: " a@x.ru ", name: "  ", status: "privileged", userId: "u-9" }] });
+
+    expect(res.status).toBe(200);
+    // Статус ставит СЕРВЕР: в этом весь смысл предпросмотра, и подсунутый в теле
+    // «privileged» не должен ни на что влиять.
+    expect(res.body[0]).toMatchObject({ email: "a@x.ru", name: null, status: "new", userId: null });
+  });
+
+  it("держит тот же потолок строк, что и книга", async () => {
+    config.limits = { ...config.limits, participantsImportMaxRows: 1 };
+
+    const res = await as("mgr1", request(app).post("/api/tests/t1/participants/preview"))
+      .send({ rows: [{ index: 0, email: "a@x.ru", name: null }, { index: 1, email: "b@x.ru", name: null }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("too_many_rows");
+  });
+
+  it("пустой список отклоняет своей фразой, а не фразой про файл", async () => {
+    const res = await as("mgr1", request(app).post("/api/tests/t1/participants/preview")).send({ rows: [] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("empty_list");
+    expect(res.body.error).toBe("В списке нет ни одного адреса.");
+  });
+
+  it("права и область теста проверяются и на этом пути", async () => {
+    const res = await as("lrn1", request(app).post("/api/tests/t1/participants/preview"))
+      .send({ rows: [{ index: 0, email: "a@x.ru", name: null }] });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("ни файла, ни списка — ошибка запроса, а не сбой сервера", async () => {
     const res = await as("mgr1", request(app).post("/api/tests/t1/participants/preview"));
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/File required/i);
+    expect(res.body.code).toBe("empty_list");
   });
 });
 

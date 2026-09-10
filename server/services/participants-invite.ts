@@ -18,6 +18,10 @@ import type { User } from "@shared/schema";
 /** What the pipeline refused on, told apart without reading the message. */
 export type ParticipantsInviteErrorKind =
   | "empty_file"
+  // Второй источник строк — набранный вручную список (раздел 16). Отказ у него
+  // свой: фраза про пустой ФАЙЛ там, где файла не было, посылает оператора
+  // искать причину не в том месте.
+  | "empty_list"
   | "too_many_rows"
   | "test_not_found"
   | "group_name_taken";

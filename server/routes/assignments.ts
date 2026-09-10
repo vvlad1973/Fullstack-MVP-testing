@@ -1,12 +1,15 @@
 import { Router } from "express";
-import ExcelJS from "exceljs";
 import { audit, logger } from "../logger";
 import { config } from "../config";
 import { storage } from "../storage";
 import { requirePermission } from "../middleware/auth";
 import { requireTestScope, requireAssignmentScope } from "../middleware/test-scope";
 import { respondWorkbookReadError, workbookUploadSingle } from "../middleware/upload";
-import { addAoaSheet, workbookToBuffer } from "../utils/excel";
+import {
+  buildRecipientTemplateWorkbook,
+  readGivenRows,
+  recipientRefusalMessage,
+} from "../services/recipient-list";
 import {
   classifyParticipants,
   ParticipantsInviteError,
@@ -493,29 +496,7 @@ router.patch("/assignments/:id/revoke-user/:userId", requirePermission("assignme
 /** Multipart field the participants workbook arrives in. */
 const participantsUpload = workbookUploadSingle("file");
 
-/**
- * The sentence the operator reads for a refusal the pipeline raised.
- *
- * The service speaks English — its messages go to the log and to developers —
- * and the Russian phrasing is composed here, out of `kind` and the values the
- * refusal carries. That is why the ceiling is named by `detail.maxRows` and not
- * spliced out of the message: rewording the service must never change what the
- * operator sees, nor the number in it.
- */
-function participantsRefusalMessage(error: ParticipantsInviteError): string {
-  switch (error.kind) {
-    case "empty_file":
-      return "В файле нет ни одной строки с участниками.";
-    case "too_many_rows":
-      return `Слишком много строк: за один раз можно загрузить не больше ${error.detail.maxRows}.`;
-    case "group_name_taken":
-      return `Группа с таким именем уже есть: ${error.detail.groupName}`;
-    case "test_not_found":
-      return "Тест не найден.";
-  }
-}
-
-// ─── POST /api/tests/:id/participants/preview — разбор файла (PRD-28 FR-11) ───
+// ─── POST /api/tests/:id/participants/preview — разбор списка (FR-11, FR-29) ──
 router.post(
   "/tests/:id/participants/preview",
   requirePermission("assignments.manage"),
@@ -524,18 +505,21 @@ router.post(
   participantsUpload,
   async (req, res) => {
     try {
-      if (!req.file) return res.status(400).json({ error: "File required" });
-      const rows = await parseParticipantsWorkbook(req.file.buffer, {
-        maxRows: config.limits.participantsImportMaxRows,
-      });
+      // Два источника строк, одна классификация: книга и набранный вручную
+      // список (раздел 16). Развилка здесь последняя — дальше пути неразличимы.
+      const rows = req.file
+        ? await parseParticipantsWorkbook(req.file.buffer, {
+          maxRows: config.limits.participantsImportMaxRows,
+        })
+        : readGivenRows(req.body?.rows, config.limits.participantsImportMaxRows);
       res.json(await classifyParticipants(rows, { testId: req.params.id, storage }));
     } catch (error) {
       logger.error("Participants preview error: " + (error as Error).message);
       if (respondWorkbookReadError(res, error)) return;
-      // What the parser refuses on — an empty book, too many rows — is about the
-      // file the operator picked, so it is their error to fix. Anything else
-      // (the classification reading the database, say) is ours, and calling it
-      // a bad file would send the operator looking in the wrong place.
+      // What the parser refuses on — an empty book, an empty list, too many rows
+      // — is about the list the operator gave, so it is their error to fix.
+      // Anything else (the classification reading the database, say) is ours, and
+      // calling it a bad list would send the operator looking in the wrong place.
       //
       // The answer carries the Russian sentence for the human and `code` beside
       // it for the screen: the service message is English by design and must
@@ -543,7 +527,7 @@ router.post(
       if (error instanceof ParticipantsInviteError) {
         return res.status(400).json({
           code: error.kind,
-          error: participantsRefusalMessage(error),
+          error: recipientRefusalMessage(error),
         });
       }
       res.status(500).json({ error: "Failed to preview participants" });
@@ -593,7 +577,7 @@ router.post(
         const status = error.kind === "test_not_found" ? 404 : 400;
         return res.status(status).json({
           code: error.kind,
-          error: participantsRefusalMessage(error),
+          error: recipientRefusalMessage(error),
         });
       }
       res.status(500).json({ error: "Failed to invite participants" });
@@ -618,21 +602,14 @@ router.post(
 );
 
 // ─── GET /api/tests/:id/participants/template — шаблон книги (PRD-28 FR-10) ───
-// Two columns only, unlike the users-import template: `role` and `group` are
-// ignored in this scenario (the role is always `learner`, the group comes from
-// the form), and offering them would promise behaviour that does not exist.
+// Сама книга собирается в `services/recipient-list`: тот же шаблон отдаёт и
+// маршрут рецензирования, а две сборки однажды разошлись бы колонками.
 router.get(
   "/tests/:id/participants/template",
   requirePermission("assignments.manage"),
   requireTestScope("assign"),
   async (_req, res) => {
-    const wb = new ExcelJS.Workbook();
-    addAoaSheet(wb, "Участники", [
-      ["email", "name"],
-      ["ivanov@example.com", "Иван Иванов"],
-      ["petrova@example.com", "Анна Петрова"],
-    ]);
-    const buf = await workbookToBuffer(wb);
+    const buf = await buildRecipientTemplateWorkbook();
     res.setHeader("Content-Disposition", "attachment; filename=participants-template.xlsx");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.send(buf);
