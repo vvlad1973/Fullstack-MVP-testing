@@ -53,15 +53,25 @@ const DEMO = [
   ["Приёмка PRD-52: список рецензентов", "Сертификационный тест для руководителей"],
   ["prd52.expert.named@example.com", "i.petrova@example.com"],
   ["prd52.expert.plain@example.com", "s.kovalev@example.com"],
+  ["prd52.book.one@example.com", "o.lebedev@example.com"],
+  ["prd52.book.two@example.com", "e.rogova@example.com"],
   ["prd52.expert.quoted@example.com", "p.ivanov@example.com"],
   ["prd52.expert.semi@example.com", "m.sidorova@example.com"],
+  ["prd52.wf.one@example.com", "i.petrova@example.com"],
   ["prd52.report.one@example.com", "a.sokolova@example.com"],
   ["prd52.report.two@example.com", "e.rogova@example.com"],
+  ["prd52.wf.two@example.com", "s.kovalev@example.com"],
   ["broken.example.com", "ivanov.example.com"],
 ];
 
 function demoData(html) {
-  return DEMO.reduce((acc, [from, to]) => acc.split(from).join(to), html);
+  const named = DEMO.reduce((acc, [from, to]) => acc.split(from).join(to), html);
+  // Идентификаторы строк тянутся из dev-базы; эскизу они не нужны и читаются
+  // как мусор прогона.
+  return named.replace(
+    /data-testid="revoke-reviewer-[0-9a-f-]+"/g,
+    'data-testid="revoke-reviewer"',
+  );
 }
 
 /** Значение textarea в outerHTML не попадает — возвращаем его содержимым тега. */
@@ -216,8 +226,9 @@ ${stage}
 
           <h3 class="wf-notes-title">Что этот эскиз НЕ показывает</h3>
           <ul>
-            <li>Вкладку «Группы»: в режиме рецензирования она не работает — приглашение идёт поимённо, и
-              выбор группы уходит на сервер пустым списком. Отдельная задача.</li>
+            <li>Вкладки «Группы» в режиме рецензирования НЕТ и не будет: грант выдаётся человеку, ссылка
+              персональная (иначе комментарий нечем подписать), группового приглашения не существует.
+              У назначения теста вкладка на месте.</li>
             <li>Состояние «Выполнение»: отдельного экрана у него нет, кнопка переходит в состояние загрузки.</li>
           </ul>
 

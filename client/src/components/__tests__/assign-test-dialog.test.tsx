@@ -242,6 +242,20 @@ describe("AssignTestDialog — режим рецензирования", () => {
     expect(screen.queryByRole("button", { name: /^Назначить/ })).not.toBeInTheDocument();
   });
 
+  it("вкладки «Группы» нет: рецензентов приглашают поимённо", async () => {
+    renderDialog({ mode: "review" });
+    await screen.findByRole("tab", { name: /Приглашены/ });
+
+    expect(screen.queryByRole("tab", { name: /Группы/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Пользователи/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Списком/ })).toBeInTheDocument();
+  });
+
+  it("в обычном режиме вкладка «Группы» на месте", async () => {
+    renderDialog();
+    expect(await screen.findByRole("tab", { name: /Группы/ })).toBeInTheDocument();
+  });
+
   it("не показывает срок сдачи: у рецензирования нет назначения", async () => {
     renderDialog({ mode: "review" });
     fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));

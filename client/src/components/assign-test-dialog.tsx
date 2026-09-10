@@ -792,7 +792,18 @@ export function AssignTestDialog({
             ? { id: "current", label: `Приглашены (${reviewers.length})`, content: reviewersPanel }
             : { id: "current", label: `${t.assignments.assignedTo} (${assignments.length})`, content: currentPanel },
           { id: "users", label: t.assignments.users, icon: <Users size={16} />, content: usersPanel },
-          { id: "groups", label: t.assignments.groups, icon: <UsersRound size={16} />, content: groupsPanel },
+          // Группы — только у назначения. Рецензентов приглашают ПОИМЁННО: грант
+          // выдаётся человеку, ссылка персональная (иначе комментарий нечем
+          // подписать), и группового приглашения не существует — вкладка лишь
+          // предлагала выбор, который уходил на сервер пустым списком.
+          ...(isReview
+            ? []
+            : [{
+              id: "groups" as const,
+              label: t.assignments.groups,
+              icon: <UsersRound size={16} />,
+              content: groupsPanel,
+            }]),
           {
             id: "bulk",
             // Не «Списком из файла»: с PRD-28 раздела 16 список можно и набрать.
