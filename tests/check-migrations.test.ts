@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { describe, it, expect } from "vitest";
-import { classifyMigration, pendingFromJournal } from "../scripts/db/check-migrations";
+import { classifyMigration, describeError, isMissingLedgerError, pendingFromJournal } from "../scripts/db/check-migrations";
 
 describe("разбор миграции", () => {
   it("добавление колонки применимо без человека", () => {
@@ -86,5 +86,46 @@ describe("что осталось применить", () => {
   it("репозиторий без журнала проверку не роняет", () => {
     const root = mkdtempSync(path.join(tmpdir(), "mig-empty-"));
     expect(pendingFromJournal(new Set(), root)).toEqual([]);
+  });
+});
+
+/**
+ * Недоступная база и база без журнала — РАЗНЫЕ вещи, и путать их дорого: пока обе
+ * читались как «применено ничего», остановленный контейнер печатал список из всех
+ * миграций разом, включая снятие колонок, и предлагал применить их руками. Ответом
+ * на такой совет была бы порча схемы, а настоящей причиной — потушенный docker.
+ */
+describe("почему журнал недоступен", () => {
+  it("отсутствующая таблица журнала — это «журнала ещё нет»", () => {
+    expect(isMissingLedgerError(Object.assign(new Error("relation does not exist"), { code: "42P01" }))).toBe(true);
+  });
+
+  it("код ищется и во вложенной причине, как его прячет драйвер", () => {
+    const cause = Object.assign(new Error("relation does not exist"), { code: "42P01" });
+    expect(isMissingLedgerError(new Error("Failed query", { cause }))).toBe(true);
+  });
+
+  it("отказ в соединении журналом не является", () => {
+    expect(isMissingLedgerError(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }))).toBe(false);
+  });
+
+  it("ошибка без кода журналом не является", () => {
+    expect(isMissingLedgerError(new Error("boom"))).toBe(false);
+  });
+
+  it("рассказ об ошибке достаёт настоящую причину из-под обёртки drizzle", () => {
+    const cause = new Error("connect ECONNREFUSED 127.0.0.1:55432");
+    const text = describeError(new Error("Failed query: SELECT hash FROM ...", { cause }));
+    expect(text).toContain("Failed query");
+    expect(text).toContain("ECONNREFUSED");
+  });
+
+  // Так недоступность базы и выглядит на самом деле: AggregateError без текста, весь
+  // смысл — в коде. Пока уровень без сообщения пропускался, строка обрывалась на
+  // «Failed query» — то есть до причины.
+  it("причина без текста представлена своим кодом", () => {
+    const cause = Object.assign(new AggregateError([], ""), { code: "ECONNREFUSED" });
+    const text = describeError(new Error("Failed query: SELECT hash FROM ...", { cause }));
+    expect(text).toContain("ECONNREFUSED");
   });
 });

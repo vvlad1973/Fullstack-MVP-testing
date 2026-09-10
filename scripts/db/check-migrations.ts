@@ -87,6 +87,52 @@ export function pendingFromJournal(appliedHashes: Set<string>, root = process.cw
   return out;
 }
 
+/** Код ошибки PostgreSQL — из-под всех обёрток, в которые его укутал drizzle. */
+function errorCode(error: unknown): string | undefined {
+  for (let e: unknown = error, depth = 0; e != null && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
+    const code = (e as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  return undefined;
+}
+
+/**
+ * Означает ли ошибка, что журнала применения в базе просто нет (42P01).
+ *
+ * Отличать это от недоступной базы обязательно. Пока оба случая читались одинаково —
+ * «применено ничего», — потушенный контейнер выглядел как схема, отставшая на все
+ * миграции разом, и проверка советовала применить их руками. Совет, выполненный на
+ * живой базе, снёс бы колонки; настоящей же причиной был остановленный docker.
+ */
+export function isMissingLedgerError(error: unknown): boolean {
+  return errorCode(error) === "42P01";
+}
+
+/**
+ * Сообщение об ошибке вместе со всеми вложенными причинами.
+ *
+ * Само по себе `error.message` у drizzle — это «Failed query: SELECT … params:», а
+ * жалоба драйвера (ECONNREFUSED, «password authentication failed») лежит в `cause`.
+ * Печатать надо всю цепочку, иначе оператор видит запрос и не видит причины.
+ *
+ * У недоступной базы причина приходит `AggregateError`, и текста в ней НЕТ — весь
+ * смысл несёт поле `code`. Поэтому уровень без сообщения представляет свой код: без
+ * этого строка обрывалась на «Failed query», то есть ровно там, где начинается ответ
+ * на вопрос «почему».
+ */
+export function describeError(error: unknown): string {
+  const parts: string[] = [];
+  for (let e: unknown = error, depth = 0; e != null && depth < 5; e = (e as { cause?: unknown }).cause, depth++) {
+    const message = (e as { message?: unknown }).message;
+    const code = (e as { code?: unknown }).code;
+    const part = typeof message === "string" && message
+      ? message
+      : typeof code === "string" ? code : "";
+    if (part && !parts.includes(part)) parts.push(part);
+  }
+  return parts.join(" | ") || String(error);
+}
+
 /** Хеши применённых миграций; пустое множество, если журнала в базе ещё нет. */
 async function readAppliedHashes(): Promise<Set<string>> {
   // Окружение и конфиг поднимаются так же, как в `reconcile-migration-ledger`: без них
@@ -105,8 +151,13 @@ async function readAppliedHashes(): Promise<Set<string>> {
   } catch (e) {
     // Журнала нет — база либо пустая, либо старше эпохи migrate. Решать это должен
     // человек, а не стартовая проверка: она сообщает и не мешает поднять сервер.
-    console.warn(`[db] журнал миграций недоступен: ${(e as Error).message}`);
-    return new Set();
+    if (isMissingLedgerError(e)) {
+      console.warn(`[db] журнал миграций отсутствует: ${describeError(e)}`);
+      return new Set();
+    }
+    // Любая другая ошибка — не ответ «применено ничего», а отсутствие ответа вовсе.
+    // Пусть её увидит внешний обработчик и скажет о недоступной базе.
+    throw e;
   }
 }
 
@@ -123,7 +174,7 @@ export async function checkMigrations(): Promise<number> {
   } catch (e) {
     // База недоступна — это отдельная беда, и сообщит о ней сам сервер. Проверка схемы
     // не должна быть тем, что мешает его запустить.
-    console.warn(`[db] проверка миграций пропущена: база недоступна (${(e as Error).message})`);
+    console.warn(`[db] проверка миграций пропущена: база недоступна (${describeError(e)})`);
     return 0;
   }
 
