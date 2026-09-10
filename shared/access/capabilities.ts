@@ -51,6 +51,10 @@ export const CAPABILITIES = [
   // authoring role keeps the debug run after losing SCORM generation.
   "tests.debug.play",
   "tests.access.grant",
+  // PRD-52 раздел 14: приглашение рецензентов — своё право, а не следствие прав
+  // на назначения. Заведение внешней учётной записи рецензента входит в него:
+  // без учётной записи комментарий нечем подписать.
+  "tests.review.invite",
   "tests.owner.change",
   // Templates.
   "templates.read",
@@ -90,6 +94,9 @@ export const SCOPE_AWARE_CAPABILITIES: readonly Capability[] = [
   "questions.importExport",
   // PRD-15 BRC-27: a test owner may grant access to their own test.
   "tests.access.grant",
+  // PRD-52 раздел 14: the same scope — the owner invites reviewers to their own
+  // test; an administrator to any.
+  "tests.review.invite",
   "tests.read",
   "tests.edit",
   "tests.publish",

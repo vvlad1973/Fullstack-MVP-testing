@@ -20,17 +20,29 @@
  *     не должна редактироваться задним числом.
  */
 import { Router, type Request, type Response } from "express";
+import { config } from "../config";
 import { requireUserContext, requirePermission } from "../middleware/auth";
+import { respondWorkbookReadError, workbookUploadSingle } from "../middleware/upload";
 import { requireReviewScope } from "../middleware/review-scope";
 import { requireTestScope } from "../middleware/test-scope";
 import { storage } from "../storage";
 import { describeAnchor, isAnchorStale, isAnchorOrphaned } from "../services/review-anchor";
 import { openRunSession, servePackageFile, closeRunSession } from "../scorm/debug-player/run-session";
 import { inviteReviewers } from "../services/review-invite";
+import {
+  classifyParticipants,
+  ParticipantsInviteError,
+  parseParticipantsWorkbook,
+} from "../services/participants-invite";
+import {
+  buildRecipientTemplateWorkbook,
+  readGivenRows,
+  recipientRefusalMessage,
+} from "../services/recipient-list";
 import { canGrantAccess } from "../services/test-access";
 import { readShimJs, readInspectorComputeJs } from "../scorm/debug-player/assets";
 import type { ReviewAnchor, ReviewAnchorKind } from "@shared/review/anchor";
-import { logger } from "../logger";
+import { audit, logger } from "../logger";
 
 const router = Router();
 
@@ -294,10 +306,91 @@ router.get("/:id/review/inspector-compute.js", ...reviewGate, (_req: Request, re
 /** Сколько живёт ревью-ссылка, если срок не задан явно. */
 const REVIEW_LINK_DAYS = 30;
 
+/** Книга со списком рецензентов приходит тем же полем, что и книга участников. */
+const reviewerListUpload = workbookUploadSingle("file");
+
+/**
+ * Гейт списка рецензентов: право `tests.review.invite` даёт действие в принципе,
+ * `canGrantAccess` — на ЭТОТ тест (владелец; администратор — на любой).
+ *
+ * Одна пара на все четыре маршрута списка. Предпросмотр, шаблон и отметка о
+ * выгрузке показывают и обслуживают ровно то, что делает приглашение, и прятать
+ * их за другой дверью — значит однажды разойтись с ним в правах (PRD-52, 14).
+ *
+ * @returns `true`, если можно продолжать; иначе ответ уже отправлен.
+ */
+async function ensureInviteScope(req: Request, res: Response): Promise<boolean> {
+  const test = await storage.getTest(req.params.id);
+  if (!test) {
+    res.status(404).json({ error: "Тест не найден" });
+    return false;
+  }
+  if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser!.id, test)) {
+    res.status(403).json({ error: "Forbidden" });
+    return false;
+  }
+  return true;
+}
+
+// POST /api/tests/:id/review/preview — разбор списка рецензентов (FR-35).
+// Книга или набранный вручную список — разбор и классификация те же, что у
+// участников (PRD-28 раздел 16): общим остаётся конвейер, а не право.
+router.post(
+  "/:id/review/preview",
+  requirePermission("tests.review.invite"),
+  reviewerListUpload,
+  async (req: Request, res: Response) => {
+    try {
+      if (!(await ensureInviteScope(req, res))) return;
+      const rows = req.file
+        ? await parseParticipantsWorkbook(req.file.buffer, {
+          maxRows: config.limits.participantsImportMaxRows,
+        })
+        : readGivenRows(req.body?.rows, config.limits.participantsImportMaxRows);
+      res.json(await classifyParticipants(rows, { testId: req.params.id, storage }));
+    } catch (error) {
+      if (respondWorkbookReadError(res, error)) return;
+      if (error instanceof ParticipantsInviteError) {
+        return res.status(400).json({ code: error.kind, error: recipientRefusalMessage(error) });
+      }
+      logger.error("Review preview failed: " + (error as Error).message, "review");
+      res.status(500).json({ error: "Не удалось разобрать список" });
+    }
+  },
+);
+
+// GET /api/tests/:id/review/template — шаблон книги для списка рецензентов.
+router.get(
+  "/:id/review/template",
+  requirePermission("tests.review.invite"),
+  async (req: Request, res: Response) => {
+    if (!(await ensureInviteScope(req, res))) return;
+    const buf = await buildRecipientTemplateWorkbook();
+    res.setHeader("Content-Disposition", "attachment; filename=participants-template.xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(buf);
+  },
+);
+
+// POST /api/tests/:id/review/links-exported — отметка о выгрузке ссылок.
+// Ссылки сюда НЕ едут: файл собирается в браузере из отчёта, который он и так
+// держит, — серверу сообщается только факт и число (PRD-28 FR-20).
+router.post(
+  "/:id/review/links-exported",
+  requirePermission("tests.review.invite"),
+  async (req: Request, res: Response) => {
+    if (!(await ensureInviteScope(req, res))) return;
+    const raw = Number(req.body?.count);
+    audit.participantLinksExported(req.params.id, Number.isFinite(raw) ? raw : 0);
+    res.status(204).end();
+  },
+);
+
 // POST /api/tests/:id/review/invite — выдать грант `review` и разослать ссылки.
-// Гейт — право выдавать доступ к ЭТОМУ тесту: приглашение рецензента и есть выдача
-// доступа, и решать это должен владелец теста, а не всякий, кто его может читать.
-router.post("/:id/review/invite", requirePermission("tests.access.grant"), async (req: Request, res: Response) => {
+// Гейт — своё право звать рецензентов на ЭТОТ тест. Раньше здесь стояло
+// `tests.access.grant`: выдать доступ руками и позвать рецензировать — разные
+// действия, и второе не должно тянуть за собой первое (PRD-52 раздел 14).
+router.post("/:id/review/invite", requirePermission("tests.review.invite"), async (req: Request, res: Response) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
   if (!rows.length) return res.status(400).json({ error: "Некого приглашать" });
   try {

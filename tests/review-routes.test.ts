@@ -21,6 +21,10 @@ const { storageMock, accessMock, anchorMock, runMock } = vi.hoisted(() => ({
     getUserRoles: vi.fn(),
     getTest: vi.fn(),
     getTestGrantForUser: vi.fn(),
+    // Классификация строк списка рецензентов читает то же, что у участников.
+    getUserByEmail: vi.fn(),
+    getTestAssignments: vi.fn(),
+    getGroupUsers: vi.fn(),
     listReviewThreads: vi.fn(),
     getReviewComment: vi.fn(),
     getTestAccessGrants: vi.fn(),
@@ -52,6 +56,8 @@ vi.mock("../server/services/test-access", () => accessMock);
 vi.mock("../server/services/review-anchor", () => anchorMock);
 vi.mock("../server/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  // Отметка о выгрузке ссылок пишет в аудит — тот же журнал, что у участников.
+  audit: { participantLinksExported: vi.fn() },
 }));
 vi.mock("../server/scorm/build-export-data", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -400,5 +406,65 @@ describe("рецензенты теста", () => {
     expect(storageMock.removeTestAccessGrant).not.toHaveBeenCalled();
     // Ссылки всё равно гасим: ревью-ссылка могла быть выдана раньше повышения.
     expect(storageMock.revokeReviewLinks).toHaveBeenCalledWith("t1", "author-2");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRD-52 раздел 14: список рецензентов идёт СВОИМИ маршрутами под правом
+// `tests.review.invite`. До этого вкладка ходила в маршруты участников, и автор
+// — единственная роль, ради которой всё сделано, — получал там 403.
+describe("список рецензентов", () => {
+  beforeEach(() => {
+    storageMock.getUserByEmail.mockResolvedValue(undefined);
+    storageMock.getTestAssignments.mockResolvedValue([]);
+    storageMock.getGroupUsers.mockResolvedValue([]);
+  });
+
+  it("разбирает набранные строки и отдаёт их со статусами", async () => {
+    const res = await request(authorApp())
+      .post("/api/tests/t1/review/preview")
+      .send({ rows: [{ index: 0, email: "expert@x.test", name: "Ирина" }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ email: "expert@x.test", name: "Ирина", status: "new" });
+  });
+
+  it("не владельцу теста отказывает", async () => {
+    const res = await request(makeApp("author-2"))
+      .post("/api/tests/t1/review/preview")
+      .send({ rows: [{ index: 0, email: "expert@x.test", name: null }] });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("пустой список отклоняет фразой про список, а не про файл", async () => {
+    const res = await request(authorApp()).post("/api/tests/t1/review/preview").send({ rows: [] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("empty_list");
+    expect(res.body.error).toBe("В списке нет ни одного адреса.");
+  });
+
+  it("шаблон книги отдаётся под тем же правом", async () => {
+    const res = await request(authorApp()).get("/api/tests/t1/review/template");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-disposition"]).toContain("participants-template.xlsx");
+  });
+
+  it("отметка о выгрузке ссылок принимается и ничего не возвращает", async () => {
+    const res = await request(authorApp())
+      .post("/api/tests/t1/review/links-exported")
+      .send({ count: 3 });
+
+    expect(res.status).toBe(204);
+  });
+
+  it("отметку о выгрузке не владельцу не ставит", async () => {
+    const res = await request(makeApp("author-2"))
+      .post("/api/tests/t1/review/links-exported")
+      .send({ count: 3 });
+
+    expect(res.status).toBe(403);
   });
 });
