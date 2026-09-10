@@ -28,7 +28,7 @@ import {
   Tag,
   Text,
   type TableColumn,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { t } from "@/lib/i18n";
 import { BulkInviteTab } from "@/features/tests/assign/bulk-invite-tab";
@@ -440,17 +440,23 @@ export function AssignTestDialog({
       return next;
     });
 
+  // Срок сдачи — свойство НАЗНАЧЕНИЯ, которого у рецензирования нет: приглашение
+  // рецензента отправляет только срок жизни ссылки (`assignMutation`), и поле
+  // сдачи обещало бы поведение, которого не будет. Срок ссылки остаётся: он
+  // работает в обоих режимах.
   const dateFields = (
     <Stack direction="row" gap={4}>
-      <Box grow>
-        <Input
-          label={t.assignments.dueDate}
-          type="date"
-          fullWidth
-          value={dueDate}
-          onChange={(e) => handleDueDateChange(e.target.value)}
-        />
-      </Box>
+      {!isReview && (
+        <Box grow>
+          <Input
+            label={t.assignments.dueDate}
+            type="date"
+            fullWidth
+            value={dueDate}
+            onChange={(e) => handleDueDateChange(e.target.value)}
+          />
+        </Box>
+      )}
       <Box grow>
         <Input
           label="Ссылка активна до"
@@ -707,7 +713,7 @@ export function AssignTestDialog({
       </Stack>
       {availableUsers.length === 0 ? (
         <Box padY={7} style={{ textAlign: "center", color: "var(--ou-fg-muted)" }}>
-          <p>Все пользователи уже назначены</p>
+          <p>{isReview ? "Все пользователи уже приглашены" : "Все пользователи уже назначены"}</p>
         </Box>
       ) : (
         <ScrollArea maxH="lg">

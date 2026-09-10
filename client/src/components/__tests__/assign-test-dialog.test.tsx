@@ -242,6 +242,22 @@ describe("AssignTestDialog — режим рецензирования", () => {
     expect(screen.queryByRole("button", { name: /^Назначить/ })).not.toBeInTheDocument();
   });
 
+  it("не показывает срок сдачи: у рецензирования нет назначения", async () => {
+    renderDialog({ mode: "review" });
+    fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
+
+    expect(screen.queryByLabelText("Срок выполнения")).toBeNull();
+    expect(screen.getByLabelText("Ссылка активна до")).toBeInTheDocument();
+  });
+
+  it("пустой список пользователей объясняется приглашением, а не назначением", async () => {
+    usersData = [];
+    renderDialog({ mode: "review" });
+    fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
+
+    expect(await screen.findByText("Все пользователи уже приглашены")).toBeInTheDocument();
+  });
+
   it("обычный режим заголовка и предупреждения не меняет", async () => {
     renderDialog();
     expect(screen.queryByText("Отправить на рецензирование")).not.toBeInTheDocument();

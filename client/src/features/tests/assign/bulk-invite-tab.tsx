@@ -35,7 +35,7 @@ import {
   Textarea,
   type TableColumn,
   type Tone,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { parseRecipientList } from "@shared/recipients/parse-recipient-list";
 import { useToast } from "@/hooks/use-toast";
 import { t } from "@/lib/i18n";
@@ -513,16 +513,22 @@ export function BulkInviteTab({
         </Button>
       </Cluster>
 
+      {/* Срок сдачи и группа — свойства НАЗНАЧЕНИЯ, которого у рецензирования
+          нет: прогон их не отправляет (`review/invite` знает только срок жизни
+          ссылки). Показывать их рецензенту — обещать поведение, которого не
+          будет: оператор заполнял их и не получал ничего. */}
       <Stack direction="row" gap={4}>
-        <Box grow>
-          <Input
-            label={t.assignments.dueDate}
-            type="date"
-            fullWidth
-            value={dueDate}
-            onChange={(e) => handleDueDateChange(e.target.value)}
-          />
-        </Box>
+        {!isReview && (
+          <Box grow>
+            <Input
+              label={t.assignments.dueDate}
+              type="date"
+              fullWidth
+              value={dueDate}
+              onChange={(e) => handleDueDateChange(e.target.value)}
+            />
+          </Box>
+        )}
         <Box grow>
           <Input
             label="Ссылка активна до"
@@ -535,7 +541,7 @@ export function BulkInviteTab({
         </Box>
       </Stack>
 
-      {groupField}
+      {!isReview && groupField}
 
       <Cluster justify="end" gap={2}>
         <Button
@@ -670,7 +676,11 @@ export function BulkInviteTab({
         email: r.email,
         outcome: "Письмо не доставлено",
         tone: "warning" as Tone,
-        reason: "Почтовый сервер отклонил адрес. Назначение создано, ссылка выпущена и действует — заберите её из выгрузки",
+        // У рецензирования назначения нет — доступ несёт грант, и говорить о
+        // назначении значило бы отправить оператора искать несуществующую запись.
+        reason: isReview
+          ? "Почтовый сервер отклонил адрес. Доступ выдан, ссылка выпущена и действует — заберите её из выгрузки"
+          : "Почтовый сервер отклонил адрес. Назначение создано, ссылка выпущена и действует — заберите её из выгрузки",
       })),
     ...result.failed.map((f) => ({
       key: `failed:${f.email}`,
@@ -709,7 +719,7 @@ export function BulkInviteTab({
       <Grid cols={3} gap={3}>
         {statTile(report.created, "Создано учётных записей", "success")}
         {statTile(report.reused, "Переиспользовано", "info")}
-        {statTile(report.assigned, "Назначено", "accent")}
+        {statTile(report.assigned, isReview ? "Приглашено" : "Назначено", "accent")}
         {statTile(report.results.filter((r) => r.delivered).length, "Писем отправлено", "success")}
         {statTile(report.results.filter((r) => !r.delivered).length, "Письмо не ушло", "error")}
         {statTile(Math.max(0, rows.length - report.results.length), "Пропущено", "muted")}
@@ -748,7 +758,7 @@ export function BulkInviteTab({
       />
 
       <Cluster justify="end" gap={2}>
-        <Button onClick={onGoToAssignments}>К назначениям</Button>
+        <Button onClick={onGoToAssignments}>{isReview ? "К приглашённым" : "К назначениям"}</Button>
       </Cluster>
     </Stack>
   );

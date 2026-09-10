@@ -174,6 +174,23 @@ describe("<BulkInviteTab /> — набранный список", () => {
     expect(screen.getByRole("button", { name: "Проверить список" })).toBeDisabled();
   });
 
+  it("на рецензировании не показывает полей назначения, но оставляет срок ссылки", () => {
+    renderTab({ purpose: "review" });
+
+    // Прогон рецензирования не знает ни срока сдачи, ни группы: назначения, к
+    // которому эти поля относятся, у него нет (PRD-52 раздел 3.3).
+    expect(screen.queryByLabelText("Срок выполнения")).toBeNull();
+    expect(screen.queryByLabelText("Создать группу из списка")).toBeNull();
+    expect(screen.getByLabelText("Ссылка активна до")).toBeInTheDocument();
+  });
+
+  it("на назначении оба поля на месте", () => {
+    renderTab();
+
+    expect(screen.getByLabelText("Срок выполнения")).toBeInTheDocument();
+    expect(screen.getByLabelText("Создать группу из списка")).toBeInTheDocument();
+  });
+
   it("на рецензировании ходит в свои маршруты, а не в маршруты участников", async () => {
     renderTab({ purpose: "review" });
     fireEvent.change(screen.getByLabelText(/Адреса почты/), { target: { value: "e@x.test" } });
@@ -346,5 +363,15 @@ describe("<BulkInviteTab /> — отчёт", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "К назначениям" }));
     expect(onGoToAssignments).toHaveBeenCalled();
+  });
+
+  it("на рецензировании отчёт говорит о приглашении, а не о назначении", async () => {
+    const { container } = renderTab({ purpose: "review" });
+    await goToPreview(container);
+    fireEvent.click(screen.getByRole("button", { name: "Пригласить (5)" }));
+
+    expect(await screen.findByText("Приглашено")).toBeInTheDocument();
+    expect(screen.queryByText("Назначено")).toBeNull();
+    expect(screen.getByRole("button", { name: "К приглашённым" })).toBeInTheDocument();
   });
 });
