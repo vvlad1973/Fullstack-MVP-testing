@@ -56,9 +56,14 @@ const TEMPLATE = {
         key: "brandLogo",
         type: "select",
         label: "Логотип направления",
-        options: ["plain", "b2b"],
-        optionLabels: { plain: "Без направления", b2b: "B2B" },
-        optionPreviews: { plain: "assets/logos/plain.png", b2b: "assets/logos/b2b.png" },
+        options: ["none", "plain", "b2b"],
+        optionLabels: { none: "Без логотипа", plain: "Без направления", b2b: "B2B" },
+        // Две формы записи разом: путь строкой и пара под темы интерфейса.
+        // У «none» превью нет вовсе — «ничего не показывать» и есть его смысл.
+        optionPreviews: {
+          plain: "assets/logos/plain.png",
+          b2b: { light: "assets/logos/b2b-light.png", dark: "assets/logos/b2b-dark.png" },
+        },
         dataAttr: "data-brand-logo",
         default: "plain",
       },
@@ -346,6 +351,48 @@ describe("<DesignSection /> — Брендирование pane", () => {
       expect(screen.getByTestId("design-param-option-brandLogo-b2b").className).toContain("is-selected"),
     );
     expect(screen.getByTestId("design-param-option-brandLogo-plain").className).not.toContain("is-selected");
+  });
+
+  // §6: превью может приходить парой под темы интерфейса. Лок, нарисованный под
+  // светлый фон, на тёмном редакторе нечитаем, поэтому карточка берёт картинку по теме,
+  // в которой сейчас сидит АВТОР (класс `.ou--dark` на body ставит провайдер темы).
+  it("в тёмной теме берёт тёмное превью, в светлой — светлое", async () => {
+    document.body.classList.add("ou--dark");
+    try {
+      renderWithClient(<DesignSection testId={TEST_ID} />);
+      await waitFor(() =>
+        expect(screen.getByTestId("design-template-pane")).toBeInTheDocument(),
+      );
+      fireEvent.click(screen.getByTestId("design-rail-branding"));
+      await waitFor(() =>
+        expect(screen.getByTestId("design-branding-pane")).toBeInTheDocument(),
+      );
+      const b2b = screen.getByTestId("design-param-option-brandLogo-b2b");
+      expect(b2b.querySelector("img")?.getAttribute("src")).toBe(
+        "/api/templates/corporate/assets/assets/logos/b2b-dark.png",
+      );
+      // Одиночный путь темы не различает — он один на обе.
+      expect(
+        screen.getByTestId("design-param-option-brandLogo-plain").querySelector("img")?.getAttribute("src"),
+      ).toBe("/api/templates/corporate/assets/assets/logos/plain.png");
+    } finally {
+      document.body.classList.remove("ou--dark");
+    }
+  });
+
+  it("вариант без превью показывает прочерк, а не пустую плитку", async () => {
+    renderWithClient(<DesignSection testId={TEST_ID} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-pane")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("design-rail-branding"));
+    await waitFor(() =>
+      expect(screen.getByTestId("design-branding-pane")).toBeInTheDocument(),
+    );
+    const none = screen.getByTestId("design-param-option-brandLogo-none");
+    expect(none.querySelector("img")).toBeNull();
+    expect(none.querySelector(".tpl-choice__empty")?.textContent).toBe("—");
+    expect(none).toHaveTextContent("Без логотипа");
   });
 
   // PRD-22 (plan Э8): a colour label names the token, not the screen element, so

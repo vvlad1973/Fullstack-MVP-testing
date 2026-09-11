@@ -83,8 +83,12 @@ export type TemplateParam = {
    * served by `GET /api/templates/:id/assets/*`. Present ⇒ the editor draws a grid of
    * previews instead of a dropdown — a choice between LOOKS (a logo, a background) is
    * not a choice a list of words can express (spec §6).
+   *
+   * A value may be one path, or a pair per interface theme: a lockup drawn for a light
+   * ground is unreadable on the dark editor, and vice versa, so the card shows the
+   * picture that matches the theme the author is looking at.
    */
-  optionPreviews?: Record<string, string>;
+  optionPreviews?: Record<string, string | { light?: string; dark?: string }>;
   /**
    * Data attribute the chosen value is written to on the scene root, so the template's
    * CSS can select on it (`[data-brand-logo="b2b"] …`). See the shared

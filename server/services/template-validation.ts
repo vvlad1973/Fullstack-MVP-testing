@@ -148,7 +148,26 @@ function validateParamExtras(
       });
     }
     const options = Array.isArray(p.options) ? (p.options as unknown[]).map((o) => String(o)) : [];
-    for (const option of Object.keys(previews as Record<string, unknown>)) {
+    for (const [option, ref] of Object.entries(previews as Record<string, unknown>)) {
+      // Допустимые формы: путь строкой или пара под темы интерфейса. Всё прочее —
+      // блокировка: молча проигнорированное превью выглядит как «картинка пропала».
+      const shapeOk =
+        typeof ref === "string" ||
+        (!!ref &&
+          typeof ref === "object" &&
+          !Array.isArray(ref) &&
+          Object.entries(ref as Record<string, unknown>).every(
+            ([k, v]) => (k === "light" || k === "dark") && typeof v === "string",
+          ));
+      if (!shapeOk) {
+        blocking.push({
+          code: "PARAM_PREVIEWS_INVALID",
+          message:
+            `Параметр «${key}»: превью варианта «${option}» должно быть путём к файлу ` +
+            `или объектом { light, dark } с путями`,
+          ref: `params[${key}].optionPreviews.${option}`,
+        });
+      }
       if (options.length > 0 && !options.includes(option)) {
         warnings.push({
           code: "PARAM_PREVIEWS_INVALID",
@@ -196,6 +215,14 @@ function collectReferences(manifest: Record<string, unknown>): Array<{ ref: stri
       if (!previews || typeof previews !== "object") return;
       const key = asString((p as Record<string, unknown>).key) ?? String(i);
       for (const [option, ref] of Object.entries(previews as Record<string, unknown>)) {
+        // One path, or a pair per interface theme: a lockup drawn for a light ground is
+        // unreadable on the dark editor, so a template may ship both.
+        if (ref && typeof ref === "object" && !Array.isArray(ref)) {
+          for (const [theme, themed] of Object.entries(ref as Record<string, unknown>)) {
+            push(themed, `params[${key}].optionPreviews.${option}.${theme}`);
+          }
+          continue;
+        }
         push(ref, `params[${key}].optionPreviews.${option}`);
       }
     });

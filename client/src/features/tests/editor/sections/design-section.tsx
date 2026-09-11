@@ -24,7 +24,7 @@
  *     the mutation; the Drawer footer's primary save stays bound to the test
  *     settings as in the rest of the editor.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Download,
@@ -917,6 +917,42 @@ function ParamRow(props: {
   );
 }
 
+/**
+ * Which picture of an option preview to show: a template may ship one path or a pair
+ * per interface theme (spec §6). A lockup drawn for a light ground is unreadable on
+ * the dark editor, so the card follows the theme the AUTHOR is looking at — not the
+ * theme of the test being edited.
+ */
+function previewForTheme(
+  spec: string | { light?: string; dark?: string } | undefined,
+  dark: boolean,
+): string | undefined {
+  if (!spec) return undefined;
+  if (typeof spec === "string") return spec;
+  return (dark ? spec.dark ?? spec.light : spec.light ?? spec.dark) ?? undefined;
+}
+
+/**
+ * Is the INTERFACE dark right now? Read from the body class the theme provider paints
+ * (`.ou--dark`), not from its context: this control is rendered in component tests
+ * without the provider, and `useTheme` throws there. The observer keeps the cards in
+ * step when the author flips the theme with the drawer open.
+ */
+function useDarkInterface(): boolean {
+  const [dark, setDark] = useState(() =>
+    typeof document !== "undefined" && document.body.classList.contains("ou--dark"),
+  );
+  useEffect(() => {
+    if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+    const read = () => setDark(document.body.classList.contains("ou--dark"));
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+  return dark;
+}
+
 /** CSS custom property a param feeds, via its own `cssVar` or the shared map. */
 function cssVarOf(param: TemplateParam): string {
   return (param as { cssVar?: string }).cssVar ?? DEFAULT_PARAM_CSS_VARS[param.key] ?? "";
@@ -941,6 +977,7 @@ function ParamControl({
   templateId?: string;
 }) {
   const fieldId = `design-param-${param.key}`;
+  const dark = useDarkInterface();
   if (param.type === "text") {
     const v = typeof value === "string" ? value : "";
     return (
@@ -1034,7 +1071,7 @@ function ParamControl({
           <legend className="tpl-choice__legend">{param.label}</legend>
           <div className="tpl-choice__grid">
             {opts.map((o) => {
-              const url = templateAssetUrl(templateId, previews[o]);
+              const url = templateAssetUrl(templateId, previewForTheme(previews[o], dark));
               const label = param.optionLabels?.[o] ?? o;
               return (
                 <label
@@ -1051,7 +1088,14 @@ function ParamControl({
                     onChange={() => onChange(o)}
                   />
                   <span className="tpl-choice__thumb">
-                    {url ? <img className="tpl-choice__img" src={url} alt="" loading="lazy" /> : null}
+                    {url ? (
+                      <img className="tpl-choice__img" src={url} alt="" loading="lazy" />
+                    ) : (
+                      // Вариант без картинки — «ничего не показывать» и есть его смысл
+                      // («Без логотипа»). Пустая плитка читалась бы как незагрузившееся
+                      // изображение, поэтому в ней стоит прочерк.
+                      <span className="tpl-choice__empty" aria-hidden="true">—</span>
+                    )}
                   </span>
                   <span className="tpl-gallery-card__body">
                     <span className="tpl-gallery-card__name">{label}</span>
