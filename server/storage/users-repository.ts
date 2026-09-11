@@ -98,6 +98,8 @@ export class UsersRepository {
       status: insertUser.status || "pending",
       mustChangePassword: insertUser.mustChangePassword ?? true,
       gdprConsent: false,
+      // PRD-54: внешний ключ можно проставить сразу при заведении — колонкой массовой загрузки.
+      externalKey: insertUser.externalKey ?? null,
       createdAt: new Date(),
       createdBy: insertUser.createdBy || null,
     }).returning();

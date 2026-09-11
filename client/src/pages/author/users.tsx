@@ -68,6 +68,11 @@ interface User {
    * link. Absent on legacy responses, which is the same as `false`.
    */
   isExternal?: boolean;
+  /**
+   * PRD-54: ключ, по которому импорт выгрузок LMS находит этого человека. Задаётся руками;
+   * отсутствует у тех, кого через выгрузки не опознают.
+   */
+  externalKey?: string | null;
   status: "pending" | "active" | "inactive";
   mustChangePassword: boolean;
   gdprConsent: boolean;
@@ -114,6 +119,12 @@ export default function UsersPage() {
     mustChangePassword: true,
     expiresAt: "",
     /**
+     * PRD-54: внешний ключ для связывания импортированных прохождений. Правится только в ящике
+     * РЕДАКТИРОВАНИЯ: заведение пользователя его не принимает, и поле в форме создания молча
+     * ничего бы не делало.
+     */
+    externalKey: "",
+    /**
      * PRD-28 FR-08: create the account as an external participant. The three
      * things such an account cannot have — a password, a wider role set and an
      * invitation letter — are put out in the form and left out of the request:
@@ -133,8 +144,14 @@ export default function UsersPage() {
   type PreviewRow = {
     idx: number; email: string; name: string | null; role: string;
     groupName: string | null; groupId: string | null; groupFound: boolean;
-    status: "new" | "duplicate" | "error"; error?: string; existingId?: string;
+    /**
+     * PRD-54: `keyUpdate` — существующий пользователь с непустым внешним ключом. Такая строка НЕ
+     * дубль: она не пропускается, а проставляет ключ, поэтому выбора «пропустить / обновить»
+     * у неё нет.
+     */
+    status: "new" | "duplicate" | "keyUpdate" | "error"; error?: string; existingId?: string;
     duplicateAction?: "skip" | "update";
+    externalKey?: string | null;
   };
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [bulkStep, setBulkStep] = useState<"upload" | "preview" | "done">("upload");
@@ -449,6 +466,7 @@ export default function UsersPage() {
       roles: ["learner"],
       mustChangePassword: true,
       expiresAt: "",
+      externalKey: "",
       isExternal: false,
       sendInvite: true,
     });
@@ -472,6 +490,7 @@ export default function UsersPage() {
       roles: user.roles ?? [],
       mustChangePassword: user.mustChangePassword,
       expiresAt: user.expiresAt ? user.expiresAt.split("T")[0] : "",
+      externalKey: user.externalKey ?? "",
       // Read-only here: the kind of an account is decided at creation, and the
       // only change of it is «Сделать штатным» in the row menu (PRD-28 FR-05).
       isExternal: user.isExternal ?? false,
@@ -684,12 +703,23 @@ export default function UsersPage() {
         ),
     },
     {
+      // PRD-54: колонка нужна, чтобы до записи было видно, кому проставится ключ. Без неё
+      // состояние «Ключ будет обновлён» сообщало бы о факте, не показывая самого значения.
+      key: "externalKey",
+      header: "Внешний ключ",
+      render: (row) =>
+        row.externalKey
+          ? <Text variant="mono-s">{row.externalKey}</Text>
+          : <Text variant="body-xs" tone="muted">—</Text>,
+    },
+    {
       key: "status",
       header: "Статус",
       render: (row) => (
         <>
           {row.status === "new" && <Text variant="body-xs" weight="medium" tone="success">Новый</Text>}
           {row.status === "duplicate" && <Text variant="body-xs" weight="medium" tone="warning">Дубль</Text>}
+          {row.status === "keyUpdate" && <Text variant="body-xs" weight="medium" tone="info">Ключ будет обновлён</Text>}
           {row.status === "error" && <Text variant="body-xs" weight="medium" tone="error" title={row.error}>Ошибка</Text>}
         </>
       ),
@@ -985,6 +1015,15 @@ export default function UsersPage() {
             fullWidth
             value={formData.expiresAt}
             onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
+          />
+          {/* PRD-54: связывание импортированных прохождений. Поле последнее в форме намеренно —
+              оно нужно единицам, и подниматься выше почты и ролей ему не за что. */}
+          <Input
+            label="Внешний ключ"
+            hint="По нему импорт выгрузок LMS находит этого человека. Пустое поле — связи нет."
+            fullWidth
+            value={formData.externalKey}
+            onChange={(e) => setFormData({ ...formData, externalKey: e.target.value })}
           />
         </Stack>
       </Drawer>

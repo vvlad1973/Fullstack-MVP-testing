@@ -114,10 +114,12 @@ router.get("/", requirePermission("users.read"), async (req, res) => {
 // GET /api/users/bulk-template — download CSV template (must be before /:id)
 router.get("/bulk-template", requirePermission("users.read"), async (_req, res) => {
   const wb = new ExcelJS.Workbook();
+  // PRD-54: колонка «Внешний ключ» — в шаблоне, иначе о ней не узнает никто, кроме читавших спеку.
+  // Она необязательна: пустая клетка не трогает уже проставленный ключ.
   addAoaSheet(wb, "Users", [
-    ["email", "name", "role", "group"],
-    ["user@example.com", "Иван Иванов", "learner", "Группа А"],
-    ["manager@example.com", "Анна Петрова", "learner", ""],
+    ["email", "name", "role", "group", "external_key"],
+    ["user@example.com", "Иван Иванов", "learner", "Группа А", "TAB-1024"],
+    ["manager@example.com", "Анна Петрова", "learner", "", ""],
   ]);
   const buf = await workbookToBuffer(wb);
   res.setHeader("Content-Disposition", "attachment; filename=users-template.xlsx");
@@ -275,6 +277,22 @@ router.post("/", requirePermission("users.create"), async (req, res) => {
 export function normalizeExternalKey(raw: unknown): string | null {
   const s = String(raw ?? "").trim();
   return s === "" ? null : s;
+}
+
+/**
+ * Внешний ключ из строки книги массовой загрузки (PRD-54 раздел 11.4).
+ *
+ * Псевдонимы те же по духу, что у `email`/`ФИО`/`роль`/`группа` рядом: книгу заполняет человек, а
+ * не выгружает система, и требовать одно точное написание заголовка — верный способ получить
+ * молчаливо пропущенную колонку.
+ *
+ * @param row строка книги
+ * @returns ключ или `null`, если колонки нет или она пуста
+ */
+export function readExternalKeyColumn(row: Record<string, unknown>): string | null {
+  return normalizeExternalKey(
+    row["external_key"] ?? row["Внешний ключ"] ?? row["внешний ключ"] ?? row["ключ"] ?? "",
+  );
 }
 
 router.put("/:id", requirePermission("users.manage"), async (req, res) => {
@@ -667,6 +685,20 @@ router.post("/bulk-preview", requirePermission("users.create"), upload.single("f
       const validRole = role === "author" ? "author" : "learner";
       const existing = await storage.getUserByEmail(email);
 
+      // PRD-54: ключ, занятый ДРУГИМ пользователем, — ошибка строки, а не повод перезаписать:
+      // на уникальности ключа держится связывание, и тихая перезапись порвала бы готовые связи.
+      const externalKey = readExternalKeyColumn(row);
+      if (externalKey) {
+        const keyOwner = await storage.getUserByExternalKey(externalKey);
+        if (keyOwner && keyOwner.id !== existing?.id) {
+          return {
+            idx, email, name, role: validRole, groupName, groupId: null, groupFound: false,
+            externalKey, status: "error",
+            error: `Ключ «${externalKey}» уже у пользователя ${keyOwner.name ?? keyOwner.id}`,
+          };
+        }
+      }
+
       // Resolve group
       let groupId: string | null = null;
       let groupFound = false;
@@ -682,7 +714,10 @@ router.post("/bulk-preview", requirePermission("users.create"), upload.single("f
         groupName: groupName || null,
         groupId,
         groupFound,
-        status: existing ? "duplicate" : "new",
+        externalKey,
+        // PRD-54: строка существующего пользователя с НЕПУСТЫМ ключом не пропускается как дубль,
+        // а проставляет ключ. Иначе проставить ключи уже заведённой базе было бы нечем.
+        status: existing ? (externalKey ? "keyUpdate" : "duplicate") : "new",
         existingId: existing?.id || null,
       };
     }));
@@ -716,6 +751,7 @@ router.post("/bulk-import", requirePermission("users.create"), async (req, res) 
         email: string; name?: string; role?: string;
         groupId?: string | null; groupName?: string | null;
         duplicateAction?: "skip" | "update"; status: string; existingId?: string;
+        externalKey?: string | null;
       }[]
     };
 
@@ -748,6 +784,20 @@ router.post("/bulk-import", requirePermission("users.create"), async (req, res) 
     for (const row of rows) {
       try {
         if (row.status === "error") { skipped++; continue; }
+
+        // PRD-54: существующий пользователь с непустым ключом — не дубль, а проставление ключа.
+        if (row.status === "keyUpdate" && row.existingId) {
+          await storage.updateUser(row.existingId, {
+            externalKey: normalizeExternalKey(row.externalKey),
+            ...(row.name ? { name: row.name } : {}),
+          });
+          const gid = await resolveGroupId(row.groupId, row.groupName);
+          if (gid) await storage.addUserToGroup(row.existingId, gid).catch((e: Error) => {
+            logger.warn(`bulk-import: addUserToGroup failed for ${row.email} → group ${gid}: ${e.message}`);
+          });
+          updated++;
+          continue;
+        }
 
         if (row.status === "duplicate") {
           if (row.duplicateAction === "skip" || !row.duplicateAction) { skipped++; continue; }
