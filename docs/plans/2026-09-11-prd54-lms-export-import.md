@@ -194,16 +194,16 @@ git commit -m "feat(prd-54): схема импорта выгрузок LMS и �
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { normalizeConfig } from "../config";
+import { shape } from "../config";
 
 describe("analytics.lmsImport.anonymizeParticipants", () => {
   it("по умолчанию включено", () => {
-    expect(normalizeConfig({}).analytics.lmsImport.anonymizeParticipants).toBe(true);
+    expect(shape({}).analytics.lmsImport.anonymizeParticipants).toBe(true);
   });
 
   it("выключается значением из файла", () => {
     const raw = { analytics: { lmsImport: { anonymizeParticipants: false } } };
-    expect(normalizeConfig(raw).analytics.lmsImport.anonymizeParticipants).toBe(false);
+    expect(shape(raw).analytics.lmsImport.anonymizeParticipants).toBe(false);
   });
 });
 ```
@@ -211,8 +211,8 @@ describe("analytics.lmsImport.anonymizeParticipants", () => {
 - [ ] **Шаг 2: прогнать тест и убедиться, что он падает**
 
 Выполнить: `npm test -- server/__tests__/config-lms-import.test.ts`
-Ожидается: FAIL. Если `normalizeConfig` не экспортируется — сначала экспортировать её из `server/config.ts`,
-не меняя поведения.
+Ожидается: FAIL. Функция в коде называется `shape` (а не `normalizeConfig`) и не экспортирована —
+экспортировать её, не переименовывая и не меняя поведения.
 
 - [ ] **Шаг 3: добавить секцию в `AppConfig`**
 
@@ -338,8 +338,11 @@ describe("participantKey", () => {
  */
 export function participantKey(name: string, code: string, org: string): string {
   const norm = (v: string) => String(v ?? "").trim().toLowerCase();
-  const secret = (process.env.ENCRYPTION_PASSWORD || "dev-default-key") + "|prd54:participant";
-  return createHmac("sha256", secret).update([norm(name), norm(code), norm(org)].join("")).digest("hex");
+  const secret = (config.encryption.password || "dev-default-key") + "|prd54:participant";
+  // Части склеиваются ЧЕРЕЗ РАЗДЕЛИТЕЛЬ, а не встык: встык «Иванов» + «Ивк1» и «ИвановИв» + «к1»
+  // дают одну строку и один ключ — два разных человека слились бы в одного молча.
+  const material = [norm(name), norm(code), norm(org)].join(PARTICIPANT_KEY_SEPARATOR);
+  return createHmac("sha256", secret).update(material).digest("hex");
 }
 ```
 
@@ -540,7 +543,7 @@ export function encodeLearnerResponse(type: string, answer: LearnerAnswer): stri
 - [ ] **Шаг 4: прогнать тест**
 
 Выполнить: `npm test -- shared/lms-export/__tests__/response-codec.test.ts`
-Ожидается: PASS, 13 тестов (7 разбора + 6 парности).
+Ожидается: PASS, 12 тестов (6 разбора + 6 парности).
 
 - [ ] **Шаг 5: коммит**
 
@@ -1195,12 +1198,24 @@ describe("detectLmsExport", () => {
 import { looksLikeLmsExport, parseLmsExport, type LmsExportBook } from "@shared/lms-export/parse";
 import { resolveTestByQuestionIds } from "../services/lms-test-resolver";
 
-/** Лист как массив строк: `parseLmsExport` намеренно не знает про exceljs. */
+/**
+ * Лист как массив строк: `parseLmsExport` намеренно не знает про exceljs.
+ *
+ * ГОЧА ДАТ (найдена при прогоне на реальном файле). Ячейки дат exceljs отдаёт объектами `Date`, и
+ * голый `String(date)` даёт ЛОКАЛИЗОВАННУЮ строку вида
+ * «Wed Sep 09 2026 16:39:00 GMT+0300 (Москва, стандартное время)». На машине разработчика она
+ * разбирается обратно, на хосте с другой локалью — может и не разобраться. Поэтому дата
+ * приводится к ISO явно, а не через `String`.
+ */
 function sheetToMatrix(sheet: ExcelJS.Worksheet): string[][] {
   const out: string[][] = [];
   sheet.eachRow({ includeEmpty: true }, (row) => {
     const values = (row.values as unknown[]).slice(1);
-    out.push(values.map((v) => (v === null || v === undefined ? "" : String(v))));
+    out.push(values.map((v) => {
+      if (v === null || v === undefined) return "";
+      if (v instanceof Date) return v.toISOString();
+      return String(v);
+    }));
   });
   return out;
 }
@@ -2097,10 +2112,15 @@ async function main() {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
 
+  // Та же гоча дат, что в задаче 7: `String(Date)` даёт локализованную строку.
   const matrix = (sheet: ExcelJS.Worksheet) => {
     const out: string[][] = [];
     sheet.eachRow({ includeEmpty: true }, (row) => {
-      out.push((row.values as unknown[]).slice(1).map((v) => (v == null ? "" : String(v))));
+      out.push((row.values as unknown[]).slice(1).map((v) => {
+        if (v == null) return "";
+        if (v instanceof Date) return v.toISOString();
+        return String(v);
+      }));
     });
     return out;
   };

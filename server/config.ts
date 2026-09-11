@@ -54,6 +54,23 @@ export interface AppConfig {
   session: { secret: string };
   encryption: { password: string; salt: string };
   access: { superadminEmails: readonly string[] };
+  /** PRD-54: поведение импорта выгрузок отчётов LMS. */
+  analytics: {
+    lmsImport: {
+      /**
+       * Хранить ли человекочитаемые поля участника. При `true` в базу идёт только псевдоним
+       * `participant_key`; `lms_user_name`/`lms_user_email`/`lms_user_org` остаются пустыми.
+       *
+       * Псевдоним считается ВСЕГДА, в любом режиме: на нём держатся ключ идемпотентности импорта
+       * и подсчёт уникальных участников. Параметр решает не то, есть ли псевдоним, а то, лежит ли
+       * рядом с ним имя — поэтому переключение не меняет идентичность участника и не рвёт уже
+       * накопленные ключи.
+       *
+       * На живую телеметрию НЕ распространяется: она продолжает хранить ФИО, почту и организацию.
+       */
+      anonymizeParticipants: boolean;
+    };
+  };
   /** Operational ceilings that an installation may tune without a code change. */
   limits: {
     /** Maximum rows accepted from one uploaded workbook (participants and users import). */
@@ -120,8 +137,13 @@ function normalizeEmails(value: unknown): string[] {
   return Array.from(seen);
 }
 
-/** Shape a raw (getConfig-resolved) object into a typed AppConfig with defaults. */
-function shape(raw: Record<string, unknown>): AppConfig {
+/**
+ * Shape a raw (getConfig-resolved) object into a typed AppConfig with defaults.
+ *
+ * Exported for its own test: every branch here is a default that a misconfigured instance falls
+ * back to, and those are worth asserting without booting the service.
+ */
+export function shape(raw: Record<string, unknown>): AppConfig {
   const log = asRecord(raw.log);
   const logLevel = asRecord(log.level);
   const common = asLevel(logLevel.common) ?? (process.env.NODE_ENV === "production" ? "info" : "debug");
@@ -133,6 +155,8 @@ function shape(raw: Record<string, unknown>): AppConfig {
   const encryption = asRecord(raw.encryption);
   const access = asRecord(raw.access);
   const limits = asRecord(raw.limits);
+  const analytics = asRecord(raw.analytics);
+  const lmsImport = asRecord(analytics.lmsImport);
 
   return {
     log: {
@@ -164,6 +188,12 @@ function shape(raw: Record<string, unknown>): AppConfig {
       salt: asString(encryption.salt, ""),
     },
     access: { superadminEmails: normalizeEmails(access.superadminEmails) },
+    analytics: {
+      lmsImport: {
+        // По умолчанию ВКЛЮЧЕНО: инстанс, где про параметр не знают, не должен копить ФИО.
+        anonymizeParticipants: asBool(lmsImport.anonymizeParticipants, true),
+      },
+    },
     limits: {
       participantsImportMaxRows: asNumber(limits.participantsImportMaxRows, 500),
       passwordEmailsPerHour: asNumber(limits.passwordEmailsPerHour, 3),

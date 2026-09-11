@@ -55,6 +55,14 @@
   // Per-instance: deploy.sh writes the seeded administrator into env/.env, so the
   // account provisioned on the first boot is the one the operator was handed.
   "access": { "superadminEmails": { "env": "SUPERADMIN_EMAILS" } },
+  // PRD-54. Импорт выгрузок отчётов LMS.
+  "analytics": {
+    "lmsImport": {
+      // Хранить ли ФИО и организацию участника. true = в базе только псевдоним.
+      // Псевдоним считается в любом случае: на нём держится ключ повторной загрузки.
+      "anonymizeParticipants": true
+    }
+  },
   // Operational ceilings — see config/config.jsonc for what each one bounds.
   "limits": { "participantsImportMaxRows": 500, "passwordEmailsPerHour": 3 }
 }

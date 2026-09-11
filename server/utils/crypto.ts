@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
 import { logger } from "../logger";
 import { config } from "../config";
 
@@ -97,6 +97,34 @@ export function hashEmail(email: string): string {
  */
 export function verifyEmailHash(email: string, hash: string): boolean {
   return hashEmail(email) === hash;
+}
+
+/** Разделитель частей псевдонима. NUL в ФИО, табельном коде и названии организации не встречается. */
+const PARTICIPANT_KEY_SEPARATOR = "\u0000";
+
+/**
+ * Псевдоним участника импортированного прохождения (PRD-54 раздел 4).
+ *
+ * HMAC под ключом инстанса, а не голый хеш: пространство ФИО мало, и по голому sha-256 участника
+ * подбирают перебором за минуты. Метка назначения `prd54:participant` отделяет этот ключ от ключа
+ * шифрования почт — один секрет, разные производные, чтобы утечка одного не вскрывала другое.
+ *
+ * Нормализация до HMAC обязательна: иначе « Иванов » и «иванов» разъедутся в разные ключи, и один
+ * человек посчитается двумя.
+ *
+ * Части склеиваются ЧЕРЕЗ РАЗДЕЛИТЕЛЬ, а не встык. Встык «Иванов» + «Ивк1» и «ИвановИв» + «к1»
+ * дают одну строку и один ключ — два разных человека слились бы в одного молча.
+ *
+ * @param name ФИО из колонки «Пользователь»
+ * @param code значение колонки «Код» (может быть пустым)
+ * @param org значение колонки «Организация» (может быть пустым)
+ * @returns 64 шестнадцатеричных знака
+ */
+export function participantKey(name: string, code: string, org: string): string {
+  const norm = (v: string) => String(v ?? "").trim().toLowerCase();
+  const secret = (config.encryption.password || "dev-default-key") + "|prd54:participant";
+  const material = [norm(name), norm(code), norm(org)].join(PARTICIPANT_KEY_SEPARATOR);
+  return createHmac("sha256", secret).update(material).digest("hex");
 }
 
 /**
