@@ -1865,11 +1865,91 @@ export function normalizeExternalKey(raw: unknown): string | null {
 подсказкой «По нему импорт выгрузок LMS находит этого человека». Ошибку `409` показать текстом от
 сервера.
 
-- [ ] **Шаг 6: коммит**
+- [ ] **Шаг 6: написать падающий тест массовой загрузки**
+
+Поля в карточке хватает на десяток человек, на сотни — нет (спека раздел 11.4).
+
+```ts
+import { describe, it, expect } from "vitest";
+import { readExternalKeyColumn } from "../users";
+
+describe("readExternalKeyColumn", () => {
+  it("читает колонку по любому из псевдонимов", () => {
+    expect(readExternalKeyColumn({ external_key: "AB-1" })).toBe("AB-1");
+    expect(readExternalKeyColumn({ "Внешний ключ": "AB-2" })).toBe("AB-2");
+    expect(readExternalKeyColumn({ "ключ": "AB-3" })).toBe("AB-3");
+  });
+
+  it("пустая колонка — это отсутствие ключа, а не пустой ключ", () => {
+    expect(readExternalKeyColumn({ external_key: "   " })).toBeNull();
+    expect(readExternalKeyColumn({})).toBeNull();
+  });
+});
+```
+
+- [ ] **Шаг 7: прогнать и убедиться, что падает**
+
+Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
+Ожидается: FAIL, `readExternalKeyColumn` не определена.
+
+- [ ] **Шаг 8: реализовать колонку**
+
+```ts
+/**
+ * Внешний ключ из строки книги массовой загрузки (PRD-54 раздел 11.4).
+ *
+ * Псевдонимы те же по духу, что у `email`/`ФИО`/`роль`/`группа` рядом: книгу заполняет человек, а не
+ * выгружает система, и требовать одно точное написание заголовка — способ получить молчаливо
+ * пропущенную колонку.
+ *
+ * @param row строка книги
+ * @returns ключ или `null`, если колонки нет или она пуста
+ */
+export function readExternalKeyColumn(row: Record<string, unknown>): string | null {
+  const raw = row["external_key"] ?? row["Внешний ключ"] ?? row["внешний ключ"] ?? row["ключ"] ?? "";
+  const s = String(raw).trim();
+  return s === "" ? null : s;
+}
+```
+
+В `/bulk-preview` (строка 605) прочитать ключ каждой строки и добавить в предпросмотр:
+
+```ts
+      const externalKey = readExternalKeyColumn(row);
+      // Ключ, занятый ДРУГИМ пользователем, — ошибка строки, а не повод перезаписать: на
+      // уникальности ключа держится связывание, и тихая перезапись порвала бы готовые связи.
+      const keyOwner = externalKey ? await storage.getUserByExternalKey(externalKey) : undefined;
+      if (externalKey && keyOwner && keyOwner.id !== existing?.id) {
+        return { idx, email, name, role, groupName, groupId, groupFound, externalKey,
+          status: "error", error: `Ключ «${externalKey}» уже у пользователя ${keyOwner.name}` };
+      }
+```
+
+Состояние строки: существующий email с НЕПУСТЫМ ключом получает не `duplicate`, а `keyUpdate` —
+такая строка не пропускается, а проставляет ключ уже заведённому пользователю:
+
+```ts
+        status: existing ? (externalKey ? "keyUpdate" : "duplicate") : "new",
+```
+
+В `/bulk-import` (строка 664) для `new` записать `externalKey` вместе с остальными полями, для
+`keyUpdate` — вызвать `storage.updateUser(existingId, { externalKey })` и не создавать ничего.
+
+- [ ] **Шаг 9: прогнать тест**
+
+Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
+Ожидается: PASS, 4 теста.
+
+- [ ] **Шаг 10: показать состояние в предпросмотре**
+
+В экране массовой загрузки пользователей добавить колонку «Внешний ключ» и подпись для состояния
+`keyUpdate` — «ключ будет обновлён». Ошибку занятого ключа показать текстом от сервера.
+
+- [ ] **Шаг 11: коммит**
 
 ```bash
 git add server/routes/users.ts client/src/pages/author/users.tsx server/routes/__tests__/users-external-key.test.ts
-git commit -m "feat(prd-54): внешний ключ на карточке пользователя"
+git commit -m "feat(prd-54): внешний ключ пользователя — поштучно и колонкой в массовой загрузке"
 ```
 
 ---
