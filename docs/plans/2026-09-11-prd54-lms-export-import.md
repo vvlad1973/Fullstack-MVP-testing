@@ -1,7 +1,8 @@
 # PRD-54. Импорт выгрузок отчётов LMS — план работ
 
-> **Для исполнителя:** шаги помечены чекбоксами (`- [ ]`). Порядок задач менять нельзя: задача 1 (схема)
-> — гейт для всех серверных задач, задача 12 (форма) — гейт для задачи 13 (точки входа).
+> **Для исполнителя:** шаги помечены чекбоксами (`- [ ]`). Порядок задач менять нельзя. Три гейта:
+> задача 1 (схема) — гейт для всех серверных задач; **задача 13 (эскизы) — гейт для всего интерфейса,
+> это hard-правило проекта**; задача 15 (форма) — гейт для задачи 16 (точки входа).
 
 **Цель:** выгрузку отчёта LMS в формате xlsx можно загрузить из трёх мест, и её строки попадают в
 аналитику наравне с телеметрией — обезличенными, с меткой группы и, по желанию, связанными с
@@ -15,11 +16,35 @@ Express. Сервер поверх них делает сопоставлени�
 аналитика получает импорт как второй источник, а не как третий. Клиент — одна форма на три точки
 входа.
 
+## Два инкремента
+
+Работа разрезана надвое СОЗНАТЕЛЬНО, и граница проходит там, где начинается интерфейс.
+
+**Инкремент 1 (задачи 1 — 12) — сервер, без единого пикселя.** Заканчивается одноразовым скриптом,
+который прогоняет настоящую выгрузку `docs/references/7684237229762827328-1.xlsx` через тот же
+`runImport`, что потом позовёт кнопка. Весь конвейер — разбор, псевдонимы, upsert, аналитика —
+доказывается на реальных данных, пока рисовать ещё нечего. Если где-то ошибка, она вскрывается здесь,
+на самом дешёвом этапе. Скрипт не выбрасывается: пока интерфейса нет, он же инструмент для заливок.
+
+**Инкремент 2 (задачи 13 — 17) — интерфейс.** Начинается с эскизов, потому что в этом проекте UI
+пишется только после сверки с ними. Сюда же перенесена колонка внешнего ключа в массовой загрузке
+пользователей: доказать работоспособность она не помогает, а свой экран предпросмотра требует.
+
+Инкремент 1 самодостаточен и проверяется точечными тестами плюс одним запуском скрипта. Начинать
+инкремент 2 до того, как первый сошёлся на реальном файле, нельзя.
+
 **Стек:** TypeScript, Drizzle ORM, PostgreSQL, Express, exceljs, React 19, Vitest,
 DS `@skillum/ui-kit`.
 
 **Прогон тестов:** только `npm test -- <путь>`. Полный `npm test` — НЕ запускать без явного
 разрешения владельца (занимает около 8 минут и занимает машину).
+
+**Общая dev-база.** Задача 1 меняет схему, которую делят все worktree: после неё чужие сессии не
+поднимутся, пока не выполнят `npm run db:migrate`. Выполнять один раз, осознанно, предупредив.
+
+---
+
+## Инкремент 1 — сервер
 
 ---
 
@@ -966,6 +991,27 @@ export interface ImportedAttemptInput {
   }
 ```
 
+И один метод в `server/storage/users-repository.ts` — он нужен уже задаче 8, поэтому заводится здесь,
+а не вместе с остальной работой по внешнему ключу:
+
+```ts
+  /**
+   * Найти пользователя по внешнему ключу (PRD-54 раздел 8.5).
+   *
+   * Регистр и краевые пробелы не учитываются: ключом чаще всего оказывается hex-хеш или табельный
+   * код, где разница в регистре смысла не несёт, а сопоставление ломает молча. Сравнение идёт по
+   * тому же выражению, на котором построен уникальный индекс `users_external_key_idx`.
+   */
+  async getUserByExternalKey(key: string): Promise<User | undefined> {
+    const normalized = key.trim().toLowerCase();
+    if (normalized === "") return undefined;
+    const [row] = await this.db.select().from(users)
+      .where(sql`lower(${users.externalKey}) = ${normalized}`)
+      .limit(1);
+    return row;
+  }
+```
+
 - [ ] **Шаг 4: пробросить через фасад**
 
 В `server/storage.ts` добавить сигнатуры в `IStorage` и делегаты в класс — ровно так же, как сделано
@@ -1802,17 +1848,22 @@ git commit -m "feat(prd-54): право analytics.import и эндпоинты �
 
 ---
 
-## Задача 10: внешний ключ пользователя
+## Задача 10: внешний ключ пользователя — серверная часть
 
 **Файлы:**
 
-- Правка: `server/routes/users.ts` (белый список полей, обработка конфликта)
-- Правка: `client/src/pages/author/users.tsx` (поле формы)
+- Правка: `server/routes/users.ts` (белый список изменяемых полей, обработка конфликта)
 - Тест: `server/routes/__tests__/users-external-key.test.ts`
+
+Только API. Поле в карточке и колонка в массовой загрузке — задача 14, второй инкремент: чтобы
+доказать связывание, интерфейс не нужен, ключ можно проставить тем же `PUT /api/users/:id`.
 
 - [ ] **Шаг 1: написать падающий тест**
 
 ```ts
+/**
+ * @module server/routes/__tests__/users-external-key
+ */
 import { describe, it, expect } from "vitest";
 import { normalizeExternalKey } from "../users";
 
@@ -1831,7 +1882,7 @@ describe("normalizeExternalKey", () => {
 - [ ] **Шаг 2: прогнать и убедиться, что падает**
 
 Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
-Ожидается: FAIL.
+Ожидается: FAIL, `normalizeExternalKey` не определена.
 
 - [ ] **Шаг 3: реализовать**
 
@@ -1840,9 +1891,9 @@ describe("normalizeExternalKey", () => {
  * Привести внешний ключ к хранимому виду (PRD-54 раздел 5.4).
  *
  * Регистр СОХРАНЯЕТСЯ: ключ показывают человеку в том виде, в каком он его ввёл. Нечувствительность
- * при сверке обеспечивает уникальный индекс по `lower(external_key)` и сравнение при импорте.
+ * при сверке обеспечивают уникальный индекс по `lower(external_key)` и `getUserByExternalKey`.
  *
- * @param raw значение из формы
+ * @param raw значение из формы или книги
  * @returns ключ или `null`, если поле пустое
  */
 export function normalizeExternalKey(raw: unknown): string | null {
@@ -1851,108 +1902,34 @@ export function normalizeExternalKey(raw: unknown): string | null {
 }
 ```
 
-Добавить `externalKey` в белый список изменяемых полей пользователя и перехватить нарушение
-уникального индекса, вернув `409` с именем пользователя, который ключ уже держит.
+Добавить `externalKey` в белый список изменяемых полей пользователя (защита от mass assignment там
+уже есть — дописать поле, а не обойти список) и перехватить нарушение уникального индекса:
+
+```ts
+    try {
+      updated = await storage.updateUser(id, data);
+    } catch (error) {
+      // 23505 — нарушение уникальности. Отвечать 500 нельзя: это не сбой, а занятый ключ, и
+      // человеку нужно имя того, кто его держит, иначе исправить нечего.
+      if ((error as { code?: string }).code === "23505" && data.externalKey) {
+        const owner = await storage.getUserByExternalKey(data.externalKey);
+        return res.status(409).json({ error: `Ключ «${data.externalKey}» уже у пользователя ${owner?.name ?? "—"}` });
+      }
+      throw error;
+    }
+```
 
 - [ ] **Шаг 4: прогнать тест**
 
 Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
 Ожидается: PASS, 2 теста.
 
-- [ ] **Шаг 5: добавить поле в форму**
-
-В форме пользователя `client/src/pages/author/users.tsx` — `Input` с подписью «Внешний ключ» и
-подсказкой «По нему импорт выгрузок LMS находит этого человека». Ошибку `409` показать текстом от
-сервера.
-
-- [ ] **Шаг 6: написать падающий тест массовой загрузки**
-
-Поля в карточке хватает на десяток человек, на сотни — нет (спека раздел 11.4).
-
-```ts
-import { describe, it, expect } from "vitest";
-import { readExternalKeyColumn } from "../users";
-
-describe("readExternalKeyColumn", () => {
-  it("читает колонку по любому из псевдонимов", () => {
-    expect(readExternalKeyColumn({ external_key: "AB-1" })).toBe("AB-1");
-    expect(readExternalKeyColumn({ "Внешний ключ": "AB-2" })).toBe("AB-2");
-    expect(readExternalKeyColumn({ "ключ": "AB-3" })).toBe("AB-3");
-  });
-
-  it("пустая колонка — это отсутствие ключа, а не пустой ключ", () => {
-    expect(readExternalKeyColumn({ external_key: "   " })).toBeNull();
-    expect(readExternalKeyColumn({})).toBeNull();
-  });
-});
-```
-
-- [ ] **Шаг 7: прогнать и убедиться, что падает**
-
-Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
-Ожидается: FAIL, `readExternalKeyColumn` не определена.
-
-- [ ] **Шаг 8: реализовать колонку**
-
-```ts
-/**
- * Внешний ключ из строки книги массовой загрузки (PRD-54 раздел 11.4).
- *
- * Псевдонимы те же по духу, что у `email`/`ФИО`/`роль`/`группа` рядом: книгу заполняет человек, а не
- * выгружает система, и требовать одно точное написание заголовка — способ получить молчаливо
- * пропущенную колонку.
- *
- * @param row строка книги
- * @returns ключ или `null`, если колонки нет или она пуста
- */
-export function readExternalKeyColumn(row: Record<string, unknown>): string | null {
-  const raw = row["external_key"] ?? row["Внешний ключ"] ?? row["внешний ключ"] ?? row["ключ"] ?? "";
-  const s = String(raw).trim();
-  return s === "" ? null : s;
-}
-```
-
-В `/bulk-preview` (строка 605) прочитать ключ каждой строки и добавить в предпросмотр:
-
-```ts
-      const externalKey = readExternalKeyColumn(row);
-      // Ключ, занятый ДРУГИМ пользователем, — ошибка строки, а не повод перезаписать: на
-      // уникальности ключа держится связывание, и тихая перезапись порвала бы готовые связи.
-      const keyOwner = externalKey ? await storage.getUserByExternalKey(externalKey) : undefined;
-      if (externalKey && keyOwner && keyOwner.id !== existing?.id) {
-        return { idx, email, name, role, groupName, groupId, groupFound, externalKey,
-          status: "error", error: `Ключ «${externalKey}» уже у пользователя ${keyOwner.name}` };
-      }
-```
-
-Состояние строки: существующий email с НЕПУСТЫМ ключом получает не `duplicate`, а `keyUpdate` —
-такая строка не пропускается, а проставляет ключ уже заведённому пользователю:
-
-```ts
-        status: existing ? (externalKey ? "keyUpdate" : "duplicate") : "new",
-```
-
-В `/bulk-import` (строка 664) для `new` записать `externalKey` вместе с остальными полями, для
-`keyUpdate` — вызвать `storage.updateUser(existingId, { externalKey })` и не создавать ничего.
-
-- [ ] **Шаг 9: прогнать тест**
-
-Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
-Ожидается: PASS, 4 теста.
-
-- [ ] **Шаг 10: показать состояние в предпросмотре**
-
-В экране массовой загрузки пользователей добавить колонку «Внешний ключ» и подпись для состояния
-`keyUpdate` — «ключ будет обновлён». Ошибку занятого ключа показать текстом от сервера.
-
-- [ ] **Шаг 11: коммит**
+- [ ] **Шаг 5: коммит**
 
 ```bash
-git add server/routes/users.ts client/src/pages/author/users.tsx server/routes/__tests__/users-external-key.test.ts
-git commit -m "feat(prd-54): внешний ключ пользователя — поштучно и колонкой в массовой загрузке"
+git add server/routes/users.ts server/routes/__tests__/users-external-key.test.ts
+git commit -m "feat(prd-54): внешний ключ пользователя в API"
 ```
-
----
 
 ## Задача 11: правки аналитики
 
@@ -2068,7 +2045,298 @@ git commit -m "feat(prd-54): аналитика видит импортиров�
 
 ---
 
-## Задача 12: форма импорта (гейт для задачи 13)
+## Задача 12: скрипт импорта и прогон на реальной выгрузке
+
+**Файлы:**
+
+- Создание: `scripts/db/import-lms-export.ts`
+
+Здесь инкремент 1 доказывает себя целиком. Скрипт зовёт ТОТ ЖЕ `runImport`, который потом позовёт
+кнопка, поэтому прогон проверяет настоящий конвейер, а не его подобие. Пока интерфейса нет, скрипт
+остаётся рабочим инструментом для заливок — выбрасывать его не нужно.
+
+- [ ] **Шаг 1: написать скрипт**
+
+```ts
+/**
+ * @module scripts/db/import-lms-export
+ * @description Загрузка выгрузки отчёта LMS из файла, без интерфейса (PRD-54, инкремент 1).
+ *
+ * Зовёт тот же `runImport`, что и HTTP-эндпоинт: у скрипта нет своей копии логики, иначе прогон
+ * доказывал бы работоспособность скрипта, а не продукта.
+ *
+ * Запуск:
+ *   npx tsx scripts/db/import-lms-export.ts <файл.xlsx> --user <userId> [--group <groupId>]
+ *     [--link-users] [--source-anonymized] [--dry-run]
+ */
+import { readFileSync } from "node:fs";
+import { basename } from "node:path";
+import ExcelJS from "exceljs";
+import { config } from "../../server/config";
+import { storage } from "../../server/storage";
+import { looksLikeLmsExport, parseLmsExport } from "../../shared/lms-export/parse";
+import { resolveTestByQuestionIds } from "../../server/services/lms-test-resolver";
+import { runImport } from "../../server/services/lms-export-import";
+
+function flag(name: string): boolean {
+  return process.argv.includes(`--${name}`);
+}
+
+function opt(name: string): string | null {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > -1 ? process.argv[i + 1] ?? null : null;
+}
+
+async function main() {
+  const file = process.argv[2];
+  if (!file) throw new Error("Укажите путь к файлу выгрузки");
+  const userId = opt("user");
+  if (!userId) throw new Error("Укажите --user <userId>: партия импорта хранит автора загрузки");
+
+  const buffer = readFileSync(file);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+
+  const matrix = (sheet: ExcelJS.Worksheet) => {
+    const out: string[][] = [];
+    sheet.eachRow({ includeEmpty: true }, (row) => {
+      out.push((row.values as unknown[]).slice(1).map((v) => (v == null ? "" : String(v))));
+    });
+    return out;
+  };
+
+  const sheet = wb.worksheets.map(matrix).find(looksLikeLmsExport);
+  if (!sheet) throw new Error("Файл не похож на выгрузку отчёта LMS");
+  const book = parseLmsExport(sheet);
+
+  const resolved = await resolveTestByQuestionIds(book.questionIds, storage);
+  if (!resolved.testId) throw new Error("Тест по вопросам файла не определён однозначно");
+  console.log("тест:", resolved.testId, "| строк:", book.rows.length, "| чужих вопросов:", resolved.foreign.length);
+
+  const result = await runImport(
+    book,
+    {
+      anonymize: config.analytics.lmsImport.anonymizeParticipants,
+      sourceAnonymized: flag("source-anonymized"),
+      linkUsers: flag("link-users"),
+    },
+    {
+      testId: resolved.testId,
+      groupId: opt("group"),
+      fileName: basename(file),
+      fileBuffer: buffer,
+      userId,
+      dryRun: flag("dry-run"),
+    },
+    storage,
+  );
+
+  console.log(JSON.stringify(result, null, 2));
+}
+
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+```
+
+- [ ] **Шаг 2: сухой прогон на реальной выгрузке**
+
+Взять идентификатор любого автора из dev-базы и выполнить:
+
+```bash
+npx tsx scripts/db/import-lms-export.ts docs/references/7684237229762827328-1.xlsx --user <userId> --dry-run
+```
+
+Ожидается: напечатан тест «Определение ведущего стиля человекоцентричного лидерства»,
+`rowsCreated: 1`, `rowsUpdated: 0`, в базе ничего не создано.
+
+- [ ] **Шаг 3: настоящий прогон**
+
+Выполнить ту же команду без `--dry-run`.
+Ожидается: `rowsCreated: 1`, появилась партия и одно прохождение.
+
+- [ ] **Шаг 4: проверить идемпотентность**
+
+Выполнить ту же команду ещё раз.
+Ожидается: `rowsCreated: 0`, `rowsUpdated: 1`. Второго прохождения НЕ появилось.
+
+- [ ] **Шаг 5: проверить, что аналитика его видит**
+
+```bash
+curl -s --cookie "connect.sid=<сессия>" "http://localhost:8099/api/analytics/combined?source=lms" | head -c 2000
+```
+
+Ожидается: в выдаче есть строка с `source: "lms"`, `origin: "import"`, подписью участника
+«Участник …» и заполненными шкалами.
+
+- [ ] **Шаг 6: проверить связывание**
+
+Проставить пользователю внешний ключ через API, затем повторить прогон с `--link-users`.
+Ожидается: `rowsLinked: 1`, `rowsCreated: 0` — связь появилась, дубля нет.
+
+- [ ] **Шаг 7: коммит**
+
+```bash
+git add scripts/db/import-lms-export.ts
+git commit -m "feat(prd-54): скрипт импорта выгрузки и прогон на реальном файле"
+```
+
+**ГЕЙТ ИНКРЕМЕНТА 1.** Пока шаги 2 — 6 не сошлись на реальном файле, к инкременту 2 не переходить.
+
+---
+
+## Инкремент 2 — интерфейс
+
+---
+
+## Задача 13: эскизы (ГЕЙТ, блокирует задачи 14 — 16)
+
+**Файлы:**
+
+- Создание: `docs/wireframes/prd54-lms-import.html`
+
+В этом проекте UI пишется ТОЛЬКО после сверки с эскизом — жёсткое правило, нарушение которого
+означает переписывание готового экрана. Перед рисованием прочитать руководство по дизайн-системе:
+эскиз собирается из существующих компонентов ДС, а не из произвольной разметки.
+
+- [ ] **Шаг 1: прочитать руководство ДС**
+
+Открыть документацию дизайн-системы и найти готовые компоненты под форму: выпадающий список,
+флажок, баннер, таблица, модальное окно, загрузчик файла. Ничего своего не рисовать.
+
+- [ ] **Шаг 2: собрать эскиз**
+
+`docs/wireframes/prd54-lms-import.html` — состояния формы: пустая, после сухого прогона с планом,
+с предупреждениями, отказ по чужому тесту, список партий. В холсте только реальный UI; пояснения —
+в заметках рядом, не поверх макета. Эскизный фрейм — единственная рамка.
+
+- [ ] **Шаг 3: посмотреть в браузере в обеих темах**
+
+```bash
+python -m http.server 8010 --directory .
+```
+
+Открыть `http://localhost:8010/docs/wireframes/prd54-lms-import.html`, проверить светлую и тёмную
+темы. Сетка 4px: 1x между родственными элементами, 4x между разными, 6x от краёв.
+
+- [ ] **Шаг 4: прогнать гейт соответствия ДС**
+
+Выполнить: `npm run check:wireframes:ds`
+Ожидается: без нарушений.
+
+- [ ] **Шаг 5: согласовать эскиз с владельцем**
+
+Показать и ДОЖДАТЬСЯ подтверждения. Без него задачи 14 — 16 не начинать.
+
+- [ ] **Шаг 6: коммит**
+
+```bash
+git add docs/wireframes/prd54-lms-import.html
+git commit -m "docs(prd-54): эскизы формы загрузки выгрузки LMS"
+```
+
+---
+
+## Задача 14: ключ пользователя в интерфейсе
+
+**Файлы:**
+
+- Правка: `server/routes/users.ts` (`/bulk-preview` строка 605, `/bulk-import` строка 664)
+- Правка: `client/src/pages/author/users.tsx` (форма пользователя и экран массовой загрузки)
+- Тест: `server/routes/__tests__/users-external-key.test.ts` (дописать)
+
+- [ ] **Шаг 1: добавить поле в форму пользователя**
+
+`Input` с подписью «Внешний ключ» и подсказкой «По нему импорт выгрузок LMS находит этого человека».
+Ошибку `409` показать текстом от сервера.
+
+- [ ] **Шаг 2: написать падающий тест колонки**
+
+Поля в карточке хватает на десяток человек, на сотни — нет (спека раздел 11.4).
+
+```ts
+import { readExternalKeyColumn } from "../users";
+
+describe("readExternalKeyColumn", () => {
+  it("читает колонку по любому из псевдонимов", () => {
+    expect(readExternalKeyColumn({ external_key: "AB-1" })).toBe("AB-1");
+    expect(readExternalKeyColumn({ "Внешний ключ": "AB-2" })).toBe("AB-2");
+    expect(readExternalKeyColumn({ "ключ": "AB-3" })).toBe("AB-3");
+  });
+
+  it("пустая колонка — это отсутствие ключа, а не пустой ключ", () => {
+    expect(readExternalKeyColumn({ external_key: "   " })).toBeNull();
+    expect(readExternalKeyColumn({})).toBeNull();
+  });
+});
+```
+
+- [ ] **Шаг 3: прогнать и убедиться, что падает**
+
+Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
+Ожидается: FAIL, `readExternalKeyColumn` не определена.
+
+- [ ] **Шаг 4: реализовать колонку**
+
+```ts
+/**
+ * Внешний ключ из строки книги массовой загрузки (PRD-54 раздел 11.4).
+ *
+ * Псевдонимы те же по духу, что у `email`/`ФИО`/`роль`/`группа` рядом: книгу заполняет человек, а не
+ * выгружает система, и требовать одно точное написание заголовка — способ получить молчаливо
+ * пропущенную колонку.
+ *
+ * @param row строка книги
+ * @returns ключ или `null`, если колонки нет или она пуста
+ */
+export function readExternalKeyColumn(row: Record<string, unknown>): string | null {
+  const raw = row["external_key"] ?? row["Внешний ключ"] ?? row["внешний ключ"] ?? row["ключ"] ?? "";
+  const s = String(raw).trim();
+  return s === "" ? null : s;
+}
+```
+
+В `/bulk-preview` прочитать ключ каждой строки и добавить в предпросмотр:
+
+```ts
+      const externalKey = readExternalKeyColumn(row);
+      // Ключ, занятый ДРУГИМ пользователем, — ошибка строки, а не повод перезаписать: на
+      // уникальности ключа держится связывание, и тихая перезапись порвала бы готовые связи.
+      const keyOwner = externalKey ? await storage.getUserByExternalKey(externalKey) : undefined;
+      if (externalKey && keyOwner && keyOwner.id !== existing?.id) {
+        return { idx, email, name, role, groupName, groupId, groupFound, externalKey,
+          status: "error", error: `Ключ «${externalKey}» уже у пользователя ${keyOwner.name}` };
+      }
+```
+
+Состояние строки: существующий email с НЕПУСТЫМ ключом получает не `duplicate`, а `keyUpdate` —
+такая строка не пропускается, а проставляет ключ уже заведённому пользователю:
+
+```ts
+        status: existing ? (externalKey ? "keyUpdate" : "duplicate") : "new",
+```
+
+В `/bulk-import` для `new` записать `externalKey` вместе с остальными полями, для `keyUpdate` —
+вызвать `storage.updateUser(existingId, { externalKey })` и не создавать ничего.
+
+- [ ] **Шаг 5: прогнать тест**
+
+Выполнить: `npm test -- server/routes/__tests__/users-external-key.test.ts`
+Ожидается: PASS, 4 теста.
+
+- [ ] **Шаг 6: показать состояние в предпросмотре**
+
+В экране массовой загрузки добавить колонку «Внешний ключ» и подпись для состояния `keyUpdate` —
+«ключ будет обновлён». Ошибку занятого ключа показать текстом от сервера.
+
+- [ ] **Шаг 7: коммит**
+
+```bash
+git add server/routes/users.ts client/src/pages/author/users.tsx server/routes/__tests__/users-external-key.test.ts
+git commit -m "feat(prd-54): ключ пользователя в карточке и колонкой в массовой загрузке"
+```
+
+---
+
+## Задача 15: форма импорта (гейт для задачи 16)
 
 **Файлы:**
 
@@ -2201,7 +2469,7 @@ export function LmsImportForm({ inspect, file, fixedTestId, onDone }: LmsImportF
 
       <Combobox label="Группа" value={group} onChange={setGroup} options={options} />
       {group === NEW_GROUP && (
-        <Combobox.Input label="Название новой группы" value={newGroupName} onChange={setNewGroupName} />
+        <Input label="Название новой группы" value={newGroupName} onChange={setNewGroupName} />
       )}
 
       <Checkbox checked={sourceAnonymized} onChange={setSourceAnonymized} label="Данные уже обезличены" />
@@ -2259,7 +2527,7 @@ git commit -m "feat(prd-54): форма загрузки выгрузки LMS"
 
 ---
 
-## Задача 13: три точки входа
+## Задача 16: три точки входа
 
 **Файлы:**
 
@@ -2360,7 +2628,7 @@ git commit -m "feat(prd-54): вызов импорта из трёх точек 
 
 ---
 
-## Задача 14: приёмка в браузере
+## Задача 17: приёмка в браузере
 
 Правило проекта: фронтенд принимается в браузере, а не по зелёным тестам.
 
@@ -2373,35 +2641,44 @@ git commit -m "feat(prd-54): вызов импорта из трёх точек 
 Выполнить: `npm run dev`
 Войти учёткой приёмки `acceptance@local.test` / `Acceptance!2026`.
 
-- [ ] **Шаг 2: пройти сценарий на экране «Импорт»**
+- [ ] **Шаг 2: убрать следы инкремента 1**
+
+Партия, залитая скриптом задачи 12, уже лежит в базе, и без отката сухой прогон покажет не
+«добавится 1», а «обновится 1» — приёмка начнёт проверять не тот сценарий. Откатить её:
+
+```bash
+npx tsx -e "import('./server/storage').then(async ({storage}) => { const b = await storage.getLmsImportBatches('<testId>'); for (const x of b) await storage.deleteLmsImportBatch(x.id); console.log('откачено', b.length); })"
+```
+
+- [ ] **Шаг 3: пройти сценарий на экране «Импорт»**
 
 Загрузить `docs/references/7684237229762827328-1.xlsx`. Убедиться: формат опознан, тест определён как
 «Определение ведущего стиля человекоцентричного лидерства», сухой прогон показывает 1 строку к
 добавлению, импорт проходит, строка видна в аналитике теста.
 
-- [ ] **Шаг 3: повторить тот же файл**
+- [ ] **Шаг 4: повторить тот же файл**
 
 Ожидается: «добавлено 0, обновлено 1», второй строки не появилось.
 
-- [ ] **Шаг 4: пройти сценарий из общей аналитики и из аналитики теста**
+- [ ] **Шаг 5: пройти сценарий из общей аналитики и из аналитики теста**
 
 В аналитике теста дополнительно проверить отказ: открыть аналитику ДРУГОГО теста и загрузить тот же
 файл — ожидается отказ с названиями обоих тестов.
 
-- [ ] **Шаг 5: проверить связывание**
+- [ ] **Шаг 6: проверить связывание**
 
 Проставить пользователю внешний ключ, равный значению колонки «Пользователь», загрузить файл повторно
 с включённым флажком связывания — в аналитике вместо псевдонима появляется имя пользователя.
 
-- [ ] **Шаг 6: проверить откат**
+- [ ] **Шаг 7: проверить откат**
 
 Откатить партию, убедиться, что строки исчезли, а телеметрия других тестов не задета.
 
-- [ ] **Шаг 7: снять скриншоты и записать отчёт**
+- [ ] **Шаг 8: снять скриншоты и записать отчёт**
 
 Записать `docs/reports/prd54-lms-import-acceptance.md`: по пункту на каждый шаг, со скриншотами.
 
-- [ ] **Шаг 8: коммит**
+- [ ] **Шаг 9: коммит**
 
 ```bash
 git add docs/reports/prd54-lms-import-acceptance.md
