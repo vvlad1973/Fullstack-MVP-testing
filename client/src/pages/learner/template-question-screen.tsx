@@ -127,6 +127,7 @@ export interface TemplateQuestionScreenProps {
     theme?: { background: string; foreground: string };
     /** Per-test design-param CSS-var overrides (PRD-7 branding); applied on the shadow host. */
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -299,6 +300,7 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
         layout={tpl.layout}
         css={css}
         cssVars={tpl.cssVars}
+        dataAttrs={tpl.dataAttrs}
         themeCss={tpl.themeCss}
         dataTheme={tpl.dataTheme}
         themed={tpl.themed}

@@ -65,6 +65,13 @@ export interface TemplateScreenProps {
    */
   cssVars?: Record<string, string>;
   /**
+   * Design params the template asked to receive as data attributes on the scene root
+   * (manifest `dataAttr`, built by the shared `buildTemplateDataAttrs`). Set on the
+   * shadow HOST next to {@link cssVars}: unlike a custom property, an attribute can be
+   * SELECTED on, which is how a template switches a picture per chosen option.
+   */
+  dataAttrs?: Record<string, string>;
+  /**
    * PRD-23: per-theme colour overrides as a CSS block (built by the shared
    * {@link module:shared/template/theme-css buildTemplateThemeCss} against `:host`).
    * Injected as the LAST stylesheet in the shadow root, so at equal specificity the
@@ -134,7 +141,7 @@ export interface TemplateScreenProps {
   fill?: boolean;
 }
 
-export function TemplateScreen({ layout, context, css, slots, content, protection, cssVars, themeCss, dataTheme, themed, afterHtml, timers, onAction, onShadowReady, className, shell, blocks, fill = true }: TemplateScreenProps) {
+export function TemplateScreen({ layout, context, css, slots, content, protection, cssVars, dataAttrs, themeCss, dataTheme, themed, afterHtml, timers, onAction, onShadowReady, className, shell, blocks, fill = true }: TemplateScreenProps) {
   /**
    * PRD-51: отчёт печатается ДОКУМЕНТОМ из блоков, а не одной раскладкой. Когда блоки
    * пришли, `layout` — это оболочка документа, и рисует его та же общая сборка, которой
@@ -155,6 +162,7 @@ export function TemplateScreen({ layout, context, css, slots, content, protectio
   const shadowRef = useRef<ShadowRoot | null>(null);
   const screenRef = useRef<HTMLElement | null>(null);
   const appliedVarsRef = useRef<string[]>([]);
+  const appliedAttrsRef = useRef<string[]>([]);
   const onActionRef = useRef(onAction);
   onActionRef.current = onAction;
   const onShadowReadyRef = useRef(onShadowReady);
@@ -206,8 +214,8 @@ export function TemplateScreen({ layout, context, css, slots, content, protectio
   // and wipe/rebuild the whole shadow tree, which is what made hover flicker and a
   // click land on an already-replaced button.
   const renderKey = useMemo(
-    () => JSON.stringify([layout, css, context, slots, content, protection, cssVars, themeCss, dataTheme, themed, afterHtml, shell]),
-    [layout, css, context, slots, content, protection, cssVars, themeCss, dataTheme, themed, afterHtml, shell],
+    () => JSON.stringify([layout, css, context, slots, content, protection, cssVars, dataAttrs, themeCss, dataTheme, themed, afterHtml, shell]),
+    [layout, css, context, slots, content, protection, cssVars, dataAttrs, themeCss, dataTheme, themed, afterHtml, shell],
   );
 
   useEffect(() => {
@@ -298,6 +306,17 @@ export function TemplateScreen({ layout, context, css, slots, content, protectio
       appliedVarsRef.current = Object.keys(cssVars);
     } else {
       appliedVarsRef.current = [];
+    }
+    // Params the template asked for as attributes (manifest `dataAttr`): they go on the
+    // SAME element as the vars, because a template selects on them (`[data-x="y"] .z`)
+    // and a selector needs an element to match. Stale keys are removed first — a
+    // switched choice must not leave the previous attribute behind.
+    for (const name of appliedAttrsRef.current) host.removeAttribute(name);
+    if (dataAttrs) {
+      for (const [name, value] of Object.entries(dataAttrs)) host.setAttribute(name, value);
+      appliedAttrsRef.current = Object.keys(dataAttrs);
+    } else {
+      appliedAttrsRef.current = [];
     }
 
     const screen = document.createElement("div");

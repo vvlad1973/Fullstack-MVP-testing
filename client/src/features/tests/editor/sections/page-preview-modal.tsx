@@ -20,7 +20,7 @@ import { TemplateScreen } from "@/components/template-screen";
 import { buildContentPageScreen, buildScreenInputs, type PreviewDemoDataset } from "@shared/template/preview-context";
 import type { SequencePlacement } from "@shared/template/page-sequences";
 import { buildSectionIntroContext } from "@shared/template/result-context";
-import { buildTemplateCssVars } from "@shared/template/params-css";
+import { buildTemplateCssVars, buildTemplateDataAttrs } from "@shared/template/params-css";
 import { startImageForVariant, type StartVariantDecl } from "@shared/template/start-image";
 import { useTemplateBundle } from "./use-template-bundle";
 
@@ -260,6 +260,9 @@ export function PagePreviewModal({
 
   // Draft branding → CSS variables, via the SAME mapping the runtime uses.
   const cssVars = useMemo(() => buildTemplateCssVars(params, bundle?.manifest.params), [params, bundle]);
+  // Той же парой едет выбор, объявленный атрибутом (`dataAttr`): предпросмотр должен
+  // показывать выбранный вариант ДО сохранения, а по атрибуту шаблон выбирает правило.
+  const dataAttrs = useMemo(() => buildTemplateDataAttrs(params, bundle?.manifest.params), [params, bundle]);
 
   if (!open) return null;
 
@@ -298,6 +301,7 @@ export function PagePreviewModal({
               content={spec.input.content}
               css={bundle.css}
               cssVars={cssVars}
+              dataAttrs={dataAttrs}
               shell={(bundle.manifest as { mountShell?: boolean }).mountShell ? bundle.layouts.shell : undefined}
             />
           </div>

@@ -2090,6 +2090,66 @@
   gap: var(--ou-space-1);
   align-items: center;
 }
+/* Option previews of a design param (spec §6 `optionPreviews`): a template ships a
+   picture per option, so the choice is made by LOOK, not by a word in a dropdown.
+   Built on the gallery card above — one visual choice reads the same across the tab;
+   only the thumbnail differs, because a logo lockup is a wide strip, not a 16:9 cover. */
+.tpl-choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.tpl-choice__legend {
+  font: var(--ou-text-body-s);
+  color: var(--ou-fg-soft);
+  padding: 0;
+  margin-bottom: var(--ou-space-2);
+}
+.tpl-choice__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--ou-space-3);
+}
+.tpl-choice__card {
+  cursor: pointer;
+  position: relative;
+}
+/* The radio stays a real input — keyboard and screen readers need it — but the CARD
+   is the visible control, so the circle itself is taken out of the layout. */
+.tpl-choice__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.tpl-choice__input:focus-visible + .tpl-choice__thumb {
+  outline: 2px solid var(--ou-accent-default);
+  outline-offset: -2px;
+}
+/* Подложка миниатюры СВЕТЛАЯ в обеих темах интерфейса — намеренно. Превью варианта
+   рисует сам шаблон, и это готовый лок под светлый фон; на тёмной подложке тёмной темы
+   он слился бы с ней. Карточка здесь — лист образцов, а не кусок сцены. */
+.tpl-choice__thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 5;
+  padding: var(--ou-space-3);
+  background: var(--ou-neutral-0);
+  border-bottom: var(--wf-border-w) solid var(--ou-border-soft);
+}
+.tpl-choice__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .tpl-gallery-foot {
   display: flex;
   align-items: center;

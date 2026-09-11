@@ -72,7 +72,7 @@ import { templateBlockOrder } from "@shared/template/results-order";
 import { ResultsLabelsPane } from "./results-labels-pane";
 import { TemplatePreviewModal } from "./template-preview-modal";
 import { TemplateGalleryModal } from "./template-gallery-modal";
-import { TemplateThumb } from "./template-thumb";
+import { TemplateThumb, templateAssetUrl } from "./template-thumb";
 import { ReportSettingsCard } from "./report-settings-card";
 import type { TestEditorModel } from "../test-editor.types";
 
@@ -696,6 +696,7 @@ export function SectionPane({
           onClear={() => design.clearParam(p.key)}
           inheritedColor={tokens.light[cssVarOf(p)] ?? null}
           colorFormat={colorFormat}
+          templateId={tpl.id}
         />
       ))}
       <DesignSaveError design={design} />
@@ -897,6 +898,8 @@ function ParamRow(props: {
   onChange: (v: unknown) => void;
   /** Drop the override, handing the param back to the template. */
   onClear?: () => void;
+  /** Template whose own files back a param's option previews. */
+  templateId?: string;
   /** Template's own value for this colour, read from its stylesheet. */
   inheritedColor?: string | null;
   /** Storage format this template's colours use. */
@@ -926,6 +929,7 @@ function ParamControl({
   onClear,
   inheritedColor,
   colorFormat = "hsl",
+  templateId,
 }: {
   param: TemplateParam;
   value: unknown;
@@ -933,6 +937,8 @@ function ParamControl({
   onClear?: () => void;
   inheritedColor?: string | null;
   colorFormat?: ColorFormat;
+  /** Whose files the option previews belong to; absent ⇒ the plain dropdown. */
+  templateId?: string;
 }) {
   const fieldId = `design-param-${param.key}`;
   if (param.type === "text") {
@@ -1017,6 +1023,46 @@ function ParamControl({
   if (param.type === "select") {
     const opts = param.options ?? [];
     const v = typeof value === "string" ? value : (param.default as string) ?? opts[0] ?? "";
+    // A template may ship a picture per option (`optionPreviews`). Then the choice is
+    // between LOOKS, and a dropdown of words cannot show it — the author would pick
+    // «B2O» blind and check the result in a preview. Cards instead, styled like the
+    // template gallery so one visual choice reads the same across the tab.
+    const previews = param.optionPreviews;
+    if (previews && templateId && opts.some((o) => previews[o])) {
+      return (
+        <fieldset className="tpl-choice" data-testid={`design-param-input-${param.key}`}>
+          <legend className="tpl-choice__legend">{param.label}</legend>
+          <div className="tpl-choice__grid">
+            {opts.map((o) => {
+              const url = templateAssetUrl(templateId, previews[o]);
+              const label = param.optionLabels?.[o] ?? o;
+              return (
+                <label
+                  key={o}
+                  className={`tpl-gallery-card tpl-choice__card${v === o ? " is-selected" : ""}`}
+                  data-testid={`design-param-option-${param.key}-${o}`}
+                >
+                  <input
+                    type="radio"
+                    className="tpl-choice__input"
+                    name={fieldId}
+                    value={o}
+                    checked={v === o}
+                    onChange={() => onChange(o)}
+                  />
+                  <span className="tpl-choice__thumb">
+                    {url ? <img className="tpl-choice__img" src={url} alt="" loading="lazy" /> : null}
+                  </span>
+                  <span className="tpl-gallery-card__body">
+                    <span className="tpl-gallery-card__name">{label}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      );
+    }
     return (
         <Select<string>
           id={fieldId}

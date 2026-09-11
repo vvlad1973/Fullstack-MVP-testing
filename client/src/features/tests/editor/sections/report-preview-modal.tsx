@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Banner, Button, ModalDialog, SegmentedControl, Tag } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
-import { buildTemplateCssVars } from "@shared/template/params-css";
+import { buildTemplateCssVars, buildTemplateDataAttrs } from "@shared/template/params-css";
 import { buildAdaptiveReportContext, buildReportContext } from "@shared/report/report-context";
 import { buildReportMeasures } from "@shared/report/report-measures";
 import {
@@ -161,6 +161,12 @@ export function ReportPreviewModal({
     () => buildTemplateCssVars(params, bundle?.manifest.params),
     [params, bundle],
   );
+  // Той же парой едет выбор, объявленный атрибутом (`dataAttr`): предпросмотр должен
+  // показывать выбранный вариант ДО сохранения, а по атрибуту шаблон выбирает правило.
+  const dataAttrs = useMemo(
+    () => buildTemplateDataAttrs(params, bundle?.manifest.params),
+    [params, bundle],
+  );
 
   // ПРЕДПРОСМОТР ПОКАЗЫВАЕТ ЛИСТЫ, а не ленту. Раскладку считает тот же
   // `buildReportSheets`, что режет PDF (FR-21/FR-23): пока она жила только в конвейере
@@ -279,6 +285,7 @@ export function ReportPreviewModal({
                 context={context}
                 css={bundle.css}
                 cssVars={cssVars}
+              dataAttrs={dataAttrs}
                 fill={false}
                 onShadowReady={onShadowReady}
               />

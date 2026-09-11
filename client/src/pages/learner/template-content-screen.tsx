@@ -27,6 +27,7 @@ export interface ContentScreenTemplate {
   layout: string;
   css?: string;
   cssVars?: Record<string, string>;
+  dataAttrs?: Record<string, string>;
 
   /** PRD-23: per-theme colour overrides, printed as CSS. */
 
@@ -200,6 +201,7 @@ export function TemplateContentScreen({
         layout={layout}
         css={template.css}
         cssVars={template.cssVars}
+        dataAttrs={template.dataAttrs}
 
         themeCss={template.themeCss}
 

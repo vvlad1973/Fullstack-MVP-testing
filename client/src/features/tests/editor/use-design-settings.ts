@@ -78,6 +78,19 @@ export type TemplateParam = {
    * choices (e.g. progress.mode `questions` → «По вопросам»).
    */
   optionLabels?: Record<string, string>;
+  /**
+   * Pictures for `options`, keyed by option value: paths to the template's OWN files,
+   * served by `GET /api/templates/:id/assets/*`. Present ⇒ the editor draws a grid of
+   * previews instead of a dropdown — a choice between LOOKS (a logo, a background) is
+   * not a choice a list of words can express (spec §6).
+   */
+  optionPreviews?: Record<string, string>;
+  /**
+   * Data attribute the chosen value is written to on the scene root, so the template's
+   * CSS can select on it (`[data-brand-logo="b2b"] …`). See the shared
+   * {@link module:shared/template/params-css buildTemplateDataAttrs}.
+   */
+  dataAttr?: string;
   /** PRD-7 S12-G4 media params: client-side validation hint, mime/ext list. */
   accept?: string;
   /** PRD-7 S12-G4 media params: max upload size in kilobytes. */

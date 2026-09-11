@@ -51,6 +51,17 @@ const TEMPLATE = {
       { key: "showProgressBar", type: "boolean", label: "Показывать прогресс-бар", default: true },
       { key: "fontFamily", type: "select", label: "Шрифт", options: ["Inter", "Roboto"], default: "Inter" },
       { key: "logoUrl", type: "image", label: "Логотип" },
+      // §6: select с картинками вариантов — редактор рисует карточки, а не список.
+      {
+        key: "brandLogo",
+        type: "select",
+        label: "Логотип направления",
+        options: ["plain", "b2b"],
+        optionLabels: { plain: "Без направления", b2b: "B2B" },
+        optionPreviews: { plain: "assets/logos/plain.png", b2b: "assets/logos/b2b.png" },
+        dataAttr: "data-brand-logo",
+        default: "plain",
+      },
     ],
     contentTemplates: [
       { key: "intro-default", kind: "intro", label: "Вступление" },
@@ -302,6 +313,39 @@ describe("<DesignSection /> — Брендирование pane", () => {
     // wrapper testid stays; the upload button uses the same input testid.
     expect(screen.getByTestId("design-param-row-logoUrl")).toBeInTheDocument();
     expect(screen.getByTestId("design-param-input-logoUrl")).toBeInTheDocument();
+  });
+
+  // §6 `optionPreviews`: выбор между ОБЛИКАМИ нельзя сделать словом в списке —
+  // шаблон отдаёт картинку на вариант, и редактор рисует карточки с превью,
+  // а картинка берётся у файлов ЭТОГО шаблона.
+  it("рисует карточки с превью вместо списка и переключает выбор", async () => {
+    renderWithClient(<DesignSection testId={TEST_ID} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-pane")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("design-rail-branding"));
+    await waitFor(() =>
+      expect(screen.getByTestId("design-branding-pane")).toBeInTheDocument(),
+    );
+
+    const group = screen.getByTestId("design-param-input-brandLogo");
+    expect(group.tagName).toBe("FIELDSET");
+    const plain = screen.getByTestId("design-param-option-brandLogo-plain");
+    const b2b = screen.getByTestId("design-param-option-brandLogo-b2b");
+
+    const img = plain.querySelector("img");
+    expect(img?.getAttribute("src")).toBe("/api/templates/corporate/assets/assets/logos/plain.png");
+    expect(b2b).toHaveTextContent("B2B");
+
+    // Умолчание манифеста выбрано, пока автор не тронул параметр.
+    expect(plain.className).toContain("is-selected");
+    expect(b2b.className).not.toContain("is-selected");
+
+    fireEvent.click(b2b.querySelector("input")!);
+    await waitFor(() =>
+      expect(screen.getByTestId("design-param-option-brandLogo-b2b").className).toContain("is-selected"),
+    );
+    expect(screen.getByTestId("design-param-option-brandLogo-plain").className).not.toContain("is-selected");
   });
 
   // PRD-22 (plan Э8): a colour label names the token, not the screen element, so

@@ -517,6 +517,7 @@ export default function TakeTestPage() {
     css: string;
     theme?: { background: string; foreground: string };
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -531,6 +532,7 @@ export default function TakeTestPage() {
     css: string;
     theme?: { background: string; foreground: string };
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -546,6 +548,7 @@ export default function TakeTestPage() {
     css: string;
     theme?: { background: string; foreground: string };
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -560,6 +563,7 @@ export default function TakeTestPage() {
     css: string;
     theme?: { background: string; foreground: string };
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -582,6 +586,7 @@ export default function TakeTestPage() {
     css: string;
     theme?: { background: string; foreground: string };
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -596,6 +601,7 @@ export default function TakeTestPage() {
     css: string;
     theme?: { background: string; foreground: string };
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -2560,6 +2566,7 @@ export default function TakeTestPage() {
           layout={blockedTpl.layout}
           css={blockCss}
           cssVars={blockedTpl.cssVars}
+          dataAttrs={blockedTpl.dataAttrs}
           themeCss={blockedTpl.themeCss}
           dataTheme={blockedTpl.dataTheme}
           themed={blockedTpl.themed}
@@ -2786,6 +2793,7 @@ export default function TakeTestPage() {
           layout={startTpl.layout}
           css={startTpl.css}
           cssVars={startTpl.cssVars}
+          dataAttrs={startTpl.dataAttrs}
           themeCss={startTpl.themeCss}
           dataTheme={startTpl.dataTheme}
           themed={startTpl.themed}
@@ -2843,6 +2851,7 @@ export default function TakeTestPage() {
           layout={transitionTpl.layout}
           css={transitionTpl.css}
           cssVars={transitionTpl.cssVars}
+          dataAttrs={transitionTpl.dataAttrs}
           themeCss={transitionTpl.themeCss}
           dataTheme={transitionTpl.dataTheme}
           themed={transitionTpl.themed}
@@ -2988,6 +2997,7 @@ export default function TakeTestPage() {
           layout={reviewTpl.layout}
           css={reviewTpl.css}
           cssVars={reviewTpl.cssVars}
+          dataAttrs={reviewTpl.dataAttrs}
           themeCss={reviewTpl.themeCss}
           dataTheme={reviewTpl.dataTheme}
           timers={{ testSeconds: remainingSeconds, sectionSeconds: sectionRemainingSeconds }}
@@ -3103,6 +3113,7 @@ export default function TakeTestPage() {
           layout={sectionResultsTpl.layout}
           css={sectionResultsTpl.css}
           cssVars={sectionResultsTpl.cssVars}
+          dataAttrs={sectionResultsTpl.dataAttrs}
           themeCss={sectionResultsTpl.themeCss}
           dataTheme={sectionResultsTpl.dataTheme}
           timers={{ testSeconds: remainingSeconds, sectionSeconds: sectionRemainingSeconds }}

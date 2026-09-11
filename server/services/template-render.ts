@@ -18,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { buildResultContext, buildAdaptiveResultContext, type MeasuresSource } from "./result-context";
-import { buildTemplateCssVars, type TemplateParamDef } from "@shared/template/params-css";
+import { buildTemplateCssVars, buildTemplateDataAttrs, type TemplateParamDef } from "@shared/template/params-css";
 import { buildPaletteBridge } from "@shared/template/palette-bridge";
 import { baseParams, buildTemplateThemeCss, sceneThemeAttribute } from "@shared/template/theme-css";
 import { resolveThemeParams } from "@shared/template/theme-params";
@@ -88,6 +88,15 @@ export interface ScreenRenderPayload {
    * `prefers-color-scheme` rules to decide.
    */
   dataTheme?: "light" | "dark";
+  /**
+   * Design-param values a template asked to receive as data attributes on the scene
+   * root (manifest `dataAttr`), built by the SHARED
+   * {@link module:shared/template/params-css buildTemplateDataAttrs} — the same map
+   * the SCORM runtime applies. A template CSS selects on them
+   * (`[data-brand-logo="b2b"] …`), which a CSS custom property cannot do. Omitted
+   * when no param declares one.
+   */
+  dataAttrs?: Record<string, string>;
   /**
    * PRD-23: whether the ACTIVE template declares a choice of palettes. Under «Авто»
    * the host needs it to pick the same palette the package picks (see the shared
@@ -402,6 +411,7 @@ export function readScreenTemplate(
     const resolved = resolveThemeParams(design, manifest);
     const base = resolved.base;
     const cssVars = buildTemplateCssVars(base, manifest.params);
+    const dataAttrs = buildTemplateDataAttrs(base, manifest.params);
     const themeCss = buildTemplateThemeCss(design, manifest, { rootSelector: ":host" });
     const dataTheme = sceneThemeAttribute(design, manifest);
     const logoUrl = resolveMediaUrl(base?.logoUrl);
@@ -428,6 +438,7 @@ export function readScreenTemplate(
       css: bridge ? `${css}\n${bridge}` : css,
       theme: { background: cssVar(css, "background"), foreground: cssVar(css, "foreground") },
       ...(Object.keys(cssVars).length > 0 ? { cssVars } : {}),
+      ...(Object.keys(dataAttrs).length > 0 ? { dataAttrs } : {}),
       ...(themeCss ? { themeCss } : {}),
       ...(dataTheme ? { dataTheme } : {}),
       ...(supportsThemes(manifest) ? { themed: true } : {}),

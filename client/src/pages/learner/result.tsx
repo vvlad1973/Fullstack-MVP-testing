@@ -34,6 +34,7 @@ interface AttemptWithResult extends Attempt {
     theme?: { background: string; foreground: string };
     /** Per-test design-param CSS-var overrides (PRD-7 branding); applied on the shadow host. */
     cssVars?: Record<string, string>;
+    dataAttrs?: Record<string, string>;
     /** PRD-23: per-theme colour overrides, printed as CSS. */
     themeCss?: string;
     /** PRD-23: palette pinned by the author; absent means «Авто». */
@@ -187,6 +188,7 @@ function TemplateResultPage({ attempt }: { attempt: AttemptWithResult }) {
         layout={render.layout}
         css={render.css}
         cssVars={render.cssVars}
+        dataAttrs={render.dataAttrs}
         themeCss={render.themeCss}
         dataTheme={render.dataTheme}
         themed={render.themed}

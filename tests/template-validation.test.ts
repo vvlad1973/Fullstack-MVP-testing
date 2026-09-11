@@ -380,3 +380,76 @@ describe("the in-repo `certification` template passes the validator", () => {
     expect(supportsThemes(manifest)).toBe(true);
   });
 });
+
+// ─── §6: параметр с картинками вариантов и атрибутом сцены ───────────────────
+//
+// Две добавки контракта, обе необязательные: `optionPreviews` — картинка на вариант
+// (редактор рисует их вместо списка), `dataAttr` — имя атрибута, в который хосты
+// кладут выбранное значение, чтобы CSS шаблона мог по нему ВЫБИРАТЬ.
+describe("validateTemplatePackage — превью вариантов и атрибут сцены (§6)", () => {
+  const logoParam = {
+    key: "brandLogo",
+    type: "select",
+    label: "Логотип",
+    options: ["plain", "b2b"],
+    optionLabels: { plain: "Без направления", b2b: "B2B" },
+    optionPreviews: { plain: "assets/logos/plain.png", b2b: "assets/logos/b2b.png" },
+    dataAttr: "data-brand-logo",
+    default: "plain",
+  };
+  const logoFiles = {
+    "assets/logos/plain.png": "png",
+    "assets/logos/b2b.png": "png",
+  };
+
+  it("принимает параметр с превью и атрибутом, файлы превью не считаются лишними", () => {
+    const r = validateTemplatePackage(
+      validPackage({ manifest: { params: [logoParam] }, files: logoFiles }),
+      { mode: "create" },
+    );
+    expect(r.blocking).toEqual([]);
+    expect(r.warnings.map((w) => w.ref)).not.toContain("assets/logos/plain.png");
+  });
+
+  it("отсутствующий файл превью — блокирующая ошибка, а не тихо пустая карточка", () => {
+    const r = validateTemplatePackage(
+      validPackage({ manifest: { params: [logoParam] }, files: { "assets/logos/plain.png": "png" } }),
+      { mode: "create" },
+    );
+    expect(r.ok).toBe(false);
+    const miss = r.blocking.find((i) => i.code === "FILE_MISSING" && String(i.ref).includes("optionPreviews"));
+    expect(miss?.ref).toBe("params[brandLogo].optionPreviews.b2b");
+  });
+
+  it("внешний URL в превью запрещён так же, как в любой ссылке манифеста", () => {
+    const r = validateTemplatePackage(
+      validPackage({
+        manifest: { params: [{ ...logoParam, optionPreviews: { plain: "https://cdn.example/logo.png" } }] },
+        files: logoFiles,
+      }),
+      { mode: "create" },
+    );
+    expect(r.blocking.map((i) => i.code)).toContain("EXTERNAL_URL");
+  });
+
+  it("кривое имя атрибута блокирует импорт: хост его молча пропустит", () => {
+    const r = validateTemplatePackage(
+      validPackage({ manifest: { params: [{ ...logoParam, dataAttr: "onclick" }] }, files: logoFiles }),
+      { mode: "create" },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.blocking.map((i) => i.code)).toContain("PARAM_DATA_ATTR_INVALID");
+  });
+
+  it("превью для несуществующего варианта — предупреждение, выбор от этого не ломается", () => {
+    const r = validateTemplatePackage(
+      validPackage({
+        manifest: { params: [{ ...logoParam, optionPreviews: { ...logoParam.optionPreviews, b2c: "assets/logos/plain.png" } }] },
+        files: logoFiles,
+      }),
+      { mode: "create" },
+    );
+    expect(r.ok).toBe(true);
+    expect(r.warnings.map((w) => w.code)).toContain("PARAM_PREVIEWS_INVALID");
+  });
+});

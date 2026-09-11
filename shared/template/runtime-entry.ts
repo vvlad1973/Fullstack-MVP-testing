@@ -68,7 +68,7 @@ export {
 } from "./start-image";
 export { buildCourseSubtitle } from "./course-subtitle";
 export { buildTransitionContext } from "./transition-context";
-export { buildTemplateCssVars, DEFAULT_PARAM_CSS_VARS } from "./params-css";
+export { buildTemplateCssVars, buildTemplateDataAttrs, DEFAULT_PARAM_CSS_VARS } from "./params-css";
 // Ревизия «Стандартный» на ui-kit: мост палитры теста в токены DS — оба хоста
 // выводят DS-акцент из --primary теста, поэтому ученические экраны на .ou-разметке
 // брендируются палитрой теста одинаково в вебе и в пакете.
