@@ -320,9 +320,9 @@ export function ReviewPanel({
                         disabled={!canNavigate}
                         onClick={() => canNavigate && onNavigate!(target!, thread)}
                         data-testid={`goto-${thread.id}`}
+                        trailingIcon={<ArrowRight size={13} aria-hidden="true" />}
                       >
-                        <span>Перейти к вопросу</span>
-                        <ArrowRight size={13} />
+                        Перейти к вопросу
                       </Button>
                     ) : null}
                     <Button variant="ghost" size="s" onClick={() => setReplyTo(thread.id)}>
