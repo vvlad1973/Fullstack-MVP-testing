@@ -33,7 +33,7 @@ import {
   Image as ImageIcon,
   Paperclip,
   RotateCcw,
-  SquareSlash,
+  SquareOff,
   Trash2,
   Upload,
   X,
@@ -1095,7 +1095,7 @@ function ParamControl({
                       // Вариант без картинки — «ничего не показывать» и есть его смысл
                       // («Без логотипа»). Пустая плитка читалась бы как незагрузившееся
                       // изображение, поэтому в ней стоит перечёркнутый квадрат.
-                      <SquareSlash className="tpl-choice__empty" size={28} aria-hidden="true" />
+                      <SquareOff className="tpl-choice__empty" size={28} aria-hidden="true" />
                     )}
                   </span>
                   <span className="tpl-gallery-card__body">

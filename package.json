@@ -60,7 +60,7 @@
     "express-session": "^1.19.0",
     "jsonc-parser": "^3.3.1",
     "jszip": "^3.10.1",
-    "lucide-react": "^0.453.0",
+    "lucide-react": "^1.45.0",
     "memorystore": "^1.6.8",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.4",
