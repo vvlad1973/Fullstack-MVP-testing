@@ -10,7 +10,7 @@
 import { useState } from "react";
 import {
   Button, Card, CardBody, CardHeader, Cluster, FormGroup, Select, Stack, Tag, Text, Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type { ReviewAnchor } from "@shared/review/anchor";
 
 /** Содержимое раздела, на которое можно поставить якорь: вопрос или страница. */

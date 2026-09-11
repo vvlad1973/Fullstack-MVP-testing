@@ -25,7 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Banner, Button, Cluster, Combobox, Input, Label, ModalDialog,
   RadioGroup, SegmentedControl, Select, Stack, Switch, Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { FolderTreeSelect } from "@/components/folder-tree-select";
 import { useToast } from "@/hooks/use-toast";

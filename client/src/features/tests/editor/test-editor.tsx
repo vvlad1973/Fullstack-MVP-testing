@@ -9,7 +9,7 @@
  * scrollable body and footer with `Сохранить` + `Показать изменения` popover
  * (FR-25a / FR-25c) and the close confirmation modal (FR-05 / FR-05a).
  *
- * Components: leans on `@universityrt/ui-kit` for `Tabs`, `Tag`, `IconButton`,
+ * Components: leans on `@skillum/ui-kit` for `Tabs`, `Tag`, `IconButton`,
  * `Button`, `EmptyState` and the two `ModalDialog`s (close confirm / version
  * conflict). The Drawer shell itself stays as manual `.ou-drawer*` markup
  * because the ui-kit `Drawer` does not support a tabs row between the head
@@ -38,7 +38,7 @@ import {
   Tag,
   Tabs,
   type TabItem,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useTestEditor,
@@ -1589,7 +1589,7 @@ function collectConflictRows(
 
 // ─── Status tag derivation ────────────────────────────────────────────────────
 
-import type { TagProps } from "@universityrt/ui-kit";
+import type { TagProps } from "@skillum/ui-kit";
 
 /**
  * Тег в шапке ящика.

@@ -18,7 +18,7 @@ import {
   Input,
   RichTextEditor,
   type RichTextMode,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { isPlaceholderType, inputModesFor } from "@shared/template/field-types";
 import { sanitizeHtml as sanitizeContentHtml, placeholderScope } from "@shared/security/html-sanitize";
 import type { ContentTemplatePlaceholder } from "../use-content-pages";

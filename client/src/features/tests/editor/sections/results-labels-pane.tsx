@@ -31,7 +31,7 @@ import {
   Stack,
   Switch,
   Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type { LabelDeclaration, LabelValue, LabelValues } from "@shared/template/labels";
 import {
   DEFAULT_BLOCK_ORDER,

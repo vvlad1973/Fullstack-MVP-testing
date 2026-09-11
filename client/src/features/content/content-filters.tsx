@@ -10,7 +10,7 @@
  * keeps the tree responsive on large banks). Active-condition chips are rendered
  * by the tree itself. See docs/PLAN_content_axis_implementation.md.
  */
-import { Button, Checkbox, SegmentedControl, Select, Slider, Switch, TagInput } from "@universityrt/ui-kit";
+import { Button, Checkbox, SegmentedControl, Select, Slider, Switch, TagInput } from "@skillum/ui-kit";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import { t } from "@/lib/i18n";
 

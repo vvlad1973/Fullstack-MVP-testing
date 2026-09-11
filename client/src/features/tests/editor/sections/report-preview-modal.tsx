@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Banner, Button, ModalDialog, SegmentedControl, Tag } from "@universityrt/ui-kit";
+import { Banner, Button, ModalDialog, SegmentedControl, Tag } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
 import { buildTemplateCssVars } from "@shared/template/params-css";
 import { buildAdaptiveReportContext, buildReportContext } from "@shared/report/report-context";

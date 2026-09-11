@@ -28,7 +28,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CircleDot, Pencil, RotateCcw } from "lucide-react";
 import {
   Banner, Collapsible, CollapsibleContent, CollapsibleTrigger, IconButton, Input, Tag,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
 import type { Question } from "@shared/schema";

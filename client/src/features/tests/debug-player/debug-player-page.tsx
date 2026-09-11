@@ -12,7 +12,7 @@ import { useParams } from "wouter";
 import {
   Banner, Box, Button, Cluster, EmptyState, Fab, IconButton, Input, ProgressBar, Select, Stack, Switch, Table, Tabs, Tag, Text, Tree,
   type TableColumn, type TreeNodeData,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import {
   BugPlay, Info, RefreshCw, RotateCcw, X, ChevronLeft, ChevronRight, Download, Search,
   CircleDot, CheckSquare, Unplug, ListOrdered, ThermometerSun, SlidersHorizontal, List, Layers, ChevronDown, ChevronUp,

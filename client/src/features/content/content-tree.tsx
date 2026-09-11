@@ -54,7 +54,7 @@ import {
   Unplug,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Checkbox, Chip, Cluster, Input, Label, ModalDialog, Select, Stack, Text } from "@universityrt/ui-kit";
+import { Button, Checkbox, Chip, Cluster, Input, Label, ModalDialog, Select, Stack, Text } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import { FolderTreeSelect } from "@/components/folder-tree-select";
 import { TruncatedLabel } from "@/components/truncated-label";

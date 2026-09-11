@@ -30,7 +30,7 @@ import {
   Scissors,
   Trash2,
 } from "lucide-react";
-import { Button, Menu, MenuItem, MenuTrigger, Switch, Tag } from "@universityrt/ui-kit";
+import { Button, Menu, MenuItem, MenuTrigger, Switch, Tag } from "@skillum/ui-kit";
 import {
   DndContext,
   KeyboardSensor,

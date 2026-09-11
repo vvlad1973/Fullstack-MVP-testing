@@ -30,7 +30,7 @@
  * System rows expose «Сменить вариант» (FR-46 / PRD-1 §4.3.3) — disabled when
  * the active template declares a single variant of that kind. Structural
  * classes live in `client/src/styles/tb-components.css`; controls use
- * `@universityrt/ui-kit`.
+ * `@skillum/ui-kit`.
  */
 import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -64,7 +64,7 @@ import {
   Tag,
   Textarea,
   type RichTextMode,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import {
   DndContext,
   DragOverlay,

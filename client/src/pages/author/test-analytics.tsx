@@ -2,7 +2,7 @@
  * @module pages/author/test-analytics
  * @description Per-test analytics dashboard: summary KPIs, score-distribution and
  * trend charts, per-topic / per-question / per-level statistics, an attempts table
- * and a full attempt-details modal. Rendered entirely with the UniversityRT design
+ * and a full attempt-details modal. Rendered entirely with the Skillum design
  * system — layout via Stack/Cluster/Grid/Box, typography via Text, data via the DS
  * Table/Card/Tabs/ProgressBar/Tag primitives (no raw utility classes). recharts
  * charts use `--ou-*` tokens for colours.
@@ -31,7 +31,7 @@ import {
     type ProgressTone,
     type TableColumn,
     type Tone,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import {
     ArrowLeft,

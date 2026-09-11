@@ -2,7 +2,7 @@
  * @module components/app-sidebar
  *
  * Author-side primary navigation, rendered with the design-system `Sidebar`
- * (`@universityrt/ui-kit`) inside the DS `AppShell` (see pages/author/layout).
+ * (`@skillum/ui-kit`) inside the DS `AppShell` (see pages/author/layout).
  * Replaces the former shadcn `Sidebar` shell so the app frame matches the rest
  * of the DS-based UI (see docs/PLAN_appshell_migration.md).
  *
@@ -25,7 +25,7 @@ import {
   Import,
   type LucideIcon,
 } from "lucide-react";
-import { Cluster, Sidebar, Text } from "@universityrt/ui-kit";
+import { Cluster, Sidebar, Text } from "@skillum/ui-kit";
 import { useAuth } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import type { Capability } from "@shared/access";

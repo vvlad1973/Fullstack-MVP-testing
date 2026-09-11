@@ -2,7 +2,7 @@
  * @module components/__tests__/theme-provider.test
  * @description Tests for the theme context/provider: initial theme resolution
  * (stored value > OS preference > light), the `<html>`/`<body>` class mirroring
- * the UniversityRT DS expects, localStorage persistence, toggle/set actions, and
+ * the Skillum DS expects, localStorage persistence, toggle/set actions, and
  * the `useTheme` provider guard.
  */
 import type * as React from "react";

@@ -12,7 +12,7 @@
 урезанным инспектором; полная выдача — второй hash-флаг рядом с уже работающим пином варианта;
 переход по якорю — существующие ящики редакторов, положенные стеком.
 
-**Технологии:** Express 5 + Drizzle + PostgreSQL на сервере, React 19 + `@universityrt/ui-kit` на
+**Технологии:** Express 5 + Drizzle + PostgreSQL на сервере, React 19 + `@skillum/ui-kit` на
 клиенте, Vitest для тестов, framework-free JS в рантайме SCORM-пакета.
 
 ---

@@ -15,7 +15,7 @@ import { useState } from "react";
 import {
   Avatar, Banner, Button, Card, Cluster, EmptyState, SegmentedControl, Stack, Switch, Tag, Text,
   Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { ArrowRight, MessageSquarePlus } from "lucide-react";
 import { pluralize } from "@/lib/i18n";
 import { useReviewComments } from "./use-review-comments";

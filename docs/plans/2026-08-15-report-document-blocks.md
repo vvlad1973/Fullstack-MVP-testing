@@ -22,7 +22,7 @@
 раскладка режет именно по ним.
 
 **Стек:** TypeScript, Vitest, Drizzle ORM (+ pglite для интеграционных тестов), React 19,
-дизайн-система `@universityrt/ui-kit`, собственный DSL шаблонов (`shared/template/dsl.ts`),
+дизайн-система `@skillum/ui-kit`, собственный DSL шаблонов (`shared/template/dsl.ts`),
 рантайм SCORM на ES5 (`server/scorm/template/app`).
 
 **Спека:** `docs/specs/prd-51/report-document-blocks.md`.

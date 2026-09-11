@@ -16,7 +16,7 @@
 import { useState } from "react";
 import type * as React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, FormSection, Tag } from "@universityrt/ui-kit";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, FormSection, Tag } from "@skillum/ui-kit";
 
 import { pluralize } from "@/lib/i18n";
 

@@ -29,7 +29,7 @@ import {
   Stack,
   Table,
   WizardSteps,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type {
   PartMode,
   TopicPolicy,

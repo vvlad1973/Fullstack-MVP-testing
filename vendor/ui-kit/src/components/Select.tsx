@@ -151,7 +151,7 @@ function SelectInner<T extends string = string>(
   );
 }
 
-/** UniversityRT · Select (single value). */
+/** Skillum · Select (single value). */
 export const Select = forwardRef(SelectInner) as <T extends string = string>(
   p: SelectProps<T> & { ref?: React.Ref<HTMLButtonElement> },
 ) => React.ReactElement;

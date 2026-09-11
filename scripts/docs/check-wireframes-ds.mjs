@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
  * @module check-wireframes-ds
  *
  * Lint gate for `docs/wireframes/*` ensuring product wireframes use only
- * UniversityRT Design System primitives (BEM classes `ou-*`, tokens
+ * Skillum Design System primitives (BEM classes `ou-*`, tokens
  * `var(--ou-*)`). The gate covers five categories of violations:
  *   1. Legacy class tokens (e.g. `btn`, `drawer-header`, `sidebar`).
  *   2. Raw color literals inside `<style>` blocks and standalone CSS.
@@ -28,7 +28,7 @@ const args = new Set(process.argv.slice(2));
 const STRICT_INLINE = args.has('--strict-inline');
 
 const ignore = new Set([
-  join(wireframesDir, 'ds', 'university-rt.css'),
+  join(wireframesDir, 'ds', 'skillum-ds.css'),
   join(wireframesDir, 'approved', 'prd7-shared.css'),
   // Эскиз ПЕЧАТНОГО ДОКУMЕНТА, а не экрана. Отчёт по контракту рендерится вне
   // дизайн-системы, в служебном контейнере со своим CSS (PRD-27 §6.3), и его цвета —
@@ -228,7 +228,7 @@ function inDemoRange(ranges, index) {
  */
 function collectKnownOuClasses() {
   const sources = [
-    join(wireframesDir, 'ds', 'university-rt.css'),
+    join(wireframesDir, 'ds', 'skillum-ds.css'),
     join(root, 'client', 'src', 'styles', 'tb-components.css'),
   ];
   const known = new Set();

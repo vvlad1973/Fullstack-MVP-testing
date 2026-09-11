@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { Drawer } from '@universityrt/ui-kit';
+import { Drawer } from '@skillum/ui-kit';
 
 afterEach(cleanup);
 

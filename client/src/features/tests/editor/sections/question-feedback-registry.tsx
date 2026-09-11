@@ -14,7 +14,7 @@
 import { useMemo } from "react";
 import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Accordion, AccordionItem, Banner, Button, FormSection } from "@universityrt/ui-kit";
+import { Accordion, AccordionItem, Banner, Button, FormSection } from "@skillum/ui-kit";
 import { ArrowRight } from "lucide-react";
 import { t } from "@/lib/i18n";
 import type { Question } from "@shared/schema";

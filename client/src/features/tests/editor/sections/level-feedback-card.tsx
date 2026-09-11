@@ -17,7 +17,7 @@
  * `levels[].feedback`, `levels[].links`), что правила лестница.
  */
 import type * as React from "react";
-import { Banner, Collapsible, CollapsibleContent, CollapsibleTrigger, FormSection, Tag } from "@universityrt/ui-kit";
+import { Banner, Collapsible, CollapsibleContent, CollapsibleTrigger, FormSection, Tag } from "@skillum/ui-kit";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { pluralize } from "@/lib/i18n";

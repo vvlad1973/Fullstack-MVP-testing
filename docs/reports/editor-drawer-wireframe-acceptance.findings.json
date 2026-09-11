@@ -179,7 +179,7 @@
     ],
     "batch": "owner",
     "status": "withdrawn",
-    "note": "Снята как ошибка приёмки: `.ou-skel--w-1\\/4` в бандле ДС ОБЪЯВЛЕН (university-rt.css, экранированная косая) — поиском по `ou-skel--w-1/4` он не находился. Имя с дробью пришло из Tailwind, но в ДС оно принято."
+    "note": "Снята как ошибка приёмки: `.ou-skel--w-1\\/4` в бандле ДС ОБЪЯВЛЕН (skillum-ds.css, экранированная косая) — поиском по `ou-skel--w-1/4` он не находился. Имя с дробью пришло из Tailwind, но в ДС оно принято."
   },
   {
     "id": "A-1",
@@ -262,13 +262,13 @@
     "area": "A",
     "place": "Риббон вкладок",
     "expected": "`.ou-tabs__list` — `padding-inline: 24` (раздел 7.2), полоса выровнена с содержимым тела",
-    "actual": "Переопределения нет: у DS `.ou-tabs__list` отступа нет (`vendor/ui-kit/css/university-rt.css:6520`), в `tb`-слое задана только прокрутка. На снимке вкладки прижаты к левому краю ящика, поля тела начинаются правее",
+    "actual": "Переопределения нет: у DS `.ou-tabs__list` отступа нет (`vendor/ui-kit/css/skillum-ds.css:6520`), в `tb`-слое задана только прокрутка. На снимке вкладки прижаты к левому краю ящика, поля тела начинаются правее",
     "kind": "нарушение сетки 24 px",
     "severity": "существенное",
     "code": "client/src/styles/tb-components.css:89",
     "files": [
       "tb-components.css",
-      "university-rt.css"
+      "skillum-ds.css"
     ],
     "batch": "grid",
     "status": "fixed"
@@ -281,10 +281,10 @@
     "actual": "Переопределения в проектном слое нет — действует значение ui-kit `padding: var(--ou-space-5)` = 20 px (в `tb`-слое переопределён только подвал)",
     "kind": "нарушение сетки 24 px",
     "severity": "существенное",
-    "code": "client/src/styles/tb-components.css:228 (правило только для __foot); vendor/ui-kit/css/university-rt.css:2850",
+    "code": "client/src/styles/tb-components.css:228 (правило только для __foot); vendor/ui-kit/css/skillum-ds.css:2850",
     "files": [
       "tb-components.css",
-      "university-rt.css"
+      "skillum-ds.css"
     ],
     "batch": "grid",
     "status": "fixed"
@@ -1861,10 +1861,10 @@
     "actual": "один `Grid cols={2} gap={3}` — 12 px",
     "kind": "нарушение сетки 4/16/24",
     "severity": "косметическое",
-    "code": "scales-section.tsx:629, vendor/ui-kit/css/university-rt.css:3354",
+    "code": "scales-section.tsx:629, vendor/ui-kit/css/skillum-ds.css:3354",
     "files": [
       "scales-section.tsx",
-      "university-rt.css"
+      "skillum-ds.css"
     ],
     "batch": "grid",
     "status": "fixed"
@@ -2707,10 +2707,10 @@
     "actual": "`Stack gap={2}` = `--ou-space-2` = 8 px в обоих местах",
     "kind": "нарушение сетки 4/16/24",
     "severity": "косметическое",
-    "code": "results-labels-pane.tsx:223, results-labels-pane.tsx:312; токен — client/src/styles/vendor/university-rt.css:389",
+    "code": "results-labels-pane.tsx:223, results-labels-pane.tsx:312; токен — client/src/styles/vendor/skillum-ds.css:389",
     "files": [
       "results-labels-pane.tsx",
-      "university-rt.css"
+      "skillum-ds.css"
     ],
     "batch": "grid",
     "status": "fixed"

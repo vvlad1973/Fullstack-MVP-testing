@@ -31,7 +31,7 @@ import {
   IconButton,
   Input,
   Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Pencil, Plus, Trash2 } from "lucide-react";
 
 import type { LevelTone } from "@shared/scales/interpretation";

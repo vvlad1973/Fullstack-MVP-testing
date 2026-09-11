@@ -501,7 +501,7 @@ git commit -m "feat(editor-ui): читать контракт отступов �
 
 - Создать: `scripts/check/editor-conformance/static-server.mjs`
 
-Эскиз ссылается на CSS абсолютными путями (`/docs/wireframes/ds/university-rt.css`), поэтому
+Эскиз ссылается на CSS абсолютными путями (`/docs/wireframes/ds/skillum-ds.css`), поэтому
 открыть его как `file://` нельзя — нужен HTTP-корень репозитория.
 
 - [ ] **Шаг 1: реализовать сервер**
@@ -513,7 +513,7 @@ git commit -m "feat(editor-ui): читать контракт отступов �
  * @description Serves the repository over HTTP so the wireframe can be rendered.
  *
  * Why this exists. The wireframes reference their stylesheets by absolute path
- * (`/docs/wireframes/ds/university-rt.css`), so opening one over `file://` renders it
+ * (`/docs/wireframes/ds/skillum-ds.css`), so opening one over `file://` renders it
  * unstyled and every measurement comes out wrong. A twenty-line static server on
  * `node:http` removes that trap without adding a dependency.
  */
@@ -1644,7 +1644,7 @@ git commit -m "fix(editor-ui): <партия>, закрыто находок N"
 
 ```tsx
 // Было: Collapsible/CollapsibleTrigger/CollapsibleContent — примитив без CSS-слоя,
-// класса .ou-collapsible в university-rt.css нет ни одного.
+// класса .ou-collapsible в skillum-ds.css нет ни одного.
 // Стало: аккордеон ДС, которого требует эскиз (ou-acc--separated + шеврон + подзаголовок).
 <Accordion separated>
   <AccordionItem

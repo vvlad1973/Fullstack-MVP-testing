@@ -16,7 +16,7 @@
  */
 import { useState } from "react";
 import type * as React from "react";
-import { Banner, FormSection } from "@universityrt/ui-kit";
+import { Banner, FormSection } from "@skillum/ui-kit";
 import { resolveScaleGroup } from "@shared/formula/outcome-literals";
 import { FeedbackEditorModal, type FeedbackEditorValue } from "./feedback-editor-modal";
 import { FeedbackPreview } from "./feedback-preview";

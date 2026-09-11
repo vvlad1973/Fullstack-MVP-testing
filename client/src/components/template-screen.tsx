@@ -19,7 +19,7 @@ import { attachQuestionMediaFullscreen } from "@shared/template/question-media";
 import { nextScaleIndex } from "@shared/template/scale-keyboard";
 import { resolveSceneTheme } from "@shared/template/themes";
 import { paintSceneTimers, type SceneTimersState } from "@shared/template/scene-timers";
-import dsCss from "@/styles/vendor/university-rt.css?raw";
+import dsCss from "@/styles/vendor/skillum-ds.css?raw";
 
 /**
  * The design system, remapped for a shadow root. DS LAYER-1 primitives live on

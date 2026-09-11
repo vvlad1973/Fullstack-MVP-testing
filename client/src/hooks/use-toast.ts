@@ -2,7 +2,7 @@
  * @module hooks/use-toast
  *
  * Compatibility adapter that maps the legacy shadcn `useToast()` API onto the
- * design-system toast system (`@universityrt/ui-kit`). Existing call sites keep
+ * design-system toast system (`@skillum/ui-kit`). Existing call sites keep
  * using `const { toast } = useToast(); toast({ title, description, variant })`
  * unchanged; under the hood the notification is pushed through the ui-kit
  * `ToastProvider` queue mounted once in `App`.
@@ -23,7 +23,7 @@
  * through, so new call sites can opt into the full tone set.
  */
 import * as React from "react";
-import { useToast as useDsToast, type ToastTone } from "@universityrt/ui-kit";
+import { useToast as useDsToast, type ToastTone } from "@skillum/ui-kit";
 
 /**
  * Accepted toast variant: the legacy shadcn pair plus the design-system tones.

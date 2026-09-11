@@ -1,5 +1,5 @@
 import { Moon, Sun } from "lucide-react";
-import { IconButton } from "@universityrt/ui-kit";
+import { IconButton } from "@skillum/ui-kit";
 import { useTheme } from "./theme-provider";
 
 export function ThemeToggle() {

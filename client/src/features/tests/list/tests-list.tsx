@@ -72,7 +72,7 @@ import {
   Stack,
   Tag,
   Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";

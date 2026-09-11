@@ -19,7 +19,7 @@
 
 import { useState } from "react";
 import { RotateCcw } from "lucide-react";
-import { Banner, Box, Button, Input, ModalDialog } from "@universityrt/ui-kit";
+import { Banner, Box, Button, Input, ModalDialog } from "@skillum/ui-kit";
 
 import { distributesBudget } from "@shared/questions/question-type";
 import type { CorrectData } from "@shared/scoring/engine";

@@ -12,7 +12,7 @@
  * Note: the list excludes archived tests upstream, so the «Статус» facet offers
  * Черновик / Опубликован only (the archive is a separate, deferred view).
  */
-import { Button, Checkbox, SegmentedControl, Select } from "@universityrt/ui-kit";
+import { Button, Checkbox, SegmentedControl, Select } from "@skillum/ui-kit";
 import type { TestListEntry, TestListMode, TestListStatus, TestListFlowMode } from "./tests-list.types";
 
 export type TestScope = "all" | "mine" | "accessible";

@@ -633,9 +633,9 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-scene .ou-rank__item.dragging { cursor: grabbing; }
 /* Drop-target feedback comes from the DS itself: the pointer engine adds
    `.ou-match__row.is-target`, which lights the LEFT prompt (`.ou-match__row.is-target
-   .ou-match__card--fixed` in university-rt.css). No extra rule needed here. */
+   .ou-match__card--fixed` in skillum-ds.css). No extra rule needed here. */
 /* "Just connected" tint needs no scene rule any more: in merge mode the DS already
-   tints BOTH cards + the gap together (`ou-match--gap-narrow` in university-rt.css),
+   tints BOTH cards + the gap together (`ou-match--gap-narrow` in skillum-ds.css),
    unlike the old arrow mode which only tinted the answer card. */
 /* Review verdict (PRD-39): this app marks a matched row `correct-answer`/
    `incorrect-answer` (the choice/ranking convention), not the DS component's own BEM
@@ -1626,7 +1626,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
    by its trackpad stays `fine` and the desktop layout is untouched. Deliberately
    NOT `any-pointer: coarse`, which matches every touch-capable laptop.
 
-   This is the size half of the DS `.ou--spacious` density (university-rt.css),
+   This is the size half of the DS `.ou--spacious` density (skillum-ds.css),
    without its spacing half: that class also scales the whole `--ou-space-*` ramp
    by ~30%, which on a 360px screen would hand the cover 128px of horizontal
    padding. It also leaves `.ou-quiz__dot` at its literal 26px, so it would not
@@ -1670,7 +1670,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
      scrolls; the up/down buttons remain the primary, accessible path.
 
      DS hides the grip and collapses the row to three columns below 480px
-     (university-rt.css). Restoring the grip therefore has to restore the FOURTH
+     (skillum-ds.css). Restoring the grip therefore has to restore the FOURTH
      column too — otherwise the controls wrap to a second line and the row
      doubles in height. */
   .tb-scene .ou-rank__item { grid-template-columns: auto auto 1fr auto; gap: var(--ou-space-2); }

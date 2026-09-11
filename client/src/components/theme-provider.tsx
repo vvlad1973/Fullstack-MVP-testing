@@ -24,9 +24,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     root.classList.remove("light", "dark");
     root.classList.add(theme);
-    // Mirror the choice onto <body> in the form UniversityRT Design System
+    // Mirror the choice onto <body> in the form Skillum Design System
     // reads: `.ou + .ou--light` or `.ou + .ou--dark` (see styles/vendor/
-    // university-rt.css). Density (`.ou--normal`) is fixed on body via
+    // skillum-ds.css). Density (`.ou--normal`) is fixed on body via
     // client/index.html and intentionally not toggled here.
     const body = document.body;
     body.classList.remove("ou--light", "ou--dark");

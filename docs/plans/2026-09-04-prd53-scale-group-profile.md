@@ -13,7 +13,7 @@
 Схема БД не меняется. Плоский двойник рантайма `formula.js` повторяет ядро, паритет держит золотой
 корпус.
 
-**Стек:** TypeScript, Vitest, React 19 + `@universityrt/ui-kit`, Drizzle/PostgreSQL, ExcelJS.
+**Стек:** TypeScript, Vitest, React 19 + `@skillum/ui-kit`, Drizzle/PostgreSQL, ExcelJS.
 
 **Спека:** [docs/specs/prd-53/scale-group-profile.md](../specs/prd-53/scale-group-profile.md).
 

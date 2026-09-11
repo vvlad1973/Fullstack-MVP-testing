@@ -1,7 +1,7 @@
 {
-  "name": "@universityrt/ui-kit",
+  "name": "@skillum/ui-kit",
   "version": "0.3.0",
-  "description": "React UI-kit на базе UniversityRT Design System",
+  "description": "React UI-kit на базе Skillum Design System",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -64,7 +64,7 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
-    "./css": "./css/university-rt.css"
+    "./css": "./css/skillum-ds.css"
   },
   "engines": {
     "node": ">=18"

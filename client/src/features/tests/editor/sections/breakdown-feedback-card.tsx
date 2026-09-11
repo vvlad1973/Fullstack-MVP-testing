@@ -16,7 +16,7 @@
 import { useMemo, useState } from "react";
 import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Banner, FormSection } from "@universityrt/ui-kit";
+import { Banner, FormSection } from "@skillum/ui-kit";
 import { FeedbackEditorModal, type FeedbackEditorValue } from "./feedback-editor-modal";
 import { FeedbackPreview } from "./feedback-preview";
 import { FoldAllButtons, FoldSection, useSectionFold } from "./section-fold";

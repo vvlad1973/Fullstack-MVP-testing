@@ -16,7 +16,7 @@
 Классификация строк, таблица предпросмотра, прогон и отчёт не меняются: у них появляется второй ИСТОЧНИК
 строк, а не вторая копия. Гейт при этом у каждого назначения свой — общим делается конвейер, а не право.
 
-**Стек:** TypeScript, React 19, Express, Vitest + Testing Library, DS `@universityrt/ui-kit`.
+**Стек:** TypeScript, React 19, Express, Vitest + Testing Library, DS `@skillum/ui-kit`.
 
 ---
 
@@ -908,7 +908,7 @@ npm test -- client/src/features/tests/assign
 Добавить импорты:
 
 ```tsx
-import { Separator, Textarea } from "@universityrt/ui-kit";
+import { Separator, Textarea } from "@skillum/ui-kit";
 import { parseRecipientList } from "@shared/recipients/parse-recipient-list";
 ```
 

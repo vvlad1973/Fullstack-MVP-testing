@@ -14,7 +14,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
-import { Banner, Box, Button, Cluster, EmptyState, Stack, Switch, Tabs, Tag, Text } from "@universityrt/ui-kit";
+import { Banner, Box, Button, Cluster, EmptyState, Stack, Switch, Tabs, Tag, Text } from "@skillum/ui-kit";
 import { MessageSquare, RotateCcw, Info, Lock } from "lucide-react";
 import { useDebugSession } from "@/features/tests/debug-player/use-debug-session";
 import { buildSnapshot, type InspectorSnapshot } from "@/features/tests/debug-player/inspector-snapshot";

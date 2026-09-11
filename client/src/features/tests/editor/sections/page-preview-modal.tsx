@@ -15,7 +15,7 @@
  * Static visual evaluation only — interactions are demo-only and persist nothing.
  */
 import { useMemo } from "react";
-import { Banner, Button, ModalDialog } from "@universityrt/ui-kit";
+import { Banner, Button, ModalDialog } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
 import { buildContentPageScreen, buildScreenInputs, type PreviewDemoDataset } from "@shared/template/preview-context";
 import type { SequencePlacement } from "@shared/template/page-sequences";

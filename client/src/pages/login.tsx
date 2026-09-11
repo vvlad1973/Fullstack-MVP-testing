@@ -14,7 +14,7 @@ import {
   Separator,
   Stack,
   Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme-toggle";

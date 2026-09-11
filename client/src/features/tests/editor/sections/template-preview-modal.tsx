@@ -13,7 +13,7 @@
  * Static visual evaluation only — controls are demo-only and persist nothing.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Banner, Button, ModalDialog, SegmentedControl } from "@universityrt/ui-kit";
+import { Banner, Button, ModalDialog, SegmentedControl } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
 import { buildScreenInputs, type PreviewDemoDataset } from "@shared/template/preview-context";
 import { buildTemplateCssVars } from "@shared/template/params-css";

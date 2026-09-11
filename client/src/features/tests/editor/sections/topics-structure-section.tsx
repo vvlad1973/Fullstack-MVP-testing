@@ -39,7 +39,7 @@ import {
   Switch,
   Tag,
   Tooltip,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { effectiveSectionOrder, type TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import { VariantsEditor } from "./variants-editor";
 import { FoldAllButtons, useSectionFold, type SectionFold } from "./section-fold";

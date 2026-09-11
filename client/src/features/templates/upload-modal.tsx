@@ -7,7 +7,7 @@
  * straight to the preview/check modal for the fresh draft.
  */
 import { useEffect, useState } from "react";
-import { Banner, Button, FileUploader, ModalDialog } from "@universityrt/ui-kit";
+import { Banner, Button, FileUploader, ModalDialog } from "@skillum/ui-kit";
 import { useUploadTemplate, type AdminTemplate, type UploadOutcome } from "./use-admin-templates";
 import { IssueList } from "./issue-list";
 

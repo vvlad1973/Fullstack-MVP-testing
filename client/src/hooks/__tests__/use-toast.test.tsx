@@ -9,7 +9,7 @@
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { render, renderHook, screen, waitFor } from "@testing-library/react";
-import { ToastProvider } from "@universityrt/ui-kit";
+import { ToastProvider } from "@skillum/ui-kit";
 import { ToastBridge, toast, useToast } from "../use-toast";
 
 afterEach(() => {

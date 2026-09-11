@@ -15,7 +15,7 @@
 Ядро живёт в `shared/breakdown/`, едет в `shared-runtime`, поэтому веб-хост и SCORM-пакет
 считают одним кодом.
 
-**Стек:** TypeScript, Drizzle ORM + PostgreSQL, React 19 + `@universityrt/ui-kit`, Vitest,
+**Стек:** TypeScript, Drizzle ORM + PostgreSQL, React 19 + `@skillum/ui-kit`, Vitest,
 шаблоны на `shared/template` (mustache-подмножество).
 
 **Спека:** [PRD-50 §16](../specs/prd-50/result-breakdowns.md) (FR-52 - FR-57).

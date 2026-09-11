@@ -3,7 +3,7 @@
  * @description Author/admin user-management page (PRD-13): a searchable/filterable
  * user table with create/edit drawers, reset-password / reset-attempts / deactivate
  * dialogs and a bulk CSV/Excel import wizard. Rendered entirely with the
- * UniversityRT design system — layout via Stack/Cluster/Grid/Box, typography via
+ * Skillum design system — layout via Stack/Cluster/Grid/Box, typography via
  * Text, data via the DS Table/Tag/Select/Checkbox/Drawer/ModalDialog primitives
  * (no raw utility classes).
  */
@@ -48,7 +48,7 @@ import {
   Text,
   type TableColumn,
   type Tone,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { t } from "@/lib/i18n";
 import { RolePicker } from "@/components/role-picker";

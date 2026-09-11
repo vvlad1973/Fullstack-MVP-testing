@@ -20,7 +20,7 @@
 собирал. Разрешение документа и его сборку клиент не повторяет — зовёт те же
 `resolveReportDocument` / `renderReportInto`, что и обе выдачи.
 
-**Стек:** React 19, дизайн-система `@universityrt/ui-kit`, `@dnd-kit/core` (перетаскивание строк —
+**Стек:** React 19, дизайн-система `@skillum/ui-kit`, `@dnd-kit/core` (перетаскивание строк —
 как в «Структуре»), Vitest + Testing Library, Drizzle ORM.
 
 **Спека:** `docs/specs/prd-51/report-document-blocks.md` (§4 хранение, §5.1 разрешение, §7 редактор).

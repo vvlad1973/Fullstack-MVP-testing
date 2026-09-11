@@ -2,7 +2,7 @@
  * @module pages/author/groups
  * @description Author groups management page: a searchable groups table with
  * create/edit/delete dialogs, a members viewer and a member-add picker. Rendered
- * entirely with the UniversityRT design system — layout via Stack/Cluster/Box,
+ * entirely with the Skillum design system — layout via Stack/Cluster/Box,
  * typography via Text, data via the DS Table/Tag/Input/Textarea/ModalDialog/
  * EmptyState primitives (no raw utility classes).
  */
@@ -39,7 +39,7 @@ import {
   Text,
   Textarea,
   type TableColumn,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { t } from "@/lib/i18n";
 

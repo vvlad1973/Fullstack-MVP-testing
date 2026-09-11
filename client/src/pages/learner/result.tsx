@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { Button, Center, Stack, Text } from "@universityrt/ui-kit";
+import { Button, Center, Stack, Text } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import { TemplateScreen } from "@/components/template-screen";
 import { buildProtectionSpec } from "@shared/template/protection/spec";

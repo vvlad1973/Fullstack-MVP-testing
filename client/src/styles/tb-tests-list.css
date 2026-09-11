@@ -4,7 +4,7 @@
  * Project DS-extension (`tb-*` namespace) ported from the approved wireframe
  * `docs/wireframes/approved/prd7-tests-list.html`. We re-declare the small
  * `--wf-*` length tokens locally so the markup remains byte-identical to the
- * wireframe; all colors / typography come from `var(--ou-*)` (UniversityRT DS).
+ * wireframe; all colors / typography come from `var(--ou-*)` (Skillum DS).
  *
  * Scope covered by these rules (s-default / s-collapsed / s-search /
  * s-menu-open / s-menu-open-pub / s-folder-menu / s-folder-delete-* /

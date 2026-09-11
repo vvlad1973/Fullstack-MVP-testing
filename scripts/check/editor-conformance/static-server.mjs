@@ -3,7 +3,7 @@
  * @description Serves the repository over HTTP so a wireframe can be rendered as it was drawn.
  *
  * Why this exists. The wireframes reference their stylesheets by absolute path
- * (`/docs/wireframes/ds/university-rt.css`), so opening one over `file://` renders it
+ * (`/docs/wireframes/ds/skillum-ds.css`), so opening one over `file://` renders it
  * unstyled — and every measurement then comes out wrong in a way that looks like a real
  * finding. Twenty lines on `node:http` remove that trap without adding a dependency.
  *

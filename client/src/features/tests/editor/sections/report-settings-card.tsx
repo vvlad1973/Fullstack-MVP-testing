@@ -24,7 +24,7 @@ import {
   Select,
   Switch,
   Tag,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type { ReportSettings } from "@shared/schema";
 import type { ReportPreviewSection } from "@shared/report/report-preview";
 import {

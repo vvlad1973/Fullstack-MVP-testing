@@ -54,7 +54,7 @@ import {
   Table,
   Tag,
   type TableColumn,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type { TestTheme } from "@shared/template/themes";
 import {
   useDesignSettings,

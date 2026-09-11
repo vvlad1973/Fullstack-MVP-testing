@@ -15,7 +15,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { Button, ModalDialog, Select, Tag, Text } from "@universityrt/ui-kit";
+import { Button, ModalDialog, Select, Tag, Text } from "@skillum/ui-kit";
 
 import type { QuestionScoring } from "@shared/schema";
 import { buildDemoAnswers, optionName } from "@shared/scoring/demo-answers";

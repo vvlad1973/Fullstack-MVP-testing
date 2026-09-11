@@ -7,7 +7,7 @@
  * CSS bundle), matching the approved wireframe.
  */
 
-import { Stack } from "@universityrt/ui-kit";
+import { Stack } from "@skillum/ui-kit";
 
 import { ROLE_PRIORITY, STORED_ROLES, assignableRoles, type Role, type StoredRole } from "@shared/access";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS } from "@/lib/roles";

@@ -14,7 +14,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CircleDot, CheckSquare, Unplug, ListOrdered, List, Plus, Trash2, ThermometerSun, SlidersHorizontal, type LucideIcon } from "lucide-react";
-import { Button, ModalDialog, Switch, Tabs, Tag, TransferList, type TransferItem } from "@universityrt/ui-kit";
+import { Button, ModalDialog, Switch, Tabs, Tag, TransferList, type TransferItem } from "@skillum/ui-kit";
 import { pluralize } from "@/lib/i18n";
 import type { FormSet, Form } from "@shared/schema";
 import type { QuestionType } from "@shared/scales/engine";

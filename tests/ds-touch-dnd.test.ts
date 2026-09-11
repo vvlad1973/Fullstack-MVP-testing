@@ -10,8 +10,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { DRAG_START_SLOP } from "../shared/template/dnd/pointer-dnd";
 
-const VENDOR = path.resolve(__dirname, "../vendor/ui-kit/css/university-rt.css");
-const CLIENT = path.resolve(__dirname, "../client/src/styles/vendor/university-rt.css");
+const VENDOR = path.resolve(__dirname, "../vendor/ui-kit/css/skillum-ds.css");
+const CLIENT = path.resolve(__dirname, "../client/src/styles/vendor/skillum-ds.css");
 
 const vendorCss = fs.readFileSync(VENDOR, "utf8");
 const clientCss = fs.readFileSync(CLIENT, "utf8");

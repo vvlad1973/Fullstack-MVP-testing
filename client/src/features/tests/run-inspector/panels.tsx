@@ -11,7 +11,7 @@
  * Стили общие — слой `dbg__*` из отладчика; он импортируется здесь, чтобы обе
  * страницы получали его вместе с панелями.
  */
-import { Box, Button, ProgressBar, Stack, Table, Tag, Text, type TableColumn } from "@universityrt/ui-kit";
+import { Box, Button, ProgressBar, Stack, Table, Tag, Text, type TableColumn } from "@skillum/ui-kit";
 import {
   CircleDot, CheckSquare, Unplug, ListOrdered, ThermometerSun, SlidersHorizontal, Download,
 } from "lucide-react";

@@ -1,4 +1,4 @@
-# UniversityRT UI Kit · Handoff Guide
+# Skillum UI Kit · Handoff Guide
 
 Гид как получить артефакты `ui-kit` из этого проекта и подключить их в свой репозиторий или продуктовый проект.
 
@@ -20,9 +20,9 @@ ui-kit/
 │   ├── main.ts               # Vite-builder + autodocs + аддоны
 │   └── preview.tsx           # Тема (light/dark) + плотность (normal/compact) toolbar
 ├── scripts/
-│   └── build-css.mjs         # Bundler для css/university-rt.css
+│   └── build-css.mjs         # Bundler для css/skillum-ds.css
 ├── css/
-│   └── university-rt.css     # Single-file бандл всех стилей (~275 KB)
+│   └── skillum-ds.css     # Single-file бандл всех стилей (~275 KB)
 └── src/
     ├── index.ts              # Реэкспорт всех 52 компонентов + типов
     ├── utils.ts              # cn(), shared типы
@@ -52,7 +52,7 @@ ui-kit/
 | `ui-kit/src/` | `<твой-репо>/ui-kit/src/` | 52 .tsx компонента + stories |
 | `ui-kit/.storybook/` | `<твой-репо>/ui-kit/.storybook/` | конфиг Storybook |
 | `ui-kit/scripts/build-css.mjs` | `<твой-репо>/ui-kit/scripts/` | bundler CSS |
-| `ui-kit/css/university-rt.css` | `<твой-репо>/ui-kit/css/` | готовый стилевой бандл |
+| `ui-kit/css/skillum-ds.css` | `<твой-репо>/ui-kit/css/` | готовый стилевой бандл |
 | `ui-kit/package.json` | `<твой-репо>/ui-kit/` | deps + scripts |
 | `ui-kit/vite.config.ts` | `<твой-репо>/ui-kit/` | библиотечная сборка |
 | `ui-kit/tsconfig.json` | `<твой-репо>/ui-kit/` | TS-конфиг |
@@ -88,7 +88,7 @@ npm run build              # build:css + build:lib
 #   dist/index.mjs         (ESM)
 #   dist/index.js          (CJS)
 #   dist/index.d.ts        (типы)
-#   css/university-rt.css  (стили, ~275 KB)
+#   css/skillum-ds.css  (стили, ~275 KB)
 ```
 
 Артефакт готов к публикации в npm-registry (внутренний Nexus / GitHub Packages / npmjs).
@@ -102,12 +102,12 @@ npm run build              # build:css + build:lib
 После `npm publish` в свой registry:
 
 ```bash
-npm install @universityrt/ui-kit
+npm install @skillum/ui-kit
 ```
 
 ```tsx
-import { Button, Modal, ToastProvider } from '@universityrt/ui-kit';
-import '@universityrt/ui-kit/css';
+import { Button, Modal, ToastProvider } from '@skillum/ui-kit';
+import '@skillum/ui-kit/css';
 
 export default function App() {
   return (
@@ -134,7 +134,7 @@ export default function App() {
 ```json
 {
   "dependencies": {
-    "@universityrt/ui-kit": "*"
+    "@skillum/ui-kit": "*"
   }
 }
 ```
@@ -154,7 +154,7 @@ resolve: {
 
 ```tsx
 import { Button } from '@ui-kit';
-import '/path/to/ui-kit/css/university-rt.css';
+import '/path/to/ui-kit/css/skillum-ds.css';
 ```
 
 ---
@@ -226,7 +226,7 @@ npm publish --access restricted
 
 ```bash
 cd ui-kit
-npm run build:css      # пересобирает css/university-rt.css
+npm run build:css      # пересобирает css/skillum-ds.css
 ```
 
 После этого либо коммитить артефакт (рекомендую — потребители получат стили сразу), либо собирать на CI перед публикацией.

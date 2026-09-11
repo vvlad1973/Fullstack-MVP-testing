@@ -1,6 +1,6 @@
 /**
  * @module features/questions/question-editor-drawer
- * @description Reusable question editor mounted in a UniversityRT design-system
+ * @description Reusable question editor mounted in a Skillum design-system
  * Drawer, used by both the question bank and the `/author/content` section.
  * The field layout follows the approved wireframe
  * (docs/wireframes/approved/content-bank-explorer.html, state s-q-drawer):
@@ -44,7 +44,7 @@ import {
   Switch,
   Text,
   Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";

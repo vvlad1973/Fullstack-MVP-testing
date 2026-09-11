@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { Switch, Route, Redirect, useLocation } from "wouter";
-import { ToastProvider } from "@universityrt/ui-kit";
+import { ToastProvider } from "@skillum/ui-kit";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ToastBridge } from "@/hooks/use-toast";

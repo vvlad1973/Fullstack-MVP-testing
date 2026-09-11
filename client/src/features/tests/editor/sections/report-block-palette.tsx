@@ -19,7 +19,7 @@
  * сообщал бы, что что-то удалено, когда удалено ничего.
  */
 import { useMemo, useState } from "react";
-import { Button, ModalDialog } from "@universityrt/ui-kit";
+import { Button, ModalDialog } from "@skillum/ui-kit";
 import { Search } from "lucide-react";
 import {
   REPORT_PAGE_BLOCK,

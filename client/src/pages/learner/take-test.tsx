@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { ChevronLeft, RotateCcw } from "lucide-react";
-import { Box, Button, Card, CardBody, CardHeader, Center, Cluster, ModalDialog, Stack, Text } from "@universityrt/ui-kit";
+import { Box, Button, Card, CardBody, CardHeader, Center, Cluster, ModalDialog, Stack, Text } from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingState } from "@/components/loading-state";
 import { TemplateScreen } from "@/components/template-screen";

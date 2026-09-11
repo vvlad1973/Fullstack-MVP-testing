@@ -19,7 +19,7 @@ import {
   Tag,
   Text,
   type TableColumn,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type { RecentResultItem } from "@shared/home/contract";
 
 /**

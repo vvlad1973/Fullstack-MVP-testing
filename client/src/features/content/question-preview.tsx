@@ -7,7 +7,7 @@
  * glance without opening the editor. Editing is reached via the row's ⋯ menu.
  */
 import { CheckSquare, Image as ImageIcon, Music, Square, Video } from "lucide-react";
-import { Chip, Cluster, Grid, Stack, Text } from "@universityrt/ui-kit";
+import { Chip, Cluster, Grid, Stack, Text } from "@skillum/ui-kit";
 import type { Question } from "@shared/schema";
 import { hasOptionList, distributesBudget } from "@shared/questions/question-type";
 

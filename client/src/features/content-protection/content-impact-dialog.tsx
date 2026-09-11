@@ -21,7 +21,7 @@
  * approved wireframe.
  */
 import { AlertTriangle } from "lucide-react";
-import { Banner, Button, ModalDialog, Tag, type Tone, type ButtonVariant } from "@universityrt/ui-kit";
+import { Banner, Button, ModalDialog, Tag, type Tone, type ButtonVariant } from "@skillum/ui-kit";
 import type { TestFeasibility, PublishCheckFinding } from "./types";
 import { describeIssue } from "./issue-text";
 import "./content-impact-dialog.css";

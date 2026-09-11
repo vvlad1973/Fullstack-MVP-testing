@@ -37,7 +37,7 @@ import {
   Select,
   Switch,
   Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import type { EligibilityPluginRef, Form, IntroBlock, RetakePolicy } from "@shared/schema";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
 // PRD-31: the clamp is shared with the mapper so the field and a value read back

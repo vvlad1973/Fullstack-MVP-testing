@@ -42,7 +42,7 @@ import {
   Switch,
   Tag,
   Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { Check, ChevronDown, ChevronRight, Info, Plus, Trash2 } from "lucide-react";
 
 import type {

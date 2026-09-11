@@ -3,13 +3,13 @@
 This directory holds vendored stylesheets that are imported directly by
 `client/src/index.css` and processed by Vite / PostCSS.
 
-## `university-rt.css`
+## `skillum-ds.css`
 
-- **Source**: `@universityrt/ui-kit` (`/c/Repositories/ENGINERING_HANDBOOK/ui-kit/css/university-rt.css`).
+- **Source**: `@skillum/ui-kit` (`/c/Repositories/ENGINERING_HANDBOOK/ui-kit/css/skillum-ds.css`).
 - **Why vendored**: the upstream bundle exposes the file under `./css/...`
   but the package `exports` map does not declare that subpath, so Vite's
-  modern subpath resolver rejects `@import '@universityrt/ui-kit/css/...'`
-  with `Missing "./css/university-rt.css" specifier`.
+  modern subpath resolver rejects `@import '@skillum/ui-kit/css/...'`
+  with `Missing "./css/skillum-ds.css" specifier`.
 - **Local patch (line 16-17)**: the upstream file closes the tokens comment
   block twice in a row, leaving `density: .ou--compact | .ou--normal | .ou--spacious`
   as bare top-level text. Tailwind's PostCSS pipeline then tries to parse it

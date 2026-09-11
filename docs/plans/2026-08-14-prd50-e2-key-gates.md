@@ -24,7 +24,7 @@ FR-19 - FR-23, FR-42, FR-45 - FR-47. Опорные разделы спеки: �
 
 **Tech Stack:** TypeScript, Vitest (`npm test -- <путь>`), Drizzle (`npx drizzle-kit generate`,
 миграция НЕ применяется), плоский ES5-рантайм пакета SCORM (`server/scorm/template/app/**`),
-дизайн-система `@universityrt/ui-kit`, DSL-шаблонизатор `shared/template/dsl.ts`.
+дизайн-система `@skillum/ui-kit`, DSL-шаблонизатор `shared/template/dsl.ts`.
 
 ---
 

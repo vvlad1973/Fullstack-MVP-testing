@@ -20,7 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Drawer, Button, IconButton, Avatar, Label, Select, Combobox, EmptyState, Table,
   Switch, Tag, Banner, ModalDialog, Tabs, Input, Textarea, Box, Cluster, Stack, Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { Trash2, KeyRound, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";

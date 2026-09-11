@@ -5,7 +5,7 @@
  * (questions.tsx); relocated UNCHANGED into the test editor — scoring is a
  * property of the test, the config is serialized into the per-(test, question)
  * override (`test_question_scoring.scoring_json`, scoring-model §11). Built
- * with the design-system `@universityrt/ui-kit` components (the approved DS
+ * with the design-system `@skillum/ui-kit` components (the approved DS
  * wireframe is the layout/behaviour spec, not a literal render).
  *
  * Modes by type (engine support, scoring-model §11.3-11.5):
@@ -30,7 +30,7 @@ import {
   Stack,
   Tag,
   Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 
 export type ScoringMode = "exact" | "weighted" | "tiered";
 export type CondLhs = "c" | "x";

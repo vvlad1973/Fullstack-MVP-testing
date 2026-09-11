@@ -3,7 +3,7 @@ import { cn } from '../utils';
 
 /**
  * @module components/Typography
- * @description The two text primitives of the UniversityRT design system: `Text` for body
+ * @description The two text primitives of the Skillum design system: `Text` for body
  * copy and `Heading` for titles.
  *
  * They were two primitives in two places for a while: the kit grew `Text`/`Heading` in 0.2.0

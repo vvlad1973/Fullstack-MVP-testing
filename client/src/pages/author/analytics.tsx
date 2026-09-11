@@ -2,7 +2,7 @@
  * @module pages/author/analytics
  * @description Combined analytics dashboard (web + LMS): summary KPIs, trends,
  * per-test/per-topic stats, an attempts table with a full attempt-details modal,
- * and a configurable Excel export. Rendered entirely with the UniversityRT design
+ * and a configurable Excel export. Rendered entirely with the Skillum design
  * system — layout via Stack/Cluster/Grid/Box, typography via Text, data via the
  * DS Table/Card/Tabs/ProgressBar/Select primitives (no raw utility classes).
  */
@@ -33,7 +33,7 @@ import {
   Text,
   type TableColumn,
   type Tone,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import {
   TrendingUp,
   Users,

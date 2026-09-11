@@ -277,7 +277,7 @@ administrator, developer, author, manager, learner), а эффективные �
 | TanStack React Query | 5.101 | Управление серверным состоянием |
 | React Hook Form | 7.80 | Формы |
 | Zod | 4.4 | Валидация |
-| @universityrt/ui-kit | -- | Дизайн-система (компоненты `ou-*` + слой `tb-*`/plain CSS); вендорится в `vendor/ui-kit/` |
+| @skillum/ui-kit | -- | Дизайн-система (компоненты `ou-*` + слой `tb-*`/plain CSS); вендорится в `vendor/ui-kit/` |
 | Lucide React | -- | Иконки |
 | html2canvas + jsPDF | 1.4.1 / 2.5.1 | PDF-экспорт в SCORM-runtime; вендорятся в пакет из `assets/vendor/` (devDep-пин, без CDN) |
 
@@ -403,7 +403,7 @@ npm run dev
 test-builder/
 |-- client/                          # Frontend (React SPA)
 |   |-- src/
-|   |   |-- components/              # Общие React-компоненты (DS @universityrt/ui-kit)
+|   |   |-- components/              # Общие React-компоненты (DS @skillum/ui-kit)
 |   |   |   |-- questions/           # Компоненты вопросов (media-uploader)
 |   |   |   |-- app-sidebar.tsx      # Боковая навигация (DS AppShell + Sidebar)
 |   |   |   |-- assign-test-dialog.tsx # Диалог назначения тестов
@@ -517,7 +517,7 @@ test-builder/
 |-- migrations/                      # ЛЕГАСИ рукописные SQL-шаги эпохи push (001..036)
 |-- config/                          # Несекретная конфигурация: config.jsonc + <NODE_ENV>.config.jsonc
 |-- templates/                       # Внешние шаблоны оформления (в т.ч. «Сертификация») и их ZIP
-|-- vendor/ui-kit/                   # Дизайн-система @universityrt/ui-kit (редактируемая зависимость)
+|-- vendor/ui-kit/                   # Дизайн-система @skillum/ui-kit (редактируемая зависимость)
 |-- docker/                          # Образ, compose и регламент деплоя
 |-- uploads/                         # Загруженные файлы
 |   |-- media/                      # Медиа-файлы вопросов
@@ -538,7 +538,7 @@ test-builder/
 ```text
 +----------------------------------------------------------+
 |                     Browser (React SPA)                    |
-|   Wouter routing, TanStack Query, @universityrt/ui-kit    |
+|   Wouter routing, TanStack Query, @skillum/ui-kit    |
 +----------------------------+-----------------------------+
                              |  HTTP/REST API
                              |  /api/*
@@ -1614,6 +1614,23 @@ npm run build
 
 ## Лицензия
 
-MIT License
+Полный текст — в файле [LICENSE](LICENSE): MIT с дополнительным условием — коммерческое
+использование требует предварительного согласования условий с правообладателями. Это не
+стандартная MIT-лицензия, поэтому в `package.json` указано `SEE LICENSE IN LICENSE`.
 
-Copyright (c) 2024 Skill'Ум
+Copyright (c) 2025, 2026 Eugeny Zubkov <evolzubkov@gmail.com>,
+Vladislav Vnukovskiy <vvlad1973@gmail.com>
+
+Дизайн-система `@skillum/ui-kit` (`vendor/ui-kit/`, `client/src/styles/vendor/skillum-ds.css`) —
+часть проекта и распространяется на тех же условиях.
+
+### Сторонние компоненты
+
+| Компонент | Расположение | Лицензия |
+| --- | --- | --- |
+| jsPDF 2.5.1 | `server/scorm/assets/vendor/jspdf.umd.min.js` | MIT, текст сохранён в шапке файла |
+| html2canvas 1.4.1 | `server/scorm/assets/vendor/html2canvas.min.js` | MIT, текст сохранён в шапке файла |
+| Шрифт Roboto | `client/public/fonts/` | SIL Open Font License 1.1, текст в `Roboto-OFL.txt` |
+
+Остальные зависимости ставятся из npm и остаются под собственными лицензиями; их тексты —
+в `node_modules/<пакет>/LICENSE`.

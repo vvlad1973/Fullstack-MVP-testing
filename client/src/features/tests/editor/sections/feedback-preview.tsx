@@ -15,7 +15,7 @@
  * another.
  */
 import { CalendarDays, FileText, Link as LinkIcon, Pencil } from "lucide-react";
-import { IconButton } from "@universityrt/ui-kit";
+import { IconButton } from "@skillum/ui-kit";
 import type { FeedbackFormat } from "@shared/schema";
 import type { FeedbackAsset, FeedbackEvent, FeedbackLink } from "../test-editor.types";
 

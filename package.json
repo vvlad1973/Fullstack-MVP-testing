@@ -2,7 +2,11 @@
   "name": "skillum",
   "version": "2.19.0",
   "type": "module",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
+  "contributors": [
+    "Eugeny Zubkov <evolzubkov@gmail.com>",
+    "Vladislav Vnukovskiy <vvlad1973@gmail.com>"
+  ],
   "scripts": {
     "predev": "cross-env NODE_ENV=development tsx ./scripts/db/check-migrations.ts",
     "dev": "cross-env NODE_ENV=development tsx ./server/index.ts",

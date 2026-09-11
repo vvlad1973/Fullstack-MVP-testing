@@ -14,7 +14,7 @@ import {
   Stack,
   Tag,
   Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { PageHeader } from "@/components/page-header";
 import { LoadingState } from "@/components/loading-state";
 import { t, formatQuestions } from "@/lib/i18n";

@@ -12,7 +12,7 @@
 import { useMemo, useState } from "react";
 import type * as React from "react";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
-import { Button } from "@universityrt/ui-kit";
+import { Button } from "@skillum/ui-kit";
 
 export interface SectionFold {
   /** True when the section is expanded (not collapsed). */

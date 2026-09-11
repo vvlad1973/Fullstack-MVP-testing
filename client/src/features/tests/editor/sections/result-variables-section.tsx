@@ -30,7 +30,7 @@ import {
   SegmentedControl,
   Switch,
   Textarea,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { ChevronDown, GripVertical, Info, Plus, Trash2 } from "lucide-react";
 import {
   DndContext,

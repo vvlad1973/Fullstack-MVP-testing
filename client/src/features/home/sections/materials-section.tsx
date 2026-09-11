@@ -22,7 +22,7 @@ import {
   Stack,
   Tag,
   Text,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 
 /**
  * The «Материалы» section.

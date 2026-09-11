@@ -14,7 +14,7 @@
  * переехали только адреса.
  */
 import type * as React from "react";
-import { Banner, FormSection } from "@universityrt/ui-kit";
+import { Banner, FormSection } from "@skillum/ui-kit";
 import type { FieldErrorIndex } from "../field-errors";
 import type { TestEditorModel } from "../test-editor.types";
 import type { UseDesignSettingsResult } from "../use-design-settings";

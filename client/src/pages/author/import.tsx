@@ -33,7 +33,7 @@ import {
   Tag,
   Text,
   type ComboboxOption,
-} from "@universityrt/ui-kit";
+} from "@skillum/ui-kit";
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";

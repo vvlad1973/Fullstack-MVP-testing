@@ -14,7 +14,7 @@
  * render of the variant's own layout.
  */
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Banner } from "@universityrt/ui-kit";
+import { Banner } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
 import {
   buildContentPageScreen,
