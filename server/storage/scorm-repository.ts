@@ -223,6 +223,15 @@ export class ScormRepository {
     }).where(eq(lmsImportBatches.id, id));
   }
 
+  /**
+   * Одна партия по идентификатору — нужна откату, чтобы узнать ТЕСТ партии: область доступа
+   * проверяется по тесту, а в маршруте отката стоит идентификатор партии.
+   */
+  async getLmsImportBatchById(id: string): Promise<LmsImportBatch | undefined> {
+    const [row] = await db.select().from(lmsImportBatches).where(eq(lmsImportBatches.id, id));
+    return row || undefined;
+  }
+
   /** Партии теста, новые первыми. */
   async getLmsImportBatches(testId: string): Promise<LmsImportBatch[]> {
     return db.select().from(lmsImportBatches)

@@ -5,6 +5,7 @@ import attemptsRouter from "./attempts";
 import scormRouter from "./scorm";
 import combinedRouter from "./combined";
 import exportRouter from "./export";
+import lmsImportRouter from "./lms-import";
 
 // Реэкспорт хелперов для использования в других модулях
 export {
@@ -33,5 +34,8 @@ router.use("/", combinedRouter);
 
 // Экспорт: GET /api/analytics/tests/:testId/export/excel, GET/POST /api/export/*
 router.use("/", exportRouter);
+
+// PRD-54: загрузка выгрузок отчётов LMS: POST /api/analytics/lms-import, партии и откат
+router.use("/", lmsImportRouter);
 
 export default router;
