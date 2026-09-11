@@ -1025,8 +1025,8 @@ export interface ImportedAttemptInput {
 
 - [ ] **Шаг 5: прогнать тест**
 
-Выполнить: `npm run test:it -- server/storage/__tests__/lms-import.it.test.ts`
-Ожидается: PASS, 3 теста.
+Выполнить: `npm run test:it -- tests/it/lms-import.it.test.ts`
+Ожидается: PASS, 10 тестов.
 
 - [ ] **Шаг 6: коммит**
 
