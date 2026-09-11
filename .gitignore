@@ -60,3 +60,7 @@ templates/*.zip
 docs/references/workbook_Выгорание_Маслач (1).xlsx
 .superpowers/
 docs/references/Опросник ЧИЛ См. Алиса .xlsx
+
+# Временные файлы Excel/Word: создаются рядом с открытым документом и живут
+# ровно до его закрытия — в истории им делать нечего.
+~$*
