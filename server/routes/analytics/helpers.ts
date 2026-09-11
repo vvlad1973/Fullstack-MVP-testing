@@ -12,6 +12,25 @@ import {
 import type { AttemptResult } from "@shared/schema";
 
 /**
+ * Пакет, которым выдано LMS-прохождение, — или `undefined`, если пакета нет.
+ *
+ * PRD-54: `scorm_attempts.package_id` стал необязательным, потому что импортированная строка
+ * приехала книгой, а не рантаймом, и пакета за ней не стоит. Один помощник на все места чтения:
+ * восемь разных `packageMap.get(a.packageId)` с восемью разными способами обойти `null` — это
+ * восемь мест, где однажды забудут.
+ *
+ * @param attempt попытка с возможным пакетом
+ * @param packages карта пакетов по идентификатору
+ * @returns пакет или `undefined`
+ */
+export function attemptPackage<T>(
+  attempt: { packageId: string | null },
+  packages: ReadonlyMap<string, T>,
+): T | undefined {
+  return attempt.packageId ? packages.get(attempt.packageId) : undefined;
+}
+
+/**
  * What a report prints where a question CANNOT have the value the column asks for —
  * a measurement question has no reference answer, no verdict and no points.
  *

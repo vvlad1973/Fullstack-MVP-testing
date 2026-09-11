@@ -28,6 +28,11 @@ export const users = pgTable("users", {
   expiresAt: timestamp("expires_at"), // срок действия учётки
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: varchar("created_by", { length: 36 }), // кто создал
+  // PRD-54: ключ, по которому импорт выгрузки отчёта LMS находит этого человека. Задаётся руками
+  // (карточка пользователя или колонка массовой загрузки) — сопоставление по ФИО запрещено.
+  // Уникальность обеспечивает индекс по lower(external_key) из миграции 0029: выражения в
+  // индексах drizzle-kit не генерирует, поэтому он дописан в SQL вручную.
+  externalKey: text("external_key"),
 });
 
 // Группы пользователей
@@ -1829,6 +1834,35 @@ export type AttemptDetail = z.infer<typeof attemptDetailSchema>;
 // Добавить в конец schema.ts
 // ============================================
 
+/**
+ * PRD-54: одна строка на загруженную выгрузку отчёта LMS.
+ *
+ * Хранит ровно столько, сколько нужно для аудита и отката: сам файл на диск не кладётся, от него
+ * остаются имя и sha-256 содержимого. По хешу импорт отвечает «этот файл уже грузили», по
+ * `batch_id` в `scorm_attempts` партия откатывается целиком.
+ */
+export const lmsImportBatches = pgTable("lms_import_batches", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 }).notNull(),
+  groupId: varchar("group_id", { length: 36 }),
+  fileName: text("file_name").notNull(),
+  fileHash: text("file_hash").notNull(),
+  anonymized: boolean("anonymized").notNull(),
+  sourceAnonymized: boolean("source_anonymized").notNull(),
+  linkUsers: boolean("link_users").notNull(),
+  importedBy: varchar("imported_by", { length: 36 }).notNull(),
+  importedAt: timestamp("imported_at").notNull().defaultNow(),
+  rowsTotal: integer("rows_total").notNull().default(0),
+  rowsCreated: integer("rows_created").notNull().default(0),
+  rowsUpdated: integer("rows_updated").notNull().default(0),
+  rowsSkipped: integer("rows_skipped").notNull().default(0),
+  rowsLinked: integer("rows_linked").notNull().default(0),
+  warningsJson: jsonb("warnings_json"),
+}, (table) => ({
+  // Партии перечисляются по тесту, новые первыми.
+  testIdIdx: index("lms_import_batches_test_id_idx").on(table.testId),
+}));
+
 export const scormPackages = pgTable("scorm_packages", {
   id: varchar("id", { length: 36 }).primaryKey(),
   testId: varchar("test_id", { length: 36 }), // nullable - тест может быть удалён
@@ -1846,18 +1880,47 @@ export const scormPackages = pgTable("scorm_packages", {
 
 export const scormAttempts = pgTable("scorm_attempts", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  packageId: varchar("package_id", { length: 36 }).notNull(),
-  sessionId: varchar("session_id", { length: 64 }).notNull(),
-  
+  // PRD-54: у импортированного прохождения нет ни пакета, ни сессии — оно приехало книгой, а не
+  // рантаймом. Для телеметрии оба поля по-прежнему обязательны по смыслу, что и стережёт
+  // частичный уникальный индекс ниже.
+  packageId: varchar("package_id", { length: 36 }),
+  sessionId: varchar("session_id", { length: 64 }),
+
   // НОВОЕ: Номер попытки внутри сессии (1, 2, 3...)
   attemptNumber: integer("attempt_number").notNull().default(1),
-  
+
+  // ─── PRD-54: второй источник прохождений ──────────────────────────────────
+  /**
+   * Тест прохождения. Backfill из `scorm_packages.test_id`; остаётся необязательным, потому что у
+   * части старых пакетов тест уже удалён. Дальше именно эта колонка отвечает на вопрос «к какому
+   * тесту относится прохождение», и аналитике больше не нужен join через пакет.
+   */
+  testId: varchar("test_id", { length: 36 }),
+  /** Откуда строка: живой рантаймом или загруженной выгрузкой. */
+  origin: text("origin", { enum: ["telemetry", "import"] }).notNull().default("telemetry"),
+  /** Партия импорта — по ней прохождение откатывается вместе со всей загрузкой. */
+  batchId: varchar("batch_id", { length: 36 }),
+  /** Метка группы для разрезов в аналитике. NULL = без группы. */
+  groupId: varchar("group_id", { length: 36 }),
+  /**
+   * Псевдоним участника. У импорта заполнен ВСЕГДА, в любом режиме обезличивания: на нём держатся
+   * ключ идемпотентности и подсчёт уникальных участников. Параметр обезличивания решает не то,
+   * есть ли псевдоним, а то, хранятся ли рядом человекочитаемые поля.
+   */
+  participantKey: text("participant_key"),
+  /** Связь с пользователем по внешнему ключу (PRD-54 раздел 8.5). Телеметрия её не заполняет. */
+  userId: varchar("user_id", { length: 36 }),
+  /** Значения шкал прохождения. Формат один на оба источника. */
+  scalesJson: jsonb("scales_json"),
+  /** Значения показателей прохождения. */
+  variablesJson: jsonb("variables_json"),
+
   // Данные из LMS
   lmsUserId: text("lms_user_id"),
   lmsUserName: text("lms_user_name"),
   lmsUserEmail: text("lms_user_email"),
   lmsUserOrg: text("lms_user_org"),
-  
+
   // Временные метки
   startedAt: timestamp("started_at").notNull(),
   finishedAt: timestamp("finished_at"),
@@ -1877,9 +1940,18 @@ export const scormAttempts = pgTable("scorm_attempts", {
   // Рекомендованные курсы для проваленных тем
   failedTopicCoursesJson: jsonb("failed_topic_courses_json"),
 }, (table) => ({
-  // Уникальный индекс: одна комбинация package+session+attemptNumber
+  // Уникальный индекс: одна комбинация package+session+attemptNumber.
+  // PRD-54: стал ЧАСТИЧНЫМ — импортированные строки пакета не имеют, и без условия они все
+  // конфликтовали бы между собой по (NULL, NULL, 1). Для телеметрии поведение не изменилось.
   sessionAttemptIdx: uniqueIndex("scorm_attempts_session_attempt_idx")
-    .on(table.packageId, table.sessionId, table.attemptNumber),
+    .on(table.packageId, table.sessionId, table.attemptNumber)
+    .where(sql`${table.packageId} IS NOT NULL`),
+  // PRD-54 раздел 8.1: ключ идемпотентности импорта. Разрешать конфликт должна БАЗА, а не проверка
+  // «сначала выбрать, потом вставить»: две параллельные загрузки одного файла иначе задвоили бы строки.
+  importRowIdx: uniqueIndex("scorm_attempts_import_row_idx")
+    .on(table.testId, table.participantKey, table.startedAt)
+    .where(sql`${table.origin} = 'import'`),
+  testIdIdx: index("scorm_attempts_test_id_idx").on(table.testId),
 }));
 
 export const scormAnswers = pgTable("scorm_answers", {
@@ -1896,11 +1968,25 @@ export const scormAnswers = pgTable("scorm_answers", {
   
   // Ответ
   userAnswerJson: jsonb("user_answer_json").notNull(),
-  correctAnswerJson: jsonb("correct_answer_json").notNull(),
-  isCorrect: boolean("is_correct").notNull(),
-  points: integer("points").notNull(),
-  maxPoints: integer("max_points").notNull(),
-  
+  /**
+   * PRD-54: необязательный — у измерительного вопроса эталона НЕТ вовсе.
+   */
+  correctAnswerJson: jsonb("correct_answer_json"),
+  /**
+   * Исход ответа в трёх состояниях (PRD-54 раздел 5.3).
+   *
+   * Булева `isCorrect` ниже описывала измерительный ответ как «неверный», хотя он не может быть ни
+   * верным, ни неверным: у него нет эталона (PRD-26 FR-08, PRD-44 FR-09). `neutral` — то самое
+   * третье состояние, которое SCORM 2004 знает, а наша модель до сих пор не знала.
+   */
+  result: text("result", { enum: ["correct", "incorrect", "neutral"] }).notNull().default("incorrect"),
+  /** PRD-54: необязательная. NULL = «оценивать нечего». Оставлена ради прежних читателей. */
+  isCorrect: boolean("is_correct"),
+  /** PRD-54: необязательные по той же причине, что и `correctAnswerJson`. */
+  points: integer("points"),
+  maxPoints: integer("max_points"),
+
+
   // Варианты ответов для отображения в аналитике
   optionsJson: jsonb("options_json"),           // для single/multiple
   leftItemsJson: jsonb("left_items_json"),      // для matching
@@ -2121,8 +2207,13 @@ export type ReviewCommentStatus = NonNullable<TestReviewComment["status"]>;
 export const insertScormPackageSchema = createInsertSchema(scormPackages).omit({ id: true });
 export const insertScormAttemptSchema = createInsertSchema(scormAttempts).omit({ id: true });
 export const insertScormAnswerSchema = createInsertSchema(scormAnswers).omit({ id: true });
+// PRD-54: партия импорта выгрузки отчёта LMS.
+export const insertLmsImportBatchSchema = createInsertSchema(lmsImportBatches).omit({ id: true });
 
 // Types
+export type InsertLmsImportBatch = z.infer<typeof insertLmsImportBatchSchema>;
+export type LmsImportBatch = typeof lmsImportBatches.$inferSelect;
+
 export type InsertScormPackage = z.infer<typeof insertScormPackageSchema>;
 export type ScormPackage = typeof scormPackages.$inferSelect;
 

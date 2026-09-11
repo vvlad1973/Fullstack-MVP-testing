@@ -4,7 +4,7 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { checkAnswer } from "../../utils/check-answer";
 import { loadTestScoringContext, type TestScoringContext } from "../../services/effective-scoring";
-import { analyticsScope } from "./helpers";
+import { analyticsScope, attemptPackage } from "./helpers";
 
 const router = Router();
 
@@ -68,13 +68,13 @@ router.get("/combined", requirePermission("analytics.read"), async (req: Request
       lmsAttempts = attempts
         .filter(a => {
           if (!testId) return true;
-          const pkg = packageMap.get(a.packageId);
+          const pkg = attemptPackage(a, packageMap);
           return pkg?.testId === testId;
         })
-        .filter(a => scope.has(packageMap.get(a.packageId)?.testId ?? null))
+        .filter(a => scope.has(attemptPackage(a, packageMap)?.testId ?? null))
         .filter(a => a.finishedAt)
         .map(a => {
-          const pkg = packageMap.get(a.packageId);
+          const pkg = attemptPackage(a, packageMap);
           return {
             id: a.id,
             testId: pkg?.testId || null,
@@ -178,10 +178,10 @@ router.get("/summary", requirePermission("analytics.read"), async (req: Request,
       const filtered = attempts
         .filter(a => {
           if (!testIdFilter) return true;
-          const pkg = packageMap.get(a.packageId);
+          const pkg = attemptPackage(a, packageMap);
           return pkg?.testId === testIdFilter;
         })
-        .filter(a => scope.has(packageMap.get(a.packageId)?.testId ?? null))
+        .filter(a => scope.has(attemptPackage(a, packageMap)?.testId ?? null))
         .filter(a => a.finishedAt);
 
       for (const a of filtered) {
@@ -289,13 +289,13 @@ router.get("/combined-full", requirePermission("analytics.read"), async (req: Re
       lmsAttempts = attempts
         .filter(a => {
           if (!testIdFilter) return true;
-          const pkg = packageMap.get(a.packageId);
+          const pkg = attemptPackage(a, packageMap);
           return pkg?.testId === testIdFilter;
         })
-        .filter(a => scope.has(packageMap.get(a.packageId)?.testId ?? null))
+        .filter(a => scope.has(attemptPackage(a, packageMap)?.testId ?? null))
         .filter(a => a.finishedAt)
         .map(a => {
-          const pkg = packageMap.get(a.packageId);
+          const pkg = attemptPackage(a, packageMap);
           const duration = a.startedAt && a.finishedAt
             ? (new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000
             : null;

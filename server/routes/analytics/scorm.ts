@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { logger } from "../../logger";
 import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
-import { analyticsScope } from "./helpers";
+import { analyticsScope, attemptPackage } from "./helpers";
 import { loadScoringConfig } from "../../services/scoring-config";
 import { computeAttemptResult, type AttemptResultBase } from "../../services/result-compute";
 import { computeAnswerContributions, type Answer, type QuestionType } from "@shared/scales/engine";
@@ -27,7 +27,10 @@ const router = Router();
  * @returns Items for {@link computeBreakdowns}; questions without a topic or a tag are skipped.
  */
 export function scormBreakdownItems(
-  answers: ReadonlyArray<{ questionId: string; topicId: string | null; points: number; maxPoints: number }>,
+  // PRD-54: баллы стали необязательными — у измерительного ответа их нет вовсе. Для разрезов
+  // отсутствие балла и ноль баллов означают одно и то же («нечего складывать»), поэтому `null`
+  // здесь допустим и приводится к нулю на месте, а не запрещается типом.
+  answers: ReadonlyArray<{ questionId: string; topicId: string | null; points: number | null; maxPoints: number | null }>,
   tagsByQuestion: ReadonlyMap<string, string[] | null | undefined>,
 ): BreakdownItem[] {
   const items: BreakdownItem[] = [];
@@ -37,8 +40,8 @@ export function scormBreakdownItems(
     items.push({
       sectionId: a.topicId,
       axisKeys: { tag: tags },
-      earned: a.points,
-      possible: a.maxPoints,
+      earned: a.points ?? 0,
+      possible: a.maxPoints ?? 0,
       // A telemetry row exists BECAUSE the learner answered: there is no «delivered but
       // untouched» row to tell apart here.
       answered: true,
@@ -59,11 +62,11 @@ router.get("/scorm-attempts", requirePermission("analytics.read"), async (req: R
     // deleted tests remain visible to administrators only.
     const scope = await analyticsScope(req);
     const scopedAttempts = attempts.filter((a) =>
-      scope.has(packageMap.get(a.packageId)?.testId ?? null),
+      scope.has(attemptPackage(a, packageMap)?.testId ?? null),
     );
 
     const enrichedAttempts = await Promise.all(scopedAttempts.map(async (attempt) => {
-      const pkg = packageMap.get(attempt.packageId);
+      const pkg = attemptPackage(attempt, packageMap);
       const answers = await storage.getScormAnswersByAttempt(attempt.id);
 
       return {
@@ -106,7 +109,8 @@ router.get("/scorm-attempts/:attemptId", requirePermission("analytics.read"), as
       return res.status(404).json({ error: "Attempt not found" });
     }
 
-    const pkg = await storage.getScormPackage(attempt.packageId);
+    // PRD-54: у импортированного прохождения пакета нет — тест берётся не отсюда.
+    const pkg = attempt.packageId ? await storage.getScormPackage(attempt.packageId) : undefined;
 
     // PRD-15 FR-08 (audit F-5): a single LMS attempt is readable only within
     // the analytics scope of its test.
