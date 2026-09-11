@@ -118,6 +118,30 @@ function readLayouts(templateDir, manifest) {
   return result;
 }
 
+/**
+ * The design system, inlined into every preview BEFORE the template's own CSS —
+ * the same order the SCORM package assembles (`assemblePackageStyles`: DS first,
+ * theme.css over it).
+ *
+ * Without it the preview had `.ou` on <html> but no DS stylesheet behind it, so
+ * every `var(--ou-*)` in a template resolved to nothing: `gap: var(--ou-space-9)`
+ * fell back to `normal` and the start screen's facts row collapsed into one glued
+ * line. The scene is authored against DS tokens and `.ou-*` components, so a
+ * preview without them shows a different template than either host renders.
+ *
+ * `url('../fonts/…')` is authored relative to the ui-kit `css/` dir; the preview is
+ * served from `/api/templates/<id>/assets/preview.html`, so the path is rewritten to
+ * the app-absolute `/fonts/…` that `client/public/fonts/` answers.
+ */
+function readDsCss() {
+  const dsPath = path.join(root, "vendor", "ui-kit", "css", "skillum-ds.css");
+  if (!fs.existsSync(dsPath)) {
+    console.warn(`  [warn] DS stylesheet not found: ${path.relative(root, dsPath)}`);
+    return "";
+  }
+  return readText(dsPath).replace(/url\('\.\.\/fonts\//g, "url('/fonts/");
+}
+
 function readAssetStyles(templateDir, manifest) {
   const styles = (manifest.assets || {}).styles || [];
   return styles
@@ -266,6 +290,13 @@ function previewFixesCss() {
   return `
     /* Undo template global resets that break the preview chrome */
     html,body{overflow:auto!important;display:block!important;height:auto!important;min-height:100vh!important;background:#e5e7eb!important}
+    /* The runtime marks the scene root with the DS theme classes (.ou plus .ou--dark or
+       .ou--light). In a package the html element IS that root; here it also carries the
+       preview chrome, so the DS background/color declarations on .ou would repaint the
+       builder mock in the template's theme - a dark template left the chrome
+       light-on-light. Keep the chrome neutral and give the STAGE the themed ground. */
+    html,body{color:var(--pv-fg)!important}
+    #pv-stage{background:var(--ou-bg-page);color:var(--ou-fg-default)}
     /* Force top-level player elements to fill the stage container instead of the viewport.
        The template's own aspect-ratio rule (if any) is preserved — only width/max-width are fixed. */
     #pv-stage>*{position:relative!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important}
@@ -277,6 +308,7 @@ function previewFixesCss() {
 function buildPreviewHtml(manifest, templateDir) {
   const demoData       = readDemoData(templateDir, manifest);
   const layouts        = readLayouts(templateDir, manifest);
+  const dsCss          = readDsCss();
   const templateCss    = readAssetStyles(templateDir, manifest);
   const templateScript = readAssetScripts(templateDir, manifest);
   const prd1Runtime    = readPrd1Runtime();
@@ -294,6 +326,7 @@ function buildPreviewHtml(manifest, templateDir) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escAttr(manifest.name)} · preview</title>
   <style>${previewChromeCss()}</style>
+  <style id="ds-styles">${dsCss}</style>
   <style id="tpl-styles">${templateCss}</style>
   <style id="pv-fixes">${previewFixesCss()}</style>
 </head>

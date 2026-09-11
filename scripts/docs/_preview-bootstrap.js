@@ -1098,14 +1098,27 @@
    * data-theme on the document root (Авто removes it → the template follows the
    * host prefers-color-scheme). Only the previewed template (theme.css) reacts;
    * the preview chrome stays neutral.
+   *
+   * The scene reads its theme from TWO places — `data-theme` (the template's own
+   * theme.css) and the DS classes `.ou--light` / `.ou--dark` (the design system the
+   * template is built on) — so the toggle has to move both, or half the scene
+   * switches and half stays. Авто restores whatever the runtime resolved at load
+   * (`applyDsThemeClass`: the author's pin, else the template's themes, else dark).
    */
   function wireThemeToggle() {
     var group = document.getElementById("pv-theme");
     if (!group) return;
+    var root = document.documentElement;
+    var dsAuto = root.classList.contains("ou--light")
+      ? "ou--light"
+      : root.classList.contains("ou--dark") ? "ou--dark" : "";
     function apply(mode) {
       var el = document.documentElement;
       if (mode === "light" || mode === "dark") el.setAttribute("data-theme", mode);
       else el.removeAttribute("data-theme");
+      el.classList.remove("ou--light", "ou--dark");
+      var dsClass = mode === "light" ? "ou--light" : mode === "dark" ? "ou--dark" : dsAuto;
+      if (dsClass) el.classList.add(dsClass);
       var btns = group.querySelectorAll(".pv-theme-btn");
       Array.prototype.forEach.call(btns, function (b) {
         b.classList.toggle("pv-theme-active", b.getAttribute("data-theme-set") === mode);
