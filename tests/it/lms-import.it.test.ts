@@ -26,8 +26,11 @@ vi.mock("../../server/db", () => ({
 
 // eslint-disable-next-line import/first -- must import AFTER vi.mock
 import { ScormRepository } from "../../server/storage/scorm-repository";
+// eslint-disable-next-line import/first -- must import AFTER vi.mock
+import { UsersRepository } from "../../server/storage/users-repository";
 
 let repo: ScormRepository;
+let usersRepo: UsersRepository;
 let testId: string;
 let batchId: string;
 
@@ -57,6 +60,7 @@ function importedRow(over: Partial<Parameters<ScormRepository["upsertImportedAtt
 beforeAll(async () => {
   h.current = await createHarness();
   repo = new ScormRepository();
+  usersRepo = new UsersRepository();
 });
 afterAll(async () => {
   await h.current!.close();
@@ -178,6 +182,36 @@ describe("deleteLmsImportBatch", () => {
     expect(left).toHaveLength(1);
     expect(left[0].origin).toBe("telemetry");
     expect(await h.current!.db.select().from(scormPackages)).toHaveLength(1);
+  });
+});
+
+describe("внешний ключ пользователя", () => {
+  it("доходит до базы через белый список и находится поиском", async () => {
+    // Модульный тест `normalizeExternalKey` этого НЕ ловит: колонку легко забыть в белом списке
+    // `updateUser`, и тогда ключ молча не сохранится, а связывание будет тихо не срабатывать.
+    const id = randomUUID();
+    await h.current!.db.insert(users).values({ id, email: "зашифровано", name: "Иванов" });
+    await usersRepo.updateUser(id, { externalKey: "AB-12" });
+
+    expect((await usersRepo.getUserByExternalKey("AB-12"))?.id).toBe(id);
+  });
+
+  it("регистр и краевые пробелы при поиске не учитываются", async () => {
+    const id = randomUUID();
+    await h.current!.db.insert(users).values({ id, email: "зашифровано", name: "Петров" });
+    await usersRepo.updateUser(id, { externalKey: "AB-12" });
+
+    expect((await usersRepo.getUserByExternalKey("  ab-12 "))?.id).toBe(id);
+  });
+
+  it("пустой ключ не совпадает ни с кем", async () => {
+    // Иначе все безымянные участники связались бы с одним пользователем.
+    const id = randomUUID();
+    await h.current!.db.insert(users).values({ id, email: "зашифровано", name: "Сидоров" });
+    await usersRepo.updateUser(id, { externalKey: null });
+
+    expect(await usersRepo.getUserByExternalKey("")).toBeUndefined();
+    expect(await usersRepo.getUserByExternalKey("   ")).toBeUndefined();
   });
 });
 

@@ -260,6 +260,23 @@ router.post("/", requirePermission("users.create"), async (req, res) => {
 });
 
 // PUT /api/users/:id - Обновить пользователя
+/**
+ * Привести внешний ключ к хранимому виду (PRD-54 раздел 5.4).
+ *
+ * Регистр СОХРАНЯЕТСЯ: ключ показывают человеку в том виде, в каком он его ввёл. Нечувствительность
+ * при сверке обеспечивают уникальный индекс по `lower(external_key)` и `getUserByExternalKey`.
+ *
+ * Пустая строка приводится к `null`, а не хранится пустой: иначе она совпала бы с любой другой
+ * пустой и связала бы всех безымянных участников с одним пользователем.
+ *
+ * @param raw значение из формы или книги
+ * @returns ключ или `null`, если поле пустое
+ */
+export function normalizeExternalKey(raw: unknown): string | null {
+  const s = String(raw ?? "").trim();
+  return s === "" ? null : s;
+}
+
 router.put("/:id", requirePermission("users.manage"), async (req, res) => {
   try {
     const { email, name, groupIds } = req.body;
@@ -278,7 +295,25 @@ router.put("/:id", requirePermission("users.manage"), async (req, res) => {
       }
     }
 
-    const updated = await storage.updateUser(userId, { email, name });
+    // PRD-54: внешний ключ. Поле необязательное, поэтому отличаем «не передали» (ключ не трогаем)
+    // от «передали пустым» (ключ снимаем) — иначе любое сохранение карточки стирало бы связь.
+    const patch: { email?: string; name?: string; externalKey?: string | null } = { email, name };
+    if ("externalKey" in req.body) {
+      const externalKey = normalizeExternalKey(req.body.externalKey);
+      if (externalKey) {
+        // Проверка ДО записи даёт внятную ошибку с именем владельца; уникальный индекс остаётся
+        // настоящим барьером на случай гонки двух сохранений.
+        const owner = await storage.getUserByExternalKey(externalKey);
+        if (owner && owner.id !== userId) {
+          return res.status(409).json({
+            error: `Ключ «${externalKey}» уже у пользователя ${owner.name ?? owner.id}`,
+          });
+        }
+      }
+      patch.externalKey = externalKey;
+    }
+
+    const updated = await storage.updateUser(userId, patch);
 
     // Обновляем группы если указаны
     if (groupIds && Array.isArray(groupIds)) {

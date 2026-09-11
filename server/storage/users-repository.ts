@@ -152,6 +152,9 @@ export class UsersRepository {
     // Partial<User>. `email` is handled specially (encrypt + derive hash).
     const set: Partial<User> = pickDefined(data, [
       "name", "status", "mustChangePassword", "gdprConsent", "gdprConsentAt",
+      // PRD-54: внешний ключ для связывания импортированных прохождений. `null` проходит сквозь
+      // `pickDefined` намеренно — это «снять ключ», в отличие от `undefined` = «не трогать».
+      "externalKey",
     ] as const);
     if (data.email) {
       set.email = await encryptEmail(data.email);
