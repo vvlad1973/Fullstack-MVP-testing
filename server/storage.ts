@@ -279,6 +279,8 @@ export interface IStorage {
   patchTestStatus(id: string, status: "draft" | "published" | "archived"): Promise<{ id: string; status: string; version: number } | undefined>;
   deleteTest(id: string): Promise<boolean>;
   getTestSections(testId: string): Promise<TestSection[]>;
+  /** PRD-54: разделы сразу по нескольким темам — определение теста по вопросам выгрузки. */
+  getTestSectionsByTopicIds(topicIds: string[]): Promise<TestSection[]>;
 
   createAttempt(attempt: InsertAttempt): Promise<Attempt>;
   getAttempt(id: string): Promise<Attempt | undefined>;
@@ -971,6 +973,10 @@ export class DatabaseStorage implements IStorage {
 
   getTestSectionsByTopic(topicId: string): Promise<TestSection[]> {
     return this.testsRepo.getTestSectionsByTopic(topicId);
+  }
+
+  getTestSectionsByTopicIds(topicIds: string[]): Promise<TestSection[]> {
+    return this.testsRepo.getTestSectionsByTopicIds(topicIds);
   }
 
   getMeasurementsForQuestions(

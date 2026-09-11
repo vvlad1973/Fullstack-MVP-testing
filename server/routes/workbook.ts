@@ -37,6 +37,8 @@ import { requirePermission } from "../middleware/auth";
 import { respondWorkbookReadError, workbookUploadSingle } from "../middleware/upload";
 import { DOC_NOT_BUILT_ERROR, findDoc, resolveDocPath, sendDocDownload } from "../services/doc-downloads";
 import { importWorkbook } from "../services/workbook-import";
+import { looksLikeLmsExport, parseLmsExport, type LmsExportBook } from "@shared/lms-export/parse";
+import { resolveTestByQuestionIds } from "../services/lms-test-resolver";
 import { testSettingsService } from "../services/test-settings";
 // The role-sheet names and the template itself live in one module, so /inspect
 // and the download can never disagree about what a role sheet is called.
@@ -67,6 +69,46 @@ function rowCount(sheet: ExcelJS.Worksheet | undefined): number {
   return sheet ? sheetToObjects(sheet).length : 0;
 }
 
+/**
+ * Лист как массив строк: `parseLmsExport` намеренно не знает про exceljs (PRD-54 раздел 10).
+ *
+ * ГОЧА ДАТ, найденная при прогоне на реальной выгрузке. Ячейки дат exceljs отдаёт объектами `Date`,
+ * и голый `String(date)` даёт ЛОКАЛИЗОВАННУЮ строку вида
+ * «Wed Sep 09 2026 16:39:00 GMT+0300 (Москва, стандартное время)». На машине разработчика она
+ * разбирается обратно, на хосте с другой локалью — может и не разобраться, и тогда дата
+ * прохождения молча станет Invalid Date. Поэтому дата приводится к ISO явно.
+ *
+ * @param sheet лист книги
+ * @returns строки листа, значения приведены к строкам
+ */
+function sheetToMatrix(sheet: ExcelJS.Worksheet): string[][] {
+  const out: string[][] = [];
+  sheet.eachRow({ includeEmpty: true }, (row) => {
+    const values = (row.values as unknown[]).slice(1);
+    out.push(values.map((v) => {
+      if (v === null || v === undefined) return "";
+      if (v instanceof Date) return v.toISOString();
+      return String(v);
+    }));
+  });
+  return out;
+}
+
+/**
+ * Опознать выгрузку отчёта LMS (PRD-54 раздел 6.1).
+ *
+ * Отпечаток однозначен и ни с одним книжным форматом не пересекается: четвёрка подписей
+ * «Тип / Продолжительность (сек.) / Результат / Полученный ответ» во второй строке шапки плюс
+ * хотя бы один блок с нашим префиксом (`q_`, `scale_`, `var_`) в первой.
+ *
+ * @param sheet лист-кандидат
+ * @returns разобранная книга или `null`, если лист выгрузкой не является
+ */
+export function detectLmsExport(sheet: ExcelJS.Worksheet): LmsExportBook | null {
+  const matrix = sheetToMatrix(sheet);
+  return looksLikeLmsExport(matrix) ? parseLmsExport(matrix) : null;
+}
+
 // ─── POST /api/workbook/inspect ──────────────────────────────────────────────
 // Report which role sheets the file holds so the client can decide whether a
 // target test is required. No testId, no writes — the lightweight nav-level gate.
@@ -79,6 +121,31 @@ router.post(
       if (!req.file) return res.status(400).json({ error: "File required" });
 
       const workbook = await readWorkbookFromBuffer(req.file.buffer);
+
+      // PRD-54: выгрузка отчёта LMS проверяется ПЕРВОЙ. Её отпечаток с ролевыми листами книги не
+      // пересекается, но и искать в ней листы «Вопросы»/«Шкалы» бессмысленно — это другой формат,
+      // и ответ у него другой формы.
+      const lms = workbook.worksheets.map(detectLmsExport).find(Boolean) ?? null;
+      if (lms) {
+        const resolved = await resolveTestByQuestionIds(lms.questionIds, storage);
+        const test = resolved.testId ? await storage.getTest(resolved.testId) : null;
+        return res.json({
+          kind: "lmsExport",
+          sheets: workbook.worksheets.map((w) => w.name),
+          testId: resolved.testId,
+          testTitle: test?.title ?? null,
+          foreignQuestionIds: resolved.foreign,
+          rows: lms.rows.length,
+          questionIds: lms.questionIds.length,
+          scaleKeys: lms.scaleKeys,
+          variableNames: lms.variableNames,
+          unknownColumns: lms.unknownColumns,
+          // Подсказка для флажка «данные уже обезличены»: кириллица с пробелом в колонке участника
+          // выглядит как ФИО, а не как хеш. Это ПОДСКАЗКА, а не решение — решает человек.
+          looksPersonal: lms.rows.some((r) => /[А-Яа-яЁё]\s/.test(r.participantName)),
+        });
+      }
+
       const questions = findSheet(workbook, SHEET_QUESTIONS);
       const scales = findSheet(workbook, SHEET_SCALES);
       const resultVars = findSheet(workbook, SHEET_RESULT_VARS);
@@ -99,6 +166,8 @@ router.post(
         hasScales || hasResultVariables || hasMeasurements || hasStructure || hasQuotas || hasScoring;
 
       res.json({
+        // PRD-54: клиент ветвится по ОДНОМУ полю, а не по набору признаков.
+        kind: "workbook",
         sheets: workbook.worksheets.map((w) => w.name),
         hasQuestions,
         hasScales,
