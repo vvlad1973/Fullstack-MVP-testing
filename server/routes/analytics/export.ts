@@ -18,6 +18,7 @@ import {
   formatAllOptions,
   formatCorrectAnswerText,
   attemptPackage,
+  attemptTestId,
   formatUserAnswerText,
   formatContributions,
   gradingOf,
@@ -362,18 +363,20 @@ router.get("/export/filters", requirePermission("analytics.export"), async (req:
     const scormPackages = (await storage.getScormPackages()).filter((p) =>
       scope.has(p.testId ?? null),
     );
-    const scopedPackageIds = new Set(scormPackages.map((p) => p.id));
+    const packageMap = new Map(scormPackages.map((p) => [p.id, p]));
+    // PRD-54: область берётся по ТЕСТУ прохождения, а не по пакету. Отбор по пакетам выбросил бы
+    // импортированные строки, и тест, у которого есть только загруженная выгрузка, не попал бы в
+    // словарь фильтров вовсе — то есть выгрузить его данные было бы нечем.
     const allScormAttempts = (await storage.getAllScormAttempts()).filter((a) =>
-      // PRD-54: строки без пакета — импортированные; в выгрузках, отобранных ПО ПАКЕТАМ, их нет.
-      a.packageId !== null && scopedPackageIds.has(a.packageId),
+      scope.has(attemptTestId(a, packageMap)),
     );
 
     const webTestIds = new Set(allAttempts.filter(a => a.finishedAt).map(a => a.testId));
     const lmsTestIds = new Set<string>();
     for (const attempt of allScormAttempts) {
       if (attempt.finishedAt) {
-        const pkg = scormPackages.find(p => p.id === attempt.packageId);
-        if (pkg?.testId) lmsTestIds.add(pkg.testId);
+        const id = attemptTestId(attempt, packageMap);
+        if (id) lmsTestIds.add(id);
       }
     }
 
@@ -937,7 +940,12 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
 
     const allAttempts = await storage.getAllScormAttempts();
 
-    let attempts = allAttempts.filter(a => a.packageId !== null && relevantPackageIds.has(a.packageId));
+    // PRD-54: отбор по ТЕСТУ, а не по пакету — иначе загруженные выгрузки в отчёт не попадут.
+    // Они такие же прохождения в LMS, просто приехали книгой, а не рантаймом.
+    let attempts = allAttempts.filter(a => {
+      const id = attemptTestId(a, packageMap);
+      return id !== null && scopedTestIds.includes(id);
+    });
 
     // Filter by dates
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
@@ -1025,8 +1033,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       ];
 
       for (const t of selectedTests) {
-        const relevantPkgIds = relevantPackages.filter(p => p.testId === t.id).map(p => p.id);
-        const ta = completed.filter(a => a.packageId !== null && relevantPkgIds.includes(a.packageId));
+        const ta = completed.filter(a => attemptTestId(a, packageMap) === t.id);
         const avg = ta.length ? (ta.reduce((s, a) => s + (a.resultPercent || 0), 0) / ta.length) : 0;
         const passed = ta.filter(a => a.resultPassed).length;
         rows.push([

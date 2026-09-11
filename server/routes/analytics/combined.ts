@@ -4,7 +4,7 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { checkAnswer } from "../../utils/check-answer";
 import { loadTestScoringContext, type TestScoringContext } from "../../services/effective-scoring";
-import { analyticsScope, attemptPackage } from "./helpers";
+import { analyticsScope, attemptPackage, attemptParticipant, attemptTestId } from "./helpers";
 
 const router = Router();
 
@@ -59,29 +59,43 @@ router.get("/combined", requirePermission("analytics.read"), async (req: Request
         });
     }
 
-    // LMS attempts
+    // LMS attempts — телеметрия И импортированные выгрузки (PRD-54 раздел 12)
     if (source === "all" || source === "lms") {
       const attempts = await storage.getAllScormAttempts();
       const packages = await storage.getScormPackages();
       const packageMap = new Map(packages.map(p => [p.id, p]));
+      const tests = await storage.getTests();
+      const lmsTestMap = new Map(tests.map(t => [t.id, t]));
+      // Имена нужны ТОЛЬКО связанным строкам, а их обычно единицы или ноль. `getUsers()` здесь был
+      // бы вдвойне расточителен: он читает всю таблицу и расшифровывает почту КАЖДОГО, хотя почта
+      // подписи участника не нужна вовсе.
+      const linkedIds = [...new Set(attempts.map(a => a.userId).filter(Boolean))] as string[];
+      const linkedUsers = await Promise.all(linkedIds.map(id => storage.getUser(id)));
+      const userMap = new Map(linkedUsers.filter(Boolean).map(u => [u!.id, u!]));
+      const groupFilter = (req.query.groupId as string) || null;
 
       lmsAttempts = attempts
-        .filter(a => {
-          if (!testId) return true;
-          const pkg = attemptPackage(a, packageMap);
-          return pkg?.testId === testId;
-        })
-        .filter(a => scope.has(attemptPackage(a, packageMap)?.testId ?? null))
+        .filter(a => !testId || attemptTestId(a, packageMap) === testId)
+        .filter(a => scope.has(attemptTestId(a, packageMap)))
+        .filter(a => !groupFilter || a.groupId === groupFilter)
         .filter(a => a.finishedAt)
         .map(a => {
-          const pkg = attemptPackage(a, packageMap);
+          const attemptTest = attemptTestId(a, packageMap);
           return {
             id: a.id,
-            testId: pkg?.testId || null,
-            testTitle: pkg?.testTitle || "Удалённый тест",
+            testId: attemptTest,
+            // Название берётся у живого теста, а у пакета — только если теста уже нет: заголовок
+            // в пакете остался таким, каким был на момент выгрузки, и с тех пор мог измениться.
+            testTitle: (attemptTest ? lmsTestMap.get(attemptTest)?.title : null)
+              ?? attemptPackage(a, packageMap)?.testTitle
+              ?? "Удалённый тест",
             lmsUserId: a.lmsUserId,
             lmsUserName: a.lmsUserName,
             lmsUserEmail: a.lmsUserEmail,
+            // Псевдоним отдаётся клиенту: по нему считаются уникальные участники, и он же
+            // единственный стабильный идентификатор обезличенной строки.
+            participantKey: a.participantKey,
+            participant: attemptParticipant(a, userMap),
             startedAt: a.startedAt,
             finishedAt: a.finishedAt,
             resultPercent: a.resultPercent || 0,
@@ -89,6 +103,10 @@ router.get("/combined", requirePermission("analytics.read"), async (req: Request
             totalPoints: a.totalPoints || 0,
             maxPoints: a.maxPoints || 0,
             source: "lms" as const,
+            // Источник подписывается явно: у импортированной строки длительность неизвестна и
+            // считается нулевой, и этот ноль не должен читаться как «прошёл мгновенно».
+            origin: a.origin,
+            groupId: a.groupId,
           };
         });
     }
@@ -112,7 +130,7 @@ router.get("/combined", requirePermission("analytics.read"), async (req: Request
     const adaptivePassed = adaptiveAttempts.filter(a => a.resultPassed).length;
 
     const uniqueWebUsers = new Set(webAttempts.map(a => a.userId)).size;
-    const uniqueLmsUsers = new Set(lmsAttempts.map(a => a.lmsUserId).filter(Boolean)).size;
+    const uniqueLmsUsers = new Set(lmsAttempts.map(a => a.participantKey ?? a.lmsUserId).filter(Boolean)).size;
 
     res.json({
       summary: {
@@ -178,15 +196,16 @@ router.get("/summary", requirePermission("analytics.read"), async (req: Request,
       const filtered = attempts
         .filter(a => {
           if (!testIdFilter) return true;
-          const pkg = attemptPackage(a, packageMap);
-          return pkg?.testId === testIdFilter;
+          return attemptTestId(a, packageMap) === testIdFilter;
         })
-        .filter(a => scope.has(attemptPackage(a, packageMap)?.testId ?? null))
+        .filter(a => scope.has(attemptTestId(a, packageMap)))
         .filter(a => a.finishedAt);
 
       for (const a of filtered) {
         lmsCount++;
-        if (a.lmsUserId) lmsUserIds.add(a.lmsUserId);
+        // PRD-54: у импортированной строки идентификатора из LMS нет — участника опознаёт псевдоним.
+        const participantId = a.participantKey ?? a.lmsUserId;
+        if (participantId) lmsUserIds.add(participantId);
         if (a.resultPassed) lmsPassed++;
         lmsPercent += a.resultPercent || 0;
       }
@@ -286,27 +305,33 @@ router.get("/combined-full", requirePermission("analytics.read"), async (req: Re
       const packages = await storage.getScormPackages();
       const packageMap = new Map(packages.map(p => [p.id, p]));
 
+      const groupFilter = (req.query.groupId as string) || null;
+
       lmsAttempts = attempts
-        .filter(a => {
-          if (!testIdFilter) return true;
-          const pkg = attemptPackage(a, packageMap);
-          return pkg?.testId === testIdFilter;
-        })
-        .filter(a => scope.has(attemptPackage(a, packageMap)?.testId ?? null))
+        .filter(a => !testIdFilter || attemptTestId(a, packageMap) === testIdFilter)
+        .filter(a => scope.has(attemptTestId(a, packageMap)))
+        .filter(a => !groupFilter || a.groupId === groupFilter)
         .filter(a => a.finishedAt)
         .map(a => {
           const pkg = attemptPackage(a, packageMap);
+          // У импортированной строки начало и конец совпадают: файл даёт одну дату. Ноль здесь —
+          // «длительность неизвестна», и поле `origin` ниже позволяет это различить.
           const duration = a.startedAt && a.finishedAt
             ? (new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000
             : null;
           return {
             id: a.id,
-            testId: pkg?.testId || null,
+            origin: a.origin,
+            groupId: a.groupId,
+            testId: attemptTestId(a, packageMap),
             testTitle: pkg?.testTitle || "Удалённый тест",
             testMode: pkg?.testMode || "standard",
             lmsUserId: a.lmsUserId,
             lmsUserName: a.lmsUserName,
             lmsUserEmail: a.lmsUserEmail,
+            // Псевдоним отдаётся клиенту: по нему считаются уникальные участники, и он же
+            // единственный стабильный идентификатор обезличенной строки.
+            participantKey: a.participantKey,
             startedAt: a.startedAt,
             finishedAt: a.finishedAt,
             duration,
@@ -331,7 +356,7 @@ router.get("/combined-full", requirePermission("analytics.read"), async (req: Re
       : 0;
 
     const uniqueWebUsers = new Set(webAttempts.map(a => a.userId)).size;
-    const uniqueLmsUsers = new Set(lmsAttempts.map(a => a.lmsUserId).filter(Boolean)).size;
+    const uniqueLmsUsers = new Set(lmsAttempts.map(a => a.participantKey ?? a.lmsUserId).filter(Boolean)).size;
 
     // TEST STATS
     const testStatsMap = new Map<string, {
