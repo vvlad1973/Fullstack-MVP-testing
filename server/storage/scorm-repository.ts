@@ -7,14 +7,51 @@
  * nullable `testId` and survive test deletion by design, so this domain is
  * self-contained. Exposed through the `IStorage` facade, never imported by routes.
  */
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { db } from "../db";
 import {
-  scormPackages, scormAttempts, scormAnswers,
+  scormPackages, scormAttempts, scormAnswers, lmsImportBatches,
   type ScormPackage, type InsertScormPackage,
   type ScormAttempt, type InsertScormAttempt,
   type ScormAnswer, type InsertScormAnswer,
+  type LmsImportBatch, type InsertLmsImportBatch,
 } from "@shared/schema";
+
+/**
+ * Поля импортированного прохождения (PRD-54).
+ *
+ * `origin` зафиксирован литералом намеренно: телеметрия в этот метод не ходит, и тип должен это
+ * говорить, а не полагаться на дисциплину вызывающего.
+ */
+export interface ImportedAttemptInput {
+  testId: string;
+  participantKey: string;
+  origin: "import";
+  batchId: string | null;
+  groupId: string | null;
+  userId: string | null;
+  lmsUserName: string | null;
+  lmsUserOrg: string | null;
+  startedAt: Date;
+  finishedAt: Date;
+  lastActivityAt: Date;
+  resultPassed: boolean | null;
+  totalPoints: number | null;
+  totalQuestions: number | null;
+  scalesJson: Record<string, number> | null;
+  variablesJson: Record<string, string> | null;
+}
+
+/** Счётчики и протокол, которыми партия дополняется после прогона. */
+export interface LmsImportCounts {
+  rowsTotal: number;
+  rowsCreated: number;
+  rowsUpdated: number;
+  rowsSkipped: number;
+  rowsLinked: number;
+  warnings: string[];
+}
 
 /** Repository for the SCORM telemetry tables. */
 export class ScormRepository {
@@ -114,5 +151,100 @@ export class ScormRepository {
 
   async getScormAnswersByAttempt(attemptId: string): Promise<ScormAnswer[]> {
     return db.select().from(scormAnswers).where(eq(scormAnswers.attemptId, attemptId));
+  }
+
+  // ─── PRD-54: импорт выгрузок отчётов LMS ────────────────────────────────────
+
+  /**
+   * Записать импортированное прохождение, обновив существующее с тем же ключом (PRD-54 раздел 8.1).
+   *
+   * Ключ — `(test_id, participant_key, started_at)`, он же частичный уникальный индекс
+   * `scorm_attempts_import_row_idx`. Конфликт разрешает БАЗА, а не проверка «сначала выбрать,
+   * потом вставить»: две параллельные загрузки одного файла иначе создали бы дубли.
+   *
+   * Обновляются не все поля подряд, а только те, что приносит новая загрузка. `participant_key`,
+   * `test_id` и `started_at` в набор не входят — они и есть ключ.
+   *
+   * @param data поля прохождения
+   * @returns идентификатор строки и признак `created`: создана (true) или обновлена (false)
+   */
+  async upsertImportedAttempt(data: ImportedAttemptInput): Promise<{ id: string; created: boolean }> {
+    const id = randomUUID();
+    const [row] = await db
+      .insert(scormAttempts)
+      .values({ id, ...data })
+      .onConflictDoUpdate({
+        target: [scormAttempts.testId, scormAttempts.participantKey, scormAttempts.startedAt],
+        targetWhere: sql`${scormAttempts.origin} = 'import'`,
+        set: {
+          batchId: data.batchId,
+          groupId: data.groupId,
+          userId: data.userId,
+          lmsUserName: data.lmsUserName,
+          lmsUserOrg: data.lmsUserOrg,
+          finishedAt: data.finishedAt,
+          lastActivityAt: data.lastActivityAt,
+          resultPassed: data.resultPassed,
+          totalPoints: data.totalPoints,
+          totalQuestions: data.totalQuestions,
+          scalesJson: data.scalesJson,
+          variablesJson: data.variablesJson,
+        },
+      })
+      .returning({ id: scormAttempts.id });
+    // Идентификатор генерируется ДО запроса, поэтому совпадение выданного и вернувшегося и есть
+    // ответ «строку создали». Отдельный SELECT ради того же факта был бы вторым обращением к базе.
+    return { id: row.id, created: row.id === id };
+  }
+
+  /** Переписать ответы попытки: повторный импорт заменяет их целиком, а не доливает. */
+  async replaceImportedAnswers(attemptId: string, answers: (InsertScormAnswer & { id: string })[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(scormAnswers).where(eq(scormAnswers.attemptId, attemptId));
+      if (answers.length > 0) await tx.insert(scormAnswers).values(answers);
+    });
+  }
+
+  /** Завести партию импорта. Счётчики проставляются позже, когда строки записаны. */
+  async createLmsImportBatch(batch: InsertLmsImportBatch & { id: string }): Promise<{ id: string }> {
+    const [row] = await db.insert(lmsImportBatches).values(batch).returning({ id: lmsImportBatches.id });
+    return row;
+  }
+
+  /** Проставить счётчики и протокол после прогона. */
+  async updateLmsImportBatch(id: string, counts: LmsImportCounts): Promise<void> {
+    await db.update(lmsImportBatches).set({
+      rowsTotal: counts.rowsTotal,
+      rowsCreated: counts.rowsCreated,
+      rowsUpdated: counts.rowsUpdated,
+      rowsSkipped: counts.rowsSkipped,
+      rowsLinked: counts.rowsLinked,
+      warningsJson: counts.warnings,
+    }).where(eq(lmsImportBatches.id, id));
+  }
+
+  /** Партии теста, новые первыми. */
+  async getLmsImportBatches(testId: string): Promise<LmsImportBatch[]> {
+    return db.select().from(lmsImportBatches)
+      .where(eq(lmsImportBatches.testId, testId))
+      .orderBy(desc(lmsImportBatches.importedAt));
+  }
+
+  /**
+   * Откатить партию целиком (PRD-54 раздел 8.6).
+   *
+   * Одной транзакцией: половина отката хуже, чем его отсутствие — прохождения без партии осели бы
+   * в аналитике навсегда и уже ничем бы не удалялись. Телеметрию не задевает: удаляются только
+   * строки с этим `batch_id`, а у телеметрии он пуст.
+   */
+  async deleteLmsImportBatch(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      const attempts = await tx.select({ id: scormAttempts.id }).from(scormAttempts)
+        .where(eq(scormAttempts.batchId, id));
+      const ids = attempts.map((a) => a.id);
+      if (ids.length > 0) await tx.delete(scormAnswers).where(inArray(scormAnswers.attemptId, ids));
+      await tx.delete(scormAttempts).where(eq(scormAttempts.batchId, id));
+      await tx.delete(lmsImportBatches).where(eq(lmsImportBatches.id, id));
+    });
   }
 }

@@ -811,13 +811,14 @@ git commit -m "feat(prd-54): разбор листа выгрузки отчёт
 
 - Правка: `server/storage/scorm-repository.ts`
 - Правка: `server/storage.ts` (интерфейс `IStorage` около строки 315, делегаты около строки 1093)
-- Тест: `server/storage/__tests__/lms-import.it.test.ts` (интеграционный, pglite)
+- Тест: `tests/it/lms-import.it.test.ts` (интеграционный, pglite)
+- Правка: `tests/it/schema.sql` (перегенерировать — харнесс поднимает базу из него, а не из миграций)
 
 - [ ] **Шаг 1: написать падающий интеграционный тест**
 
 ```ts
 /**
- * @module server/storage/__tests__/lms-import.it
+ * @module tests/it/lms-import.it
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { makeTestStorage } from "./helpers";
@@ -867,9 +868,11 @@ describe("upsertImportedAttempt", () => {
 
 - [ ] **Шаг 2: прогнать и убедиться, что падает**
 
-Выполнить: `npm run test:it -- server/storage/__tests__/lms-import.it.test.ts`
-Ожидается: FAIL. Если `makeTestStorage` в `helpers` отсутствует — взять образец из соседнего
-интеграционного теста в `server/storage/__tests__/` и повторить его подготовку базы.
+Сначала перегенерировать схему харнесса — он поднимает базу из `tests/it/schema.sql` (экспорт из
+`shared/schema.ts`), а НЕ из миграций: `npx drizzle-kit export --sql | grep -v '^DATABASE_URL:' > tests/it/schema.sql`.
+Затем: `npm run test:it -- tests/it/lms-import.it.test.ts`. Ожидается FAIL, методов нет. Образец
+подготовки харнесса — `tests/it/review-comments-repository.it.test.ts`: `vi.mock("../../server/db")`
+на харнесс, репозиторий импортируется ПОСЛЕ мока.
 
 - [ ] **Шаг 3: реализовать в репозитории**
 
@@ -1028,7 +1031,7 @@ export interface ImportedAttemptInput {
 - [ ] **Шаг 6: коммит**
 
 ```bash
-git add server/storage/scorm-repository.ts server/storage.ts server/storage/__tests__/lms-import.it.test.ts
+git add server/storage/scorm-repository.ts server/storage.ts tests/it/lms-import.it.test.ts tests/it/schema.sql
 git commit -m "feat(prd-54): хранилище импортированных прохождений и партий"
 ```
 
