@@ -16,8 +16,14 @@
     Отличие третьей точки содержательное: тест уже задан страницей, и файл ЧУЖОГО теста
     отвергается — состояние «mismatch».
 
-    Состояния: empty → detected → new-group → plan (с предупреждениями) → done;
-               mismatch (чужой тест); batches (список загрузок с откатом); modal (та же форма в окне).
+    Состояния (15):
+      путь      — empty → detected → new-group → plan → busy → done;
+      отказы    — not-recognized (файл не распознан), no-test (тест по вопросам не найден),
+                  mismatch (чужой тест; только там, где тест задан страницей), failed (сбой записи);
+      предупреждения — anon-mismatch (отмечено «обезличено», а в колонке ФИО),
+                  duplicate (тот же файл уже грузили), skipped (строки без даты пропущены);
+      загрузки  — batches, batches-empty;
+      хост      — modal (та же форма в окне обеих страниц аналитики).
     -->
     <title>PRD-54 — Загрузка выгрузки LMS</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/skillum-ds.css" />
@@ -82,10 +88,22 @@
       <button type="button" onclick="impState(this, 'detected')">файл опознан</button>
       <button type="button" onclick="impState(this, 'new-group')">новая группа</button>
       <button type="button" onclick="impState(this, 'plan')">план</button>
+      <button type="button" onclick="impState(this, 'busy')">идёт запись</button>
       <button type="button" onclick="impState(this, 'done')">готово</button>
       <span class="wf-nav-sep"></span>
+      <span class="wf-nav-title">Отказы:</span>
+      <button type="button" onclick="impState(this, 'not-recognized')">не распознан</button>
+      <button type="button" onclick="impState(this, 'no-test')">тест не найден</button>
       <button type="button" onclick="impState(this, 'mismatch')">чужой тест</button>
+      <button type="button" onclick="impState(this, 'failed')">сбой записи</button>
+      <span class="wf-nav-sep"></span>
+      <span class="wf-nav-title">Предупреждения:</span>
+      <button type="button" onclick="impState(this, 'anon-mismatch')">мнимое обезличивание</button>
+      <button type="button" onclick="impState(this, 'duplicate')">файл повторный</button>
+      <button type="button" onclick="impState(this, 'skipped')">строки пропущены</button>
+      <span class="wf-nav-sep"></span>
       <button type="button" onclick="impState(this, 'batches')">загрузки</button>
+      <button type="button" onclick="impState(this, 'batches-empty')">загрузок нет</button>
       <span class="wf-nav-sep"></span>
       <button type="button" onclick="showState(this, 'modal')">в окне (аналитика)</button>
       <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
@@ -144,7 +162,7 @@
                   <div class="ou-check-group wf-mt-4">
                     <label class="ou-check ou-check--s">
                       <input class="ou-check__input" type="checkbox" />
-                      <span class="ou-check__box" aria-hidden="true"></span>
+                      <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                       <span class="ou-check__text">
                         <span class="ou-check__lbl">Данные уже обезличены</span>
                         <span class="ou-check__desc">В колонке участника не ФИО, а идентификатор от внешнего инструмента. Повторно он не хешируется.</span>
@@ -152,7 +170,7 @@
                     </label>
                     <label class="ou-check ou-check--s">
                       <input class="ou-check__input" type="checkbox" />
-                      <span class="ou-check__box" aria-hidden="true"></span>
+                      <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                       <span class="ou-check__text">
                         <span class="ou-check__lbl">Связать с пользователями по ключу</span>
                         <span class="ou-check__desc">Совпадение с внешним ключом пользователя свяжет прохождение с ним.</span>
@@ -260,6 +278,164 @@
                   </div>
                 </div>
 
+                <!-- файл не опознан: ни книга теста, ни выгрузка LMS -->
+                <div id="imp-not-recognized" class="wf-imp">
+                  <label class="ou-uploader is-error" tabindex="0">
+                    <span class="ou-uploader__icon" aria-hidden="true"><svg width="20" height="20"><use href="#i-alert" /></svg></span>
+                    <span class="ou-uploader__title">Файл не распознан</span>
+                    <span class="ou-uploader__sub">Это не книга теста и не выгрузка отчёта LMS. Проверьте, что выгружали отчёт по SCORM-модулю.</span>
+                    <span class="ou-uploader__cta">Выбрать другой файл</span>
+                  </label>
+                </div>
+
+                <!-- выгрузка опознана, но тест по вопросам не определился -->
+                <div id="imp-no-test" class="wf-imp">
+                  <div class="ou-file">
+                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
+                    <div class="ou-file__main"><span class="ou-file__name">выгрузка-2024.xlsx</span><span class="ou-file__meta">выгрузка отчёта LMS · 26 строк</span></div>
+                    <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
+                  </div>
+                  <div class="ou-banner ou-banner--error ou-banner--subtle wf-mt-3" role="alert">
+                    <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                    <div class="ou-banner__body">
+                      <p class="ou-banner__title">Тест по файлу не определён</p>
+                      <p class="ou-banner__desc">Из 14 вопросов файла ни один не найден в базе. Похоже, выгрузка сделана по тесту из другой установки — загрузить её сюда нельзя.</p>
+                    </div>
+                  </div>
+                  <div class="wf-card-foot">
+                    <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" onclick="impState(null, 'empty')">Выбрать другой файл</button>
+                  </div>
+                </div>
+
+                <!-- флажок «уже обезличены» расходится с содержимым колонки -->
+                <div id="imp-anon-mismatch" class="wf-imp">
+                  <div class="ou-file">
+                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
+                    <div class="ou-file__main"><span class="ou-file__name">7684237229762827328-1.xlsx</span><span class="ou-file__meta">запись ещё не выполнена</span></div>
+                    <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
+                  </div>
+                  <div class="ou-check-group wf-mt-3">
+                    <label class="ou-check ou-check--s">
+                      <input class="ou-check__input" type="checkbox" checked />
+                      <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
+                      <span class="ou-check__text"><span class="ou-check__lbl">Данные уже обезличены</span></span>
+                    </label>
+                  </div>
+                  <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
+                    <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                    <div class="ou-banner__body">
+                      <p class="ou-banner__title">Похоже, данные всё-таки не обезличены</p>
+                      <p class="ou-banner__desc">Отмечено «уже обезличены», но в колонке участника кириллица с пробелами — так выглядит ФИО, а не идентификатор. Снимите флажок, иначе имена попадут в базу как есть.</p>
+                    </div>
+                  </div>
+                  <div class="wf-card-foot">
+                    <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" onclick="impState(null, 'plan')">Проверить</button>
+                    <button type="button" class="ou-btn ou-btn--primary ou-btn--m" disabled aria-disabled="true" title="Сначала проверьте файл">Импортировать</button>
+                  </div>
+                </div>
+
+                <!-- этот файл уже загружали в этот тест -->
+                <div id="imp-duplicate" class="wf-imp">
+                  <div class="ou-file">
+                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
+                    <div class="ou-file__main"><span class="ou-file__name">7684237229762827328-1.xlsx</span><span class="ou-file__meta">запись ещё не выполнена</span></div>
+                    <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
+                  </div>
+                  <ul class="wf-plan">
+                    <li class="wf-plan__row"><span class="wf-plan__name">Добавится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Обновится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">3</span></li>
+                  </ul>
+                  <div class="ou-banner ou-banner--info ou-banner--subtle wf-mt-3" role="status">
+                    <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-check-circle" /></svg></span>
+                    <div class="ou-banner__body">
+                      <p class="ou-banner__title">Этот файл уже загружали 11.09.2026</p>
+                      <p class="ou-banner__desc">Содержимое совпадает с прошлой загрузкой. Повторная запись ничего не испортит — строки обновятся на месте, дублей не будет.</p>
+                    </div>
+                  </div>
+                  <div class="wf-card-foot">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="impState(null, 'empty')">Отмена</button>
+                    <button type="button" class="ou-btn ou-btn--primary ou-btn--m" onclick="impState(null, 'done')">Всё равно импортировать</button>
+                  </div>
+                </div>
+
+                <!-- часть строк пропущена -->
+                <div id="imp-skipped" class="wf-imp">
+                  <div class="ou-file">
+                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
+                    <div class="ou-file__main"><span class="ou-file__name">выгрузка-август.xlsx</span><span class="ou-file__meta">запись ещё не выполнена</span></div>
+                    <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
+                  </div>
+                  <ul class="wf-plan">
+                    <li class="wf-plan__row"><span class="wf-plan__name">Добавится</span><span class="ou-tag ou-tag--success ou-tag--outline">+16</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Обновится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Пропустится</span><span class="ou-tag ou-tag--warning ou-tag--outline">2</span></li>
+                  </ul>
+                  <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
+                    <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                    <div class="ou-banner__body">
+                      <p class="ou-banner__title">2 строки без даты активации модуля пропущены</p>
+                      <p class="ou-banner__desc">Без даты прохождение нечем отличить от другого того же участника, поэтому такие строки не записываются.</p>
+                    </div>
+                  </div>
+                  <div class="wf-card-foot">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="impState(null, 'detected')">Назад</button>
+                    <button type="button" class="ou-btn ou-btn--primary ou-btn--m" onclick="impState(null, 'done')">Импортировать 16</button>
+                  </div>
+                </div>
+
+                <!-- идёт разбор или запись -->
+                <div id="imp-busy" class="wf-imp">
+                  <div class="ou-file">
+                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
+                    <div class="ou-file__main"><span class="ou-file__name">выгрузка-август.xlsx</span><span class="ou-file__meta">418 строк · 1,2 МБ</span></div>
+                  </div>
+                  <div class="wf-row wf-mt-4">
+                    <span class="ou-spinner-wrap is-inline" role="status" aria-live="polite">
+                      <span class="ou-spinner ou-spinner--s ou-spinner--accent" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle class="ou-spinner__track" cx="12" cy="12" r="10" />
+                          <circle class="ou-spinner__head" cx="12" cy="12" r="10" />
+                        </svg>
+                      </span>
+                      <span class="ou-spinner__label">Импортируем… Не закрывайте окно.</span>
+                    </span>
+                  </div>
+                  <div class="wf-card-foot">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" disabled aria-disabled="true">Отмена</button>
+                    <button type="button" class="ou-btn ou-btn--primary ou-btn--m" disabled aria-disabled="true">Импортировать</button>
+                  </div>
+                </div>
+
+                <!-- запись не удалась -->
+                <div id="imp-failed" class="wf-imp">
+                  <div class="ou-file">
+                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
+                    <div class="ou-file__main"><span class="ou-file__name">выгрузка-август.xlsx</span><span class="ou-file__meta">запись не выполнена</span></div>
+                    <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
+                  </div>
+                  <div class="ou-banner ou-banner--error ou-banner--subtle wf-mt-3" role="alert">
+                    <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                    <div class="ou-banner__body">
+                      <p class="ou-banner__title">Загрузка не выполнена</p>
+                      <p class="ou-banner__desc">Сервер вернул ошибку. Ничего не записано — можно повторить.</p>
+                    </div>
+                  </div>
+                  <div class="wf-card-foot">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="impState(null, 'empty')">Отмена</button>
+                    <button type="button" class="ou-btn ou-btn--primary ou-btn--m" onclick="impState(null, 'busy')">Повторить</button>
+                  </div>
+                </div>
+
+                <!-- загрузок ещё не было -->
+                <div id="imp-batches-empty" class="wf-imp">
+                  <div class="ou-empty ou-empty--inline ou-empty--well">
+                    <div class="ou-empty__content">
+                      <p class="ou-empty__title">Выгрузки ещё не загружали</p>
+                      <p class="ou-empty__desc">Здесь появится список загруженных файлов — с датой, автором и возможностью откатить.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- список загрузок -->
                 <div id="imp-batches" class="wf-imp">
                   <div class="wf-batch">
@@ -317,12 +493,12 @@
               <div class="ou-check-group wf-mt-4">
                 <label class="ou-check ou-check--s">
                   <input class="ou-check__input" type="checkbox" />
-                  <span class="ou-check__box" aria-hidden="true"></span>
+                  <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                   <span class="ou-check__text"><span class="ou-check__lbl">Данные уже обезличены</span></span>
                 </label>
                 <label class="ou-check ou-check--s">
                   <input class="ou-check__input" type="checkbox" />
-                  <span class="ou-check__box" aria-hidden="true"></span>
+                  <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                   <span class="ou-check__text"><span class="ou-check__lbl">Связать с пользователями по ключу</span></span>
                 </label>
               </div>
