@@ -380,7 +380,7 @@ describe("<DesignSection /> — Брендирование pane", () => {
     }
   });
 
-  it("вариант без превью показывает прочерк, а не пустую плитку", async () => {
+  it("вариант без превью показывает значок-заглушку, а не пустую плитку", async () => {
     renderWithClient(<DesignSection testId={TEST_ID} />);
     await waitFor(() =>
       expect(screen.getByTestId("design-template-pane")).toBeInTheDocument(),
@@ -391,7 +391,8 @@ describe("<DesignSection /> — Брендирование pane", () => {
     );
     const none = screen.getByTestId("design-param-option-brandLogo-none");
     expect(none.querySelector("img")).toBeNull();
-    expect(none.querySelector(".tpl-choice__empty")?.textContent).toBe("—");
+    const stub = none.querySelector(".tpl-choice__empty");
+    expect(stub?.tagName.toLowerCase()).toBe("svg");
     expect(none).toHaveTextContent("Без логотипа");
   });
 
