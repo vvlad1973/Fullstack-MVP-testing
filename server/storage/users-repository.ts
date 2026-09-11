@@ -45,6 +45,31 @@ export class UsersRepository {
     return undefined;
   }
 
+  /**
+   * Найти пользователя по внешнему ключу (PRD-54 раздел 8.5).
+   *
+   * Регистр и краевые пробелы не учитываются: ключом чаще всего оказывается hex-хеш или табельный
+   * код, где разница в регистре смысла не несёт, а сопоставление ломает молча. Сравнение идёт по
+   * тому же выражению, на котором построен уникальный индекс `users_external_key_idx`, поэтому
+   * поиск по нему индексный, а не последовательный.
+   *
+   * Почта НЕ расшифровывается: связывание читает только идентификатор, и лишняя расшифровка на
+   * каждую строку выгрузки — это сотни ненужных операций на большом файле.
+   *
+   * @param key значение ключа из файла
+   * @returns пользователь или `undefined`; пустой ключ никогда ни с кем не совпадает
+   */
+  async getUserByExternalKey(key: string): Promise<User | undefined> {
+    const normalized = String(key ?? "").trim().toLowerCase();
+    if (normalized === "") return undefined;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.externalKey}) = ${normalized}`)
+      .limit(1);
+    return user || undefined;
+  }
+
   async getUserByEmail(email: string): Promise<User | undefined> {
     const emailHashValue = hashEmail(email);
     const [user] = await db.select().from(users).where(eq(users.emailHash, emailHashValue));

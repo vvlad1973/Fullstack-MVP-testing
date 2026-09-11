@@ -93,6 +93,8 @@ import { type ValidationResult, type ValueType } from "@shared/formula";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  /** PRD-54: поиск по внешнему ключу для связывания импортированных прохождений. */
+  getUserByExternalKey(key: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   validatePassword(email: string, password: string): Promise<User | null>;
   updateUserLastLogin(id: string): Promise<void>;
@@ -458,6 +460,10 @@ export class DatabaseStorage implements IStorage {
 
   getUser(id: string): Promise<User | undefined> {
     return this.usersRepo.getUser(id);
+  }
+
+  getUserByExternalKey(key: string): Promise<User | undefined> {
+    return this.usersRepo.getUserByExternalKey(key);
   }
 
   getUserByEmail(email: string): Promise<User | undefined> {
