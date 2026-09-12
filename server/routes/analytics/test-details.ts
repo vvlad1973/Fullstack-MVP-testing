@@ -216,6 +216,19 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       }
     }
 
+    // Знаменатель доли — попытки теста за окно, считая БРОШЕННЫЕ: счётчик выдач пополняется на
+    // старте попытки (FR-02), потому что брошенная попытка показала задание так же, как
+    // доведённая до конца. Завершённые попытки в знаменателе давали бы долю больше ста процентов
+    // ровно на число брошенных — «выдано 3 из 2» на первой же приёмке.
+    //
+    // Ноль попыток означает «сравнивать не с чем»: доля тогда `null`, а не ноль, иначе экран
+    // покажет «0%» там, где данных нет вовсе.
+    const exposureWindowStart = new Date();
+    exposureWindowStart.setMonth(exposureWindowStart.getMonth() - config.delivery.exposureWindowMonths);
+    const attemptsInWindow = testAttempts.filter(
+      (a) => new Date(a.startedAt as Date) >= exposureWindowStart,
+    ).length;
+
     // PRD-55 (FR-31/FR-31a/FR-32): экспозиция задания и время на него. Три запроса на ВЕСЬ тест,
     // а не по заданию: карточек на экране десятки, и запрос в цикле превратил бы страницу в
     // сотню обращений к базе.
@@ -228,21 +241,16 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     let otherTests = new Map<string, number>();
     let latency = new Map<string, { medianMs: number; sampleSize: number }>();
     try {
-      const windowStart = new Date();
-      windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
       [exposureOwn, exposureGlobal, otherTests, latency] = await Promise.all([
-        storage.getDeliveryCountsForTest(questionIds, testId, windowStart),
-        storage.getDeliveryCounts(questionIds, windowStart),
-        storage.getOtherTestsCount(questionIds, testId, windowStart),
-        storage.getLatencyStats(questionIds, testId, windowStart),
+        storage.getDeliveryCountsForTest(questionIds, testId, exposureWindowStart),
+        storage.getDeliveryCounts(questionIds, exposureWindowStart),
+        storage.getOtherTestsCount(questionIds, testId, exposureWindowStart),
+        storage.getLatencyStats(questionIds, testId, exposureWindowStart),
       ]);
     } catch (error) {
       logger.warn("PRD-55: экспозиция и время заданий не прочитаны — " + (error as Error).message);
     }
 
-    // Знаменатель доли — попытки теста за окно. Ноль попыток означает «сравнивать не с чем»:
-    // доля тогда `null`, а не ноль, иначе экран покажет «0%» там, где данных нет вовсе.
-    const attemptsInWindow = completedAttempts.length;
 
     const questionStats = Array.from(questionStatsMap.values()).map(qs => {
       const exposureCount = exposureOwn.get(qs.questionId) ?? 0;
@@ -405,6 +413,10 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       summary,
       topicStats,
       questionStats,
+      // PRD-55 (FR-31): знаменатель доли выдачи. Отдаётся явно, потому что он НЕ равен ни одному
+      // числу сводки: это попытки за окно наблюдения, считая брошенные, — а сводка показывает
+      // завершённые. Считая его на клиенте по сводке, экран подписал бы «выдано 3 из 2».
+      exposureAttempts: attemptsInWindow,
       levelStats: test.mode === "adaptive" ? levelStats : undefined,
       scoreDistribution,
       dailyTrends,

@@ -112,10 +112,44 @@ describe("аналитика теста: экспозиция и время за
   });
 
   it("доля считается от числа попыток теста", async () => {
-    // Две попытки в фикстуре, 46 выдач — величина больше 100% невозможна в жизни, но маршрут
-    // обязан считать честно, а не подрезать: подрезка спрятала бы расхождение счётчика с фактами.
+    storageMock.getDeliveryCountsForTest.mockResolvedValue(new Map([["q1", 1]]));
     const q1 = await statsFor("q1");
-    expect(q1.exposurePercent).toBe((46 / 2) * 100);
+    expect(q1.exposurePercent).toBe(50); // одна выдача из двух попыток
+  });
+
+  it("БРОШЕННАЯ попытка входит в знаменатель", async () => {
+    // Счётчик выдач пополняется на СТАРТЕ попытки (FR-02): брошенная попытка показала задание
+    // так же, как доведённая до конца. Знаменатель из одних завершённых давал бы долю больше
+    // ста процентов ровно на число брошенных — «выдано 3 из 2» на первой же приёмке.
+    const abandoned = { ...attempt("a3"), resultJson: null, finishedAt: null };
+    storageMock.getAllAttempts.mockResolvedValue([attempt("a1"), attempt("a2"), abandoned]);
+    storageMock.getDeliveryCountsForTest.mockResolvedValue(new Map([["q1", 3]]));
+
+    const q1 = await statsFor("q1");
+
+    expect(q1.exposurePercent).toBe(100);
+  });
+
+  it("попытка старше окна наблюдения в знаменатель не идёт", async () => {
+    const old = { ...attempt("a0"), startedAt: new Date("2020-01-01"), finishedAt: new Date("2020-01-01") };
+    storageMock.getAllAttempts.mockResolvedValue([attempt("a1"), attempt("a2"), old]);
+    storageMock.getDeliveryCountsForTest.mockResolvedValue(new Map([["q1", 2]]));
+
+    const q1 = await statsFor("q1");
+
+    expect(q1.exposurePercent).toBe(100); // 2 выдачи из 2 попыток окна, а не из трёх
+  });
+
+  it("знаменатель доли отдаётся явно: он не равен ни одному числу сводки", async () => {
+    const abandoned = { ...attempt("a3"), resultJson: null, finishedAt: null };
+    storageMock.getAllAttempts.mockResolvedValue([attempt("a1"), attempt("a2"), abandoned]);
+
+    const res = await request(app).get("/api/analytics/test1");
+
+    // Сводка считает завершённые (2), знаменатель — все начатые за окно (3). Считая его на
+    // клиенте по сводке, экран подписал бы «выдано 3 из 2».
+    expect(res.body.summary.completedAttempts).toBe(2);
+    expect(res.body.exposureAttempts).toBe(3);
   });
 
   it("пустой счётчик даёт null, а не ноль", async () => {

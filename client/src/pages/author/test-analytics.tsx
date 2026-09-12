@@ -96,6 +96,8 @@ interface TestAnalytics {
         avgPercent: number;
         passRate: number | null;
     }>;
+    /** PRD-55 (FR-31): попытки за окно наблюдения, считая брошенные, — знаменатель доли выдачи. */
+    exposureAttempts?: number;
     questionStats: Array<{
         questionId: string;
         questionPrompt: string;
@@ -977,7 +979,7 @@ export default function TestAnalyticsPage() {
                                             otherTestsCount={q.otherTestsCount ?? 0}
                                             latencyMedianMs={q.latencyMedianMs ?? null}
                                             latencySampleSize={q.latencySampleSize ?? 0}
-                                            attemptsInWindow={summary.completedAttempts}
+                                            attemptsInWindow={analytics.exposureAttempts ?? summary.completedAttempts}
                                         />
                                     </Cluster>
                                     <ProgressBar
