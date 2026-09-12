@@ -1,5 +1,53 @@
 // Initialize
 
+// PRD-55: вес задания по экспозиции — плейн-JS порт shared/draw/exposure.ts.
+//
+// Счётчики выдач в пакет НЕ попадают: он автономен и о популяции ничего не знает, поэтому
+// получает уже посчитанный вес запечённым в TEST_DATA (FR-27/FR-28). Эти функции нужны, чтобы
+// отбор внутри пула шёл ровно так же, как на вебе, — иначе два хоста при одинаковой истории
+// выдач начали бы выдавать разные задания.
+//
+// Держится в парности golden-тестом tests/exposure-port.test.ts.
+var EXPOSURE_WEIGHT_RATIO = 4;
+
+function computeExposureWeights(poolIds, counts) {
+  var weights = new Map();
+  if (poolIds.length === 0) return weights;
+  var values = poolIds.map(function (id) {
+    var c = counts.get(id);
+    return c === undefined ? 0 : c;
+  });
+  var min = values[0];
+  var max = values[0];
+  values.forEach(function (v) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  });
+  if (max === min) {
+    poolIds.forEach(function (id) { weights.set(id, 1); });
+    return weights;
+  }
+  var span = max - min;
+  for (var i = 0; i < poolIds.length; i += 1) {
+    weights.set(poolIds[i], 1 + (EXPOSURE_WEIGHT_RATIO - 1) * ((max - values[i]) / span));
+  }
+  return weights;
+}
+
+function weightedPick(pool, k, weights, rnd) {
+  if (pool.length === 0 || k <= 0) return [];
+  var keyed = pool.map(function (item) {
+    var w = weights.get(item.id);
+    if (w === undefined) w = 1;
+    // Ровно ноль дал бы нулевой ключ при ЛЮБОМ весе — такой элемент всегда оказывался бы
+    // последним независимо от того, насколько он свежий. Сдвигаем в открытый интервал.
+    var u = Math.min(Math.max(rnd(), Number.EPSILON), 1 - Number.EPSILON);
+    return { item: item, key: Math.pow(u, 1 / w) };
+  });
+  keyed.sort(function (a, b) { return b.key - a.key; });
+  return keyed.slice(0, k).map(function (x) { return x.item; });
+}
+
 // PRD-11 stratified draw — plain-JS port of shared/draw/blueprint.ts. No
 // blueprint => uniform draw (FR-02). Kept in golden parity with the TS source
 // by tests/draw-blueprint-port.test.ts.
