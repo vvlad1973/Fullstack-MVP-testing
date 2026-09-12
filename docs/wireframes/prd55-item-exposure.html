@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="ru" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+    Wireframe: PRD-55 Э4 — что автор ВИДИТ об экспозиции заданий.
+    Контракт: docs/specs/prd-55/item-exposure-weighting.md, раздел 7 (FR-31 - FR-34).
+
+    Поправка на экспозицию работает всегда и настроек не имеет (решение владельца 4):
+    экрана управления ею НЕ существует. Автору показывается только ДВА факта —
+    сколько задание уже показывали и чего ждать от нынешних настроек выдачи.
+
+    Две поверхности, обе существующие, дельта минимальна:
+      • аналитика теста → вкладка «Вопросы» (FR-31, FR-32): в карточке задания появляется
+        вторая величина рядом с долей верных ответов;
+      • редактор теста → блок выдачи темы и окно экспорта SCORM (FR-33): предупреждение об
+        ОЖИДАЕМОЙ экспозиции, которое считается из размера банка и объёма выдачи и
+        накопленных данных НЕ требует.
+
+    Состояния (7):
+      аналитика — questions (обычный случай), questions-multi (задание выдавалось и в
+                  других тестах), questions-empty (данных ещё нет);
+      редактор  — draw-warn (банк вырабатывается), draw-ok (запас достаточный);
+      экспорт   — export-warn (то же предупреждение перед сборкой пакета);
+      docs      — пояснения и DS-маппинг.
+    -->
+    <title>PRD-55 — Экспозиция заданий</title>
+    <link rel="stylesheet" href="/docs/wireframes/ds/skillum-ds.css" />
+    <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
+    <script defer src="/docs/wireframes/prd7-shared.js"></script>
+    <link rel="stylesheet" href="/docs/wireframes/ds/wf-utils.css" />
+    <link rel="stylesheet" href="/docs/wireframes/tb-components.css" />
+    <style>
+      .wf-state { display: none; padding-top: var(--wf-nav-offset, var(--wf-size-52)); }
+      .wf-state.active { display: block; }
+      .wf-sprite { display: none; }
+      .wf-doc { padding: var(--ou-space-6) var(--ou-space-6) var(--ou-space-10); }
+      .wf-cards { display: flex; flex-direction: column; gap: var(--ou-space-5); max-width: var(--wf-size-720, 720px); }
+      .wf-mt-3 { margin-top: var(--ou-space-3); }
+      .wf-mt-4 { margin-top: var(--ou-space-4); }
+      .wf-page-title { font: var(--ou-text-heading-s); font-weight: 600; color: var(--ou-fg-default); }
+      /* Карточка задания в панели «Вопросы» — композиция существующего экрана. */
+      .wf-q { display: flex; flex-direction: column; gap: var(--ou-space-2); padding: var(--ou-space-3); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-l); }
+      .wf-q__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ou-space-4); }
+      .wf-q__main { display: flex; flex-direction: column; gap: var(--ou-space-1); flex: 1; }
+      .wf-q__tags { display: flex; align-items: center; gap: var(--ou-space-2); flex-wrap: wrap; }
+      .wf-q__idx { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
+      .wf-q__prompt { font: var(--ou-text-body-s); color: var(--ou-fg-default); }
+      /* Две величины справа: доля верных (была) и экспозиция (добавляется). */
+      .wf-q__nums { display: flex; align-items: flex-start; gap: var(--ou-space-5); }
+      .wf-q__num { display: flex; flex-direction: column; align-items: flex-end; gap: var(--ou-space-1); min-width: var(--wf-size-88, 88px); }
+      .wf-q__val { font: var(--ou-text-heading-s); font-weight: 700; font-variant-numeric: tabular-nums; }
+      .wf-q__val--ok { color: var(--ou-success-default); }
+      .wf-q__val--warn { color: var(--ou-warning-default); }
+      .wf-q__val--muted { color: var(--ou-fg-muted); }
+      .wf-q__cap { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
+      .wf-list { display: flex; flex-direction: column; gap: var(--ou-space-3); }
+      /* Подсказка под полем: в коде это DS-компонент Text (body-s, muted). */
+      .wf-hint { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin: 0; }
+    </style>
+
+    <style data-wf-template-overrides>
+      .wf-nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+        display: flex; align-items: center; gap: var(--ou-space-2);
+        padding: var(--ou-space-2) var(--ou-space-4);
+        background: var(--ou-bg-elevated);
+        border-bottom: var(--wf-border-w) solid var(--ou-border-soft);
+        box-shadow: var(--ou-shadow-xs); color: var(--ou-fg-default); flex-wrap: wrap;
+      }
+      .wf-nav-title { font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); margin-right: var(--ou-space-2); white-space: nowrap; }
+    </style>
+  </head>
+  <body class="ou ou--light ou--normal">
+    <svg class="wf-sprite" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+    </svg>
+
+    <nav class="wf-nav" aria-label="Wireframe state switcher">
+      <span class="wf-nav-title">Аналитика теста:</span>
+      <button type="button" class="active" onclick="showState(this, 'questions')">вопросы</button>
+      <button type="button" onclick="showState(this, 'questions-multi')">задание в других тестах</button>
+      <button type="button" onclick="showState(this, 'questions-empty')">данных нет</button>
+      <span class="wf-nav-sep"></span>
+      <span class="wf-nav-title">Редактор:</span>
+      <button type="button" onclick="showState(this, 'draw-warn')">банк вырабатывается</button>
+      <button type="button" onclick="showState(this, 'draw-ok')">запас достаточный</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="showState(this, 'export-warn')">экспорт пакета</button>
+      <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="toggleTheme(this)">Dark</button>
+      <button type="button" onclick="toggleDensity(this)">Compact</button>
+      <button type="button" onclick="toggleAnnots(this)">Аннотации</button>
+    </nav>
+
+    <!-- ════════════════ аналитика теста → вкладка «Вопросы» ════════════════ -->
+    <div id="wf-questions" class="wf-state active">
+      <div class="ou-shell">
+        <main class="ou-shell__main">
+          <div class="wf-cards">
+            <section class="ou-card ou-card--outlined">
+              <header class="ou-card__header">
+                <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-help" /></svg></span>
+                <div class="ou-card__heading"><h3 class="ou-card__title">Статистика по вопросам</h3></div>
+              </header>
+              <div class="ou-card__body">
+                <div class="wf-list">
+
+                  <article class="wf-q">
+                    <div class="wf-q__top">
+                      <div class="wf-q__main">
+                        <div class="wf-q__tags">
+                          <span class="wf-q__idx">#1</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--s">Сложность: 60</span>
+                        </div>
+                        <p class="wf-q__prompt">Какой показатель отражает отдачу на вложенный капитал?</p>
+                      </div>
+                      <div class="wf-q__nums">
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--ok">74%</span>
+                          <span class="wf-q__cap">42/57 верно</span>
+                        </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--warn">81%</span>
+                          <span class="wf-q__cap">выдано 46 из 57</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="ou-progress ou-progress--success ou-progress--s">
+                      <div class="ou-progress__track"><div class="ou-progress__fill" style="width: 74%"></div></div>
+                    </div>
+                  </article>
+
+                  <article class="wf-q">
+                    <div class="wf-q__top">
+                      <div class="wf-q__main">
+                        <div class="wf-q__tags">
+                          <span class="wf-q__idx">#2</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--s">Сложность: 40</span>
+                        </div>
+                        <p class="wf-q__prompt">Что произойдёт с точкой безубыточности при росте постоянных затрат?</p>
+                      </div>
+                      <div class="wf-q__nums">
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--ok">88%</span>
+                          <span class="wf-q__cap">50/57 верно</span>
+                        </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--muted">19%</span>
+                          <span class="wf-q__cap">выдано 11 из 57</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="ou-progress ou-progress--success ou-progress--s">
+                      <div class="ou-progress__track"><div class="ou-progress__fill" style="width: 88%"></div></div>
+                    </div>
+                  </article>
+
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ════════════════ задание выдавалось и в ДРУГИХ тестах (FR-32) ════════════════ -->
+    <div id="wf-questions-multi" class="wf-state">
+      <div class="ou-shell">
+        <main class="ou-shell__main">
+          <div class="wf-cards">
+            <section class="ou-card ou-card--outlined">
+              <header class="ou-card__header">
+                <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-help" /></svg></span>
+                <div class="ou-card__heading"><h3 class="ou-card__title">Статистика по вопросам</h3></div>
+              </header>
+              <div class="ou-card__body">
+                <div class="wf-list">
+                  <article class="wf-q">
+                    <div class="wf-q__top">
+                      <div class="wf-q__main">
+                        <div class="wf-q__tags">
+                          <span class="wf-q__idx">#1</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--s">Сложность: 60</span>
+                          <span class="ou-tag ou-tag--info ou-tag--s">
+                            <svg aria-hidden="true"><use href="#i-layers" /></svg>
+                            ещё в 2 тестах
+                          </span>
+                        </div>
+                        <p class="wf-q__prompt">Какой показатель отражает отдачу на вложенный капитал?</p>
+                      </div>
+                      <div class="wf-q__nums">
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--ok">74%</span>
+                          <span class="wf-q__cap">42/57 верно</span>
+                        </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--warn">81%</span>
+                          <span class="wf-q__cap">выдано 46 из 57</span>
+                          <span class="wf-q__cap">всего 318 показов</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="ou-progress ou-progress--success ou-progress--s">
+                      <div class="ou-progress__track"><div class="ou-progress__fill" style="width: 74%"></div></div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ════════════════ данных ещё нет ════════════════ -->
+    <div id="wf-questions-empty" class="wf-state">
+      <div class="ou-shell">
+        <main class="ou-shell__main">
+          <div class="wf-cards">
+            <section class="ou-card ou-card--outlined">
+              <header class="ou-card__header">
+                <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-help" /></svg></span>
+                <div class="ou-card__heading"><h3 class="ou-card__title">Статистика по вопросам</h3></div>
+              </header>
+              <div class="ou-card__body">
+                <div class="wf-list">
+                  <article class="wf-q">
+                    <div class="wf-q__top">
+                      <div class="wf-q__main">
+                        <div class="wf-q__tags">
+                          <span class="wf-q__idx">#1</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--s">Сложность: 60</span>
+                        </div>
+                        <p class="wf-q__prompt">Какой показатель отражает отдачу на вложенный капитал?</p>
+                      </div>
+                      <div class="wf-q__nums">
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--ok">74%</span>
+                          <span class="wf-q__cap">42/57 верно</span>
+                        </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--muted">—</span>
+                          <span class="wf-q__cap">показы не учтены</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="ou-progress ou-progress--success ou-progress--s">
+                      <div class="ou-progress__track"><div class="ou-progress__fill" style="width: 74%"></div></div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ════════════════ редактор: банк вырабатывается ════════════════ -->
+    <div id="wf-draw-warn" class="wf-state">
+      <div class="ou-shell">
+        <main class="ou-shell__main">
+          <div class="wf-cards">
+            <section class="ou-card ou-card--outlined">
+              <header class="ou-card__header"><div class="ou-card__heading">
+                <h3 class="ou-card__title">Финансы</h3>
+              </div></header>
+              <div class="ou-card__body">
+                <label class="tb-draw-all-row">
+                  <span class="ou-switch ou-switch--s"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  <span class="tb-draw-all-row__lbl">Все вопросы темы</span>
+                </label>
+                <div class="tb-draw-count-row">
+                  <span class="tb-draw-count-row__label">Вопросов в тест</span>
+                  <span class="ou-number ou-number--s">
+                    <span class="ou-number__box">
+                      <button type="button" class="ou-number__btn" aria-label="Меньше">−</button>
+                      <input class="ou-number__input" value="20" aria-label="Количество вопросов из темы Финансы" />
+                      <button type="button" class="ou-number__btn" aria-label="Больше">+</button>
+                    </span>
+                  </span>
+                  <span class="tb-draw-count-row__max">из 25</span>
+                </div>
+
+                <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                  <div class="ou-banner__body">
+                    <p class="ou-banner__title">Каждое задание темы увидят около 80% участников</p>
+                    <p class="ou-banner__desc">Выдача 20 из 25: банк вырабатывается за один поток. Добавьте вопросов в тему или уменьшите выдачу.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ════════════════ редактор: запас достаточный ════════════════ -->
+    <div id="wf-draw-ok" class="wf-state">
+      <div class="ou-shell">
+        <main class="ou-shell__main">
+          <div class="wf-cards">
+            <section class="ou-card ou-card--outlined">
+              <header class="ou-card__header"><div class="ou-card__heading">
+                <h3 class="ou-card__title">Финансы</h3>
+              </div></header>
+              <div class="ou-card__body">
+                <label class="tb-draw-all-row">
+                  <span class="ou-switch ou-switch--s"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  <span class="tb-draw-all-row__lbl">Все вопросы темы</span>
+                </label>
+                <div class="tb-draw-count-row">
+                  <span class="tb-draw-count-row__label">Вопросов в тест</span>
+                  <span class="ou-number ou-number--s">
+                    <span class="ou-number__box">
+                      <button type="button" class="ou-number__btn" aria-label="Меньше">−</button>
+                      <input class="ou-number__input" value="10" aria-label="Количество вопросов из темы Финансы" />
+                      <button type="button" class="ou-number__btn" aria-label="Больше">+</button>
+                    </span>
+                  </span>
+                  <span class="tb-draw-count-row__max">из 80</span>
+                </div>
+                <p class="wf-hint wf-mt-3">Каждое задание темы увидят около 13% участников.</p>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ════════════════ экспорт пакета: то же предупреждение ════════════════ -->
+    <div id="wf-export-warn" class="wf-state">
+      <div class="ou-shell">
+        <main class="ou-shell__main">
+          <div class="wf-cards">
+            <section class="ou-card ou-card--outlined">
+              <header class="ou-card__header">
+                <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-download" /></svg></span>
+                <div class="ou-card__heading"><h3 class="ou-card__title">Экспорт в SCORM</h3></div>
+              </header>
+              <div class="ou-card__body">
+                <p class="wf-q__prompt">Сертификация руководителей · 3 темы · 30 вопросов в тест</p>
+
+                <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                  <div class="ou-banner__body">
+                    <p class="ou-banner__title">Финансы: каждое задание увидят около 80% участников</p>
+                    <p class="ou-banner__desc">Пакет собирается с нынешним составом банка. Экспорт не блокируется.</p>
+                  </div>
+                </div>
+
+                <div class="wf-card-foot wf-mt-4" style="display: flex; justify-content: flex-end; gap: var(--ou-space-2);">
+                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
+                  <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Собрать пакет</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ════════════════ Пояснения ════════════════ -->
+    <div id="wf-docs" class="wf-state">
+      <div class="ou-shell">
+        <main class="ou-shell__main wf-doc">
+          <section class="wf-notes">
+            <h3 class="wf-notes-title">Пояснения — Wireframe</h3>
+            <table>
+              <thead><tr><th>Элемент</th><th>Поле API / условие</th><th>Примечание</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Вторая величина в карточке задания</td>
+                  <td><code>exposurePercent</code> = выдач / попыток теста за окно</td>
+                  <td>FR-31. Стоит рядом с долей верных, потому что читается парой: «трудное и заезженное» и «трудное, но свежее» — разные диагнозы</td>
+                </tr>
+                <tr>
+                  <td>Подпись «выдано N из M»</td>
+                  <td><code>deliveredCount</code> / <code>attemptsInWindow</code></td>
+                  <td>Абсолютные числа обязательны: 80% при пяти попытках и при пятистах — разные утверждения</td>
+                </tr>
+                <tr>
+                  <td>Тон величины</td>
+                  <td>&ge; 70% — warning, иначе muted</td>
+                  <td>Порог показывает выработку банка, а не ошибку: красного тона здесь нет, потому что это не дефект задания</td>
+                </tr>
+                <tr>
+                  <td>Тег «ещё в N тестах»</td>
+                  <td><code>otherTestsCount &gt; 0</code></td>
+                  <td>FR-32. Без него задание, растиражированное соседним тестом, выглядит редким</td>
+                </tr>
+                <tr>
+                  <td>Строка «всего N показов»</td>
+                  <td><code>globalDeliveredCount</code></td>
+                  <td>Показывается только вместе с тегом: именно это число, а не долю по тесту, берёт вес выдачи</td>
+                </tr>
+                <tr>
+                  <td>Прочерк вместо процента</td>
+                  <td>счётчик пуст (пакет старее 2026-09-12 либо данных ещё нет)</td>
+                  <td>«Не учтено» и «ноль показов» — разные вещи, и ноль здесь был бы ложью</td>
+                </tr>
+                <tr>
+                  <td>Предупреждение под «Вопросов в тест»</td>
+                  <td>ожидаемая экспозиция = drawCount / poolSize &ge; 70%</td>
+                  <td>FR-33. Данных НЕ требует — считается из настроек, поэтому работает и на пустом тесте</td>
+                </tr>
+                <tr>
+                  <td>Подсказка вместо баннера</td>
+                  <td>ожидаемая экспозиция &lt; 70%</td>
+                  <td>Величина полезна всегда, тревога — нет: ниже порога это строка подсказки, а не баннер</td>
+                </tr>
+                <tr>
+                  <td>Баннер в окне экспорта</td>
+                  <td>та же величина по худшей теме теста</td>
+                  <td>FR-33. Экспорт НЕ блокируется: это предупреждение, а не гейт</td>
+                </tr>
+                <tr>
+                  <td>Экрана настройки поправки нет</td>
+                  <td>—</td>
+                  <td>Решение владельца: контроль экспозиции защищает банк и переключателя не имеет. Показываем только факты</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="wf-mapping wf-mt-4">
+            <h2 class="wf-mapping-title">DS Mapping</h2>
+            <table>
+              <thead><tr><th>Элемент</th><th>DS-компонент</th><th>Токены</th><th>Примечания</th></tr></thead>
+              <tbody>
+                <tr><td>Карточка панели</td><td><code>ou-card ou-card--outlined</code></td><td><code>--ou-radius-l</code>, <code>--ou-space-3</code></td><td>Существующая композиция экрана, не меняется</td></tr>
+                <tr><td>Теги темы и сложности</td><td><code>ou-tag ou-tag--outline ou-tag--s</code></td><td><code>--ou-space-2</code></td><td>As-is с текущего экрана</td></tr>
+                <tr><td>Тег «ещё в N тестах»</td><td><code>ou-tag ou-tag--info ou-tag--s</code></td><td><code>--ou-info-default</code></td><td>Тот же компонент, тон info</td></tr>
+                <tr><td>Полоса доли верных</td><td><code>ou-progress</code></td><td><code>--ou-success-default</code></td><td>Существующая, второй полосы под экспозицию НЕ добавляется</td></tr>
+                <tr><td>Предупреждение выдачи</td><td><code>ou-banner ou-banner--warning ou-banner--subtle</code></td><td><code>--ou-space-3</code></td><td>Тот же баннер, что у прочих предупреждений редактора</td></tr>
+                <tr><td>Подсказка под полем</td><td><code>Text variant="body-s" tone="muted"</code></td><td><code>--ou-fg-muted</code>, <code>--ou-text-body-s</code></td><td>В коде — DS-компонент Text; в эскизе его рисует <code>wf-hint</code></td></tr>
+                <tr><td>Поле «Вопросов в тест»</td><td><code>ou-number ou-number--s</code> + <code>tb-draw-count-row</code></td><td>—</td><td>Существующая строка, дельта — только баннер под ней</td></tr>
+                <tr><td>Две величины справа</td><td><code>custom</code> — <code>wf-q__nums</code></td><td><code>--ou-text-heading-s</code>, <code>--ou-space-5</code></td><td>Композиция из существующих Text/Stack: в коде это <code>Stack</code> + <code>Text</code>, своего CSS не появится</td></tr>
+              </tbody>
+            </table>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script>
+      /**
+       * Начальное состояние из адреса: `?state=draw-warn`, `?state=docs`, `?theme=dark`.
+       * Так состояние снимается скриншотом напрямую, без кликов по переключателю.
+       */
+      window.addEventListener('DOMContentLoaded', () => {
+        const want = new URLSearchParams(location.search).get('state');
+        if (want) {
+          // Подсветку переключателя двигаем тоже: иначе снимок показывает одно состояние, а
+          // выделенной остаётся кнопка другого, и смотрящий сверяет не то.
+          var btn = [...document.querySelectorAll('.wf-nav button')]
+            .find((b) => (b.getAttribute('onclick') || '').includes("'" + want + "'")) || null;
+          showState(btn, want);
+        }
+        if (new URLSearchParams(location.search).get('theme') === 'dark') toggleTheme(null);
+      });
+
+      window.showState = function showState(btn, id) {
+        var target = document.getElementById('wf-' + id) || document.getElementById(id);
+        document.querySelectorAll('.wf-state').forEach(function (el) { el.classList.toggle('active', el === target); });
+        document.querySelectorAll('.wf-nav button[onclick*="State"]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      };
+      window.toggleTheme = function toggleTheme(btn) {
+        var dark = document.body.classList.toggle('ou--dark');
+        document.body.classList.toggle('ou--light', !dark);
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.classList.toggle('light', !dark);
+        if (btn) { btn.textContent = dark ? 'Light' : 'Dark'; btn.classList.toggle('active', dark); }
+      };
+      window.toggleDensity = function toggleDensity(btn) {
+        var compact = document.body.classList.toggle('ou--compact');
+        document.body.classList.toggle('ou--normal', !compact);
+        btn.textContent = compact ? 'Normal' : 'Compact';
+        btn.classList.toggle('active', compact);
+      };
+      window.toggleAnnots = function toggleAnnots(btn) {
+        var on = document.body.classList.toggle('wf-annots-on');
+        if (btn) btn.classList.toggle('active', on);
+      };
+    </script>
+  </body>
+</html>
