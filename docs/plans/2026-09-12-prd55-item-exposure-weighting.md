@@ -1457,13 +1457,156 @@ git commit -m "docs(prd-55): состояние трека после этапо
 
 ## Этап Э4. Показ автору
 
-**Не начинать до согласования эскизов.** В проекте интерфейс проектируется эскизами до React, и
-спецификация (FR-34) задаёт только состав величин: экспозиция задания в аналитике теста (доля
-попыток теста, за окно, рядом с числом наблюдений), пометка задания, выдававшегося и в других
-тестах (FR-32), и предупреждение об ожидаемой экспозиции при настройке выдачи и при сборке пакета
-(FR-33).
+Эскиз [prd55-item-exposure.html](../wireframes/prd55-item-exposure.html) СОГЛАСОВАН 2026-09-12
+(восемь состояний, проверен в браузере в обеих темах). Реализация идёт по нему; отступление от
+эскиза — повод вернуться к нему, а не править на ходу.
 
-Порядок работ: эскиз -> согласование -> план на Э4 -> реализация -> приёмка в браузере.
+Что показывается, по эскизу и FR-31 - FR-34:
+
+- в карточке задания (аналитика теста → «Вопросы») ДВЕ новые величины рядом с долей верных:
+  экспозиция «81% · выдано 46 из 57» и медиана времени «1:24 · по 31 ответу»;
+- у задания, выдававшегося и в других тестах, — тег «ещё в N тестах» и строка «всего N показов»;
+- пустой счётчик и отсутствие измерений времени дают ПРОЧЕРК, а не ноль;
+- в редакторе под «Вопросов в тест» — баннер ожидаемой экспозиции: `warning` при доле ≥ 70%,
+  `info` ниже неё; в свёрнутой теме та же величина хвостом сводки;
+- в окне экспорта — баннер по худшей теме, экспорт не блокируется.
+
+### Задача 16. Экспозиция и время в ответе аналитики теста
+
+**Файлы:**
+
+- Изменить: `server/routes/analytics/test-details.ts`
+- Создать: `tests/routes.analytics-question-exposure.test.ts`
+
+- [ ] **Шаг 1. Написать падающий тест**
+
+Тест поднимает маршрут по образцу `tests/routes.scorm-telemetry-analytics.test.ts` и проверяет, что
+каждый элемент `questionStats` несёт:
+
+```ts
+expect(q).toMatchObject({
+  exposureCount: 46,          // выдач задания в этом тесте за окно
+  exposurePercent: 81,        // доля от попыток теста за окно
+  globalExposureCount: 318,   // выдач по всем тестам — именно его берёт вес
+  otherTestsCount: 2,         // в скольких ДРУГИХ тестах задание выдавалось
+  latencyMedianMs: 84000,     // медиана времени
+  latencySampleSize: 31,      // СВОЙ объём выборки: веб времени не даёт
+});
+```
+
+Отдельными случаями: счётчик пуст → `exposureCount: 0`, `exposurePercent: null` (не ноль);
+измерений времени нет → `latencyMedianMs: null`, `latencySampleSize: 0`.
+
+- [ ] **Шаг 2. Убедиться, что тест падает**
+
+Выполнить: `npm test -- tests/routes.analytics-question-exposure.test.ts`
+Ожидается: FAIL — полей нет.
+
+- [ ] **Шаг 3. Добавить чтение счётчика и медианы**
+
+В `server/routes/analytics/test-details.ts`, рядом со сборкой `questionStats`:
+
+```ts
+// PRD-55 (FR-31/FR-31a): экспозиция и время на задание. Счётчик читается ОДНИМ запросом на
+// весь тест, медиана — из строк телеметрии и импорта: веб времени не измеряет вовсе, поэтому
+// у неё СВОЙ объём выборки, и он уезжает рядом с величиной.
+const windowStart = new Date();
+windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
+const questionIds = [...questionStatsMap.keys()];
+const exposureByTest = await storage.getDeliveryCountsForTest(questionIds, testId, windowStart);
+const exposureGlobal = await storage.getDeliveryCounts(questionIds, windowStart);
+const latency = await storage.getLatencyStats(questionIds, testId, windowStart);
+```
+
+`getDeliveryCounts` уже есть (Э1). Дописываются два метода репозитория экспозиции:
+`getDeliveryCountsForTest` (та же сумма, но с фильтром `test_id`) и `getLatencyStats`
+(медиана и число измерений по `scorm_answers.latency_ms`, `percentile_cont(0.5)`).
+
+`exposurePercent` считается от числа попыток теста за окно; при нулевом знаменателе — `null`.
+`otherTestsCount` — число РАЗЛИЧНЫХ `test_id` в счётчике задания, кроме текущего.
+
+- [ ] **Шаг 4. Прогнать тест**
+
+Выполнить: `npm test -- tests/routes.analytics-question-exposure.test.ts`
+Ожидается: PASS.
+
+- [ ] **Шаг 5. Коммит**
+
+```bash
+git add server/routes/analytics/test-details.ts server/storage/exposure-repository.ts server/storage.ts tests/routes.analytics-question-exposure.test.ts
+git commit -m "feat(prd-55): аналитика теста отдаёт экспозицию и время задания"
+```
+
+### Задача 17. Две величины в карточке задания
+
+**Файлы:**
+
+- Изменить: `client/src/pages/author/test-analytics.tsx` (панель «Вопросы», около строки 936)
+- Создать: `client/src/pages/author/__tests__/question-exposure-cell.test.tsx`
+
+- [ ] **Шаг 1. Написать падающий тест**
+
+Тест рендерит панель с фикстурой `questionStats` и проверяет: обе величины показаны, у времени
+подписан объём выборки, пустые значения дают «—», тег «ещё в 2 тестах» появляется только при
+`otherTestsCount > 0`.
+
+- [ ] **Шаг 2. Убедиться, что тест падает**
+
+Выполнить: `npm test -- client/src/pages/author/__tests__/question-exposure-cell.test.tsx`
+
+- [ ] **Шаг 3. Добавить величины по эскизу**
+
+Правый блок карточки становится `Cluster` из трёх `Stack` — доля верных (как было), экспозиция,
+медиана времени. Своего CSS не добавляется: только DS-компоненты `Cluster`/`Stack`/`Text`/`Tag`.
+Тон экспозиции: `warning` при `exposurePercent >= 70`, иначе `muted`.
+
+- [ ] **Шаг 4. Прогнать тест**
+
+Ожидается: PASS.
+
+- [ ] **Шаг 5. Коммит**
+
+### Задача 18. Баннер ожидаемой экспозиции в редакторе
+
+**Файлы:**
+
+- Изменить: `client/src/features/tests/editor/sections/topics-structure-section.tsx`
+- Создать: `shared/draw/expected-exposure.ts` (+ тесты)
+
+- [ ] **Шаг 1. Написать падающий тест чистой функции**
+
+```ts
+import { expectedExposure } from "@shared/draw/expected-exposure";
+
+expect(expectedExposure({ drawCount: 20, poolSize: 25 })).toEqual({ percent: 80, tone: "warning" });
+expect(expectedExposure({ drawCount: 10, poolSize: 80 })).toEqual({ percent: 13, tone: "info" });
+expect(expectedExposure({ drawCount: 12, poolSize: 12 })).toEqual({ percent: 100, tone: "warning" });
+expect(expectedExposure({ drawCount: 5, poolSize: 0 })).toBeNull();
+```
+
+Величина НЕ требует накопленных данных — она следует из настроек, поэтому живёт чистой функцией
+и одинаково считается в редакторе, в сводке свёрнутой темы и в окне экспорта.
+
+- [ ] **Шаг 2-4. Реализовать и подключить**
+
+Баннер `Banner` ui-kit под строкой «Вопросов в тест», тон из функции; в свёрнутой теме — хвост
+сводки «· увидят N%», подкрашенный при `tone === "warning"`.
+
+- [ ] **Шаг 5. Коммит**
+
+### Задача 19. Баннер в окне экспорта
+
+**Файлы:**
+
+- Изменить: место сборки пакета в интерфейсе (кнопка «Экспорт SCORM» в списке тестов)
+
+Худшая тема теста по той же `expectedExposure`; экспорт не блокируется.
+
+### Задача 20. Приёмка в браузере
+
+ОБЯЗАТЕЛЬНА, потому что этап целиком про интерфейс. Проверяется на dev, по согласованному эскизу:
+карточка задания с тремя величинами и прочерками, тег «ещё в N тестах», баннеры обоих тонов в
+редакторе, хвост сводки у свёрнутой темы, баннер перед сборкой пакета. Отчёт — в `docs/reports/`.
 
 ## Этап Э5. Импорт как источник счётчика
 
