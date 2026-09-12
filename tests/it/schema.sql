@@ -245,6 +245,7 @@ CREATE TABLE "scorm_answers" (
 	"items_json" jsonb,
 	"level_index" integer,
 	"level_name" text,
+	"latency_ms" integer,
 	"answered_at" timestamp NOT NULL
 );
 
