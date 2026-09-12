@@ -117,6 +117,21 @@ router.post("/scorm-telemetry/start", async (req: Request, res: Response) => {
         lastActivityAt: new Date(),
       });
       logger.info(`New attempt created: ${attempt.id} #${attemptNumber} session=${sessionId} pkg=${packageId}`, "scorm");
+
+      // PRD-55 (FR-01/FR-07): единственное место, где сервер узнаёт СОСТАВ выданной формы —
+      // `answer` описывает отвеченное, а экспозиция это показ. Инкремент привязан к СОЗДАНИЮ
+      // прохождения: продолжение той же попытки счётчик не двигает. Пакеты, собранные до
+      // появления поля, его не шлют — по ним экспозиция просто не считается.
+      const deliveredIds: string[] = Array.isArray(data?.deliveredQuestionIds)
+        ? data.deliveredQuestionIds.filter((id: unknown): id is string => typeof id === "string")
+        : [];
+      if (pkg.testId && deliveredIds.length > 0) {
+        try {
+          await storage.recordDeliveries(deliveredIds, pkg.testId, new Date());
+        } catch (error) {
+          logger.warn("PRD-55: выдача заданий не записана — " + (error as Error).message, "scorm");
+        }
+      }
     } else {
       await storage.updateScormAttempt(attempt.id, { lastActivityAt: new Date() });
       logger.info(`Attempt resumed: ${attempt.id} #${attemptNumber} session=${sessionId}`, "scorm");
