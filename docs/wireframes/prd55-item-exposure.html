@@ -18,12 +18,11 @@
         темы и подсказка под «Вопросов в тест». Разметка темы взята из утверждённого эскиза
         approved/prd11-draw-quotas.html, чтобы блок не разошёлся с каноном.
 
-    Состояния (8):
+    Состояния (7):
       аналитика — an-plain (обычный случай), an-multi (задание и в других тестах),
                   an-empty (счётчик пуст);
       редактор  — ed-warn (банк вырабатывается), ed-ok (запас достаточный),
                   ed-collapsed (сводка в свёрнутой теме);
-      экспорт   — export-warn (перед сборкой пакета);
       docs      — пояснения и DS-маппинг.
     -->
     <title>PRD-55 — Экспозиция заданий</title>
@@ -141,7 +140,6 @@
       <button type="button" onclick="showState(this, 'ed-ok')">запас достаточный</button>
       <button type="button" onclick="showState(this, 'ed-collapsed')">темы свёрнуты</button>
       <span class="wf-nav-sep"></span>
-      <button type="button" onclick="showState(this, 'export-warn')">экспорт пакета</button>
       <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
       <span class="wf-nav-sep"></span>
       <button type="button" onclick="toggleTheme(this)">Dark</button>
@@ -1024,38 +1022,6 @@
       </div>
     </div>
 
-    <!-- ════════════════ экспорт пакета ════════════════ -->
-    <div id="wf-export-warn" class="wf-state">
-      <div class="ou-shell">
-        <main class="ou-shell__main">
-          <div class="wf-cards" style="margin: var(--ou-space-6) auto 0;">
-            <section class="ou-card ou-card--outlined">
-              <header class="ou-card__header">
-                <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-download" /></svg></span>
-                <div class="ou-card__heading"><h3 class="ou-card__title">Экспорт в SCORM</h3></div>
-              </header>
-              <div class="ou-card__body">
-                <p class="wf-q__prompt">Сертификация руководителей · 3 темы · 42 вопроса в тест</p>
-
-                <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
-                  <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
-                  <div class="ou-banner__body">
-                    <p class="ou-banner__title">Право и комплаенс: каждое задание увидят все участники</p>
-                    <p class="ou-banner__desc">Выдаются все 12 вопросов банка. Финансы предприятия — около 80%. Экспорт не блокируется.</p>
-                  </div>
-                </div>
-
-                <div class="wf-drawer__foot wf-mt-4" style="border-top: 0; padding: 0;">
-                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
-                  <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Собрать пакет</button>
-                </div>
-              </div>
-            </section>
-          </div>
-        </main>
-      </div>
-    </div>
-
     <!-- ════════════════ Пояснения ════════════════ -->
     <div id="wf-docs" class="wf-state">
       <div class="ou-shell">
@@ -1121,9 +1087,9 @@
                   <td>Данных НЕ требует — считается из настроек, поэтому работает и на пустом тесте. Величина показывается ВСЕГДА: выше порога — баннер warning, ниже — баннер info. Молчащего состояния нет: автор должен видеть цену своей выдачи, а не только тревогу</td>
                 </tr>
                 <tr>
-                  <td>Баннер в окне экспорта</td>
-                  <td>худшая тема теста</td>
-                  <td>FR-33. Экспорт НЕ блокируется: это предупреждение, а не гейт</td>
+                  <td>Предупреждения при экспорте НЕТ</td>
+                  <td>—</td>
+                  <td>FR-33a. Окна экспорта в продукте не существует: «Экспорт SCORM» — прямая ссылка на скачивание. Окно ради предупреждения добавило бы лишний шаг в частую операцию по всем тестам; величина уже показана дважды в редакторе</td>
                 </tr>
                 <tr>
                   <td>Экрана настройки поправки нет</td>
