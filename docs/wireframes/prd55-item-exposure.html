@@ -8,21 +8,22 @@
     Контракт: docs/specs/prd-55/item-exposure-weighting.md, раздел 7 (FR-31 - FR-34).
 
     Поправка на экспозицию работает всегда и настроек не имеет (решение владельца 4):
-    экрана управления ею НЕ существует. Автору показывается только ДВА факта —
-    сколько задание уже показывали и чего ждать от нынешних настроек выдачи.
+    экрана управления ею НЕ существует. Автору показывается ДВА факта — сколько задание уже
+    показывали и чего ждать от нынешних настроек выдачи.
 
-    Две поверхности, обе существующие, дельта минимальна:
-      • аналитика теста → вкладка «Вопросы» (FR-31, FR-32): в карточке задания появляется
-        вторая величина рядом с долей верных ответов;
-      • редактор теста → блок выдачи темы и окно экспорта SCORM (FR-33): предупреждение об
-        ОЖИДАЕМОЙ экспозиции, которое считается из размера банка и объёма выдачи и
-        накопленных данных НЕ требует.
+    Обе поверхности СУЩЕСТВУЮТ, эскиз воспроизводит их целиком, дельта минимальна:
+      • аналитика теста, вкладка «Вопросы» (FR-31, FR-32) — карточка задания идёт во всю
+        ширину области, число прижато вправо; дельта — вторая величина рядом с ним;
+      • редактор теста, ящик → «Состав и сценарий» → тема (FR-33) — дельта в сводке свёрнутой
+        темы и подсказка под «Вопросов в тест». Разметка темы взята из утверждённого эскиза
+        approved/prd11-draw-quotas.html, чтобы блок не разошёлся с каноном.
 
-    Состояния (7):
-      аналитика — questions (обычный случай), questions-multi (задание выдавалось и в
-                  других тестах), questions-empty (данных ещё нет);
-      редактор  — draw-warn (банк вырабатывается), draw-ok (запас достаточный);
-      экспорт   — export-warn (то же предупреждение перед сборкой пакета);
+    Состояния (8):
+      аналитика — an-plain (обычный случай), an-multi (задание и в других тестах),
+                  an-empty (счётчик пуст);
+      редактор  — ed-warn (банк вырабатывается), ed-ok (запас достаточный),
+                  ed-collapsed (сводка в свёрнутой теме);
+      экспорт   — export-warn (перед сборкой пакета);
       docs      — пояснения и DS-маппинг.
     -->
     <title>PRD-55 — Экспозиция заданий</title>
@@ -36,28 +37,52 @@
       .wf-state.active { display: block; }
       .wf-sprite { display: none; }
       .wf-doc { padding: var(--ou-space-6) var(--ou-space-6) var(--ou-space-10); }
-      .wf-cards { display: flex; flex-direction: column; gap: var(--ou-space-5); max-width: var(--wf-size-720, 720px); }
       .wf-mt-3 { margin-top: var(--ou-space-3); }
       .wf-mt-4 { margin-top: var(--ou-space-4); }
-      .wf-page-title { font: var(--ou-text-heading-s); font-weight: 600; color: var(--ou-fg-default); }
-      /* Карточка задания в панели «Вопросы» — композиция существующего экрана. */
+
+      /* ─── Аналитика теста: страница целиком ─────────────────────────────── */
+      .wf-page { padding: var(--ou-space-5) var(--ou-space-6); display: flex; flex-direction: column; gap: var(--ou-space-5); }
+      .wf-page__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ou-space-4); }
+      .wf-page__title { font: var(--ou-text-heading-m); font-weight: 700; color: var(--ou-fg-default); margin: 0; }
+      .wf-page__sub { display: flex; align-items: center; gap: var(--ou-space-2); margin-top: var(--ou-space-1); }
+      .wf-page__acts { display: flex; gap: var(--ou-space-2); }
+      .wf-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--ou-space-4); }
+      .wf-tile__val { font: var(--ou-text-display-s); font-weight: 700; margin: var(--ou-space-1) 0 0; }
+      .wf-tile__sub { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); margin: var(--ou-space-1) 0 0; }
+      /* Карточка задания: во всю ширину панели, число прижато вправо — как на экране. */
       .wf-q { display: flex; flex-direction: column; gap: var(--ou-space-2); padding: var(--ou-space-3); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-l); }
       .wf-q__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ou-space-4); }
-      .wf-q__main { display: flex; flex-direction: column; gap: var(--ou-space-1); flex: 1; }
+      .wf-q__main { display: flex; flex-direction: column; gap: var(--ou-space-1); flex: 1; min-width: 0; }
       .wf-q__tags { display: flex; align-items: center; gap: var(--ou-space-2); flex-wrap: wrap; }
       .wf-q__idx { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
-      .wf-q__prompt { font: var(--ou-text-body-s); color: var(--ou-fg-default); }
-      /* Две величины справа: доля верных (была) и экспозиция (добавляется). */
-      .wf-q__nums { display: flex; align-items: flex-start; gap: var(--ou-space-5); }
-      .wf-q__num { display: flex; flex-direction: column; align-items: flex-end; gap: var(--ou-space-1); min-width: var(--wf-size-88, 88px); }
+      .wf-q__prompt { font: var(--ou-text-body-s); color: var(--ou-fg-default); margin: 0; }
+      .wf-q__nums { display: flex; align-items: flex-start; gap: var(--ou-space-6); }
+      .wf-q__num { display: flex; flex-direction: column; align-items: flex-end; gap: var(--ou-space-1); }
       .wf-q__val { font: var(--ou-text-heading-s); font-weight: 700; font-variant-numeric: tabular-nums; }
       .wf-q__val--ok { color: var(--ou-success-default); }
       .wf-q__val--warn { color: var(--ou-warning-default); }
       .wf-q__val--muted { color: var(--ou-fg-muted); }
       .wf-q__cap { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
       .wf-list { display: flex; flex-direction: column; gap: var(--ou-space-3); }
-      /* Подсказка под полем: в коде это DS-компонент Text (body-s, muted). */
-      .wf-hint { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin: 0; }
+
+      /* ─── Редактор: ящик теста ──────────────────────────────────────────── */
+      .wf-drawer { margin-left: auto; width: min(var(--wf-size-720, 720px), 100%); min-height: calc(100vh - var(--wf-nav-offset, var(--wf-size-52))); background: var(--ou-bg-elevated); border-left: var(--wf-border-w) solid var(--ou-border-soft); display: flex; flex-direction: column; }
+      .wf-drawer__tabs-wrap { padding: 0 var(--ou-space-5); border-bottom: var(--wf-border-w) solid var(--ou-border-soft); }
+      .wf-drawer__head { display: flex; align-items: center; gap: var(--ou-space-3); padding: var(--ou-space-4) var(--ou-space-5); }
+      .wf-drawer__title { font: var(--ou-text-heading-s); font-weight: 700; margin: 0; flex: 1; }
+      .wf-drawer__body { display: flex; gap: var(--ou-space-5); padding: var(--ou-space-5); flex: 1; }
+      .wf-drawer__side { width: var(--wf-size-150, 150px); flex-shrink: 0; display: flex; flex-direction: column; gap: var(--ou-space-2); }
+      .wf-drawer__side-item { font: var(--ou-text-body-s); color: var(--ou-fg-muted); padding: var(--ou-space-2) var(--ou-space-3); border-radius: var(--ou-radius-m); }
+      .wf-drawer__side-item.is-active { background: var(--ou-accent-soft); color: var(--ou-accent-default); font-weight: 600; }
+      .wf-drawer__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .wf-drawer__foot { display: flex; justify-content: flex-end; gap: var(--ou-space-2); padding: var(--ou-space-4) var(--ou-space-5); border-top: var(--wf-border-w) solid var(--ou-border-soft); }
+      .wf-section-title { font: var(--ou-text-heading-s); font-weight: 600; margin: 0; }
+      /* Свич-строка в теле темы — канон approved/prd11-draw-quotas.html. */
+      .wf-toggle-row { display: flex; align-items: center; gap: var(--ou-space-3); margin-top: var(--ou-space-4); }
+      .wf-required { display: inline-flex; align-items: center; gap: var(--ou-space-2); font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+      .wf-hint { display: inline-flex; align-items: center; gap: var(--ou-space-2); font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin: var(--ou-space-2) 0 0; }
+      .wf-hint--warn { color: var(--ou-warning-default); }
+      .wf-cards { display: flex; flex-direction: column; gap: var(--ou-space-5); max-width: var(--wf-size-720, 720px); }
     </style>
 
     <style data-wf-template-overrides>
@@ -76,20 +101,31 @@
     <svg class="wf-sprite" xmlns="http://www.w3.org/2000/svg">
       <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></symbol>
-      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
-      <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></symbol>
+      <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+      <symbol id="i-layout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></symbol>
+      <symbol id="i-import" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
     </svg>
 
     <nav class="wf-nav" aria-label="Wireframe state switcher">
       <span class="wf-nav-title">Аналитика теста:</span>
-      <button type="button" class="active" onclick="showState(this, 'questions')">вопросы</button>
-      <button type="button" onclick="showState(this, 'questions-multi')">задание в других тестах</button>
-      <button type="button" onclick="showState(this, 'questions-empty')">данных нет</button>
+      <button type="button" class="active" onclick="showState(this, 'an-plain')">вопросы</button>
+      <button type="button" onclick="showState(this, 'an-multi')">задание в других тестах</button>
+      <button type="button" onclick="showState(this, 'an-empty')">данных нет</button>
       <span class="wf-nav-sep"></span>
-      <span class="wf-nav-title">Редактор:</span>
-      <button type="button" onclick="showState(this, 'draw-warn')">банк вырабатывается</button>
-      <button type="button" onclick="showState(this, 'draw-ok')">запас достаточный</button>
+      <span class="wf-nav-title">Редактор теста:</span>
+      <button type="button" onclick="showState(this, 'ed-warn')">банк вырабатывается</button>
+      <button type="button" onclick="showState(this, 'ed-ok')">запас достаточный</button>
+      <button type="button" onclick="showState(this, 'ed-collapsed')">темы свёрнуты</button>
       <span class="wf-nav-sep"></span>
       <button type="button" onclick="showState(this, 'export-warn')">экспорт пакета</button>
       <button type="button" onclick="showState(this, 'docs')">Пояснения</button>
@@ -100,10 +136,59 @@
     </nav>
 
     <!-- ════════════════ аналитика теста → вкладка «Вопросы» ════════════════ -->
-    <div id="wf-questions" class="wf-state active">
+    <div id="wf-an-plain" class="wf-state active">
       <div class="ou-shell">
+        <div class="ou-shell__side">
+          <aside class="ou-side">
+            <div class="ou-side__brand">
+              <span class="ou-shell__brand-mark"><svg width="16" height="16"><use href="#i-clipboard" /></svg></span>
+              <span class="font-semibold">Skill'Ум</span>
+            </div>
+            <nav class="ou-side__nav">
+              <div class="ou-side__group">
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-folder" /></svg></span><span class="ou-side__lbl">Темы и вопросы</span></button>
+                <button type="button" class="ou-side__item is-active" aria-current="page"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-clipboard" /></svg></span><span class="ou-side__lbl">Тесты</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-layout" /></svg></span><span class="ou-side__lbl">Шаблоны</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-chart" /></svg></span><span class="ou-side__lbl">Аналитика</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-users" /></svg></span><span class="ou-side__lbl">Пользователи</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-import" /></svg></span><span class="ou-side__lbl">Импорт</span></button>
+              </div>
+            </nav>
+          </aside>
+        </div>
         <main class="ou-shell__main">
-          <div class="wf-cards">
+          <div class="wf-page">
+
+            <div class="wf-page__head">
+              <div>
+                <h1 class="wf-page__title">Сертификация руководителей</h1>
+                <div class="wf-page__sub">
+                  <span class="ou-tag ou-tag--s">Аналитика</span>
+                  <span class="ou-tag ou-tag--outline ou-tag--s">Стандартный</span>
+                </div>
+              </div>
+              <div class="wf-page__acts">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="14" height="14"><use href="#i-upload" /></svg>Загрузить выгрузку LMS</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="14" height="14"><use href="#i-download" /></svg>Экспорт Excel</button>
+              </div>
+            </div>
+
+            <div class="wf-tiles">
+              <section class="ou-card ou-card--outlined"><div class="ou-card__body"><span class="wf-q__cap">Попытки</span><p class="wf-tile__val">57</p><p class="wf-tile__sub">41 уникальный участник</p></div></section>
+              <section class="ou-card ou-card--outlined"><div class="ou-card__body"><span class="wf-q__cap">Средний балл</span><p class="wf-tile__val">68%</p><p class="wf-tile__sub">из 100 возможных</p></div></section>
+              <section class="ou-card ou-card--outlined"><div class="ou-card__body"><span class="wf-q__cap">Прохождение</span><p class="wf-tile__val">72%</p><p class="wf-tile__sub">41 из 57 сдали</p></div></section>
+              <section class="ou-card ou-card--outlined"><div class="ou-card__body"><span class="wf-q__cap">Среднее время</span><p class="wf-tile__val">24:18</p><p class="wf-tile__sub">на прохождение</p></div></section>
+              <section class="ou-card ou-card--outlined"><div class="ou-card__body"><span class="wf-q__cap">Всего</span><p class="wf-tile__val">63</p><p class="wf-tile__sub">6 незавершённых</p></div></section>
+            </div>
+
+            <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+              <div class="ou-tabs__list" role="tablist" aria-label="Разделы аналитики">
+                <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обзор</button>
+                <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Попытки</button>
+                <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Вопросы</button>
+              </div>
+            </nav>
+
             <section class="ou-card ou-card--outlined">
               <header class="ou-card__header">
                 <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-help" /></svg></span>
@@ -117,7 +202,7 @@
                       <div class="wf-q__main">
                         <div class="wf-q__tags">
                           <span class="wf-q__idx">#1</span>
-                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы предприятия</span>
                           <span class="ou-tag ou-tag--s">Сложность: 60</span>
                         </div>
                         <p class="wf-q__prompt">Какой показатель отражает отдачу на вложенный капитал?</p>
@@ -143,7 +228,7 @@
                       <div class="wf-q__main">
                         <div class="wf-q__tags">
                           <span class="wf-q__idx">#2</span>
-                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы предприятия</span>
                           <span class="ou-tag ou-tag--s">Сложность: 40</span>
                         </div>
                         <p class="wf-q__prompt">Что произойдёт с точкой безубыточности при росте постоянных затрат?</p>
@@ -173,10 +258,44 @@
     </div>
 
     <!-- ════════════════ задание выдавалось и в ДРУГИХ тестах (FR-32) ════════════════ -->
-    <div id="wf-questions-multi" class="wf-state">
+    <div id="wf-an-multi" class="wf-state">
       <div class="ou-shell">
+        <div class="ou-shell__side">
+          <aside class="ou-side">
+            <div class="ou-side__brand">
+              <span class="ou-shell__brand-mark"><svg width="16" height="16"><use href="#i-clipboard" /></svg></span>
+              <span class="font-semibold">Skill'Ум</span>
+            </div>
+            <nav class="ou-side__nav">
+              <div class="ou-side__group">
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-folder" /></svg></span><span class="ou-side__lbl">Темы и вопросы</span></button>
+                <button type="button" class="ou-side__item is-active" aria-current="page"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-clipboard" /></svg></span><span class="ou-side__lbl">Тесты</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-layout" /></svg></span><span class="ou-side__lbl">Шаблоны</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-chart" /></svg></span><span class="ou-side__lbl">Аналитика</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-users" /></svg></span><span class="ou-side__lbl">Пользователи</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-import" /></svg></span><span class="ou-side__lbl">Импорт</span></button>
+              </div>
+            </nav>
+          </aside>
+        </div>
         <main class="ou-shell__main">
-          <div class="wf-cards">
+          <div class="wf-page">
+            <div class="wf-page__head">
+              <div>
+                <h1 class="wf-page__title">Сертификация руководителей</h1>
+                <div class="wf-page__sub">
+                  <span class="ou-tag ou-tag--s">Аналитика</span>
+                  <span class="ou-tag ou-tag--outline ou-tag--s">Стандартный</span>
+                </div>
+              </div>
+            </div>
+            <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+              <div class="ou-tabs__list" role="tablist" aria-label="Разделы аналитики">
+                <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обзор</button>
+                <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Попытки</button>
+                <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Вопросы</button>
+              </div>
+            </nav>
             <section class="ou-card ou-card--outlined">
               <header class="ou-card__header">
                 <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-help" /></svg></span>
@@ -189,12 +308,9 @@
                       <div class="wf-q__main">
                         <div class="wf-q__tags">
                           <span class="wf-q__idx">#1</span>
-                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы предприятия</span>
                           <span class="ou-tag ou-tag--s">Сложность: 60</span>
-                          <span class="ou-tag ou-tag--info ou-tag--s">
-                            <svg aria-hidden="true"><use href="#i-layers" /></svg>
-                            ещё в 2 тестах
-                          </span>
+                          <span class="ou-tag ou-tag--info ou-tag--s"><svg aria-hidden="true"><use href="#i-layers" /></svg>ещё в 2 тестах</span>
                         </div>
                         <p class="wf-q__prompt">Какой показатель отражает отдачу на вложенный капитал?</p>
                       </div>
@@ -222,11 +338,45 @@
       </div>
     </div>
 
-    <!-- ════════════════ данных ещё нет ════════════════ -->
-    <div id="wf-questions-empty" class="wf-state">
+    <!-- ════════════════ счётчик пуст ════════════════ -->
+    <div id="wf-an-empty" class="wf-state">
       <div class="ou-shell">
+        <div class="ou-shell__side">
+          <aside class="ou-side">
+            <div class="ou-side__brand">
+              <span class="ou-shell__brand-mark"><svg width="16" height="16"><use href="#i-clipboard" /></svg></span>
+              <span class="font-semibold">Skill'Ум</span>
+            </div>
+            <nav class="ou-side__nav">
+              <div class="ou-side__group">
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-folder" /></svg></span><span class="ou-side__lbl">Темы и вопросы</span></button>
+                <button type="button" class="ou-side__item is-active" aria-current="page"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-clipboard" /></svg></span><span class="ou-side__lbl">Тесты</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-layout" /></svg></span><span class="ou-side__lbl">Шаблоны</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-chart" /></svg></span><span class="ou-side__lbl">Аналитика</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-users" /></svg></span><span class="ou-side__lbl">Пользователи</span></button>
+                <button type="button" class="ou-side__item"><span class="ou-side__ico"><svg width="16" height="16"><use href="#i-import" /></svg></span><span class="ou-side__lbl">Импорт</span></button>
+              </div>
+            </nav>
+          </aside>
+        </div>
         <main class="ou-shell__main">
-          <div class="wf-cards">
+          <div class="wf-page">
+            <div class="wf-page__head">
+              <div>
+                <h1 class="wf-page__title">Сертификация руководителей</h1>
+                <div class="wf-page__sub">
+                  <span class="ou-tag ou-tag--s">Аналитика</span>
+                  <span class="ou-tag ou-tag--outline ou-tag--s">Стандартный</span>
+                </div>
+              </div>
+            </div>
+            <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+              <div class="ou-tabs__list" role="tablist" aria-label="Разделы аналитики">
+                <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обзор</button>
+                <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Попытки</button>
+                <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Вопросы</button>
+              </div>
+            </nav>
             <section class="ou-card ou-card--outlined">
               <header class="ou-card__header">
                 <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-help" /></svg></span>
@@ -239,7 +389,7 @@
                       <div class="wf-q__main">
                         <div class="wf-q__tags">
                           <span class="wf-q__idx">#1</span>
-                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы</span>
+                          <span class="ou-tag ou-tag--outline ou-tag--s">Финансы предприятия</span>
                           <span class="ou-tag ou-tag--s">Сложность: 60</span>
                         </div>
                         <p class="wf-q__prompt">Какой показатель отражает отдачу на вложенный капитал?</p>
@@ -267,101 +417,226 @@
       </div>
     </div>
 
-    <!-- ════════════════ редактор: банк вырабатывается ════════════════ -->
-    <div id="wf-draw-warn" class="wf-state">
-      <div class="ou-shell">
-        <main class="ou-shell__main">
-          <div class="wf-cards">
-            <section class="ou-card ou-card--outlined">
-              <header class="ou-card__header"><div class="ou-card__heading">
-                <h3 class="ou-card__title">Финансы</h3>
-              </div></header>
-              <div class="ou-card__body">
-                <label class="tb-draw-all-row">
-                  <span class="ou-switch ou-switch--s"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
-                  <span class="tb-draw-all-row__lbl">Все вопросы темы</span>
+    <!-- ════════════════ редактор: тема развёрнута, банк вырабатывается ════════════════ -->
+    <div id="wf-ed-warn" class="wf-state">
+      <div class="wf-drawer">
+        <div class="wf-drawer__head">
+          <h2 class="wf-drawer__title">Сертификация руководителей</h2>
+          <span class="ou-tag ou-tag--outline ou-tag--s">Черновик</span>
+          <span class="ou-tag ou-tag--s">v5</span>
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Закрыть"><svg width="14" height="14"><use href="#i-x" /></svg></button>
+        </div>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора теста">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Основное</button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Состав и сценарий</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Правила прохождения</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оценка результата</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обратная связь и итоги</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+            </div>
+          </nav>
+        <div class="wf-drawer__body">
+          <div class="wf-drawer__side">
+            <span class="wf-drawer__side-item is-active">Состав</span>
+            <span class="wf-drawer__side-item">Сценарий</span>
+          </div>
+          <div class="wf-drawer__main">
+            <h3 class="wf-section-title">Темы теста</h3>
+
+            <div class="tb-topic-row">
+              <div class="tb-topic-row__header">
+                <span class="tb-topic-row__name">1. Финансы предприятия</span>
+                <span class="tb-topic-row__count">25 вопросов в банке · выдаётся 20</span>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Убрать тему"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Свернуть тему"><svg width="14" height="14"><use href="#i-chevron-up" /></svg></button>
+              </div>
+              <div class="tb-topic-row__body">
+                <label class="wf-required">
+                  <span class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Тема обязательная" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  Обязательная
                 </label>
-                <div class="tb-draw-count-row">
-                  <span class="tb-draw-count-row__label">Вопросов в тест</span>
-                  <span class="ou-number ou-number--s">
-                    <span class="ou-number__box">
-                      <button type="button" class="ou-number__btn" aria-label="Меньше">−</button>
-                      <input class="ou-number__input" value="20" aria-label="Количество вопросов из темы Финансы" />
-                      <button type="button" class="ou-number__btn" aria-label="Больше">+</button>
-                    </span>
-                  </span>
-                  <span class="tb-draw-count-row__max">из 25</span>
+
+                <div class="wf-toggle-row">
+                  <label class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" aria-label="Все вопросы темы" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                  <span class="wf-required">Все вопросы темы</span>
                 </div>
 
-                <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
-                  <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
-                  <div class="ou-banner__body">
-                    <p class="ou-banner__title">Каждое задание темы увидят около 80% участников</p>
-                    <p class="ou-banner__desc">Выдача 20 из 25: банк вырабатывается за один поток. Добавьте вопросов в тему или уменьшите выдачу.</p>
-                  </div>
+                <div class="tb-draw-count-row wf-mt-3">
+                  <span class="tb-draw-count-row__label">Вопросов в тест</span>
+                  <div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="20" aria-label="Вопросов в тест из темы Финансы предприятия" /></div></div>
+                  <span class="tb-draw-count-row__max">из 25</span>
+                </div>
+                <p class="wf-hint wf-hint--warn">
+                  <svg width="14" height="14" aria-hidden="true"><use href="#i-alert" /></svg>
+                  Каждое задание темы увидят около 80% участников — банк вырабатывается за один поток
+                </p>
+
+                <div class="wf-toggle-row">
+                  <label class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" aria-label="Квоты по подтемам" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                  <span class="wf-required">Квоты по подтемам (тегам)</span>
                 </div>
               </div>
-            </section>
+            </div>
           </div>
-        </main>
+        </div>
+        <div class="wf-drawer__foot">
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+        </div>
       </div>
     </div>
 
     <!-- ════════════════ редактор: запас достаточный ════════════════ -->
-    <div id="wf-draw-ok" class="wf-state">
-      <div class="ou-shell">
-        <main class="ou-shell__main">
-          <div class="wf-cards">
-            <section class="ou-card ou-card--outlined">
-              <header class="ou-card__header"><div class="ou-card__heading">
-                <h3 class="ou-card__title">Финансы</h3>
-              </div></header>
-              <div class="ou-card__body">
-                <label class="tb-draw-all-row">
-                  <span class="ou-switch ou-switch--s"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
-                  <span class="tb-draw-all-row__lbl">Все вопросы темы</span>
+    <div id="wf-ed-ok" class="wf-state">
+      <div class="wf-drawer">
+        <div class="wf-drawer__head">
+          <h2 class="wf-drawer__title">Сертификация руководителей</h2>
+          <span class="ou-tag ou-tag--outline ou-tag--s">Черновик</span>
+          <span class="ou-tag ou-tag--s">v5</span>
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Закрыть"><svg width="14" height="14"><use href="#i-x" /></svg></button>
+        </div>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора теста">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Основное</button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Состав и сценарий</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Правила прохождения</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оценка результата</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обратная связь и итоги</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+            </div>
+          </nav>
+        <div class="wf-drawer__body">
+          <div class="wf-drawer__side">
+            <span class="wf-drawer__side-item is-active">Состав</span>
+            <span class="wf-drawer__side-item">Сценарий</span>
+          </div>
+          <div class="wf-drawer__main">
+            <h3 class="wf-section-title">Темы теста</h3>
+            <div class="tb-topic-row">
+              <div class="tb-topic-row__header">
+                <span class="tb-topic-row__name">2. Управление командой</span>
+                <span class="tb-topic-row__count">80 вопросов в банке · выдаётся 10</span>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Убрать тему"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Свернуть тему"><svg width="14" height="14"><use href="#i-chevron-up" /></svg></button>
+              </div>
+              <div class="tb-topic-row__body">
+                <label class="wf-required">
+                  <span class="ou-switch ou-switch--m is-on"><input class="ou-switch__input" type="checkbox" checked aria-label="Тема обязательная" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  Обязательная
                 </label>
-                <div class="tb-draw-count-row">
+
+                <div class="wf-toggle-row">
+                  <label class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" aria-label="Все вопросы темы" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                  <span class="wf-required">Все вопросы темы</span>
+                </div>
+
+                <div class="tb-draw-count-row wf-mt-3">
                   <span class="tb-draw-count-row__label">Вопросов в тест</span>
-                  <span class="ou-number ou-number--s">
-                    <span class="ou-number__box">
-                      <button type="button" class="ou-number__btn" aria-label="Меньше">−</button>
-                      <input class="ou-number__input" value="10" aria-label="Количество вопросов из темы Финансы" />
-                      <button type="button" class="ou-number__btn" aria-label="Больше">+</button>
-                    </span>
-                  </span>
+                  <div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="10" aria-label="Вопросов в тест из темы Управление командой" /></div></div>
                   <span class="tb-draw-count-row__max">из 80</span>
                 </div>
-                <p class="wf-hint wf-mt-3">Каждое задание темы увидят около 13% участников.</p>
+                <p class="wf-hint">Каждое задание темы увидят около 13% участников</p>
+
+                <div class="wf-toggle-row">
+                  <label class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" aria-label="Квоты по подтемам" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
+                  <span class="wf-required">Квоты по подтемам (тегам)</span>
+                </div>
               </div>
-            </section>
+            </div>
           </div>
-        </main>
+        </div>
+        <div class="wf-drawer__foot">
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+        </div>
       </div>
     </div>
 
-    <!-- ════════════════ экспорт пакета: то же предупреждение ════════════════ -->
+    <!-- ════════════════ редактор: темы свёрнуты — дельта в сводке ════════════════ -->
+    <div id="wf-ed-collapsed" class="wf-state">
+      <div class="wf-drawer">
+        <div class="wf-drawer__head">
+          <h2 class="wf-drawer__title">Сертификация руководителей</h2>
+          <span class="ou-tag ou-tag--outline ou-tag--s">Черновик</span>
+          <span class="ou-tag ou-tag--s">v5</span>
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Закрыть"><svg width="14" height="14"><use href="#i-x" /></svg></button>
+        </div>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора теста">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Основное</button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Состав и сценарий</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Правила прохождения</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оценка результата</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обратная связь и итоги</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+            </div>
+          </nav>
+        <div class="wf-drawer__body">
+          <div class="wf-drawer__side">
+            <span class="wf-drawer__side-item is-active">Состав</span>
+            <span class="wf-drawer__side-item">Сценарий</span>
+          </div>
+          <div class="wf-drawer__main">
+            <h3 class="wf-section-title">Темы теста</h3>
+
+            <div class="tb-topic-row">
+              <div class="tb-topic-row__header">
+                <span class="tb-topic-row__name">1. Финансы предприятия</span>
+                <span class="tb-topic-row__count">25 вопросов в банке · выдаётся 20 · <span class="wf-hint--warn">увидят 80%</span></span>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Убрать тему"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Развернуть тему"><svg width="14" height="14"><use href="#i-chevron-down" /></svg></button>
+              </div>
+            </div>
+
+            <div class="tb-topic-row">
+              <div class="tb-topic-row__header">
+                <span class="tb-topic-row__name">2. Управление командой</span>
+                <span class="tb-topic-row__count">80 вопросов в банке · выдаётся 10 · увидят 13%</span>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Убрать тему"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Развернуть тему"><svg width="14" height="14"><use href="#i-chevron-down" /></svg></button>
+              </div>
+            </div>
+
+            <div class="tb-topic-row">
+              <div class="tb-topic-row__header">
+                <span class="tb-topic-row__name">3. Право и комплаенс</span>
+                <span class="tb-topic-row__count">12 вопросов в банке · выдаётся 12 · <span class="wf-hint--warn">увидят 100%</span></span>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Убрать тему"><svg width="14" height="14"><use href="#i-trash" /></svg></button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Развернуть тему"><svg width="14" height="14"><use href="#i-chevron-down" /></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="wf-drawer__foot">
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ экспорт пакета ════════════════ -->
     <div id="wf-export-warn" class="wf-state">
       <div class="ou-shell">
         <main class="ou-shell__main">
-          <div class="wf-cards">
+          <div class="wf-cards" style="margin: var(--ou-space-6) auto 0;">
             <section class="ou-card ou-card--outlined">
               <header class="ou-card__header">
                 <span class="ou-card__lead" aria-hidden="true"><svg width="20" height="20"><use href="#i-download" /></svg></span>
                 <div class="ou-card__heading"><h3 class="ou-card__title">Экспорт в SCORM</h3></div>
               </header>
               <div class="ou-card__body">
-                <p class="wf-q__prompt">Сертификация руководителей · 3 темы · 30 вопросов в тест</p>
+                <p class="wf-q__prompt">Сертификация руководителей · 3 темы · 42 вопроса в тест</p>
 
                 <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
                   <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
                   <div class="ou-banner__body">
-                    <p class="ou-banner__title">Финансы: каждое задание увидят около 80% участников</p>
-                    <p class="ou-banner__desc">Пакет собирается с нынешним составом банка. Экспорт не блокируется.</p>
+                    <p class="ou-banner__title">Право и комплаенс: каждое задание увидят все участники</p>
+                    <p class="ou-banner__desc">Выдаются все 12 вопросов банка. Финансы предприятия — около 80%. Экспорт не блокируется.</p>
                   </div>
                 </div>
 
-                <div class="wf-card-foot wf-mt-4" style="display: flex; justify-content: flex-end; gap: var(--ou-space-2);">
+                <div class="wf-drawer__foot wf-mt-4" style="border-top: 0; padding: 0;">
                   <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
                   <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Собрать пакет</button>
                 </div>
@@ -384,7 +659,7 @@
                 <tr>
                   <td>Вторая величина в карточке задания</td>
                   <td><code>exposurePercent</code> = выдач / попыток теста за окно</td>
-                  <td>FR-31. Стоит рядом с долей верных, потому что читается парой: «трудное и заезженное» и «трудное, но свежее» — разные диагнозы</td>
+                  <td>FR-31. Встаёт рядом с существующей долей верных, в тот же правый край. Пара читается как диагноз: «трудное и заезженное» и «трудное, но свежее» требуют разных действий</td>
                 </tr>
                 <tr>
                   <td>Подпись «выдано N из M»</td>
@@ -394,7 +669,7 @@
                 <tr>
                   <td>Тон величины</td>
                   <td>&ge; 70% — warning, иначе muted</td>
-                  <td>Порог показывает выработку банка, а не ошибку: красного тона здесь нет, потому что это не дефект задания</td>
+                  <td>Порог показывает выработку банка, а не дефект задания, поэтому красного тона здесь нет</td>
                 </tr>
                 <tr>
                   <td>Тег «ещё в N тестах»</td>
@@ -412,18 +687,18 @@
                   <td>«Не учтено» и «ноль показов» — разные вещи, и ноль здесь был бы ложью</td>
                 </tr>
                 <tr>
-                  <td>Предупреждение под «Вопросов в тест»</td>
-                  <td>ожидаемая экспозиция = drawCount / poolSize &ge; 70%</td>
-                  <td>FR-33. Данных НЕ требует — считается из настроек, поэтому работает и на пустом тесте</td>
+                  <td>Хвост сводки свёрнутой темы</td>
+                  <td>ожидаемая экспозиция = drawCount / poolSize</td>
+                  <td>FR-33. Сводка «N вопросов в банке · выдаётся M» уже существует — дельта в один хвост, поэтому цифра видна без разворачивания всех тем</td>
                 </tr>
                 <tr>
-                  <td>Подсказка вместо баннера</td>
-                  <td>ожидаемая экспозиция &lt; 70%</td>
-                  <td>Величина полезна всегда, тревога — нет: ниже порога это строка подсказки, а не баннер</td>
+                  <td>Подсказка под «Вопросов в тест»</td>
+                  <td>та же величина, порог &ge; 70%</td>
+                  <td>Данных НЕ требует — считается из настроек, поэтому работает и на пустом тесте. Ниже порога — обычная серая подсказка, как у «Порядок вопросов» рядом</td>
                 </tr>
                 <tr>
                   <td>Баннер в окне экспорта</td>
-                  <td>та же величина по худшей теме теста</td>
+                  <td>худшая тема теста</td>
                   <td>FR-33. Экспорт НЕ блокируется: это предупреждение, а не гейт</td>
                 </tr>
                 <tr>
@@ -440,23 +715,27 @@
             <table>
               <thead><tr><th>Элемент</th><th>DS-компонент</th><th>Токены</th><th>Примечания</th></tr></thead>
               <tbody>
-                <tr><td>Карточка панели</td><td><code>ou-card ou-card--outlined</code></td><td><code>--ou-radius-l</code>, <code>--ou-space-3</code></td><td>Существующая композиция экрана, не меняется</td></tr>
+                <tr><td>Оболочка страницы</td><td><code>ou-shell</code> + <code>ou-nav</code></td><td>—</td><td>Существующий AppShell, не меняется</td></tr>
+                <tr><td>Плитки сводки</td><td><code>ou-card ou-card--outlined</code></td><td><code>--ou-space-4</code></td><td>Существующие, не меняются</td></tr>
+                <tr><td>Вкладки аналитики</td><td><code>ou-tabs</code></td><td>—</td><td>Существующие: Обзор / Попытки / Вопросы</td></tr>
                 <tr><td>Теги темы и сложности</td><td><code>ou-tag ou-tag--outline ou-tag--s</code></td><td><code>--ou-space-2</code></td><td>As-is с текущего экрана</td></tr>
                 <tr><td>Тег «ещё в N тестах»</td><td><code>ou-tag ou-tag--info ou-tag--s</code></td><td><code>--ou-info-default</code></td><td>Тот же компонент, тон info</td></tr>
-                <tr><td>Полоса доли верных</td><td><code>ou-progress</code></td><td><code>--ou-success-default</code></td><td>Существующая, второй полосы под экспозицию НЕ добавляется</td></tr>
-                <tr><td>Предупреждение выдачи</td><td><code>ou-banner ou-banner--warning ou-banner--subtle</code></td><td><code>--ou-space-3</code></td><td>Тот же баннер, что у прочих предупреждений редактора</td></tr>
-                <tr><td>Подсказка под полем</td><td><code>Text variant="body-s" tone="muted"</code></td><td><code>--ou-fg-muted</code>, <code>--ou-text-body-s</code></td><td>В коде — DS-компонент Text; в эскизе его рисует <code>wf-hint</code></td></tr>
-                <tr><td>Поле «Вопросов в тест»</td><td><code>ou-number ou-number--s</code> + <code>tb-draw-count-row</code></td><td>—</td><td>Существующая строка, дельта — только баннер под ней</td></tr>
-                <tr><td>Две величины справа</td><td><code>custom</code> — <code>wf-q__nums</code></td><td><code>--ou-text-heading-s</code>, <code>--ou-space-5</code></td><td>Композиция из существующих Text/Stack: в коде это <code>Stack</code> + <code>Text</code>, своего CSS не появится</td></tr>
+                <tr><td>Полоса доли верных</td><td><code>ou-progress ou-progress--success</code></td><td><code>--ou-success-default</code></td><td>Существующая; второй полосы под экспозицию НЕ добавляется</td></tr>
+                <tr><td>Строка темы в редакторе</td><td><code>tb-topic-row</code></td><td>—</td><td>Канон approved/prd11-draw-quotas.html</td></tr>
+                <tr><td>Поле «Вопросов в тест»</td><td><code>ou-field ou-field--s</code> + <code>tb-draw-count-row</code></td><td>—</td><td>Тот же канон; дельта — только подсказка под строкой</td></tr>
+                <tr><td>Подсказка и предупреждение</td><td><code>Text variant="body-s"</code>, tone muted / warning</td><td><code>--ou-fg-muted</code>, <code>--ou-warning-default</code></td><td>В коде — DS-компонент Text; в эскизе его рисует <code>wf-hint</code></td></tr>
+                <tr><td>Баннер экспорта</td><td><code>ou-banner ou-banner--warning ou-banner--subtle</code></td><td><code>--ou-space-3</code></td><td>Тот же баннер, что у прочих предупреждений</td></tr>
+                <tr><td>Две величины справа</td><td><code>custom</code> — <code>wf-q__nums</code></td><td><code>--ou-text-heading-s</code>, <code>--ou-space-6</code></td><td>В коде это <code>Cluster</code> + <code>Stack</code> + <code>Text</code> ui-kit; своего CSS не появится</td></tr>
               </tbody>
             </table>
           </section>
         </main>
       </div>
     </div>
+
     <script>
       /**
-       * Начальное состояние из адреса: `?state=draw-warn`, `?state=docs`, `?theme=dark`.
+       * Начальное состояние из адреса: `?state=ed-warn`, `?state=docs`, `?theme=dark`.
        * Так состояние снимается скриншотом напрямую, без кликов по переключателю.
        */
       window.addEventListener('DOMContentLoaded', () => {
