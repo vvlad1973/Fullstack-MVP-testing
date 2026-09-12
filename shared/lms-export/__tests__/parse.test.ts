@@ -55,6 +55,19 @@ describe("parseLmsExport", () => {
     expect(row.points).toBe(0);
   });
 
+  it("читает время на задании — это материал анализа пунктов, а не украшение", () => {
+    const sheet = SHEET.map((r) => [...r]);
+    sheet[2][10] = "47";
+    const [row] = parseLmsExport(sheet).rows;
+    expect(row.latencySeconds["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]).toBe(47);
+  });
+
+  it("пустая колонка длительности — это отсутствие измерения, а не ноль", () => {
+    // Пакеты, собранные до измерения времени, шлют пусто: «0 секунд» было бы выдумкой.
+    const [row] = parseLmsExport(SHEET).rows;
+    expect(row.latencySeconds["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]).toBeUndefined();
+  });
+
   it("раскладывает взаимодействия по видам", () => {
     const [row] = parseLmsExport(SHEET).rows;
     expect(row.answers["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]).toBe("0[.]1,1[.]5,2[.]1,3[.]0");
@@ -69,5 +82,38 @@ describe("parseLmsExport", () => {
     const book = parseLmsExport(sheet);
     expect(book.questionIds).toEqual([]);
     expect(book.unknownColumns).toEqual(["topic_abc_level"]);
+  });
+});
+
+describe("версия формата ответов", () => {
+  /** Та же выгрузка плюс служебный блок версии, как его шлёт пакет после выравнивания. */
+  function withVersion(value: string): string[][] {
+    const sheet = SHEET.map((r) => [...r]);
+    sheet[0].push("meta_response_format", "", "", "");
+    sheet[1].push("Тип", "Продолжительность (сек.)", "Результат", "Полученный ответ");
+    sheet[2].push("другое", "", "neutral", value);
+    return sheet;
+  }
+
+  it("версия читается СТРОКОЙ, а не файлом", () => {
+    // В одном отчёте лежат прохождения, собранные разными версиями пакета: колонка общая,
+    // значение — своё у каждого участника.
+    const [row] = parseLmsExport(withVersion("2")).rows;
+    expect(row.responseFormat).toBe(2);
+  });
+
+  it("отсутствие блока версии — это исходный формат", () => {
+    const [row] = parseLmsExport(SHEET).rows;
+    expect(row.responseFormat).toBeNull();
+  });
+
+  it("пустая ячейка версии у старого прохождения — тоже исходный формат", () => {
+    const [row] = parseLmsExport(withVersion("")).rows;
+    expect(row.responseFormat).toBeNull();
+  });
+
+  it("служебный блок версии не попадает в неопознанные колонки", () => {
+    // Иначе импорт предупреждал бы «пакет собран под другой версией теста» на каждой выгрузке.
+    expect(parseLmsExport(withVersion("2")).unknownColumns).toEqual([]);
   });
 });

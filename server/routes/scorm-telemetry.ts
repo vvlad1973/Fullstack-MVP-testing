@@ -186,6 +186,9 @@ router.post("/scorm-telemetry/answer", async (req: Request, res: Response) => {
       itemsJson: data.items || null,
       levelIndex: data.levelIndex ?? null,
       levelName: data.levelName || null,
+      // Время на задании: пакеты, выданные до измерения, поля не шлют вовсе — тогда NULL,
+      // потому что ноль означал бы «ответил мгновенно».
+      latencyMs: typeof data.latencyMs === "number" && data.latencyMs > 0 ? Math.round(data.latencyMs) : null,
       answeredAt: new Date(),
     });
     

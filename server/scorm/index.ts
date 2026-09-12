@@ -274,6 +274,12 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     "app/utils/protection.js",
   ]);
 
+  // Время показа вопроса (`cmi.interactions.n.latency`). Утилита: засечки ставит рендер
+  // вопроса, а читает сборщик взаимодействий, поэтому объявлена до обоих.
+  const questionTimeJs = readOneOf([
+    "app/utils/questionTime.js",
+  ]);
+
   // PRD-36: run-state model + row codec. Must precede every part that reads or writes
   // suspend_data — suspendAttempts and sessionRecovery both call into TBRunState.
   const runStateJs = readOneOf([
@@ -463,6 +469,7 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     trustedNowJs,
     qTypeJs,
     protectionJs,
+    questionTimeJs,
     telemetryJs,
     shuffleJs,
     runStateJs,

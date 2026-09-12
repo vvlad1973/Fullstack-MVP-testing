@@ -431,6 +431,8 @@ var Telemetry = (function() {
         maxPoints: questionData.maxPoints,
         levelIndex: questionData.levelIndex,
         levelName: questionData.levelName,
+        // Время на задании в миллисекундах; null = пакет не измерял (см. TBQuestionTime).
+        latencyMs: questionData.latencyMs != null ? questionData.latencyMs : null,
         // Варианты ответов для отображения в аналитике
         options: questionData.options || null,
         leftItems: questionData.leftItems || null,

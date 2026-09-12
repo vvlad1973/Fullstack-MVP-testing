@@ -54,6 +54,7 @@ export { parseScaleInterpretation, parseIndicatorInterpretation } from "../scale
 // SCORM runtime (resultsPage.js) and the web grader (attempts.ts).
 export { aggregateStandardResult, aggregateAdaptiveResult, adaptiveResultAsStandard } from "../scoring/aggregate";
 export { resolveOverallRule, resolveTopicRule, checkPassRule } from "../scoring/pass-rule";
+export { lmsScoreFor } from "../scoring/lms-score";
 export { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
 export { buildStartState } from "./start-state";
 // PRD-22: the start illustration is a property of the START PAGE, with the branding

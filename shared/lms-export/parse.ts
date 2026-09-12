@@ -9,6 +9,8 @@
  * Идентификатор взаимодействия стоит в первой строке над первой подколонкой блока, во второй
  * строке идут подписи «Тип», «Продолжительность (сек.)», «Результат», «Полученный ответ».
  */
+import { RESPONSE_FORMAT_INTERACTION_ID } from "./response-codec";
+import { parseExportSeconds } from "./duration";
 
 /** Ширина блока одного взаимодействия. */
 const BLOCK = 4;
@@ -16,6 +18,8 @@ const BLOCK = 4;
 const SERVICE = 9;
 /** Подписи подколонок блока — по ним лист и опознаётся. */
 const SUBHEADERS = ["Тип", "Продолжительность (сек.)", "Результат", "Полученный ответ"];
+/** Префикс служебных блоков пакета: не вопрос, не шкала, не показатель. */
+const META_PREFIX = "meta_";
 
 export interface LmsExportRow {
   participantName: string;
@@ -29,12 +33,26 @@ export interface LmsExportRow {
   answers: Record<string, string>;
   /** `q_<uuid>` без префикса -> `correct` | `incorrect` | `neutral`. */
   results: Record<string, string>;
+  /**
+   * `q_<uuid>` без префикса -> время на задании в целых секундах.
+   *
+   * Ключа НЕТ, когда ячейка пуста: пакеты, собранные до измерения времени, шлют пусто, и
+   * записать им ноль значило бы выдумать «ответил мгновенно».
+   */
+  latencySeconds: Record<string, number>;
   /** Ключ шкалы -> числовое значение. */
   scales: Record<string, number>;
   /** Ключ шкалы -> подпись уровня. */
   scaleLevels: Record<string, string>;
   /** Имя показателя -> значение строкой: показатель бывает и числом, и кодом. */
   variables: Record<string, string>;
+  /**
+   * Версия формата строки ответа, которую сообщил пакет этого прохождения; `null` — не сообщил.
+   *
+   * Читается ПОСТРОЧНО, а не на файл: в одном отчёте лежат прохождения, собранные разными
+   * версиями пакета — колонка тогда общая, а значение своё у каждого участника.
+   */
+  responseFormat: number | null;
 }
 
 export interface LmsExportBook {
@@ -94,6 +112,9 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       const key = b.id.slice(6);
       if (!key.endsWith("_level")) scaleKeys.push(key);
     } else if (b.id.startsWith("var_")) variableNames.push(b.id.slice(4));
+    // Служебные блоки пакета (`meta_*`) разбираются отдельно и неопознанными НЕ считаются:
+    // иначе импорт предупреждал бы «пакет собран под другой версией теста» на каждой выгрузке.
+    else if (b.id.startsWith(META_PREFIX)) continue;
     else unknownColumns.push(b.id);
   }
 
@@ -112,9 +133,11 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       points: cell(raw, 8) === "" ? null : Number(cell(raw, 8)),
       answers: {},
       results: {},
+      latencySeconds: {},
       scales: {},
       scaleLevels: {},
       variables: {},
+      responseFormat: null,
     };
 
     for (const b of blocks) {
@@ -123,12 +146,20 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       if (b.id.startsWith("q_")) {
         row.answers[b.id.slice(2)] = value;
         row.results[b.id.slice(2)] = result;
+        // Вторая подколонка блока — «Продолжительность (сек.)». Ключ появляется только при
+        // измеренном времени, см. `latencySeconds`.
+        const seconds = parseExportSeconds(cell(raw, b.at + 1));
+        if (seconds !== null) row.latencySeconds[b.id.slice(2)] = seconds;
       } else if (b.id.startsWith("scale_")) {
         const key = b.id.slice(6);
         if (key.endsWith("_level")) row.scaleLevels[key.slice(0, -"_level".length)] = value;
         else if (value !== "") row.scales[key] = Number(value);
       } else if (b.id.startsWith("var_")) {
         row.variables[b.id.slice(4)] = value;
+      } else if (b.id === RESPONSE_FORMAT_INTERACTION_ID) {
+        // Пустая ячейка = прохождение старого пакета в общей колонке: версии оно не сообщало.
+        const n = Number(value);
+        row.responseFormat = value !== "" && Number.isFinite(n) ? n : null;
       }
     }
 

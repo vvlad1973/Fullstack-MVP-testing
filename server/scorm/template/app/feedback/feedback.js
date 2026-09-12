@@ -49,7 +49,9 @@ function confirmAnswer() {
     options: answerOptions,
     leftItems: leftItems,
     rightItems: rightItems,
-    items: rankingItems
+    items: rankingItems,
+    // Время на задании — сумма заходов, тот же источник, что и у `latency` в LMS.
+    latencyMs: (typeof TBQuestionTime !== 'undefined') ? TBQuestionTime.totalMsFor(q.id) : null
   });
   
   // Re-render the input from the SHARED emission so the locked state and (when

@@ -96,7 +96,10 @@ describe("buildImportPlan", () => {
     const row = buildImportPlan(book as never, ON).rows[0];
     expect(row.scalesJson).toEqual({ cel: 29 });
     expect(row.variablesJson).toEqual({ lead_margin: "6" });
-    expect(row.answers).toEqual([{ questionId: "q1", raw: "0[.]7,1[.]0", result: "neutral" }]);
+    // `latencyMs: null` — выгрузка этого пакета времени на задании не несла.
+    expect(row.answers).toEqual([
+      { questionId: "q1", raw: "0[.]7,1[.]0", result: "neutral", latencyMs: null },
+    ]);
   });
 });
 
@@ -171,6 +174,36 @@ describe("runImport", () => {
       isCorrect: null,
       points: null,
     });
+  });
+
+  it("версия формата строки доезжает до разбора ответа", async () => {
+    // Та же строка в НОВОМ формате: индексы 1-based, версия сообщена пакетом. Разбор обязан
+    // вернуть тот же ответ, что и легаси-строка выше, иначе импорт съедет на единицу.
+    const aligned = {
+      ...book,
+      rows: [{ ...book.rows[0], answers: { q1: "1[.]7,2[.]0" }, responseFormat: 2 }],
+    };
+    const s = storageStub();
+    await runImport(aligned as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({ questionId: "q1", userAnswerJson: { 0: 7, 1: 0 } });
+  });
+
+  it("время на задании переносится из выгрузки в миллисекундах", async () => {
+    // Колонка отчёта даёт целые секунды, в базе время лежит в миллисекундах — как и у живой
+    // телеметрии, иначе два источника нельзя было бы сравнивать в одном запросе.
+    const timed = {
+      ...book,
+      rows: [{ ...book.rows[0], latencySeconds: { q1: 47 } }],
+    };
+    const s = storageStub();
+    await runImport(timed as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({ latencyMs: 47000 });
+  });
+
+  it("без измеренного времени в базу идёт NULL, а не ноль", async () => {
+    const s = storageStub();
+    await runImport(book as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({ latencyMs: null });
   });
 
   it("вопрос не из этого теста даёт предупреждение и не роняет импорт", async () => {

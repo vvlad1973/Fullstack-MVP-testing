@@ -13,6 +13,10 @@ function renderAdaptiveQuestion() {
   }
   ensureAdaptiveShuffleMapping(qData.question);
 
+  // Время на задании: адаптивный путь ведёт лестница уровней и рендер у него свой, поэтому
+  // засечка ставится здесь, а не в общем `render()`.
+  if (typeof TBQuestionTime !== 'undefined') TBQuestionTime.show(qData.question.id);
+
   var layouts = (typeof state !== 'undefined' && state) ? state.templateLayouts : null;
   var layout = layouts && layouts['question'];
   var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;

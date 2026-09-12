@@ -214,6 +214,40 @@ describe("SCORM Telemetry — POST /scorm-telemetry/answer", () => {
       .send({ packageId: "pkg1", sessionId: "sess1", signature: sig, timestamp: ts, data });
     expect(res.status).toBe(404);
   });
+
+  it("сохраняет время на задании, когда пакет его измерил", async () => {
+    // Материал анализа пунктов: до этой правки время не доезжало ни в отчёт LMS, ни к нам.
+    storageMock.getScormPackage.mockResolvedValue(dbPkg);
+    storageMock.getScormAttemptBySession.mockResolvedValue(dbScormAttempt);
+    storageMock.createScormAnswer.mockResolvedValue({});
+    storageMock.updateScormAttempt.mockResolvedValue({});
+    const ts = String(Date.now());
+    const data = { questionId: "q1", questionPrompt: "Q?", questionType: "single",
+      userAnswer: 0, correctAnswer: 0, isCorrect: true, points: 1, maxPoints: 1, latencyMs: 62000 };
+    const sig = makeSignature("pkg1", "sess1", ts, data);
+    await request(app).post("/api/scorm-telemetry/answer")
+      .send({ packageId: "pkg1", sessionId: "sess1", signature: sig, timestamp: ts, data });
+    expect(storageMock.createScormAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ latencyMs: 62000 }),
+    );
+  });
+
+  it("пакет без измерения времени пишет NULL, а не ноль", async () => {
+    // Пакеты, выданные до измерения, поля не шлют вовсе; ноль означал бы «ответил мгновенно».
+    storageMock.getScormPackage.mockResolvedValue(dbPkg);
+    storageMock.getScormAttemptBySession.mockResolvedValue(dbScormAttempt);
+    storageMock.createScormAnswer.mockResolvedValue({});
+    storageMock.updateScormAttempt.mockResolvedValue({});
+    const ts = String(Date.now());
+    const data = { questionId: "q1", questionPrompt: "Q?", questionType: "single",
+      userAnswer: 0, correctAnswer: 0, isCorrect: true, points: 1, maxPoints: 1 };
+    const sig = makeSignature("pkg1", "sess1", ts, data);
+    await request(app).post("/api/scorm-telemetry/answer")
+      .send({ packageId: "pkg1", sessionId: "sess1", signature: sig, timestamp: ts, data });
+    expect(storageMock.createScormAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ latencyMs: null }),
+    );
+  });
 });
 
 describe("SCORM Telemetry — POST /scorm-telemetry/finish", () => {
