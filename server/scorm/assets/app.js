@@ -1,11 +1,63 @@
 // Initialize
 
+// PRD-55: вес задания по экспозиции — плейн-JS порт shared/draw/exposure.ts.
+//
+// Счётчики выдач в пакет НЕ попадают: он автономен и о популяции ничего не знает, поэтому
+// получает уже посчитанный вес запечённым в TEST_DATA (FR-27/FR-28). Эти функции нужны, чтобы
+// отбор внутри пула шёл ровно так же, как на вебе, — иначе два хоста при одинаковой истории
+// выдач начали бы выдавать разные задания.
+//
+// Держится в парности golden-тестом tests/exposure-port.test.ts.
+var EXPOSURE_WEIGHT_RATIO = 4;
+
+function computeExposureWeights(poolIds, counts) {
+  var weights = new Map();
+  if (poolIds.length === 0) return weights;
+  var values = poolIds.map(function (id) {
+    var c = counts.get(id);
+    return c === undefined ? 0 : c;
+  });
+  var min = values[0];
+  var max = values[0];
+  values.forEach(function (v) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  });
+  if (max === min) {
+    poolIds.forEach(function (id) { weights.set(id, 1); });
+    return weights;
+  }
+  var span = max - min;
+  for (var i = 0; i < poolIds.length; i += 1) {
+    weights.set(poolIds[i], 1 + (EXPOSURE_WEIGHT_RATIO - 1) * ((max - values[i]) / span));
+  }
+  return weights;
+}
+
+function weightedPick(pool, k, weights, rnd) {
+  if (pool.length === 0 || k <= 0) return [];
+  var keyed = pool.map(function (item) {
+    var w = weights.get(item.id);
+    if (w === undefined) w = 1;
+    // Ровно ноль дал бы нулевой ключ при ЛЮБОМ весе — такой элемент всегда оказывался бы
+    // последним независимо от того, насколько он свежий. Сдвигаем в открытый интервал.
+    var u = Math.min(Math.max(rnd(), Number.EPSILON), 1 - Number.EPSILON);
+    return { item: item, key: Math.pow(u, 1 / w) };
+  });
+  keyed.sort(function (a, b) { return b.key - a.key; });
+  return keyed.slice(0, k).map(function (x) { return x.item; });
+}
+
 // PRD-11 stratified draw — plain-JS port of shared/draw/blueprint.ts. No
 // blueprint => uniform draw (FR-02). Kept in golden parity with the TS source
 // by tests/draw-blueprint-port.test.ts.
-function drawSection(questions, drawCount, blueprint, shuffleFn) {
+//
+// PRD-55 (FR-24): the SELECTION is injected as `pickFn(pool, k)`, not as a shuffle. A uniform
+// draw is the case where every weight is equal, so the package has one draw algorithm and no
+// "correction off" branch.
+function drawSection(questions, drawCount, blueprint, pickFn) {
   if (!blueprint || !blueprint.strata || blueprint.strata.length === 0) {
-    return { selected: shuffleFn(questions.slice()).slice(0, drawCount), warnings: [] };
+    return { selected: pickFn(questions.slice(), drawCount), warnings: [] };
   }
   var selected = [];
   var used = {};
@@ -23,7 +75,7 @@ function drawSection(questions, drawCount, blueprint, shuffleFn) {
   blueprint.strata.forEach(function (stratum) {
     var stratumKey = tagKey(stratum.tag);
     var pool = questions.filter(function (q) { return !used[q.id] && hasTag(q, stratumKey); });
-    var take = shuffleFn(pool.slice()).slice(0, stratum.count);
+    var take = pickFn(pool.slice(), stratum.count);
     if (take.length < stratum.count) {
       warnings.push({ tag: stratum.tag, requested: stratum.count, available: take.length });
     }
@@ -35,7 +87,7 @@ function drawSection(questions, drawCount, blueprint, shuffleFn) {
     var free = questions.filter(function (q) {
       return !used[q.id] && !(qKeys[q.id] || []).some(function (k) { return exactKeys[k]; });
     });
-    shuffleFn(free.slice()).slice(0, remainder).forEach(function (q) { used[q.id] = true; selected.push(q); });
+    pickFn(free.slice(), remainder).forEach(function (q) { used[q.id] = true; selected.push(q); });
   }
   return { selected: selected.slice(0, drawCount), warnings: warnings };
 }
@@ -240,7 +292,16 @@ function generateVariant() {
       deliveredFormId = picked.formId;
       preordered = true;
     } else {
-      var drawn = drawSection(available, section.drawCount, section.drawBlueprint, shuffle);
+      var drawn = drawSection(available, section.drawCount, section.drawBlueprint, function (pool, k) {
+        // PRD-55 (FR-28): счётчиков у пакета нет — вес уже запечён в TEST_DATA на момент сборки.
+        // Карта строится из поля вопроса; отсутствие поля означает единицу, то есть прежнее
+        // поведение для пакетов, собранных до внедрения (FR-30).
+        var weights = new Map();
+        pool.forEach(function (q) {
+          weights.set(q.id, q.exposureWeight === undefined ? 1 : q.exposureWeight);
+        });
+        return weightedPick(pool, k, weights, Math.random);
+      });
       // PRD-30 FR-06: selection is untouched (quotas + random pick); the ORDER is
       // decided for the whole test below.
       questions = drawn.selected;

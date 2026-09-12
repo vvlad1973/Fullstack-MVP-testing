@@ -306,6 +306,30 @@ var Telemetry = (function() {
   }
 
   // Get LMS user data
+  /**
+   * PRD-55 (FR-01): состав ВЫДАННОЙ формы — то, чего сервер не узнаёт ниоткуда больше.
+   * `answer` описывает отвеченное, а экспозиция это показ, поэтому список уезжает один раз,
+   * вместе с началом попытки.
+   *
+   * Вызывается ПОСЛЕ `generateVariant()` (оба места в startPage.js), поэтому `flatQuestions`
+   * уже наполнен. Если состава почему-то нет, уезжает пустой список — сервер тогда просто не
+   * трогает счётчик, и это лучше, чем выдумать состав.
+   */
+  function deliveredQuestionIds() {
+    try {
+      // Обращение по ИМЕНИ, а не через window: части рантайма склеиваются в один файл, и
+      // соседние модули читают `state` так же (resultsPage.js). `typeof` защищает от порядка
+      // склейки, при котором телеметрия окажется выше объявления.
+      var flat = (typeof state !== 'undefined' && state.flatQuestions) || [];
+      return flat.map(function (fq) {
+        var q = fq && fq.question ? fq.question : fq;
+        return q && q.id;
+      }).filter(function (id) { return typeof id === 'string'; });
+    } catch (e) {
+      return [];
+    }
+  }
+
   function getLmsUserData() {
     var data = {
       lmsUserId: null,
@@ -399,6 +423,7 @@ var Telemetry = (function() {
       if (!config || !config.enabled) return;
 
       var data = getLmsUserData();
+      data.deliveredQuestionIds = deliveredQuestionIds();
       send('/api/scorm-telemetry/start', data);
     },
 
@@ -411,6 +436,7 @@ var Telemetry = (function() {
       console.log('[Telemetry] Starting new attempt:', currentAttemptNumber);
 
       var data = getLmsUserData();
+      data.deliveredQuestionIds = deliveredQuestionIds();
       send('/api/scorm-telemetry/start', data);
     },
 

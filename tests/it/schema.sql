@@ -138,6 +138,14 @@ CREATE TABLE "password_reset_tokens" (
 	"request_ip" text
 );
 
+CREATE TABLE "question_exposure" (
+	"question_id" varchar(36) NOT NULL,
+	"test_id" varchar(36) NOT NULL,
+	"bucket_month" date NOT NULL,
+	"delivered_count" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "question_exposure_question_id_test_id_bucket_month_pk" PRIMARY KEY("question_id","test_id","bucket_month")
+);
+
 CREATE TABLE "question_measurements" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"test_id" varchar(36) NOT NULL,
@@ -527,6 +535,7 @@ CREATE INDEX "media_assets_checksum_idx" ON "media_assets" USING btree ("checksu
 CREATE INDEX "media_usages_entity_idx" ON "media_usages" USING btree ("entity_type","entity_id");
 CREATE INDEX "password_reset_tokens_token_hash_idx" ON "password_reset_tokens" USING btree ("token_hash");
 CREATE INDEX "password_reset_tokens_user_id_idx" ON "password_reset_tokens" USING btree ("user_id");
+CREATE INDEX "question_exposure_question_bucket_idx" ON "question_exposure" USING btree ("question_id","bucket_month");
 CREATE INDEX "question_measurements_test_id_idx" ON "question_measurements" USING btree ("test_id");
 CREATE INDEX "question_measurements_question_id_idx" ON "question_measurements" USING btree ("question_id");
 CREATE INDEX "question_measurements_scale_id_idx" ON "question_measurements" USING btree ("scale_id");

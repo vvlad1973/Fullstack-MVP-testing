@@ -1,6 +1,7 @@
 import { Router } from "express";
 import path from "node:path";
 import { logger } from "../logger";
+import { config } from "../config";
 import { storage } from "../storage";
 import { requirePermission } from "../middleware/auth";
 import { checkAnswer } from "../utils/check-answer";
@@ -12,6 +13,7 @@ import {
 } from "@shared/scoring/aggregate";
 import type { CorrectData, Answer } from "@shared/scoring/engine";
 import { drawSection } from "@shared/draw/blueprint";
+import { computeWeights, weightedPick } from "@shared/draw/exposure";
 import { selectForm } from "@shared/draw/forms";
 import { orderQuestions } from "@shared/draw/order-questions";
 import {
@@ -631,8 +633,35 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
     // of the whole test is decided once, by `assembleDelivery`, after the loop.
     const drawnSections: DeliverySection<Question>[] = [];
 
+    // PRD-55 (FR-26): банки разделов читаются ДО отбора, чтобы счётчики экспозиции ушли ОДНИМ
+    // запросом на попытку, а не по запросу на раздел. Индексы массива соответствуют `sections`:
+    // два раздела могут стоять на одной теме, и ключ по `topicId` их бы схлопнул.
+    const sectionBanks: Question[][] = [];
     for (const section of sections) {
-      const questions = await src.getQuestionsByTopic(section.topicId);
+      sectionBanks.push(await src.getQuestionsByTopic(section.topicId));
+    }
+
+    // Веса считаются ВНУТРИ каждого пула отдельно (FR-12), поэтому здесь достаточно собрать
+    // счётчики по всем заданиям теста. Сбой чтения не имеет права ронять старт попытки: без
+    // счётчиков веса выходят равными, то есть выдача просто остаётся сегодняшней (FR-17).
+    let exposureCounts = new Map<string, number>();
+    try {
+      const windowStart = new Date();
+      windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
+      exposureCounts = await storage.getDeliveryCounts(
+        sectionBanks.flat().map((q) => q.id),
+        windowStart,
+      );
+    } catch (error) {
+      logger.warn("PRD-55: счётчики выдач не прочитаны — " + (error as Error).message);
+    }
+
+    /** Отбор, взвешенный по экспозиции; нормировка — по переданному пулу (FR-12/FR-18). */
+    const exposurePick = <T extends { id: string }>(pool: T[], k: number): T[] =>
+      weightedPick(pool, k, computeWeights(pool.map((q) => q.id), exposureCounts), Math.random);
+
+    for (const [sectionIndex, section] of sections.entries()) {
+      const questions = sectionBanks[sectionIndex];
       const byId = new Map(questions.map((q) => [q.id, q]));
       let qIds: string[];
       let formId: string | undefined;
@@ -659,7 +688,12 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
       } else {
         // PRD-11: stratified draw by tag quotas when a blueprint is set; otherwise
         // a uniform draw (FR-02). Shared with the SCORM runtime via shared/draw.
-        const { selected } = drawSection(questions, section.drawCount, section.drawBlueprintJson, shuffleInPlace);
+        const { selected } = drawSection(
+          questions,
+          section.drawCount,
+          section.drawBlueprintJson,
+          exposurePick,
+        );
         // PRD-30 (FR-06): selection stays as it was — quotas and the random pick
         // are untouched; the ORDER is decided for the whole test below.
         qIds = selected.map((q) => q.id);
@@ -723,6 +757,16 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
       startedAt: new Date(),
       finishedAt: null,
     });
+
+    // PRD-55 (FR-01/FR-02): выдачей считается НАЧАТАЯ попытка — состав формы уже зафиксирован,
+    // и ответы для учёта не нужны: брошенная попытка показала содержание так же, как доведённая
+    // до конца. Счётчик не имеет права ронять старт попытки, поэтому сбой уходит в лог: это
+    // статистика качества банка, а не условие прохождения.
+    try {
+      await storage.recordDeliveries(allQuestionIds, test.id, new Date());
+    } catch (error) {
+      logger.warn("PRD-55: выдача заданий не записана — " + (error as Error).message);
+    }
 
     res.status(201).json({
       ...attempt,

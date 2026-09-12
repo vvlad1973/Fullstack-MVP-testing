@@ -20,6 +20,7 @@ import {
   type LmsImportCounts,
 } from "./storage/scorm-repository";
 import { AdaptiveRepository } from "./storage/adaptive-repository";
+import { ExposureRepository } from "./storage/exposure-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
 import { ScalesVariablesRepository } from "./storage/scales-variables-repository";
 import { TestsRepository, type TestUsageRef } from "./storage/tests-repository";
@@ -321,6 +322,14 @@ export interface IStorage {
   getScormPackages(): Promise<ScormPackage[]>;
   updateScormPackage(id: string, data: Partial<ScormPackage>): Promise<ScormPackage | undefined>;
   
+  /**
+   * PRD-55 (FR-07): плюс одна выдача каждому заданию в корзине месяца. Зовётся на старте
+   * веб-попытки и при создании прохождения телеметрии — двух однократных событиях.
+   */
+  recordDeliveries(questionIds: string[], testId: string, at: Date): Promise<void>;
+  /** PRD-55 (FR-04): сумма выдач заданий за окно, по всем тестам. Задание без выдач в карту не входит. */
+  getDeliveryCounts(questionIds: string[], since: Date): Promise<Map<string, number>>;
+
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt>;
   getScormAttempt(id: string): Promise<ScormAttempt | undefined>;
   getScormAttemptBySession(packageId: string, sessionId: string, attemptNumber?: number): Promise<ScormAttempt | undefined>;
@@ -444,6 +453,7 @@ export class DatabaseStorage implements IStorage {
   private readonly questionsRepo = new QuestionsRepository();
   private readonly scormRepo = new ScormRepository();
   private readonly adaptiveRepo = new AdaptiveRepository();
+  private readonly exposureRepo = new ExposureRepository();
   private readonly attemptsRepo = new AttemptsRepository();
   private readonly scalesVariablesRepo = new ScalesVariablesRepository();
   private readonly testsRepo = new TestsRepository();
@@ -1114,6 +1124,14 @@ export class DatabaseStorage implements IStorage {
 
   updateScormPackage(id: string, data: Partial<ScormPackage>): Promise<ScormPackage | undefined> {
     return this.scormRepo.updateScormPackage(id, data);
+  }
+
+  recordDeliveries(questionIds: string[], testId: string, at: Date): Promise<void> {
+    return this.exposureRepo.recordDeliveries(questionIds, testId, at);
+  }
+
+  getDeliveryCounts(questionIds: string[], since: Date): Promise<Map<string, number>> {
+    return this.exposureRepo.getDeliveryCounts(questionIds, since);
   }
 
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt> {

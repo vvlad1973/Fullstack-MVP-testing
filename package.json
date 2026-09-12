@@ -19,6 +19,7 @@
     "seed": "tsx scripts/db/seed-db.ts",
     "reencrypt-emails": "tsx scripts/db/reencrypt-emails.ts",
     "bcrypt:residual": "tsx scripts/db/bcrypt-residual.ts",
+    "exposure:rebuild": "tsx scripts/db/rebuild-exposure.ts",
     "changelog": "gen-changelog",
     "test": "vitest run",
     "test:cov": "vitest run --coverage.enabled=true",

@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, integer, boolean, timestamp, jsonb, uniqueIndex, index, check, uuid, real, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, varchar, text, integer, boolean, timestamp, date, jsonb, uniqueIndex, index, check, uuid, real, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1862,6 +1862,31 @@ export const lmsImportBatches = pgTable("lms_import_batches", {
   // Партии перечисляются по тесту, новые первыми.
   testIdIdx: index("lms_import_batches_test_id_idx").on(table.testId),
 }));
+
+/**
+ * PRD-55 (FR-05, FR-06): материализованный счётчик выдач задания.
+ *
+ * Корзина — КАЛЕНДАРНЫЙ МЕСЯЦ: скользящее окно тогда считается суммой последних N корзин, а
+ * выпавшие из окна строки удаляются уборкой, без пересчёта чего-либо. Разбивка по тесту нужна
+ * отчёту автору («доля попыток ЭТОГО теста»); взвешивание выдачи берёт СУММУ по всем тестам —
+ * утечка не разбирает, из какого теста участник увидел вопрос.
+ *
+ * Таблица — агрегат, а не журнал: она восстановима пересчётом из состава веб-попыток и строк
+ * телеметрии (`npm run exposure:rebuild`), поэтому её потеря не теряет фактов.
+ */
+export const questionExposure = pgTable("question_exposure", {
+  questionId: varchar("question_id", { length: 36 }).notNull(),
+  testId: varchar("test_id", { length: 36 }).notNull(),
+  bucketMonth: date("bucket_month").notNull(),
+  deliveredCount: integer("delivered_count").notNull().default(0),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.questionId, table.testId, table.bucketMonth] }),
+  // Чтение идёт «по списку заданий за окно» — тест в отборе не участвует.
+  questionBucketIdx: index("question_exposure_question_bucket_idx").on(table.questionId, table.bucketMonth),
+}));
+
+export type QuestionExposure = typeof questionExposure.$inferSelect;
+export type InsertQuestionExposure = typeof questionExposure.$inferInsert;
 
 export const scormPackages = pgTable("scorm_packages", {
   id: varchar("id", { length: 36 }).primaryKey(),

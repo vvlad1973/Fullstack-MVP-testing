@@ -8,6 +8,9 @@
  * returns data only.
  */
 
+import { config } from "../config";
+import { logger } from "../logger";
+import { storage } from "../storage";
 import { drawnScaleKeys, isTestIpsative } from "../services/scale-composition";
 import { exportSourceForTest, liveDataSource } from "../services/test-snapshot";
 import { resolveTemplateDir } from "../services/template-dir";
@@ -188,6 +191,22 @@ export async function buildScormExportData(
   // frozen rows; drafts/debug read live.
   const questionScoring = await src.getTestQuestionScoring(test.id);
 
+  // PRD-55 (FR-27/FR-29): накопленные выдачи на момент СБОРКИ пакета. Берутся всегда живыми, в
+  // том числе для снимка публикации: экспозиция — СТАТИСТИКА, а не содержание, поэтому она не
+  // замораживается вместе с версией и не делает снимок устаревшим. Сбой чтения не имеет права
+  // сорвать экспорт: без счётчиков веса равны, и пакет собирается как до PRD-55.
+  let exposureCounts = new Map<string, number>();
+  try {
+    const windowStart = new Date();
+    windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
+    exposureCounts = await storage.getDeliveryCounts(
+      exportSections.flatMap((s) => s.questions.map((q) => q.id)),
+      windowStart,
+    );
+  } catch (error) {
+    logger.warn("PRD-55: счётчики выдач не прочитаны при сборке пакета — " + (error as Error).message);
+  }
+
   let adaptiveSettings = null;
   if (test.mode === "adaptive") {
     const topicSettings = await src.getAdaptiveTopicSettingsByTest(test.id);
@@ -212,6 +231,7 @@ export async function buildScormExportData(
     scales,
     measurements,
     ipsativeScales,
+    exposureCounts,
     designSettings,
     templateDir,
     // PRD-34 (FR-26): признак сборки едет в бейк — отладочный пакет запекается с
