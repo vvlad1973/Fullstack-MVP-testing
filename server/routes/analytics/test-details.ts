@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { logger } from "../../logger";
+import { config } from "../../config";
 import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
@@ -215,10 +216,58 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       }
     }
 
-    const questionStats = Array.from(questionStatsMap.values()).map(qs => ({
-      ...qs,
-      correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
-    })).sort((a, b) => a.correctPercent - b.correctPercent);
+    // Знаменатель доли — попытки теста за окно, считая БРОШЕННЫЕ: счётчик выдач пополняется на
+    // старте попытки (FR-02), потому что брошенная попытка показала задание так же, как
+    // доведённая до конца. Завершённые попытки в знаменателе давали бы долю больше ста процентов
+    // ровно на число брошенных — «выдано 3 из 2» на первой же приёмке.
+    //
+    // Ноль попыток означает «сравнивать не с чем»: доля тогда `null`, а не ноль, иначе экран
+    // покажет «0%» там, где данных нет вовсе.
+    const exposureWindowStart = new Date();
+    exposureWindowStart.setMonth(exposureWindowStart.getMonth() - config.delivery.exposureWindowMonths);
+    const attemptsInWindow = testAttempts.filter(
+      (a) => new Date(a.startedAt as Date) >= exposureWindowStart,
+    ).length;
+
+    // PRD-55 (FR-31/FR-31a/FR-32): экспозиция задания и время на него. Три запроса на ВЕСЬ тест,
+    // а не по заданию: карточек на экране десятки, и запрос в цикле превратил бы страницу в
+    // сотню обращений к базе.
+    //
+    // Ни одна из величин не является условием работы экрана: это дополнение к статистике
+    // ответов, поэтому сбой чтения уходит в лог, а страница отдаётся без них.
+    const questionIds = Array.from(questionStatsMap.keys());
+    let exposureOwn = new Map<string, number>();
+    let exposureGlobal = new Map<string, number>();
+    let otherTests = new Map<string, number>();
+    let latency = new Map<string, { medianMs: number; sampleSize: number }>();
+    try {
+      [exposureOwn, exposureGlobal, otherTests, latency] = await Promise.all([
+        storage.getDeliveryCountsForTest(questionIds, testId, exposureWindowStart),
+        storage.getDeliveryCounts(questionIds, exposureWindowStart),
+        storage.getOtherTestsCount(questionIds, testId, exposureWindowStart),
+        storage.getLatencyStats(questionIds, testId, exposureWindowStart),
+      ]);
+    } catch (error) {
+      logger.warn("PRD-55: экспозиция и время заданий не прочитаны — " + (error as Error).message);
+    }
+
+
+    const questionStats = Array.from(questionStatsMap.values()).map(qs => {
+      const exposureCount = exposureOwn.get(qs.questionId) ?? 0;
+      const lat = latency.get(qs.questionId);
+      return {
+        ...qs,
+        correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
+        exposureCount,
+        exposurePercent:
+          attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null,
+        globalExposureCount: exposureGlobal.get(qs.questionId) ?? 0,
+        otherTestsCount: otherTests.get(qs.questionId) ?? 0,
+        // Своя выборка: веб времени не измеряет, пакеты старше 2026-09-12 его не сообщают.
+        latencyMedianMs: lat ? lat.medianMs : null,
+        latencySampleSize: lat ? lat.sampleSize : 0,
+      };
+    }).sort((a, b) => a.correctPercent - b.correctPercent);
 
     // Level stats (adaptive)
     interface LevelStatsEntry {
@@ -364,6 +413,10 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       summary,
       topicStats,
       questionStats,
+      // PRD-55 (FR-31): знаменатель доли выдачи. Отдаётся явно, потому что он НЕ равен ни одному
+      // числу сводки: это попытки за окно наблюдения, считая брошенные, — а сводка показывает
+      // завершённые. Считая его на клиенте по сводке, экран подписал бы «выдано 3 из 2».
+      exposureAttempts: attemptsInWindow,
       levelStats: test.mode === "adaptive" ? levelStats : undefined,
       scoreDistribution,
       dailyTrends,

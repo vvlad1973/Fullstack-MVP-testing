@@ -11,9 +11,9 @@
  *
  * Выставляется через фасад `IStorage`; маршруты этот модуль не импортируют.
  */
-import { and, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../db";
-import { questionExposure } from "@shared/schema";
+import { questionExposure, scormAnswers, scormAttempts } from "@shared/schema";
 
 /**
  * Первое число месяца этой даты — ключ корзины.
@@ -74,6 +74,106 @@ export class ExposureRepository {
       ))
       .groupBy(questionExposure.questionId);
     for (const r of rows) out.set(r.questionId, Number(r.total));
+    return out;
+  }
+
+  /**
+   * Сумма выдач заданий В ОДНОМ тесте за окно (PRD-55 FR-31).
+   *
+   * Отдельный метод, а не фильтр поверх {@link getDeliveryCounts}: взвешивание выдачи берёт
+   * ГЛОБАЛЬНОЕ число показов, а отчёт автору — долю по его тесту, и смешивать эти две величины
+   * нельзя. Одна отвечает на «насколько задание засвечено вообще», другая — на «как часто его
+   * видели участники этого теста».
+   */
+  async getDeliveryCountsForTest(
+    questionIds: string[],
+    testId: string,
+    since: Date,
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (questionIds.length === 0) return out;
+    const rows = await db
+      .select({
+        questionId: questionExposure.questionId,
+        total: sql<number>`sum(${questionExposure.deliveredCount})::int`,
+      })
+      .from(questionExposure)
+      .where(and(
+        inArray(questionExposure.questionId, questionIds),
+        eq(questionExposure.testId, testId),
+        gte(questionExposure.bucketMonth, bucketOf(since)),
+      ))
+      .groupBy(questionExposure.questionId);
+    for (const r of rows) out.set(r.questionId, Number(r.total));
+    return out;
+  }
+
+  /**
+   * В скольких ДРУГИХ тестах задание выдавалось за окно (PRD-55 FR-32).
+   *
+   * Без этого числа задание, растиражированное соседним тестом, читается как редкое: доля по
+   * своему тесту у него мала, а видели его втрое больше людей.
+   */
+  async getOtherTestsCount(
+    questionIds: string[],
+    testId: string,
+    since: Date,
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (questionIds.length === 0) return out;
+    const rows = await db
+      .select({
+        questionId: questionExposure.questionId,
+        tests: sql<number>`count(distinct ${questionExposure.testId})::int`,
+      })
+      .from(questionExposure)
+      .where(and(
+        inArray(questionExposure.questionId, questionIds),
+        ne(questionExposure.testId, testId),
+        gte(questionExposure.bucketMonth, bucketOf(since)),
+      ))
+      .groupBy(questionExposure.questionId);
+    for (const r of rows) out.set(r.questionId, Number(r.tests));
+    return out;
+  }
+
+  /**
+   * Медиана времени на задание и объём выборки (PRD-55 FR-31a).
+   *
+   * МЕДИАНА, а не среднее: распределение тяжелохвостое — участник, открывший вопрос и ушедший,
+   * даёт одно наблюдение в десятки минут, и среднее по выборке из тридцати ответов уезжает на
+   * минуту, выставляя задание трудоёмким.
+   *
+   * Выборка СВОЯ и почти всегда меньше числа ответов: веб-прохождения времени не измеряют вовсе,
+   * а пакеты, собранные до 2026-09-12, его не сообщают. Поэтому объём возвращается рядом с
+   * величиной, а задание без единого измерения в карту не попадает — «нет данных» и «ноль
+   * секунд» разные вещи.
+   */
+  async getLatencyStats(
+    questionIds: string[],
+    testId: string,
+    since: Date,
+  ): Promise<Map<string, { medianMs: number; sampleSize: number }>> {
+    const out = new Map<string, { medianMs: number; sampleSize: number }>();
+    if (questionIds.length === 0) return out;
+    const rows = await db
+      .select({
+        questionId: scormAnswers.questionId,
+        medianMs: sql<number>`percentile_cont(0.5) within group (order by ${scormAnswers.latencyMs})`,
+        sampleSize: sql<number>`count(*)::int`,
+      })
+      .from(scormAnswers)
+      .innerJoin(scormAttempts, eq(scormAttempts.id, scormAnswers.attemptId))
+      .where(and(
+        inArray(scormAnswers.questionId, questionIds),
+        eq(scormAttempts.testId, testId),
+        isNotNull(scormAnswers.latencyMs),
+        gte(scormAttempts.startedAt, since),
+      ))
+      .groupBy(scormAnswers.questionId);
+    for (const r of rows) {
+      out.set(r.questionId, { medianMs: Math.round(Number(r.medianMs)), sampleSize: Number(r.sampleSize) });
+    }
     return out;
   }
 }

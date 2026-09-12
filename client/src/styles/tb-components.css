@@ -934,6 +934,10 @@
   width: var(--wf-size-150); flex-shrink: 0;
 }
 .tb-draw-count-row__max { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+/* PRD-55 (FR-33): хвост сводки темы «· увидят N%» — подкрашивается, когда банк вырабатывается.
+   Тон тот же, что у баннера под «Вопросов в тест»: это одна и та же величина, и разный цвет у
+   двух её показов читался бы как два разных сигнала. */
+.tb-exposure-hint--warn { color: var(--ou-warning-default); }
 /* Adaptive mode: draw_count заменяется bag-таггом + ссылкой на уровни (FR-36).
    `--adaptive` modifier добавляет flex-wrap, поскольку link-tail длиннее number-input. */
 .tb-draw-count-row--adaptive { flex-wrap: wrap; }
