@@ -3,6 +3,7 @@ import { sanitizeHtml, placeholderScope } from "../../utils/html-sanitizer";
 import { findEligibilityPlugin, findEligibilityConfig } from "@shared/eligibility/registry";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
 import { effectiveSectionOrder } from "@shared/draw/assemble-delivery";
+import { computeWeights } from "@shared/draw/exposure";
 import { buildTestScoringContext, type TestScoringContext } from "../../services/effective-scoring";
 import { withResolvedScaleIcons } from "../../services/scale-icons";
 import { parseScaleInterpretation } from "@shared/scales/interpretation";
@@ -112,6 +113,13 @@ interface ExportData {
    * exactly what a package built before this PRD does.
    */
   ipsativeScales?: boolean;
+  /**
+   * PRD-55 (FR-27): накопленные выдачи заданий за окно наблюдения, собранные ассемблером
+   * (`build-export-data`) на момент СБОРКИ пакета. Сборщик превращает их в вес, нормированный
+   * в пределах раздела; сам счётчик в пакет не уезжает — рантайм всё равно не смог бы его
+   * обновлять. Отсутствует/пусто ⇒ все веса равны единице, то есть выдача как до PRD-55.
+   */
+  exposureCounts?: Map<string, number>;
   designSettings?: DesignSettingsExport;
   /**
    * Already-resolved on-disk directory of the selected template (built-in or
@@ -425,10 +433,19 @@ export function buildTestJson(data: ExportData): string {
         // something is actually attached, so packages of tests that never used the feature
         // stay byte-identical (FR-02); the runtime falls back to an empty list.
         ...(sectionFeedbackAssets.length > 0 ? { recommendedAssets: sectionFeedbackAssets } : {}),
-        questions: s.questions.map((q) => {
+        questions: ((): unknown[] => {
+        // PRD-55 (FR-27): веса считаются ОДИН раз на раздел и нормируются в его пределах —
+        // ровно так же, как это делает веб внутри пула отбора. Пакет автономен, счётчика по
+        // популяции у него нет, поэтому в TEST_DATA уезжает готовое число.
+        const exposureWeights = computeWeights(
+          s.questions.map((q) => q.id),
+          data.exposureCounts ?? new Map<string, number>(),
+        );
+        return s.questions.map((q) => {
           // PRD-15 block D: effective price / graded config / difficulty are
           // resolved here, at bake time; the runtime keeps its plain reads.
           const baked = bakeScoring(q);
+          const exposureWeight = exposureWeights.get(q.id) ?? 1;
           return {
             id: q.id,
             type: q.type,
@@ -465,8 +482,14 @@ export function buildTestJson(data: ExportData): string {
             typeof q.orderIndex === "number"
               ? { orderIndex: q.orderIndex }
               : {}),
+            // PRD-55 (FR-27/FR-30): вес по накопленной экспозиции, нормированный в пределах
+            // РАЗДЕЛА на момент сборки. Пишется только когда отличается от единицы — то же
+            // правило байт-идентичности, что у `tags` и `orderIndex` выше: рантайм читает
+            // отсутствие поля как вес 1, то есть как прежнее поведение.
+            ...(exposureWeight !== 1 ? { exposureWeight } : {}),
           };
-        }),
+        });
+        })(),
       };
     }),
   };
