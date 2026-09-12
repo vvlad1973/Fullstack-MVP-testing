@@ -8,6 +8,7 @@
  * charts use `--ou-*` tokens for colours.
  */
 import { useState } from "react";
+import { QuestionMetrics } from "@/features/analytics/question-metrics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -105,6 +106,14 @@ interface TestAnalytics {
         totalAnswers: number;
         correctAnswers: number;
         correctPercent: number;
+        // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
+        // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
+        exposureCount?: number;
+        exposurePercent?: number | null;
+        globalExposureCount?: number;
+        otherTestsCount?: number;
+        latencyMedianMs?: number | null;
+        latencySampleSize?: number;
     }>;
     levelStats?: Array<{
         levelIndex: number;
@@ -948,17 +957,28 @@ export default function TestAnalyticsPage() {
                                                 <Text variant="body-xs" tone="muted">#{idx + 1}</Text>
                                                 <Tag variant="outline" size="s">{q.topicName}</Tag>
                                                 <Tag size="s">Сложность: {q.difficulty}</Tag>
+                                                {(q.otherTestsCount ?? 0) > 0 && (
+                                                    <Tag size="s" tone="info">ещё в {q.otherTestsCount} тестах</Tag>
+                                                )}
                                             </Cluster>
                                             <Text variant="body-s">{q.questionPrompt}</Text>
                                         </Stack>
-                                        <Stack gap={1} align="end">
-                                            <Text variant="heading-s" weight="bold" tone={percentTone(q.correctPercent)}>
-                                                {q.correctPercent.toFixed(0)}%
-                                            </Text>
-                                            <Text variant="body-xs" tone="muted">
-                                                {q.correctAnswers}/{q.totalAnswers}
-                                            </Text>
-                                        </Stack>
+                                        {/* PRD-55 (FR-31/FR-31a/FR-32): к доле верных добавлены
+                                            экспозиция и медиана времени — см. эскиз
+                                            docs/wireframes/prd55-item-exposure.html. */}
+                                        <QuestionMetrics
+                                            correctPercent={q.correctPercent}
+                                            correctTone={percentTone(q.correctPercent)}
+                                            correctAnswers={q.correctAnswers}
+                                            totalAnswers={q.totalAnswers}
+                                            exposurePercent={q.exposurePercent ?? null}
+                                            exposureCount={q.exposureCount ?? 0}
+                                            globalExposureCount={q.globalExposureCount ?? 0}
+                                            otherTestsCount={q.otherTestsCount ?? 0}
+                                            latencyMedianMs={q.latencyMedianMs ?? null}
+                                            latencySampleSize={q.latencySampleSize ?? 0}
+                                            attemptsInWindow={summary.completedAttempts}
+                                        />
                                     </Cluster>
                                     <ProgressBar
                                         value={q.correctPercent}
