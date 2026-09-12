@@ -66,6 +66,7 @@ const AUTHOR_CAPABILITIES: readonly Capability[] = [
   "templates.read",
   "analytics.read",
   "analytics.export",
+  "analytics.import",
 ];
 
 /**
@@ -99,6 +100,7 @@ const MANAGER_CAPABILITIES: readonly Capability[] = [
   "users.create",
   "analytics.read",
   "analytics.export",
+  "analytics.import",
 ];
 
 /** Capabilities of the Administrator role: all except the superadmin-only ones. */

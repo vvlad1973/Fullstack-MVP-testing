@@ -8,7 +8,7 @@
  * charts use `--ou-*` tokens for colours.
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
     Box,
@@ -33,6 +33,7 @@ import {
     type Tone,
 } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
+import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
 import {
     ArrowLeft,
     Users,
@@ -47,6 +48,7 @@ import {
     Layers,
     FileSpreadsheet,
     Gauge,
+    Upload,
 } from "lucide-react";
 import {
     LineChart,
@@ -688,6 +690,9 @@ export default function TestAnalyticsPage() {
 
     const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState("overview");
+    /** PRD-54: окно загрузки выгрузки отчёта LMS. Тест здесь задан страницей. */
+    const [lmsImportOpen, setLmsImportOpen] = useState(false);
+    const queryClient = useQueryClient();
 
     const { data: analytics, isLoading: analyticsLoading } = useQuery<TestAnalytics>({
         queryKey: [`/api/analytics/tests/${testId}`],
@@ -1055,10 +1060,33 @@ export default function TestAnalyticsPage() {
                         </Cluster>
                     </Stack>
                 </Cluster>
-                <Button onClick={handleExportExcel} variant="secondary" leadingIcon={<FileSpreadsheet size={16} />}>
-                    Экспорт Excel
-                </Button>
+                <Cluster gap={2}>
+                    {/* PRD-54: третья точка входа. Тест здесь ЗАДАН страницей, поэтому файл
+                        чужого теста форма отвергнет — см. `fixedTestId`. */}
+                    <Button
+                        variant="secondary"
+                        leadingIcon={<Upload size={16} />}
+                        onClick={() => setLmsImportOpen(true)}
+                    >
+                        Загрузить выгрузку LMS
+                    </Button>
+                    <Button onClick={handleExportExcel} variant="secondary" leadingIcon={<FileSpreadsheet size={16} />}>
+                        Экспорт Excel
+                    </Button>
+                </Cluster>
             </Cluster>
+
+            <ModalDialog
+                open={lmsImportOpen}
+                onClose={() => setLmsImportOpen(false)}
+                title="Загрузка выгрузки LMS"
+                description={attemptsData?.testTitle}
+            >
+                <LmsImportForm
+                    fixedTestId={testId}
+                    onDone={() => queryClient.invalidateQueries({ queryKey: ["/api/analytics"] })}
+                />
+            </ModalDialog>
 
             {/* Summary Cards */}
             <Grid minItem="sm" gap={1}>

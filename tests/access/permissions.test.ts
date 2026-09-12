@@ -38,6 +38,8 @@ const EXPECTED_MANAGER: Capability[] = [
   "users.create",
   "analytics.read",
   "analytics.export",
+  // PRD-54: загрузка выгрузки отчёта LMS — выдаётся тем же ролям, что и экспорт.
+  "analytics.import",
 ];
 
 const EXPECTED_AUTHOR: Capability[] = [
@@ -67,6 +69,8 @@ const EXPECTED_AUTHOR: Capability[] = [
   "templates.read",
   "analytics.read",
   "analytics.export",
+  // PRD-54: загрузка выгрузки отчёта LMS — выдаётся тем же ролям, что и экспорт.
+  "analytics.import",
 ];
 
 /** The developer is the author plus SCORM generation and the template registry. */
@@ -81,8 +85,8 @@ function sorted(values: Iterable<string>): string[] {
 }
 
 describe("capability catalogue", () => {
-  it("has 36 unique capabilities", () => {
-    expect(CAPABILITIES.length).toBe(36);
+  it("has 37 unique capabilities", () => {
+    expect(CAPABILITIES.length).toBe(37);
     expect(new Set(CAPABILITIES).size).toBe(CAPABILITIES.length);
   });
 

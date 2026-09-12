@@ -29,9 +29,9 @@ CREATE TABLE "adaptive_topic_settings" (
 CREATE TABLE "assignment_access_tokens" (
 	"id" varchar(36) PRIMARY KEY NOT NULL,
 	"assignment_id" varchar(36),
-	"purpose" text DEFAULT 'attempt' NOT NULL,
 	"user_id" varchar(36) NOT NULL,
 	"test_id" varchar(36) NOT NULL,
+	"purpose" text DEFAULT 'attempt' NOT NULL,
 	"token_hash" text NOT NULL,
 	"expires_at" timestamp NOT NULL,
 	"revoked_at" timestamp,
@@ -85,6 +85,25 @@ CREATE TABLE "groups" (
 	"description" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"created_by" varchar(36)
+);
+
+CREATE TABLE "lms_import_batches" (
+	"id" varchar(36) PRIMARY KEY NOT NULL,
+	"test_id" varchar(36) NOT NULL,
+	"group_id" varchar(36),
+	"file_name" text NOT NULL,
+	"file_hash" text NOT NULL,
+	"anonymized" boolean NOT NULL,
+	"source_anonymized" boolean NOT NULL,
+	"link_users" boolean NOT NULL,
+	"imported_by" varchar(36) NOT NULL,
+	"imported_at" timestamp DEFAULT now() NOT NULL,
+	"rows_total" integer DEFAULT 0 NOT NULL,
+	"rows_created" integer DEFAULT 0 NOT NULL,
+	"rows_updated" integer DEFAULT 0 NOT NULL,
+	"rows_skipped" integer DEFAULT 0 NOT NULL,
+	"rows_linked" integer DEFAULT 0 NOT NULL,
+	"warnings_json" jsonb
 );
 
 CREATE TABLE "media_assets" (
@@ -215,10 +234,11 @@ CREATE TABLE "scorm_answers" (
 	"topic_name" text,
 	"difficulty" integer,
 	"user_answer_json" jsonb NOT NULL,
-	"correct_answer_json" jsonb NOT NULL,
-	"is_correct" boolean NOT NULL,
-	"points" integer NOT NULL,
-	"max_points" integer NOT NULL,
+	"correct_answer_json" jsonb,
+	"result" text DEFAULT 'incorrect' NOT NULL,
+	"is_correct" boolean,
+	"points" integer,
+	"max_points" integer,
 	"options_json" jsonb,
 	"left_items_json" jsonb,
 	"right_items_json" jsonb,
@@ -230,9 +250,17 @@ CREATE TABLE "scorm_answers" (
 
 CREATE TABLE "scorm_attempts" (
 	"id" varchar(36) PRIMARY KEY NOT NULL,
-	"package_id" varchar(36) NOT NULL,
-	"session_id" varchar(64) NOT NULL,
+	"package_id" varchar(36),
+	"session_id" varchar(64),
 	"attempt_number" integer DEFAULT 1 NOT NULL,
+	"test_id" varchar(36),
+	"origin" text DEFAULT 'telemetry' NOT NULL,
+	"batch_id" varchar(36),
+	"group_id" varchar(36),
+	"participant_key" text,
+	"user_id" varchar(36),
+	"scales_json" jsonb,
+	"variables_json" jsonb,
 	"lms_user_id" text,
 	"lms_user_name" text,
 	"lms_user_email" text,
@@ -399,8 +427,8 @@ CREATE TABLE "tests" (
 	"default_question_points" integer,
 	"question_order" text DEFAULT 'random' NOT NULL,
 	"allow_return_to_unanswered" boolean DEFAULT true NOT NULL,
-	"allow_free_section_navigation" boolean DEFAULT false NOT NULL,
 	"allow_answer_change" boolean DEFAULT false NOT NULL,
+	"allow_free_section_navigation" boolean DEFAULT false NOT NULL,
 	"quick_advance" boolean DEFAULT false NOT NULL,
 	"show_section_results" boolean DEFAULT true NOT NULL,
 	"lms_attempt_result" text DEFAULT 'last' NOT NULL,
@@ -470,6 +498,7 @@ CREATE TABLE "users" (
 	"expires_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"created_by" varchar(36),
+	"external_key" text,
 	CONSTRAINT "users_email_hash_unique" UNIQUE("email_hash")
 );
 
@@ -484,12 +513,14 @@ ALTER TABLE "result_variables" ADD CONSTRAINT "result_variables_test_id_tests_id
 ALTER TABLE "scales" ADD CONSTRAINT "scales_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "test_question_scoring" ADD CONSTRAINT "test_question_scoring_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "test_question_scoring" ADD CONSTRAINT "test_question_scoring_question_id_questions_id_fk" FOREIGN KEY ("question_id") REFERENCES "public"."questions"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "test_review_comments" ADD CONSTRAINT "test_review_comments_test_id_tests_id_fk" FOREIGN KEY ("test_id") REFERENCES "public"."tests"("id") ON DELETE cascade ON UPDATE no action;
 CREATE INDEX "attempts_user_test_idx" ON "attempts" USING btree ("user_id","test_id");
 CREATE INDEX "attempts_test_id_idx" ON "attempts" USING btree ("test_id");
 CREATE INDEX "attempts_snapshot_id_idx" ON "attempts" USING btree ("snapshot_id");
 CREATE INDEX "content_pages_test_topic_position_sort_idx" ON "content_pages" USING btree ("test_id","topic_id","position","sort_order");
 CREATE INDEX "content_pages_test_kind_idx" ON "content_pages" USING btree ("test_id","kind");
 CREATE INDEX "content_pages_topic_id_idx" ON "content_pages" USING btree ("topic_id");
+CREATE INDEX "lms_import_batches_test_id_idx" ON "lms_import_batches" USING btree ("test_id");
 CREATE UNIQUE INDEX "media_assets_owner_checksum_idx" ON "media_assets" USING btree ("owner_id","checksum") WHERE "media_assets"."owner_id" is not null;
 CREATE INDEX "media_assets_checksum_idx" ON "media_assets" USING btree ("checksum");
 CREATE INDEX "media_usages_entity_idx" ON "media_usages" USING btree ("entity_type","entity_id");
@@ -507,7 +538,9 @@ CREATE UNIQUE INDEX "result_variables_one_completion_per_test" ON "result_variab
 CREATE INDEX "scales_test_id_idx" ON "scales" USING btree ("test_id");
 CREATE UNIQUE INDEX "scales_test_id_key_uq" ON "scales" USING btree ("test_id","key");
 CREATE INDEX "scorm_answers_attempt_id_idx" ON "scorm_answers" USING btree ("attempt_id");
-CREATE UNIQUE INDEX "scorm_attempts_session_attempt_idx" ON "scorm_attempts" USING btree ("package_id","session_id","attempt_number");
+CREATE UNIQUE INDEX "scorm_attempts_session_attempt_idx" ON "scorm_attempts" USING btree ("package_id","session_id","attempt_number") WHERE "scorm_attempts"."package_id" IS NOT NULL;
+CREATE UNIQUE INDEX "scorm_attempts_import_row_idx" ON "scorm_attempts" USING btree ("test_id","participant_key","started_at") WHERE "scorm_attempts"."origin" = 'import';
+CREATE INDEX "scorm_attempts_test_id_idx" ON "scorm_attempts" USING btree ("test_id");
 CREATE INDEX "scorm_packages_test_id_idx" ON "scorm_packages" USING btree ("test_id");
 CREATE UNIQUE INDEX "test_access_grants_test_user_idx" ON "test_access_grants" USING btree ("test_id","user_id");
 CREATE INDEX "test_assignments_test_id_idx" ON "test_assignments" USING btree ("test_id");
@@ -515,6 +548,9 @@ CREATE INDEX "test_assignments_user_id_idx" ON "test_assignments" USING btree ("
 CREATE INDEX "test_assignments_group_id_idx" ON "test_assignments" USING btree ("group_id");
 CREATE UNIQUE INDEX "test_question_scoring_test_question_idx" ON "test_question_scoring" USING btree ("test_id","question_id");
 CREATE INDEX "test_question_scoring_question_id_idx" ON "test_question_scoring" USING btree ("question_id");
+CREATE INDEX "test_review_comments_test_idx" ON "test_review_comments" USING btree ("test_id","created_at");
+CREATE INDEX "test_review_comments_test_question_idx" ON "test_review_comments" USING btree ("test_id","question_id");
+CREATE INDEX "test_review_comments_parent_idx" ON "test_review_comments" USING btree ("parent_id");
 CREATE INDEX "test_sections_topic_id_idx" ON "test_sections" USING btree ("topic_id");
 CREATE INDEX "test_sections_test_id_sort_order_idx" ON "test_sections" USING btree ("test_id","sort_order");
 CREATE UNIQUE INDEX "test_snapshots_test_version_idx" ON "test_snapshots" USING btree ("test_id","version");

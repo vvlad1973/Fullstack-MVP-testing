@@ -14,7 +14,11 @@ import { GroupsRepository } from "./storage/groups-repository";
 import { AccessRepository } from "./storage/access-repository";
 import { TopicsRepository, type TopicDeletionResult, type TopicsBulkDeletionResult } from "./storage/topics-repository";
 import { QuestionsRepository } from "./storage/questions-repository";
-import { ScormRepository } from "./storage/scorm-repository";
+import {
+  ScormRepository,
+  type ImportedAttemptInput,
+  type LmsImportCounts,
+} from "./storage/scorm-repository";
 import { AdaptiveRepository } from "./storage/adaptive-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
 import { ScalesVariablesRepository } from "./storage/scales-variables-repository";
@@ -65,6 +69,7 @@ import type {
   ScormPackage, InsertScormPackage,
   ScormAttempt, InsertScormAttempt,
   ScormAnswer, InsertScormAnswer,
+  LmsImportBatch, InsertLmsImportBatch,
   Group, InsertGroup,
   UserGroup,
   TestAccessGrant, InsertTestAccessGrant,
@@ -88,6 +93,8 @@ import { type ValidationResult, type ValueType } from "@shared/formula";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  /** PRD-54: поиск по внешнему ключу для связывания импортированных прохождений. */
+  getUserByExternalKey(key: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   validatePassword(email: string, password: string): Promise<User | null>;
   updateUserLastLogin(id: string): Promise<void>;
@@ -274,6 +281,8 @@ export interface IStorage {
   patchTestStatus(id: string, status: "draft" | "published" | "archived"): Promise<{ id: string; status: string; version: number } | undefined>;
   deleteTest(id: string): Promise<boolean>;
   getTestSections(testId: string): Promise<TestSection[]>;
+  /** PRD-54: разделы сразу по нескольким темам — определение теста по вопросам выгрузки. */
+  getTestSectionsByTopicIds(topicIds: string[]): Promise<TestSection[]>;
 
   createAttempt(attempt: InsertAttempt): Promise<Attempt>;
   getAttempt(id: string): Promise<Attempt | undefined>;
@@ -322,6 +331,15 @@ export interface IStorage {
   
   createScormAnswer(answer: InsertScormAnswer & { id: string }): Promise<ScormAnswer>;
   getScormAnswersByAttempt(attemptId: string): Promise<ScormAnswer[]>;
+
+  // PRD-54: импорт выгрузок отчётов LMS — второй источник прохождений наравне с телеметрией.
+  upsertImportedAttempt(data: ImportedAttemptInput): Promise<{ id: string; created: boolean }>;
+  replaceImportedAnswers(attemptId: string, answers: (InsertScormAnswer & { id: string })[]): Promise<void>;
+  createLmsImportBatch(batch: InsertLmsImportBatch & { id: string }): Promise<{ id: string }>;
+  updateLmsImportBatch(id: string, counts: LmsImportCounts): Promise<void>;
+  getLmsImportBatchById(id: string): Promise<LmsImportBatch | undefined>;
+  getLmsImportBatches(testId: string): Promise<LmsImportBatch[]>;
+  deleteLmsImportBatch(id: string): Promise<void>;
 
   // Content Pages (PRD-1)
   /** PRD-22: variant bindings of many tests in ONE query (tests-list audit). */
@@ -443,6 +461,10 @@ export class DatabaseStorage implements IStorage {
 
   getUser(id: string): Promise<User | undefined> {
     return this.usersRepo.getUser(id);
+  }
+
+  getUserByExternalKey(key: string): Promise<User | undefined> {
+    return this.usersRepo.getUserByExternalKey(key);
   }
 
   getUserByEmail(email: string): Promise<User | undefined> {
@@ -960,6 +982,10 @@ export class DatabaseStorage implements IStorage {
     return this.testsRepo.getTestSectionsByTopic(topicId);
   }
 
+  getTestSectionsByTopicIds(topicIds: string[]): Promise<TestSection[]> {
+    return this.testsRepo.getTestSectionsByTopicIds(topicIds);
+  }
+
   getMeasurementsForQuestions(
     questionIds: string[],
   ): Promise<Array<{ testId: string; questionId: string }>> {
@@ -1128,6 +1154,34 @@ export class DatabaseStorage implements IStorage {
 
   getScormAnswersByAttempt(attemptId: string): Promise<ScormAnswer[]> {
     return this.scormRepo.getScormAnswersByAttempt(attemptId);
+  }
+
+  upsertImportedAttempt(data: ImportedAttemptInput): Promise<{ id: string; created: boolean }> {
+    return this.scormRepo.upsertImportedAttempt(data);
+  }
+
+  replaceImportedAnswers(attemptId: string, answers: (InsertScormAnswer & { id: string })[]): Promise<void> {
+    return this.scormRepo.replaceImportedAnswers(attemptId, answers);
+  }
+
+  createLmsImportBatch(batch: InsertLmsImportBatch & { id: string }): Promise<{ id: string }> {
+    return this.scormRepo.createLmsImportBatch(batch);
+  }
+
+  updateLmsImportBatch(id: string, counts: LmsImportCounts): Promise<void> {
+    return this.scormRepo.updateLmsImportBatch(id, counts);
+  }
+
+  getLmsImportBatchById(id: string): Promise<LmsImportBatch | undefined> {
+    return this.scormRepo.getLmsImportBatchById(id);
+  }
+
+  getLmsImportBatches(testId: string): Promise<LmsImportBatch[]> {
+    return this.scormRepo.getLmsImportBatches(testId);
+  }
+
+  deleteLmsImportBatch(id: string): Promise<void> {
+    return this.scormRepo.deleteLmsImportBatch(id);
   }
 
   // ============================================

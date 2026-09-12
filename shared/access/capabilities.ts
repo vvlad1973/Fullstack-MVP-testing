@@ -69,6 +69,9 @@ export const CAPABILITIES = [
   "users.role.assign",
   "analytics.read",
   "analytics.export",
+  // PRD-54: загрузка выгрузки отчёта LMS как источника аналитики. Отдельно от экспорта, потому что
+  // это ЗАПИСЬ данных о прохождениях, а не чтение, — но выдаётся тем же ролям.
+  "analytics.import",
   "scormPackages.manage",
   "logs.read",
   // System.
@@ -106,4 +109,7 @@ export const SCOPE_AWARE_CAPABILITIES: readonly Capability[] = [
   "assignments.manage",
   "analytics.read",
   "analytics.export",
+  // PRD-54: тест определяется из самого файла, и загрузить выгрузку можно только в тот тест,
+  // который человеку и так доступен по аналитике. Право роли открывает действие, область — объект.
+  "analytics.import",
 ];

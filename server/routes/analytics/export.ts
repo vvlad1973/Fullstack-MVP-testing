@@ -17,6 +17,8 @@ import {
   formatQuestionType,
   formatAllOptions,
   formatCorrectAnswerText,
+  attemptPackage,
+  attemptTestId,
   formatUserAnswerText,
   formatContributions,
   gradingOf,
@@ -361,17 +363,20 @@ router.get("/export/filters", requirePermission("analytics.export"), async (req:
     const scormPackages = (await storage.getScormPackages()).filter((p) =>
       scope.has(p.testId ?? null),
     );
-    const scopedPackageIds = new Set(scormPackages.map((p) => p.id));
+    const packageMap = new Map(scormPackages.map((p) => [p.id, p]));
+    // PRD-54: область берётся по ТЕСТУ прохождения, а не по пакету. Отбор по пакетам выбросил бы
+    // импортированные строки, и тест, у которого есть только загруженная выгрузка, не попал бы в
+    // словарь фильтров вовсе — то есть выгрузить его данные было бы нечем.
     const allScormAttempts = (await storage.getAllScormAttempts()).filter((a) =>
-      scopedPackageIds.has(a.packageId),
+      scope.has(attemptTestId(a, packageMap)),
     );
 
     const webTestIds = new Set(allAttempts.filter(a => a.finishedAt).map(a => a.testId));
     const lmsTestIds = new Set<string>();
     for (const attempt of allScormAttempts) {
       if (attempt.finishedAt) {
-        const pkg = scormPackages.find(p => p.id === attempt.packageId);
-        if (pkg?.testId) lmsTestIds.add(pkg.testId);
+        const id = attemptTestId(attempt, packageMap);
+        if (id) lmsTestIds.add(id);
       }
     }
 
@@ -397,7 +402,7 @@ router.get("/export/filters", requirePermission("analytics.export"), async (req:
     const lmsUserMap = new Map<string, { id: string; username: string; email?: string }>();
     for (const attempt of allScormAttempts) {
       if (!attempt.finishedAt) continue;
-      const odataUserId = attempt.lmsUserId || attempt.sessionId;
+      const odataUserId = attempt.lmsUserId || attempt.sessionId || attempt.participantKey || attempt.id;
       if (odataUserId && !lmsUserMap.has(odataUserId)) {
         let displayName = attempt.lmsUserName || attempt.lmsUserEmail;
         if (!displayName) {
@@ -935,7 +940,12 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
 
     const allAttempts = await storage.getAllScormAttempts();
 
-    let attempts = allAttempts.filter(a => relevantPackageIds.has(a.packageId));
+    // PRD-54: отбор по ТЕСТУ, а не по пакету — иначе загруженные выгрузки в отчёт не попадут.
+    // Они такие же прохождения в LMS, просто приехали книгой, а не рантаймом.
+    let attempts = allAttempts.filter(a => {
+      const id = attemptTestId(a, packageMap);
+      return id !== null && scopedTestIds.includes(id);
+    });
 
     // Filter by dates
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
@@ -957,7 +967,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
     if (userIds.length > 0) {
       const userSet = new Set(userIds);
       completed = completed.filter(a => {
-        const odataUserId = a.lmsUserId || a.sessionId;
+        const odataUserId = a.lmsUserId || a.sessionId || a.participantKey || a.id;
         return userSet.has(odataUserId);
       });
     }
@@ -967,10 +977,10 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       const best = new Map<string, any>();
 
       for (const a of completed) {
-        const pkg = packageMap.get(a.packageId);
+        const pkg = attemptPackage(a, packageMap);
         if (!pkg) continue;
 
-        const odataUserId = a.lmsUserId || a.sessionId;
+        const odataUserId = a.lmsUserId || a.sessionId || a.participantKey || a.id;
         const k = `${pkg.testId}:${odataUserId}`;
         const prev = best.get(k);
 
@@ -1015,7 +1025,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
         ["Источник", "LMS (SCORM)"],
         ["Тестов", selectedTests.length],
         ["Попыток (завершённых)", completed.length],
-        ["Уникальных пользователей", new Set(completed.map(a => a.lmsUserId || a.sessionId)).size],
+        ["Уникальных пользователей", new Set(completed.map(a => a.lmsUserId || a.sessionId || a.participantKey || a.id)).size],
         ["bestAttemptOnly", bestAttemptOnly ? "Да" : "Нет"],
         ["Период", `${dateFrom || "—"} .. ${dateTo || "—"}`],
         [],
@@ -1023,8 +1033,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       ];
 
       for (const t of selectedTests) {
-        const relevantPkgIds = relevantPackages.filter(p => p.testId === t.id).map(p => p.id);
-        const ta = completed.filter(a => relevantPkgIds.includes(a.packageId));
+        const ta = completed.filter(a => attemptTestId(a, packageMap) === t.id);
         const avg = ta.length ? (ta.reduce((s, a) => s + (a.resultPercent || 0), 0) / ta.length) : 0;
         const passed = ta.filter(a => a.resultPassed).length;
         rows.push([
@@ -1045,7 +1054,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       ]];
 
       for (const a of completed) {
-        const pkg = packageMap.get(a.packageId);
+        const pkg = attemptPackage(a, packageMap);
         const dur = a.startedAt && a.finishedAt
           ? Math.round((new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000)
           : "";
@@ -1080,7 +1089,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       ]];
 
       for (const attempt of completed) {
-        const pkg = packageMap.get(attempt.packageId);
+        const pkg = attemptPackage(attempt, packageMap);
         const answers = attemptAnswers.get(attempt.id) || [];
         const startStr = attempt.startedAt ? new Date(attempt.startedAt).toLocaleString("ru-RU") : "";
 
@@ -1116,7 +1125,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       const stat = new Map<string, { prompt: string; testId: string; total: number; correct: number; topicName: string; type: string; difficulty: number }>();
 
       for (const attempt of completed) {
-        const pkg = packageMap.get(attempt.packageId);
+        const pkg = attemptPackage(attempt, packageMap);
         if (!pkg) continue;
 
         const answers = attemptAnswers.get(attempt.id) || [];
@@ -1161,7 +1170,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       const rows: any[][] = [["Пользователь", "Email", "Тест", "Тема", "Достигнутый уровень", "Дата"]];
 
       for (const attempt of completed) {
-        const pkg = packageMap.get(attempt.packageId);
+        const pkg = attemptPackage(attempt, packageMap);
         if (pkg?.testMode !== "adaptive") continue;
 
         const achievedLevels = attempt.achievedLevelsJson as any[] | null;
@@ -1195,7 +1204,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
       const userCourses = new Map<string, Set<string>>();
 
       for (const attempt of completed) {
-        const odataUserId = attempt.lmsUserId || attempt.sessionId || "—";
+        const odataUserId = attempt.lmsUserId || attempt.sessionId || attempt.participantKey || attempt.id || "—";
 
         let courses: any[] = [];
         if (attempt.failedTopicCoursesJson) {

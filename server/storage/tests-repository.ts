@@ -14,7 +14,7 @@
  * imported by routes.
  */
 import { randomUUID } from "crypto";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   tests, testSections, testSnapshots, attempts,
@@ -262,6 +262,22 @@ export class TestsRepository {
 
   async getTestSectionsByTopic(topicId: string): Promise<TestSection[]> {
     return db.select().from(testSections).where(eq(testSections.topicId, topicId));
+  }
+
+  /**
+   * Разделы сразу по НЕСКОЛЬКИМ темам — PRD-54: определение теста по вопросам из шапки выгрузки.
+   *
+   * Одним запросом, а не циклом из `getTestSectionsByTopic`: тем в выгрузке столько же, сколько
+   * различных тем у её вопросов, и опрос по одной превратил бы опознание файла в N обращений к базе.
+   *
+   * @param topicIds идентификаторы тем
+   * @returns разделы, ссылающиеся на любую из них; пустой массив на пустом списке
+   */
+  async getTestSectionsByTopicIds(topicIds: string[]): Promise<TestSection[]> {
+    // Пустой список проверяется отдельно: `inArray` с пустым массивом даёт `IN ()` — синтаксическую
+    // ошибку Postgres, а не пустую выборку.
+    if (topicIds.length === 0) return [];
+    return db.select().from(testSections).where(inArray(testSections.topicId, topicIds));
   }
 
   async getTopicPageRefs(topicId: string): Promise<Array<{ testId: string }>> {

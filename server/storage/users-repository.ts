@@ -45,6 +45,31 @@ export class UsersRepository {
     return undefined;
   }
 
+  /**
+   * Найти пользователя по внешнему ключу (PRD-54 раздел 8.5).
+   *
+   * Регистр и краевые пробелы не учитываются: ключом чаще всего оказывается hex-хеш или табельный
+   * код, где разница в регистре смысла не несёт, а сопоставление ломает молча. Сравнение идёт по
+   * тому же выражению, на котором построен уникальный индекс `users_external_key_idx`, поэтому
+   * поиск по нему индексный, а не последовательный.
+   *
+   * Почта НЕ расшифровывается: связывание читает только идентификатор, и лишняя расшифровка на
+   * каждую строку выгрузки — это сотни ненужных операций на большом файле.
+   *
+   * @param key значение ключа из файла
+   * @returns пользователь или `undefined`; пустой ключ никогда ни с кем не совпадает
+   */
+  async getUserByExternalKey(key: string): Promise<User | undefined> {
+    const normalized = String(key ?? "").trim().toLowerCase();
+    if (normalized === "") return undefined;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.externalKey}) = ${normalized}`)
+      .limit(1);
+    return user || undefined;
+  }
+
   async getUserByEmail(email: string): Promise<User | undefined> {
     const emailHashValue = hashEmail(email);
     const [user] = await db.select().from(users).where(eq(users.emailHash, emailHashValue));
@@ -73,6 +98,8 @@ export class UsersRepository {
       status: insertUser.status || "pending",
       mustChangePassword: insertUser.mustChangePassword ?? true,
       gdprConsent: false,
+      // PRD-54: внешний ключ можно проставить сразу при заведении — колонкой массовой загрузки.
+      externalKey: insertUser.externalKey ?? null,
       createdAt: new Date(),
       createdBy: insertUser.createdBy || null,
     }).returning();
@@ -127,6 +154,9 @@ export class UsersRepository {
     // Partial<User>. `email` is handled specially (encrypt + derive hash).
     const set: Partial<User> = pickDefined(data, [
       "name", "status", "mustChangePassword", "gdprConsent", "gdprConsentAt",
+      // PRD-54: внешний ключ для связывания импортированных прохождений. `null` проходит сквозь
+      // `pickDefined` намеренно — это «снять ключ», в отличие от `undefined` = «не трогать».
+      "externalKey",
     ] as const);
     if (data.email) {
       set.email = await encryptEmail(data.email);
