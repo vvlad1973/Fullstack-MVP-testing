@@ -329,6 +329,12 @@ export interface IStorage {
   recordDeliveries(questionIds: string[], testId: string, at: Date): Promise<void>;
   /** PRD-55 (FR-04): сумма выдач заданий за окно, по всем тестам. Задание без выдач в карту не входит. */
   getDeliveryCounts(questionIds: string[], since: Date): Promise<Map<string, number>>;
+  /** PRD-55 (FR-31): сумма выдач заданий в ОДНОМ тесте — доля показов для отчёта автору. */
+  getDeliveryCountsForTest(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>>;
+  /** PRD-55 (FR-32): в скольких ДРУГИХ тестах задание выдавалось за окно. */
+  getOtherTestsCount(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>>;
+  /** PRD-55 (FR-31a): медиана времени на задание и СВОЙ объём выборки (веб времени не даёт). */
+  getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>>;
 
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt>;
   getScormAttempt(id: string): Promise<ScormAttempt | undefined>;
@@ -1132,6 +1138,18 @@ export class DatabaseStorage implements IStorage {
 
   getDeliveryCounts(questionIds: string[], since: Date): Promise<Map<string, number>> {
     return this.exposureRepo.getDeliveryCounts(questionIds, since);
+  }
+
+  getDeliveryCountsForTest(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>> {
+    return this.exposureRepo.getDeliveryCountsForTest(questionIds, testId, since);
+  }
+
+  getOtherTestsCount(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>> {
+    return this.exposureRepo.getOtherTestsCount(questionIds, testId, since);
+  }
+
+  getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>> {
+    return this.exposureRepo.getLatencyStats(questionIds, testId, since);
   }
 
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt> {

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { logger } from "../../logger";
+import { config } from "../../config";
 import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
@@ -215,10 +216,50 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       }
     }
 
-    const questionStats = Array.from(questionStatsMap.values()).map(qs => ({
-      ...qs,
-      correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
-    })).sort((a, b) => a.correctPercent - b.correctPercent);
+    // PRD-55 (FR-31/FR-31a/FR-32): экспозиция задания и время на него. Три запроса на ВЕСЬ тест,
+    // а не по заданию: карточек на экране десятки, и запрос в цикле превратил бы страницу в
+    // сотню обращений к базе.
+    //
+    // Ни одна из величин не является условием работы экрана: это дополнение к статистике
+    // ответов, поэтому сбой чтения уходит в лог, а страница отдаётся без них.
+    const questionIds = Array.from(questionStatsMap.keys());
+    let exposureOwn = new Map<string, number>();
+    let exposureGlobal = new Map<string, number>();
+    let otherTests = new Map<string, number>();
+    let latency = new Map<string, { medianMs: number; sampleSize: number }>();
+    try {
+      const windowStart = new Date();
+      windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
+      [exposureOwn, exposureGlobal, otherTests, latency] = await Promise.all([
+        storage.getDeliveryCountsForTest(questionIds, testId, windowStart),
+        storage.getDeliveryCounts(questionIds, windowStart),
+        storage.getOtherTestsCount(questionIds, testId, windowStart),
+        storage.getLatencyStats(questionIds, testId, windowStart),
+      ]);
+    } catch (error) {
+      logger.warn("PRD-55: экспозиция и время заданий не прочитаны — " + (error as Error).message);
+    }
+
+    // Знаменатель доли — попытки теста за окно. Ноль попыток означает «сравнивать не с чем»:
+    // доля тогда `null`, а не ноль, иначе экран покажет «0%» там, где данных нет вовсе.
+    const attemptsInWindow = completedAttempts.length;
+
+    const questionStats = Array.from(questionStatsMap.values()).map(qs => {
+      const exposureCount = exposureOwn.get(qs.questionId) ?? 0;
+      const lat = latency.get(qs.questionId);
+      return {
+        ...qs,
+        correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
+        exposureCount,
+        exposurePercent:
+          attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null,
+        globalExposureCount: exposureGlobal.get(qs.questionId) ?? 0,
+        otherTestsCount: otherTests.get(qs.questionId) ?? 0,
+        // Своя выборка: веб времени не измеряет, пакеты старше 2026-09-12 его не сообщают.
+        latencyMedianMs: lat ? lat.medianMs : null,
+        latencySampleSize: lat ? lat.sampleSize : 0,
+      };
+    }).sort((a, b) => a.correctPercent - b.correctPercent);
 
     // Level stats (adaptive)
     interface LevelStatsEntry {
