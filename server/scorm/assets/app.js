@@ -3,9 +3,13 @@
 // PRD-11 stratified draw — plain-JS port of shared/draw/blueprint.ts. No
 // blueprint => uniform draw (FR-02). Kept in golden parity with the TS source
 // by tests/draw-blueprint-port.test.ts.
-function drawSection(questions, drawCount, blueprint, shuffleFn) {
+//
+// PRD-55 (FR-24): the SELECTION is injected as `pickFn(pool, k)`, not as a shuffle. A uniform
+// draw is the case where every weight is equal, so the package has one draw algorithm and no
+// "correction off" branch.
+function drawSection(questions, drawCount, blueprint, pickFn) {
   if (!blueprint || !blueprint.strata || blueprint.strata.length === 0) {
-    return { selected: shuffleFn(questions.slice()).slice(0, drawCount), warnings: [] };
+    return { selected: pickFn(questions.slice(), drawCount), warnings: [] };
   }
   var selected = [];
   var used = {};
@@ -23,7 +27,7 @@ function drawSection(questions, drawCount, blueprint, shuffleFn) {
   blueprint.strata.forEach(function (stratum) {
     var stratumKey = tagKey(stratum.tag);
     var pool = questions.filter(function (q) { return !used[q.id] && hasTag(q, stratumKey); });
-    var take = shuffleFn(pool.slice()).slice(0, stratum.count);
+    var take = pickFn(pool.slice(), stratum.count);
     if (take.length < stratum.count) {
       warnings.push({ tag: stratum.tag, requested: stratum.count, available: take.length });
     }
@@ -35,7 +39,7 @@ function drawSection(questions, drawCount, blueprint, shuffleFn) {
     var free = questions.filter(function (q) {
       return !used[q.id] && !(qKeys[q.id] || []).some(function (k) { return exactKeys[k]; });
     });
-    shuffleFn(free.slice()).slice(0, remainder).forEach(function (q) { used[q.id] = true; selected.push(q); });
+    pickFn(free.slice(), remainder).forEach(function (q) { used[q.id] = true; selected.push(q); });
   }
   return { selected: selected.slice(0, drawCount), warnings: warnings };
 }
@@ -240,7 +244,9 @@ function generateVariant() {
       deliveredFormId = picked.formId;
       preordered = true;
     } else {
-      var drawn = drawSection(available, section.drawCount, section.drawBlueprint, shuffle);
+      var drawn = drawSection(available, section.drawCount, section.drawBlueprint, function (pool, k) {
+        return shuffle(pool).slice(0, k);
+      });
       // PRD-30 FR-06: selection is untouched (quotas + random pick); the ORDER is
       // decided for the whole test below.
       questions = drawn.selected;

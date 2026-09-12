@@ -659,7 +659,12 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
       } else {
         // PRD-11: stratified draw by tag quotas when a blueprint is set; otherwise
         // a uniform draw (FR-02). Shared with the SCORM runtime via shared/draw.
-        const { selected } = drawSection(questions, section.drawCount, section.drawBlueprintJson, shuffleInPlace);
+        const { selected } = drawSection(
+          questions,
+          section.drawCount,
+          section.drawBlueprintJson,
+          (pool, k) => shuffleInPlace(pool).slice(0, k),
+        );
         // PRD-30 (FR-06): selection stays as it was — quotas and the random pick
         // are untouched; the ORDER is decided for the whole test below.
         qIds = selected.map((q) => q.id);
