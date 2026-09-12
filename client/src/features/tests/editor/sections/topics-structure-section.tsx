@@ -24,6 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ChevronDown, Info, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
+import { expectedExposure } from "@shared/draw/expected-exposure";
 import {
   Banner,
   Button,
@@ -462,6 +463,12 @@ function TopicRow(props: {
   // governs how many are shown); the stored manual `drawAll` is preserved so
   // leaving adaptive restores it. The switch + count field lock while adaptive.
   const effectiveDrawAll = props.adaptive || section.drawAll;
+  // PRD-55 (FR-33): одна чистая функция на все три места, где величина показывается.
+  const expectedDelivery = expectedExposure({
+    drawCount: effectiveDrawAll ? section.maxQuestions : section.drawCount,
+    poolSize: section.maxQuestions,
+  });
+
   // PRD-17: variants mode is for standard delivery only; in adaptive the section
   // draws by difficulty levels, so the variant set is ignored and not edited.
   const variantsOn = !props.adaptive && section.formSet != null;
@@ -507,6 +514,16 @@ function TopicRow(props: {
                 {`${section.maxQuestions} вопрос${plural(section.maxQuestions)} в банке · выдаётся ${
                   effectiveDrawAll ? section.maxQuestions : section.drawCount
                 }`}
+                {/* PRD-55 (FR-33): ожидаемая экспозиция хвостом существующей сводки — так она
+                    видна по всем темам разом, без разворачивания каждой. */}
+                {expectedDelivery && (
+                  <span
+                    className={expectedDelivery.tone === "warning" ? "tb-exposure-hint--warn" : undefined}
+                    data-testid={`topic-exposure-${section.topicId}`}
+                  >
+                    {` · увидят ${expectedDelivery.percent}%`}
+                  </span>
+                )}
               </span>
             </span>
           </button>
@@ -584,6 +601,23 @@ function TopicRow(props: {
             <p className="tb-field-error" role="alert" data-testid={`topic-drawcount-error-${section.topicId}`}>
               {drawCountError}
             </p>
+          )}
+
+          {/* PRD-55 (FR-33): ожидаемая экспозиция — сколько участников увидят каждое задание темы
+              при нынешней выдаче. Данных о прохождениях НЕ требует, поэтому работает и на пустом
+              тесте, то есть тогда, когда настройку ещё можно исправить. Величина показывается
+              всегда, меняется только тон: выше порога выработки банка — предупреждение. */}
+          {expectedDelivery && (
+            <Banner
+              tone={expectedDelivery.tone}
+              title={`Каждое задание темы увидят около ${expectedDelivery.percent}% участников`}
+              description={
+                expectedDelivery.tone === "warning"
+                  ? `Выдача ${effectiveDrawAll ? section.maxQuestions : section.drawCount} из ${section.maxQuestions} — банк вырабатывается за один поток. Добавьте вопросов в тему или уменьшите выдачу.`
+                  : `Выдача ${effectiveDrawAll ? section.maxQuestions : section.drawCount} из ${section.maxQuestions} — запаса банка хватает, задания не приедаются.`
+              }
+              data-testid={`topic-exposure-banner-${section.topicId}`}
+            />
           )}
 
           {/* PRD-30 FR-02/FR-18 (эскиз approved/prd30-test-level-order.html): the
