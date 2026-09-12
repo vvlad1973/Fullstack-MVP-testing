@@ -293,7 +293,14 @@ function generateVariant() {
       preordered = true;
     } else {
       var drawn = drawSection(available, section.drawCount, section.drawBlueprint, function (pool, k) {
-        return shuffle(pool).slice(0, k);
+        // PRD-55 (FR-28): счётчиков у пакета нет — вес уже запечён в TEST_DATA на момент сборки.
+        // Карта строится из поля вопроса; отсутствие поля означает единицу, то есть прежнее
+        // поведение для пакетов, собранных до внедрения (FR-30).
+        var weights = new Map();
+        pool.forEach(function (q) {
+          weights.set(q.id, q.exposureWeight === undefined ? 1 : q.exposureWeight);
+        });
+        return weightedPick(pool, k, weights, Math.random);
       });
       // PRD-30 FR-06: selection is untouched (quotas + random pick); the ORDER is
       // decided for the whole test below.
