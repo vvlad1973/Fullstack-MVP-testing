@@ -71,6 +71,17 @@ export interface AppConfig {
       anonymizeParticipants: boolean;
     };
   };
+  /** PRD-55: поведение выдачи заданий. */
+  delivery: {
+    /**
+     * Окно наблюдения экспозиции в месяцах (FR-04).
+     *
+     * Живёт в конфигурации инстанса, а не в настройках теста, потому что описывает ЭКСПЛУАТАЦИЮ
+     * банка — как быстро сменяется поток обучающихся, — и одинаково для всех тестов установки.
+     * Выдачи старше окна в расчёт весов не идут: утечка стареет вместе с потоком.
+     */
+    exposureWindowMonths: number;
+  };
   /** Operational ceilings that an installation may tune without a code change. */
   limits: {
     /** Maximum rows accepted from one uploaded workbook (participants and users import). */
@@ -106,6 +117,16 @@ function asNumber(value: unknown, fallback: number): number {
     return Number(value);
   }
   return fallback;
+}
+
+/**
+ * Целое БОЛЬШЕ НУЛЯ или запасное значение. Отличается от {@link asNumber} тем, что не пропускает
+ * ноль и отрицательные: у величин вроде окна наблюдения такое значение не «настройка», а тихая
+ * поломка расчёта.
+ */
+function asPositiveInt(value: unknown, fallback: number): number {
+  const n = asNumber(value, Number.NaN);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
 function asBool(value: unknown, fallback: boolean): boolean {
@@ -157,6 +178,7 @@ export function shape(raw: Record<string, unknown>): AppConfig {
   const limits = asRecord(raw.limits);
   const analytics = asRecord(raw.analytics);
   const lmsImport = asRecord(analytics.lmsImport);
+  const delivery = asRecord(raw.delivery);
 
   return {
     log: {
@@ -193,6 +215,11 @@ export function shape(raw: Record<string, unknown>): AppConfig {
         // По умолчанию ВКЛЮЧЕНО: инстанс, где про параметр не знают, не должен копить ФИО.
         anonymizeParticipants: asBool(lmsImport.anonymizeParticipants, true),
       },
+    },
+    delivery: {
+      // Ноль или отрицательное окно прочитали бы счётчик пустым и молча выключили поправку
+      // целиком — такое значение не принимается, а не «работает как задано».
+      exposureWindowMonths: asPositiveInt(delivery.exposureWindowMonths, 12),
     },
     limits: {
       participantsImportMaxRows: asNumber(limits.participantsImportMaxRows, 500),
