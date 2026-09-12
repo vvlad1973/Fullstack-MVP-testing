@@ -322,6 +322,11 @@
                           <span class="wf-q__val wf-q__val--warn">81%</span>
                           <span class="wf-q__cap">выдано 46 из 57</span>
                         </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--muted">1:24</span>
+                          <span class="wf-q__cap">среднее время</span>
+                          <span class="wf-q__cap">по 31 ответу</span>
+                        </div>
                       </div>
                     </div>
                     <div class="ou-progress ou-progress--success ou-progress--s">
@@ -347,6 +352,11 @@
                         <div class="wf-q__num">
                           <span class="wf-q__val wf-q__val--muted">19%</span>
                           <span class="wf-q__cap">выдано 11 из 57</span>
+                        </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--muted">0:22</span>
+                          <span class="wf-q__cap">среднее время</span>
+                          <span class="wf-q__cap">по 9 ответам</span>
                         </div>
                       </div>
                     </div>
@@ -431,6 +441,11 @@
                           <span class="wf-q__cap">выдано 46 из 57</span>
                           <span class="wf-q__cap">всего 318 показов</span>
                         </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--muted">1:24</span>
+                          <span class="wf-q__cap">среднее время</span>
+                          <span class="wf-q__cap">по 31 ответу</span>
+                        </div>
                       </div>
                     </div>
                     <div class="ou-progress ou-progress--success ou-progress--s">
@@ -510,6 +525,10 @@
                         <div class="wf-q__num">
                           <span class="wf-q__val wf-q__val--muted">—</span>
                           <span class="wf-q__cap">показы не учтены</span>
+                        </div>
+                        <div class="wf-q__num">
+                          <span class="wf-q__val wf-q__val--muted">—</span>
+                          <span class="wf-q__cap">время не измерялось</span>
                         </div>
                       </div>
                     </div>
@@ -1060,6 +1079,16 @@
                   <td>Подпись «выдано N из M»</td>
                   <td><code>deliveredCount</code> / <code>attemptsInWindow</code></td>
                   <td>Абсолютные числа обязательны: 80% при пяти попытках и при пятистах — разные утверждения</td>
+                </tr>
+                <tr>
+                  <td>Среднее время на ответ</td>
+                  <td><code>scorm_answers.latency_ms</code>, среднее по ответам за окно</td>
+                  <td>Пакет меряет время показа вопроса с 2026-09-12 (СУММУ всех заходов, PRD-54 §7.2); импорт выгрузки читает ту же колонку. Веб-прохождения времени не дают вовсе, поэтому у метрики СВОЙ объём выборки — он и стоит подписью «по N ответам»</td>
+                </tr>
+                <tr>
+                  <td>Прочерк вместо времени</td>
+                  <td><code>latency_ms IS NULL</code> у всех ответов задания</td>
+                  <td>Пакеты, собранные раньше, время не сообщают; ноль здесь означал бы «ответили мгновенно», что неправда</td>
                 </tr>
                 <tr>
                   <td>Тон величины</td>
