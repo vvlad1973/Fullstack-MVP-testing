@@ -35,6 +35,7 @@ import {
   type ComboboxOption,
 } from "@skillum/ui-kit";
 import { PageHeader } from "@/components/page-header";
+import { LmsImportForm, type LmsInspectResult } from "@/features/analytics/lms-import/lms-import-form";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -44,6 +45,11 @@ import { t } from "@/lib/i18n";
 const NEW_TEST = "__new__";
 
 interface InspectResult {
+  /**
+   * PRD-54: вид файла. Клиент ветвится по ОДНОМУ полю, а не по набору признаков:
+   * «workbook» — книга теста, «lmsExport» — выгрузка отчёта LMS.
+   */
+  kind?: "workbook" | "lmsExport";
   sheets: string[];
   hasQuestions: boolean;
   hasScales: boolean;
@@ -433,6 +439,14 @@ export default function ImportPage() {
                   </Button>
                 </Cluster>
               </>
+            ) : inspect?.kind === "lmsExport" ? (
+              /* ── PRD-54: выгрузка отчёта LMS. Своя форма: тест берётся из файла, а вместо
+                   ролевых листов у неё группа, обезличивание и связывание. ─────────────── */
+              <LmsImportForm
+                file={file}
+                inspect={inspect as unknown as LmsInspectResult}
+                onDone={resetAll}
+              />
             ) : (
               /* ── File chosen → inspect → action / preview ─────────────── */
               <>

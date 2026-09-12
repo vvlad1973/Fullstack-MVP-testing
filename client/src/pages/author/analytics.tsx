@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
+import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
 import {
   Box,
   Button,
@@ -51,6 +52,7 @@ import {
   HelpCircle,
   Layers,
   RefreshCw,
+  Upload,
   FileDown,
   TrendingDown,
 } from "lucide-react";
@@ -1332,6 +1334,8 @@ export default function AnalyticsPage() {
   const [dateTo, setDateTo] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [trendMode, setTrendMode] = useState<"total" | "byTest">("total");
+  /** PRD-54: окно загрузки выгрузки отчёта LMS. */
+  const [lmsImportOpen, setLmsImportOpen] = useState(false);
 
   const queryParams = new URLSearchParams({ source });
   if (testId !== "all") queryParams.append("testId", testId);
@@ -1567,10 +1571,25 @@ export default function AnalyticsPage() {
           <Text as="h1" variant="display-s" weight="semibold">Аналитика</Text>
           <Text tone="muted">Обзор эффективности тестов и статистика по источникам</Text>
         </Stack>
-        <Button variant="secondary" size="s" leadingIcon={<RefreshCw size={16} />} loading={isFetching} onClick={() => { refetch(); refetchSummary(); }}>
-          Обновить
-        </Button>
+        <Cluster gap={2}>
+          {/* PRD-54: вторая точка входа. Теста в контексте нет — он берётся из самого файла. */}
+          <Button variant="secondary" size="s" leadingIcon={<Upload size={16} />} onClick={() => setLmsImportOpen(true)}>
+            Загрузить выгрузку LMS
+          </Button>
+          <Button variant="secondary" size="s" leadingIcon={<RefreshCw size={16} />} loading={isFetching} onClick={() => { refetch(); refetchSummary(); }}>
+            Обновить
+          </Button>
+        </Cluster>
       </Cluster>
+
+      <ModalDialog
+        open={lmsImportOpen}
+        onClose={() => setLmsImportOpen(false)}
+        title="Загрузка выгрузки LMS"
+        description="Тест определяется по самому файлу"
+      >
+        <LmsImportForm onDone={() => { refetch(); refetchSummary(); }} />
+      </ModalDialog>
 
       {/* Фильтры */}
       <FiltersBar
