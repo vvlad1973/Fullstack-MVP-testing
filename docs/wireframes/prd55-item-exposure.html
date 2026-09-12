@@ -106,6 +106,7 @@
     <svg class="wf-sprite" xmlns="http://www.w3.org/2000/svg">
       <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
       <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
       <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
@@ -664,10 +665,13 @@
                   <div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="20" aria-label="Вопросов в тест из темы Финансы предприятия" /></div></div>
                   <span class="tb-draw-count-row__max">из 25</span>
                 </div>
-                <p class="wf-hint wf-hint--warn">
-                  <svg width="14" height="14" aria-hidden="true"><use href="#i-alert" /></svg>
-                  Каждое задание темы увидят около 80% участников — банк вырабатывается за один поток
-                </p>
+                <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
+                  <div class="ou-banner__body">
+                    <p class="ou-banner__title">Каждое задание темы увидят около 80% участников</p>
+                    <p class="ou-banner__desc">Выдача 20 из 25 — банк вырабатывается за один поток. Добавьте вопросов в тему или уменьшите выдачу.</p>
+                  </div>
+                </div>
 
                 <div class="wf-toggle-row">
                   <label class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" aria-label="Квоты по подтемам" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
@@ -824,7 +828,13 @@
                   <div class="ou-field ou-field--s"><div class="ou-field__box"><input class="ou-field__input" type="text" value="10" aria-label="Вопросов в тест из темы Управление командой" /></div></div>
                   <span class="tb-draw-count-row__max">из 80</span>
                 </div>
-                <p class="wf-hint">Каждое задание темы увидят около 13% участников</p>
+                <div class="ou-banner ou-banner--info ou-banner--subtle wf-mt-3" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-info" /></svg></span>
+                  <div class="ou-banner__body">
+                    <p class="ou-banner__title">Каждое задание темы увидят около 13% участников</p>
+                    <p class="ou-banner__desc">Выдача 10 из 80 — запаса банка хватает, задания не приедаются.</p>
+                  </div>
+                </div>
 
                 <div class="wf-toggle-row">
                   <label class="ou-switch ou-switch--m"><input class="ou-switch__input" type="checkbox" aria-label="Квоты по подтемам" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></label>
@@ -1077,9 +1087,9 @@
                   <td>FR-33. Сводка «N вопросов в банке · выдаётся M» уже существует — дельта в один хвост, поэтому цифра видна без разворачивания всех тем</td>
                 </tr>
                 <tr>
-                  <td>Подсказка под «Вопросов в тест»</td>
+                  <td>Баннер под «Вопросов в тест»</td>
                   <td>та же величина, порог &ge; 70%</td>
-                  <td>Данных НЕ требует — считается из настроек, поэтому работает и на пустом тесте. Ниже порога — обычная серая подсказка, как у «Порядок вопросов» рядом</td>
+                  <td>Данных НЕ требует — считается из настроек, поэтому работает и на пустом тесте. Величина показывается ВСЕГДА: выше порога — баннер warning, ниже — баннер info. Молчащего состояния нет: автор должен видеть цену своей выдачи, а не только тревогу</td>
                 </tr>
                 <tr>
                   <td>Баннер в окне экспорта</td>
@@ -1108,7 +1118,7 @@
                 <tr><td>Полоса доли верных</td><td><code>ou-progress ou-progress--success</code></td><td><code>--ou-success-default</code></td><td>Существующая; второй полосы под экспозицию НЕ добавляется</td></tr>
                 <tr><td>Строка темы в редакторе</td><td><code>tb-topic-row</code></td><td>—</td><td>Канон approved/prd11-draw-quotas.html</td></tr>
                 <tr><td>Поле «Вопросов в тест»</td><td><code>ou-field ou-field--s</code> + <code>tb-draw-count-row</code></td><td>—</td><td>Тот же канон; дельта — только подсказка под строкой</td></tr>
-                <tr><td>Подсказка и предупреждение</td><td><code>Text variant="body-s"</code>, tone muted / warning</td><td><code>--ou-fg-muted</code>, <code>--ou-warning-default</code></td><td>В коде — DS-компонент Text; в эскизе его рисует <code>wf-hint</code></td></tr>
+                <tr><td>Баннер ожидаемой экспозиции</td><td><code>ou-banner ou-banner--subtle</code>, тон <code>--warning</code> / <code>--info</code></td><td><code>--ou-space-3</code></td><td>Один компонент на оба случая, меняется только тон: выше порога — warning, ниже — info</td></tr>
                 <tr><td>Баннер экспорта</td><td><code>ou-banner ou-banner--warning ou-banner--subtle</code></td><td><code>--ou-space-3</code></td><td>Тот же баннер, что у прочих предупреждений</td></tr>
                 <tr><td>Две величины справа</td><td><code>custom</code> — <code>wf-q__nums</code></td><td><code>--ou-text-heading-s</code>, <code>--ou-space-6</code></td><td>В коде это <code>Cluster</code> + <code>Stack</code> + <code>Text</code> ui-kit; своего CSS не появится</td></tr>
               </tbody>
