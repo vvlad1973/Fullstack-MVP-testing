@@ -471,8 +471,19 @@ function finishScormAdaptive(results, passedForLms, resultComputation, scaleComp
   pushAll(interactions, buildScaleInteractions(scaleComputation));
   // PRD-2 (A7): append var_{name} pseudo-interactions for published variables.
   pushAll(interactions, buildResultVarInteractions(resultComputation));
+  // Версия формата строк ответа: без неё разбор выгрузки не отличит новый формат от старого.
+  interactions.push(buildResponseFormatInteraction());
 
-  SCORM.finish(percentScore, 100, passedForLms, objectives, interactions);
+  // A run with nothing to grade reports NO score (shared `lmsScoreFor`): «Пройден, 0 баллов»
+  // is a verdict we mean and a number we do not.
+  var lmsScore = window.TBTemplate.lmsScoreFor({ percent: percentScore, possiblePoints: results.possiblePoints });
+  SCORM.finish(
+    lmsScore ? lmsScore.raw : null,
+    lmsScore ? lmsScore.max : null,
+    passedForLms,
+    objectives,
+    interactions
+  );
 
   // Записываем уровень ПОСЛЕ finish
   try {
@@ -873,11 +884,14 @@ function formatResponse(q, ans) {
   // подходит (ответ не одно число), `matching` семантически ложен (пар нет), поэтому
   // взаимодействие пишется как `other`, а строка остаётся разбираемой отчётом LMS.
   // Нули НЕ выбрасываются: «поставил ноль» и «не дошёл» — разные факты для аналитики.
+  // Индексы 1-based, как у всех остальных типов (формат версии 2, см.
+  // `buildResponseFormatInteraction`): до выравнивания «1» у выбора и «1» у распределения
+  // означали РАЗНЫЕ варианты, и читатель выгрузки ошибался на единицу.
   if (TBQType.distributesBudget(q.type)) {
     return Object.keys(ans)
       .map(Number)
       .sort(function (a, b) { return a - b; })
-      .map(function (i) { return i + '[.]' + ans[i]; })
+      .map(function (i) { return to1(i) + '[.]' + ans[i]; })
       .join(',');
   }
   return '';
@@ -982,6 +996,55 @@ function ratio(value) {
   return Math.round(value * 10000) / 10000;
 }
 
+/**
+ * The service interaction that tells the LMS report WHICH response format this package
+ * writes (`meta_response_format`).
+ *
+ * Version 1 (packages built before 2026-09-12) encoded an allocation of points 0-based while
+ * every other type was 1-based; version 2 aligned them. The two cannot be told apart by the
+ * string itself — «0,1,2» and «1,2,3» are equally plausible index sets — so the version has
+ * to travel with the data. An absent block in an export therefore means version 1, which is
+ * exactly what packages already in the field send.
+ *
+ * `neutral`, like the other service blocks (`scale_*`, `var_*`): there is nothing to be right
+ * or wrong about.
+ */
+function buildResponseFormatInteraction() {
+  return {
+    id: 'meta_response_format',
+    type: 'other',
+    result: 'neutral',
+    response: '2',
+    correct: '',
+    description: 'Версия формата строк ответа'
+  };
+}
+
+/**
+ * Time spent on this question as an ISO 8601 duration for `cmi.interactions.n.latency`.
+ *
+ * An empty string when the question was never shown (a run restored mid-way, a question the
+ * learner never reached): the element is then skipped entirely rather than written as «PT0S»,
+ * which would claim an instant answer. Mirrors `formatScormDuration` of
+ * `shared/lms-export/duration`, and the mirror is held by `tests/scorm-latency`.
+ */
+function questionLatency(questionId) {
+  if (typeof TBQuestionTime === 'undefined') return '';
+  var ms = TBQuestionTime.totalMsFor(questionId);
+  if (!ms || ms <= 0) return '';
+
+  var total = Math.floor(ms / 1000);
+  var hours = Math.floor(total / 3600);
+  var minutes = Math.floor((total % 3600) / 60);
+  var seconds = total % 60;
+
+  var out = 'PT';
+  if (hours > 0) out += hours + 'H';
+  if (minutes > 0) out += minutes + 'M';
+  if (seconds > 0 || out === 'PT') out += seconds + 'S';
+  return out;
+}
+
 function buildQuestionInteraction(question, answer, fullCorrect) {
   return {
     id: 'q_' + question.id,
@@ -989,7 +1052,8 @@ function buildQuestionInteraction(question, answer, fullCorrect) {
     result: interactionResultFor(question, fullCorrect),
     response: formatResponse(question, answer),
     correct: formatResponse(question, getCorrectAnswerFor(question)),
-    description: authorTextPlain(question.prompt)
+    description: authorTextPlain(question.prompt),
+    latency: questionLatency(question.id)
   };
 }
 
@@ -1042,6 +1106,17 @@ function finishScormLmsOnly(results, passedForLms, resultComputation, scaleCompu
   pushAll(interactions, buildScaleInteractions(scaleComputation));
   // PRD-2 (A7): append var_{name} pseudo-interactions for published variables.
   pushAll(interactions, buildResultVarInteractions(resultComputation));
+  // Версия формата строк ответа — тем же блоком, что и в адаптивном пути.
+  interactions.push(buildResponseFormatInteraction());
 
-  SCORM.finish(percentScore, 100, passedForLms, objectives, interactions);
+  // A run with nothing to grade reports NO score — the same shared decision the adaptive
+  // path makes, so the two finish paths cannot drift on what the LMS is told.
+  var lmsScore = window.TBTemplate.lmsScoreFor({ percent: percentScore, possiblePoints: results.possiblePoints });
+  SCORM.finish(
+    lmsScore ? lmsScore.raw : null,
+    lmsScore ? lmsScore.max : null,
+    passedForLms,
+    objectives,
+    interactions
+  );
 }

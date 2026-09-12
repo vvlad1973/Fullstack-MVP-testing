@@ -229,9 +229,11 @@ function submitAdaptiveAnswer(questionId, answer) {
     options: answerOptions,
     leftItems: leftItems,
     rightItems: rightItems,
-    items: rankingItems
+    items: rankingItems,
+    // Время на задании — тот же накопитель, что и в обычном режиме.
+    latencyMs: (typeof TBQuestionTime !== 'undefined') ? TBQuestionTime.totalMsFor(question.id) : null
   });
-  
+
   console.log('Answer correct:', isCorrect);
 
   // Update level state

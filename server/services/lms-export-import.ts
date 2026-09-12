@@ -35,7 +35,13 @@ export interface PlannedRow {
   totalPoints: number | null;
   scalesJson: Record<string, number>;
   variablesJson: Record<string, string>;
-  answers: Array<{ questionId: string; raw: string; result: string }>;
+  answers: Array<{ questionId: string; raw: string; result: string; latencyMs: number | null }>;
+  /**
+   * Версия формата строк ответа этого прохождения; `null` — пакет её не сообщал.
+   *
+   * Живёт на СТРОКЕ, а не на файле: в одном отчёте бывают прохождения разных версий пакета.
+   */
+  responseFormat: number | null;
 }
 
 export interface ImportPlan {
@@ -96,7 +102,14 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
         questionId,
         raw: r.answers[questionId],
         result: r.results[questionId] || "neutral",
+        // Выгрузка даёт целые секунды, база хранит миллисекунды — как и живая телеметрия,
+        // иначе два источника не сравнить одним запросом. Нет измерения — нет и числа;
+        // отсутствие самой карты означает то же (выгрузка пакета, времени не мерившего).
+        latencyMs: (r.latencySeconds || {})[questionId] != null
+          ? (r.latencySeconds || {})[questionId] * 1000
+          : null,
       })),
+      responseFormat: r.responseFormat ?? null,
     });
   }
 
@@ -226,7 +239,9 @@ export async function runImport(
           questionPrompt: q.prompt,
           questionType: q.type,
           topicId: q.topicId,
-          userAnswerJson: decodeLearnerResponse(q.type, a.raw),
+          // Версия формата берётся у САМОГО прохождения: индексы распределения баллов
+          // выравнены с версии 2, а выданные до неё пакеты шлют старый формат вечно.
+          userAnswerJson: decodeLearnerResponse(q.type, a.raw, row.responseFormat),
           // Три состояния вместо булева: измерительный ответ не может быть неверным
           // (PRD-54 раздел 5.3). Всё, что не «верно» и не «неверно», — `neutral`.
           result: a.result === "correct" || a.result === "incorrect" ? a.result : "neutral",
@@ -234,6 +249,7 @@ export async function runImport(
           points: null,
           maxPoints: null,
           correctAnswerJson: null,
+          latencyMs: a.latencyMs,
           answeredAt: row.finishedAt,
         }];
       }),

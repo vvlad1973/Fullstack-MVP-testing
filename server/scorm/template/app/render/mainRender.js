@@ -44,6 +44,11 @@ function render() {
     // templated renderers below.
     applySystemScreenStyles(null);
 
+    // Any screen that is NOT a question closes the open visit (обзор, итоги, контент,
+    // страница раздела). The question branch below re-opens it, and re-showing the same
+    // question is a no-op, so a plain redraw neither loses nor double-counts time.
+    if (typeof TBQuestionTime !== 'undefined') TBQuestionTime.leave();
+
     // Check for adaptive mode
     if (TEST_DATA.mode === 'adaptive' && state.adaptiveState) {
       renderAdaptive();
@@ -106,6 +111,12 @@ function render() {
 
     var qData = state.flatQuestions[current];
     var progress = ((current + 1) / total) * 100;
+
+    // Время на задании (`cmi.interactions.n.latency`): заход открывается здесь и суммируется
+    // по возвратам — учащийся, вернувшийся к пропущенному вопросу, думал над ним дважды.
+    if (typeof TBQuestionTime !== 'undefined' && qData && qData.question) {
+        TBQuestionTime.show(qData.question.id);
+    }
 
     renderStandardQuestion(qData, current, total, progress);
 }
@@ -264,9 +275,11 @@ function renderReviewScreen() {
         ? 'Завершить тест'
         : 'Завершить раздел';
     if (!layout || !TB || !TB.renderScreenInto || !TB.buildReviewContext) {
-        // No review layout — fall through to finishing (section or whole test).
+        // No review layout — fall through to finishing (section or whole test). Forced for
+        // the same reason the обзор's own finish is: the learner asked to finish, and there
+        // is no screen left to send them back to.
         if (sectionScope && scopeTopicId) { finishSection(scopeTopicId, isLast, 0, true); }
-        else { submit(); }
+        else { submit(true); }
         return;
     }
     // Opened via «К обзору» mid-flow? Then offer «Назад» to the origin question and
@@ -347,10 +360,13 @@ function renderReviewScreen() {
                     // Section finish (D5): confirm-if-unanswered handled inside finishSection.
                     finishSection(scopeTopicId, isLast, unanswered, false);
                 } else if (unanswered > 0) {
-                    // Flat test finish (FR-09): confirm when unanswered remain.
-                    showFinishConfirm(unanswered, built.review.finishLabel, function () { submit(); });
+                    // Flat test finish (FR-09): confirm when unanswered remain. The submit is
+                    // FORCED: the обзор has no «current question» to gate on — it shows the whole
+                    // list — so `requireAnswerOrToast` would bounce the learner back to a screen
+                    // they just chose to leave, with no way out of it at all.
+                    showFinishConfirm(unanswered, built.review.finishLabel, function () { submit(true); });
                 } else {
-                    submit();
+                    submit(true);
                 }
             });
         }
