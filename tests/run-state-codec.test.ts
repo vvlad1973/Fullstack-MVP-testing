@@ -109,7 +109,12 @@ describe("выдача пинится позициями при сборке в�
     // `tbDebugFullDraw` — отладочный признак полной выдачи банка (PRD-52): в проде он
     // инертен, но `generateVariant` его зовёт, и без него песочница падает на
     // ReferenceError раньше первой проверки.
-    "assembleDelivery", "selectForm", "tbDebugForcedForms", "tbDebugFullDraw", "generateVariant",
+    "assembleDelivery", "selectForm", "tbDebugForcedForms", "tbDebugFullDraw",
+    // PRD-55: `generateVariant` отбирает задания взвешенно по запечённому весу экспозиции, и
+    // без этой функции песочница падает на ReferenceError — по той же причине, что и
+    // `tbDebugFullDraw` выше. Веса в фикстурах равны (поля `exposureWeight` нет), поэтому на
+    // сам отбор она здесь не влияет.
+    "weightedPick", "generateVariant",
   ].map(extract).join("\n");
 
   const question = (id: string) => ({ id, type: "single", tags: [] });
