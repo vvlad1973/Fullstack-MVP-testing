@@ -35,8 +35,20 @@ const BOOTSTRAP_FILE = path.join(root, "scripts", "docs", "_preview-bootstrap.js
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
+/**
+ * Read a source file with line endings NORMALISED to LF.
+ *
+ * Every caller ends up embedding the text into `preview.html` — layouts and styles as
+ * JS string literals through `JSON.stringify`, the runtime inline in a `<script>`. On a
+ * Windows checkout (`core.autocrlf=true`) the bytes on disk carry CRLF, so without this
+ * the literals gain `\r\n` while the committed previews hold `\n`: regeneration then
+ * produces a diff of thousands of invisible differences on top of the real edit, and two
+ * developers on different systems rewrite the file after each other forever. Normalising
+ * on READ (rather than on write) keeps the rule in ONE place — every embedding path goes
+ * through here.
+ */
 function readText(filePath) {
-  return fs.readFileSync(filePath, "utf8");
+  return fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
 }
 
 function readJson(filePath) {
