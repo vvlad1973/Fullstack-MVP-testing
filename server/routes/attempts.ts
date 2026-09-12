@@ -724,6 +724,16 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
       finishedAt: null,
     });
 
+    // PRD-55 (FR-01/FR-02): выдачей считается НАЧАТАЯ попытка — состав формы уже зафиксирован,
+    // и ответы для учёта не нужны: брошенная попытка показала содержание так же, как доведённая
+    // до конца. Счётчик не имеет права ронять старт попытки, поэтому сбой уходит в лог: это
+    // статистика качества банка, а не условие прохождения.
+    try {
+      await storage.recordDeliveries(allQuestionIds, test.id, new Date());
+    } catch (error) {
+      logger.warn("PRD-55: выдача заданий не записана — " + (error as Error).message);
+    }
+
     res.status(201).json({
       ...attempt,
       testTitle: test.title,
