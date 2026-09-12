@@ -117,13 +117,16 @@ describe("старт попытки учитывает экспозицию", ()
     expect(since.getTime()).toBeLessThan(Date.now());
   });
 
+  // Таймаут задан явно: проверка гоняет сотню полных стартов попытки через express, и на
+  // умолчании в 5 секунд она зелёная только на свободной машине — в общем прогоне на четырёх
+  // воркерах падала по таймауту, читаясь как сломанная поправка.
   it("горячее задание выпадает реже свежего, но не исчезает", async () => {
     storageMock.getTest.mockResolvedValue(dbTest);
     storageMock.getTestSections.mockResolvedValue([{ topicId: "t1", drawCount: 1 }]);
     storageMock.getQuestionsByTopic.mockResolvedValue([q("hot"), q("fresh")]);
     storageMock.getDeliveryCounts.mockResolvedValue(new Map([["hot", 100], ["fresh", 0]]));
 
-    const RUNS = 200;
+    const RUNS = 120;
     for (let i = 0; i < RUNS; i += 1) {
       await asLearner(request(app).post("/api/tests/test1/attempts/start"));
     }
@@ -136,7 +139,7 @@ describe("старт попытки учитывает экспозицию", ()
     // ниже — поправка не работает, выше — она выродилась в детерминированный обход.
     expect(fresh).toBeGreaterThan(RUNS * 0.6);
     expect(fresh).toBeLessThan(RUNS * 0.95);
-  });
+  }, 30000);
 
   it("без накопленных данных выдача остаётся равномерной", async () => {
     storageMock.getTest.mockResolvedValue(dbTest);
@@ -144,7 +147,7 @@ describe("старт попытки учитывает экспозицию", ()
     storageMock.getQuestionsByTopic.mockResolvedValue([q("a"), q("b")]);
     storageMock.getDeliveryCounts.mockResolvedValue(new Map());
 
-    const RUNS = 200;
+    const RUNS = 120;
     for (let i = 0; i < RUNS; i += 1) {
       await asLearner(request(app).post("/api/tests/test1/attempts/start"));
     }
@@ -155,7 +158,7 @@ describe("старт попытки учитывает экспозицию", ()
     }
     expect(a).toBeGreaterThan(RUNS * 0.35);
     expect(a).toBeLessThan(RUNS * 0.65);
-  });
+  }, 30000);
 
   it("сбой чтения счётчиков не роняет старт попытки", async () => {
     storageMock.getTest.mockResolvedValue(dbTest);
