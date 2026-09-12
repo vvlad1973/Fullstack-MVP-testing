@@ -82,8 +82,18 @@ export interface LmsImportFormProps {
    * единственная защита от загрузки посторонней выгрузки в открытую перед глазами аналитику.
    */
   fixedTestId?: string;
-  /** Зовётся после успешного импорта — хост закрывает окно или сбрасывает страницу. */
+  /**
+   * Зовётся после успешного импорта — ТОЛЬКО чтобы хост обновил свои данные.
+   *
+   * Сбрасывать форму отсюда нельзя: экран импорта так и делал, и человек, нажав «Импортировать»,
+   * видел не итог с числами, а пустой загрузчик — будто ничего не произошло.
+   */
   onDone?: () => void;
+  /**
+   * Зовётся, когда человек убирает файл или берёт следующий. Нужен хосту, который отдал файл
+   * СВОЙ: форма чужое состояние не чистит, и без этого «Загрузить ещё» ничего бы не меняло.
+   */
+  onReset?: () => void;
 }
 
 /** Килобайты файла для подписи под именем. */
@@ -91,7 +101,25 @@ function formatKb(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
 }
 
-export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestId, onDone }: LmsImportFormProps) {
+/**
+ * Число со словом в нужном падеже: «1 шкала», «4 шкалы», «14 шкал».
+ *
+ * Без этого строка читалась «14 вопросов, 4 шкал, 4 показателей» — по-русски неверно ровно в том
+ * месте, где человек первым делом сверяет, тот ли файл он взял.
+ *
+ * @param n количество
+ * @param forms три формы: для 1, для 2-4, для 5 и больше
+ */
+function plural(n: number, forms: [string, string, string]): string {
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  if (mod100 >= 11 && mod100 <= 14) return `${n} ${forms[2]}`;
+  if (mod10 === 1) return `${n} ${forms[0]}`;
+  if (mod10 >= 2 && mod10 <= 4) return `${n} ${forms[1]}`;
+  return `${n} ${forms[2]}`;
+}
+
+export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestId, onDone, onReset }: LmsImportFormProps) {
   const { toast } = useToast();
 
   const [ownFile, setOwnFile] = useState<File | null>(null);
@@ -184,6 +212,8 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     setNotRecognized(false);
     setPlan(null);
     setDone(null);
+    // Файл мог прийти от хоста — своё состояние он чистит сам.
+    onReset?.();
   }
 
   // ── Пусто: собственный загрузчик ─────────────────────────────────────────
@@ -211,7 +241,7 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
   const fileRow = (
     <FileItem
       name={file.name}
-      meta={plan || done ? "запись ещё не выполнена" : `выгрузка отчёта LMS · ${inspect?.rows ?? "…"} строк · ${formatKb(file.size)}`}
+      meta={plan || done ? "запись ещё не выполнена" : `выгрузка отчёта LMS · ${inspect ? plural(inspect.rows, ["строка", "строки", "строк"]) : "…"} · ${formatKb(file.size)}`}
       kind="xls"
       actions={runMut.isPending ? [] : [{ icon: <X size={14} />, ariaLabel: "Убрать файл", danger: true, onClick: reset }]}
     />
@@ -301,7 +331,12 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
           tone="info"
           icon={<CheckCircle2 size={16} />}
           title={inspect.testTitle ?? "Тест определён"}
-          description={`${inspect.questionIds} вопросов, ${inspect.scaleKeys.length} шкал, ${inspect.variableNames.length} показателей. Тест определён по файлу — выбирать не нужно.`}
+          description={
+            `${plural(inspect.questionIds, ["вопрос", "вопроса", "вопросов"])}, ` +
+            `${plural(inspect.scaleKeys.length, ["шкала", "шкалы", "шкал"])}, ` +
+            `${plural(inspect.variableNames.length, ["показатель", "показателя", "показателей"])}. ` +
+            "Тест определён по файлу — выбирать не нужно."
+          }
         />
       )}
 

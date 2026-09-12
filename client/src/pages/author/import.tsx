@@ -445,7 +445,7 @@ export default function ImportPage() {
               <LmsImportForm
                 file={file}
                 inspect={inspect as unknown as LmsInspectResult}
-                onDone={resetAll}
+                onReset={resetAll}
               />
             ) : (
               /* ── File chosen → inspect → action / preview ─────────────── */
