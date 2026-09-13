@@ -38,6 +38,12 @@ export interface Observation {
   /** Подпись участника: имя, имя из LMS или псевдоним (PRD-54 раздел 12). */
   participant: string;
   participantKey: string | null;
+  /**
+   * Чем опознаётся участник: пользователь, псевдоним импорта или идентификатор из LMS.
+   * По нему считаются уникальные участники — иначе телеметрия без связи и без псевдонима
+   * выглядела бы как ноль людей.
+   */
+  participantId: string | null;
   /** Группа, проставленная импортом. Членство пользователя в группах разрешается отдельно. */
   groupId: string | null;
   startedAt: Date;
@@ -87,6 +93,7 @@ interface WebAttemptRow {
 
 interface LmsAttemptRow {
   totalPoints?: number | null;
+  lmsUserId?: string | null;
   id: string;
   packageId: string | null;
   testId: string | null;
@@ -179,6 +186,7 @@ export const toObservation = {
         ctx.users,
       ),
       participantKey: null,
+      participantId: row.userId,
       groupId: null,
       startedAt: row.startedAt,
       finishedAt: row.finishedAt,
@@ -196,9 +204,9 @@ export const toObservation = {
 
   /** Прохождение из LMS: живая телеметрия или импортированная выгрузка (`scorm_attempts`). */
   lms(row: LmsAttemptRow, ctx: LmsObservationContext): Observation {
-    const finished = row.finishedAt !== null
-      || row.resultPercent !== null && row.resultPercent !== undefined
-      || row.resultPassed !== null && row.resultPassed !== undefined;
+    // Телеметрия заводит строку при СТАРТЕ и обновляет по ходу, поэтому нули результата у
+    // неё ничего не значат: признак завершения у этого источника один — отметка времени.
+    const finished = row.finishedAt !== null && row.finishedAt !== undefined;
     // То же правило, что у веба: телеметрия не всегда сообщает `max_points`, и процент
     // остаётся признаком того, что оценивание было.
     const possiblePoints = gradedUnits(row.maxPoints, row.resultPercent, ctx.gradedTest);
@@ -213,6 +221,7 @@ export const toObservation = {
       userId: row.userId,
       participant: attemptParticipant(row, ctx.users),
       participantKey: row.participantKey,
+      participantId: row.userId ?? row.participantKey ?? row.lmsUserId ?? null,
       groupId: row.groupId,
       startedAt: row.startedAt,
       finishedAt: row.finishedAt,

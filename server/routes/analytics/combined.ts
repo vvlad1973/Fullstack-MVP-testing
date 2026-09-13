@@ -182,9 +182,9 @@ router.get("/summary", requirePermission("analytics.read"), async (req: Request,
     const web = completed.filter(o => o.source === "web");
     const lms = completed.filter(o => o.source !== "web");
 
-    /** Участники источника: человек либо псевдоним импортированной строки (PRD-54). */
+    /** Участники источника: человек, псевдоним импорта или идентификатор из LMS (PRD-54). */
     const participantsOf = (list: typeof completed) =>
-      new Set(list.map(o => o.userId ?? o.participantKey).filter(Boolean)).size;
+      new Set(list.map(o => o.participantId).filter(Boolean)).size;
 
     res.json({
       totalAttempts: stats.completedAttempts,

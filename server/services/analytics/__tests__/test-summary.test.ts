@@ -21,6 +21,7 @@ function observation(over: Partial<Observation> = {}): Observation {
     userId: "user-1",
     participant: "Морозова Анна",
     participantKey: null,
+    participantId: "user-1",
     groupId: null,
     startedAt: new Date("2026-09-11T14:00:00Z"),
     finishedAt: new Date("2026-09-11T14:20:00Z"),
@@ -41,8 +42,8 @@ describe("summariseObservations", () => {
   it("считает прохождения всех источников, а не только веба", () => {
     const summary = summariseObservations([
       observation({ id: "w", source: "web" }),
-      observation({ id: "t", source: "telemetry", userId: null, participantKey: "aa" }),
-      observation({ id: "i", source: "import", userId: null, participantKey: "bb" }),
+      observation({ id: "t", source: "telemetry", userId: null, participantKey: "aa", participantId: "aa" }),
+      observation({ id: "i", source: "import", userId: null, participantKey: "bb", participantId: "bb" }),
     ]);
 
     expect(summary.completedAttempts).toBe(3);
@@ -52,7 +53,7 @@ describe("summariseObservations", () => {
     const summary = summariseObservations([
       observation({ id: "a", userId: "user-1" }),
       observation({ id: "b", userId: "user-1" }),
-      observation({ id: "c", source: "import", userId: null, participantKey: "bb" }),
+      observation({ id: "c", source: "import", userId: null, participantKey: "bb", participantId: "bb" }),
     ]);
 
     expect(summary.uniqueParticipants).toBe(2);

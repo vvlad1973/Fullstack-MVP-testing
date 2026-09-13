@@ -6,6 +6,8 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { checkAnswer } from "../../utils/check-answer";
+import { loadObservations } from "../../services/analytics/observations";
+import { summariseObservations } from "../../services/analytics/test-summary";
 // Analytics reports are read by people, not re-imported: the question text goes in
 // without its markdown markers. The question-bank export is the opposite case and
 // keeps the stored text verbatim, so an export/import round trip cannot lose markup.
@@ -100,6 +102,16 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
     const scaleLabels = scaleLabelsOf(measures);
 
     // ЛИСТ 1: Сводка
+    // PRD-56 FR-25: книга считает по ТЕМ ЖЕ наблюдениям, что экран — веб, телеметрия и
+    // импортированные выгрузки. Иначе автор получает два разных ответа на один вопрос:
+    // один в браузере, другой в файле, который отправит коллеге.
+    // Область видимости проверена `requireTestScope` выше.
+    const observations = await loadObservations(
+      { testIds: [testId] },
+      { all: true, ids: new Set([testId]) },
+    );
+    const stats = summariseObservations(observations.rows);
+
     const summaryData: any[][] = [
       ["Аналитика теста"],
       [],
@@ -108,28 +120,23 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
       ["Дата экспорта", new Date().toLocaleString("ru-RU")],
       [],
       ["Показатель", "Значение"],
-      ["Всего попыток", testAttempts.length],
-      ["Завершённых попыток", completedAttempts.length],
-      ["Уникальных пользователей", new Set(completedAttempts.map(a => a.userId)).size],
+      ["Всего попыток", stats.totalAttempts],
+      ["Завершённых попыток", stats.completedAttempts],
+      ["Уникальных пользователей", stats.uniqueParticipants],
     ];
 
     // PRD-29 §6.7: average and pass rate only over the runs those numbers apply to.
     // Averaging a questionnaire's runs printed «Средний результат 0.0%» beside
     // «Процент прохождения 100.0%» — two false statements about a method that grades
     // nothing. The dash says «неприменимо»; the counts above still say what happened.
-    const scoredAttempts = completedAttempts.filter(a => gradingOf(a.resultJson as any, thresholdDeclared).scored);
-    const judgedAttempts = completedAttempts.filter(a => gradingOf(a.resultJson as any, thresholdDeclared).verdictPronounced);
-
     summaryData.push([
       "Средний результат",
-      scoredAttempts.length > 0
-        ? `${(scoredAttempts.reduce((sum, a) => sum + ((a.resultJson as any)?.overallPercent || 0), 0) / scoredAttempts.length).toFixed(1)}%`
-        : NOT_APPLICABLE,
+      stats.avgPercent === null ? NOT_APPLICABLE : `${stats.avgPercent.toFixed(1)}%`,
     ]);
     summaryData.push([
       "Процент прохождения",
-      judgedAttempts.length > 0
-        ? `${((judgedAttempts.filter(a => (a.resultJson as any)?.overallPassed).length / judgedAttempts.length) * 100).toFixed(1)}%`
+      stats.passRate !== null
+        ? `${stats.passRate.toFixed(1)}%`
         : NOT_APPLICABLE,
     ]);
 

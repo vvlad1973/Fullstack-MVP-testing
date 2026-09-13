@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
+import { observationsDouble } from "./helpers/observations-double";
 import express from "express";
 import session from "express-session";
 
@@ -13,6 +14,8 @@ import session from "express-session";
 const { storageMock } = vi.hoisted(() => ({
   storageMock: {
     getAllAttempts: vi.fn(),
+    // PRD-56 FR-33: сводка читает прохождения через выборку DAL.
+    selectObservations: vi.fn(),
     getAllScormAttempts: vi.fn(),
     getScormPackages: vi.fn(),
     getTests: vi.fn(),
@@ -100,6 +103,7 @@ const lmsAttemptUnfinished = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
   storageMock.getUserRoles.mockResolvedValue(["administrator"]);
   storageMock.getUser.mockImplementation((id: string) => {
     if (id === "author1") return Promise.resolve(authorUser);

@@ -16,6 +16,14 @@ interface Sources {
   getScormPackages?: () => Promise<unknown[]> | unknown[];
 }
 
+/** Прочитать замоканную таблицу: `vi.fn()` без реализации отдаёт `undefined`, а не список. */
+async function rowsOf(
+  read: (() => Promise<unknown[]> | unknown[]) | undefined,
+): Promise<Array<Record<string, unknown>>> {
+  if (!read) return [];
+  return ((await read()) as Array<Record<string, unknown>>) ?? [];
+}
+
 /** Собрать `selectObservations` поверх уже замоканных таблиц. */
 export function observationsDouble(storage: Sources) {
   return async (query: ObservationQuery = {}): Promise<ObservationRows> => {
@@ -26,18 +34,16 @@ export function observationsDouble(storage: Sources) {
       || query.sources.some(s => s === "telemetry" || s === "import");
 
     const web = wantsWeb
-      ? ((await storage.getAllAttempts()) as Array<Record<string, unknown>>).filter(
+      ? (await rowsOf(storage.getAllAttempts)).filter(
           row => !query.testIds || query.testIds.includes(row.testId as string),
         )
       : [];
     // PRD-54: у части старых строк телеметрии своего `test_id` нет — тест известен через
     // пакет. Настоящая выборка это учитывает, значит и двойник обязан.
-    const packages = storage.getScormPackages
-      ? ((await storage.getScormPackages()) as Array<Record<string, unknown>>)
-      : [];
+    const packages = await rowsOf(storage.getScormPackages);
     const testOfPackage = new Map(packages.map(p => [p.id as string, p.testId as string]));
-    const lms = wantsLms && storage.getAllScormAttempts
-      ? ((await storage.getAllScormAttempts()) as Array<Record<string, unknown>>).filter(row => {
+    const lms = wantsLms
+      ? (await rowsOf(storage.getAllScormAttempts)).filter(row => {
           const testId = (row.testId as string) ?? testOfPackage.get(row.packageId as string);
           return !query.testIds || query.testIds.includes(testId);
         })

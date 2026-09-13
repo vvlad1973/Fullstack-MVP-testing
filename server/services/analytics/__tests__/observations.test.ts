@@ -273,4 +273,30 @@ describe("toObservation — web and telemetry describe one passage the same way"
     expect(observation.passed).toBeNull();
     expect(observation.outcome).toBe("completed");
   });
+
+  it("не считает завершённой строку телеметрии без отметки времени", () => {
+    // Телеметрия заводит строку при СТАРТЕ и обновляет по ходу: `result_percent: 0` у
+    // незавершённой сессии — не результат, а начальное значение. Признак завершения у
+    // этого источника один — отметка времени.
+    const observation = toObservation.lms(
+      lmsAttempt({ finishedAt: null, resultPercent: 0, resultPassed: false, maxPoints: 0 }),
+      { users, packages, gradedTest: true },
+    );
+
+    expect(observation.outcome).toBe("incomplete");
+  });
+
+  it("опознаёт участника из LMS по его идентификатору, когда связи и псевдонима нет", () => {
+    const observation = toObservation.lms(
+      lmsAttempt({ userId: null, participantKey: null, lmsUserId: "lms-42" }),
+      { users, packages, gradedTest: true },
+    );
+
+    expect(observation.participantId).toBe("lms-42");
+  });
+
+  it("считает участником веб-попытки её пользователя", () => {
+    expect(toObservation.web(webAttempt(), { users, gradedTest: true }).participantId)
+      .toBe(USER_ID);
+  });
 });

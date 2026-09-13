@@ -65,9 +65,7 @@ export function summariseObservations(observations: readonly Observation[]): Tes
     .map(o => o.durationMs)
     .filter((ms): ms is number => ms !== null);
 
-  const participants = new Set(
-    observations.map(o => o.userId ?? o.participantKey ?? o.id),
-  );
+  const participants = new Set(observations.map(o => o.participantId ?? o.id));
 
   const scores = graded
     .map(o => o.earnedPoints)
