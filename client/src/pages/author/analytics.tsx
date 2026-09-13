@@ -698,8 +698,7 @@ function AttemptDetailsDialog({
   );
 
   const overviewContent = details && (
-    <ScrollArea maxH="xl">
-      <Stack gap={6}>
+    <Stack gap={6}>
         {/* Основная информация */}
         <Grid minItem="sm" gap={1}>
           <Card>
@@ -788,13 +787,11 @@ function AttemptDetailsDialog({
             </CardBody>
           </Card>
         )}
-      </Stack>
-    </ScrollArea>
+    </Stack>
   );
 
   const answersContent = details && (
-    <ScrollArea maxH="xl">
-      <Stack gap={3}>
+    <Stack gap={3}>
         {details.answers?.map((answer, index) => (
           <Card key={answer.questionId} variant="outlined">
             <CardBody>
@@ -819,7 +816,7 @@ function AttemptDetailsDialog({
 
                 <Separator />
 
-                <Grid minItem="md" gap={4}>
+                <Grid minItem="md" gap={1}>
                   <Stack gap={1}>
                     <Text variant="body-xs" tone="muted">Ответ пользователя:</Text>
                     <Box pad={3} radius="l" surface={answer.isCorrect ? "muted" : "muted"}>
@@ -839,13 +836,11 @@ function AttemptDetailsDialog({
         ))}
 
         {(!details.answers || details.answers.length === 0) && emptyState("Нет данных об ответах")}
-      </Stack>
-    </ScrollArea>
+    </Stack>
   );
 
   const topicsContent = details && (
-    <ScrollArea maxH="xl">
-      <Stack gap={3}>
+    <Stack gap={3}>
         {details.testMode === "adaptive" ? (
           // Адаптивный — показываем достигнутые уровни
           details.achievedLevels && details.achievedLevels.length > 0 ? (
@@ -898,8 +893,7 @@ function AttemptDetailsDialog({
             ))
           ) : emptyState("Нет данных по темам")
         )}
-      </Stack>
-    </ScrollArea>
+    </Stack>
   );
 
   return (

@@ -23,7 +23,6 @@ import {
     IconButton,
     ModalDialog,
     ProgressBar,
-    ScrollArea,
     Stack,
     Table,
     Tabs,
@@ -426,14 +425,22 @@ function AttemptDetailModal({
                 <Cluster gap={2}>
                     <Text>Детализация попытки</Text>
                     {data && <Text tone="muted">— {data.username}</Text>}
+                    {/* Состояние попытки — тег при заголовке, а не плитка: плитка
+                        показывает величину с подписью, а здесь величины нет. */}
+                    {data && (data.verdictPronounced !== false ? (
+                        <Tag tone={data.passed ? "success" : "error"}>
+                            {data.passed ? "Пройден" : "Не пройден"}
+                        </Tag>
+                    ) : (
+                        <Tag>Завершена</Tag>
+                    ))}
                 </Cluster>
             }
         >
             {isLoading ? (
                 <LoadingState message="Загрузка..." />
             ) : data ? (
-                <ScrollArea maxH="xl">
-                    <Stack gap={6}>
+                <Stack gap={1}>
                         {/* Summary. PRD-29 §6.7: у прогона, которому нечего оценивать, две
                             оценочные плитки МЕНЯЮТ содержимое — печатать два прочерка значит
                             оставить половину шапки пустой там, где есть что показать. */}
@@ -474,19 +481,6 @@ function AttemptDetailModal({
                                 <Stack gap={1} align="center">
                                     <Text variant="display-s" weight="bold">{formatDuration(data.duration)}</Text>
                                     <Text variant="body-s" tone="muted">Время</Text>
-                                </Stack>
-                            </Box>
-                            <Box pad={3} surface="muted" radius="l">
-                                <Stack gap={1} align="center" justify="center" full>
-                                    {data.verdictPronounced !== false ? (
-                                        <Tag tone={data.passed ? "success" : "error"} size="l">
-                                            {data.passed ? "Пройден" : "Не пройден"}
-                                        </Tag>
-                                    ) : (
-                                        // Вердикта никто не выносил: сохранённый `passed` —
-                                        // умолчание теста, который не оценивает.
-                                        <Tag size="l">Завершена</Tag>
-                                    )}
                                 </Stack>
                             </Box>
                         </Grid>
@@ -608,8 +602,7 @@ function AttemptDetailModal({
                         <Card>
                             <CardHeader title={`Ответы (${data.answers.length})`} />
                             <CardBody>
-                                <ScrollArea maxH="md">
-                                    <Stack gap={3}>
+                                <Stack gap={3}>
                                         {data.answers.map((answer, idx) => {
                                             // PRD-10: ответ бывает ЧАСТИЧНО верным. Крестик рядом с
                                             // «1.5/3» — два несогласных утверждения в одной строке.
@@ -682,12 +675,10 @@ function AttemptDetailModal({
                                                 </Box>
                                             );
                                         })}
-                                    </Stack>
-                                </ScrollArea>
+                                </Stack>
                             </CardBody>
                         </Card>
-                    </Stack>
-                </ScrollArea>
+                </Stack>
             ) : (
                 <Box pad={8}><Text align="center" tone="muted">Не удалось загрузить данные</Text></Box>
             )}
