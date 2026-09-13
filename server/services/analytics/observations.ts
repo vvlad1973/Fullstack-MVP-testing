@@ -12,8 +12,13 @@
  * вместе со справочниками, иначе нормализацию нельзя проверить без базы.
  */
 
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { unionAll } from "drizzle-orm/pg-core";
+
+import { attempts, scormAttempts, tests, users as usersTable } from "@shared/schema";
 import { hasPronouncedVerdict, nothingToGrade } from "@shared/scoring/pass-rule";
 
+import { db } from "../../db";
 import { attemptParticipant, attemptTestId } from "./attempt-row";
 
 /** Откуда приехало прохождение. Фильтр экрана говорит ровно в этих терминах. */
@@ -170,3 +175,204 @@ export const toObservation = {
     };
   },
 };
+
+/** Условия отбора прохождений. Пустой объект — всё, что доступно читателю. */
+export interface ObservationFilter {
+  testIds?: string[];
+  groupIds?: string[];
+  sources?: ObservationSource[];
+  outcomes?: ObservationOutcome[];
+  /** Период по дате НАЧАЛА прохождения. */
+  from?: Date;
+  to?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Область видимости читателя — прямой ответ `readableTestScope`.
+ *
+ * Именно множество, а не предикат: область обязана попасть В УСЛОВИЕ запроса, иначе лимит
+ * отсчитается до отсечения недоступных тестов и порция вернёт меньше строк, чем обещала.
+ */
+export interface ObservationScope {
+  all: boolean;
+  ids: ReadonlySet<string>;
+}
+
+export interface ObservationPage {
+  rows: Observation[];
+  /** Сколько прохождений подошло под условия — независимо от лимита. */
+  total: number;
+}
+
+/**
+ * Исход, вычисленный в SQL.
+ *
+ * Повторяет {@link outcomeOf}, и иначе нельзя: фильтр по исходу обязан работать ДО лимита,
+ * иначе порция вернёт меньше строк, чем обещала, а `total` перестанет отвечать на «сколько
+ * всего». Что оба выражения дают одно и то же, стережёт интеграционный тест: он сверяет
+ * выборку по исходу с полями нормализованных строк.
+ *
+ * @param finishedAt столбец даты завершения
+ * @param possiblePoints выражение достижимых баллов
+ * @param passed выражение вердикта
+ */
+function outcomeSql(finishedAt: unknown, possiblePoints: unknown, passed: unknown) {
+  return sql<string>`case
+    when ${finishedAt} is null then 'incomplete'
+    when coalesce(${possiblePoints}, 0) <= 0 then 'completed'
+    when coalesce(${tests.overallPassRuleJson} ->> 'type', 'none') = 'none' then 'completed'
+    when ${passed} is null then 'completed'
+    when ${passed} then 'passed'
+    else 'failed'
+  end`;
+}
+
+/**
+ * Прохождения по условиям — из обоих источников, одним списком.
+ *
+ * Отбор, сортировка и порция считаются ЗАПРОСОМ: реестр подгружается при прокрутке (FR-01c),
+ * и порядок обязан быть устойчивым, поэтому сортировка идёт по дате начала и по идентификатору
+ * — у прохождений одной секунды иначе нет определённого порядка.
+ *
+ * Область видимости (FR-35) попадает в условие, а не отсекает строки после лимита.
+ */
+export async function loadObservations(
+  filter: ObservationFilter,
+  scope: ObservationScope,
+): Promise<ObservationPage> {
+  const testIds = filter.testIds?.length ? filter.testIds : undefined;
+  const sources = filter.sources?.length ? filter.sources : undefined;
+  const outcomes = filter.outcomes?.length ? filter.outcomes : undefined;
+
+  // Пересечение «что просили» и «что доступно»: пустое множество означает, что доступного
+  // нет вовсе, и запрос обязан вернуть ноль строк, а не всё подряд.
+  const allowed = scope.all
+    ? testIds
+    : (testIds ?? [...scope.ids]).filter(id => scope.ids.has(id));
+  const impossible = !scope.all && allowed!.length === 0;
+
+  const webOutcome = outcomeSql(
+    attempts.finishedAt,
+    sql`(${attempts.resultJson} ->> 'totalPossiblePoints')::numeric`,
+    sql`(${attempts.resultJson} ->> 'overallPassed')::boolean`,
+  );
+  const lmsOutcome = outcomeSql(scormAttempts.finishedAt, scormAttempts.maxPoints, scormAttempts.resultPassed);
+
+  /** `false`, когда ни одна строка источника подойти не может — фильтр исключил его целиком. */
+  const NOTHING = sql`false`;
+
+  const webWhere = and(
+    ...(allowed ? [inArray(attempts.testId, allowed)] : []),
+    ...(filter.from ? [gte(attempts.startedAt, filter.from)] : []),
+    ...(filter.to ? [lte(attempts.startedAt, filter.to)] : []),
+    ...(outcomes ? [inArray(webOutcome, outcomes)] : []),
+    // Группа веб-попытки выводится из членства пользователя — это отдельный разрез (FR-06).
+    // Пока фильтр по группе отбирает только строки, которым группу проставил импорт.
+    ...(filter.groupIds?.length ? [NOTHING] : []),
+    ...(sources && !sources.includes("web") ? [NOTHING] : []),
+    ...(impossible ? [NOTHING] : []),
+  );
+
+  const lmsOrigins = (sources ?? ["telemetry", "import"]).filter(
+    (s): s is "telemetry" | "import" => s !== "web",
+  );
+  const lmsWhere = and(
+    ...(allowed ? [inArray(scormAttempts.testId, allowed)] : []),
+    ...(filter.from ? [gte(scormAttempts.startedAt, filter.from)] : []),
+    ...(filter.to ? [lte(scormAttempts.startedAt, filter.to)] : []),
+    ...(filter.groupIds?.length ? [inArray(scormAttempts.groupId, filter.groupIds)] : []),
+    ...(outcomes ? [inArray(lmsOutcome, outcomes)] : []),
+    ...(lmsOrigins.length ? [inArray(scormAttempts.origin, lmsOrigins)] : [NOTHING]),
+    ...(impossible ? [NOTHING] : []),
+  );
+
+  const webQuery = db
+    .select({ id: attempts.id, source: sql<string>`'web'`, startedAt: attempts.startedAt })
+    .from(attempts)
+    .leftJoin(tests, eq(tests.id, attempts.testId))
+    .where(webWhere);
+
+  const lmsQuery = db
+    .select({ id: scormAttempts.id, source: scormAttempts.origin, startedAt: scormAttempts.startedAt })
+    .from(scormAttempts)
+    .leftJoin(tests, eq(tests.id, scormAttempts.testId))
+    .where(lmsWhere);
+
+  // Порядок обязан быть устойчивым: реестр догружается порциями (FR-01c), и у прохождений
+  // одной секунды без второго ключа нет определённого места. Сортировка задана НОМЕРАМИ
+  // колонок — единственный способ сослаться на колонку объединения, у которой нет своей
+  // таблицы.
+  const ordered = unionAll(webQuery, lmsQuery).orderBy(sql`3 desc`, sql`1 desc`);
+  const limited = filter.limit === undefined ? ordered : ordered.limit(filter.limit);
+  const keysQuery: PromiseLike<Array<{ id: string; source: string }>> =
+    filter.offset ? limited.offset(filter.offset) : limited;
+
+  // Счёт идёт отдельными запросами, а не длиной страницы: «показано 25 из 128» обязано
+  // говорить про всю выборку, а не про порцию.
+  const [keys, webTotal, lmsTotal] = await Promise.all([
+    keysQuery,
+    countOf(db.select({ n: sql<number>`count(*)::int` }).from(attempts)
+      .leftJoin(tests, eq(tests.id, attempts.testId)).where(webWhere)),
+    countOf(db.select({ n: sql<number>`count(*)::int` }).from(scormAttempts)
+      .leftJoin(tests, eq(tests.id, scormAttempts.testId)).where(lmsWhere)),
+  ]);
+
+  return { rows: await hydrate(keys), total: webTotal + lmsTotal };
+}
+
+/** Развернуть запрос-счётчик в число. */
+async function countOf(query: PromiseLike<Array<{ n: number }>>): Promise<number> {
+  const rows = await query;
+  return rows[0]?.n ?? 0;
+}
+
+/** Дочитать выбранные строки и привести их к наблюдениям. */
+async function hydrate(keys: Array<{ id: string; source: string }>): Promise<Observation[]> {
+  if (keys.length === 0) return [];
+  const webIds = keys.filter(k => k.source === "web").map(k => k.id);
+  const lmsIds = keys.filter(k => k.source !== "web").map(k => k.id);
+
+  const [webRows, lmsRows] = await Promise.all([
+    webIds.length ? db.select().from(attempts).where(inArray(attempts.id, webIds)) : [],
+    lmsIds.length ? db.select().from(scormAttempts).where(inArray(scormAttempts.id, lmsIds)) : [],
+  ]);
+
+  const testIds = [...new Set([
+    ...webRows.map(r => r.testId),
+    ...lmsRows.map(r => r.testId).filter((id): id is string => !!id),
+  ])];
+  const testRows = testIds.length
+    ? await db.select().from(tests).where(inArray(tests.id, testIds))
+    : [];
+  const graded = new Map(testRows.map(t => [t.id, declaresThreshold(t.overallPassRuleJson)]));
+
+  const userIds = [...new Set(webRows.map(r => r.userId).concat(
+    lmsRows.map(r => r.userId).filter((id): id is string => !!id),
+  ))];
+  const userRows = userIds.length
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
+    : [];
+  const users = new Map(userRows.map(u => [u.id, { name: u.name }]));
+
+  const byId = new Map<string, Observation>();
+  for (const row of webRows) {
+    byId.set(row.id, toObservation.web(row, { users, gradedTest: graded.get(row.testId) }));
+  }
+  for (const row of lmsRows) {
+    byId.set(row.id, toObservation.lms(row, {
+      users,
+      packages: new Map(),
+      gradedTest: row.testId ? graded.get(row.testId) : undefined,
+    }));
+  }
+  return keys.map(k => byId.get(k.id)).filter((o): o is Observation => !!o);
+}
+
+/** Объявляет ли тест проходной балл. Половина правила PRD-29 §6.7, относящаяся к тесту. */
+function declaresThreshold(rule: unknown): boolean | undefined {
+  if (rule === null || rule === undefined) return undefined;
+  const type = (rule as { type?: string }).type;
+  return type !== undefined && type !== "none";
+}
