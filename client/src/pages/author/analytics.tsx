@@ -7,6 +7,8 @@
  * DS Table/Card/Tabs/ProgressBar/Select primitives (no raw utility classes).
  */
 import { useState } from "react";
+import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
+import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
@@ -681,10 +683,13 @@ function AttemptDetailsDialog({
   attempt,
   open,
   onClose,
+  onExport,
 }: {
   attempt: CombinedAttempt | null;
   open: boolean;
   onClose: () => void;
+  /** Выгрузить это прохождение отдельным файлом. */
+  onExport?: (attempt: CombinedAttempt) => void;
 }) {
   const { data: details, isLoading } = useQuery<AttemptDetail>({
     queryKey: ["/api/analytics/attempt-details", attempt?.id, attempt?.source],
@@ -939,6 +944,16 @@ function AttemptDetailsDialog({
           {details?.testMode === "adaptive" && <Tag tone="accent" size="s"><Layers />Адаптивный</Tag>}
         </Cluster>
       }
+      footer={onExport && attempt && (
+        <Button
+          variant="secondary"
+          size="s"
+          leadingIcon={<FileDown size={16} />}
+          onClick={() => onExport(attempt)}
+        >
+          Скачать детали
+        </Button>
+      )}
     >
       {isLoading ? (
         <Box pad={6}><LoadingState message="Загрузка деталей..." /></Box>
@@ -1359,6 +1374,8 @@ export default function AnalyticsPage() {
   const [trendMode, setTrendMode] = useState<"total" | "byTest">("total");
   /** PRD-54: окно загрузки выгрузки отчёта LMS. */
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
+  /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
+  const [registryFilter, setRegistryFilter] = useRegistryFilter();
 
   const queryParams = new URLSearchParams({ source });
   if (testId !== "all") queryParams.append("testId", testId);
@@ -1465,6 +1482,32 @@ export default function AnalyticsPage() {
   const handleViewDetails = (attempt: CombinedAttempt) => {
     setSelectedAttempt(attempt);
     setDetailsOpen(true);
+  };
+
+  /**
+   * Открыть разбор строки реестра.
+   *
+   * Окно разбора говорит на языке `CombinedAttempt`, поэтому строка переводится в него.
+   * Источник схлопывается до «web / lms»: окну важно, из какой ручки читать детали, а
+   * телеметрия и импорт лежат в одной.
+   */
+  const handleOpenPassage = (row: RegistryRow) => {
+    handleViewDetails({
+      id: row.id,
+      testId: row.testId,
+      testTitle: row.testTitle,
+      userId: row.userId ?? undefined,
+      username: row.participant,
+      startedAt: row.startedAt,
+      finishedAt: row.finishedAt,
+      duration: row.durationMs === null ? null : Math.round(row.durationMs / 1000),
+      // Ноль здесь — не оценка, а отсутствие числа: окно показывает прочерк по своим правилам.
+      resultPercent: row.percent ?? 0,
+      resultPassed: row.passed === true,
+      totalPoints: 0,
+      maxPoints: 0,
+      source: row.source === "web" ? "web" : "lms",
+    });
   };
 
   const handleExportAttempt = async (attempt: CombinedAttempt) => {
@@ -1614,15 +1657,6 @@ export default function AnalyticsPage() {
         <LmsImportForm onDone={() => { refetch(); refetchSummary(); }} />
       </ModalDialog>
 
-      {/* Фильтры */}
-      <FiltersBar
-        source={source}
-        onSourceChange={handleSourceChange}
-        testId={testId}
-        onTestIdChange={handleTestIdChange}
-        tests={tests || []}
-      />
-
       {/* Табы */}
       <Tabs
         defaultValue="overview"
@@ -1632,6 +1666,14 @@ export default function AnalyticsPage() {
             label: "Обзор",
             content: (
               <Stack gap={1}>
+                {/* Фильтры обзора: у реестра свои условия, и общей панели у них больше нет. */}
+                <FiltersBar
+                  source={source}
+                  onSourceChange={handleSourceChange}
+                  testId={testId}
+                  onTestIdChange={handleTestIdChange}
+                  tests={tests || []}
+                />
                 {summaryLoading ? (
                   <Grid minItem="sm" gap={1}>
                     {[1, 2, 3, 4].map(i => <Card key={i}><CardBody><ProgressBar indeterminate hideHeader /></CardBody></Card>)}
@@ -1756,72 +1798,24 @@ export default function AnalyticsPage() {
           },
           {
             id: "attempts",
-            label: `Попытки${data.attempts.length > 0 ? ` (${data.attempts.length})` : ""}`,
+            label: "Прохождения",
             content: (
               <Card>
                 <CardHeader
-                  title="Попытки"
-                  trail={
-                    <Text variant="body-s" tone="muted">
-                      {filteredAttempts.length !== data.attempts.length
-                        ? `${filteredAttempts.length} из ${data.attempts.length}`
-                        : `Всего: ${data.attempts.length}`}
-                    </Text>
-                  }
+                  title="Реестр прохождений"
+                  subtitle="Веб, телеметрия LMS и импортированные выгрузки"
                 />
                 <CardBody>
-                  <Stack gap={4}>
-                    <Cluster gap={3}>
-                      <Input
-                        placeholder="Имя или email..."
-                        value={userSearch}
-                        onChange={(e) => handleUserSearchChange(e.target.value)}
-                        size="s"
-                      />
-                      <Cluster gap={2}>
-                        <Text variant="body-xs" tone="muted">С:</Text>
-                        <Input type="date" value={dateFrom} onChange={(e) => handleDateFromChange(e.target.value)} size="s" />
-                      </Cluster>
-                      <Cluster gap={2}>
-                        <Text variant="body-xs" tone="muted">По:</Text>
-                        <Input type="date" value={dateTo} onChange={(e) => handleDateToChange(e.target.value)} size="s" />
-                      </Cluster>
-                      {(userSearch || dateFrom || dateTo) && (
-                        <Button
-                          variant="ghost"
-                          size="s"
-                          onClick={() => {
-                            setUserSearch("");
-                            setDateFrom("");
-                            setDateTo("");
-                            setAttemptsPage(1);
-                          }}
-                        >
-                          Сбросить
-                        </Button>
-                      )}
-                    </Cluster>
-
-                    <AttemptsTable
-                      attempts={sortedAttempts.slice((attemptsPage - 1) * ATTEMPTS_PER_PAGE, attemptsPage * ATTEMPTS_PER_PAGE)}
-                      source={source}
-                      onViewDetails={handleViewDetails}
-                      sortCol={sortCol}
-                      sortDir={sortDir}
-                      onSort={handleSort}
-                      onExport={handleExportAttempt}
-                    />
-
-                    {filteredAttempts.length > ATTEMPTS_PER_PAGE && (
-                      <Cluster justify="between">
-                        <Text variant="body-s" tone="muted">Страница {attemptsPage} из {totalPages}</Text>
-                        <Cluster gap={2}>
-                          <Button variant="secondary" size="s" onClick={() => setAttemptsPage(p => Math.max(1, p - 1))} disabled={attemptsPage === 1}>←</Button>
-                          <Button variant="secondary" size="s" onClick={() => setAttemptsPage(p => Math.min(totalPages, p + 1))} disabled={attemptsPage === totalPages}>→</Button>
-                        </Cluster>
-                      </Cluster>
-                    )}
-                  </Stack>
+                  {/*
+                    PRD-56 FR-01 - FR-04: один список на все источники. Своя панель фильтров,
+                    постраничность и сортировка в памяти сняты: условия отбора живут в адресе,
+                    порции приходят с сервера, состав строк книги задаёт тот же фильтр.
+                  */}
+                  <PassageRegistry
+                    filter={registryFilter}
+                    onFilterChange={setRegistryFilter}
+                    onOpenPassage={handleOpenPassage}
+                  />
                 </CardBody>
               </Card>
             ),
@@ -1839,6 +1833,7 @@ export default function AnalyticsPage() {
         attempt={selectedAttempt}
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
+        onExport={handleExportAttempt}
       />
     </Stack>
   );

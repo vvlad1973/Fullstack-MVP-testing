@@ -117,4 +117,17 @@ describe("DataGrid — ленивая подгрузка", () => {
 
     expect(screen.queryByText(/Стр\. 1 из/)).toBeNull();
   });
+
+  it("следит за хвостом ВНУТРИ области прокрутки таблицы", () => {
+    // Таблица прокручивается в своём контейнере (`ou-grid__scroll`, max-height). Метка,
+    // положенная снаружи, видна всегда — и список догружался бы до конца сам, без участия
+    // человека: именно это показала приёмка на 158 строках.
+    const { container } = render(
+      <DataGrid columns={COLUMNS} rows={ROWS} rowKey={r => r.id} hasMore total={128} onLoadMore={() => {}} />,
+    );
+
+    const sentinel = container.querySelector(".ou-grid__sentinel");
+    expect(sentinel?.closest(".ou-grid__scroll")).not.toBeNull();
+    expect(observers[0].observed[0]).toBe(sentinel);
+  });
 });

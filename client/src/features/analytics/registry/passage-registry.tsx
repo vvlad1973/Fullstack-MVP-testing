@@ -13,6 +13,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DataGrid, FilterBar, Tag, Text } from "@skillum/ui-kit";
 
+import { RegistryFilterDialog } from "./filter-dialog";
+
 import {
   countConditions,
   filterToSearch,
@@ -44,8 +46,6 @@ export interface PassageRegistryProps {
   onFilterChange: (filter: RegistryFilter) => void;
   /** Открыть разбор прохождения. Без него строка не кликается. */
   onOpenPassage?: (row: RegistryRow) => void;
-  /** Открыть окно условий отбора. */
-  onOpenFilter?: () => void;
   /** Что показать справа в первой строке панели фильтра (например, кнопку экспорта). */
   actions?: React.ReactNode;
 }
@@ -82,8 +82,9 @@ function outcomeTone(outcome: RegistryOutcome): "success" | "error" | "neutral" 
 }
 
 export function PassageRegistry({
-  filter, onFilterChange, onOpenPassage, onOpenFilter, actions,
+  filter, onFilterChange, onOpenPassage, actions,
 }: PassageRegistryProps) {
+  const [filterOpen, setFilterOpen] = useState(false);
   const [rows, setRows] = useState<RegistryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -191,10 +192,17 @@ export function PassageRegistry({
         count={countConditions(filter)}
         applied={applied}
         actions={actions}
-        onOpenFilter={onOpenFilter}
+        onOpenFilter={() => setFilterOpen(true)}
         onRemove={removeCondition}
         onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
         resetLabel="Сбросить фильтры"
+      />
+
+      <RegistryFilterDialog
+        open={filterOpen}
+        filter={filter}
+        onApply={onFilterChange}
+        onClose={() => setFilterOpen(false)}
       />
 
       {failed ? (

@@ -92,6 +92,29 @@ const lmsAttempt = () => ({
   totalTopics: 3,
 });
 
+/** Ответ `GET /api/analytics/registry` — форма строки реестра (PRD-56 FR-01). */
+const registry = () => ({
+  rows: [
+    {
+      id: "a1", participant: "Иван Петров", participantKey: null, userId: "u1",
+      testId: "test1", testTitle: "Тест по финансам",
+      startedAt: "2026-06-01T10:00:00Z", finishedAt: "2026-06-01T10:15:00Z",
+      durationMs: 900_000, percent: 85, passed: true, outcome: "passed",
+      source: "web", groupId: null,
+    },
+    {
+      id: "s1", participant: "Мария Сидорова", participantKey: null, userId: null,
+      testId: "test1", testTitle: "Тест по финансам",
+      startedAt: "2026-06-02T09:00:00Z", finishedAt: "2026-06-02T09:20:00Z",
+      durationMs: 1_200_000, percent: null, passed: null, outcome: "completed",
+      source: "telemetry", groupId: null,
+    },
+  ],
+  total: 2,
+  limit: 25,
+  offset: 0,
+});
+
 const combined = () => ({
   summary: summary(),
   attempts: [webAttempt(), lmsAttempt()],
@@ -194,6 +217,7 @@ type State = {
   filters: ReturnType<typeof exportFilters>;
   webDetail: ReturnType<typeof webDetail>;
   lmsDetail: ReturnType<typeof lmsDetail>;
+  registry: ReturnType<typeof registry>;
 };
 
 let state: State;
@@ -208,6 +232,7 @@ beforeEach(() => {
     filters: exportFilters(),
     webDetail: webDetail(),
     lmsDetail: lmsDetail(),
+    registry: registry(),
   };
 
   const ok = (body: unknown) => ({
@@ -230,6 +255,7 @@ beforeEach(() => {
     const u = String(input);
     if (u.startsWith("/api/analytics/combined-full")) return state.combinedOk ? ok(state.combined) : fail();
     if (u.startsWith("/api/analytics/summary")) return ok(state.summary);
+    if (u.startsWith("/api/analytics/registry")) return ok(state.registry);
     if (u === "/api/tests") return ok(state.tests);
     if (u.startsWith("/api/export/filters")) return ok(state.filters);
     if (u.startsWith("/api/analytics/scorm-attempts/")) return ok(state.lmsDetail);
@@ -266,7 +292,7 @@ async function renderLoaded() {
 }
 
 async function openAttemptsTab() {
-  fireEvent.click(screen.getByRole("tab", { name: /Попытки/ }));
+  fireEvent.click(screen.getByRole("tab", { name: /Прохождения/ }));
   await waitFor(() => expect(screen.getByText("Иван Петров")).toBeInTheDocument());
 }
 
@@ -363,69 +389,27 @@ describe("<AnalyticsPage />", () => {
     );
   });
 
-  it("renders the attempts table with web and LMS rows", async () => {
+  it("renders the registry with web and LMS passages", async () => {
     await renderLoaded();
     await openAttemptsTab();
     expect(screen.getByText("Мария Сидорова")).toBeInTheDocument();
-    expect(screen.getByText("ivan@test.ru")).toBeInTheDocument();
-    // Adaptive LMS attempt shows a topic ratio + «Завершён».
-    expect(screen.getByText("2/3 тем")).toBeInTheDocument();
-    expect(screen.getByText("Завершён")).toBeInTheDocument();
+    // Источник и исход подписаны словами: из какой системы строка и чем кончилась.
+    expect(screen.getByText("веб")).toBeInTheDocument();
+    expect(screen.getByText("телеметрия LMS")).toBeInTheDocument();
+    expect(screen.getByText("сдал")).toBeInTheDocument();
+    // У прохождения без оценивания результата нет — прочерк, а не ноль (PRD-29 §6.7).
+    expect(screen.getByText("завершено")).toBeInTheDocument();
   });
 
-  it("filters attempts by user search and date, then resets", async () => {
-    await renderLoaded();
-    await openAttemptsTab();
-
-    // User search narrows to the matching web attempt.
-    fireEvent.change(screen.getByPlaceholderText("Имя или email..."), { target: { value: "Иван" } });
-    await waitFor(() => expect(screen.queryByText("Мария Сидорова")).not.toBeInTheDocument());
-    expect(screen.getByText("Иван Петров")).toBeInTheDocument();
-    // The filtered/total counter reflects the narrowed set.
-    expect(screen.getByText(/из 2/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Сбросить" }));
-    await waitFor(() => expect(screen.getByText("Мария Сидорова")).toBeInTheDocument());
-
-    // Date-range inputs (the two type=date fields under «С:»/«По:»).
-    const dateInputs = document.querySelectorAll<HTMLInputElement>('input[type="date"]');
-    // dateFrom excludes the earlier web attempt (2026-06-01).
-    fireEvent.change(dateInputs[0], { target: { value: "2026-06-02" } });
-    await waitFor(() => expect(screen.queryByText("Иван Петров")).not.toBeInTheDocument());
-    expect(screen.getByText("Мария Сидорова")).toBeInTheDocument();
-    // dateTo then also excludes the LMS attempt → empty table state.
-    fireEvent.change(dateInputs[1], { target: { value: "2026-06-01" } });
-    await waitFor(() => expect(screen.getByText("Нет данных о попытках")).toBeInTheDocument());
-    // Reset restores both rows.
-    fireEvent.click(screen.getByRole("button", { name: "Сбросить" }));
-    await waitFor(() => expect(screen.getByText("Иван Петров")).toBeInTheDocument());
-  });
-
-  it("sorts the attempts table across all sortable columns", async () => {
-    await renderLoaded();
-    await openAttemptsTab();
-    for (const header of ["Результат", "Пользователь", "Тест", "Дата"]) {
-      fireEvent.click(screen.getByText(header));
-    }
-    // Still renders after re-sorting.
-    expect(screen.getByText("Иван Петров")).toBeInTheDocument();
-  });
-
-  it("paginates when there are more than a page of attempts", async () => {
-    state.combined = { ...combined(), attempts: makeAttempts(30) as never, alerts: [] };
-    await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: /Попытки/ }));
-    await waitFor(() => expect(screen.getByText("Страница 1 из 2")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "→" }));
-    await waitFor(() => expect(screen.getByText("Страница 2 из 2")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "←" }));
-    await waitFor(() => expect(screen.getByText("Страница 1 из 2")).toBeInTheDocument());
-  });
+  // Отбор, сортировка и постраничность списка сняты со страницы сознательно (PRD-56 Э2):
+  // условия живут в адресе и применяются запросом, порции приходят при прокрутке. Поведение
+  // проверяется там, где теперь живёт, — `features/analytics/registry`.
 
   it("opens the web attempt-details modal and formats every answer type", async () => {
     await renderLoaded();
     await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детали попытки"));
+    // Строка реестра ведёт в разбор целиком: отдельной кнопки у неё нет (FR-01).
+    fireEvent.click(screen.getByText("Иван Петров").closest("tr")!);
 
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByText("Детали попытки")).toBeInTheDocument());
@@ -453,8 +437,7 @@ describe("<AnalyticsPage />", () => {
   it("opens the adaptive LMS attempt-details modal with achieved levels", async () => {
     await renderLoaded();
     await openAttemptsTab();
-    const row = screen.getByText("Мария Сидорова").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детали попытки"));
+    fireEvent.click(screen.getByText("Мария Сидорова").closest("tr")!);
 
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByText("ЗАВЕРШЁН")).toBeInTheDocument());
@@ -465,11 +448,13 @@ describe("<AnalyticsPage />", () => {
     await waitFor(() => expect(within(dialog).getByText("Нет данных об ответах")).toBeInTheDocument());
   });
 
-  it("downloads a single attempt as CSV from the row action", async () => {
+  it("downloads a single passage as CSV from the details window", async () => {
     await renderLoaded();
     await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Скачать детали попытки"));
+    fireEvent.click(screen.getByText("Иван Петров").closest("tr")!);
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Скачать детали/ }));
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
   });
 
@@ -481,8 +466,9 @@ describe("<AnalyticsPage />", () => {
     });
     await renderLoaded();
     await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Скачать детали попытки"));
+    fireEvent.click(screen.getByText("Иван Петров").closest("tr")!);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Скачать детали/ }));
     await waitFor(() => expect(captured).not.toBeNull());
     const csv = await (captured as unknown as Blob).text();
 
@@ -500,11 +486,13 @@ describe("<AnalyticsPage />", () => {
     expect(csv).toContain("да"); // flag: true → «да»
   });
 
-  it("downloads an adaptive attempt as CSV (achieved-levels branch)", async () => {
+  it("downloads an adaptive passage as CSV (achieved-levels branch)", async () => {
     await renderLoaded();
     await openAttemptsTab();
-    const row = screen.getByText("Мария Сидорова").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Скачать детали попытки"));
+    fireEvent.click(screen.getByText("Мария Сидорова").closest("tr")!);
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Скачать детали/ }));
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
   });
 

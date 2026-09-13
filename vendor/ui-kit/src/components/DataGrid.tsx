@@ -148,7 +148,7 @@ export function DataGrid<T>({
     if (!target || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) onLoadMore();
-    });
+    }, { root: target.closest('.ou-grid__scroll') });
     observer.observe(target);
     return () => observer.disconnect();
   }, [hasMore, loadingMore, onLoadMore, rows.length]);
@@ -341,10 +341,12 @@ export function DataGrid<T>({
             })}
           </tbody>
         </table>
+        {/*
+          Хвост для наблюдателя — последний элемент ПРОКРУЧИВАЕМОЙ области. Положенный
+          снаружи, он попадает в видимую часть сразу и запускает догрузку до конца списка.
+        */}
+        {hasMore && <div ref={sentinel} className="ou-grid__sentinel" aria-hidden="true" />}
       </div>
-
-      {/* Хвост для наблюдателя: пустой элемент сразу под таблицей. */}
-      {hasMore && <div ref={sentinel} className="ou-grid__sentinel" aria-hidden="true" />}
 
       {/* Подвал ленивого списка: сколько показано из скольких. */}
       {hasMore !== undefined && (
