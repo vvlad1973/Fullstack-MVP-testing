@@ -336,11 +336,13 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       { range: "91-100", min: 91, max: 100, count: 0 },
     ];
 
-    for (const attempt of completedAttempts) {
-      const result = attempt.resultJson as AttemptResult | null;
-      const percent = result?.overallPercent || 0;
+    // PRD-56 FR-33: распределение строится по тем же наблюдениям, что и плитки. Иначе экран
+    // противоречит сам себе: «18 прохождений» сверху и гистограмма по пятнадцати веб-попыткам.
+    // Прохождения без результата в корзины не попадают: у них нет процента, а не ноль.
+    for (const observation of observations.rows) {
+      if (observation.percent === null) continue;
       for (const range of scoreRanges) {
-        if (percent >= range.min && percent <= range.max) {
+        if (observation.percent >= range.min && observation.percent <= range.max) {
           range.count++;
           break;
         }
@@ -355,18 +357,16 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
 
     const dailyMap = new Map<string, { date: string; attempts: number; totalPercent: number; passed: number }>();
 
-    for (const attempt of completedAttempts) {
-      if (!attempt.finishedAt) continue;
-      const finishedDate = new Date(attempt.finishedAt);
+    for (const observation of observations.rows) {
+      if (!observation.finishedAt) continue;
+      const finishedDate = new Date(observation.finishedAt);
       if (finishedDate < thirtyDaysAgo) continue;
 
       const dateStr = finishedDate.toISOString().split("T")[0];
-      const result = attempt.resultJson as AttemptResult | null;
-
       const existing = dailyMap.get(dateStr) || { date: dateStr, attempts: 0, totalPercent: 0, passed: 0 };
       existing.attempts++;
-      existing.totalPercent += result?.overallPercent || 0;
-      if (result?.overallPassed) existing.passed++;
+      existing.totalPercent += observation.percent ?? 0;
+      if (observation.passed) existing.passed++;
       dailyMap.set(dateStr, existing);
     }
 
