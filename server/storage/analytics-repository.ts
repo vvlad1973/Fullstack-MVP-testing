@@ -15,7 +15,7 @@ import { unionAll } from "drizzle-orm/pg-core";
 
 import { db } from "../db";
 import {
-  attempts, scormAttempts, tests,
+  attempts, scormAttempts, scormPackages, tests,
   type Attempt, type ScormAttempt,
 } from "@shared/schema";
 
@@ -79,16 +79,22 @@ export class AnalyticsRepository {
     const NOTHING = sql`false`;
     const { testIds, groupIds, sources, outcomes } = query;
 
+    // Единицы оценивания: достижимые баллы, а где их не записали — сам факт посчитанного
+    // процента. Правило повторяет `gradedUnits` сервиса; у теста без проходного балла оба
+    // признака не считаются, и это делает ветка `overall_pass_rule_json` внутри `outcomeSql`.
+    const webGraded = sql`coalesce(
+      (${attempts.resultJson} ->> 'totalPossiblePoints')::numeric,
+      case when (${attempts.resultJson} ->> 'overallPercent') is not null then 1 else 0 end)`;
     const webOutcome = outcomeSql(
       attempts.finishedAt,
-      sql`(${attempts.resultJson} ->> 'totalPossiblePoints')::numeric`,
+      webGraded,
       sql`(${attempts.resultJson} ->> 'overallPassed')::boolean`,
     );
-    const lmsOutcome = outcomeSql(
-      scormAttempts.finishedAt,
-      scormAttempts.maxPoints,
-      scormAttempts.resultPassed,
-    );
+    // Оценённость строки из LMS видна по проценту, когда баллов нет: телеметрия не всегда
+    // сообщает `max_points`. То же правило, что в нормализации сервиса.
+    const lmsGraded = sql`coalesce(${scormAttempts.maxPoints},
+      case when ${scormAttempts.resultPercent} is not null then 1 else 0 end)`;
+    const lmsOutcome = outcomeSql(scormAttempts.finishedAt, lmsGraded, scormAttempts.resultPassed);
 
     const webWhere = and(
       ...(testIds ? [inArray(attempts.testId, testIds)] : []),
@@ -105,8 +111,15 @@ export class AnalyticsRepository {
     const lmsOrigins = (sources?.length ? sources : ["telemetry", "import"]).filter(
       (s): s is "telemetry" | "import" => s !== "web",
     );
+    /**
+     * Тест строки из LMS. `scorm_attempts.test_id` — источник истины, но у части старых строк
+     * телеметрии его нет: их тест известен только через пакет. Тот же порядок, что в
+     * `attemptTestId`, иначе выборка по тесту молча теряет такие прохождения.
+     */
+    const lmsTestId = sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`;
+
     const lmsWhere = and(
-      ...(testIds ? [inArray(scormAttempts.testId, testIds)] : []),
+      ...(testIds ? [inArray(lmsTestId, testIds)] : []),
       ...(query.from ? [gte(scormAttempts.startedAt, query.from)] : []),
       ...(query.to ? [lte(scormAttempts.startedAt, query.to)] : []),
       ...(groupIds?.length ? [inArray(scormAttempts.groupId, groupIds)] : []),
@@ -128,7 +141,8 @@ export class AnalyticsRepository {
         startedAt: scormAttempts.startedAt,
       })
       .from(scormAttempts)
-      .leftJoin(tests, eq(tests.id, scormAttempts.testId))
+      .leftJoin(scormPackages, eq(scormPackages.id, scormAttempts.packageId))
+      .leftJoin(tests, eq(tests.id, sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`))
       .where(lmsWhere);
 
     // Сортировка задана номерами колонок — единственный способ сослаться на колонку
@@ -143,7 +157,9 @@ export class AnalyticsRepository {
       countOf(db.select({ n: sql<number>`count(*)::int` }).from(attempts)
         .leftJoin(tests, eq(tests.id, attempts.testId)).where(webWhere)),
       countOf(db.select({ n: sql<number>`count(*)::int` }).from(scormAttempts)
-        .leftJoin(tests, eq(tests.id, scormAttempts.testId)).where(lmsWhere)),
+        .leftJoin(scormPackages, eq(scormPackages.id, scormAttempts.packageId))
+        .leftJoin(tests, eq(tests.id, sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`))
+        .where(lmsWhere)),
     ]);
 
     const webIds = keys.filter(k => k.source === "web").map(k => k.id);

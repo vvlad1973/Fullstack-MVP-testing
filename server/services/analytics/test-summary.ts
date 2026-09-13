@@ -26,6 +26,9 @@ export interface TestSummary {
   uniqueParticipants: number;
   avgPercent: number | null;
   passRate: number | null;
+  /** Адаптивные прохождения и сколько из них сдано: их процент в средние не входит. */
+  adaptiveAttempts: number;
+  adaptivePassed: number;
   /** Средний набранный балл и наибольший достижимый: у теста с вариантами он не один. */
   avgScore: number | null;
   maxScore: number | null;
@@ -54,7 +57,9 @@ function median(values: number[]): number | null {
 /** Сводка по набору наблюдений. */
 export function summariseObservations(observations: readonly Observation[]): TestSummary {
   const completed = observations.filter(o => o.outcome !== "incomplete");
-  const graded = completed.filter(o => o.percent !== null);
+  // Адаптивные прохождения не участвуют в среднем проценте: их результат — уровень.
+  const graded = completed.filter(o => o.percent !== null && !o.adaptive);
+  const adaptive = completed.filter(o => o.adaptive);
   const judged = completed.filter(o => o.passed !== null);
   const durations = completed
     .map(o => o.durationMs)
@@ -83,6 +88,8 @@ export function summariseObservations(observations: readonly Observation[]): Tes
     passRate: judged.length
       ? (judged.filter(o => o.passed).length / judged.length) * 100
       : null,
+    adaptiveAttempts: adaptive.length,
+    adaptivePassed: adaptive.filter(o => o.passed).length,
     avgScore: scores.length ? scores.reduce((sum, p) => sum + p, 0) / scores.length : null,
     maxScore: possible.length ? Math.max(...possible) : null,
     avgDurationMs: durations.length

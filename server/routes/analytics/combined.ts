@@ -4,6 +4,8 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { checkAnswer } from "../../utils/check-answer";
 import { loadTestScoringContext, type TestScoringContext } from "../../services/effective-scoring";
+import { loadObservations } from "../../services/analytics/observations";
+import { summariseObservations } from "../../services/analytics/test-summary";
 import { analyticsScope, attemptPackage, attemptParticipant, attemptTestId } from "./helpers";
 
 const router = Router();
@@ -161,74 +163,40 @@ router.get("/summary", requirePermission("analytics.read"), async (req: Request,
     // PRD-15 FR-08 (audit F-5): aggregates only over readable tests.
     const scope = await analyticsScope(req);
 
-    let webCount = 0, webPassed = 0, webPercent = 0, webAdaptive = 0, webAdaptivePassed = 0;
-    let lmsCount = 0, lmsPassed = 0, lmsPercent = 0;
-    const webUserIds = new Set<string>();
-    const lmsUserIds = new Set<string>();
+    // PRD-56 FR-33: сводка считается по общему слою наблюдений — тому же, по которому
+    // считает страница теста. Иначе два экрана снова начинают отвечать на один вопрос
+    // разными числами (FR-25).
+    const { rows } = await loadObservations(
+      {
+        ...(testIdFilter ? { testIds: [testIdFilter] } : {}),
+        ...(source === "web" ? { sources: ["web"] as const } : {}),
+        ...(source === "lms" ? { sources: ["telemetry", "import"] as const } : {}),
+      },
+      scope,
+    );
 
-    if (source === "all" || source === "web") {
-      const attempts = await storage.getAllAttempts();
-      const filtered = attempts
-        .filter(a => !testIdFilter || a.testId === testIdFilter)
-        .filter(a => scope.has(a.testId))
-        .filter(a => a.finishedAt);
+    // Брошенные прохождения в сводку не входят: она отвечает на «как прошли», а не «сколько
+    // начинали». Это же правило действовало и до перехода на общий слой.
+    const completed = rows.filter(o => o.outcome !== "incomplete");
+    const stats = summariseObservations(completed);
+    const web = completed.filter(o => o.source === "web");
+    const lms = completed.filter(o => o.source !== "web");
 
-      for (const a of filtered) {
-        const result = a.resultJson as any;
-        const isAdaptive = result?.mode === "adaptive";
-        webCount++;
-        webUserIds.add(a.userId);
-        if (result?.overallPassed) webPassed++;
-        if (isAdaptive) {
-          webAdaptive++;
-          if (result?.overallPassed) webAdaptivePassed++;
-        } else {
-          webPercent += result?.overallPercent || 0;
-        }
-      }
-    }
-
-    if (source === "all" || source === "lms") {
-      const attempts = await storage.getAllScormAttempts();
-      const packages = await storage.getScormPackages();
-      const packageMap = new Map(packages.map(p => [p.id, p]));
-
-      const filtered = attempts
-        .filter(a => {
-          if (!testIdFilter) return true;
-          return attemptTestId(a, packageMap) === testIdFilter;
-        })
-        .filter(a => scope.has(attemptTestId(a, packageMap)))
-        .filter(a => a.finishedAt);
-
-      for (const a of filtered) {
-        lmsCount++;
-        // PRD-54: у импортированной строки идентификатора из LMS нет — участника опознаёт псевдоним.
-        const participantId = a.participantKey ?? a.lmsUserId;
-        if (participantId) lmsUserIds.add(participantId);
-        if (a.resultPassed) lmsPassed++;
-        lmsPercent += a.resultPercent || 0;
-      }
-    }
-
-    const totalAttempts = webCount + lmsCount;
-    const passedAttempts = webPassed + lmsPassed;
-    const standardCount = webCount - webAdaptive + lmsCount;
-    const avgPercent = standardCount > 0
-      ? (webPercent + lmsPercent) / standardCount
-      : 0;
+    /** Участники источника: человек либо псевдоним импортированной строки (PRD-54). */
+    const participantsOf = (list: typeof completed) =>
+      new Set(list.map(o => o.userId ?? o.participantKey).filter(Boolean)).size;
 
     res.json({
-      totalAttempts,
-      passedAttempts,
-      passRate: totalAttempts > 0 ? (passedAttempts / totalAttempts) * 100 : 0,
-      avgPercent,
-      webAttempts: webCount,
-      lmsAttempts: lmsCount,
-      uniqueWebUsers: webUserIds.size,
-      uniqueLmsUsers: lmsUserIds.size,
-      adaptiveAttempts: webAdaptive,
-      adaptivePassed: webAdaptivePassed,
+      totalAttempts: stats.completedAttempts,
+      passedAttempts: completed.filter(o => o.passed === true).length,
+      passRate: stats.passRate ?? 0,
+      avgPercent: stats.avgPercent ?? 0,
+      webAttempts: web.length,
+      lmsAttempts: lms.length,
+      uniqueWebUsers: participantsOf(web),
+      uniqueLmsUsers: participantsOf(lms),
+      adaptiveAttempts: stats.adaptiveAttempts,
+      adaptivePassed: stats.adaptivePassed,
     });
   } catch (error) {
     logger.error("Summary analytics error: " + (error as Error).message, "analytics");

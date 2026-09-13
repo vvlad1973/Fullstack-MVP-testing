@@ -187,4 +187,90 @@ describe("toObservation — web and telemetry describe one passage the same way"
 
     expect(observation.outcome).toBe("incomplete");
   });
+
+  it("отмечает адаптивное прохождение: у него нет процента в обычном смысле", () => {
+    const adaptive = toObservation.web(
+      webAttempt({ resultJson: { mode: "adaptive", overallPassed: true, totalPossiblePoints: 12 } }),
+      { users, gradedTest: true },
+    );
+    const standard = toObservation.web(webAttempt(), { users, gradedTest: true });
+
+    expect(adaptive.adaptive).toBe(true);
+    expect(standard.adaptive).toBe(false);
+  });
+
+  it("считает прохождение из LMS оценённым по проценту, а не по баллам", () => {
+    // Телеметрия не всегда сообщает баллы: у строки есть процент и вердикт, а `max_points`
+    // пуст. Требовать баллы значило бы объявить такое прохождение неоценённым и выкинуть
+    // его процент из средних — ровно та потеря, которую ловил тест сводки.
+    const observation = toObservation.lms(
+      lmsAttempt({ maxPoints: null, totalPoints: null, resultPercent: 30, resultPassed: false }),
+      { users, packages, gradedTest: true },
+    );
+
+    expect(observation.percent).toBe(30);
+    expect(observation.passed).toBe(false);
+    expect(observation.outcome).toBe("failed");
+  });
+
+  it("оставляет прохождение опросника из LMS без процента", () => {
+    const observation = toObservation.lms(
+      lmsAttempt({ maxPoints: null, resultPercent: null, resultPassed: null, finishedAt: new Date("2026-09-10T09:30:00Z") }),
+      { users, packages, gradedTest: false },
+    );
+
+    expect(observation.percent).toBeNull();
+    expect(observation.outcome).toBe("completed");
+  });
+
+  it("считает веб-попытку оценённой по проценту, когда баллы в результате не записаны", () => {
+    const observation = toObservation.web(
+      webAttempt({ resultJson: { mode: "standard", overallPassed: false, overallPercent: 40 } }),
+      { users, gradedTest: true },
+    );
+
+    expect(observation.percent).toBe(40);
+    expect(observation.outcome).toBe("failed");
+  });
+
+  it("не считает опросник оценённым, даже когда процент в результате стоит нулём", () => {
+    // PRD-29 §6.7: у измерительного теста нет проходного балла, и ноль процентов — не
+    // результат, а отсутствие оценивания. Признак теста перевешивает содержимое строки.
+    const observation = toObservation.web(
+      webAttempt({ resultJson: { mode: "standard", overallPercent: 0 } }),
+      { users, gradedTest: false },
+    );
+
+    expect(observation.percent).toBeNull();
+    expect(observation.outcome).toBe("completed");
+  });
+
+  it("выносит вердикт адаптивному прохождению, хотя процента у него нет", () => {
+    // У адаптивного теста исход решают подтверждённые уровни, а не доля баллов
+    // (то же правило, что в `gradingOf`). Без него сдавшие адаптив исчезали из статистики.
+    const observation = toObservation.web(
+      webAttempt({ resultJson: { mode: "adaptive", overallPassed: true, topicResults: [] } }),
+      { users, gradedTest: undefined },
+    );
+
+    expect(observation.passed).toBe(true);
+    expect(observation.outcome).toBe("passed");
+  });
+
+  it("не считает оценённым прогон, где достижимые баллы записаны нулём", () => {
+    // PRD-29 §6.7 в чистом виде: у опросника стоит порог по умолчанию (70 %), результат
+    // несёт `totalPossiblePoints: 0` и `overallPassed: true`, которого никто не выносил.
+    // Записанный ноль — это «оценивать было нечего», а не «оценено на ноль», поэтому
+    // процент в такой строке признаком оценивания не считается.
+    const observation = toObservation.web(
+      webAttempt({
+        resultJson: { overallPercent: 0, overallPassed: true, totalPossiblePoints: 0 },
+      }),
+      { users, gradedTest: true },
+    );
+
+    expect(observation.percent).toBeNull();
+    expect(observation.passed).toBeNull();
+    expect(observation.outcome).toBe("completed");
+  });
 });

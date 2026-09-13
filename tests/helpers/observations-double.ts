@@ -13,6 +13,7 @@ import type { ObservationQuery, ObservationRows } from "../../server/storage/ana
 interface Sources {
   getAllAttempts: () => Promise<unknown[]> | unknown[];
   getAllScormAttempts?: () => Promise<unknown[]> | unknown[];
+  getScormPackages?: () => Promise<unknown[]> | unknown[];
 }
 
 /** Собрать `selectObservations` поверх уже замоканных таблиц. */
@@ -29,10 +30,17 @@ export function observationsDouble(storage: Sources) {
           row => !query.testIds || query.testIds.includes(row.testId as string),
         )
       : [];
+    // PRD-54: у части старых строк телеметрии своего `test_id` нет — тест известен через
+    // пакет. Настоящая выборка это учитывает, значит и двойник обязан.
+    const packages = storage.getScormPackages
+      ? ((await storage.getScormPackages()) as Array<Record<string, unknown>>)
+      : [];
+    const testOfPackage = new Map(packages.map(p => [p.id as string, p.testId as string]));
     const lms = wantsLms && storage.getAllScormAttempts
-      ? ((await storage.getAllScormAttempts()) as Array<Record<string, unknown>>).filter(
-          row => !query.testIds || query.testIds.includes(row.testId as string),
-        )
+      ? ((await storage.getAllScormAttempts()) as Array<Record<string, unknown>>).filter(row => {
+          const testId = (row.testId as string) ?? testOfPackage.get(row.packageId as string);
+          return !query.testIds || query.testIds.includes(testId);
+        })
       : [];
 
     const order = [

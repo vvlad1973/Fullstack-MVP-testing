@@ -52,6 +52,11 @@ export interface Observation {
   earnedPoints: number | null;
   possiblePoints: number | null;
   outcome: ObservationOutcome;
+  /**
+   * Адаптивное прохождение (PRD-16): его результат — достигнутый уровень, а не доля верных.
+   * Усреднять такой процент вместе с обычными значит складывать разные величины.
+   */
+  adaptive: boolean;
   /** Версия публикации (PRD-15) и вариант выдачи (PRD-17) — разрезы вкладки «Выдача». */
   snapshotId: string | null;
   formId: string | null;
@@ -97,10 +102,35 @@ interface LmsAttemptRow {
   finishedAt: Date | null;
 }
 
-/** Достижимые баллы прохождения: по ним видно, было ли что оценивать. */
-function possiblePointsOf(result: unknown): number {
+/**
+ * Достижимые баллы прохождения, если они записаны.
+ *
+ * `undefined` — «поля нет», и это не то же самое, что записанный ноль: ноль означает, что
+ * оценивать было нечего (PRD-29 §6.7), а отсутствие поля — что запись старая либо источник
+ * баллов не сообщает.
+ */
+function possiblePointsOf(result: unknown): number | undefined {
   const value = (result as { totalPossiblePoints?: unknown } | null)?.totalPossiblePoints;
-  return typeof value === "number" ? value : 0;
+  return typeof value === "number" ? value : undefined;
+}
+
+/**
+ * Единицы оценивания прохождения: достижимые баллы, а где их не записали — сам факт
+ * посчитанного процента. У теста без проходного балла не считается ни то, ни другое.
+ *
+ * @param possiblePoints достижимые баллы из строки
+ * @param percent посчитанный процент, если он есть
+ * @param gradedTest объявляет ли тест проходной балл
+ */
+function gradedUnits(
+  possiblePoints: number | null | undefined,
+  percent: number | null | undefined,
+  gradedTest: boolean | undefined,
+): number {
+  // Записанные баллы — прямой ответ, включая ноль: он и означает «оценивать было нечего».
+  if (possiblePoints !== null && possiblePoints !== undefined) return possiblePoints;
+  if (gradedTest === false) return 0;
+  return percent !== null && percent !== undefined ? 1 : 0;
 }
 
 /** Исход по завершённости и вердикту — единственное место, где он выводится. */
@@ -121,13 +151,22 @@ export const toObservation = {
       overallPercent?: number;
       overallPassed?: boolean;
       totalEarnedPoints?: number;
+      mode?: string;
     } | null;
     // Прохождение состоялось, если посчитан результат, даже когда отметка завершения не
     // проставлена: такие строки в базе есть, и терять их в «не завершено» — занижать выборку.
     const finished = row.finishedAt !== null || result !== null && result !== undefined;
     const possiblePoints = possiblePointsOf(result);
-    const scored = finished && !nothingToGrade(possiblePoints);
-    const pronounced = finished && hasPronouncedVerdict(ctx.gradedTest, possiblePoints);
+    // Процент — такой же признак оценивания, как баллы: часть записей не несёт
+    // `totalPossiblePoints`, и требовать их значило бы выкинуть их результат из средних.
+    // Но у теста без проходного балла ноль процентов не результат, а отсутствие оценивания
+    // (PRD-29 §6.7), поэтому признак теста перевешивает содержимое строки.
+    // Адаптивное прохождение судят подтверждённые уровни, а не доля баллов: вердикт у него
+    // есть всегда, хотя процента может не быть вовсе (то же правило, что в `gradingOf`).
+    const adaptive = result?.mode === "adaptive";
+    const gradedPoints = gradedUnits(possiblePoints, result?.overallPercent, ctx.gradedTest);
+    const scored = finished && (adaptive || !nothingToGrade(gradedPoints));
+    const pronounced = finished && (adaptive || hasPronouncedVerdict(ctx.gradedTest, gradedPoints));
     const passed = pronounced ? result?.overallPassed ?? null : null;
 
     return {
@@ -147,8 +186,9 @@ export const toObservation = {
       percent: scored ? result?.overallPercent ?? null : null,
       passed,
       earnedPoints: scored ? result?.totalEarnedPoints ?? null : null,
-      possiblePoints: scored ? possiblePoints : null,
+      possiblePoints: scored ? possiblePointsOf(result) ?? null : null,
       outcome: outcomeOf(finished, passed),
+      adaptive,
       snapshotId: row.snapshotId ?? null,
       formId: (row.variantJson as { formId?: string } | null)?.formId ?? null,
     };
@@ -159,7 +199,9 @@ export const toObservation = {
     const finished = row.finishedAt !== null
       || row.resultPercent !== null && row.resultPercent !== undefined
       || row.resultPassed !== null && row.resultPassed !== undefined;
-    const possiblePoints = row.maxPoints ?? 0;
+    // То же правило, что у веба: телеметрия не всегда сообщает `max_points`, и процент
+    // остаётся признаком того, что оценивание было.
+    const possiblePoints = gradedUnits(row.maxPoints, row.resultPercent, ctx.gradedTest);
     const scored = finished && !nothingToGrade(possiblePoints);
     const pronounced = finished && hasPronouncedVerdict(ctx.gradedTest, possiblePoints);
     const passed = pronounced ? row.resultPassed ?? null : null;
@@ -180,6 +222,8 @@ export const toObservation = {
       earnedPoints: scored ? row.totalPoints ?? null : null,
       possiblePoints: scored ? possiblePoints : null,
       outcome: outcomeOf(finished, passed),
+      // Режим прохождения телеметрия не сообщает: адаптивные разрезы считаются по вебу.
+      adaptive: false,
       // Версия публикации и вариант выдачи в LMS пока не доезжают: FR-19a заводит их
       // проносом в пакет и парсером выгрузок, до этого разрез по версиям видит только веб.
       snapshotId: null,

@@ -30,6 +30,9 @@ function observation(over: Partial<Observation> = {}): Observation {
     outcome: "passed",
     snapshotId: null,
     formId: null,
+    adaptive: false,
+    earnedPoints: 16,
+    possiblePoints: 20,
     ...over,
   };
 }
@@ -133,5 +136,18 @@ describe("summariseObservations", () => {
 
     expect(summary.avgDurationMs).toBe(15 * minute);
     expect(summary.medianDurationMs).toBe(15 * minute);
+  });
+
+  it("не мешает адаптивные прохождения в средний процент", () => {
+    // У адаптивного теста результат — достигнутый уровень, а не доля; усреднять его
+    // вместе с процентами обычных прохождений значит складывать разные величины.
+    const summary = summariseObservations([
+      observation({ id: "a", percent: 80 }),
+      observation({ id: "b", adaptive: true, percent: 0, passed: true }),
+    ]);
+
+    expect(summary.avgPercent).toBe(80);
+    expect(summary.adaptiveAttempts).toBe(1);
+    expect(summary.adaptivePassed).toBe(1);
   });
 });

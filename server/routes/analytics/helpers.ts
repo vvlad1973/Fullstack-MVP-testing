@@ -34,10 +34,16 @@ export const NOT_APPLICABLE = "—";
  */
 export async function analyticsScope(
   req: Request,
-): Promise<{ all: boolean; has: (testId: string | null | undefined) => boolean }> {
+): Promise<{
+  all: boolean;
+  /** Доступные тесты множеством: PRD-56 FR-35 — область видимости уходит в УСЛОВИЕ запроса. */
+  ids: ReadonlySet<string>;
+  has: (testId: string | null | undefined) => boolean;
+}> {
   const scope = await readableTestScope(req.effectiveRoles ?? [], req.currentUser?.id ?? "");
   return {
     all: scope.all,
+    ids: scope.ids,
     has: (testId) => scope.all || (!!testId && scope.ids.has(testId)),
   };
 }

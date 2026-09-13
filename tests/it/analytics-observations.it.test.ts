@@ -13,7 +13,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
-import { attempts, scormAttempts, tests, users } from "@shared/schema";
+import { attempts, scormAttempts, scormPackages, tests, users } from "@shared/schema";
 import { createHarness, type Harness } from "./db-harness";
 
 const h = vi.hoisted(() => ({ current: null as Harness | null }));
@@ -191,5 +191,38 @@ describe("loadObservations", () => {
 
     expect(page.rows).toHaveLength(2);
     expect(page.total).toBe(5);
+  });
+
+  it("находит прохождение старой телеметрии, у которой тест известен только через пакет", async () => {
+    // PRD-54: `test_id` проставлен backfill'ом, но у части старых строк его нет. Пакет —
+    // запасной путь; без него такие прохождения выпадали бы из выборки по тесту молча.
+    const packageId = randomUUID();
+    await h.current!.db.insert(scormPackages).values({
+      id: packageId,
+      testId: gradedTestId,
+      testTitle: "Тест",
+      secretKey: "s",
+      apiBaseUrl: "http://localhost",
+      exportedAt: new Date("2026-01-01T00:00:00Z"),
+      createdBy: userId,
+    } as never);
+    await lmsAttempt({ testId: null, packageId });
+
+    const page = await loadObservations({ testIds: [gradedTestId] }, ALL_TESTS);
+
+    expect(page.total).toBe(1);
+    expect(page.rows[0].testId).toBe(gradedTestId);
+  });
+
+  it("отбирает по исходу строку из LMS, у которой известен процент, но не баллы", async () => {
+    // Выражение исхода в запросе обязано судить так же, как нормализация в сервисе: иначе
+    // фильтр по исходу и колонки строки говорят разное об одном прохождении.
+    await lmsAttempt({ maxPoints: null, totalPoints: null, resultPercent: 30, resultPassed: false });
+
+    const failed = await loadObservations({ outcomes: ["failed"] }, ALL_TESTS);
+
+    expect(failed.total).toBe(1);
+    expect(failed.rows[0].percent).toBe(30);
+    expect(failed.rows[0].outcome).toBe("failed");
   });
 });
