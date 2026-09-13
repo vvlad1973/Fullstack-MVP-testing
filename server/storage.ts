@@ -22,6 +22,7 @@ import {
 import { AdaptiveRepository } from "./storage/adaptive-repository";
 import { ExposureRepository } from "./storage/exposure-repository";
 import { AnalyticsRepository, type ObservationQuery, type ObservationRows } from "./storage/analytics-repository";
+import { SlicesRepository } from "./storage/slices-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
 import { ScalesVariablesRepository } from "./storage/scales-variables-repository";
 import { TestsRepository, type TestUsageRef } from "./storage/tests-repository";
@@ -72,6 +73,7 @@ import type {
   ScormAttempt, InsertScormAttempt,
   ScormAnswer, InsertScormAnswer,
   LmsImportBatch, InsertLmsImportBatch,
+  AnalyticsSlice, InsertAnalyticsSlice,
   Group, InsertGroup,
   UserGroup,
   TestAccessGrant, InsertTestAccessGrant,
@@ -338,6 +340,16 @@ export interface IStorage {
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>>;
   /** PRD-56 FR-33: страница прохождений веба, телеметрии и импорта одной выборкой. */
   selectObservations(query: ObservationQuery): Promise<ObservationRows>;
+  /** PRD-56 FR-07b: срезы — сохранённые наборы условий отбора. */
+  getSlices(ownerId: string): Promise<AnalyticsSlice[]>;
+  getSlice(id: string, ownerId: string): Promise<AnalyticsSlice | undefined>;
+  createSlice(input: InsertAnalyticsSlice): Promise<AnalyticsSlice>;
+  updateSlice(
+    id: string,
+    ownerId: string,
+    patch: Partial<Pick<AnalyticsSlice, "name" | "testId" | "conditionsJson">>,
+  ): Promise<AnalyticsSlice | undefined>;
+  deleteSlice(id: string, ownerId: string): Promise<boolean>;
 
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt>;
   getScormAttempt(id: string): Promise<ScormAttempt | undefined>;
@@ -464,6 +476,7 @@ export class DatabaseStorage implements IStorage {
   private readonly adaptiveRepo = new AdaptiveRepository();
   private readonly exposureRepo = new ExposureRepository();
   private readonly analyticsRepo = new AnalyticsRepository();
+  private readonly slicesRepo = new SlicesRepository();
   private readonly attemptsRepo = new AttemptsRepository();
   private readonly scalesVariablesRepo = new ScalesVariablesRepository();
   private readonly testsRepo = new TestsRepository();
@@ -1154,6 +1167,30 @@ export class DatabaseStorage implements IStorage {
 
   selectObservations(query: ObservationQuery): Promise<ObservationRows> {
     return this.analyticsRepo.selectObservations(query);
+  }
+
+  getSlices(ownerId: string): Promise<AnalyticsSlice[]> {
+    return this.slicesRepo.getSlices(ownerId);
+  }
+
+  getSlice(id: string, ownerId: string): Promise<AnalyticsSlice | undefined> {
+    return this.slicesRepo.getSlice(id, ownerId);
+  }
+
+  createSlice(input: InsertAnalyticsSlice): Promise<AnalyticsSlice> {
+    return this.slicesRepo.createSlice(input);
+  }
+
+  updateSlice(
+    id: string,
+    ownerId: string,
+    patch: Partial<Pick<AnalyticsSlice, "name" | "testId" | "conditionsJson">>,
+  ): Promise<AnalyticsSlice | undefined> {
+    return this.slicesRepo.updateSlice(id, ownerId, patch);
+  }
+
+  deleteSlice(id: string, ownerId: string): Promise<boolean> {
+    return this.slicesRepo.deleteSlice(id, ownerId);
   }
 
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>> {

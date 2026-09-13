@@ -1864,6 +1864,47 @@ export const lmsImportBatches = pgTable("lms_import_batches", {
 }));
 
 /**
+ * PRD-56 FR-07b: СРЕЗ — сохранённый набор условий отбора прохождений.
+ *
+ * Хранит УСЛОВИЯ, а не список прохождений (FR-07d): срез пересчитывается при каждом открытии,
+ * и группа, выросшая на трёх человек, назавтра показывает четверых, а не вчерашнюю тройку.
+ * Принять срез за снимок состава — самая дорогая ошибка чтения, поэтому это сказано и в
+ * интерфейсе, и здесь.
+ *
+ * Сущность ОДНА с сохранёнными наборами условий `FilterBar`: двух языков отбора в продукте
+ * не заводится. Условия описаны тем же словарём, что фильтр реестра.
+ */
+export const analyticsSlices = pgTable("analytics_slices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Имя, под которым срез виден в списке и в заголовке колонки сравнения. */
+  name: text("name").notNull(),
+  /**
+   * Тест среза. NULL допустим: срез, сохранённый из реестра без условия по тесту, отбирает
+   * прохождения всех доступных тестов. Сравнение срезов разных тестов запрещает не эта
+   * колонка, а экран сравнения (FR-07e).
+   */
+  testId: varchar("test_id", { length: 36 }),
+  /**
+   * Условия отбора: `{ testIds, groupIds, sources, outcomes, from, to }` — тот же словарь,
+   * что у фильтра реестра. Жёсткой схемы у колонки нет намеренно: словарь условий будет
+   * расти (оси разбиения FR-06a), а миграция ради нового необязательного условия — цена,
+   * которую платить не за что.
+   */
+  conditionsJson: jsonb("conditions_json").$type<Record<string, unknown>>().notNull().default({}),
+  createdBy: varchar("created_by", { length: 36 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  // Срезы перечисляются своим владельцем, новые первыми.
+  ownerIdx: index("analytics_slices_owner_idx").on(table.createdBy),
+  // Имя уникально у одного владельца: два «Отдела продаж» в списке неразличимы.
+  ownerNameUq: uniqueIndex("analytics_slices_owner_name_uq").on(table.createdBy, table.name),
+}));
+
+export type AnalyticsSlice = typeof analyticsSlices.$inferSelect;
+export type InsertAnalyticsSlice = typeof analyticsSlices.$inferInsert;
+
+/**
  * PRD-55 (FR-05, FR-06): материализованный счётчик выдач задания.
  *
  * Корзина — КАЛЕНДАРНЫЙ МЕСЯЦ: скользящее окно тогда считается суммой последних N корзин, а
