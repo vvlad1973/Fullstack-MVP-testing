@@ -13,7 +13,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
-import { attempts, scormAttempts, scormPackages, tests, users } from "@shared/schema";
+import { attempts, groups, scormAttempts, scormPackages, tests, userGroups, users } from "@shared/schema";
 import { createHarness, type Harness } from "./db-harness";
 
 const h = vi.hoisted(() => ({ current: null as Harness | null }));
@@ -224,5 +224,40 @@ describe("loadObservations", () => {
     expect(failed.total).toBe(1);
     expect(failed.rows[0].percent).toBe(30);
     expect(failed.rows[0].outcome).toBe("failed");
+  });
+
+  it("отбирает по группе веб-попытку участника этой группы", async () => {
+    // «Группа» обязана значить в реестре то же, что в остальном продукте: членство человека
+    // (`user_groups`). Метка группы у импортированной строки — второй путь к тому же смыслу,
+    // а не другое понятие.
+    const groupId = randomUUID();
+    await h.current!.db.insert(groups).values({ id: groupId, name: "Отдел продаж" } as never);
+    await h.current!.db.insert(userGroups).values({
+      id: randomUUID(), userId, groupId,
+    } as never);
+    await webAttempt();
+    // Прохождение участника без группы под условие не подходит.
+    const outsiderId = randomUUID();
+    await h.current!.db.insert(users).values({
+      id: outsiderId, email: "out@b.c", passwordHash: "x", name: "Без группы",
+    } as never);
+    await webAttempt({ userId: outsiderId });
+
+    const page = await loadObservations({ groupIds: [groupId] }, ALL_TESTS);
+
+    expect(page.total).toBe(1);
+    expect(page.rows[0].userId).toBe(userId);
+  });
+
+  it("отбирает по группе импортированную строку с меткой этой группы", async () => {
+    const groupId = randomUUID();
+    await h.current!.db.insert(groups).values({ id: groupId, name: "Розница" } as never);
+    await lmsAttempt({ origin: "import", participantKey: "a".repeat(64), groupId, lmsUserName: null });
+    await lmsAttempt();
+
+    const page = await loadObservations({ groupIds: [groupId] }, ALL_TESTS);
+
+    expect(page.total).toBe(1);
+    expect(page.rows[0].source).toBe("import");
   });
 });

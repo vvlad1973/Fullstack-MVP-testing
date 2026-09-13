@@ -58,10 +58,17 @@ export function observationsDouble(storage: Sources) {
       })),
     ].sort((a, b) => new Date(b.startedAt as string).getTime() - new Date(a.startedAt as string).getTime());
 
+    // Порция и общее число — как в настоящей выборке: `total` не зависит от лимита.
+    const offset = query.offset ?? 0;
+    const page = query.limit === undefined
+      ? order.slice(offset)
+      : order.slice(offset, offset + query.limit);
+    const ids = new Set(page.map(k => k.id));
+
     return {
-      web: web as never,
-      lms: lms as never,
-      order: order.map(({ id, source }) => ({ id, source })),
+      web: web.filter(row => ids.has(row.id as string)) as never,
+      lms: lms.filter(row => ids.has(row.id as string)) as never,
+      order: page.map(({ id, source }) => ({ id, source })),
       total: order.length,
     };
   };

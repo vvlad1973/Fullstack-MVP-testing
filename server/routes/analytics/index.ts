@@ -4,6 +4,7 @@ import testDetailsRouter from "./test-details";
 import attemptsRouter from "./attempts";
 import scormRouter from "./scorm";
 import combinedRouter from "./combined";
+import registryRouter from "./registry";
 import exportRouter from "./export";
 import lmsImportRouter from "./lms-import";
 
@@ -31,6 +32,9 @@ router.use("/", scormRouter);
 
 // Комбинированная аналитика: GET /api/analytics/combined, GET /api/analytics/combined-full
 router.use("/", combinedRouter);
+
+// PRD-56: реестр прохождений — GET /api/analytics/registry
+router.use("/", registryRouter);
 
 // Экспорт: GET /api/analytics/tests/:testId/export/excel, GET/POST /api/export/*
 router.use("/", exportRouter);

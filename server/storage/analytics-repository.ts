@@ -10,12 +10,12 @@
  * Репозиторий отдаёт сырые строки — приведение к наблюдению живёт в сервисе, потому что зависит
  * от правил оценивания, а не от хранения.
  */
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 
 import { db } from "../db";
 import {
-  attempts, scormAttempts, scormPackages, tests,
+  attempts, scormAttempts, scormPackages, tests, userGroups,
   type Attempt, type ScormAttempt,
 } from "@shared/schema";
 
@@ -77,6 +77,19 @@ export class AnalyticsRepository {
   async selectObservations(query: ObservationQuery): Promise<ObservationRows> {
     /** `false`, когда ни одна строка источника подойти не может. */
     const NOTHING = sql`false`;
+
+    /**
+     * Участник состоит в одной из групп отбора.
+     *
+     * «Группа» в реестре значит то же, что во всём продукте, — членство человека
+     * (`user_groups`). У импортированной строки к этому добавляется метка группы, которую
+     * проставил импорт (PRD-54): участник там может быть не заведён вовсе.
+     */
+    const inGroups = (userIdColumn: unknown, ids: string[]) => sql`exists (
+      select 1 from ${userGroups}
+      where ${userGroups.userId} = ${userIdColumn}
+        and ${userGroups.groupId} in ${ids}
+    )`;
     const { testIds, groupIds, sources, outcomes } = query;
 
     // Единицы оценивания: достижимые баллы, а где их не записали — сам факт посчитанного
@@ -101,9 +114,7 @@ export class AnalyticsRepository {
       ...(query.from ? [gte(attempts.startedAt, query.from)] : []),
       ...(query.to ? [lte(attempts.startedAt, query.to)] : []),
       ...(outcomes?.length ? [inArray(webOutcome, outcomes)] : []),
-      // Группа веб-попытки выводится из членства пользователя — это отдельный разрез (FR-06).
-      // Пока фильтр по группе отбирает только строки, которым группу проставил импорт.
-      ...(groupIds?.length ? [NOTHING] : []),
+      ...(groupIds?.length ? [inGroups(attempts.userId, groupIds)] : []),
       ...(sources?.length && !sources.includes("web") ? [NOTHING] : []),
       ...(query.impossible ? [NOTHING] : []),
     );
@@ -122,7 +133,12 @@ export class AnalyticsRepository {
       ...(testIds ? [inArray(lmsTestId, testIds)] : []),
       ...(query.from ? [gte(scormAttempts.startedAt, query.from)] : []),
       ...(query.to ? [lte(scormAttempts.startedAt, query.to)] : []),
-      ...(groupIds?.length ? [inArray(scormAttempts.groupId, groupIds)] : []),
+      ...(groupIds?.length
+        ? [or(
+            inArray(scormAttempts.groupId, groupIds),
+            inGroups(scormAttempts.userId, groupIds),
+          )!]
+        : []),
       ...(outcomes?.length ? [inArray(lmsOutcome, outcomes)] : []),
       ...(lmsOrigins.length ? [inArray(scormAttempts.origin, lmsOrigins)] : [NOTHING]),
       ...(query.impossible ? [NOTHING] : []),
