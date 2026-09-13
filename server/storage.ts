@@ -21,6 +21,7 @@ import {
 } from "./storage/scorm-repository";
 import { AdaptiveRepository } from "./storage/adaptive-repository";
 import { ExposureRepository } from "./storage/exposure-repository";
+import { AnalyticsRepository, type ObservationQuery, type ObservationRows } from "./storage/analytics-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
 import { ScalesVariablesRepository } from "./storage/scales-variables-repository";
 import { TestsRepository, type TestUsageRef } from "./storage/tests-repository";
@@ -335,6 +336,8 @@ export interface IStorage {
   getOtherTestsCount(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>>;
   /** PRD-55 (FR-31a): медиана времени на задание и СВОЙ объём выборки (веб времени не даёт). */
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>>;
+  /** PRD-56 FR-33: страница прохождений веба, телеметрии и импорта одной выборкой. */
+  selectObservations(query: ObservationQuery): Promise<ObservationRows>;
 
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt>;
   getScormAttempt(id: string): Promise<ScormAttempt | undefined>;
@@ -460,6 +463,7 @@ export class DatabaseStorage implements IStorage {
   private readonly scormRepo = new ScormRepository();
   private readonly adaptiveRepo = new AdaptiveRepository();
   private readonly exposureRepo = new ExposureRepository();
+  private readonly analyticsRepo = new AnalyticsRepository();
   private readonly attemptsRepo = new AttemptsRepository();
   private readonly scalesVariablesRepo = new ScalesVariablesRepository();
   private readonly testsRepo = new TestsRepository();
@@ -1146,6 +1150,10 @@ export class DatabaseStorage implements IStorage {
 
   getOtherTestsCount(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>> {
     return this.exposureRepo.getOtherTestsCount(questionIds, testId, since);
+  }
+
+  selectObservations(query: ObservationQuery): Promise<ObservationRows> {
+    return this.analyticsRepo.selectObservations(query);
   }
 
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>> {

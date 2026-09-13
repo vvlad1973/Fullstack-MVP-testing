@@ -8,17 +8,13 @@
  * Здесь строка любого источника приводится к ОДНОЙ форме, и дальше её происхождение перестаёт
  * влиять на расчёт: источник остаётся признаком для фильтра, а не развилкой в коде.
  *
- * Модуль чистый: ни запросов, ни Express. Чтение из базы живёт снаружи и передаёт сюда строки
- * вместе со справочниками, иначе нормализацию нельзя проверить без базы.
+ * Отбор и порция считаются запросом в DAL (`storage.selectObservations`); здесь живут правила
+ * оценивания — что считать результатом, вердиктом и исходом.
  */
 
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { unionAll } from "drizzle-orm/pg-core";
-
-import { attempts, scormAttempts, tests, users as usersTable } from "@shared/schema";
 import { hasPronouncedVerdict, nothingToGrade } from "@shared/scoring/pass-rule";
 
-import { db } from "../../db";
+import { storage } from "../../storage";
 import { attemptParticipant, attemptTestId } from "./attempt-row";
 
 /** Откуда приехало прохождение. Фильтр экрана говорит ровно в этих терминах. */
@@ -52,6 +48,9 @@ export interface Observation {
   percent: number | null;
   /** Вердикт; `null`, когда его никто не выносил. */
   passed: boolean | null;
+  /** Набранные и достижимые баллы; `null`, когда оценивать было нечего. */
+  earnedPoints: number | null;
+  possiblePoints: number | null;
   outcome: ObservationOutcome;
   /** Версия публикации (PRD-15) и вариант выдачи (PRD-17) — разрезы вкладки «Выдача». */
   snapshotId: string | null;
@@ -82,6 +81,7 @@ interface WebAttemptRow {
 }
 
 interface LmsAttemptRow {
+  totalPoints?: number | null;
   id: string;
   packageId: string | null;
   testId: string | null;
@@ -117,8 +117,14 @@ function durationOf(startedAt: Date, finishedAt: Date | null): number | null {
 export const toObservation = {
   /** Веб-попытка (`attempts`). */
   web(row: WebAttemptRow, ctx: ObservationContext): Observation {
-    const finished = row.finishedAt !== null;
-    const result = row.resultJson as { overallPercent?: number; overallPassed?: boolean } | null;
+    const result = row.resultJson as {
+      overallPercent?: number;
+      overallPassed?: boolean;
+      totalEarnedPoints?: number;
+    } | null;
+    // Прохождение состоялось, если посчитан результат, даже когда отметка завершения не
+    // проставлена: такие строки в базе есть, и терять их в «не завершено» — занижать выборку.
+    const finished = row.finishedAt !== null || result !== null && result !== undefined;
     const possiblePoints = possiblePointsOf(result);
     const scored = finished && !nothingToGrade(possiblePoints);
     const pronounced = finished && hasPronouncedVerdict(ctx.gradedTest, possiblePoints);
@@ -140,6 +146,8 @@ export const toObservation = {
       durationMs: durationOf(row.startedAt, row.finishedAt),
       percent: scored ? result?.overallPercent ?? null : null,
       passed,
+      earnedPoints: scored ? result?.totalEarnedPoints ?? null : null,
+      possiblePoints: scored ? possiblePoints : null,
       outcome: outcomeOf(finished, passed),
       snapshotId: row.snapshotId ?? null,
       formId: (row.variantJson as { formId?: string } | null)?.formId ?? null,
@@ -148,7 +156,9 @@ export const toObservation = {
 
   /** Прохождение из LMS: живая телеметрия или импортированная выгрузка (`scorm_attempts`). */
   lms(row: LmsAttemptRow, ctx: LmsObservationContext): Observation {
-    const finished = row.finishedAt !== null;
+    const finished = row.finishedAt !== null
+      || row.resultPercent !== null && row.resultPercent !== undefined
+      || row.resultPassed !== null && row.resultPassed !== undefined;
     const possiblePoints = row.maxPoints ?? 0;
     const scored = finished && !nothingToGrade(possiblePoints);
     const pronounced = finished && hasPronouncedVerdict(ctx.gradedTest, possiblePoints);
@@ -167,6 +177,8 @@ export const toObservation = {
       durationMs: durationOf(row.startedAt, row.finishedAt),
       percent: scored ? row.resultPercent ?? null : null,
       passed,
+      earnedPoints: scored ? row.totalPoints ?? null : null,
+      possiblePoints: scored ? possiblePoints : null,
       outcome: outcomeOf(finished, passed),
       // Версия публикации и вариант выдачи в LMS пока не доезжают: FR-19a заводит их
       // проносом в пакет и парсером выгрузок, до этого разрез по версиям видит только веб.
@@ -207,29 +219,6 @@ export interface ObservationPage {
 }
 
 /**
- * Исход, вычисленный в SQL.
- *
- * Повторяет {@link outcomeOf}, и иначе нельзя: фильтр по исходу обязан работать ДО лимита,
- * иначе порция вернёт меньше строк, чем обещала, а `total` перестанет отвечать на «сколько
- * всего». Что оба выражения дают одно и то же, стережёт интеграционный тест: он сверяет
- * выборку по исходу с полями нормализованных строк.
- *
- * @param finishedAt столбец даты завершения
- * @param possiblePoints выражение достижимых баллов
- * @param passed выражение вердикта
- */
-function outcomeSql(finishedAt: unknown, possiblePoints: unknown, passed: unknown) {
-  return sql<string>`case
-    when ${finishedAt} is null then 'incomplete'
-    when coalesce(${possiblePoints}, 0) <= 0 then 'completed'
-    when coalesce(${tests.overallPassRuleJson} ->> 'type', 'none') = 'none' then 'completed'
-    when ${passed} is null then 'completed'
-    when ${passed} then 'passed'
-    else 'failed'
-  end`;
-}
-
-/**
  * Прохождения по условиям — из обоих источников, одним списком.
  *
  * Отбор, сортировка и порция считаются ЗАПРОСОМ: реестр подгружается при прокрутке (FR-01c),
@@ -243,131 +232,76 @@ export async function loadObservations(
   scope: ObservationScope,
 ): Promise<ObservationPage> {
   const testIds = filter.testIds?.length ? filter.testIds : undefined;
-  const sources = filter.sources?.length ? filter.sources : undefined;
-  const outcomes = filter.outcomes?.length ? filter.outcomes : undefined;
 
-  // Пересечение «что просили» и «что доступно»: пустое множество означает, что доступного
-  // нет вовсе, и запрос обязан вернуть ноль строк, а не всё подряд.
+  // Пересечение «что просили» и «что доступно» (FR-35). Пустой список означает, что доступного
+  // нет вовсе, и выборка обязана вернуть ноль строк, а не всё подряд.
   const allowed = scope.all
     ? testIds
     : (testIds ?? [...scope.ids]).filter(id => scope.ids.has(id));
-  const impossible = !scope.all && allowed!.length === 0;
 
-  const webOutcome = outcomeSql(
-    attempts.finishedAt,
-    sql`(${attempts.resultJson} ->> 'totalPossiblePoints')::numeric`,
-    sql`(${attempts.resultJson} ->> 'overallPassed')::boolean`,
-  );
-  const lmsOutcome = outcomeSql(scormAttempts.finishedAt, scormAttempts.maxPoints, scormAttempts.resultPassed);
+  const { web, lms, order, total } = await storage.selectObservations({
+    testIds: allowed,
+    groupIds: filter.groupIds,
+    sources: filter.sources,
+    outcomes: filter.outcomes,
+    from: filter.from,
+    to: filter.to,
+    limit: filter.limit,
+    offset: filter.offset,
+    impossible: !scope.all && (allowed?.length ?? 0) === 0,
+  });
 
-  /** `false`, когда ни одна строка источника подойти не может — фильтр исключил его целиком. */
-  const NOTHING = sql`false`;
-
-  const webWhere = and(
-    ...(allowed ? [inArray(attempts.testId, allowed)] : []),
-    ...(filter.from ? [gte(attempts.startedAt, filter.from)] : []),
-    ...(filter.to ? [lte(attempts.startedAt, filter.to)] : []),
-    ...(outcomes ? [inArray(webOutcome, outcomes)] : []),
-    // Группа веб-попытки выводится из членства пользователя — это отдельный разрез (FR-06).
-    // Пока фильтр по группе отбирает только строки, которым группу проставил импорт.
-    ...(filter.groupIds?.length ? [NOTHING] : []),
-    ...(sources && !sources.includes("web") ? [NOTHING] : []),
-    ...(impossible ? [NOTHING] : []),
-  );
-
-  const lmsOrigins = (sources ?? ["telemetry", "import"]).filter(
-    (s): s is "telemetry" | "import" => s !== "web",
-  );
-  const lmsWhere = and(
-    ...(allowed ? [inArray(scormAttempts.testId, allowed)] : []),
-    ...(filter.from ? [gte(scormAttempts.startedAt, filter.from)] : []),
-    ...(filter.to ? [lte(scormAttempts.startedAt, filter.to)] : []),
-    ...(filter.groupIds?.length ? [inArray(scormAttempts.groupId, filter.groupIds)] : []),
-    ...(outcomes ? [inArray(lmsOutcome, outcomes)] : []),
-    ...(lmsOrigins.length ? [inArray(scormAttempts.origin, lmsOrigins)] : [NOTHING]),
-    ...(impossible ? [NOTHING] : []),
-  );
-
-  const webQuery = db
-    .select({ id: attempts.id, source: sql<string>`'web'`, startedAt: attempts.startedAt })
-    .from(attempts)
-    .leftJoin(tests, eq(tests.id, attempts.testId))
-    .where(webWhere);
-
-  const lmsQuery = db
-    .select({ id: scormAttempts.id, source: scormAttempts.origin, startedAt: scormAttempts.startedAt })
-    .from(scormAttempts)
-    .leftJoin(tests, eq(tests.id, scormAttempts.testId))
-    .where(lmsWhere);
-
-  // Порядок обязан быть устойчивым: реестр догружается порциями (FR-01c), и у прохождений
-  // одной секунды без второго ключа нет определённого места. Сортировка задана НОМЕРАМИ
-  // колонок — единственный способ сослаться на колонку объединения, у которой нет своей
-  // таблицы.
-  const ordered = unionAll(webQuery, lmsQuery).orderBy(sql`3 desc`, sql`1 desc`);
-  const limited = filter.limit === undefined ? ordered : ordered.limit(filter.limit);
-  const keysQuery: PromiseLike<Array<{ id: string; source: string }>> =
-    filter.offset ? limited.offset(filter.offset) : limited;
-
-  // Счёт идёт отдельными запросами, а не длиной страницы: «показано 25 из 128» обязано
-  // говорить про всю выборку, а не про порцию.
-  const [keys, webTotal, lmsTotal] = await Promise.all([
-    keysQuery,
-    countOf(db.select({ n: sql<number>`count(*)::int` }).from(attempts)
-      .leftJoin(tests, eq(tests.id, attempts.testId)).where(webWhere)),
-    countOf(db.select({ n: sql<number>`count(*)::int` }).from(scormAttempts)
-      .leftJoin(tests, eq(tests.id, scormAttempts.testId)).where(lmsWhere)),
-  ]);
-
-  return { rows: await hydrate(keys), total: webTotal + lmsTotal };
+  const rows = await normalise(web, lms);
+  const byId = new Map(rows.map(o => [o.id, o]));
+  return {
+    rows: order.map(k => byId.get(k.id)).filter((o): o is Observation => !!o),
+    total,
+  };
 }
 
-/** Развернуть запрос-счётчик в число. */
-async function countOf(query: PromiseLike<Array<{ n: number }>>): Promise<number> {
-  const rows = await query;
-  return rows[0]?.n ?? 0;
-}
+/** Привести выбранные строки к наблюдениям, дочитав справочники теста и участников. */
+async function normalise(
+  web: Array<Parameters<typeof toObservation.web>[0] & { testId: string }>,
+  lms: Array<Parameters<typeof toObservation.lms>[0]>,
+): Promise<Observation[]> {
+  if (web.length === 0 && lms.length === 0) return [];
 
-/** Дочитать выбранные строки и привести их к наблюдениям. */
-async function hydrate(keys: Array<{ id: string; source: string }>): Promise<Observation[]> {
-  if (keys.length === 0) return [];
-  const webIds = keys.filter(k => k.source === "web").map(k => k.id);
-  const lmsIds = keys.filter(k => k.source !== "web").map(k => k.id);
-
-  const [webRows, lmsRows] = await Promise.all([
-    webIds.length ? db.select().from(attempts).where(inArray(attempts.id, webIds)) : [],
-    lmsIds.length ? db.select().from(scormAttempts).where(inArray(scormAttempts.id, lmsIds)) : [],
+  const testIds = new Set<string>([
+    ...web.map(r => r.testId),
+    ...lms.map(r => r.testId).filter((id): id is string => !!id),
   ]);
+  // Тесты спрашиваются поимённо: выборка редко шире нескольких тестов, а чтение всего
+  // справочника ради двух строк — то самое «загрузить таблицу целиком», от которого уходим.
+  const testRows = await Promise.all([...testIds].map(id => storage.getTest(id)));
+  const graded = new Map(
+    testRows
+      .filter((t): t is NonNullable<typeof t> => !!t)
+      .map(t => [t.id, declaresThreshold(t.overallPassRuleJson)]),
+  );
 
-  const testIds = [...new Set([
-    ...webRows.map(r => r.testId),
-    ...lmsRows.map(r => r.testId).filter((id): id is string => !!id),
-  ])];
-  const testRows = testIds.length
-    ? await db.select().from(tests).where(inArray(tests.id, testIds))
-    : [];
-  const graded = new Map(testRows.map(t => [t.id, declaresThreshold(t.overallPassRuleJson)]));
+  const userIds = new Set<string>([
+    ...web.map(r => r.userId),
+    ...lms.map(r => r.userId).filter((id): id is string => !!id),
+  ]);
+  const userRows = await Promise.all([...userIds].map(id => storage.getUser(id)));
+  const users = new Map(
+    userRows.filter((u): u is NonNullable<typeof u> => !!u).map(u => [u.id, { name: u.name }]),
+  );
 
-  const userIds = [...new Set(webRows.map(r => r.userId).concat(
-    lmsRows.map(r => r.userId).filter((id): id is string => !!id),
-  ))];
-  const userRows = userIds.length
-    ? await db.select().from(usersTable).where(inArray(usersTable.id, userIds))
-    : [];
-  const users = new Map(userRows.map(u => [u.id, { name: u.name }]));
+  // Пакет — запасной путь к тесту у строк телеметрии, которым backfill ничего не нашёл.
+  const needsPackage = lms.some(r => !r.testId && r.packageId);
+  const packages = needsPackage
+    ? new Map((await storage.getScormPackages()).map(p => [p.id, { testId: p.testId }]))
+    : new Map<string, { testId: string | null }>();
 
-  const byId = new Map<string, Observation>();
-  for (const row of webRows) {
-    byId.set(row.id, toObservation.web(row, { users, gradedTest: graded.get(row.testId) }));
-  }
-  for (const row of lmsRows) {
-    byId.set(row.id, toObservation.lms(row, {
+  return [
+    ...web.map(row => toObservation.web(row, { users, gradedTest: graded.get(row.testId) })),
+    ...lms.map(row => toObservation.lms(row, {
       users,
-      packages: new Map(),
+      packages,
       gradedTest: row.testId ? graded.get(row.testId) : undefined,
-    }));
-  }
-  return keys.map(k => byId.get(k.id)).filter((o): o is Observation => !!o);
+    })),
+  ];
 }
 
 /** Объявляет ли тест проходной балл. Половина правила PRD-29 §6.7, относящаяся к тесту. */

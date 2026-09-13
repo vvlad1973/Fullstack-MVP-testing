@@ -14,6 +14,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
+import { observationsDouble } from "./helpers/observations-double";
 import express from "express";
 import session from "express-session";
 
@@ -23,6 +24,8 @@ const { storageMock } = vi.hoisted(() => ({
     getUserRoles: vi.fn().mockResolvedValue(["administrator"]),
     getTest: vi.fn(),
     getAllAttempts: vi.fn(),
+    // PRD-56 FR-33: страница теста читает прохождения через выборку DAL.
+    selectObservations: vi.fn(),
     getAttempt: vi.fn(),
     getQuestionsByIds: vi.fn().mockResolvedValue([]),
     getTopics: vi.fn().mockResolvedValue([]),
@@ -148,6 +151,7 @@ const MEASUREMENT_ATTEMPT = {
 let app: express.Express;
 beforeEach(() => {
   vi.clearAllMocks();
+  storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
   storageMock.getUserRoles.mockResolvedValue(["administrator"]);
   storageMock.getQuestionsByIds.mockResolvedValue([]);
   storageMock.getTopics.mockResolvedValue([]);

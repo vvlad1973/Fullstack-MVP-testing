@@ -134,4 +134,57 @@ describe("toObservation — web and telemetry describe one passage the same way"
 
     expect(observation.testId).toBe(TEST_ID);
   });
+
+  it("несёт баллы прохождения: набранные и достижимые", () => {
+    const fromWeb = toObservation.web(
+      webAttempt({
+        resultJson: {
+          overallPercent: 78, overallPassed: true,
+          totalEarnedPoints: 15.5, totalPossiblePoints: 20,
+        },
+      }),
+      { users, gradedTest: true },
+    );
+    const fromLms = toObservation.lms(
+      lmsAttempt({ totalPoints: 15.5, maxPoints: 20 }),
+      { users, packages, gradedTest: true },
+    );
+
+    expect(fromWeb.earnedPoints).toBe(15.5);
+    expect(fromWeb.possiblePoints).toBe(20);
+    expect(fromLms.earnedPoints).toBe(15.5);
+    expect(fromLms.possiblePoints).toBe(20);
+  });
+
+  it("не выдумывает баллы там, где их не считали", () => {
+    const observation = toObservation.web(
+      webAttempt({ resultJson: { overallPercent: 0, totalPossiblePoints: 0 } }),
+      { users, gradedTest: false },
+    );
+
+    expect(observation.earnedPoints).toBeNull();
+    expect(observation.possiblePoints).toBeNull();
+  });
+
+  it("считает прохождение завершённым, если результат есть, даже без отметки времени", () => {
+    // Аномалия данных: результат посчитан, а `finished_at` не проставлен. Такое
+    // прохождение состоялось — терять его в «не завершено» значит занижать выборку.
+    const observation = toObservation.web(
+      webAttempt({ finishedAt: null }),
+      { users, gradedTest: true },
+    );
+
+    expect(observation.outcome).toBe("passed");
+    // Длительность при этом неизвестна: конца у прохождения не записано.
+    expect(observation.durationMs).toBeNull();
+  });
+
+  it("оставляет незавершённой попытку без результата и без отметки времени", () => {
+    const observation = toObservation.web(
+      webAttempt({ finishedAt: null, resultJson: null }),
+      { users, gradedTest: true },
+    );
+
+    expect(observation.outcome).toBe("incomplete");
+  });
 });

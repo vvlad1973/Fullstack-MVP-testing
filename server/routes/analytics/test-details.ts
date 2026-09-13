@@ -8,6 +8,8 @@ import { checkAnswer } from "../../utils/check-answer";
 import { loadTestScoringContext } from "../../services/effective-scoring";
 import type { AttemptResult } from "@shared/schema";
 import { stripMarkdown } from "@shared/text";
+import { loadObservations } from "../../services/analytics/observations";
+import { summariseObservations } from "../../services/analytics/test-summary";
 import { declaresPassThreshold, gradingOf } from "./helpers";
 
 const router = Router();
@@ -26,7 +28,6 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     const testAttempts = allAttempts.filter(a => a.testId === testId);
     const completedAttempts = testAttempts.filter(a => a.resultJson !== null);
 
-    const uniqueUsers = new Set(completedAttempts.map(a => a.userId)).size;
     // PRD-29 §6.7: does this test grade at all? Averaged over runs that graded
     // NOTHING, «средний балл» and «процент прохождения» are not weak numbers —
     // they are false ones: a questionnaire carries the default 70% threshold and
@@ -35,59 +36,33 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     // the grade-shaped metrics answer `null` — «неприменимо», not «ноль».
     const thresholdDeclared = declaresPassThreshold(test);
 
-    let totalPercent = 0;
-    let totalPassed = 0;
-    let totalScore = 0;
-    let maxScore = 0;
-    let totalDuration = 0;
-    let durationCount = 0;
-    let gradedCount = 0;
-    let judgedCount = 0;
-
-    for (const attempt of completedAttempts) {
-      const result = attempt.resultJson as AttemptResult | null;
-      if (result) {
-        // Duration is a property of the RUN, not of its grading — every completed
-        // attempt contributes, questionnaire or not.
-        if (attempt.startedAt && attempt.finishedAt) {
-          const duration = (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000;
-          totalDuration += duration;
-          durationCount++;
-        }
-
-        // Two denominators, not one: the score metrics need points to exist, the
-        // pass rate needs a verdict to have been pronounced (see `gradingOf`).
-        const { scored, verdictPronounced } = gradingOf(result, thresholdDeclared);
-
-        if (verdictPronounced) {
-          judgedCount++;
-          if (result.overallPassed) totalPassed++;
-        }
-
-        if (!scored) continue;
-
-        gradedCount++;
-        totalPercent += result.overallPercent || 0;
-        totalScore += result.totalEarnedPoints || 0;
-        if ((result.totalPossiblePoints || 0) > maxScore) {
-          maxScore = result.totalPossiblePoints || 0;
-        }
-      }
-    }
+    // PRD-56 FR-33: плитки считаются по ВСЕМ прохождениям теста — вебу, телеметрии и
+    // импортированным выгрузкам. До этого страница читала только `attempts`, и на тесте,
+    // который проходят в LMS, её числа расходились с разделом «Аналитика» (FR-25).
+    // Область видимости уже проверена `requireTestScope` выше, поэтому здесь она открыта.
+    const observations = await loadObservations(
+      { testIds: [testId] },
+      { all: true, ids: new Set([testId]) },
+    );
+    const stats = summariseObservations(observations.rows);
 
     const summary = {
-      totalAttempts: testAttempts.length,
-      completedAttempts: completedAttempts.length,
+      totalAttempts: stats.totalAttempts,
+      completedAttempts: stats.completedAttempts,
       // The two denominators, published so a reader can tell «неприменимо» (a `null`
       // metric over zero of these) from «ноль» (a real zero over a positive count).
-      gradedAttempts: gradedCount,
-      judgedAttempts: judgedCount,
-      uniqueUsers,
-      avgPercent: gradedCount > 0 ? totalPercent / gradedCount : null,
-      avgDuration: durationCount > 0 ? totalDuration / durationCount : null,
-      passRate: judgedCount > 0 ? (totalPassed / judgedCount) * 100 : null,
-      avgScore: gradedCount > 0 ? totalScore / gradedCount : null,
-      maxScore,
+      gradedAttempts: stats.gradedAttempts,
+      judgedAttempts: stats.judgedAttempts,
+      uniqueUsers: stats.uniqueParticipants,
+      avgPercent: stats.avgPercent,
+      // Секунды: контракт экрана не меняется от смены источника данных.
+      avgDuration: stats.avgDurationMs === null ? null : stats.avgDurationMs / 1000,
+      // Медиана рядом со средним — величина, которой экран будет пользоваться после Э4
+      // (эскиз обзора подписывает плитку «Время, медиана»).
+      medianDuration: stats.medianDurationMs === null ? null : stats.medianDurationMs / 1000,
+      passRate: stats.passRate,
+      avgScore: stats.avgScore,
+      maxScore: stats.maxScore ?? 0,
     };
 
     // Topic stats
