@@ -786,11 +786,14 @@
 .ou-shell__page-actions { margin-left: auto; display: inline-flex; gap: var(--ou-space-2); }
 
 .ou-shell__cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ou-space-4); }
-.ou-card { background: var(--ou-bg-elevated); border: 1px solid var(--ou-border-soft); border-radius: var(--ou-radius-l); padding: var(--ou-space-4); display: flex; flex-direction: column; gap: var(--ou-space-2); }
-.ou-card__lbl { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.ou-card__val { font: var(--ou-text-heading-m); color: var(--ou-fg-default); }
-.ou-card__delta { font: var(--ou-text-body-xs); color: var(--ou-success-default); }
-.ou-card__delta.is-down { color: var(--ou-error-default); }
+/* Плитка показателя в шапке AppShell. Правила ОБЯЗАНЫ быть ограничены `.ou-shell__cards`:
+   без ограничения они перебивали компонент `Card` — давали ему свои поля и `gap`, из-за чего
+   к отступам слотов добавлялись лишние 16 px и 8 px, и карточка выпадала из модульной сетки. */
+.ou-shell__cards > .ou-card { background: var(--ou-bg-elevated); border: 1px solid var(--ou-border-soft); border-radius: var(--ou-radius-l); padding: var(--ou-space-4); display: flex; flex-direction: column; gap: var(--ou-space-2); }
+.ou-shell__cards .ou-card__lbl { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.ou-shell__cards .ou-card__val { font: var(--ou-text-heading-m); color: var(--ou-fg-default); }
+.ou-shell__cards .ou-card__delta { font: var(--ou-text-body-xs); color: var(--ou-success-default); }
+.ou-shell__cards .ou-card__delta.is-down { color: var(--ou-error-default); }
 
 /* Container-driven collapse: the JS adds .is-collapsed to BOTH .ou-shell and .ou-side
    so labels/badges hide cleanly instead of overflowing into main. */
@@ -1438,7 +1441,8 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 */
 
 .ou-card {
-  --_pad: 20px;
+  /* Модульная сетка 4 px: от краёв карточки 6x. */
+  --_pad: 24px;
   --_radius: var(--ou-radius-l);
   position: relative;
   display: flex; flex-direction: column;
@@ -1450,8 +1454,8 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
   overflow: hidden;
   text-align: left;
 }
-.ou-card--sm { --_pad: 14px; --_radius: var(--ou-radius-m); }
-.ou-card--lg { --_pad: 28px; --_radius: var(--ou-radius-xl); }
+.ou-card--sm { --_pad: 16px; --_radius: var(--ou-radius-m); }
+.ou-card--lg { --_pad: 32px; --_radius: var(--ou-radius-xl); }
 
 /* Variants */
 .ou-card--outlined {
@@ -1522,7 +1526,7 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-card__footer {
   padding: var(--_pad);
 }
-.ou-card__header { padding-bottom: 12px; }
+.ou-card__header { padding-bottom: var(--ou-space-1); }
 .ou-card__body   { padding-top: 0; padding-bottom: 0; flex: 1; min-height: 0; }
 .ou-card__body:last-child { padding-bottom: var(--_pad); }
 .ou-card__header + .ou-card__body { padding-top: 0; }
@@ -1530,7 +1534,7 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-card__media + .ou-card__body { padding-top: var(--_pad); }
 
 .ou-card__header {
-  display: flex; align-items: flex-start; gap: 12px;
+  display: flex; align-items: flex-start; gap: var(--ou-space-4);
 }
 .ou-card__lead { flex-shrink: 0; }
 .ou-card__heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--ou-space-1); }
@@ -2309,6 +2313,10 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
   max-width: 240px;
 }
 .ou-combo__chip-avatar { width: 18px; height: 18px; border-radius: 50%; margin-left: -4px; flex-shrink: 0; }
+/* Single-select: the chip IS the field's value, and the 240 px cap — meant for
+   multi-select, where many chips share one control — truncated it even in a wide
+   field. In single mode the value gets the whole control. */
+.ou-combo--single .ou-combo__chip { max-width: 100%; }
 .ou-combo__chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ou-combo__chip-x {
   width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer;
@@ -5033,7 +5041,8 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-modal--l { max-width: 720px; }
 .ou-modal--xl { max-width: 960px; }
 
-.ou-modal__head { display: flex; align-items: flex-start; gap: var(--ou-space-4); padding: var(--ou-space-5) var(--ou-space-5) var(--ou-space-4); }
+/* Модульная сетка: от краёв окна 6x, после заголовка 1x — заголовок и содержимое родственны. */
+.ou-modal__head { display: flex; align-items: flex-start; gap: var(--ou-space-4); padding: var(--ou-space-6) var(--ou-space-6) var(--ou-space-1); }
 .ou-modal__head-text { flex: 1; min-width: 0; }
 .ou-modal__title { font: var(--ou-text-heading-m); margin: 0; color: var(--ou-fg-default); }
 .ou-modal__desc { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin: var(--ou-space-1) 0 0; }
@@ -5044,8 +5053,9 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 }
 .ou-modal__close:hover { background: var(--ou-bg-hover); color: var(--ou-fg-default); }
 
-.ou-modal__body { padding: 0 var(--ou-space-5) var(--ou-space-5); overflow-y: auto; color: var(--ou-fg-default); font: var(--ou-text-body-m); }
-.ou-modal__foot { display: flex; justify-content: flex-end; gap: var(--ou-space-1); padding: var(--ou-space-4) var(--ou-space-5); border-top: 1px solid var(--ou-border-soft); }
+.ou-modal__body { padding: 0 var(--ou-space-6) var(--ou-space-6); overflow-y: auto; color: var(--ou-fg-default); font: var(--ou-text-body-m); }
+/* До и после разделителя — 4x. */
+.ou-modal__foot { display: flex; justify-content: flex-end; gap: var(--ou-space-2); padding: var(--ou-space-4) var(--ou-space-6); border-top: 1px solid var(--ou-border-soft); }
 .ou-modal__foot--between { justify-content: space-between; }
 
 /* Icon-led variant (alert / success / info) */

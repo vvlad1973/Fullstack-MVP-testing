@@ -258,7 +258,11 @@ body {
 .ou-input::placeholder { color: var(--ou-fg-muted); }
 
 /* ── Select ──────────────────────────────────────────────────────────────── */
-.ou-select {
+/* ТОЛЬКО нативный `<select class="ou-select">`: рамку, фон и поля ему рисовать
+   больше нечем. Составной Select дизайн-системы (`div.ou-select` с внутренней
+   кнопкой `.ou-select__trigger`) красится самим компонентом, и это правило
+   добавляло ему ВТОРУЮ рамку — вокруг поля вместе с подписью. */
+select.ou-select {
   box-sizing: border-box;
   padding: var(--ou-space-2) var(--ou-space-3);
   border: var(--wf-border-w) solid var(--ou-border-default);
