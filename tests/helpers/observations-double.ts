@@ -24,6 +24,21 @@ async function rowsOf(
   return ((await read()) as Array<Record<string, unknown>>) ?? [];
 }
 
+/**
+ * Исход строки — грубее, чем в нормализации, но по тому же правилу: незавершённое отличается
+ * от несдавшего, а прохождение без вердикта — от них обоих. Тонкости (записанный ноль баллов,
+ * адаптив) проверяются на настоящей выборке в интеграционных тестах.
+ */
+function outcomeOf(row: Record<string, unknown>, source: string): string {
+  if (!row.finishedAt) return "incomplete";
+  const passed = source === "web"
+    ? (row.resultJson as { overallPassed?: boolean } | null)?.overallPassed
+    : row.resultPassed;
+  if (passed === true) return "passed";
+  if (passed === false) return "failed";
+  return "completed";
+}
+
 /** Собрать `selectObservations` поверх уже замоканных таблиц. */
 export function observationsDouble(storage: Sources) {
   return async (query: ObservationQuery = {}): Promise<ObservationRows> => {
@@ -33,9 +48,13 @@ export function observationsDouble(storage: Sources) {
     const wantsLms = !query.sources?.length
       || query.sources.some(s => s === "telemetry" || s === "import");
 
+    const matchesOutcome = (row: Record<string, unknown>, source: string) =>
+      !query.outcomes?.length || query.outcomes.includes(outcomeOf(row, source) as never);
+
     const web = wantsWeb
       ? (await rowsOf(storage.getAllAttempts)).filter(
-          row => !query.testIds || query.testIds.includes(row.testId as string),
+          row => (!query.testIds || query.testIds.includes(row.testId as string))
+            && matchesOutcome(row, "web"),
         )
       : [];
     // PRD-54: у части старых строк телеметрии своего `test_id` нет — тест известен через
@@ -45,7 +64,8 @@ export function observationsDouble(storage: Sources) {
     const lms = wantsLms
       ? (await rowsOf(storage.getAllScormAttempts)).filter(row => {
           const testId = (row.testId as string) ?? testOfPackage.get(row.packageId as string);
-          return !query.testIds || query.testIds.includes(testId);
+          return (!query.testIds || query.testIds.includes(testId))
+            && matchesOutcome(row, "lms");
         })
       : [];
 

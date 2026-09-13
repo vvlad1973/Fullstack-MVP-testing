@@ -41,6 +41,13 @@ const scaleLabelsOf = (measures: MeasureCatalogue) =>
 
 const router = Router();
 
+/** Как источник прохождения подписывается в книге. */
+const SOURCE_TITLE: Record<string, string> = {
+  web: "Веб",
+  telemetry: "Телеметрия LMS",
+  import: "Импорт",
+};
+
 // GET /api/analytics/tests/:testId/export/excel - Экспорт теста в Excel
 router.get("/tests/:testId/export/excel", requirePermission("analytics.export"), requireTestScope("analytics", "testId"), async (req: Request, res: Response) => {
   try {
@@ -539,6 +546,22 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
       });
     }
 
+    // PRD-56 FR-04: что выгружается, решает фильтр реестра. Источник и исход — его условия,
+    // и книга обязана понимать их так же, как экран.
+    const sources = Array.isArray(config?.sources) ? config.sources : [];
+    const outcomes = Array.isArray(config?.outcomes) ? config.outcomes : [];
+    const observed = (await loadObservations(
+      {
+        testIds: [...selectedTestIds],
+        ...(groupIds.length ? { groupIds } : {}),
+        ...(sources.length ? { sources } : {}),
+        ...(outcomes.length ? { outcomes } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+      },
+      scope,
+    )).rows;
+
     // Only completed
     let completed = attempts.filter(a => a.resultJson !== null);
 
@@ -648,35 +671,32 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
 
     // Sheet: Attempts
     if (includeSheets.attempts) {
+      // PRD-56 FR-04: строки берутся из общего слоя наблюдений — веб, телеметрия и импорт.
+      // До этого лист знал только `attempts`, и выгрузка молчала о половине прохождений.
       const rows: any[][] = [[
-        "Тест", "ID попытки", "Пользователь", "Дата начала", "Дата завершения",
-        "Время (сек)", "Результат (%)", "Баллы", "Макс. баллы", "Статус",
+        "Тест", "ID прохождения", "Участник", "Дата начала", "Дата завершения",
+        "Время (сек)", "Результат (%)", "Баллы", "Макс. баллы", "Статус", "Источник",
       ]];
 
-      for (const a of completed) {
-        const r = a.resultJson as any;
-        const dur = a.startedAt && a.finishedAt
-          ? Math.round((new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000)
-          : "";
-        // PRD-29 §6.7, per TEST: this report spans several, so the threshold is read
-        // per row rather than once.
-        const { scored, verdictPronounced } = gradingOf(r, thresholdByTest.get(a.testId));
-
+      for (const o of observed) {
         rows.push([
-          testTitleMap.get(a.testId) || a.testId,
-          a.id,
-          userMap.get(a.userId) || "Unknown",
-          a.startedAt ? new Date(a.startedAt).toLocaleString("ru-RU") : "",
-          a.finishedAt ? new Date(a.finishedAt).toLocaleString("ru-RU") : "",
-          dur,
-          scored ? r?.overallPercent?.toFixed(1) ?? "" : NOT_APPLICABLE,
-          scored ? r?.totalEarnedPoints ?? "" : NOT_APPLICABLE,
-          scored ? r?.totalPossiblePoints ?? "" : NOT_APPLICABLE,
-          verdictPronounced ? (r?.overallPassed ? "Сдан" : "Не сдан") : NOT_APPLICABLE,
+          testTitleMap.get(o.testId ?? "") || o.testId || "Удалённый тест",
+          o.id,
+          o.participant,
+          o.startedAt ? new Date(o.startedAt).toLocaleString("ru-RU") : "",
+          o.finishedAt ? new Date(o.finishedAt).toLocaleString("ru-RU") : "",
+          o.durationMs === null ? "" : Math.round(o.durationMs / 1000),
+          o.percent === null ? NOT_APPLICABLE : o.percent.toFixed(1),
+          o.earnedPoints === null ? NOT_APPLICABLE : o.earnedPoints,
+          o.possiblePoints === null ? NOT_APPLICABLE : o.possiblePoints,
+          o.outcome === "passed" ? "Сдан"
+            : o.outcome === "failed" ? "Не сдан"
+              : o.outcome === "incomplete" ? "Не завершено" : NOT_APPLICABLE,
+          SOURCE_TITLE[o.source],
         ]);
       }
 
-      addAoaSheet(wb, "Попытки", rows, [24, 36, 18, 18, 18, 12, 12, 10, 12, 10]);
+      addAoaSheet(wb, "Попытки", rows, [24, 36, 22, 18, 18, 12, 12, 10, 12, 12, 14]);
     }
 
     // Sheet: Answers

@@ -168,6 +168,7 @@ describe("GET /analytics/export/filters", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.clearAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
     app = makeApp();
   });
@@ -233,6 +234,7 @@ describe("POST /analytics/export/excel", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.resetAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUserRoles.mockResolvedValue(["administrator"]);
     storageMock.getUser.mockResolvedValue(authorUser);
     // PRD-5/PRD-2 measurement sources — re-armed because `resetAllMocks` drops the
@@ -338,6 +340,7 @@ describe("POST /analytics/export/excel-lms", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.clearAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
     app = makeApp();
   });
