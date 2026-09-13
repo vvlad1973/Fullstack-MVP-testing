@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { cn, cssStyleClass } from '../utils';
 import type { SortDir, TableAlign } from './Table';
 
@@ -58,10 +58,23 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
    */
   canExpand?: (row: T, index: number) => boolean;
 
+  /**
+   * Ленивая подгрузка вместо страниц: есть ли ещё строки за последней показанной.
+   *
+   * Пока он задан, постраничность не рисуется — два способа двигаться по одному списку
+   * противоречат друг другу, и подвал должен говорить что-то одно.
+   */
+  hasMore?: boolean;
+  /** Сколько строк подходит под условия всего — знаменатель «показано N из M». */
+  total?: number;
+  /** Идёт загрузка следующей порции: повторный запрос не отправляется. */
+  loadingMore?: boolean;
+  /** Запросить следующую порцию — зовётся, когда хвост списка показался на экране. */
+  onLoadMore?: () => void;
+
   /** Пагинация. */
   page?: number;
   pageSize?: number;
-  total?: number;
   onPageChange?: (page: number) => void;
   pageSizeOptions?: number[];
   onPageSizeChange?: (size: number) => void;
@@ -120,10 +133,25 @@ export function DataGrid<T>({
   selectable, selected = [], onSelectChange, bulkActions,
   expandable, renderExpanded, canExpand,
   page, pageSize, total, onPageChange, pageSizeOptions, onPageSizeChange,
+  hasMore, loadingMore, onLoadMore,
   emptyMessage = 'Нет данных',
   onRowClick,
   className, style, ...rest
 }: DataGridProps<T>) {
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  // Хвост списка виден — значит пора за следующей порцией. Наблюдатель не заводится, когда
+  // догружать нечего или запрос уже в пути: иначе одна прокрутка выстреливает несколько раз.
+  useEffect(() => {
+    if (!hasMore || !onLoadMore || loadingMore) return;
+    const target = sentinel.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) onLoadMore();
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore, rows.length]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -159,7 +187,8 @@ export function DataGrid<T>({
   const lastFrozen = frozenIndices.length ? frozenIndices[frozenIndices.length - 1] : -1;
 
   const totalRows = total ?? rows.length;
-  const showPager = page !== undefined && pageSize !== undefined && onPageChange !== undefined;
+  const showPager = hasMore === undefined
+    && page !== undefined && pageSize !== undefined && onPageChange !== undefined;
   const totalPages = showPager ? Math.max(1, Math.ceil(totalRows / pageSize!)) : 1;
 
   return (
@@ -313,6 +342,17 @@ export function DataGrid<T>({
           </tbody>
         </table>
       </div>
+
+      {/* Хвост для наблюдателя: пустой элемент сразу под таблицей. */}
+      {hasMore && <div ref={sentinel} className="ou-grid__sentinel" aria-hidden="true" />}
+
+      {/* Подвал ленивого списка: сколько показано из скольких. */}
+      {hasMore !== undefined && (
+        <div className="ou-grid__footer">
+          <span>Показано {rows.length}{total === undefined ? '' : ` из ${total}`}</span>
+          <span>{loadingMore ? 'Загружаем следующие…' : hasMore ? 'Следующие подгружаются при прокрутке' : ''}</span>
+        </div>
+      )}
 
       {/* Footer / pagination */}
       {showPager && (
