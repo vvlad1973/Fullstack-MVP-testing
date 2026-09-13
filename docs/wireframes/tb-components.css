@@ -809,3 +809,6 @@
   padding: var(--ou-space-6); text-align: center; color: var(--ou-fg-muted);
 }
 .tb-levels__empty-act { margin-top: var(--ou-space-3); }
+
+/* Пиктограмма типа вопроса — копия правила из client/src/styles/tb-components.css. */
+.tb-qscoring__qtype { display: inline-flex; vertical-align: -0.15em; margin-right: var(--ou-space-2); color: var(--ou-fg-muted); }

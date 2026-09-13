@@ -68,6 +68,24 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
 
   /** Сообщение пустого состояния. */
   emptyMessage?: React.ReactNode;
+
+  /**
+   * Open the row itself. The row gets `is-clickable` (pointer cursor), the way
+   * `Table` already does it, so a grid whose rows lead somewhere does not have to
+   * spend a column on a link.
+   *
+   * Clicks coming from the control cells (expand chevron, selection checkbox) and
+   * from anything interactive inside a cell — a button, a link, an input — are the
+   * cell's own and never reach here: opening the row out from under a button the
+   * user actually pressed is the bug this guard exists for.
+   */
+  onRowClick?: (row: T, index: number) => void;
+}
+
+/** Whether the click landed on something that handles it itself. */
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  const el = target instanceof Element ? target : null;
+  return !!el?.closest('button, a, input, select, textarea, label, [role="button"], .ou-grid__control-cell');
 }
 
 const SortIcon: React.FC<{ dir?: SortDir; active?: boolean }> = ({ dir, active }) => (
@@ -103,6 +121,7 @@ export function DataGrid<T>({
   expandable, renderExpanded, canExpand,
   page, pageSize, total, onPageChange, pageSizeOptions, onPageSizeChange,
   emptyMessage = 'Нет данных',
+  onRowClick,
   className, style, ...rest
 }: DataGridProps<T>) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -231,7 +250,12 @@ export function DataGrid<T>({
               const isExp = canExp && expanded.has(id);
               return (
                 <React.Fragment key={id}>
-                  <tr className={cn(isSel && 'is-selected')}>
+                  <tr
+                    className={cn(isSel && 'is-selected', onRowClick && 'is-clickable')}
+                    onClick={onRowClick
+                      ? (e) => { if (!isInteractiveTarget(e.target)) onRowClick(row, idx); }
+                      : undefined}
+                  >
                     {expandable && (
                       <td className="ou-grid__control-cell">
                         {canExp && (

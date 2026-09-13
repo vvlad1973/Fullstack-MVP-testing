@@ -6337,6 +6337,12 @@ button.ou-stepper__step:disabled { cursor: not-allowed; opacity: 0.6; }
 .ou-tbl tbody tr:last-child td { border-bottom: none; }
 .ou-tbl tbody tr:hover { background: var(--ou-bg-hover); }
 .ou-tbl tbody tr.is-selected { background: var(--ou-accent-soft); }
+
+/* A row that reacts to a click says so with the cursor. `Table` already puts
+   `is-clickable` on such rows, and until now nothing answered it: a clickable
+   row looked exactly like a dead one. */
+.ou-tbl tbody tr.is-clickable,
+.ou-grid__table tbody tr.is-clickable { cursor: pointer; }
 .ou-tbl tbody tr.is-selected:hover { background: var(--ou-accent-container); }
 
 .ou-tbl__sel { width: 40px; text-align: center !important; padding: 0 var(--ou-space-2) !important; }
