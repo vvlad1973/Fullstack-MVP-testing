@@ -177,7 +177,14 @@ export const FilterBar = forwardRef<HTMLDivElement, FilterBarProps>(
         {applied.length > 0 && (
           <div className="ou-filterbar__applied">
             {applied.map((item) => (
-              <Chip key={item.id} size="s" onRemove={onRemove ? () => onRemove(item.id) : undefined}>
+              <Chip
+                key={item.id}
+                size="s"
+                onRemove={onRemove ? () => onRemove(item.id) : undefined}
+                // Условие называется в подписи: ряд одинаковых «Удалить» не говорит
+                // ничего о том, какое из них что снимает.
+                removeLabel={typeof item.label === 'string' ? `Снять условие: ${item.label}` : 'Снять условие'}
+              >
                 {item.label}
               </Chip>
             ))}
