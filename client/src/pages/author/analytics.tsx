@@ -163,6 +163,9 @@ interface DetailedAnswer {
   rightItems?: string[];
   items?: string[]; // для ranking
   isCorrect: boolean;
+  /** PRD-44 FR-10 / PRD-26 FR-08: у измерительного ответа эталона нет, вердикт к нему
+   *  неприменим — ни «верно», ни «неверно». Приходит с сервера. */
+  measurementOnly?: boolean;
   earnedPoints: number;
   possiblePoints: number;
   levelName?: string;
@@ -260,6 +263,24 @@ function formatUserAnswer(answer: DetailedAnswer): string {
       }
       if (typeof userAnswer === "string" && options) {
         return userAnswer;
+      }
+      return String(userAnswer);
+
+    // PRD-44: распределение баллов сервер отдаёт как «утверждение + балл» по КАЖДОМУ
+    // утверждению, включая нулевые (ноль отличает «рассмотрел и не дал веса» от «не
+    // дошёл»). Без этой ветки в окне печатался сырой JSON ответа.
+    case "allocation":
+      if (Array.isArray(userAnswer) && typeof userAnswer[0] === "object" && userAnswer[0] !== null) {
+        return (userAnswer as Array<{ statement?: string; points?: number }>)
+          .map(row => `${row.statement ?? "?"} — ${Number(row.points ?? 0)}`)
+          .join("; ");
+      }
+      // Запасной разбор: сырое распределение «индекс → балл» вместе с подписями вопроса.
+      if (typeof userAnswer === "object" && !Array.isArray(userAnswer) && options) {
+        const assigned = userAnswer as Record<string, number>;
+        return (options as string[])
+          .map((label, i) => `${label} — ${Number(assigned[String(i)] ?? 0)}`)
+          .join("; ");
       }
       return String(userAnswer);
 
@@ -807,10 +828,16 @@ function AttemptDetailsDialog({
                     <Text weight="medium">{answer.questionPrompt}</Text>
                   </Stack>
                   <Cluster gap={2}>
-                    <Text variant="body-s" weight="medium">{answer.earnedPoints}/{answer.possiblePoints}</Text>
-                    {answer.isCorrect
-                      ? <CheckCircle size={20} color="var(--ou-success-600)" />
-                      : <XCircle size={20} color="var(--ou-error-600)" />}
+                    {answer.measurementOnly
+                      ? <Tag size="s">Измерение</Tag>
+                      : (
+                        <>
+                          <Text variant="body-s" weight="medium">{answer.earnedPoints}/{answer.possiblePoints}</Text>
+                          {answer.isCorrect
+                            ? <CheckCircle size={20} color="var(--ou-success-600)" />
+                            : <XCircle size={20} color="var(--ou-error-600)" />}
+                        </>
+                      )}
                   </Cluster>
                 </Cluster>
 
@@ -819,16 +846,18 @@ function AttemptDetailsDialog({
                 <Grid minItem="md" gap={1}>
                   <Stack gap={1}>
                     <Text variant="body-xs" tone="muted">Ответ пользователя:</Text>
-                    <Box pad={3} radius="l" surface={answer.isCorrect ? "muted" : "muted"}>
-                      <Text variant="body-s" tone={answer.isCorrect ? "success" : "error"}>{formatUserAnswer(answer)}</Text>
-                    </Box>
-                  </Stack>
-                  <Stack gap={1}>
-                    <Text variant="body-xs" tone="muted">Правильный ответ:</Text>
                     <Box pad={3} radius="l" surface="muted">
-                      <Text variant="body-s">{formatCorrectAnswer(answer)}</Text>
+                      <Text variant="body-s" tone={answer.measurementOnly ? "default" : (answer.isCorrect ? "success" : "error")}>{formatUserAnswer(answer)}</Text>
                     </Box>
                   </Stack>
+                  {!answer.measurementOnly && (
+                    <Stack gap={1}>
+                      <Text variant="body-xs" tone="muted">Правильный ответ:</Text>
+                      <Box pad={3} radius="l" surface="muted">
+                        <Text variant="body-s">{formatCorrectAnswer(answer)}</Text>
+                      </Box>
+                    </Stack>
+                  )}
                 </Grid>
               </Stack>
             </CardBody>
