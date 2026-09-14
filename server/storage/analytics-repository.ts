@@ -15,7 +15,7 @@ import { unionAll } from "drizzle-orm/pg-core";
 
 import { db } from "../db";
 import {
-  attempts, scormAttempts, scormPackages, tests, userGroups,
+  attempts, scormAnswers, scormAttempts, scormPackages, tests, userGroups,
   type Attempt, type ScormAttempt,
 } from "@shared/schema";
 
@@ -224,6 +224,45 @@ export class AnalyticsRepository {
       total: webTotal + lmsTotal,
     };
   }
+
+  /**
+   * Ответы прохождений теста, пришедших из LMS.
+   *
+   * Тест строки телеметрии берётся с тем же запасным путём, что и в выборке прохождений:
+   * `scorm_attempts.test_id` — источник истины, но у части старых записей его нет, и тест
+   * известен только через пакет. Без этого статистика вопроса молча теряет ровно те
+   * прохождения, ради которых пакет и собирали.
+   */
+  async selectAnswersForTest(testId: string): Promise<TestAnswerRow[]> {
+    const rows = await db
+      .select({
+        questionId: scormAnswers.questionId,
+        result: scormAnswers.result,
+        latencyMs: scormAnswers.latencyMs,
+        origin: scormAttempts.origin,
+      })
+      .from(scormAnswers)
+      .innerJoin(scormAttempts, eq(scormAttempts.id, scormAnswers.attemptId))
+      .leftJoin(scormPackages, eq(scormPackages.id, scormAttempts.packageId))
+      .where(eq(sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`, testId));
+
+    return rows.map(row => ({
+      questionId: row.questionId,
+      result: (row.result ?? "incorrect") as TestAnswerRow["result"],
+      latencyMs: row.latencyMs ?? null,
+      origin: (row.origin ?? "telemetry") as ObservationSourceName,
+    }));
+  }
+}
+
+/** Ответ на вопрос, записанный прохождением из LMS. */
+export interface TestAnswerRow {
+  questionId: string;
+  /** `neutral` — измерительный ответ: ему нечего было оценивать (PRD-54). */
+  result: "correct" | "incorrect" | "neutral";
+  /** Время на вопрос; `null` — не измерялось (PRD-55). */
+  latencyMs: number | null;
+  origin: ObservationSourceName;
 }
 
 /** Развернуть запрос-счётчик в число. */

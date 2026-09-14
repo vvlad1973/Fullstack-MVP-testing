@@ -8,6 +8,7 @@ import { checkAnswer } from "../../utils/check-answer";
 import { loadTestScoringContext } from "../../services/effective-scoring";
 import type { AttemptResult } from "@shared/schema";
 import { stripMarkdown } from "@shared/text";
+import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answers";
 import { loadObservations } from "../../services/analytics/observations";
 import { summariseObservations } from "../../services/analytics/test-summary";
 import { declaresPassThreshold, gradingOf } from "./helpers";
@@ -143,6 +144,11 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       }
     }
 
+    // PRD-56 FR-25: ответы прохождений из LMS. Задание, выданное только пакетом, в вариантах
+    // веб-попыток не встречается — без этого шага его ответы отбрасывались бы молча.
+    const lmsAnswers = await storage.selectAnswersForTest(testId);
+    for (const answer of lmsAnswers) allQuestionIds.add(answer.questionId);
+
     const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
     const questionMap = new Map(questions.map(q => [q.id, q]));
     const topics = await storage.getTopics();
@@ -158,37 +164,56 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       topicId: string;
       topicName: string;
       difficulty: number;
+      /** Сколько раз ответили — включая ответы, которым нечего было оценивать. */
       totalAnswers: number;
+      /** Сколько из них оценивалось: только по ним законна доля верных. */
+      gradedAnswers: number;
       correctAnswers: number;
+      /** Доля верных; `null` — оценивать было нечего (измерительный вопрос). */
+      correctPercent: number | null;
+      answersBySource: Record<string, number>;
     }
 
     const questionStatsMap = new Map<string, QuestionStatsEntry>();
 
-    for (const attempt of completedAttempts) {
-      const answers = (attempt.answersJson || {}) as Record<string, unknown>;
+    /**
+     * PRD-56 FR-25: ответы обоих источников сводятся одним расчётом.
+     *
+     * Оценка веб-ответа остаётся здесь: эффективная стоимость и правило проверки вопроса
+     * внутри теста уже разрешены (`loadTestScoringContext`), и считать их во второй раз в
+     * слое ответов значило бы завести второй источник правды о том, что такое «верно».
+     * Измерительный вопрос не оценивается вовсе — у него нет эталона (PRD-26 FR-08,
+     * PRD-44 FR-09), и его ответ приходит третьим состоянием.
+     */
+    const facts = await loadAnswerFacts(testId, {
+      attempts: completedAttempts,
+      grade: (questionId, answer) => {
+        const question = questionMap.get(questionId);
+        if (!question) return null;
+        if (question.type === "scale" || question.type === "allocation") return "neutral";
+        return checkAnswer(question, answer, scoring.resolve(question).scoring) === 1
+          ? "correct"
+          : "incorrect";
+      },
+    });
 
-      for (const [qId, answer] of Object.entries(answers)) {
-        const question = questionMap.get(qId);
-        if (!question) continue;
+    for (const stats of summariseAnswers(facts)) {
+      const question = questionMap.get(stats.questionId);
+      if (!question) continue;
 
-        const existing = questionStatsMap.get(qId) || {
-          questionId: qId,
-          questionPrompt: stripMarkdown(question.prompt),
-          questionType: question.type,
-          topicId: question.topicId,
-          topicName: topicMap.get(question.topicId) || "Unknown",
-          difficulty: scoring.difficultyOf(question) || 50,
-          totalAnswers: 0,
-          correctAnswers: 0,
-        };
-
-        existing.totalAnswers++;
-        if (checkAnswer(question, answer, scoring.resolve(question).scoring) === 1) {
-          existing.correctAnswers++;
-        }
-
-        questionStatsMap.set(qId, existing);
-      }
+      questionStatsMap.set(stats.questionId, {
+        questionId: stats.questionId,
+        questionPrompt: stripMarkdown(question.prompt),
+        questionType: question.type,
+        topicId: question.topicId,
+        topicName: topicMap.get(question.topicId) || "Unknown",
+        difficulty: scoring.difficultyOf(question) || 50,
+        totalAnswers: stats.answered,
+        gradedAnswers: stats.graded,
+        correctAnswers: stats.correct,
+        correctPercent: stats.correctPercent,
+        answersBySource: stats.bySource,
+      });
     }
 
     // Знаменатель доли — попытки теста за окно, считая БРОШЕННЫЕ: счётчик выдач пополняется на
@@ -232,7 +257,6 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       const lat = latency.get(qs.questionId);
       return {
         ...qs,
-        correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
         exposureCount,
         exposurePercent:
           attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null,
@@ -242,7 +266,9 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
         latencyMedianMs: lat ? lat.medianMs : null,
         latencySampleSize: lat ? lat.sampleSize : 0,
       };
-    }).sort((a, b) => a.correctPercent - b.correctPercent);
+      // Первыми — самые трудные; вопросы без оценивания (измерительные) уходят в конец:
+      // сортировать их вместе с долей верных не по чему, доли у них нет.
+    }).sort((a, b) => (a.correctPercent ?? Infinity) - (b.correctPercent ?? Infinity));
 
     // Level stats (adaptive)
     interface LevelStatsEntry {

@@ -152,6 +152,8 @@ const { storageMock } = vi.hoisted(() => ({
     getUser: vi.fn(), getUserRoles: vi.fn().mockResolvedValue(["administrator"]), getTest: vi.fn(), getAllAttempts: vi.fn(),
     // PRD-56 FR-33: страница теста читает прохождения через выборку DAL.
     selectObservations: vi.fn(),
+    // PRD-56 FR-25: ответы прохождений из LMS — часть выборки страницы теста.
+    selectAnswersForTest: vi.fn().mockResolvedValue([]),
     getQuestionsByIds: vi.fn(), getTopics: vi.fn(),
     // PRD-15 block D: effective-scoring chain sources (no overrides by default).
     getTestSections: vi.fn(), getTestQuestionScoring: vi.fn(),

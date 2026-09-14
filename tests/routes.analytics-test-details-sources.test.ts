@@ -25,7 +25,7 @@ const { storageMock } = vi.hoisted(() => ({
     getResultVariables: vi.fn().mockResolvedValue([]),
     getQuestionMeasurements: vi.fn().mockResolvedValue([]),
     getSnapshotsForTest: vi.fn().mockResolvedValue([]),
-    selectObservations: vi.fn(),
+    selectObservations: vi.fn(), selectAnswersForTest: vi.fn(),
   },
 }));
 
@@ -68,6 +68,7 @@ beforeEach(() => {
   storageMock.getTestSections.mockResolvedValue([]);
   storageMock.getTestQuestionScoring.mockResolvedValue([]);
   storageMock.getScormPackages.mockResolvedValue([]);
+  storageMock.selectAnswersForTest.mockResolvedValue([]);
   storageMock.getAllAttempts.mockResolvedValue([{
     id: "web-1", testId: "test1", userId: "u1",
     startedAt: recently(2), finishedAt: recently(2),
@@ -99,5 +100,63 @@ describe("GET /api/analytics/tests/:testId — блоки экрана", () => {
 
     const total = res.body.dailyTrends.reduce((sum: number, d: { attempts: number }) => sum + d.attempts, 0);
     expect(total).toBe(2);
+  });
+
+  it("считает статистику вопроса по ответам обоих источников", async () => {
+    // Веб ответил верно, LMS — неверно. Пока страница читала одни веб-попытки, у вопроса
+    // значилось «100 % верных» — при том, что половина отвечавших ошиблась.
+    storageMock.getQuestionsByIds.mockResolvedValue([
+      { id: "q1", prompt: "Вопрос", type: "single", topicId: "t1", difficulty: 50,
+        optionsJson: ["а", "б"], correctJson: { correctIndex: 0 } },
+    ]);
+    storageMock.getAllAttempts.mockResolvedValue([{
+      id: "web-1", testId: "test1", userId: "u1",
+      startedAt: recently(2), finishedAt: recently(2),
+      variantJson: { sections: [{ questionIds: ["q1"] }] },
+      answersJson: { q1: 0 },
+      resultJson: { overallPercent: 100, overallPassed: true, totalPossiblePoints: 20, totalEarnedPoints: 20 },
+    }]);
+    storageMock.selectAnswersForTest.mockResolvedValue([
+      { questionId: "q1", result: "incorrect", latencyMs: 42_000, origin: "telemetry" },
+    ]);
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const question = res.body.questionStats.find((q: { questionId: string }) => q.questionId === "q1");
+    expect(question).toMatchObject({ totalAnswers: 2, correctAnswers: 1, correctPercent: 50 });
+  });
+
+  it("не теряет вопрос, который встречался только в прохождениях из LMS", async () => {
+    // Набор вопросов собирался из вариантов веб-попыток: заданий, выданных только в пакете,
+    // в нём нет — и их ответы отбрасывались молча.
+    storageMock.getQuestionsByIds.mockImplementation(async (ids: string[]) =>
+      ids.map(id => ({
+        id, prompt: "Вопрос " + id, type: "single", topicId: "t1", difficulty: 50,
+        optionsJson: ["а", "б"], correctJson: { correctIndex: 0 },
+      })));
+    storageMock.selectAnswersForTest.mockResolvedValue([
+      { questionId: "only-lms", result: "correct", latencyMs: null, origin: "import" },
+    ]);
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    expect(res.body.questionStats.map((q: { questionId: string }) => q.questionId))
+      .toContain("only-lms");
+  });
+
+  it("не считает измерительный ответ ни верным, ни неверным", async () => {
+    storageMock.getQuestionsByIds.mockResolvedValue([
+      { id: "q1", prompt: "Шкальный", type: "scale", topicId: "t1", difficulty: 50 },
+    ]);
+    storageMock.selectAnswersForTest.mockResolvedValue([
+      { questionId: "q1", result: "neutral", latencyMs: null, origin: "telemetry" },
+      { questionId: "q1", result: "neutral", latencyMs: null, origin: "telemetry" },
+    ]);
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const question = res.body.questionStats.find((q: { questionId: string }) => q.questionId === "q1");
+    // Доля верных у опросника не «ноль», а «неприменимо»: эталона у него нет (PRD-26 FR-08).
+    expect(question).toMatchObject({ totalAnswers: 2, gradedAnswers: 0, correctPercent: null });
   });
 });

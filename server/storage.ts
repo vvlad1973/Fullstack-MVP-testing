@@ -21,7 +21,12 @@ import {
 } from "./storage/scorm-repository";
 import { AdaptiveRepository } from "./storage/adaptive-repository";
 import { ExposureRepository } from "./storage/exposure-repository";
-import { AnalyticsRepository, type ObservationQuery, type ObservationRows } from "./storage/analytics-repository";
+import {
+  AnalyticsRepository,
+  type ObservationQuery,
+  type ObservationRows,
+  type TestAnswerRow,
+} from "./storage/analytics-repository";
 import { SlicesRepository } from "./storage/slices-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
 import { ScalesVariablesRepository } from "./storage/scales-variables-repository";
@@ -340,6 +345,8 @@ export interface IStorage {
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>>;
   /** PRD-56 FR-33: страница прохождений веба, телеметрии и импорта одной выборкой. */
   selectObservations(query: ObservationQuery): Promise<ObservationRows>;
+  /** PRD-56 FR-25: ответы прохождений теста, пришедших из LMS. */
+  selectAnswersForTest(testId: string): Promise<TestAnswerRow[]>;
   /** PRD-56 FR-07b: срезы — сохранённые наборы условий отбора. */
   getSlices(ownerId: string): Promise<AnalyticsSlice[]>;
   getSlice(id: string, ownerId: string): Promise<AnalyticsSlice | undefined>;
@@ -1167,6 +1174,10 @@ export class DatabaseStorage implements IStorage {
 
   selectObservations(query: ObservationQuery): Promise<ObservationRows> {
     return this.analyticsRepo.selectObservations(query);
+  }
+
+  selectAnswersForTest(testId: string): Promise<TestAnswerRow[]> {
+    return this.analyticsRepo.selectAnswersForTest(testId);
   }
 
   getSlices(ownerId: string): Promise<AnalyticsSlice[]> {
