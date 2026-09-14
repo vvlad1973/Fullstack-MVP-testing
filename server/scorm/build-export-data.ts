@@ -60,7 +60,12 @@ export async function buildScormExportData(
   testId: string,
   opts: BuildScormExportDataOptions,
 ): Promise<ScormExportData> {
-  const src = opts.source === "debug" ? liveDataSource() : await exportSourceForTest(testId);
+  // PRD-56 FR-19a: вместе с источником состава берётся и снимок, из которого он собран —
+  // его номер уезжает в пакет. У отладочной сборки снимка нет по определению (PRD-18 D-4:
+  // живое состояние, а не версия), поэтому её путь снимок и не спрашивает.
+  const { src, snapshot } = opts.source === "debug"
+    ? { src: liveDataSource(), snapshot: null }
+    : await exportSourceForTest(testId);
   const test = await src.getTest(testId);
   if (!test) {
     throw new ScormBuildError("Test not found", 404);
@@ -222,6 +227,11 @@ export async function buildScormExportData(
 
   return {
     test,
+    // PRD-56 FR-19a: НОМЕР версии, а не идентификатор снимка — он уникален внутри теста
+    // (`test_snapshots_test_version_idx`), читается человеком в отчёте LMS и не выносит
+    // наружу внутренних ключей. Ключа нет вовсе, когда версии нет: черновик и отладочная
+    // сборка обязаны дать прежний пакет до байта.
+    ...(snapshot ? { publicationVersion: snapshot.version } : {}),
     sections: exportSections,
     questionScoring,
     adaptiveSettings,

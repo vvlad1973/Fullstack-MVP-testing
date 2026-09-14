@@ -136,6 +136,7 @@ describe("buildScormExportData", () => {
   it("reads from the active snapshot for source=export of a published test", async () => {
     storageMock.getTest.mockResolvedValue(baseTest({ status: "published" }));
     storageMock.getLatestSnapshot.mockResolvedValue({
+      version: 3,
       contentJson: {
         test: baseTest({ status: "published" }),
         sections: [{ id: "s1", topicId: "tp1" }],
@@ -160,6 +161,62 @@ describe("buildScormExportData", () => {
     expect(storageMock.getLatestSnapshot).toHaveBeenCalledWith("t1");
     // The frozen snapshot is the source — the bake does NOT re-read live sections.
     expect(storageMock.getTestSections).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * PRD-56 FR-19a, звено 1: номер версии публикации уезжает в пакет.
+ *
+ * Без него разрез по версиям слеп ровно к тем прохождениям, ради которых пакет и собирали:
+ * `attempts.snapshot_id` есть только у веб-попытки.
+ */
+describe("buildScormExportData — версия публикации (PRD-56 FR-19a)", () => {
+  const publishedSnapshot = (version: number) => ({
+    version,
+    contentJson: {
+      test: baseTest({ status: "published" }),
+      sections: [{ id: "s1", topicId: "tp1" }],
+      topics: [{ id: "tp1", name: "Topic" }],
+      questionsByTopic: { tp1: [] },
+      topicCoursesByTopic: { tp1: [] },
+      topicEventsByTopic: { tp1: [] },
+      adaptiveSettings: [],
+      adaptiveLevels: [],
+      adaptiveLevelLinksByLevel: {},
+      scales: [],
+      measurements: [],
+      resultVariables: [],
+      contentPages: [],
+      questionScoring: [],
+    },
+  }) as never;
+
+  it("опубликованный тест отдаёт номер активного снимка", async () => {
+    storageMock.getTest.mockResolvedValue(baseTest({ status: "published" }));
+    storageMock.getLatestSnapshot.mockResolvedValue(publishedSnapshot(3));
+
+    const data = await buildScormExportData("t1", { source: "export" });
+
+    expect(data.publicationVersion).toBe(3);
+  });
+
+  it("у черновика ключа нет вовсе — пакет остаётся прежним", async () => {
+    // Не `undefined` значением, а ОТСУТСТВИЕ ключа: черновик собирается живым источником,
+    // версии публикации у него не существует, и выдумывать её нечем.
+    const data = await buildScormExportData("t1", { source: "export" });
+
+    expect("publicationVersion" in data).toBe(false);
+  });
+
+  it("отладочная сборка версии не несёт даже у опубликованного теста", async () => {
+    // PRD-18 D-4: отладочный прогон ВСЕГДА идёт по живому состоянию, а не по снимку.
+    storageMock.getTest.mockResolvedValue(baseTest({ status: "published" }));
+    storageMock.getLatestSnapshot.mockResolvedValue(publishedSnapshot(3));
+
+    const data = await buildScormExportData("t1", { source: "debug" });
+
+    expect("publicationVersion" in data).toBe(false);
+    expect(storageMock.getLatestSnapshot).not.toHaveBeenCalled();
   });
 });
 

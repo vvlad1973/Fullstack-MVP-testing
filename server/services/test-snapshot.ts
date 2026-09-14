@@ -45,6 +45,7 @@ import type {
   TestQuestionScoring,
   QuestionScoring,
   ReportBlockRow,
+  TestSnapshot,
 } from "@shared/schema";
 
 /** The frozen deliverable of a test (stored as test_snapshots.content_json). */
@@ -414,19 +415,35 @@ export async function dataSourceForAttempt(snapshotId: string | null): Promise<T
   return snapshotDataSource(snap.contentJson as TestSnapshotContent);
 }
 
+/** What an export bakes from: the content source and the snapshot behind it, if any. */
+export interface ExportSource {
+  src: TestDataSource;
+  /**
+   * The snapshot the package is baked from, or `null` for a draft baked live.
+   *
+   * PRD-56 FR-19a: its VERSION travels into the package and from there into the LMS, so
+   * a run played from the package can be told apart from a run played before the last
+   * republish. A draft has no publication version, and inventing one would be the very
+   * lie the version slice exists to prevent.
+   */
+  snapshot: TestSnapshot | null;
+}
+
 /**
  * Resolves the data source for SCORM EXPORT (PRD-15 FR-16). A published test
  * exports from its active snapshot — the package then matches exactly what the
  * web delivers, even if the working draft has drifted. Drafts (no snapshot)
  * export from live storage (preview-style).
  */
-export async function exportSourceForTest(testId: string): Promise<TestDataSource> {
+export async function exportSourceForTest(testId: string): Promise<ExportSource> {
   const test = await storage.getTest(testId);
   if (test?.status === "published") {
     const snap = await storage.getLatestSnapshot(testId);
-    if (snap) return snapshotDataSource(snap.contentJson as TestSnapshotContent);
+    if (snap) {
+      return { src: snapshotDataSource(snap.contentJson as TestSnapshotContent), snapshot: snap };
+    }
   }
-  return liveDataSource();
+  return { src: liveDataSource(), snapshot: null };
 }
 
 /** Publication state of a test for the author UI (PRD-15 FR-12). */
