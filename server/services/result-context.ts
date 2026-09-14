@@ -21,7 +21,7 @@ import {
 } from "@shared/template/result-context";
 import type { BreakdownDisplaySetting, MeasureInput, MeasuresInput } from "@shared/template/result-context";
 import type { ReportInput, AdaptiveReportInput, ReportMeta } from "@shared/report/report-html";
-import { LEVEL_SCHEMES, type LevelRamp } from "@shared/template/level-ramp";
+import { rampFromParams } from "@shared/template/level-ramp";
 import { withResolvedScaleIcons } from "./scale-icons";
 import { parseIndicatorInterpretation, parseScaleInterpretation } from "@shared/scales/interpretation";import type { FeedbackBlock } from "@shared/scales/interpretation";
 import type { RenderKind } from "@shared/template/measure-view";
@@ -200,20 +200,9 @@ function labelOptions(
   };
 }
 
-/**
- * The ramp: a named scheme, or the author's three triples when `custom` is chosen.
- * A missing custom colour falls back to the traffic scheme's own end, so a
- * half-filled form still renders a sane ramp instead of a blank one.
- */
-function resolveRamp(params: Record<string, unknown>): LevelRamp {
-  const scheme = String(params.levelScheme ?? "traffic");
-  if (scheme !== "custom") return LEVEL_SCHEMES[scheme === "neutral" ? "neutral" : "traffic"];
-  return {
-    favorable: String(params.levelColorFavorable ?? LEVEL_SCHEMES.traffic.favorable),
-    mid: params.levelColorMid ? String(params.levelColorMid) : null,
-    unfavorable: String(params.levelColorUnfavorable ?? LEVEL_SCHEMES.traffic.unfavorable),
-  };
-}
+// Рампа уровней теста собирается ОБЩЕЙ `rampFromParams` (`@shared/template/level-ramp`): по
+// ней красит зоны линейки участник и полосы уровней аналитика (PRD-56 FR-21a), и две копии
+// правила означали бы два цвета у одного уровня.
 
 /**
  * PRD-53 §4.4: настройка карточки «вне профиля» из `config_json` показателя.
@@ -279,7 +268,7 @@ export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
     }));
 
   return {
-    ramp: resolveRamp(params),
+    ramp: rampFromParams(params),
     scaleKind: String(params.scaleRenderKind ?? "band_ruler") as RenderKind,
     indicatorKind: String(params.indicatorRenderKind ?? "label") as RenderKind,
     // «Показывать максимум шкалы»: отсутствие ключа = печатать, поэтому проверка на

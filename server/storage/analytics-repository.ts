@@ -259,6 +259,53 @@ export class AnalyticsRepository {
       origin: (row.origin ?? "telemetry") as ObservationSourceName,
     }));
   }
+
+  /**
+   * PRD-56 FR-21: значения шкал прохождений теста — ОБА источника одной выборкой.
+   *
+   * Хранятся они по-разному: веб пишет `result_json.scaleResults` записью с сырым значением и
+   * подписью уровня, LMS — `scales_json` картой «ключ -> число». Здесь обе формы приводятся к
+   * числу: подпись уровня не читается ни у одного источника, потому что импорт её не хранит
+   * вовсе, и считать уровень по-разному для двух источников значило бы получить два разных
+   * распределения на одних данных.
+   *
+   * Запасной путь к тесту через пакет — тот же, что в остальных выборках.
+   */
+  async selectScaleValuesForTest(testId: string): Promise<ScaleValuesRow[]> {
+    const [webRows, lmsRows] = await Promise.all([
+      db
+        .select({ id: attempts.id, resultJson: attempts.resultJson })
+        .from(attempts)
+        .where(and(eq(attempts.testId, testId), sql`${attempts.resultJson} is not null`)),
+      db
+        .select({
+          id: scormAttempts.id,
+          origin: scormAttempts.origin,
+          scalesJson: scormAttempts.scalesJson,
+        })
+        .from(scormAttempts)
+        .leftJoin(scormPackages, eq(scormPackages.id, scormAttempts.packageId))
+        .where(and(
+          eq(sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`, testId),
+          sql`${scormAttempts.finishedAt} is not null`,
+        )),
+    ]);
+
+    const out: ScaleValuesRow[] = [];
+    for (const row of webRows) {
+      const stored = (row.resultJson as { scaleResults?: Record<string, unknown> } | null)
+        ?.scaleResults;
+      out.push({ attemptId: row.id, source: "web", values: numbersOf(stored, "raw") });
+    }
+    for (const row of lmsRows) {
+      out.push({
+        attemptId: row.id,
+        source: (row.origin ?? "telemetry") as ObservationSourceName,
+        values: numbersOf(row.scalesJson as Record<string, unknown> | null),
+      });
+    }
+    return out;
+  }
 }
 
 /** Ответ на вопрос, записанный прохождением из LMS. */
@@ -274,6 +321,33 @@ export interface TestAnswerRow {
   points: number | null;
   maxPoints: number | null;
   origin: ObservationSourceName;
+}
+
+/** Значения шкал ОДНОГО прохождения, приведённые к числу. */
+export interface ScaleValuesRow {
+  attemptId: string;
+  source: ObservationSourceName;
+  /** «Ключ шкалы -> значение». Шкала без посчитанного значения ключа не получает. */
+  values: Record<string, number>;
+}
+
+/**
+ * Достать числа из записи значений.
+ *
+ * @param stored карта «ключ -> значение» либо «ключ -> запись со значением»
+ * @param field поле записи, в котором лежит число; без него значение читается напрямую
+ */
+function numbersOf(stored: unknown, field?: string): Record<string, number> {
+  if (!stored || typeof stored !== "object") return {};
+
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(stored as Record<string, unknown>)) {
+    const value = field !== undefined && raw && typeof raw === "object"
+      ? (raw as Record<string, unknown>)[field]
+      : raw;
+    if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+  }
+  return out;
 }
 
 /** Развернуть запрос-счётчик в число. */
