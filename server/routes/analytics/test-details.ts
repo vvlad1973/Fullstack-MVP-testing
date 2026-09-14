@@ -415,10 +415,18 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
      */
     const passTrend = passTrendByMonth(observations.rows);
 
+    /**
+     * PRD-56 FR-21: есть ли у теста шкалы — по этому признаку экран показывает вкладку
+     * «Шкалы». Признак, а не сам профиль: считать профиль тому, кто открыл обзор
+     * оцениваемого теста, незачем, а прятать вкладку до первого запроса — значит мигать ею.
+     */
+    const hasScales = (await storage.getScales(testId)).length > 0;
+
     res.json({
       testId: test.id,
       testTitle: test.title,
       testMode: test.mode,
+      hasScales,
       // The test's half of the PRD-29 §6.7 rule (see `summary` above).
       hasPassThreshold: thresholdDeclared,
       /**

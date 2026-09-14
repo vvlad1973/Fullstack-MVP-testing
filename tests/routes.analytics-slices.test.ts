@@ -28,6 +28,8 @@ const { storageMock } = vi.hoisted(() => ({
     getUserGroups: vi.fn().mockResolvedValue([]),
     getGroupUsers: vi.fn().mockResolvedValue([]),
     getSnapshotsForTest: vi.fn().mockResolvedValue([]),
+    // PRD-56 FR-18: названия вариантов оси «вариант» берутся из наборов форм разделов.
+    getTestSections: vi.fn().mockResolvedValue([]),
   },
 }));
 

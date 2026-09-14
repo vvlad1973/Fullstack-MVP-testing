@@ -157,6 +157,8 @@ const { storageMock } = vi.hoisted(() => ({
     getQuestionsByIds: vi.fn(), getTopics: vi.fn(),
     // PRD-15 block D: effective-scoring chain sources (no overrides by default).
     getTestSections: vi.fn(), getTestQuestionScoring: vi.fn(),
+    // PRD-56 FR-21: признак «у теста есть шкалы» — по нему экран показывает вкладку «Шкалы».
+    getScales: vi.fn().mockResolvedValue([]),
   }
 }));
 

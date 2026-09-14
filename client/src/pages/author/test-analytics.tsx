@@ -19,6 +19,10 @@ import {
     ExposureProfile,
     type ExposureProfileView,
 } from "@/features/analytics/test/exposure-profile";
+import {
+    ScaleProfilePanel,
+    type ScaleProfileView,
+} from "@/features/analytics/test/scale-profile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -77,6 +81,8 @@ interface TestAnalytics {
     testId: string;
     testTitle: string;
     testMode: "standard" | "adaptive";
+    /** PRD-56 FR-21: у теста есть шкалы — тогда показывается вкладка «Шкалы». */
+    hasScales?: boolean;
     /** Does the test declare an overall pass threshold at all (PRD-29 §6.7)? */
     hasPassThreshold: boolean;
     summary: {
@@ -176,6 +182,12 @@ interface TestAnalytics {
         judged: number;
         passRate: number | null;
     }>;
+}
+
+/** PRD-56 FR-21: ответ вкладки «Шкалы». */
+interface ScaleAnalytics {
+    observations: number;
+    scales: ScaleProfileView[];
 }
 
 /** PRD-56 FR-18 - FR-20: ответ вкладки «Выдача». */
@@ -485,6 +497,12 @@ export default function TestAnalyticsPage() {
         enabled: !!testId && activeTab === "delivery",
     });
 
+    /** PRD-56 FR-21: профиль по шкалам — тоже своим запросом и только на своей вкладке. */
+    const { data: scaleProfile } = useQuery<ScaleAnalytics>({
+        queryKey: [`/api/analytics/tests/${testId}/scales`],
+        enabled: !!testId && activeTab === "scales",
+    });
+
     // Функция экспорта в Excel
     const handleExportExcel = () => {
         window.open(`/api/analytics/tests/${testId}/export/excel`, "_blank");
@@ -772,6 +790,20 @@ export default function TestAnalyticsPage() {
                     { id: "questions", label: "Вопросы", content: questionsPanel },
                     // PRD-56: «Уровни» отдельной вкладкой больше нет — они внутри «Выдачи».
                     { id: "delivery", label: "Выдача", content: deliveryPanel },
+                    // Вкладка есть только у теста со шкалами: оцениваемому тесту без них она
+                    // сказать ничего не может, а пустая вкладка читается как поломка.
+                    ...(analytics.hasScales
+                        ? [{
+                            id: "scales",
+                            label: "Шкалы",
+                            content: (
+                                <ScaleProfilePanel
+                                    scales={scaleProfile?.scales ?? []}
+                                    observations={scaleProfile?.observations ?? 0}
+                                />
+                            ),
+                        }]
+                        : []),
                 ]}
             />
 
