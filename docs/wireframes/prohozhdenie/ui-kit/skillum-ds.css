@@ -2624,6 +2624,12 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
   font: var(--ou-text-body-s); color: var(--ou-fg-muted);
 }
 .ou-grid__pager { display: inline-flex; gap: 4px; }
+
+/* Хвост ленивого списка: пустая метка, по которой наблюдатель понимает, что показан конец
+   выборки. Высота в один пиксель, а не ноль: элемент нулевой высоты не пересекается ни с чем,
+   и догрузка не срабатывает вовсе. */
+.ou-grid__sentinel { height: 1px; }
+
 .ou-grid__pager-btn {
   min-width: 28px; height: 28px; padding: 0 8px;
   background: transparent; border: 0; border-radius: 6px;

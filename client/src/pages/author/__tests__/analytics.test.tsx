@@ -1,96 +1,27 @@
 /**
  * @module pages/author/__tests__/analytics.test
- * @description Coverage suite for the combined analytics dashboard
- * (`pages/author/analytics.tsx`). Exercises the three top-level tabs (overview /
- * attempts / export), the source & test filters, the attempts table (search,
- * date-range, sort, pagination), the full attempt-details modal for both a
- * standard web attempt (answer formatting across all 4 question types) and an
- * adaptive LMS attempt (achieved levels), plus the loading / empty / error
- * states and the Excel/CSV export flows.
+ * @description Состав экрана аналитики (`pages/author/analytics.tsx`) и его переходы.
  *
- * Recharts is mocked with framework-free stubs: in jsdom the real
- * ResponsiveContainer measures a 0x0 box and renders nothing, so the chart
- * branches would never mount. Passthrough stubs let the LineChart/BarChart
- * branches render deterministically without DOM measurement.
+ * PRD-56 FR-12 снял с экрана «Обзор»: средний балл и pass rate ПО ВСЕМ тестам, тренды и
+ * проблемные темы вне контекста теста — величины, поверх которых нельзя принять решение, потому
+ * что они смешивают разные пороги, шкалы и популяции. Здесь проверяется, что их нет НИ на экране,
+ * ни в запросах: уцелевший запрос к снятой ручке — это та же нагрузка и то же обещание вернуть
+ * «общее среднее», просто невидимое.
+ *
+ * Остальное — договор экрана: реестр открывается первым, срезы считаются только внутри выбранного
+ * теста, очередь дел на своей вкладке, а окно разбора прохождения (все четыре типа ответов, веб и
+ * адаптивный из LMS) и экспорт работают как прежде.
  */
-import type * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getQueryFn } from "@/lib/queryClient";
-
-vi.mock("recharts", () => {
-  const Pass = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
-  const Null = () => null;
-  return {
-    ResponsiveContainer: Pass,
-    LineChart: Pass,
-    BarChart: Pass,
-    Line: Null,
-    Bar: Null,
-    XAxis: Null,
-    YAxis: Null,
-    CartesianGrid: Null,
-    Tooltip: Null,
-    Legend: Null,
-  };
-});
 
 import AnalyticsPage from "../analytics";
 
 // ---------------------------------------------------------------------------
 // Fixture builders (fresh objects per test — nothing is shared/mutated).
 // ---------------------------------------------------------------------------
-
-const summary = () => ({
-  totalAttempts: 100,
-  passedAttempts: 60,
-  passRate: 60,
-  avgPercent: 72.5,
-  webAttempts: 70,
-  lmsAttempts: 30,
-  uniqueWebUsers: 40,
-  uniqueLmsUsers: 15,
-  adaptiveAttempts: 5,
-  adaptivePassed: 3,
-});
-
-const webAttempt = () => ({
-  id: "a1",
-  testId: "test1",
-  testTitle: "Тест по финансам",
-  userId: "u1",
-  username: "Иван Петров",
-  userEmail: "ivan@test.ru",
-  startedAt: "2026-06-01T10:00:00Z",
-  finishedAt: "2026-06-01T10:15:00Z",
-  duration: 900,
-  resultPercent: 85,
-  resultPassed: true,
-  totalPoints: 17,
-  maxPoints: 20,
-  source: "web" as const,
-});
-
-const lmsAttempt = () => ({
-  id: "s1",
-  testId: "test1",
-  testTitle: "Тест по финансам",
-  lmsUserId: "lms-1",
-  lmsUserName: "Мария Сидорова",
-  lmsUserEmail: "maria@lms.ru",
-  startedAt: "2026-06-02T09:00:00Z",
-  finishedAt: "2026-06-02T09:20:00Z",
-  duration: 1200,
-  resultPercent: 0,
-  resultPassed: false,
-  totalPoints: 0,
-  maxPoints: 0,
-  source: "lms" as const,
-  isAdaptive: true,
-  achievedTopics: 2,
-  totalTopics: 3,
-});
 
 /** Ответ `GET /api/analytics/registry` — форма строки реестра (PRD-56 FR-01). */
 const registry = () => ({
@@ -115,32 +46,29 @@ const registry = () => ({
   offset: 0,
 });
 
-const combined = () => ({
-  summary: summary(),
-  attempts: [webAttempt(), lmsAttempt()],
-  testStats: [
-    { testId: "test1", testTitle: "Тест по финансам", totalAttempts: 100, webAttempts: 70, lmsAttempts: 30, passRate: 60, avgPercent: 72 },
+/** Ответ `GET /api/analytics/slices` — разбиение по оси (PRD-56 FR-06a). */
+const slices = () => ({
+  axis: "group",
+  slices: [
+    {
+      id: "group:g1", name: "Розница", conditions: { groupIds: ["g1"] },
+      started: 20, completed: 18, passed: 15, participants: 18,
+      passRate: 83, avgPercent: 78, enoughData: true,
+    },
   ],
-  topicStats: [
-    { topicId: "top1", topicName: "Бюджетирование", totalAnswers: 200, correctAnswers: 150, avgPercent: 75, failureCount: 5 },
-    { topicId: "top2", topicName: "Инвестиции", totalAnswers: 180, correctAnswers: 60, avgPercent: 33, failureCount: 40 },
-  ],
-  trends: [
-    { date: "2026-06-01", attempts: 5, webAttempts: 3, lmsAttempts: 2, avgPercent: 70, passRate: 60 },
-    { date: "2026-06-02", attempts: 8, webAttempts: 5, lmsAttempts: 3, avgPercent: 75, passRate: 65 },
-  ],
-  top5Tests: [{ testId: "test1", testTitle: "Тест по финансам" }],
-  alerts: [{ testId: "test1", testTitle: "Тест по финансам", recentPassRate: 40, prevPassRate: 70, drop: 30 }],
+  minObservations: 10,
 });
 
-const emptyCombined = () => ({
-  summary: { ...summary(), totalAttempts: 0, passedAttempts: 0, passRate: 0, avgPercent: 0, adaptiveAttempts: 0, adaptivePassed: 0 },
-  attempts: [],
-  testStats: [],
-  topicStats: [],
-  trends: [],
-  top5Tests: [],
-  alerts: [],
+/** Ответ `GET /api/analytics/attention` — очередь дел (PRD-56 FR-10). */
+const attention = () => ({
+  items: [
+    {
+      kind: "failed", participantId: "u1", participant: "Иван Петров",
+      testId: "test1", testTitle: "Тест по финансам",
+      observationId: "a1", startedAt: "2026-06-01T10:00:00Z",
+    },
+  ],
+  counts: { overdue: 0, failed: 1, abandoned: 0, exhausted: 0 },
 });
 
 const exportFilters = () => ({
@@ -210,14 +138,13 @@ const lmsDetail = () => ({
 // ---------------------------------------------------------------------------
 
 type State = {
-  combinedOk: boolean;
-  combined: ReturnType<typeof combined>;
-  summary: ReturnType<typeof summary>;
   tests: { id: string; title: string }[];
   filters: ReturnType<typeof exportFilters>;
   webDetail: ReturnType<typeof webDetail>;
   lmsDetail: ReturnType<typeof lmsDetail>;
   registry: ReturnType<typeof registry>;
+  slices: ReturnType<typeof slices>;
+  attention: ReturnType<typeof attention>;
 };
 
 let state: State;
@@ -225,14 +152,13 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   state = {
-    combinedOk: true,
-    combined: combined(),
-    summary: summary(),
     tests: [{ id: "test1", title: "Тест по финансам" }],
     filters: exportFilters(),
     webDetail: webDetail(),
     lmsDetail: lmsDetail(),
     registry: registry(),
+    slices: slices(),
+    attention: attention(),
   };
 
   const ok = (body: unknown) => ({
@@ -242,20 +168,11 @@ beforeEach(() => {
     text: async () => JSON.stringify(body),
     blob: async () => new Blob([JSON.stringify(body)]),
   });
-  const fail = () => ({
-    ok: false,
-    status: 500,
-    statusText: "Server Error",
-    json: async () => ({}),
-    text: async () => "boom",
-    blob: async () => new Blob(),
-  });
-
   fetchMock = vi.fn(async (input: string) => {
     const u = String(input);
-    if (u.startsWith("/api/analytics/combined-full")) return state.combinedOk ? ok(state.combined) : fail();
-    if (u.startsWith("/api/analytics/summary")) return ok(state.summary);
     if (u.startsWith("/api/analytics/registry")) return ok(state.registry);
+    if (u.startsWith("/api/analytics/slices")) return ok(state.slices);
+    if (u.startsWith("/api/analytics/attention")) return ok(state.attention);
     if (u === "/api/tests") return ok(state.tests);
     if (u.startsWith("/api/export/filters")) return ok(state.filters);
     if (u.startsWith("/api/analytics/scorm-attempts/")) return ok(state.lmsDetail);
@@ -296,6 +213,16 @@ async function openAttemptsTab() {
   await waitFor(() => expect(screen.getByText("Иван Петров")).toBeInTheDocument());
 }
 
+/** Открыть вкладку «Срезы» и выбрать тест — без него срезы не считаются (FR-07e). */
+async function openSlicesForTest() {
+  fireEvent.click(screen.getByRole("tab", { name: "Срезы" }));
+  fireEvent.click(screen.getByText("Выберите тест").closest("button")!);
+  // Список тестов приходит запросом: до его ответа в меню один пункт-заглушка.
+  const option = await within(screen.getByRole("listbox")).findByText("Тест по финансам");
+  fireEvent.click(option);
+  await waitFor(() => expect(screen.getByText("Розница")).toBeInTheDocument());
+}
+
 /** Open a labelled DS Select (its trigger button is a sibling of the label). */
 function openSelectByLabel(labelText: string) {
   const label = screen.getByText(labelText);
@@ -303,90 +230,72 @@ function openSelectByLabel(labelText: string) {
   fireEvent.click(trigger!);
 }
 
-describe("<AnalyticsPage />", () => {
-  it("shows the loading state before data arrives", async () => {
-    renderPage();
-    expect(screen.getByText("Загрузка аналитики...")).toBeInTheDocument();
+describe("<AnalyticsPage /> — состав экрана", () => {
+  it("открывается на реестре прохождений", async () => {
     await renderLoaded();
+
+    // Первое, что видит пришедший на экран, — прохождения, а не сводка по всему продукту.
+    expect(screen.getByRole("tab", { name: /Прохождения/ })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("Иван Петров")).toBeInTheDocument();
   });
 
-  it("renders the error state when the combined feed fails", async () => {
-    state.combinedOk = false;
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Не удалось загрузить аналитику")).toBeInTheDocument());
+  it("не показывает величин, посчитанных по всем тестам сразу", async () => {
+    await renderLoaded();
+
+    // FR-12: «Обзор» снят целиком. Средний балл и pass rate поверх РАЗНЫХ тестов складывают
+    // разные пороги, шкалы и популяции — по такому числу нельзя ничего сделать.
+    expect(screen.queryByRole("tab", { name: "Обзор" })).toBeNull();
+    expect(screen.queryByText("Pass Rate")).toBeNull();
+    expect(screen.queryByText("Средний балл")).toBeNull();
+    expect(screen.queryByText("Проблемные темы")).toBeNull();
+    expect(screen.queryByText("Тренды (30 дней)")).toBeNull();
   });
 
-  it("renders the overview: KPI cards, alerts, charts and topic stats", async () => {
+  it("не зовёт снятые ручки общей сводки", async () => {
     await renderLoaded();
-    // KPI cards (summary query).
-    expect(screen.getByText("Всего попыток")).toBeInTheDocument();
-    expect(screen.getByText("Успешных")).toBeInTheDocument();
-    expect(screen.getByText("Pass Rate")).toBeInTheDocument();
-    expect(screen.getByText("Средний балл")).toBeInTheDocument();
-    // Adaptive footnote from summary.
-    expect(screen.getByText(/адаптивных/)).toBeInTheDocument();
-    // Pass-rate drop alert.
-    expect(screen.getByText(/Pass rate упал на/)).toBeInTheDocument();
-    // Chart section headers + topic stats.
-    expect(screen.getByText("Тренды (30 дней)")).toBeInTheDocument();
-    expect(screen.getByText("Эффективность тестов")).toBeInTheDocument();
-    expect(screen.getByText("Статистика по темам")).toBeInTheDocument();
-    // Problem topics: top2 has failures.
-    expect(screen.getByText("Проблемные темы")).toBeInTheDocument();
-    expect(screen.getByText("40 ошибок")).toBeInTheDocument();
+    await screen.findByText("Иван Петров");
+
+    // Уцелевший запрос к снятой ручке — это та же нагрузка и то же обещание «общего среднего»,
+    // просто невидимое: экран считался бы очищенным, оставаясь на прежнем источнике.
+    const called = fetchMock.mock.calls.map(call => String(call[0]));
+    expect(called.some(url => url.includes("/api/analytics/combined"))).toBe(false);
+    expect(called.some(url => url.includes("/api/analytics/summary"))).toBe(false);
   });
 
-  it("toggles the trend mode between total and by-test", async () => {
+  it("даёт четыре вкладки: реестр, срезы, очередь дел и экспорт", async () => {
     await renderLoaded();
-    const byTest = screen.getByRole("tab", { name: "По тестам" });
-    fireEvent.click(byTest);
-    expect(byTest).toHaveAttribute("aria-selected", "true");
-    const total = screen.getByRole("tab", { name: "Общие" });
-    fireEvent.click(total);
-    expect(total).toHaveAttribute("aria-selected", "true");
+
+    for (const name of [/Прохождения/, "Срезы", "Требует внимания", "Экспорт"]) {
+      expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    }
   });
 
-  it("renders empty states across the overview when there is no data", async () => {
-    state.combined = emptyCombined();
-    state.summary = { ...summary(), totalAttempts: 0, passedAttempts: 0, passRate: 0, avgPercent: 0, adaptiveAttempts: 0, adaptivePassed: 0 };
+  it("не считает срезы, пока тест не выбран, и говорит почему", async () => {
     await renderLoaded();
-    // Trends + test-efficiency charts fall back to «Нет данных».
-    expect(screen.getAllByText("Нет данных").length).toBeGreaterThanOrEqual(2);
-    // No failing topics.
-    expect(screen.getByText("Нет проблемных тем!")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Срезы" }));
+
+    // FR-07e: рамка расчёта — один тест. Средние поверх нескольких тестов и есть то, что
+    // FR-12 убирает, поэтому «посчитаем по всем» здесь не предлагается вовсе.
+    expect(screen.getByText(/Срезы считаются внутри одного теста/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/api/analytics/slices"))).toBe(false);
   });
 
-  it("filters by source through the Select and resets", async () => {
+  it("считает срезы внутри выбранного теста", async () => {
     await renderLoaded();
-    // Open the source Select (its trigger shows «Все»).
-    fireEvent.click(screen.getByText("Все").closest("button")!);
-    fireEvent.click(screen.getByText("Web"));
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("combined-full?source=web"))).toBe(true),
-    );
-    // A reset control appears once the reloaded feed for the new source renders.
-    const reset = await screen.findByRole("button", { name: "Сбросить" });
-    fireEvent.click(reset);
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Сбросить" })).not.toBeInTheDocument());
+    await openSlicesForTest();
+
+    const sliced = fetchMock.mock.calls
+      .map(call => String(call[0]))
+      .find(url => url.includes("/api/analytics/slices"));
+    expect(sliced).toContain("testId=test1");
+    expect(screen.getByText("83 %")).toBeInTheDocument();
   });
 
-  it("filters by test through the test Select", async () => {
+  it("показывает очередь дел на своей вкладке", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByText("Все тесты").closest("button")!);
-    const menu = screen.getByRole("listbox");
-    fireEvent.click(within(menu).getByText("Тест по финансам"));
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("testId=test1"))).toBe(true),
-    );
-  });
+    fireEvent.click(screen.getByRole("tab", { name: "Требует внимания" }));
 
-  it("refreshes both feeds on «Обновить»", async () => {
-    await renderLoaded();
-    const before = fetchMock.mock.calls.filter((c) => String(c[0]).includes("combined-full")).length;
-    fireEvent.click(screen.getByRole("button", { name: /Обновить/ }));
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes("combined-full")).length).toBeGreaterThan(before),
-    );
+    expect(await screen.findByText("Не сдал, попытки остались")).toBeInTheDocument();
   });
 
   it("renders the registry with web and LMS passages", async () => {
@@ -565,22 +474,3 @@ describe("<AnalyticsPage />", () => {
     );
   });
 });
-
-/** Build N synthetic web attempts to exercise the attempts-table pagination. */
-function makeAttempts(n: number) {
-  return Array.from({ length: n }, (_, i) => ({
-    id: `w${i}`,
-    testId: "test1",
-    testTitle: "Тест по финансам",
-    username: `User ${i}`,
-    userEmail: `u${i}@t.ru`,
-    startedAt: "2026-06-01T10:00:00Z",
-    finishedAt: `2026-06-0${(i % 9) + 1}T10:00:00Z`,
-    duration: 600,
-    resultPercent: i,
-    resultPassed: i > 50,
-    totalPoints: i,
-    maxPoints: 100,
-    source: "web" as const,
-  }));
-}

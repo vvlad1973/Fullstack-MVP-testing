@@ -1,10 +1,14 @@
 /**
  * @module pages/author/analytics
- * @description Combined analytics dashboard (web + LMS): summary KPIs, trends,
- * per-test/per-topic stats, an attempts table with a full attempt-details modal,
- * and a configurable Excel export. Rendered entirely with the Skillum design
- * system — layout via Stack/Cluster/Grid/Box, typography via Text, data via the
- * DS Table/Card/Tabs/ProgressBar/Select primitives (no raw utility classes).
+ * @description Analytics for the author: the passage registry (web, LMS telemetry and
+ * imported exports in one list), slices of those passages within a single test, the
+ * «needs attention» queue and the configurable Excel export, plus the attempt-details
+ * window every list opens into.
+ *
+ * PRD-56 FR-12 removed the «overview» tab: an average score or pass rate computed ACROSS
+ * tests mixes different thresholds, scales and populations, so the number could not be
+ * acted upon. What replaced it — slices and the queue — always names the population it
+ * describes. Rendered entirely with the Skillum design system.
  */
 import { useState } from "react";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
@@ -25,7 +29,6 @@ import {
   Cluster,
   FormGroup,
   Grid,
-  IconButton,
   Input,
   ModalDialog,
   ProgressBar,
@@ -33,22 +36,13 @@ import {
   Select,
   Separator,
   Stack,
-  Table,
   Tabs,
   Tag,
   Text,
-  type TableColumn,
-  type Tone,
 } from "@skillum/ui-kit";
 import {
-  TrendingUp,
-  Users,
-  Target,
-  AlertTriangle,
   CheckCircle,
   FileSpreadsheet,
-  Filter,
-  Eye,
   Globe,
   Server,
   Download,
@@ -59,38 +53,18 @@ import {
   RefreshCw,
   Upload,
   FileDown,
-  TrendingDown,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Legend,
-} from "recharts";
 
 // ============================================
 // Интерфейсы
 // ============================================
 
-interface CombinedSummary {
-  totalAttempts: number;
-  passedAttempts: number;
-  passRate: number;
-  avgPercent: number;
-  webAttempts: number;
-  lmsAttempts: number;
-  uniqueWebUsers: number;
-  uniqueLmsUsers: number;
-  adaptiveAttempts?: number;
-  adaptivePassed?: number;
-}
-
+/**
+ * Прохождение, разбор которого открыт в окне деталей.
+ *
+ * Это НЕ строка реестра: реестр говорит, что прохождение было, а окно — что в нём произошло.
+ * Строка приводится к этой форме при открытии (`handleOpenPassage`).
+ */
 interface CombinedAttempt {
   id: string;
   testId: string | null;
@@ -113,44 +87,6 @@ interface CombinedAttempt {
   isAdaptive?: boolean;
   achievedTopics?: number | null;
   totalTopics?: number | null;
-}
-
-interface TestStat {
-  testId: string;
-  testTitle: string;
-  totalAttempts: number;
-  webAttempts: number;
-  lmsAttempts: number;
-  passRate: number;
-  avgPercent: number;
-}
-
-interface TopicStat {
-  topicId: string;
-  topicName: string;
-  totalAnswers: number;
-  correctAnswers: number;
-  avgPercent: number;
-  failureCount: number;
-}
-
-interface TrendData {
-  date: string;
-  attempts: number;
-  webAttempts: number;
-  lmsAttempts: number;
-  avgPercent: number;
-  passRate: number;
-}
-
-interface CombinedAnalyticsData {
-  summary: CombinedSummary;
-  attempts: CombinedAttempt[];
-  testStats: TestStat[];
-  topicStats: TopicStat[];
-  trends: TrendData[];
-  top5Tests?: { testId: string; testTitle: string }[];
-  alerts?: { testId: string; testTitle: string; recentPassRate: number; prevPassRate: number; drop: number }[];
 }
 
 // Детальный ответ
@@ -398,285 +334,12 @@ function formatCorrectAnswer(answer: DetailedAnswer): string {
 
 // ============================================
 // Компонент фильтров
-// ============================================
-
-function FiltersBar({
-  source,
-  onSourceChange,
-  testId,
-  onTestIdChange,
-  tests,
-}: {
-  source: "all" | "web" | "lms";
-  onSourceChange: (v: "all" | "web" | "lms") => void;
-  testId: string;
-  onTestIdChange: (v: string) => void;
-  tests: { id: string; title: string }[];
-}) {
-  return (
-    <Box pad={4} surface="muted" radius="l" border>
-      <Cluster gap={4}>
-        <Cluster gap={2}>
-          <Filter size={16} color="var(--ou-fg-muted)" />
-          <Text variant="body-s" weight="medium">Фильтры:</Text>
-        </Cluster>
-
-        <Cluster gap={2}>
-          <Text variant="body-s" tone="muted">Источник:</Text>
-          <Select<"all" | "web" | "lms">
-            value={source}
-            onChange={onSourceChange}
-            options={[
-              { value: "all", label: <Cluster gap={2}><Users size={12} />Все</Cluster> },
-              { value: "web", label: <Cluster gap={2}><Globe size={12} />Web</Cluster> },
-              { value: "lms", label: <Cluster gap={2}><Server size={12} />LMS</Cluster> },
-            ]}
-          />
-        </Cluster>
-
-        <Cluster gap={2}>
-          <Text variant="body-s" tone="muted">Тест:</Text>
-          <Select
-            value={testId}
-            onChange={onTestIdChange}
-            placeholder="Все тесты"
-            options={[
-              { value: "all", label: "Все тесты" },
-              ...tests.map((test) => ({ value: test.id, label: test.title })),
-            ]}
-          />
-        </Cluster>
-
-        {(source !== "all" || testId !== "all") && (
-          <Button
-            variant="ghost"
-            size="s"
-            onClick={() => {
-              onSourceChange("all");
-              onTestIdChange("all");
-            }}
-          >
-            Сбросить
-          </Button>
-        )}
-      </Cluster>
-    </Box>
-  );
-}
 
 // ============================================
 // Карточки статистики
-// ============================================
-
-function SummaryCards({ summary, source }: { summary: CombinedSummary; source: "all" | "web" | "lms" }) {
-  return (
-    <Grid minItem="sm" gap={1}>
-      <Card>
-        <CardHeader title="Всего попыток" trail={<Users size={16} color="var(--ou-fg-muted)" />} />
-        <CardBody>
-          <Text variant="display-s" weight="bold">{summary.totalAttempts}</Text>
-          {source === "all" && (
-            <Cluster gap={2}>
-              <Cluster gap={1}><Globe size={12} color="var(--ou-fg-muted)" /><Text variant="body-xs" tone="muted">{summary.webAttempts}</Text></Cluster>
-              <Text variant="body-xs" tone="subtle">|</Text>
-              <Cluster gap={1}><Server size={12} color="var(--ou-fg-muted)" /><Text variant="body-xs" tone="muted">{summary.lmsAttempts}</Text></Cluster>
-            </Cluster>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="Успешных" trail={<CheckCircle size={16} color="var(--ou-success-600)" />} />
-        <CardBody>
-          <Text variant="display-s" weight="bold" tone="success">{summary.passedAttempts}</Text>
-          <Text as="p" variant="body-xs" tone="muted">
-            из {summary.totalAttempts} ({summary.passRate.toFixed(0)}%)
-          </Text>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="Pass Rate" trail={<Target size={16} color="var(--ou-fg-muted)" />} />
-        <CardBody>
-          <Stack gap={2}>
-            <Text variant="display-s" weight="bold">{summary.passRate.toFixed(1)}%</Text>
-            <ProgressBar value={summary.passRate} tone="accent" size="s" hideHeader />
-          </Stack>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader title="Средний балл" trail={<TrendingUp size={16} color="var(--ou-fg-muted)" />} />
-        <CardBody>
-          <Stack gap={2}>
-            <Text variant="display-s" weight="bold">{summary.avgPercent.toFixed(1)}%</Text>
-            <ProgressBar value={summary.avgPercent} tone="accent" size="s" hideHeader />
-            {(summary.adaptiveAttempts ?? 0) > 0 && (
-              <Text variant="body-xs" tone="muted">
-                + {summary.adaptiveAttempts} адаптивных ({summary.adaptivePassed} завершили)
-              </Text>
-            )}
-          </Stack>
-        </CardBody>
-      </Card>
-    </Grid>
-  );
-}
 
 // ============================================
 // Таблица попыток
-// ============================================
-
-function AttemptsTable({
-  attempts,
-  source,
-  onViewDetails,
-  sortCol,
-  sortDir,
-  onSort,
-  onExport,
-}: {
-  attempts: CombinedAttempt[];
-  source: "all" | "web" | "lms";
-  onViewDetails: (attempt: CombinedAttempt) => void;
-  sortCol?: "date" | "result" | "user" | "test";
-  sortDir?: "asc" | "desc";
-  onSort?: (col: "date" | "result" | "user" | "test") => void;
-  onExport?: (attempt: CombinedAttempt) => void;
-}) {
-  if (attempts.length === 0) {
-    return (
-      <Stack align="center" gap={3}>
-        <Box pad={8}>
-          <Stack align="center" gap={3}>
-            <HelpCircle size={48} color="var(--ou-fg-subtle)" />
-            <Text tone="muted">Нет данных о попытках</Text>
-          </Stack>
-        </Box>
-      </Stack>
-    );
-  }
-
-  const columns: TableColumn<CombinedAttempt>[] = [
-    ...(source === "all"
-      ? [{
-        key: "source",
-        header: "Источник",
-        width: "90px",
-        render: (a: CombinedAttempt) =>
-          a.source === "web"
-            ? <Tag variant="outline" size="s"><Globe />Web</Tag>
-            : <Tag size="s"><Server />LMS</Tag>,
-      } as TableColumn<CombinedAttempt>]
-      : []),
-    {
-      key: "user",
-      header: "Пользователь",
-      sortable: true,
-      render: (a) => (
-        <Text variant="body-s" weight="medium">
-          {a.source === "web"
-            ? (a.username || "—")
-            : (a.lmsUserName || a.lmsUserEmail || a.lmsUserId || "—")}
-        </Text>
-      ),
-    },
-    ...(source !== "web"
-      ? [{
-        key: "email",
-        header: "Email",
-        render: (a: CombinedAttempt) => (
-          <Text variant="body-xs" tone="muted">
-            {a.source === "lms" ? (a.lmsUserEmail || "—") : (a.userEmail || "—")}
-          </Text>
-        ),
-      } as TableColumn<CombinedAttempt>]
-      : []),
-    {
-      key: "test",
-      header: "Тест",
-      sortable: true,
-      render: (a) => <Text variant="body-s">{a.testTitle || "—"}</Text>,
-    },
-    {
-      key: "date",
-      header: "Дата",
-      width: "150px",
-      sortable: true,
-      render: (a) => (
-        <Text variant="body-xs" tone="muted">
-          {a.finishedAt
-            ? new Date(a.finishedAt).toLocaleString("ru-RU", {
-              day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-            })
-            : "В процессе"}
-        </Text>
-      ),
-    },
-    {
-      key: "result",
-      header: "Результат",
-      width: "110px",
-      align: "right",
-      sortable: true,
-      render: (a) =>
-        a.isAdaptive
-          ? <Text variant="body-s" tone="muted">{a.achievedTopics ?? 0}/{a.totalTopics ?? 0} тем</Text>
-          : <Text variant="heading-s" weight="bold">{a.resultPercent?.toFixed(0) || 0}%</Text>,
-    },
-    {
-      key: "status",
-      header: "Статус",
-      width: "120px",
-      align: "center",
-      render: (a) =>
-        a.isAdaptive
-          ? <Tag tone="info" size="s"><CheckCircle />Завершён</Tag>
-          : a.resultPassed
-            ? <Tag tone="success" size="s"><CheckCircle />Сдан</Tag>
-            : <Tag tone="error" variant="solid" size="s"><XCircle />Не сдан</Tag>,
-    },
-    {
-      key: "actions",
-      header: "",
-      width: "96px",
-      align: "center",
-      render: (a) => (
-        <Cluster gap={1} justify="center" wrap={false}>
-          <IconButton
-            variant="ghost"
-            size="s"
-            aria-label="Детали попытки"
-            icon={<Eye size={16} />}
-            onClick={(e) => { e.stopPropagation(); onViewDetails(a); }}
-          />
-          {onExport && (
-            <IconButton
-              variant="ghost"
-              size="s"
-              aria-label="Скачать детали попытки"
-              title="Скачать детали попытки"
-              icon={<FileDown size={16} />}
-              onClick={(e) => { e.stopPropagation(); onExport(a); }}
-            />
-          )}
-        </Cluster>
-      ),
-    },
-  ];
-
-  return (
-    <Table
-      columns={columns}
-      rows={attempts}
-      rowKey={(a) => `${a.source}-${a.id}`}
-      onRowClick={(a) => onViewDetails(a)}
-      sortKey={sortCol}
-      sortDir={sortDir}
-      onSort={(key) => onSort?.(key as "date" | "result" | "user" | "test")}
-    />
-  );
-}
 
 // ============================================
 // Модальное окно деталей попытки (ПОЛНОЕ)
@@ -980,67 +643,6 @@ function AttemptDetailsDialog({
 
 // ============================================
 // Секция статистики по темам
-// ============================================
-
-function TopicStatsSection({ topicStats }: { topicStats: TopicStat[] }) {
-  const sortedByFailure = [...topicStats]
-    .filter((t) => t.failureCount > 0)
-    .sort((a, b) => b.failureCount - a.failureCount)
-    .slice(0, 5);
-
-  return (
-    <Grid minItem="lg" gap={1}>
-      {/* Статистика по темам */}
-      <Card>
-        <CardHeader title="Статистика по темам" />
-        <CardBody>
-          <Stack gap={3}>
-            {topicStats.length > 0 ? (
-              topicStats.map((topic) => (
-                <Cluster key={topic.topicId} justify="between" gap={4}>
-                  <Stack gap={1} grow>
-                    <Text weight="medium" truncate>{topic.topicName}</Text>
-                    <Text variant="body-xs" tone="muted">{topic.totalAnswers} ответов | {topic.correctAnswers} верных</Text>
-                  </Stack>
-                  <Tag tone={topic.avgPercent >= 70 ? "success" : topic.avgPercent >= 50 ? "warning" : "error"}>
-                    {topic.avgPercent.toFixed(0)}%
-                  </Tag>
-                </Cluster>
-              ))
-            ) : (
-              <Text align="center" tone="muted">Нет данных</Text>
-            )}
-          </Stack>
-        </CardBody>
-      </Card>
-
-      {/* Проблемные темы */}
-      <Card>
-        <CardHeader title={<Cluster gap={2}><AlertTriangle size={20} color="var(--ou-warning-600)" />Проблемные темы</Cluster>} />
-        <CardBody>
-          <Stack gap={3}>
-            {sortedByFailure.length > 0 ? (
-              sortedByFailure.map((topic, idx) => (
-                <Cluster key={topic.topicId} justify="between" gap={4}>
-                  <Cluster gap={3} grow wrap={false}>
-                    <Tag tone="error" variant="solid" size="s">{idx + 1}</Tag>
-                    <Text weight="medium" truncate>{topic.topicName}</Text>
-                  </Cluster>
-                  <Tag tone="error">{topic.failureCount} ошибок</Tag>
-                </Cluster>
-              ))
-            ) : (
-              <Stack align="center" gap={2}>
-                <CheckCircle size={32} color="var(--ou-success-600)" />
-                <Text tone="muted">Нет проблемных тем!</Text>
-              </Stack>
-            )}
-          </Stack>
-        </CardBody>
-      </Card>
-    </Grid>
-  );
-}
 
 // ============================================
 // Секция экспорта
@@ -1363,18 +965,10 @@ function ExportSection() {
 // ============================================
 
 export default function AnalyticsPage() {
-  const [source, setSource] = useState<"all" | "web" | "lms">("all");
+  /** Тест, внутри которого считаются срезы (FR-07e): у разных тестов разные пороги и шкалы. */
   const [testId, setTestId] = useState<string>("all");
   const [selectedAttempt, setSelectedAttempt] = useState<CombinedAttempt | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [attemptsPage, setAttemptsPage] = useState(1);
-  const ATTEMPTS_PER_PAGE = 25;
-  const [sortCol, setSortCol] = useState<"date" | "result" | "user" | "test">("date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-  const [trendMode, setTrendMode] = useState<"total" | "byTest">("total");
   /** PRD-54: окно загрузки выгрузки отчёта LMS. */
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
   /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
@@ -1384,34 +978,10 @@ export default function AnalyticsPage() {
   /** PRD-56 FR-07: список срезов и их сравнение — два режима одной вкладки. */
   const [sliceMode, setSliceMode] = useState<"list" | "compare">("list");
 
-  const queryParams = new URLSearchParams({ source });
-  if (testId !== "all") queryParams.append("testId", testId);
-
-  const { data, isLoading, error, refetch, isFetching } = useQuery<CombinedAnalyticsData>({
-    queryKey: ["/api/analytics/combined-full", source, testId],
-    queryFn: async () => {
-      const response = await fetch(`/api/analytics/combined-full?${queryParams}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
-    },
-    refetchInterval: false,
-    staleTime: 60000,
-  });
-
-  const { data: summaryData, isLoading: summaryLoading, refetch: refetchSummary } = useQuery<CombinedSummary>({
-    queryKey: ["/api/analytics/summary", source, testId],
-    queryFn: async () => {
-      const response = await fetch(`/api/analytics/summary?${queryParams}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch summary");
-      return response.json();
-    },
-    refetchInterval: false,
-    staleTime: 60000,
-  });
+  // PRD-56 FR-12: combined-full и summary сняты вместе с «Обзором». Величины, которые они
+  // считали — средний балл и pass rate ПО ВСЕМ тестам, тренды и проблемные темы вне контекста
+  // теста, — неинтерпретируемы: смешивают разные пороги, шкалы и популяции. Их место заняли
+  // срезы и очередь «требует внимания».
 
   const { data: tests } = useQuery<{ id: string; title: string }[]>({
     queryKey: ["/api/tests-list"],
@@ -1423,81 +993,11 @@ export default function AnalyticsPage() {
     },
   });
 
-  const handleSourceChange = (v: "all" | "web" | "lms") => {
-    setSource(v);
-    setAttemptsPage(1);
-  };
-
-  const handleTestIdChange = (v: string) => {
-    setTestId(v);
-    setAttemptsPage(1);
-  };
-
-  const handleDateFromChange = (v: string) => {
-    setDateFrom(v);
-    setAttemptsPage(1);
-  };
-
-  const handleDateToChange = (v: string) => {
-    setDateTo(v);
-    setAttemptsPage(1);
-  };
-
-  const handleUserSearchChange = (v: string) => {
-    setUserSearch(v);
-    setAttemptsPage(1);
-  };
-
-  const filteredAttempts = (data?.attempts || []).filter(a => {
-    if (dateFrom && a.finishedAt && new Date(a.finishedAt) < new Date(dateFrom)) return false;
-    if (dateTo && a.finishedAt && new Date(a.finishedAt) > new Date(dateTo + "T23:59:59")) return false;
-    if (userSearch) {
-      const q = userSearch.toLowerCase();
-      const name = (a.username || a.lmsUserName || "").toLowerCase();
-      const email = (a.userEmail || a.lmsUserEmail || "").toLowerCase();
-      if (!name.includes(q) && !email.includes(q)) return false;
-    }
-    return true;
-  });
-
-  const handleSort = (col: "date" | "result" | "user" | "test") => {
-    if (sortCol === col) {
-      setSortDir(d => d === "asc" ? "desc" : "asc");
-    } else {
-      setSortCol(col);
-      setSortDir("desc");
-    }
-    setAttemptsPage(1);
-  };
-
-  const sortedAttempts = [...filteredAttempts].sort((a, b) => {
-    const dir = sortDir === "asc" ? 1 : -1;
-    switch (sortCol) {
-      case "date":
-        return dir * (new Date(a.finishedAt || 0).getTime() - new Date(b.finishedAt || 0).getTime());
-      case "result":
-        return dir * ((a.resultPercent || 0) - (b.resultPercent || 0));
-      case "user":
-        return dir * (a.username || a.lmsUserName || "").localeCompare(b.username || b.lmsUserName || "");
-      case "test":
-        return dir * (a.testTitle || "").localeCompare(b.testTitle || "");
-      default:
-        return 0;
-    }
-  });
-
   const handleViewDetails = (attempt: CombinedAttempt) => {
     setSelectedAttempt(attempt);
     setDetailsOpen(true);
   };
 
-  /**
-   * Открыть разбор строки реестра.
-   *
-   * Окно разбора говорит на языке `CombinedAttempt`, поэтому строка переводится в него.
-   * Источник схлопывается до «web / lms»: окну важно, из какой ручки читать детали, а
-   * телеметрия и импорт лежат в одной.
-   */
   const handleOpenPassage = (row: RegistryRow) => {
     handleViewDetails({
       id: row.id,
@@ -1621,20 +1121,6 @@ export default function AnalyticsPage() {
     }
   };
 
-  if (isLoading) {
-    return <LoadingState message="Загрузка аналитики..." />;
-  }
-
-  if (error || !data) {
-    return (
-      <Box pad={8}>
-        <Text align="center" tone="muted">Не удалось загрузить аналитику</Text>
-      </Box>
-    );
-  }
-
-  const totalPages = Math.ceil(filteredAttempts.length / ATTEMPTS_PER_PAGE);
-  const chartTooltipStyle = { backgroundColor: "var(--ou-bg-elevated)", border: "1px solid var(--ou-border-soft)" };
 
   return (
     <Stack gap={6}>
@@ -1649,7 +1135,7 @@ export default function AnalyticsPage() {
           <Button variant="secondary" size="s" leadingIcon={<Upload size={16} />} onClick={() => setLmsImportOpen(true)}>
             Загрузить выгрузку LMS
           </Button>
-          <Button variant="secondary" size="s" leadingIcon={<RefreshCw size={16} />} loading={isFetching} onClick={() => { refetch(); refetchSummary(); }}>
+          <Button variant="secondary" size="s" leadingIcon={<RefreshCw size={16} />} onClick={() => window.location.reload()}>
             Обновить
           </Button>
         </Cluster>
@@ -1661,148 +1147,13 @@ export default function AnalyticsPage() {
         title="Загрузка выгрузки LMS"
         description="Тест определяется по самому файлу"
       >
-        <LmsImportForm onDone={() => { refetch(); refetchSummary(); }} />
+        <LmsImportForm onDone={() => window.location.reload()} />
       </ModalDialog>
 
       {/* Табы */}
       <Tabs
-        defaultValue="overview"
+        defaultValue="attempts"
         items={[
-          {
-            id: "overview",
-            label: "Обзор",
-            content: (
-              <Stack gap={1}>
-                {/* Фильтры обзора: у реестра свои условия, и общей панели у них больше нет. */}
-                <FiltersBar
-                  source={source}
-                  onSourceChange={handleSourceChange}
-                  testId={testId}
-                  onTestIdChange={handleTestIdChange}
-                  tests={tests || []}
-                />
-                {summaryLoading ? (
-                  <Grid minItem="sm" gap={1}>
-                    {[1, 2, 3, 4].map(i => <Card key={i}><CardBody><ProgressBar indeterminate hideHeader /></CardBody></Card>)}
-                  </Grid>
-                ) : summaryData ? (
-                  <SummaryCards summary={summaryData} source={source} />
-                ) : null}
-
-                {/* Алерты */}
-                {(data.alerts || []).length > 0 && (
-                  <Stack gap={2}>
-                    {data.alerts!.map(alert => (
-                      <Box key={alert.testId} pad={3} surface="muted" radius="l" border>
-                        <Cluster gap={3} wrap={false}>
-                          <TrendingDown size={20} color="var(--ou-warning-600)" />
-                          <Stack gap={1} grow>
-                            <Text variant="body-s" weight="medium" truncate>{alert.testTitle}</Text>
-                            <Text variant="body-xs" tone="muted">
-                              Pass rate упал на <Text variant="body-xs" tone="warning" weight="medium">{alert.drop.toFixed(0)}%</Text>
-                              {" "}за последние 7 дней: {alert.prevPassRate.toFixed(0)}% → {alert.recentPassRate.toFixed(0)}%
-                            </Text>
-                          </Stack>
-                          <Tag variant="outline" tone="warning">−{alert.drop.toFixed(0)}%</Tag>
-                        </Cluster>
-                      </Box>
-                    ))}
-                  </Stack>
-                )}
-
-                <Grid minItem="lg" gap={1}>
-                  <Card>
-                    <CardHeader
-                      title="Тренды (30 дней)"
-                      trail={
-                        <Tabs
-                          value={trendMode}
-                          onChange={(v) => setTrendMode(v as "total" | "byTest")}
-                          variant="segment"
-                          size="s"
-                          hidePanel
-                          items={[
-                            { id: "total", label: "Общие" },
-                            { id: "byTest", label: "По тестам" },
-                          ]}
-                        />
-                      }
-                    />
-                    <CardBody>
-                      {data.trends.some(t => t.attempts > 0) ? (
-                        <ResponsiveContainer width="100%" height={280}>
-                          <LineChart data={data.trends}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--ou-border-soft)" />
-                            <XAxis
-                              dataKey="date"
-                              tickFormatter={(val) =>
-                                new Date(val).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
-                              }
-                              fontSize={12}
-                            />
-                            <YAxis fontSize={12} />
-                            {/* `labelFormatter` у recharts объявлен через `ReactNode`, а не через
-                                тип значения оси. По оси идёт `date: string`, поэтому приведение
-                                строкой честно и разбор даты не меняет. */}
-                            <Tooltip
-                              labelFormatter={(val) => new Date(String(val)).toLocaleDateString("ru-RU")}
-                              contentStyle={chartTooltipStyle}
-                            />
-                            <Legend />
-                            {trendMode === "total" ? (
-                              <>
-                                <Line type="monotone" dataKey="attempts" stroke="var(--ou-accent-default)" strokeWidth={2} name="Попытки" />
-                                <Line type="monotone" dataKey="passRate" stroke="var(--ou-success-default)" strokeWidth={2} name="Pass Rate %" />
-                              </>
-                            ) : (
-                              (data.top5Tests || []).map((test, i) => (
-                                <Line
-                                  key={test.testId}
-                                  type="monotone"
-                                  dataKey={test.testId}
-                                  // Series colour from the shared categorical set — the
-                                  // hue-rotation formula guaranteed neither contrast nor
-                                  // distinguishable neighbours, and ignored the theme.
-                                  stroke={`var(--tb-chart-${(i % 8) + 1})`}
-                                  strokeWidth={2}
-                                  name={test.testTitle.length > 20 ? test.testTitle.slice(0, 20) + "…" : test.testTitle}
-                                />
-                              ))
-                            )}
-                          </LineChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <Box pad={8}><Text align="center" tone="muted">Нет данных</Text></Box>
-                      )}
-                    </CardBody>
-                  </Card>
-
-                  <Card>
-                    <CardHeader title="Эффективность тестов" />
-                    <CardBody>
-                      {data.testStats.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={data.testStats}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--ou-border-soft)" />
-                            <XAxis dataKey="testTitle" fontSize={10} tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
-                            <YAxis fontSize={12} />
-                            <Tooltip contentStyle={chartTooltipStyle} />
-                            <Legend />
-                            <Bar dataKey="avgPercent" fill="var(--ou-accent-default)" name="Средний %" />
-                            <Bar dataKey="passRate" fill="var(--ou-success-default)" name="Pass Rate" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <Box pad={8}><Text align="center" tone="muted">Нет данных</Text></Box>
-                      )}
-                    </CardBody>
-                  </Card>
-                </Grid>
-
-                <TopicStatsSection topicStats={data.topicStats} />
-              </Stack>
-            ),
-          },
           {
             id: "attempts",
             label: "Прохождения",
@@ -1834,10 +1185,17 @@ export default function AnalyticsPage() {
               <Card>
                 <CardHeader
                   title="Срезы прохождений"
-                  subtitle={
-                    testId === "all"
-                      ? "Выберите тест на вкладке «Обзор»: средние считаются внутри одного теста"
-                      : "Кого учили и с каким результатом · за всё время"
+                  subtitle="Кого учили и с каким результатом · за всё время"
+                  lead={
+                    <Select
+                      size="s"
+                      value={testId}
+                      onChange={(value) => setTestId(String(value))}
+                      options={[
+                        { value: "all", label: "Выберите тест" },
+                        ...(tests ?? []).map(test => ({ value: test.id, label: test.title })),
+                      ]}
+                    />
                   }
                   trail={
                     <Cluster gap={2}>

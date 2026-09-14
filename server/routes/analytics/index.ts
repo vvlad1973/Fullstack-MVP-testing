@@ -1,9 +1,8 @@
 import { Router } from "express";
-import generalRouter from "./general";
 import testDetailsRouter from "./test-details";
 import attemptsRouter from "./attempts";
 import scormRouter from "./scorm";
-import combinedRouter from "./combined";
+import summaryRouter from "./summary";
 import registryRouter from "./registry";
 import attentionRouter from "./attention";
 import slicesRouter from "./slices";
@@ -20,9 +19,6 @@ export {
 
 const router = Router();
 
-// Общая аналитика: GET /api/analytics
-router.use("/", generalRouter);
-
 // Детали теста: GET /api/analytics/tests/:testId
 router.use("/tests", testDetailsRouter);
 
@@ -32,8 +28,8 @@ router.use("/", attemptsRouter);
 // SCORM: GET /api/analytics/scorm-attempts, GET /api/analytics/scorm-attempts/:attemptId
 router.use("/", scormRouter);
 
-// Комбинированная аналитика: GET /api/analytics/combined, GET /api/analytics/combined-full
-router.use("/", combinedRouter);
+// Сводка по отбору: GET /api/analytics/summary
+router.use("/", summaryRouter);
 
 // PRD-56: реестр прохождений — GET /api/analytics/registry
 router.use("/", registryRouter);

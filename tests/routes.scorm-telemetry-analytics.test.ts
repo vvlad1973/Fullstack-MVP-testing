@@ -39,10 +39,8 @@ const { storageMock } = vi.hoisted(() => ({
 vi.mock("../server/storage", () => ({ storage: storageMock }));
 
 import scormTelemetryRouter from "../server/routes/scorm-telemetry";
-import analyticsGeneralRouter from "../server/routes/analytics/general";
 import analyticsAttemptsRouter from "../server/routes/analytics/attempts";
 import analyticsScormRouter from "../server/routes/analytics/scorm";
-import analyticsCombinedRouter from "../server/routes/analytics/combined";
 
 // ─── App factory ──────────────────────────────────────────────────────────────
 const authorUser = {
@@ -345,48 +343,6 @@ describe("SCORM Telemetry — package management (author)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ANALYTICS — GENERAL
-// ─────────────────────────────────────────────────────────────────────────────
-describe("Analytics — GET /analytics", () => {
-  let app: express.Express;
-  beforeEach(() => {
-    vi.clearAllMocks();
-    storageMock.getUser.mockResolvedValue(authorUser);
-    app = makeApp([analyticsGeneralRouter, "/api/analytics"]);
-  });
-
-  it("returns 401 when not authenticated", async () => {
-    const res = await request(app).get("/api/analytics/");
-    expect(res.status).toBe(401);
-  });
-
-  it("returns summary, testStats, topicStats, trends", async () => {
-    storageMock.getTests.mockResolvedValue([{ id: "test1", title: "Test 1" }]);
-    storageMock.getTopics.mockResolvedValue([{ id: "t1", name: "JS" }]);
-    storageMock.getAllAttempts.mockResolvedValue([dbAttemptResult]);
-    const res = await asAuthor(request(app).get("/api/analytics/"));
-    expect(res.status).toBe(200);
-    expect(res.body.summary.totalTests).toBe(1);
-    expect(res.body.summary.totalAttempts).toBe(1);
-    expect(res.body.summary.overallPassRate).toBe(100);
-    expect(res.body.testStats).toHaveLength(1);
-    expect(res.body.testStats[0].passRate).toBe(100);
-    expect(res.body.topicStats).toHaveLength(1);
-  });
-
-  it("returns zero stats when no completed attempts", async () => {
-    storageMock.getTests.mockResolvedValue([{ id: "test1", title: "Test 1" }]);
-    storageMock.getTopics.mockResolvedValue([]);
-    storageMock.getAllAttempts.mockResolvedValue([]);
-    const res = await asAuthor(request(app).get("/api/analytics/"));
-    expect(res.status).toBe(200);
-    expect(res.body.summary.totalAttempts).toBe(0);
-    expect(res.body.summary.overallPassRate).toBe(0);
-    expect(res.body.trends).toHaveLength(0);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS — ATTEMPTS
 // ─────────────────────────────────────────────────────────────────────────────
 describe("Analytics — attempts routes", () => {
@@ -626,62 +582,5 @@ describe("Analytics — SCORM routes", () => {
     storageMock.getScormAttempt.mockResolvedValue(undefined);
     const res = await asAuthor(request(app).get("/api/analytics/scorm-attempts/x"));
     expect(res.status).toBe(404);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ANALYTICS — COMBINED
-// ─────────────────────────────────────────────────────────────────────────────
-describe("Analytics — combined routes", () => {
-  let app: express.Express;
-  const finishedScormAttempt = { ...dbScormAttempt, finishedAt: new Date(),
-    resultPercent: 90, resultPassed: true, totalPoints: 9, maxPoints: 10 };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    storageMock.getUser.mockResolvedValue(authorUser);
-    app = makeApp([analyticsCombinedRouter, "/api/analytics"]);
-  });
-
-  it("GET /combined — returns merged web + lms attempts", async () => {
-    storageMock.getAllAttempts.mockResolvedValue([dbAttemptResult]);
-    storageMock.getAllScormAttempts.mockResolvedValue([finishedScormAttempt]);
-    storageMock.getTests.mockResolvedValue([{ id: "test1", title: "Test 1" }]);
-    storageMock.getScormPackages.mockResolvedValue([dbPkg]);
-    storageMock.getUser
-      .mockResolvedValueOnce(authorUser)
-      .mockResolvedValueOnce({ id: "u1", name: "User", email: "u@test.com" });
-    const res = await asAuthor(request(app).get("/api/analytics/combined"));
-    expect(res.status).toBe(200);
-    expect(res.body.attempts).toBeDefined();
-    const sources = res.body.attempts.map((a: any) => a.source);
-    expect(sources).toContain("web");
-    expect(sources).toContain("lms");
-  });
-
-  it("GET /combined — filters by source=web", async () => {
-    storageMock.getAllAttempts.mockResolvedValue([dbAttemptResult]);
-    storageMock.getTests.mockResolvedValue([{ id: "test1", title: "Test 1" }]);
-    storageMock.getUser
-      .mockResolvedValueOnce(authorUser)
-      .mockResolvedValueOnce({ id: "u1", name: "User", email: "u@test.com" });
-    const res = await asAuthor(request(app).get("/api/analytics/combined?source=web"));
-    expect(res.status).toBe(200);
-    const sources = res.body.attempts.map((a: any) => a.source);
-    expect(sources.every((s: string) => s === "web")).toBe(true);
-  });
-
-  it("GET /combined — filters by source=lms", async () => {
-    storageMock.getAllScormAttempts.mockResolvedValue([finishedScormAttempt]);
-    storageMock.getScormPackages.mockResolvedValue([dbPkg]);
-    const res = await asAuthor(request(app).get("/api/analytics/combined?source=lms"));
-    expect(res.status).toBe(200);
-    const sources = res.body.attempts.map((a: any) => a.source);
-    expect(sources.every((s: string) => s === "lms")).toBe(true);
-  });
-
-  it("GET /combined — returns 401 when not authenticated", async () => {
-    const res = await request(app).get("/api/analytics/combined");
-    expect(res.status).toBe(401);
   });
 });
