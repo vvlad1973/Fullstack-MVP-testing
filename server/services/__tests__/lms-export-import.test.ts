@@ -112,8 +112,23 @@ function storageStub(externalKeys: Record<string, string> = {}) {
   const batches: unknown[] = [];
   const attempts: unknown[] = [];
   const answers: unknown[][] = [];
+  /** Номера версий, о которых спрашивали: партия обязана спрашивать каждую по разу. */
+  const snapshotLookups: number[] = [];
   return {
-    batches, attempts, answers,
+    batches, attempts, answers, snapshotLookups,
+    // PRD-56 FR-19a: у теста одна опубликованная версия — третья.
+    getSnapshotByVersion: async (_testId: string, version: number) => {
+      snapshotLookups.push(version);
+      return version === 3 ? { id: "snap-3", testId: "t1", version } : undefined;
+    },
+    // Раздел с набором форм (PRD-17): по нему вариант и находит свою тему.
+    getTestSections: async () => [{
+      id: "s1", testId: "t1", topicId: "t1",
+      formSetJson: { forms: [
+        { id: "form-a", label: "Форма A", questionIds: ["q1"] },
+        { id: "form-b", label: "Форма B", questionIds: ["q1"] },
+      ] },
+    }],
     getUserByExternalKey: async (key: string) => {
       const id = externalKeys[String(key).trim().toLowerCase()];
       return id ? { id } : undefined;
@@ -218,5 +233,60 @@ describe("runImport", () => {
     const noDate = { ...book, rows: [{ ...book.rows[0], moduleActivatedAt: "" }] };
     const res = await runImport(noDate as never, ON, ctx, storageStub() as never);
     expect(res).toMatchObject({ rowsTotal: 1, rowsCreated: 0, rowsSkipped: 1 });
+  });
+});
+
+describe("runImport — версия публикации и варианты (PRD-56 FR-19a)", () => {
+  /** Строка выгрузки, сообщившая версию и выданные варианты. */
+  const withMeta = (testVersion: number | null, formIds: string[]) => ({
+    ...book,
+    rows: [{ ...book.rows[0], testVersion, formIds }],
+  });
+
+  it("номер версии превращается в снимок и пишется на прохождение", async () => {
+    const s = storageStub();
+    await runImport(withMeta(3, []) as never, ON, ctx, s as never);
+    expect(s.attempts[0]).toMatchObject({ snapshotId: "snap-3" });
+  });
+
+  it("версия спрашивается ОДИН раз на партию, а не на строку", async () => {
+    // В файле тысячи прохождений и три-четыре версии: запрос на строку превратил бы загрузку
+    // в тысячу обращений к базе.
+    const s = storageStub();
+    const many = { ...book, rows: [0, 1, 2].map((i) => ({
+      ...book.rows[0], participantName: `Иванов ${i}`, testVersion: 3, formIds: [],
+    })) };
+    await runImport(many as never, ON, ctx, s as never);
+    expect(s.snapshotLookups).toEqual([3]);
+  });
+
+  it("версия, которой у теста нет, оставляет прохождение без версии и предупреждает", async () => {
+    const s = storageStub();
+    const res = await runImport(withMeta(99, []) as never, ON, ctx, s as never);
+    expect(s.attempts[0]).toMatchObject({ snapshotId: null });
+    expect(res.warnings.join()).toContain("99");
+  });
+
+  it("прохождение пакета прошлой сборки идёт без версии и без запроса", async () => {
+    const s = storageStub();
+    await runImport(book as never, ON, ctx, s as never);
+    expect(s.attempts[0]).toMatchObject({ snapshotId: null });
+    expect(s.snapshotLookups).toEqual([]);
+  });
+
+  it("варианты разворачиваются в карту «тема -> вариант» по разделам теста", async () => {
+    // Выгрузка знает только идентификаторы форм; тему им возвращает набор форм раздела —
+    // так `forms_json` импорта совпадает по форме с телеметрией и с вебом.
+    const s = storageStub();
+    await runImport(withMeta(3, ["form-a"]) as never, ON, ctx, s as never);
+    expect(s.attempts[0]).toMatchObject({ formsJson: { t1: "form-a" } });
+  });
+
+  it("вариант, которого в тесте больше нет, предупреждает, но не роняет загрузку", async () => {
+    const s = storageStub();
+    const res = await runImport(withMeta(3, ["form-zzz"]) as never, ON, ctx, s as never);
+    expect(res.rowsCreated).toBe(1);
+    expect(s.attempts[0]).toMatchObject({ formsJson: null });
+    expect(res.warnings.join()).toContain("form-zzz");
   });
 });
