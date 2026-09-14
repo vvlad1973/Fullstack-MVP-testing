@@ -903,6 +903,36 @@ router.post("/tests/:testId/attempts/start-adaptive", requirePermission("attempt
       }
     }
 
+    /**
+     * PRD-55 (FR-26): накопленные выдачи за окно наблюдения.
+     *
+     * Читаются ОДНИМ запросом на попытку — как в обычной выдаче: тем у адаптивного теста
+     * бывает несколько, и запрос на тему превратил бы старт в пачку обращений к базе. Сбой
+     * чтения не имеет права ронять старт: без счётчиков веса равны, то есть выдача
+     * деградирует до прежней случайной (FR-17).
+     */
+    const topicIds = adaptiveSettings.map((settings) => settings.topicId);
+    const questionsByTopic = new Map<string, Question[]>();
+    for (const topicId of topicIds) {
+      questionsByTopic.set(
+        topicId,
+        (await src.getQuestionsByTopic(topicId))
+          .filter((question) => !excludedFromDelivery.has(question.id)),
+      );
+    }
+
+    let exposureCounts = new Map<string, number>();
+    try {
+      const windowStart = new Date();
+      windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
+      exposureCounts = await storage.getDeliveryCounts(
+        [...questionsByTopic.values()].flat().map((question) => question.id),
+        windowStart,
+      );
+    } catch (error) {
+      logger.warn("PRD-55: счётчики выдач не прочитаны — " + (error as Error).message);
+    }
+
     // Build adaptive variant
     const adaptiveTopics: any[] = [];
 
@@ -913,8 +943,7 @@ router.post("/tests/:testId/attempts/start-adaptive", requirePermission("attempt
 
       if (topicLevels.length === 0) continue;
 
-      const allQuestions = (await src.getQuestionsByTopic(topicSettings.topicId))
-        .filter((question) => !excludedFromDelivery.has(question.id));
+      const allQuestions = questionsByTopic.get(topicSettings.topicId) ?? [];
       const levelsState: any[] = [];
 
       for (const level of topicLevels) {
@@ -925,8 +954,22 @@ router.post("/tests/:testId/attempts/start-adaptive", requirePermission("attempt
           return difficulty >= level.minDifficulty && difficulty <= level.maxDifficulty;
         });
 
-        const shuffled = levelQuestions.sort(() => Math.random() - 0.5);
-        const selected = shuffled.slice(0, level.questionsCount);
+        /**
+         * PRD-55 (FR-12): вес считается ВНУТРИ пула отбора — здесь это полоса трудности
+         * уровня. Шкала сравнительная: она отвечает на «какое из ЭТИХ заданий выдавалось
+         * реже», и горячее задание лёгкого уровня не имеет права отодвинуть свежее задание
+         * сложного — они никогда не конкурируют между собой.
+         *
+         * До этого уровень отбирался `sort(() => Math.random() - 0.5)`: и поправки не знал,
+         * и перестановку давал неравномерную. Банк уровня узок — полоса трудности отсекает
+         * большую часть темы, — поэтому выработка головы здесь заметнее, чем в обычной выдаче.
+         */
+        const selected = weightedPick(
+          levelQuestions,
+          level.questionsCount,
+          computeWeights(levelQuestions.map((q) => q.id), exposureCounts),
+          Math.random,
+        );
         // PRD-30 §6.3: ordering applies INSIDE the level — which questions the
         // level got (the random pick above) and the order of the levels
         // themselves are not touched.

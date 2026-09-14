@@ -6,6 +6,10 @@
  * Статистическая проверка здесь неизбежна: отбор остаётся случайным, и утверждать можно только
  * распределение. Зато она проверяет ровно то, ради чего задача существует, — что горячее задание
  * выпадает реже, но НЕ исчезает: предел отношения весов на то и заведён.
+ *
+ * Оба режима выдачи проверяются здесь. Адаптивный собирает уровни своим обработчиком, мимо
+ * `drawSection`, и поправка туда сначала не доехала вовсе: банк уровня вырабатывался головой,
+ * а хвост не показывался никогда — ровно та беда, ради которой PRD-55 и затевался.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
@@ -170,5 +174,110 @@ describe("старт попытки учитывает экспозицию", ()
 
     expect(res.status).toBe(201);
     expect(deliveredIds()).toHaveLength(1);
+  });
+});
+
+describe("адаптивный старт учитывает экспозицию", () => {
+  /** Задание с трудностью: уровень отбирает по её полосе. */
+  const qd = (id: string, difficulty: number) => ({ ...q(id), difficulty });
+
+  /** Id заданий уровня — то, что маршрут записал в вариант адаптивной попытки. */
+  function levelIds(callIndex = 0): string[] {
+    const variant = storageMock.createAttempt.mock.calls[callIndex][0].variantJson as {
+      topics: Array<{ levelsState: Array<{ questionIds: string[] }> }>;
+    };
+    return variant.topics[0].levelsState[0].questionIds;
+  }
+
+  beforeEach(() => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive" });
+    storageMock.getTestSections.mockResolvedValue([{ topicId: "t1", drawCount: 1 }]);
+    storageMock.getAdaptiveTopicSettingsByTest.mockResolvedValue([{ topicId: "t1" }]);
+    storageMock.getAdaptiveLevelsByTest.mockResolvedValue([
+      {
+        topicId: "t1", levelIndex: 0, levelName: "Единственный",
+        minDifficulty: 0, maxDifficulty: 100, questionsCount: 1,
+        passThreshold: 70, passThresholdType: "percent",
+      },
+    ]);
+    storageMock.getQuestionsByTopic.mockResolvedValue([qd("hot", 50), qd("fresh", 50)]);
+  });
+
+  it("читает счётчики ОДИН раз за попытку, по заданиям тем", async () => {
+    const res = await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+
+    expect(res.status).toBe(201);
+    expect(storageMock.getDeliveryCounts).toHaveBeenCalledTimes(1);
+    const [questionIds, since] = storageMock.getDeliveryCounts.mock.calls[0];
+    expect([...questionIds].sort()).toEqual(["fresh", "hot"]);
+    expect(since).toBeInstanceOf(Date);
+  });
+
+  it("горячее задание выпадает реже свежего, но не исчезает", async () => {
+    storageMock.getDeliveryCounts.mockResolvedValue(new Map([["hot", 100], ["fresh", 0]]));
+
+    const RUNS = 120;
+    for (let i = 0; i < RUNS; i += 1) {
+      await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+    }
+
+    let fresh = 0;
+    for (let i = 0; i < RUNS; i += 1) {
+      if (levelIds(i)[0] === "fresh") fresh += 1;
+    }
+    // Те же границы, что у обычной выдачи: ниже — поправка не работает, выше — выродилась
+    // в детерминированный обход банка.
+    expect(fresh).toBeGreaterThan(RUNS * 0.6);
+    expect(fresh).toBeLessThan(RUNS * 0.95);
+  }, 30000);
+
+  it("без накопленных данных выдача уровня остаётся равномерной", async () => {
+    storageMock.getDeliveryCounts.mockResolvedValue(new Map());
+
+    const RUNS = 120;
+    for (let i = 0; i < RUNS; i += 1) {
+      await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+    }
+
+    let hot = 0;
+    for (let i = 0; i < RUNS; i += 1) {
+      if (levelIds(i)[0] === "hot") hot += 1;
+    }
+    expect(hot).toBeGreaterThan(RUNS * 0.35);
+    expect(hot).toBeLessThan(RUNS * 0.65);
+  }, 30000);
+
+  it("вес считается ВНУТРИ уровня, а не по всей теме", async () => {
+    // Полосы трудности не пересекаются: горячее задание нижнего уровня не имеет права
+    // отодвинуть свежее задание верхнего — они никогда не конкурируют между собой.
+    storageMock.getAdaptiveLevelsByTest.mockResolvedValue([
+      {
+        topicId: "t1", levelIndex: 0, levelName: "Лёгкий", minDifficulty: 0, maxDifficulty: 40,
+        questionsCount: 1, passThreshold: 70, passThresholdType: "percent",
+      },
+      {
+        topicId: "t1", levelIndex: 1, levelName: "Сложный", minDifficulty: 60, maxDifficulty: 100,
+        questionsCount: 1, passThreshold: 70, passThresholdType: "percent",
+      },
+    ]);
+    storageMock.getQuestionsByTopic.mockResolvedValue([qd("easy", 20), qd("hard", 80)]);
+    storageMock.getDeliveryCounts.mockResolvedValue(new Map([["easy", 500], ["hard", 0]]));
+
+    await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+
+    const variant = storageMock.createAttempt.mock.calls[0][0].variantJson as {
+      topics: Array<{ levelsState: Array<{ questionIds: string[] }> }>;
+    };
+    expect(variant.topics[0].levelsState[0].questionIds).toEqual(["easy"]);
+    expect(variant.topics[0].levelsState[1].questionIds).toEqual(["hard"]);
+  });
+
+  it("сбой чтения счётчиков не роняет адаптивный старт", async () => {
+    storageMock.getDeliveryCounts.mockRejectedValue(new Error("база недоступна"));
+
+    const res = await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+
+    expect(res.status).toBe(201);
+    expect(levelIds()).toHaveLength(1);
   });
 });

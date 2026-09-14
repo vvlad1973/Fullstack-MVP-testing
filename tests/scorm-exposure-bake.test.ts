@@ -85,3 +85,41 @@ describe("вес экспозиции в TEST_DATA", () => {
     expect(questionsOf(baked)[1].exposureWeight).toBeCloseTo(2.5, 10);
   });
 });
+
+describe("вес экспозиции у адаптивного теста", () => {
+  /** Вопросы адаптивной темы запечённого TEST_DATA. */
+  const adaptiveQuestions = (baked: any, topicIndex = 0) =>
+    baked.adaptiveTopics[topicIndex].questions;
+
+  const adaptiveFixture = (counts?: Map<string, number>) => ({
+    test: { ...baseTest, mode: "adaptive" },
+    sections: [section("s1", "t1", [q("a"), q("b")])],
+    adaptiveSettings: {
+      topicSettings: [{ topicId: "t1" }],
+      levels: [{
+        id: "l1", topicId: "t1", levelIndex: 0, levelName: "Единственный",
+        minDifficulty: 0, maxDifficulty: 100, questionsCount: 1,
+        passThreshold: 70, passThresholdType: "percent", links: [],
+      }],
+    },
+    ...(counts ? { exposureCounts: counts } : {}),
+  }) as never;
+
+  it("вес уезжает и в адаптивные темы: уровень отбирает из ТЕХ ЖЕ заданий", () => {
+    // Рантайм пакета собирает уровень из `adaptiveTopics[].questions`, а не из `sections[]`:
+    // без веса в этом списке поправка в адаптивном пакете не работает вовсе.
+    const baked = bake(adaptiveFixture(new Map([["a", 100], ["b", 0]])));
+
+    const [a, b] = adaptiveQuestions(baked);
+    expect(a).not.toHaveProperty("exposureWeight");
+    expect(b.exposureWeight).toBe(4);
+  });
+
+  it("без счётчиков поле не появляется — пакет прежнего теста байт-в-байт тот же", () => {
+    const baked = bake(adaptiveFixture());
+
+    for (const item of adaptiveQuestions(baked)) {
+      expect(item).not.toHaveProperty("exposureWeight");
+    }
+  });
+});

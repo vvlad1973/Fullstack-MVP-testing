@@ -17,8 +17,27 @@ function initAdaptiveTest() {
         return q.difficulty >= level.minDifficulty && q.difficulty <= level.maxDifficulty;
       });
 
-      // Shuffle and select questionsCount
-      var selectedQuestions = shuffle(eligibleQuestions.slice()).slice(0, level.questionsCount);
+      /**
+       * PRD-55 (FR-28): отбор ВЗВЕШЕН по экспозиции, а не случаен.
+       *
+       * Счётчиков у пакета нет — вес запечён в `TEST_DATA` на момент сборки (`exposureWeight`),
+       * нормированный по теме; отсутствие поля означает единицу, то есть прежнее поведение для
+       * пакетов, собранных до внедрения (FR-30). Шкала сравнительная, поэтому внутри полосы
+       * трудности уровня отношение весов работает так же, как в разделе обычного теста.
+       *
+       * Здесь была тасовка всего пула: уровень не знал поправки вовсе, и его узкий банк —
+       * полоса трудности отсекает большую часть темы — вырабатывался головой.
+       */
+      var levelWeights = new Map();
+      eligibleQuestions.forEach(function (q) {
+        levelWeights.set(q.id, q.exposureWeight === undefined ? 1 : q.exposureWeight);
+      });
+      var selectedQuestions = weightedPick(
+        eligibleQuestions.slice(),
+        level.questionsCount,
+        levelWeights,
+        Math.random,
+      );
       
       return {
         levelIndex: level.levelIndex,
