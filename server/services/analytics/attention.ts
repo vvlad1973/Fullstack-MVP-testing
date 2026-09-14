@@ -34,7 +34,10 @@ export interface AttentionItem {
   observationId?: string;
   /** Срок назначения — только у «срок истёк». */
   dueAt?: Date;
-  /** Когда начата брошенная попытка. */
+  /**
+   * Когда человек проходил тест. Есть у каждого дела, у которого есть прохождение: колонка
+   * «когда» пуста только там, где события ещё не было — у просроченного назначения.
+   */
   startedAt?: Date;
 }
 
@@ -114,12 +117,13 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
       participant: latest.participant,
       testId: latest.testId,
       observationId: latest.id,
+      startedAt: latest.startedAt,
     };
 
     if (latest.outcome === "incomplete") {
       // Идущая сейчас попытка — работа, а не дело: человек мог отойти на обед.
       if (now.getTime() - latest.startedAt.getTime() >= ABANDONED_AFTER_MS) {
-        items.push({ ...base, kind: "abandoned", startedAt: latest.startedAt });
+        items.push({ ...base, kind: "abandoned" });
       }
       continue;
     }

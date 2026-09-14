@@ -9,6 +9,8 @@
 import { useState } from "react";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
+import { SliceList } from "@/features/analytics/slices/slice-list";
+import { AttentionQueue } from "@/features/analytics/attention/attention-queue";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
@@ -1376,6 +1378,8 @@ export default function AnalyticsPage() {
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
   /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
+  /** PRD-56 FR-06a: ось разбиения срезов. Пустая — показываются сохранённые срезы. */
+  const [sliceAxis, setSliceAxis] = useState<string>("group");
 
   const queryParams = new URLSearchParams({ source });
   if (testId !== "all") queryParams.append("testId", testId);
@@ -1819,6 +1823,52 @@ export default function AnalyticsPage() {
                 </CardBody>
               </Card>
             ),
+          },
+          {
+            id: "slices",
+            label: "Срезы",
+            content: (
+              <Card>
+                <CardHeader
+                  title="Срезы прохождений"
+                  subtitle={
+                    testId === "all"
+                      ? "Выберите тест на вкладке «Обзор»: средние считаются внутри одного теста"
+                      : "Кого учили и с каким результатом · за всё время"
+                  }
+                  trail={
+                    <Select
+                      size="s"
+                      value={sliceAxis}
+                      onChange={(value) => setSliceAxis(String(value))}
+                      options={[
+                        { value: "group", label: "По группам" },
+                        { value: "period", label: "По месяцам" },
+                        { value: "attempt", label: "По номеру попытки" },
+                        { value: "version", label: "По версии публикации" },
+                        { value: "variant", label: "По варианту выдачи" },
+                        { value: "source", label: "По источнику" },
+                        { value: "external", label: "Внутренние и внешние" },
+                      ]}
+                    />
+                  }
+                />
+                <CardBody>
+                  {testId === "all" ? (
+                    <Text tone="muted">
+                      Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы.
+                    </Text>
+                  ) : (
+                    <SliceList testId={testId} axis={sliceAxis} />
+                  )}
+                </CardBody>
+              </Card>
+            ),
+          },
+          {
+            id: "attention",
+            label: "Требует внимания",
+            content: <AttentionQueue />,
           },
           {
             id: "export",

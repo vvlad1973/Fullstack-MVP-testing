@@ -176,4 +176,15 @@ describe("buildAttentionQueue", () => {
 
     expect(countAttention(queue)).toEqual({ overdue: 1, failed: 1, abandoned: 0, exhausted: 0 });
   });
+
+  it("несёт дату прохождения у всех дел, где прохождение есть", () => {
+    // Колонка «Когда» пуста только там, где события ещё не было: у просроченного назначения
+    // это срок, у остальных — когда человек проходил тест.
+    const queue = buildAttentionQueue(input({
+      observations: [observation({ startedAt: hoursAgo(100) })],
+      attemptLimits: new Map([["test1", 3]]),
+    }));
+
+    expect(queue[0].startedAt).toEqual(hoursAgo(100));
+  });
 });
