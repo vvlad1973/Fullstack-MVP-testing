@@ -330,6 +330,35 @@ var Telemetry = (function() {
     }
   }
 
+  /**
+   * PRD-56 FR-19a: версия публикации, из снимка которой собран пакет.
+   *
+   * `null` у пакета, собранного до этой работы, и у пакета черновика: прохождение тогда идёт
+   * в разрез «версия не указана», а не приписывается текущей версии теста.
+   */
+  function publicationVersion() {
+    try {
+      return (typeof TEST_DATA !== 'undefined' && TEST_DATA.publicationVersion) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * PRD-56 FR-18: выданные варианты (PRD-17) картой «тема -> вариант».
+   *
+   * Читается `state.deliveredForms`, который заполняет `generateVariant()` — он же вызывается
+   * ПЕРЕД `Telemetry.start()` в обоих местах `startPage.js`, поэтому карта уже готова. У теста
+   * без вариантов она пуста, и это правда о выдаче, а не потеря данных.
+   */
+  function deliveredForms() {
+    try {
+      return (typeof state !== 'undefined' && state.deliveredForms) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
   function getLmsUserData() {
     var data = {
       lmsUserId: null,
@@ -424,6 +453,11 @@ var Telemetry = (function() {
 
       var data = getLmsUserData();
       data.deliveredQuestionIds = deliveredQuestionIds();
+      // PRD-56 FR-19a/FR-18: версия публикации и выданные варианты уезжают ВМЕСТЕ с началом
+      // попытки — то и другое известно ровно здесь, после сборки варианта, и ни `answer`, ни
+      // `finish` о составе выдачи не говорят.
+      data.publicationVersion = publicationVersion();
+      data.deliveredForms = deliveredForms();
       send('/api/scorm-telemetry/start', data);
     },
 
@@ -437,6 +471,9 @@ var Telemetry = (function() {
 
       var data = getLmsUserData();
       data.deliveredQuestionIds = deliveredQuestionIds();
+      // Новая попытка — новый состав выдачи: вариант пересобирается, версия та же.
+      data.publicationVersion = publicationVersion();
+      data.deliveredForms = deliveredForms();
       send('/api/scorm-telemetry/start', data);
     },
 
@@ -478,7 +515,14 @@ var Telemetry = (function() {
         totalQuestions: results.totalQuestions,
         correctAnswers: results.correct,
         achievedLevels: results.achievedLevels || null,
-        failedTopicCourses: results.failedTopicCourses || null
+        failedTopicCourses: results.failedTopicCourses || null,
+        // PRD-56 FR-21: значения шкал и показателей прохождения. Формы те же, в каких их
+        // пишет импорт выгрузки (PRD-54): шкалы — «ключ -> число», показатели — «имя ->
+        // строка», чтобы у одной величины не оказалось двух представлений в одной колонке.
+        // Подпись уровня не шлётся: её считает сервер по полосам самой шкалы, иначе два
+        // источника дали бы разные уровни на одном значении.
+        scales: results.scales || null,
+        variables: results.variables || null
       });
     },
 
