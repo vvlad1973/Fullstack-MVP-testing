@@ -109,6 +109,8 @@ interface TestAnalytics {
     }>;
     /** PRD-55 (FR-31): попытки за окно наблюдения, считая брошенные, — знаменатель доли выдачи. */
     exposureAttempts?: number;
+    /** PRD-56 FR-13a: проходной балл в процентах; `null` — тест не оценивает или порог в баллах. */
+    thresholdPercent: number | null;
     questionStats: Array<{
         questionId: string;
         questionPrompt: string;
@@ -471,16 +473,13 @@ export default function TestAnalyticsPage() {
     const { summary, topicStats, questionStats, levelStats, scoreDistribution, passTrend } = analytics;
 
     /**
-     * Проходной балл в процентах — подпись гистограммы и её цвета.
+     * Проходной балл в процентах — подпись гистограммы и место её вертикали.
      *
-     * Берётся из корзин: их красит сервер, и та, что держит порог, знает его границу. Считать
-     * порог второй раз на клиенте значило бы завести второй источник правды о нём.
+     * Приходит числом с сервера. Выводить его из раскраски корзин (как было до приёмки Э4)
+     * можно лишь при пороге, кратном их ширине: при 75 % такой вывод давал «порог 70 %» и
+     * ставил вертикаль на границу столбиков вместо её настоящего места.
      */
-    const thresholdPercent = scoreDistribution.some(bucket => bucket.tone !== "neutral")
-        ? scoreDistribution.find(bucket => bucket.holdsThreshold)?.from
-            ?? scoreDistribution.find(bucket => bucket.tone === "success")?.from
-            ?? null
-        : null;
+    const thresholdPercent = analytics.thresholdPercent ?? null;
 
     const overviewPanel = (
         <Stack gap={5}>

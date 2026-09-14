@@ -421,6 +421,14 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       testMode: test.mode,
       // The test's half of the PRD-29 §6.7 rule (see `summary` above).
       hasPassThreshold: thresholdDeclared,
+      /**
+       * PRD-56 FR-13a: проходной балл В ПРОЦЕНТАХ — число, а не граница корзины.
+       *
+       * Выводить его на клиенте из раскраски столбиков можно только при пороге, кратном их
+       * ширине: при 75 % такой вывод давал «порог 70 %» и ставил вертикаль на границу,
+       * а не на её место. `null` — тест не оценивает либо порог задан в баллах.
+       */
+      thresholdPercent: thresholdPercentOfTest(test),
       summary,
       topicStats,
       questionStats,

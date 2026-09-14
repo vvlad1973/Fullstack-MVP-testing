@@ -110,6 +110,18 @@ describe("GET /api/analytics/tests/:testId — блоки экрана", () => {
     expect(buckets.find(b => b.label === "90–100")?.tone).toBe("success");
   });
 
+  it("называет проходной балл числом, а не границей корзины", async () => {
+    // Приёмка Э4: клиент выводил порог из `from` жёлтой корзины и подписывал «порог 70 %»
+    // там, где он 75 — вертикаль вставала на границе, а не на своём месте.
+    storageMock.getTest.mockResolvedValue({
+      ...TEST, overallPassRuleJson: { type: "percent", value: 75 },
+    });
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    expect(res.body.thresholdPercent).toBe(75);
+  });
+
   it("не рисует порога, заданного в баллах", async () => {
     // Сколько это процентов — зависит от достижимых баллов прохождения, а они у разных
     // вариантов выдачи разные: одна вертикаль показала бы линию, которой ни для кого нет.

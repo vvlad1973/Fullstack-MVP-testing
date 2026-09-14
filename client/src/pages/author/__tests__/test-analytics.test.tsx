@@ -43,6 +43,7 @@ const baseSummary = () => ({
 const standardAnalytics = () => ({
   testId: "t1", testTitle: "Тест по финансам", testMode: "standard" as const,
   summary: baseSummary(),
+  thresholdPercent: 70,
   topicStats: [
     {
       topicId: "top1", topicName: "Бюджет",
