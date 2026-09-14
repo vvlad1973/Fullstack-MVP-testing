@@ -6,6 +6,11 @@
  * (`Telemetry.finish`) и серверный маршрут. Каждый расширяется одной строкой, и ни один тест
  * этого не заметит: пакет продолжит работать, просто в БД поедет то, чего спека запретила.
  * Поэтому здесь пришпилен ПОЛНЫЙ состав полезной нагрузки, а не отсутствие слова «breakdown».
+ *
+ * 2026-09-14, PRD-56 FR-21 (решение владельца): состав РАСШИРЕН на `scales` и `variables` —
+ * до этого живая телеметрия значений шкал не сообщала вовсе, и профиль по шкалам видел
+ * опросник, пройденный в вебе и загруженный книгой, но не тот, что прошли в LMS. Запрет
+ * FR-41 это не отменяет: он о записях РАЗРЕЗА (PRD-50), которых здесь по-прежнему нет.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -18,7 +23,7 @@ const literalKeys = (block: string) =>
   [...block.matchAll(/^\s*([A-Za-z_][\w]*)\s*:/gm)].map((m) => m[1]);
 
 describe("FR-41: состав телеметрии финиша зафиксирован", () => {
-  it("модуль телеметрии шлёт ровно восемь полей", () => {
+  it("модуль телеметрии шлёт ровно десять полей", () => {
     const src = read("server/scorm/template/app/telemetry/telemetry.js");
     // Ровно как в исходнике: `finish: function(results) {`, без пробела перед скобкой.
     const body = src.match(/finish: function\(results\) \{[\s\S]*?\n {4}\},/)?.[0];
@@ -26,20 +31,22 @@ describe("FR-41: состав телеметрии финиша зафиксир
     expect(literalKeys(body!.slice(body!.indexOf("{", body!.indexOf("send("))))).toEqual([
       "percent", "passed", "earnedPoints", "possiblePoints",
       "totalQuestions", "correctAnswers", "achievedLevels", "failedTopicCourses",
+      "scales", "variables",
     ]);
   });
 
-  it("вызывающий собирает ровно восемь полей", () => {
+  it("вызывающий собирает ровно десять полей", () => {
     const src = read("server/scorm/template/app/render/resultsPage.js");
     const body = src.match(/Telemetry\.finish\(\{[\s\S]*?\n {2}\}\);/)?.[0];
     expect(body).toBeTruthy();
     expect(literalKeys(body!)).toEqual([
       "percent", "passed", "earnedPoints", "possiblePoints",
       "totalQuestions", "correct", "achievedLevels", "failedTopicCourses",
+      "scales", "variables",
     ]);
   });
 
-  it("маршрут финиша пишет ровно десять колонок и ни одной под разрез", () => {
+  it("маршрут финиша пишет ровно двенадцать колонок и ни одной под разрез", () => {
     const src = read("server/routes/scorm-telemetry.ts");
     // Якорь по `finishedAt:` обязателен: в файле есть ещё два вызова
     // `updateScormAttempt(attempt.id, { … })`, и без якоря ленивый разбор уезжает в них.
@@ -48,7 +55,7 @@ describe("FR-41: состав телеметрии финиша зафиксир
     expect(literalKeys(body!)).toEqual([
       "finishedAt", "lastActivityAt", "resultPercent", "resultPassed", "totalPoints",
       "maxPoints", "totalQuestions", "correctAnswers", "achievedLevelsJson",
-      "failedTopicCoursesJson",
+      "failedTopicCoursesJson", "scalesJson", "variablesJson",
     ]);
   });
 });

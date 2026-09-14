@@ -30,6 +30,8 @@ const { storageMock } = vi.hoisted(() => ({
     // PRD-15 block D: effective-scoring chain sources (no overrides by default).
     getTestSections: vi.fn().mockResolvedValue([]),
     getTestQuestionScoring: vi.fn().mockResolvedValue([]),
+    // PRD-56 FR-21: признак «у теста есть шкалы» для вкладки «Шкалы».
+    getScales: vi.fn().mockResolvedValue([]),
     // Object-level scope resolution (author owner/grant paths).
     getTestGrantForUser: vi.fn().mockResolvedValue(undefined),
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),

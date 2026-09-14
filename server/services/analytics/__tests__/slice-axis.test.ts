@@ -32,7 +32,7 @@ function observation(over: Partial<Observation> = {}): Observation {
     outcome: "passed",
     adaptive: false,
     snapshotId: null,
-    formId: null,
+    forms: {},
     ...over,
   };
 }
@@ -45,6 +45,7 @@ const context: AxisContext = {
   groupNames: new Map([["g1", "Отдел продаж"], ["g2", "Розница"]]),
   externalParticipants: new Set(["u2"]),
   snapshotVersions: new Map([["snap-1", 3]]),
+  formLabels: new Map([["form-A", "Форма A"], ["form-B", "Форма B"]]),
 };
 
 describe("splitByAxis", () => {
@@ -128,19 +129,32 @@ describe("splitByAxis", () => {
     );
   });
 
-  it("разбивает по варианту выдачи", () => {
+  it("разбивает по варианту выдачи и называет его словами автора", () => {
+    // Идентификатор формы — uuid: подписать им срез значит не подписать его вовсе.
     const buckets = splitByAxis(
       [
-        observation({ id: "a", formId: "form-A" }),
-        observation({ id: "b", formId: null }),
+        observation({ id: "a", forms: { "topic-1": "form-A" } }),
+        observation({ id: "b", forms: {} }),
       ],
       "variant",
       context,
     );
 
     expect(buckets.map(b => b.label)).toEqual(
-      expect.arrayContaining(["Вариант form-A", "Без варианта"]),
+      expect.arrayContaining(["Форма A", "Без варианта"]),
     );
+  });
+
+  it("прохождение попадает в строку КАЖДОГО своего варианта", () => {
+    // У теста с двумя наборами форм вариантов у прохождения два — как групп у участника.
+    const buckets = splitByAxis(
+      [observation({ id: "a", forms: { "topic-1": "form-A", "topic-2": "form-B" } })],
+      "variant",
+      context,
+    );
+
+    expect(buckets.map(b => b.label).sort()).toEqual(["Форма A", "Форма B"]);
+    expect(buckets.every(b => b.observations.length === 1)).toBe(true);
   });
 
   it("разбивает по источнику", () => {

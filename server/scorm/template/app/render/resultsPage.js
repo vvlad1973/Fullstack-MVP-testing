@@ -176,6 +176,42 @@ function buildResultVarInteractions(computation) {
   return out;
 }
 
+/**
+ * Значения шкал прохождения для телеметрии — «ключ -> число» (PRD-56 FR-21).
+ *
+ * Та же форма, в какой их пишет импорт выгрузки в `scorm_attempts.scales_json` (PRD-54): у
+ * одной величины не должно оказаться двух представлений в одной колонке. Шкала без значения
+ * (ни один её вопрос не отвечен) ключа не получает — ноль означал бы измеренный ноль.
+ */
+function telemetryScaleValues(scaleComputation) {
+  var out = {};
+  var values = (scaleComputation && scaleComputation.values) || {};
+  for (var key in values) {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
+    var v = values[key];
+    if (v && v.hasValue && typeof v.raw === 'number') out[key] = v.raw;
+  }
+  return out;
+}
+
+/**
+ * Значения показателей прохождения для телеметрии — «имя -> строка» (PRD-56 FR-21).
+ *
+ * Строкой, а не числом: показатель бывает и числом, и кодом исхода, и выгрузка хранит его
+ * так же. Непосчитанный показатель ключа не получает.
+ */
+function telemetryVariableValues(resultComputation) {
+  var out = {};
+  var values = (resultComputation && resultComputation.values) || {};
+  for (var name in values) {
+    if (!Object.prototype.hasOwnProperty.call(values, name)) continue;
+    var value = values[name];
+    if (value === null || value === undefined) continue;
+    out[name] = String(value);
+  }
+  return out;
+}
+
 function pushAll(target, items) {
   for (var i = 0; i < items.length; i++) target.push(items[i]);
 }
@@ -253,7 +289,12 @@ function finishAndClose() {
     totalQuestions: results.totalQuestions,
     correct: results.correct,
     achievedLevels: results.achievedLevels || null,
-    failedTopicCourses: failedTopicCourses
+    failedTopicCourses: failedTopicCourses,
+    // PRD-56 FR-21: шкалы и показатели этой попытки. Считаются выше по этому же пути
+    // (`results.scaleComputation` / `results.resultComputation`) — второго расчёта ради
+    // телеметрии не заводится.
+    scales: telemetryScaleValues(results.scaleComputation),
+    variables: telemetryVariableValues(results.resultComputation)
   });
 
   // ===== LMS: отправляем лучшую попытку с хаком если нужно =====
@@ -473,6 +514,8 @@ function finishScormAdaptive(results, passedForLms, resultComputation, scaleComp
   pushAll(interactions, buildResultVarInteractions(resultComputation));
   // Версия формата строк ответа: без неё разбор выгрузки не отличит новый формат от старого.
   interactions.push(buildResponseFormatInteraction());
+  // PRD-56 FR-19a: версия публикации и выданные варианты — о самом прохождении, а не о ответах.
+  pushAll(interactions, buildRunMetaInteractions());
 
   // A run with nothing to grade reports NO score (shared `lmsScoreFor`): «Пройден, 0 баллов»
   // is a verdict we mean and a number we do not.
@@ -1021,6 +1064,69 @@ function buildResponseFormatInteraction() {
 }
 
 /**
+ * Идентификаторы вариантов (PRD-17), выданных этому прохождению — по одному на раздел в
+ * режиме вариантов. Пустой список у теста без вариантов, и это не потеря данных.
+ *
+ * Читается `state.deliveredForms` — карта «тема -> вариант», которую заполняет
+ * `generateVariant()` и восстанавливает `sessionRecovery`: продолженный прогон сообщает тот
+ * же состав, что и непрерывный.
+ */
+function deliveredFormIds() {
+  try {
+    var map = (typeof state !== 'undefined' && state.deliveredForms) || {};
+    var out = [];
+    for (var topicId in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, topicId)) continue;
+      if (map[topicId]) out.push(map[topicId]);
+    }
+    return out;
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Служебные блоки о САМОМ прохождении: версия публикации и выданные варианты
+ * (PRD-56 FR-19a). Зеркало `shared/lms-export/meta.ts`, парность держит
+ * `tests/scorm-meta-blocks`.
+ *
+ * Блока НЕТ, когда сообщать нечего: у пакета черновика версии не существует, у теста без
+ * вариантов — вариантов. Пустая ячейка и отсутствующая колонка означают для разбора одно и
+ * то же «не сообщено», а выдуманный номер версии сделал бы разрез по версиям бесполезным
+ * ровно там, где он и нужен.
+ *
+ * `neutral`, как и прочие служебные блоки: правильного ответа тут нет.
+ */
+function buildRunMetaInteractions() {
+  var out = [];
+  var version = (typeof TEST_DATA !== 'undefined' && TEST_DATA.publicationVersion) || null;
+  if (version) {
+    out.push({
+      id: 'meta_test_version',
+      type: 'other',
+      result: 'neutral',
+      response: String(version),
+      correct: '',
+      description: 'Версия публикации теста'
+    });
+  }
+
+  var forms = deliveredFormIds();
+  if (forms.length > 0) {
+    out.push({
+      id: 'meta_variant',
+      type: 'other',
+      result: 'neutral',
+      response: forms.join(';'),
+      correct: '',
+      description: 'Выданные варианты'
+    });
+  }
+
+  return out;
+}
+
+/**
  * Time spent on this question as an ISO 8601 duration for `cmi.interactions.n.latency`.
  *
  * An empty string when the question was never shown (a run restored mid-way, a question the
@@ -1108,6 +1214,8 @@ function finishScormLmsOnly(results, passedForLms, resultComputation, scaleCompu
   pushAll(interactions, buildResultVarInteractions(resultComputation));
   // Версия формата строк ответа — тем же блоком, что и в адаптивном пути.
   interactions.push(buildResponseFormatInteraction());
+  // PRD-56 FR-19a: версия публикации и выданные варианты — тем же блоком, что и там.
+  pushAll(interactions, buildRunMetaInteractions());
 
   // A run with nothing to grade reports NO score — the same shared decision the adaptive
   // path makes, so the two finish paths cannot drift on what the LMS is told.

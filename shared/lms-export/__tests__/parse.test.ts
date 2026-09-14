@@ -117,3 +117,44 @@ describe("версия формата ответов", () => {
     expect(parseLmsExport(withVersion("2")).unknownColumns).toEqual([]);
   });
 });
+
+describe("версия публикации и выданные варианты (PRD-56 FR-19a)", () => {
+  /** Та же выгрузка плюс два служебных блока, как их шлёт пакет после этой работы. */
+  function withRunMeta(version: string, variant: string): string[][] {
+    const sheet = SHEET.map((r) => [...r]);
+    for (const id of ["meta_test_version", "meta_variant"]) {
+      sheet[0].push(id, "", "", "");
+      sheet[1].push("Тип", "Продолжительность (сек.)", "Результат", "Полученный ответ");
+    }
+    sheet[2].push("другое", "", "neutral", version);
+    sheet[2].push("другое", "", "neutral", variant);
+    return sheet;
+  }
+
+  it("версия публикации читается строкой", () => {
+    const [row] = parseLmsExport(withRunMeta("3", "")).rows;
+    expect(row.testVersion).toBe(3);
+  });
+
+  it("варианты читаются списком", () => {
+    const [row] = parseLmsExport(withRunMeta("3", "form-a;form-b")).rows;
+    expect(row.formIds).toEqual(["form-a", "form-b"]);
+  });
+
+  it("прохождение пакета прошлой сборки версии не знает", () => {
+    // Ни нуля, ни текущей версии: такое прохождение уйдёт в строку «Версия не указана».
+    const [row] = parseLmsExport(SHEET).rows;
+    expect(row.testVersion).toBeNull();
+    expect(row.formIds).toEqual([]);
+  });
+
+  it("пустые ячейки означают то же, что и отсутствие блоков", () => {
+    const [row] = parseLmsExport(withRunMeta("", "")).rows;
+    expect(row.testVersion).toBeNull();
+    expect(row.formIds).toEqual([]);
+  });
+
+  it("служебные блоки не попадают в неопознанные колонки", () => {
+    expect(parseLmsExport(withRunMeta("3", "form-a")).unknownColumns).toEqual([]);
+  });
+});

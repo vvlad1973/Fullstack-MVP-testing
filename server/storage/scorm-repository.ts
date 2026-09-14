@@ -41,6 +41,13 @@ export interface ImportedAttemptInput {
   totalQuestions: number | null;
   scalesJson: Record<string, number> | null;
   variablesJson: Record<string, string> | null;
+  /**
+   * PRD-56 FR-19a: версия публикации прохождения, разрешённая по номеру из выгрузки.
+   * `null` — пакет версии не сообщал либо снимка с таким номером у теста нет.
+   */
+  snapshotId: string | null;
+  /** PRD-56 FR-18: выданные варианты картой «тема -> вариант»; `null` — вариантов не было. */
+  formsJson: Record<string, string> | null;
 }
 
 /** Счётчики и протокол, которыми партия дополняется после прогона. */
@@ -189,6 +196,10 @@ export class ScormRepository {
           totalQuestions: data.totalQuestions,
           scalesJson: data.scalesJson,
           variablesJson: data.variablesJson,
+          // PRD-56: повторная загрузка того же файла обязана обновлять и версию с вариантом —
+          // иначе строка, загруженная пакетом прошлой сборки, навсегда осталась бы без версии.
+          snapshotId: data.snapshotId,
+          formsJson: data.formsJson,
         },
       })
       .returning({ id: scormAttempts.id });

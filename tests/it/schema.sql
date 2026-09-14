@@ -280,6 +280,8 @@ CREATE TABLE "scorm_attempts" (
 	"user_id" varchar(36),
 	"scales_json" jsonb,
 	"variables_json" jsonb,
+	"snapshot_id" varchar(36),
+	"forms_json" jsonb,
 	"lms_user_id" text,
 	"lms_user_name" text,
 	"lms_user_email" text,

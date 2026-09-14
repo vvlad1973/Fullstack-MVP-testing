@@ -42,6 +42,10 @@ export interface PlannedRow {
    * Живёт на СТРОКЕ, а не на файле: в одном отчёте бывают прохождения разных версий пакета.
    */
   responseFormat: number | null;
+  /** PRD-56 FR-19a: версия публикации прохождения; `null` — пакет её не сообщал. */
+  testVersion: number | null;
+  /** PRD-56 FR-18: идентификаторы выданных вариантов; тему им вернёт {@link runImport}. */
+  formIds: string[];
 }
 
 export interface ImportPlan {
@@ -110,6 +114,10 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
           : null,
       })),
       responseFormat: r.responseFormat ?? null,
+      // PRD-56 FR-19a/FR-18: разрешение версии в снимок и варианта в тему требует базы,
+      // поэтому план несёт их как есть, а превращает `runImport`.
+      testVersion: r.testVersion ?? null,
+      formIds: r.formIds ?? [],
     });
   }
 
@@ -166,6 +174,42 @@ export async function runImport(
     warnings.push(`Вопросы не из этого теста (${foreign.length}): пакет собран под другой версией.`);
   }
 
+  /**
+   * PRD-56 FR-19a: номера версий превращаются в снимки ОДНИМ разрешением на партию.
+   *
+   * В файле тысячи прохождений и три-четыре версии, поэтому спрашивается каждая версия, а не
+   * каждая строка. Версии, которой у теста нет (снимок подчищен, тест заведён заново), карта
+   * отдаёт `null`: такое прохождение идёт в разрез «версия не указана», а не приписывается
+   * текущей версии.
+   */
+  const snapshotByVersion = new Map<number, string | null>();
+  for (const version of new Set(plan.rows.map((r) => r.testVersion).filter((v): v is number => v !== null))) {
+    const snapshot = await storage.getSnapshotByVersion(ctx.testId, version);
+    snapshotByVersion.set(version, snapshot?.id ?? null);
+    if (!snapshot) {
+      warnings.push(
+        `Версия публикации ${version} у теста не найдена: такие прохождения загружены без версии.`,
+      );
+    }
+  }
+
+  /**
+   * PRD-56 FR-18: тема варианта по его идентификатору.
+   *
+   * Выгрузка знает только идентификаторы форм — тему им возвращает набор форм раздела, и тогда
+   * `forms_json` импорта совпадает по форме с телеметрией и с вебом. Форма читается ТОЛЬКО если
+   * в файле вообще есть варианты: у теста без них лишнего запроса не делается.
+   */
+  const topicByForm = new Map<string, string>();
+  if (plan.rows.some((r) => r.formIds.length > 0)) {
+    for (const section of await storage.getTestSections(ctx.testId)) {
+      for (const form of section.formSetJson?.forms ?? []) {
+        topicByForm.set(form.id, section.topicId);
+      }
+    }
+  }
+  const unknownForms = new Set<string>();
+
   let batchId: string | null = null;
   if (!dryRun) {
     const batch = await storage.createLmsImportBatch({
@@ -199,12 +243,24 @@ export async function runImport(
       }
     }
 
+    // Карта «тема -> вариант» этого прохождения. Форма, которой в тесте больше нет (раздел
+    // переведён на случайную выдачу), в карту не попадает и уходит в предупреждения: терять её
+    // молча нельзя, но и ронять из-за неё загрузку не за что.
+    const formsJson: Record<string, string> = {};
+    for (const formId of row.formIds) {
+      const topicId = topicByForm.get(formId);
+      if (topicId) formsJson[topicId] = formId;
+      else unknownForms.add(formId);
+    }
+
     if (dryRun) {
       rowsCreated += 1;
       continue;
     }
 
     const { id, created } = await storage.upsertImportedAttempt({
+      snapshotId: row.testVersion === null ? null : snapshotByVersion.get(row.testVersion) ?? null,
+      formsJson: Object.keys(formsJson).length > 0 ? formsJson : null,
       testId: ctx.testId,
       participantKey: row.participantKey,
       origin: "import",
@@ -253,6 +309,12 @@ export async function runImport(
           answeredAt: row.finishedAt,
         }];
       }),
+    );
+  }
+
+  if (unknownForms.size > 0) {
+    warnings.push(
+      `Варианты выдачи не найдены в тесте (${[...unknownForms].join(", ")}): раздел мог быть переведён на случайную выдачу.`,
     );
   }
 

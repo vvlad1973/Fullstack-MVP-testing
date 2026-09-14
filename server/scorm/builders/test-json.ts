@@ -82,6 +82,15 @@ interface DesignSettingsExport {
 
 interface ExportData {
   test: Test;
+  /**
+   * PRD-56 FR-19a: номер версии публикации (`test_snapshots.version`), из снимка которой
+   * собран пакет. Рантайм сообщает его телеметрией и служебным блоком отчёта LMS, так что
+   * прохождение из пакета попадает в свою версию, а не в текущую.
+   *
+   * Отсутствует у черновика и у отладочной сборки: версии у них нет, и пакет такого теста
+   * обязан остаться байт-в-байт прежним (FR-02).
+   */
+  publicationVersion?: number;
   sections: (TestSection & { topic: Topic; questions: Question[]; courses: TopicCourse[]; events: TopicEvent[] })[];
   /**
    * PRD-15 block D (FR-32): per-(test, question) scoring overrides. The bake
@@ -255,6 +264,11 @@ export function buildTestJson(data: ExportData): string {
     title: data.test.title,
     description: data.test.description,
     mode: data.test.mode || "standard",
+    // PRD-56 FR-19a: версия публикации, из снимка которой собран пакет. Печатается только
+    // когда ассемблер её дал (см. `publicationVersion` в `ExportData`).
+    ...(data.publicationVersion !== undefined
+      ? { publicationVersion: data.publicationVersion }
+      : {}),
     flowPolicy: exportedFlowPolicy,
     // PRD-30 FR-16/FR-23: the test-wide delivery order, and the default every
     // topic inherits. Baked only when it is not the default `random`, so packages

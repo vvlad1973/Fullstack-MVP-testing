@@ -10,6 +10,12 @@
  * строке идут подписи «Тип», «Продолжительность (сек.)», «Результат», «Полученный ответ».
  */
 import { RESPONSE_FORMAT_INTERACTION_ID } from "./response-codec";
+import {
+  TEST_VERSION_INTERACTION_ID,
+  VARIANT_INTERACTION_ID,
+  decodeVariantForms,
+  parseTestVersion,
+} from "./meta";
 import { parseExportSeconds } from "./duration";
 
 /** Ширина блока одного взаимодействия. */
@@ -53,6 +59,16 @@ export interface LmsExportRow {
    * версиями пакета — колонка тогда общая, а значение своё у каждого участника.
    */
   responseFormat: number | null;
+  /**
+   * Версия публикации теста, по которой шло прохождение (PRD-56 FR-19a); `null` — не сообщена.
+   *
+   * Постро́чно по той же причине, что и версия формата: в отчёте лежат прохождения, собранные
+   * пакетами разных версий. `null` уводит прохождение в разрез «версия не указана» — приписать
+   * его текущей версии значит сделать разрез слепым ровно там, где он и нужен.
+   */
+  testVersion: number | null;
+  /** Идентификаторы выданных вариантов (PRD-17); пустой список — вариантов не было. */
+  formIds: string[];
 }
 
 export interface LmsExportBook {
@@ -138,6 +154,8 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       scaleLevels: {},
       variables: {},
       responseFormat: null,
+      testVersion: null,
+      formIds: [],
     };
 
     for (const b of blocks) {
@@ -160,6 +178,11 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
         // Пустая ячейка = прохождение старого пакета в общей колонке: версии оно не сообщало.
         const n = Number(value);
         row.responseFormat = value !== "" && Number.isFinite(n) ? n : null;
+      } else if (b.id === TEST_VERSION_INTERACTION_ID) {
+        // PRD-56 FR-19a: пустая ячейка означает «не сообщено», а не текущую версию.
+        row.testVersion = parseTestVersion(value);
+      } else if (b.id === VARIANT_INTERACTION_ID) {
+        row.formIds = decodeVariantForms(value);
       }
     }
 

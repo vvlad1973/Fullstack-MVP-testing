@@ -154,13 +154,13 @@ describe("exportSourceForTest — SCORM from snapshot (FR-16)", () => {
     const frozen = await buildSnapshotContent("t1"); // pool q1,q2
     storageMock.getLatestSnapshot.mockResolvedValue({ id: "snap-1", contentJson: frozen });
     storageMock.getQuestionsByTopic.mockResolvedValue([q("q1", "h1"), q("q9", "h9")]); // live drifted
-    const src = await exportSourceForTest("t1");
+    const { src } = await exportSourceForTest("t1");
     expect((await src.getQuestionsByTopic("tp1")).map((x) => x.id)).toEqual(["q1", "q2"]);
   });
 
   it("exports a draft from live storage (no snapshot)", async () => {
     storageMock.getTest.mockResolvedValue({ id: "t1", mode: "standard", version: 1, status: "draft" });
-    const src = await exportSourceForTest("t1");
+    const { src } = await exportSourceForTest("t1");
     expect((await src.getQuestionsByTopic("tp1")).map((x) => x.id)).toEqual(["q1", "q2"]);
     expect(storageMock.getLatestSnapshot).not.toHaveBeenCalled();
   });

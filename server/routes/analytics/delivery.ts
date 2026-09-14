@@ -1,0 +1,130 @@
+/**
+ * @module server/routes/analytics/delivery
+ * @description PRD-56 FR-18 - FR-20: вкладка «Выдача» — варианты, версии публикации и профиль
+ * экспозиции банка.
+ *
+ * Одна ручка на три блока: все они отвечают об одном и том же наборе прохождений, и разбивать
+ * их на три запроса значило бы трижды выбрать одно и то же. Профиль экспозиции строится по
+ * ОДНОЙ теме (у разных тем разные квоты выдачи), поэтому тема приходит параметром; без него
+ * берётся первый раздел теста.
+ *
+ * Права те же, что у остальных ручек теста: `analytics.read` плюс область видимости теста.
+ */
+import { Router, type Request, type Response } from "express";
+
+import { config } from "../../config";
+import { logger } from "../../logger";
+import { requirePermission } from "../../middleware/auth";
+import { requireTestScope } from "../../middleware/test-scope";
+import { storage } from "../../storage";
+import { loadObservations } from "../../services/analytics/observations";
+import {
+  exposureProfile,
+  variantStats,
+  versionStats,
+  type SectionForms,
+} from "../../services/analytics/delivery-stats";
+
+const router = Router();
+
+router.get(
+  "/tests/:testId/delivery",
+  requirePermission("analytics.read"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const { testId } = req.params;
+      const test = await storage.getTest(testId);
+      if (!test) return res.status(404).json({ error: "Test not found" });
+
+      const [{ rows: observations }, sections, snapshots, topics] = await Promise.all([
+        // Область видимости уже проверена `requireTestScope`, поэтому здесь она открыта —
+        // тот же порядок, что на остальных ручках теста.
+        loadObservations({ testIds: [testId] }, { all: true, ids: new Set([testId]) }),
+        storage.getTestSections(testId),
+        storage.getSnapshotsForTest(testId),
+        storage.getTopics(),
+      ]);
+      const topicNames = new Map(topics.map(topic => [topic.id, topic.name]));
+      const opts = { minObservations: config.analytics.minObservations };
+
+      const sectionForms: SectionForms[] = sections.map(section => ({
+        topicId: section.topicId,
+        topicName: topicNames.get(section.topicId) ?? "Без темы",
+        forms: (section.formSetJson?.forms ?? []).map(form => ({
+          id: form.id,
+          label: form.label,
+        })),
+      }));
+
+      // Тема профиля: запрошенная, иначе первый раздел. Раздела нет вовсе — профиля тоже.
+      const requestedTopic = typeof req.query.topicId === "string" ? req.query.topicId : null;
+      const profileSection = sections.find(s => s.topicId === requestedTopic) ?? sections[0];
+
+      let profile = null;
+      let attemptsInWindow = 0;
+      if (profileSection) {
+        // Окно наблюдения то же, что у счётчика выдач (PRD-55): доля считается от попыток за
+        // этот срок, СЧИТАЯ брошенные — они показали задание так же, как доведённые до конца.
+        const windowStart = new Date();
+        windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
+        attemptsInWindow = observations.filter(o => o.startedAt >= windowStart).length;
+
+        const bank = await storage.getQuestionsByTopic(profileSection.topicId);
+        const excluded = new Set(
+          (await storage.getTestQuestionScoring(testId))
+            .filter(row => row.excludedFromDelivery)
+            .map(row => row.questionId),
+        );
+        // Сбой чтения счётчиков не имеет права уронить экран: без них профиль показывает
+        // «не выдавалось ни разу», что честнее выдуманных долей.
+        let deliveredCounts = new Map<string, number>();
+        try {
+          deliveredCounts = await storage.getDeliveryCountsForTest(
+            bank.map(q => q.id),
+            testId,
+            windowStart,
+          );
+        } catch (error) {
+          logger.warn("PRD-56: счётчики выдач не прочитаны — " + (error as Error).message);
+        }
+
+        profile = exposureProfile({
+          topicId: profileSection.topicId,
+          topicName: topicNames.get(profileSection.topicId) ?? "Без темы",
+          // Раздел, выдающий весь банк, квоты не имеет — и доля у него всегда стопроцентная.
+          drawCount: profileSection.drawAll ? null : profileSection.drawCount,
+          bank: bank.map(question => ({
+            id: question.id,
+            prompt: question.prompt,
+            type: question.type,
+            tags: question.tags ?? [],
+            excluded: excluded.has(question.id),
+          })),
+          deliveredCounts,
+          attemptsInWindow,
+        });
+      }
+
+      res.json({
+        testId,
+        testMode: test.mode,
+        variants: variantStats(observations, sectionForms, opts),
+        versions: versionStats(
+          observations,
+          snapshots.map(s => ({ id: s.id, version: s.version, publishedAt: s.publishedAt })),
+          opts,
+        ),
+        exposure: profile,
+        // Список тем — селектору профиля: тема выбирается, а не угадывается по порядку.
+        topics: sectionForms.map(s => ({ topicId: s.topicId, topicName: s.topicName })),
+        minObservations: opts.minObservations,
+      });
+    } catch (error) {
+      logger.error("Delivery analytics error: " + (error as Error).message);
+      res.status(500).json({ error: "Failed to fetch delivery analytics" });
+    }
+  },
+);
+
+export default router;

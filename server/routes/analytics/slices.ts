@@ -44,10 +44,18 @@ const AXES: readonly SliceAxis[] = [
  * нужны, а группы с пользователями — это столько запросов, сколько в инсталляции групп.
  */
 async function axisContext(testId: string): Promise<AxisContext> {
-  const [groups, snapshots] = await Promise.all([
+  const [groups, snapshots, sections] = await Promise.all([
     storage.getGroups(),
     storage.getSnapshotsForTest(testId),
+    storage.getTestSections(testId),
   ]);
+
+  // Названия вариантов задаёт автор в наборе форм раздела (PRD-17); срез подписывается ими,
+  // а не идентификатором формы — тот uuid и читателю не говорит ничего.
+  const formLabels = new Map<string, string>();
+  for (const section of sections) {
+    for (const form of section.formSetJson?.forms ?? []) formLabels.set(form.id, form.label);
+  }
 
   const groupsOfParticipant = new Map<string, string[]>();
   const externalParticipants = new Set<string>();
@@ -63,6 +71,7 @@ async function axisContext(testId: string): Promise<AxisContext> {
     groupNames: new Map(groups.map(group => [group.id, group.name])),
     externalParticipants,
     snapshotVersions: new Map(snapshots.map(snapshot => [snapshot.id, snapshot.version])),
+    formLabels,
   };
 }
 

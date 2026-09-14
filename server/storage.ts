@@ -26,6 +26,7 @@ import {
   type ObservationQuery,
   type ObservationRows,
   type TestAnswerRow,
+  type ScaleValuesRow,
 } from "./storage/analytics-repository";
 import { SlicesRepository } from "./storage/slices-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
@@ -156,6 +157,8 @@ export interface IStorage {
     publishedBy: string | null;
   }): Promise<TestSnapshot>;
   getLatestSnapshot(testId: string): Promise<TestSnapshot | undefined>;
+  /** PRD-56 FR-19a: снимок по номеру версии — так прохождение из LMS находит свою версию. */
+  getSnapshotByVersion(testId: string, version: number): Promise<TestSnapshot | undefined>;
   getSnapshot(id: string): Promise<TestSnapshot | undefined>;
   getSnapshotsForTest(testId: string): Promise<TestSnapshot[]>;
   /** Every snapshot in the database, for the media re-sync (Медиатека). */
@@ -347,6 +350,8 @@ export interface IStorage {
   selectObservations(query: ObservationQuery): Promise<ObservationRows>;
   /** PRD-56 FR-25: ответы прохождений теста, пришедших из LMS. */
   selectAnswersForTest(testId: string): Promise<TestAnswerRow[]>;
+  /** PRD-56 FR-21: значения шкал прохождений теста — оба источника одной выборкой. */
+  selectScaleValuesForTest(testId: string): Promise<ScaleValuesRow[]>;
   /** PRD-56 FR-07b: срезы — сохранённые наборы условий отбора. */
   getSlices(ownerId: string): Promise<AnalyticsSlice[]>;
   getSlice(id: string, ownerId: string): Promise<AnalyticsSlice | undefined>;
@@ -648,6 +653,10 @@ export class DatabaseStorage implements IStorage {
 
   getLatestSnapshot(testId: string): Promise<TestSnapshot | undefined> {
     return this.testsRepo.getLatestSnapshot(testId);
+  }
+
+  getSnapshotByVersion(testId: string, version: number): Promise<TestSnapshot | undefined> {
+    return this.testsRepo.getSnapshotByVersion(testId, version);
   }
 
   getSnapshot(id: string): Promise<TestSnapshot | undefined> {
@@ -1180,6 +1189,10 @@ export class DatabaseStorage implements IStorage {
 
   selectObservations(query: ObservationQuery): Promise<ObservationRows> {
     return this.analyticsRepo.selectObservations(query);
+  }
+
+  selectScaleValuesForTest(testId: string): Promise<ScaleValuesRow[]> {
+    return this.analyticsRepo.selectScaleValuesForTest(testId);
   }
 
   selectAnswersForTest(testId: string): Promise<TestAnswerRow[]> {

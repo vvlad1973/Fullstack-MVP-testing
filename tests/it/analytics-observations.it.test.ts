@@ -305,3 +305,37 @@ describe("loadObservations", () => {
     expect(page.rows[0].source).toBe("import");
   });
 });
+
+describe("версия публикации и варианты доезжают из базы (PRD-56 FR-19a)", () => {
+  it("оба источника отдают снимок и карту «тема -> вариант»", async () => {
+    // Колонки новые: проверяется именно ВЫБОРКА — что запрос их берёт, а не только то, что
+    // приведение умеет их читать.
+    await webAttempt({
+      snapshotId: "snap-web",
+      variantJson: { sections: [{ topicId: "tp-1", questionIds: ["q1"], formId: "form-a" }] },
+    });
+    await lmsAttempt({ snapshotId: "snap-lms", formsJson: { "tp-2": "form-b" } });
+
+    const page = await loadObservations({}, ALL_TESTS);
+    const byId = new Map(page.rows.map(r => [r.source, r]));
+
+    expect(byId.get("web")).toMatchObject({
+      snapshotId: "snap-web",
+      forms: { "tp-1": "form-a" },
+    });
+    expect(byId.get("telemetry")).toMatchObject({
+      snapshotId: "snap-lms",
+      forms: { "tp-2": "form-b" },
+    });
+  });
+
+  it("прохождения без них не выдумывают ни версии, ни варианта", async () => {
+    await webAttempt();
+    await lmsAttempt();
+
+    const page = await loadObservations({}, ALL_TESTS);
+
+    expect(page.rows.every(r => r.snapshotId === null)).toBe(true);
+    expect(page.rows.every(r => Object.keys(r.forms).length === 0)).toBe(true);
+  });
+});

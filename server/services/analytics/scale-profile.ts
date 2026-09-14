@@ -1,0 +1,123 @@
+/**
+ * @module server/services/analytics/scale-profile
+ * @description PRD-56 FR-21, FR-21a, FR-21b: профиль измерительного теста по шкалам.
+ *
+ * Две величины на шкалу: среднее значение с объёмом выборки и распределение по полосам
+ * толкования. Данные копятся давно (`result_json.scaleResults` у веба, `scales_json` у LMS) и
+ * до этой работы не читались никем.
+ *
+ * УРОВЕНЬ СЧИТАЕТСЯ ПО ПОЛОСАМ САМОЙ ШКАЛЫ, а не берётся из записи прохождения: импорт выгрузки
+ * подписи уровня не хранит вовсе, и читать её у одного источника, а считать у другого значит
+ * получить два разных распределения на одних и тех же данных.
+ *
+ * ЦВЕТ НЕ ИЗОБРЕТАЕТСЯ (FR-21a). Порядок один: тон уровня, заданный автором, а где тона нет —
+ * рампа уровней теста с учётом валентности шкалы. Раздавать цвет по порядку полос запрещено:
+ * иначе «Риск» окажется красным в итогах участника и другого цвета в аналитике, а «высокий»
+ * покрасится одинаково у шкалы, где выше лучше, и у той, где выше хуже.
+ */
+
+import { findBand, parseScaleInterpretation, type LevelTone } from "@shared/scales/interpretation";
+import { zoneColors, type LevelRamp } from "@shared/template/level-ramp";
+import type { ScaleValuesRow } from "../../storage/analytics-repository";
+
+/** Шкала теста в том виде, в каком её читает профиль. */
+export interface ProfileScale {
+  key: string;
+  label: string;
+  configJson: unknown;
+}
+
+export interface ScaleBandShare {
+  level: string;
+  label: string;
+  count: number;
+  /** Доля прохождений, попавших в полосу, в процентах. */
+  share: number;
+  /**
+   * ГОТОВЫЙ CSS-цвет полосы (`hsl(142 76% 36%)`), а не тройка.
+   *
+   * Обёртка живёт здесь, потому что цвет решается здесь же: экран его только печатает и о
+   * формате хранения троек знать не должен. Заодно в клиенте не появляется того, что гард
+   * цветов ДС читает как литерал, — и правильно читает: место для литерала цвета в
+   * приложении одно, и оно не в компоненте.
+   */
+  color: string;
+  /** Тон, заданный АВТОРОМ; `null` — цвет пришёл из рампы теста. */
+  tone: LevelTone | null;
+}
+
+export interface ScaleProfile {
+  key: string;
+  label: string;
+  average: number | null;
+  /** Сколько прохождений дали значение этой шкале — знаменатель среднего. */
+  sampleSize: number;
+  domainMin: number | null;
+  domainMax: number | null;
+  /** Полосы толкования есть не у всякой шкалы (FR-21b). */
+  hasBands: boolean;
+  bands: ScaleBandShare[];
+}
+
+export interface ScaleProfileOptions {
+  /** Рампа уровней теста (`rampFromParams`) — по ней красится полоса без авторского тона. */
+  ramp: LevelRamp;
+}
+
+/**
+ * Профиль по каждой шкале теста.
+ *
+ * @param rows значения шкал прохождений (оба источника)
+ * @param scales шкалы теста
+ * @param opts рампа уровней теста
+ */
+export function summariseScales(
+  rows: readonly ScaleValuesRow[],
+  scales: readonly ProfileScale[],
+  opts: ScaleProfileOptions,
+): ScaleProfile[] {
+  return scales.map(scale => {
+    const interpretation = parseScaleInterpretation(scale.configJson);
+    // Прохождение без значения этой шкалы в знаменатель не идёт: иначе среднее занижается
+    // ровно на число тех, кто до её вопросов не дошёл.
+    const values = rows
+      .map(row => row.values[scale.key])
+      .filter((value): value is number => typeof value === "number");
+
+    const colors = zoneColors(
+      opts.ramp,
+      interpretation.bands.length,
+      interpretation.valence,
+    );
+
+    const bands: ScaleBandShare[] = interpretation.bands.map((band, index) => {
+      const count = values.filter(value => findBand(interpretation.bands, value) === band).length;
+      return {
+        level: band.level,
+        label: band.label ?? band.level,
+        count,
+        share: values.length > 0 ? (count / values.length) * 100 : 0,
+        color: `hsl(${colors[index]})`,
+        // Тон автора печатается как есть; цвет полосы при этом остаётся из рампы, а тон
+        // говорит экрану, что оценка ЗАДАНА, а не выведена из порядка.
+        tone: band.tone ?? null,
+      };
+    });
+
+    return {
+      key: scale.key,
+      label: scale.label || scale.key,
+      // Ноль прохождений — среднего нет, а не ноль: ноль означал бы измеренный ноль.
+      average: values.length > 0
+        ? values.reduce((sum, value) => sum + value, 0) / values.length
+        : null,
+      sampleSize: values.length,
+      domainMin: interpretation.domainMin,
+      domainMax: interpretation.domainMax,
+      hasBands: interpretation.bands.length > 0,
+      // Распределение строится только там, где есть по чему: у шкалы без полос его нет, и
+      // пустая полоса читалась бы как «никто никуда не попал».
+      bands: values.length > 0 ? bands : [],
+    };
+  });
+}

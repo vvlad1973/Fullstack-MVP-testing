@@ -44,7 +44,8 @@ const ChevronIcon = () => (
 function SelectInner<T extends string = string>(
   {
     label, hint, error, size = 'm', tone, options, value, defaultValue, onChange,
-    placeholder = 'Выберите…', disabled, fullWidth, id, name, className, ...rest
+    placeholder = 'Выберите…', disabled, fullWidth, id, name, className,
+    ...rest
   }: SelectProps<T>,
   ref: React.Ref<HTMLButtonElement>,
 ) {
