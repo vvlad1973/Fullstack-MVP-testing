@@ -353,61 +353,10 @@ describe("Analytics — attempts routes", () => {
     app = makeApp([analyticsAttemptsRouter, "/api/analytics"]);
   });
 
-  it("GET /tests/:testId/attempts — returns attempts list", async () => {
-    storageMock.getTest.mockResolvedValue({ id: "test1", title: "Test 1", mode: "standard" });
-    storageMock.getAllAttempts.mockResolvedValue([dbAttemptResult]);
-    storageMock.getUser
-      .mockResolvedValueOnce(authorUser)  // middleware
-      .mockResolvedValueOnce({ id: "u1", name: "User", email: "u@test.com" }); // user lookup
-    const res = await asAuthor(request(app).get("/api/analytics/tests/test1/attempts"));
-    expect(res.status).toBe(200);
-    expect(res.body.testTitle).toBe("Test 1");
-    expect(res.body.attempts).toHaveLength(1);
-    expect(res.body.attempts[0].passed).toBe(true);
-  });
-
-  it("GET /tests/:testId/attempts — returns 404 when test not found", async () => {
-    storageMock.getTest.mockResolvedValue(undefined);
-    const res = await asAuthor(request(app).get("/api/analytics/tests/x/attempts"));
-    expect(res.status).toBe(404);
-  });
-
-  it("GET /tests/:testId/attempts — filters to only that test's attempts", async () => {
-    storageMock.getTest.mockResolvedValue({ id: "test1", title: "Test 1", mode: "standard" });
-    const otherAttempt = { ...dbAttemptResult, id: "other", testId: "test2" };
-    storageMock.getAllAttempts.mockResolvedValue([dbAttemptResult, otherAttempt]);
-    storageMock.getUser
-      .mockResolvedValueOnce(authorUser)
-      .mockResolvedValueOnce({ id: "u1", name: "User", email: "u@test.com" });
-    const res = await asAuthor(request(app).get("/api/analytics/tests/test1/attempts"));
-    expect(res.status).toBe(200);
-    expect(res.body.attempts).toHaveLength(1);
-  });
-
-  it("GET /tests/:testId/attempts — resolves snapshot version and the version breakdown (T-20)", async () => {
-    storageMock.getTest.mockResolvedValue({ id: "test1", title: "Test 1", mode: "standard" });
-    // Two attempts on snapshot v2, one legacy (no snapshot).
-    const onV2a = { ...dbAttemptResult, id: "a", snapshotId: "snap2" };
-    const onV2b = { ...dbAttemptResult, id: "b", snapshotId: "snap2" };
-    const legacy = { ...dbAttemptResult, id: "c", snapshotId: null };
-    storageMock.getAllAttempts.mockResolvedValue([onV2a, onV2b, legacy]);
-    storageMock.getSnapshotsForTest.mockResolvedValue([
-      { id: "snap2", version: 2 },
-      { id: "snap1", version: 1 },
-    ]);
-    storageMock.getUser.mockResolvedValue({ id: "u1", name: "User", email: "u@test.com" });
-
-    const res = await asAuthor(request(app).get("/api/analytics/tests/test1/attempts"));
-    expect(res.status).toBe(200);
-    expect(res.body.currentVersion).toBe(2);
-    // Newest version first, legacy (null) last.
-    expect(res.body.versions).toEqual([
-      { snapshotVersion: 2, attemptCount: 2 },
-      { snapshotVersion: null, attemptCount: 1 },
-    ]);
-    const byId = Object.fromEntries(res.body.attempts.map((a: any) => [a.attemptId, a.snapshotVersion]));
-    expect(byId).toEqual({ a: 2, b: 2, c: null });
-  });
+  // Ручка списка попыток теста снята вместе с его вкладкой (PRD-56 FR-23): прохождения
+  // показывает реестр. Вместе с ней временно ушёл и разрез по версиям публикации
+  // (`currentVersion` / `versions`, T-20) — он восстанавливается в Э5 на слое наблюдений,
+  // где `snapshotId` есть у прохождений ОБОИХ источников, а не у одних веб-попыток (FR-19).
 
   it("GET /attempts/:attemptId — returns 404 when not found", async () => {
     storageMock.getAttempt.mockResolvedValue(undefined);
