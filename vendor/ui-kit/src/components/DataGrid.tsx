@@ -56,7 +56,16 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
    * строки, под которыми нечего показать: раскрытие в пустоту читается как
    * обещание, которого стол не держит.
    */
-  canExpand?: (row: T, index: number) => boolean;
+  canExpand?: (row: T, index: number) => boolean;
+
+  /**
+   * Строку РАЗВЕРНУЛИ. Вызывается только на открытии, не на закрытии.
+   *
+   * Нужен содержимому, которое грузится по требованию: состояние раскрытия держит сам стол,
+   * и без этого события у вызывающего нет места, где начать загрузку. В `renderExpanded`
+   * этого делать нельзя — он вызывается на каждой перерисовке.
+   */
+  onRowExpand?: (row: T, index: number) => void;
 
   /**
    * Ленивая подгрузка вместо страниц: есть ли ещё строки за последней показанной.
@@ -131,7 +140,7 @@ export function DataGrid<T>({
   query, onQueryChange, searchPlaceholder = 'Поиск',
   sortKey, sortDir, onSort,
   selectable, selected = [], onSelectChange, bulkActions,
-  expandable, renderExpanded, canExpand,
+  expandable, renderExpanded, canExpand, onRowExpand,
   page, pageSize, total, onPageChange, pageSizeOptions, onPageSizeChange,
   hasMore, loadingMore, onLoadMore,
   emptyMessage = 'Нет данных',
@@ -153,10 +162,14 @@ export function DataGrid<T>({
     return () => observer.disconnect();
   }, [hasMore, loadingMore, onLoadMore, rows.length]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const toggleExpand = (id: string) => {
+  const toggleExpand = (id: string, row: T, index: number) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else {
+        next.add(id);
+        onRowExpand?.(row, index);
+      }
       return next;
     });
   };
@@ -302,7 +315,7 @@ export function DataGrid<T>({
                             className={cn('ou-grid__expand-btn', isExp && 'is-open')}
                             aria-label={isExp ? 'Свернуть' : 'Развернуть'}
                             {...(isExp ? { 'aria-expanded': 'true' as const } : { 'aria-expanded': 'false' as const })}
-                            onClick={() => toggleExpand(id)}
+                            onClick={() => toggleExpand(id, row, idx)}
                           ><ExpandChev /></button>
                         )}
                       </td>

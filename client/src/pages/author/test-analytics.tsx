@@ -1,14 +1,16 @@
 /**
  * @module pages/author/test-analytics
- * @description Per-test analytics dashboard: summary KPIs, score-distribution and
- * trend charts, per-topic / per-question / per-level statistics, an attempts table
- * and a full attempt-details modal. Rendered entirely with the Skillum design
- * system — layout via Stack/Cluster/Grid/Box, typography via Text, data via the DS
- * Table/Card/Tabs/ProgressBar/Tag primitives (no raw utility classes). recharts
- * charts use `--ou-*` tokens for colours.
+ * @description Аналитика одного теста: плитки сводки и четыре вкладки — «Обзор»
+ * (распределение результатов, темы, динамика), «Вопросы», «Выдача» (варианты, версии
+ * публикации, профиль банка и уровни адаптивного теста) и «Шкалы» у измерительного.
+ *
+ * Чего здесь БОЛЬШЕ НЕТ и почему: списка попыток (PRD-56 FR-23 — он в реестре прохождений,
+ * один список на продукт), окна разбора попытки (переехало туда же) и диаграмм на recharts —
+ * страница целиком собрана `Charts` дизайн-системы. Блоки вкладок живут в
+ * `features/analytics/test/*`, здесь остаётся только сборка и запросы: данные «Выдачи» и
+ * «Шкал» грузятся своими ручками и ТОЛЬКО на своей вкладке.
  */
 import { useState } from "react";
-import { QuestionMetrics } from "@/features/analytics/question-metrics";
 import { PassTrend } from "@/features/analytics/test/pass-trend";
 import { ScoreDistribution } from "@/features/analytics/test/score-distribution";
 import { QuestionTable } from "@/features/analytics/test/question-table";
@@ -36,15 +38,10 @@ import {
     Grid,
     IconButton,
     ModalDialog,
-    ProgressBar,
     Stack,
-    Table,
     Tabs,
     Tag,
     Text,
-    type ProgressTone,
-    type TableColumn,
-    type Tone,
 } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
@@ -54,27 +51,13 @@ import {
     Target,
     Clock,
     TrendingUp,
-    CheckCircle,
-    XCircle,
     BarChart3,
     FileText,
     HelpCircle,
     Layers,
     FileSpreadsheet,
-    Gauge,
     Upload,
 } from "lucide-react";
-import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    BarChart,
-    Bar,
-} from "recharts";
 
 // Types
 interface TestAnalytics {
@@ -199,119 +182,6 @@ interface DeliveryAnalytics {
     minObservations: number;
 }
 
-interface AttemptListItem {
-    attemptId: string;
-    userId: string;
-    username: string;
-    startedAt: string | null;
-    finishedAt: string | null;
-    duration: number | null;
-    overallPercent: number;
-    earnedPoints: number;
-    possiblePoints: number;
-    passed: boolean;
-    completed: boolean;
-    /**
-     * PRD-29 §6.7. `scored` — were there points to speak of; `verdictPronounced` — was
-     * «Сдан / Не сдан» pronounced at all. A questionnaire run answers false to both, and
-     * `passed` then carries the stored default that nobody decided.
-     *
-     * Optional, and ABSENT means «unknown», which shows rather than hides (the flags
-     * only ever silence — see `hasPronouncedVerdict`). So a response from a server that
-     * predates them renders exactly as it always did instead of blanking every row.
-     */
-    scored?: boolean;
-    verdictPronounced?: boolean;
-    achievedLevels?: Array<{
-        topicName: string;
-        levelName: string | null;
-    }>;
-}
-
-interface AttemptDetail {
-    attemptId: string;
-    userId: string;
-    username: string;
-    testId: string;
-    testTitle: string;
-    testMode: string;
-    startedAt: string | null;
-    finishedAt: string | null;
-    duration: number | null;
-    overallPercent: number;
-    earnedPoints: number;
-    possiblePoints: number;
-    passed: boolean;
-    /** PRD-29 §6.7 — see {@link AttemptListItem}. Absent = unknown = show. */
-    scored?: boolean;
-    verdictPronounced?: boolean;
-    /** How much of what was delivered the learner answered. */
-    questionCount?: number;
-    answeredCount?: number;
-    /** PRD-5/PRD-2: what the test measures, and what to call it. */
-    measures?: {
-        scales: Array<{ key: string; label: string; hasLevels: boolean }>;
-        indicators: Array<{ name: string; label: string }>;
-    };
-    /** The run's scale values, as stored at finish (keyed by scale key). */
-    scaleResults?: Record<string, { raw: number; label?: string; level?: string } | undefined>;
-    /** The run's indicators, already resolved to «значение + что оно значит». */
-    indicatorViews?: Array<{
-        name: string;
-        label: string;
-        value: string | number | boolean | null;
-        interpretation: string | null;
-    }>;
-    answers: Array<{
-        questionId: string;
-        questionPrompt: string;
-        questionType: string;
-        topicId: string;
-        topicName: string;
-        userAnswer: unknown;
-        correctAnswer: unknown;
-        /**
-         * The RUNTIME encoding of the same answers — option indices, not labels.
-         * Only these carry the ordinal («4) Скорее важно»), and for a scale question
-         * the graduation index IS the answer.
-         */
-        userAnswerRaw?: unknown;
-        correctAnswerRaw?: unknown;
-        isCorrect: boolean;
-        /** 0..1 — a graded answer may be PARTIALLY right (PRD-10). */
-        ratio?: number;
-        /** PRD-26/PRD-44: never checked — no tick, no points, only its contribution. */
-        measurementOnly?: boolean;
-        /** PRD-5: how this answer moved each scale. */
-        contribs?: Array<{ scaleKey: string; delta: number }>;
-        earnedPoints: number;
-        possiblePoints: number;
-        difficulty: number;
-        levelName?: string;
-        levelIndex?: number;
-    }>;
-    topicResults: Array<{
-        topicId: string;
-        topicName: string;
-        correct?: number;
-        total?: number;
-        percent?: number;
-        achievedLevelName?: string;
-    }>;
-    trajectory?: Array<{
-        action: string;
-        topicName?: string;
-        levelName?: string;
-        message?: string;
-    }>;
-    achievedLevels?: Array<{
-        topicId: string;
-        topicName: string;
-        levelIndex: number | null;
-        levelName: string | null;
-    }>;
-}
-
 /**
  * A percent metric that may not apply at all (PRD-29 §6.7): a measurement test grades
  * nothing, so its average result and pass rate are `null` — «неприменимо», not «ноль».
@@ -328,135 +198,10 @@ function formatDuration(seconds: number | null): string {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function formatDate(dateStr: string | null): string {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleString("ru-RU", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
 
-/** Map a 0–100 correctness percent to a semantic tone. */
-function percentTone(percent: number): "success" | "warning" | "error" {
-    return percent >= 70 ? "success" : percent >= 50 ? "warning" : "error";
-}
 
-/** Map a 0–100 correctness percent to a ProgressBar tone. */
-function percentProgressTone(percent: number): ProgressTone {
-    return percent >= 70 ? "success" : percent >= 50 ? "warning" : "error";
-}
-
-const chartTooltipStyle = { backgroundColor: "var(--ou-bg-elevated)", border: "1px solid var(--ou-border-soft)" };
-
-/**
- * Маркеры многострочного ответа. `Stack` гасит списочные маркеры вместе с остальным
- * сбросом, а у распределения и сопоставления строки переносятся: без маркера соседние
- * утверждения сливаются в один абзац и ответ перестаёт читаться.
- */
-const listStyle: React.CSSProperties = { listStyle: "disc", paddingInlineStart: "var(--ou-space-4)" };
-
-/** Печатное значение показателя: код и число печатаются как есть, пустое — прочерком. */
-function formatIndicatorValue(value: string | number | boolean | null): string {
-    if (value === null || value === undefined || value === "") return "—";
-    if (typeof value === "boolean") return value ? "Да" : "Нет";
-    return String(value);
-}
-
-/**
- * Ответ ученика в печатном виде.
- *
- * The server hands over BOTH forms: the labels a person reads and the raw option
- * indices. Only the raw form carries the ordinal, and for a scale question the
- * graduation index IS the answer — «4) Скорее важно» says which end of the scale was
- * chosen, «Скорее важно» alone does not.
- *
- * @param value Formatted answer (label, list of labels, pairs, or statement/points).
- * @param raw The same answer in runtime encoding, when the type has one.
- */
-function renderAnswerValue(value: unknown, raw?: unknown): React.ReactNode {
-    if (value === null || value === undefined || value === "") {
-        return <Text variant="body-s" tone="muted">(нет ответа)</Text>;
-    }
-
-    if (Array.isArray(value)) {
-        if (value.length === 0) {
-            return <Text variant="body-s" tone="muted">(ничего не выбрано)</Text>;
-        }
-
-        // PRD-44: распределение — «утверждение — балл» по КАЖДОМУ утверждению, включая
-        // нулевые: ноль отличает «рассмотрел и не дал веса» от «не дошёл».
-        if (typeof value[0] === "object" && value[0] !== null && "statement" in (value[0] as object)) {
-            const items = value as Array<{ statement: string; points: number }>;
-            return (
-                <Stack as="ul" gap={0} style={listStyle}>
-                    {items.map((item, i) => (
-                        <Text as="li" key={i} variant="body-s">
-                            {item.statement} — {item.points > 0
-                                ? <Text as="span" weight="bold">{item.points}</Text>
-                                : <Text as="span" tone="muted">0</Text>}
-                        </Text>
-                    ))}
-                </Stack>
-            );
-        }
-
-        // Сопоставление: пары «слева → справа».
-        if (typeof value[0] === "object" && value[0] !== null && "left" in (value[0] as object)) {
-            const pairs = value as Array<{ left: string; right: string }>;
-            return (
-                <Stack as="ul" gap={0} style={listStyle}>
-                    {pairs.map((pair, i) => (
-                        <Text as="li" key={i} variant="body-s">{pair.left} → {pair.right}</Text>
-                    ))}
-                </Stack>
-            );
-        }
-
-        const labels = value.map((v) => String(v));
-        const indices = Array.isArray(raw) && raw.length === labels.length && raw.every((n) => typeof n === "number")
-            ? (raw as number[])
-            : null;
-        return (
-            <Text variant="body-s">
-                {labels.map((label, i) => (indices ? `${indices[i] + 1}) ${label}` : label)).join(", ")}
-            </Text>
-        );
-    }
-
-    if (typeof value === "object") {
-        return <Text variant="body-s">{JSON.stringify(value)}</Text>;
-    }
-
-    return (
-        <Text variant="body-s">
-            {typeof raw === "number" ? `${raw + 1}) ${String(value)}` : String(value)}
-        </Text>
-    );
-}
-
-/** Эталон в печатном виде: тот же рендер, но порядковые номера берутся из ключа. */
-function renderReferenceValue(value: unknown, raw?: unknown): React.ReactNode {
-    const key = (raw ?? {}) as { correctIndex?: unknown; correctIndices?: unknown; correctOrder?: unknown };
-    if (typeof key.correctIndex === "number") return renderAnswerValue(value, key.correctIndex);
-    if (Array.isArray(key.correctIndices)) return renderAnswerValue(value, key.correctIndices);
-    if (Array.isArray(key.correctOrder)) return renderAnswerValue(value, key.correctOrder);
-    return renderAnswerValue(value);
-}
 
 /** Строка «подпись — значение» под текстом вопроса (Ответ / Эталон / Вклад). */
-function AnswerRow({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <Cluster gap={2} align="start" wrap={false}>
-            <Box style={{ minWidth: "4.5rem" }}>
-                <Text variant="body-xs" tone="muted">{label}</Text>
-            </Box>
-            <Box grow>{children}</Box>
-        </Cluster>
-    );
-}
-
 
 export default function TestAnalyticsPage() {
     const [, params] = useRoute("/author/tests/:testId/analytics");

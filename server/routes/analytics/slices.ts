@@ -28,6 +28,8 @@ import {
   type SliceAxis,
 } from "../../services/analytics/slice-axis";
 import { summariseSlice } from "../../services/analytics/slice-stats";
+import { summariseTopics } from "../../services/analytics/topic-stats";
+import { loadTestAnswerFacts } from "../../services/analytics/test-answer-facts";
 import { analyticsScope } from "./helpers";
 
 const router = Router();
@@ -179,6 +181,109 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
   } catch (error) {
     logger.error("Slices analytics error: " + (error as Error).message);
     res.status(500).json({ error: "Failed to load slices" });
+  }
+});
+
+/**
+ * GET /api/analytics/slices/topics — разворот строки среза по темам (FR-06e).
+ *
+ * Отвечает на «в какой теме провал У ЭТОГО среза» и ни с чем не сравнивает: за сравнением ведёт
+ * отдельный режим вкладки. Поэтому в строке только доля верных и объём выборки — ни разницы, ни
+ * базы, ни порога.
+ *
+ * Срез задаётся ОСЬЮ и ключом либо идентификатором сохранённого среза, а не условиями реестра:
+ * условия покрывают не всякую ось (номер попытки, внешний участник), и по ним срез не
+ * восстановить. Тест и период приходят из рамки расчёта — те же, что у списка срезов.
+ *
+ * Считается по требованию, при развороте: платить за темы ВСЕХ срезов при каждом показе списка
+ * незачем, а развернут за раз один.
+ */
+router.get("/slices/topics", requirePermission("analytics.read"), async (req: Request, res: Response) => {
+  try {
+    const testId = typeof req.query.testId === "string" ? req.query.testId.trim() : "";
+    if (!testId) {
+      return res.status(400).json({ error: "Нужен тест: средние считаются внутри одного теста" });
+    }
+
+    const axis = typeof req.query.axis === "string" ? req.query.axis.trim() : "";
+    const key = typeof req.query.key === "string" ? req.query.key : "";
+    const sliceId = typeof req.query.sliceId === "string" ? req.query.sliceId.trim() : "";
+    if (!axis && !sliceId) {
+      return res.status(400).json({ error: "Нужен срез: ось с ключом либо сохранённый срез" });
+    }
+    if (axis && !AXES.includes(axis as SliceAxis)) {
+      return res.status(400).json({ error: `Неизвестная ось разбиения: ${axis}` });
+    }
+
+    const scope = await analyticsScope(req);
+    const from = dateOf(req.query.from, "start");
+    const to = dateOf(req.query.to, "end");
+    const frame = {
+      testIds: [testId],
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+    };
+
+    /** Прохождения ЭТОГО среза: разбиением по оси либо условиями сохранённого среза. */
+    let observations;
+    if (axis) {
+      const { rows } = await loadObservations(frame, scope);
+      const buckets = splitByAxis(rows, axis as SliceAxis, await axisContext(testId));
+      observations = buckets.find(bucket => bucket.key === key)?.observations ?? [];
+    } else {
+      // «Тест целиком» — срез без условий (FR-07a), отдельной сущности для него не заводится.
+      const saved = sliceId === "whole"
+        ? { conditionsJson: {} as Record<string, unknown> }
+        : (await storage.getSlices(req.currentUser?.id ?? "")).find(s => s.id === sliceId);
+      if (!saved) return res.status(404).json({ error: "Срез не найден" });
+      const { rows } = await loadObservations(
+        { ...conditionsOf(saved.conditionsJson), ...frame },
+        scope,
+      );
+      observations = rows;
+    }
+
+    if (observations.length === 0) return res.json({ topics: [] });
+
+    // Ответы теста собираются ОДНИМ общим сбором и режутся прохождениями среза: свой разбор
+    // ответов здесь означал бы второй источник правды о том, что такое «верно».
+    const webAttempts = observations.filter(o => o.source === "web").map(o => o.id);
+    const attempts = webAttempts.length
+      ? (await storage.getAllAttempts()).filter(a => webAttempts.includes(a.id))
+      : [];
+    const { facts, questionById, topicNameById, topicRules } =
+      await loadTestAnswerFacts(testId, attempts);
+
+    const ofSlice = new Set(observations.map(o => o.id));
+    const rows = summariseTopics(
+      facts.filter(fact => ofSlice.has(fact.attemptId)).flatMap(fact => {
+        const question = questionById.get(fact.questionId);
+        if (!question) return [];
+        return [{
+          attemptId: fact.attemptId,
+          topicId: question.topicId,
+          topicName: topicNameById.get(question.topicId) ?? "Без темы",
+          subtopics: question.tags ?? [],
+          result: fact.result,
+          earnedPoints: fact.earnedPoints,
+          possiblePoints: fact.possiblePoints,
+        }];
+      }),
+      topicRules,
+    );
+
+    res.json({
+      // Только то, о чём спрашивает FR-06e: доля верных этого среза по темам и объём выборки.
+      topics: rows.map(row => ({
+        topicId: row.topicId,
+        topicName: row.topicName,
+        correctShare: row.correctShare,
+        inSample: row.inSample,
+      })),
+    });
+  } catch (error) {
+    logger.error("Slice topics error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to load slice topics" });
   }
 });
 

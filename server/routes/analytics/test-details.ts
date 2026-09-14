@@ -4,43 +4,18 @@ import { config } from "../../config";
 import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
-import { checkAnswer } from "../../utils/check-answer";
-import { loadTestScoringContext } from "../../services/effective-scoring";
-import type { AttemptResult } from "@shared/schema";
 import { stripMarkdown } from "@shared/text";
-import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answers";
+import { summariseAnswers } from "../../services/analytics/answers";
+import { loadTestAnswerFacts, variantQuestionIds } from "../../services/analytics/test-answer-facts";
 import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
 import { passTrendByMonth } from "../../services/analytics/pass-trend";
 import { reviewFlags } from "../../services/analytics/question-review";
 import { summariseTopics } from "../../services/analytics/topic-stats";
 import { summariseObservations } from "../../services/analytics/test-summary";
-import { resolveOverallRule, resolveTopicRule } from "@shared/scoring/pass-rule";
 import { declaresPassThreshold, thresholdPercentOfTest } from "./helpers";
 
 const router = Router();
-
-/**
- * Состав выданной формы прохождения — идентификаторы заданий, которые человек ВИДЕЛ.
- *
- * У обычного теста это вопросы разделов, у адаптивного — вопросы пройденных уровней.
- * Отвеченное описывает `answersJson`; разница между двумя множествами и есть пропуски
- * (PRD-56 FR-15).
- */
-function variantQuestionIds(variantJson: unknown): string[] {
-  const variant = variantJson as {
-    sections?: Array<{ questionIds?: string[] }>;
-    topics?: Array<{ levelsState?: Array<{ questionIds?: string[] }> }>;
-  } | null;
-  if (!variant) return [];
-
-  const ids: string[] = [];
-  for (const section of variant.sections ?? []) ids.push(...(section.questionIds ?? []));
-  for (const topic of variant.topics ?? []) {
-    for (const level of topic.levelsState ?? []) ids.push(...(level.questionIds ?? []));
-  }
-  return ids;
-}
 
 // GET /api/analytics/tests/:testId - Детальная аналитика теста
 router.get("/:testId", requirePermission("analytics.read"), requireTestScope("analytics", "testId"), async (req: Request, res: Response) => {
@@ -94,26 +69,17 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     };
 
 
-    // Question stats
-    const allQuestionIds = new Set<string>();
-    for (const attempt of testAttempts) {
-      for (const questionId of variantQuestionIds(attempt.variantJson)) {
-        allQuestionIds.add(questionId);
-      }
-    }
-
-    // PRD-56 FR-25: ответы прохождений из LMS. Задание, выданное только пакетом, в вариантах
-    // веб-попыток не встречается — без этого шага его ответы отбрасывались бы молча.
-    const lmsAnswers = await storage.selectAnswersForTest(testId);
-    for (const answer of lmsAnswers) allQuestionIds.add(answer.questionId);
-
-    const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
-    const questionMap = new Map(questions.map(q => [q.id, q]));
-    const topics = await storage.getTopics();
-    const topicMap = new Map(topics.map(t => [t.id, t.name]));
-
-    // PRD-15 block D (FR-32): correctness/difficulty use the test-effective chain.
-    const scoring = await loadTestScoringContext(testId, storage);
+    /**
+     * PRD-56 FR-25: ответы обоих источников — одним сбором, общим со срезами (FR-06e).
+     *
+     * Разрешение оценивания (эффективная стоимость, правило проверки, измерительный ответ
+     * третьим состоянием) живёт в `test-answer-facts`: второй экземпляр этой логики разошёлся
+     * бы с первым молча — расхождением чисел на двух экранах.
+     */
+    const { facts, questionById, topicNameById, topicRules, difficultyOf } =
+      await loadTestAnswerFacts(testId, completedAttempts);
+    const questionMap = questionById;
+    const topicMap = topicNameById;
 
     interface QuestionStatsEntry {
       questionId: string;
@@ -134,33 +100,6 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
 
     const questionStatsMap = new Map<string, QuestionStatsEntry>();
 
-    /**
-     * PRD-56 FR-25: ответы обоих источников сводятся одним расчётом.
-     *
-     * Оценка веб-ответа остаётся здесь: эффективная стоимость и правило проверки вопроса
-     * внутри теста уже разрешены (`loadTestScoringContext`), и считать их во второй раз в
-     * слое ответов значило бы завести второй источник правды о том, что такое «верно».
-     * Измерительный вопрос не оценивается вовсе — у него нет эталона (PRD-26 FR-08,
-     * PRD-44 FR-09), и его ответ приходит третьим состоянием.
-     */
-    const facts = await loadAnswerFacts(testId, {
-      attempts: completedAttempts,
-      grade: (questionId, answer) => {
-        const question = questionMap.get(questionId);
-        if (!question) return null;
-        if (question.type === "scale" || question.type === "allocation") {
-          return { result: "neutral", earnedPoints: null, possiblePoints: null };
-        }
-        const effective = scoring.resolve(question);
-        const ratio = checkAnswer(question, answer, effective.scoring);
-        return {
-          result: ratio === 1 ? "correct" : "incorrect",
-          earnedPoints: ratio * effective.points,
-          possiblePoints: effective.points,
-        };
-      },
-    });
-
     for (const stats of summariseAnswers(facts)) {
       const question = questionMap.get(stats.questionId);
       if (!question) continue;
@@ -171,7 +110,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
         questionType: question.type,
         topicId: question.topicId,
         topicName: topicMap.get(question.topicId) || "Unknown",
-        difficulty: scoring.difficultyOf(question) || 50,
+        difficulty: difficultyOf(question) || 50,
         totalAnswers: stats.answered,
         gradedAnswers: stats.graded,
         correctAnswers: stats.correct,
@@ -183,16 +122,10 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     /**
      * PRD-56 FR-14, FR-14a: разрезы по темам и подтемам — из тех же ответов.
      *
-     * Порог темы разрешается правилом теста (`resolveTopicRule`), а исход считает движок
-     * PRD-50: своего правила аналитика не заводит, иначе исход в отчёте участника и исход
-     * на этом экране однажды разойдутся.
+     * Пороги тем приехали вместе с фактами (`topicRules`): их разрешает правило теста, а исход
+     * считает движок PRD-50 — своего правила аналитика не заводит, иначе исход в отчёте
+     * участника и исход на этом экране однажды разойдутся.
      */
-    const sections = await storage.getTestSections(testId);
-    const overallRule = resolveOverallRule(test.overallPassRuleJson);
-    const topicRules = new Map(sections.map(section => [
-      section.topicId,
-      resolveTopicRule(section.topicPassRuleJson, overallRule),
-    ]));
 
     const topicStats = summariseTopics(
       facts.flatMap(fact => {

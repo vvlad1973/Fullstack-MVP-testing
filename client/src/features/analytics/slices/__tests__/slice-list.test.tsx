@@ -124,3 +124,67 @@ describe("SliceList", () => {
     expect(await screen.findByText(/Не удалось загрузить срезы/i)).toBeTruthy();
   });
 });
+
+describe("SliceList — разворот строки по темам (FR-06e)", () => {
+  /** Ответ ручки тем: её зовут вторым запросом, при развороте. */
+  const topicsAnswer = (topics: unknown[]) => ({ ok: true, json: async () => ({ topics }) });
+
+  it("грузит темы только при развороте, а не вместе со списком", async () => {
+    // Платить за темы всех срезов при каждом показе списка незачем: развёрнут за раз один.
+    fetchMock.mockResolvedValueOnce(answer([SLICE]));
+    render(<SliceList testId="t1" axis="group" />);
+    await screen.findByText("Отдел продаж");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fetchMock.mockResolvedValueOnce(topicsAnswer([
+      { topicId: "tp-1", topicName: "Бюджет", correctShare: 64, inSample: 12 },
+    ]));
+    await userEvent.click(screen.getByRole("button", { name: "Развернуть" }));
+
+    await waitFor(() => expect(screen.getByText("Бюджет")).toBeTruthy());
+    expect(screen.getByText("64 %")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Срез адресуется осью и ключом: условия реестра покрывают не всякую ось.
+    expect(String(fetchMock.mock.calls[1][0])).toContain("axis=group");
+  });
+
+  it("повторный разворот той же строки второй раз не грузит", async () => {
+    fetchMock.mockResolvedValueOnce(answer([SLICE]));
+    render(<SliceList testId="t1" axis="group" />);
+    await screen.findByText("Отдел продаж");
+    fetchMock.mockResolvedValueOnce(topicsAnswer([
+      { topicId: "tp-1", topicName: "Бюджет", correctShare: 64, inSample: 12 },
+    ]));
+
+    const chevron = screen.getByRole("button", { name: "Развернуть" });
+    await userEvent.click(chevron);
+    await waitFor(() => expect(screen.getByText("Бюджет")).toBeTruthy());
+    await userEvent.click(screen.getByRole("button", { name: "Свернуть" }));
+    await userEvent.click(screen.getByRole("button", { name: "Развернуть" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("срез без завершённых прохождений не разворачивается вовсе", async () => {
+    // Раскрытие в пустоту читается как поломка, а не как «данных нет».
+    fetchMock.mockResolvedValueOnce(answer([
+      { ...SLICE, started: 2, completed: 0, passed: 0, participants: 2, enoughData: false },
+    ]));
+    render(<SliceList testId="t1" axis="group" />);
+    await screen.findByText("Отдел продаж");
+
+    expect(screen.queryByRole("button", { name: "Развернуть" })).toBeNull();
+  });
+
+  it("сбой расчёта тем говорит словами, а не пустой таблицей", async () => {
+    fetchMock.mockResolvedValueOnce(answer([SLICE]));
+    render(<SliceList testId="t1" axis="group" />);
+    await screen.findByText("Отдел продаж");
+    fetchMock.mockRejectedValueOnce(new Error("сеть"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Развернуть" }));
+
+    await waitFor(() => expect(screen.getByText(/по темам считать нечего/i)).toBeTruthy());
+  });
+});

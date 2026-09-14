@@ -30,6 +30,11 @@ const { storageMock } = vi.hoisted(() => ({
     getSnapshotsForTest: vi.fn().mockResolvedValue([]),
     // PRD-56 FR-18: названия вариантов оси «вариант» берутся из наборов форм разделов.
     getTestSections: vi.fn().mockResolvedValue([]),
+    // PRD-56 FR-06e: разворот строки среза читает ответы теста общим сбором.
+    getQuestionsByIds: vi.fn().mockResolvedValue([]),
+    getTopics: vi.fn().mockResolvedValue([]),
+    getTestQuestionScoring: vi.fn().mockResolvedValue([]),
+    selectAnswersForTest: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -287,5 +292,74 @@ describe("POST /api/analytics/slices — сохранение среза", () =>
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/уже есть/i);
+  });
+});
+
+describe("GET /api/analytics/slices/topics — разворот строки (FR-06e)", () => {
+  const askTopics = (query: string) =>
+    request(makeApp()).get(`/api/analytics/slices/topics?${query}`).set("x-test-user", "u-owner");
+
+  /** Веб-попытка участника с одним ответом на `q1`. */
+  const run = (id: string, userId: string, answer: number) => ({
+    id, testId: "test1", userId,
+    startedAt: new Date("2026-09-11T14:00:00Z"), finishedAt: new Date("2026-09-11T14:20:00Z"),
+    variantJson: { sections: [{ topicId: "tp-1", questionIds: ["q1"] }] },
+    answersJson: { q1: answer },
+    resultJson: { overallPercent: 80, overallPassed: true, totalPossiblePoints: 1, totalEarnedPoints: 1 },
+  });
+
+  beforeEach(() => {
+    storageMock.getGroups.mockResolvedValue([{ id: "g1", name: "Отдел продаж" }]);
+    storageMock.getGroupUsers.mockResolvedValue([{ id: "u1" }]);
+    storageMock.getQuestionsByIds.mockResolvedValue([
+      { id: "q1", type: "single", prompt: "Вопрос", topicId: "tp-1", tags: [], correctJson: { correctIndex: 0 } },
+    ]);
+    storageMock.getTopics.mockResolvedValue([{ id: "tp-1", name: "Бюджет" }]);
+    storageMock.getTestSections.mockResolvedValue([
+      { id: "s1", testId: "test1", topicId: "tp-1", topicPassRuleJson: null },
+    ]);
+    storageMock.getTestQuestionScoring.mockResolvedValue([]);
+    storageMock.selectAnswersForTest.mockResolvedValue([]);
+    storageMock.getAllAttempts.mockResolvedValue([run("a1", "u1", 0), run("a2", "u2", 1)]);
+  });
+
+  it("считает темы по прохождениям ЭТОГО среза, а не всего теста", async () => {
+    // В группе один участник, и он ответил верно; второй в срез не входит. По тесту целиком
+    // доля была бы 50 %, и если она появится здесь — разворот показывает не срез.
+    const res = await askTopics("testId=test1&axis=group&key=g1");
+
+    expect(res.status).toBe(200);
+    expect(res.body.topics).toEqual([
+      { topicId: "tp-1", topicName: "Бюджет", correctShare: 100, inSample: 1 },
+    ]);
+  });
+
+  it("срез без прохождений отдаёт пустой список, а не нули", async () => {
+    storageMock.getAllAttempts.mockResolvedValue([]);
+
+    expect((await askTopics("testId=test1&axis=group&key=g1")).body.topics).toEqual([]);
+  });
+
+  it("неизвестную ось отвергает, а не отвечает не о том", async () => {
+    expect((await askTopics("testId=test1&axis=должность&key=x")).status).toBe(400);
+  });
+
+  it("без теста не считает: средние законны только внутри одного теста", async () => {
+    expect((await askTopics("axis=group&key=g1")).status).toBe(400);
+  });
+
+  it("без среза не считает", async () => {
+    expect((await askTopics("testId=test1")).status).toBe(400);
+  });
+
+  it("сохранённый срез разворачивается своими условиями", async () => {
+    const res = await askTopics("testId=test1&sliceId=s1");
+
+    expect(res.status).toBe(200);
+    expect(res.body.topics[0]).toMatchObject({ topicId: "tp-1" });
+  });
+
+  it("срез, которого нет, отвечает 404", async () => {
+    expect((await askTopics("testId=test1&sliceId=нет-такого")).status).toBe(404);
   });
 });
