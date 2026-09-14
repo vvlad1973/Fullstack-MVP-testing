@@ -55,15 +55,32 @@ export interface ObservationRows {
  * Повторяет правило сервиса, и иначе нельзя: фильтр по исходу обязан работать ДО лимита, иначе
  * порция вернёт меньше строк, чем обещала, а общее число перестанет отвечать на «сколько всего».
  * Что оба выражения дают одно и то же, стережёт интеграционный тест.
+ *
+ * @param finished завершённость прохождения — у источников она видна по-разному
+ * @param adaptive адаптивное прохождение: его судят подтверждённые уровни, а не доля баллов,
+ *   поэтому вердикт у него есть и без достижимых баллов и без порога у теста
+ * @param possiblePoints единицы оценивания строки
+ * @param passed записанный вердикт
  */
-function outcomeSql(finishedAt: unknown, possiblePoints: unknown, passed: unknown) {
-  return sql<string>`case
-    when ${finishedAt} is null then 'incomplete'
-    when coalesce(${possiblePoints}, 0) <= 0 then 'completed'
-    when coalesce(${tests.overallPassRuleJson} ->> 'type', 'none') = 'none' then 'completed'
+function outcomeSql(
+  finished: unknown,
+  adaptive: unknown,
+  possiblePoints: unknown,
+  passed: unknown,
+) {
+  /** Вердикт как таковой: он же хвост общего правила. */
+  const verdict = sql`case
     when ${passed} is null then 'completed'
     when ${passed} then 'passed'
     else 'failed'
+  end`;
+
+  return sql<string>`case
+    when not ${finished} then 'incomplete'
+    when ${adaptive} then ${verdict}
+    when coalesce(${possiblePoints}, 0) <= 0 then 'completed'
+    when coalesce(${tests.overallPassRuleJson} ->> 'type', 'none') = 'none' then 'completed'
+    else ${verdict}
   end`;
 }
 
@@ -98,8 +115,13 @@ export class AnalyticsRepository {
     const webGraded = sql`coalesce(
       (${attempts.resultJson} ->> 'totalPossiblePoints')::numeric,
       case when (${attempts.resultJson} ->> 'overallPercent') is not null then 1 else 0 end)`;
+    // Прохождение состоялось, если посчитан результат, даже когда отметка завершения не
+    // проставлена: такие строки в базе есть, и правило сервиса их не теряет — запрос тоже
+    // не должен, иначе фильтр «завершено» отбирает не то, что показывает экран.
+    const webFinished = sql`(${attempts.finishedAt} is not null or ${attempts.resultJson} is not null)`;
     const webOutcome = outcomeSql(
-      attempts.finishedAt,
+      webFinished,
+      sql`(${attempts.resultJson} ->> 'mode') = 'adaptive'`,
       webGraded,
       sql`(${attempts.resultJson} ->> 'overallPassed')::boolean`,
     );
@@ -107,7 +129,15 @@ export class AnalyticsRepository {
     // сообщает `max_points`. То же правило, что в нормализации сервиса.
     const lmsGraded = sql`coalesce(${scormAttempts.maxPoints},
       case when ${scormAttempts.resultPercent} is not null then 1 else 0 end)`;
-    const lmsOutcome = outcomeSql(scormAttempts.finishedAt, lmsGraded, scormAttempts.resultPassed);
+    // Телеметрия заводит строку при СТАРТЕ и обновляет по ходу, поэтому признак завершения у
+    // неё один — отметка времени; режим прохождения она не сообщает вовсе, и адаптивных
+    // разрезов у этого источника нет (то же, что в нормализации сервиса).
+    const lmsOutcome = outcomeSql(
+      sql`${scormAttempts.finishedAt} is not null`,
+      sql`false`,
+      lmsGraded,
+      scormAttempts.resultPassed,
+    );
 
     const webWhere = and(
       ...(testIds ? [inArray(attempts.testId, testIds)] : []),

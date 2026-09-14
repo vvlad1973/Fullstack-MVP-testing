@@ -160,6 +160,50 @@ describe("loadObservations", () => {
     expect(incomplete.rows.map(r => r.source)).toEqual(["web"]);
   });
 
+  it("не считает незавершённой попытку с посчитанным результатом без отметки времени", async () => {
+    // Такие строки в базе есть: результат посчитан, а `finished_at` не проставлен. Сервис
+    // считает их состоявшимися, и запрос обязан считать так же — иначе фильтр «сдал» их
+    // теряет, а фильтр «не завершено» показывает то, что на экране значится сдавшим.
+    await webAttempt({ finishedAt: null });
+
+    const passed = await loadObservations({ outcomes: ["passed"] }, ALL_TESTS);
+    const incomplete = await loadObservations({ outcomes: ["incomplete"] }, ALL_TESTS);
+
+    expect(passed.total).toBe(1);
+    expect(incomplete.total).toBe(0);
+  });
+
+  it("отбирает по исходу адаптивное прохождение, у которого нет ни баллов, ни порога", async () => {
+    // Адаптивный тест судят подтверждённые уровни: вердикт у него есть ВСЕГДА, хотя ни
+    // достижимых баллов, ни процента в записи может не быть, а правило зачёта у теста —
+    // «none». Отбор по исходу считается запросом, и если запрос об этом не знает, он молча
+    // возвращает пусто: экран показывает строку «не сдал», а фильтр «не сдал» её теряет.
+    const adaptiveTestId = randomUUID();
+    await h.current!.db.insert(tests).values({
+      id: adaptiveTestId,
+      title: "Адаптивный",
+      mode: "adaptive",
+      overallPassRuleJson: { type: "none", value: 0 },
+      createdBy: userId,
+    } as never);
+    await webAttempt({
+      testId: adaptiveTestId,
+      resultJson: { mode: "adaptive", overallPassed: false, topicResults: [] },
+    });
+    await webAttempt({
+      testId: adaptiveTestId,
+      resultJson: { mode: "adaptive", overallPassed: true, topicResults: [] },
+    });
+
+    const failed = await loadObservations({ testIds: [adaptiveTestId], outcomes: ["failed"] }, ALL_TESTS);
+    const passed = await loadObservations({ testIds: [adaptiveTestId], outcomes: ["passed"] }, ALL_TESTS);
+
+    expect(failed.total).toBe(1);
+    expect(failed.rows.map(r => r.outcome)).toEqual(["failed"]);
+    expect(passed.total).toBe(1);
+    expect(passed.rows.map(r => r.outcome)).toEqual(["passed"]);
+  });
+
   it("не показывает прохождения теста вне области видимости", async () => {
     await webAttempt();
     await webAttempt({ testId: otherTestId });
