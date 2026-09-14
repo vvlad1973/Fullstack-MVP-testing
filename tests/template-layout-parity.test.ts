@@ -193,6 +193,25 @@ describe("certification manifest stays in parity with the standard one", () => {
     expect(keys(cert)).toEqual(keys(std));
   });
 
+  it("offers the same CHOICES inside those params, not just the same keys", () => {
+    // Ключи совпадают, а список вариантов у select-параметра — нет: автор одного шаблона
+    // видит вид рендера, которого во втором нет. Ключевой diff такого не показывает — ровно
+    // так же, как он не показал расхождение `contentTemplates` в PRD-29 (см. ниже).
+    //
+    // Шрифт из сверки исключён СОЗНАТЕЛЬНО: гарнитура — часть облика шаблона, и
+    // «Сертификация» возит свою фирменную («Rostelecom Basis»), которой в эталоне нет и
+    // быть не должно. Всё остальное — виды рендера, схемы уровней — это контракт ядра, и
+    // расходиться ему нельзя.
+    const BRAND_OWN = new Set(["fontFamily"]);
+    const choices = (m: { params: Array<{ key: string; type: string; options?: string[] }> }) =>
+      Object.fromEntries(
+        m.params
+          .filter((p) => p.type === "select" && Array.isArray(p.options) && !BRAND_OWN.has(p.key))
+          .map((p) => [p.key, p.options]),
+      );
+    expect(choices(cert)).toEqual(choices(std));
+  });
+
   it("resolves the same system layout keys", () => {
     expect(Object.keys(cert.layouts).sort()).toEqual(Object.keys(std.layouts).sort());
   });
