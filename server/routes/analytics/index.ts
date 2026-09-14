@@ -6,6 +6,7 @@ import scormRouter from "./scorm";
 import combinedRouter from "./combined";
 import registryRouter from "./registry";
 import attentionRouter from "./attention";
+import slicesRouter from "./slices";
 import exportRouter from "./export";
 import lmsImportRouter from "./lms-import";
 
@@ -39,6 +40,9 @@ router.use("/", registryRouter);
 
 // PRD-56: очередь «требует внимания» — GET /api/analytics/attention
 router.use("/", attentionRouter);
+
+// PRD-56: срезы прохождений — GET /api/analytics/slices
+router.use("/", slicesRouter);
 
 // Экспорт: GET /api/analytics/tests/:testId/export/excel, GET/POST /api/export/*
 router.use("/", exportRouter);
