@@ -8,9 +8,39 @@ import { checkAnswer } from "../../utils/check-answer";
 import { loadTestScoringContext } from "../../services/effective-scoring";
 import type { AttemptResult } from "@shared/schema";
 import { stripMarkdown } from "@shared/text";
-import { declaresPassThreshold, gradingOf } from "./helpers";
+import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answers";
+import { scoreBuckets } from "../../services/analytics/score-buckets";
+import { loadObservations } from "../../services/analytics/observations";
+import { passTrendByMonth } from "../../services/analytics/pass-trend";
+import { reviewFlags } from "../../services/analytics/question-review";
+import { summariseTopics } from "../../services/analytics/topic-stats";
+import { summariseObservations } from "../../services/analytics/test-summary";
+import { resolveOverallRule, resolveTopicRule } from "@shared/scoring/pass-rule";
+import { declaresPassThreshold, thresholdPercentOfTest } from "./helpers";
 
 const router = Router();
+
+/**
+ * Состав выданной формы прохождения — идентификаторы заданий, которые человек ВИДЕЛ.
+ *
+ * У обычного теста это вопросы разделов, у адаптивного — вопросы пройденных уровней.
+ * Отвеченное описывает `answersJson`; разница между двумя множествами и есть пропуски
+ * (PRD-56 FR-15).
+ */
+function variantQuestionIds(variantJson: unknown): string[] {
+  const variant = variantJson as {
+    sections?: Array<{ questionIds?: string[] }>;
+    topics?: Array<{ levelsState?: Array<{ questionIds?: string[] }> }>;
+  } | null;
+  if (!variant) return [];
+
+  const ids: string[] = [];
+  for (const section of variant.sections ?? []) ids.push(...(section.questionIds ?? []));
+  for (const topic of variant.topics ?? []) {
+    for (const level of topic.levelsState ?? []) ids.push(...(level.questionIds ?? []));
+  }
+  return ids;
+}
 
 // GET /api/analytics/tests/:testId - Детальная аналитика теста
 router.get("/:testId", requirePermission("analytics.read"), requireTestScope("analytics", "testId"), async (req: Request, res: Response) => {
@@ -26,7 +56,6 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     const testAttempts = allAttempts.filter(a => a.testId === testId);
     const completedAttempts = testAttempts.filter(a => a.resultJson !== null);
 
-    const uniqueUsers = new Set(completedAttempts.map(a => a.userId)).size;
     // PRD-29 §6.7: does this test grade at all? Averaged over runs that graded
     // NOTHING, «средний балл» and «процент прохождения» are not weak numbers —
     // they are false ones: a questionnaire carries the default 70% threshold and
@@ -35,138 +64,48 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     // the grade-shaped metrics answer `null` — «неприменимо», not «ноль».
     const thresholdDeclared = declaresPassThreshold(test);
 
-    let totalPercent = 0;
-    let totalPassed = 0;
-    let totalScore = 0;
-    let maxScore = 0;
-    let totalDuration = 0;
-    let durationCount = 0;
-    let gradedCount = 0;
-    let judgedCount = 0;
-
-    for (const attempt of completedAttempts) {
-      const result = attempt.resultJson as AttemptResult | null;
-      if (result) {
-        // Duration is a property of the RUN, not of its grading — every completed
-        // attempt contributes, questionnaire or not.
-        if (attempt.startedAt && attempt.finishedAt) {
-          const duration = (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000;
-          totalDuration += duration;
-          durationCount++;
-        }
-
-        // Two denominators, not one: the score metrics need points to exist, the
-        // pass rate needs a verdict to have been pronounced (see `gradingOf`).
-        const { scored, verdictPronounced } = gradingOf(result, thresholdDeclared);
-
-        if (verdictPronounced) {
-          judgedCount++;
-          if (result.overallPassed) totalPassed++;
-        }
-
-        if (!scored) continue;
-
-        gradedCount++;
-        totalPercent += result.overallPercent || 0;
-        totalScore += result.totalEarnedPoints || 0;
-        if ((result.totalPossiblePoints || 0) > maxScore) {
-          maxScore = result.totalPossiblePoints || 0;
-        }
-      }
-    }
+    // PRD-56 FR-33: плитки считаются по ВСЕМ прохождениям теста — вебу, телеметрии и
+    // импортированным выгрузкам. До этого страница читала только `attempts`, и на тесте,
+    // который проходят в LMS, её числа расходились с разделом «Аналитика» (FR-25).
+    // Область видимости уже проверена `requireTestScope` выше, поэтому здесь она открыта.
+    const observations = await loadObservations(
+      { testIds: [testId] },
+      { all: true, ids: new Set([testId]) },
+    );
+    const stats = summariseObservations(observations.rows);
 
     const summary = {
-      totalAttempts: testAttempts.length,
-      completedAttempts: completedAttempts.length,
+      totalAttempts: stats.totalAttempts,
+      completedAttempts: stats.completedAttempts,
       // The two denominators, published so a reader can tell «неприменимо» (a `null`
       // metric over zero of these) from «ноль» (a real zero over a positive count).
-      gradedAttempts: gradedCount,
-      judgedAttempts: judgedCount,
-      uniqueUsers,
-      avgPercent: gradedCount > 0 ? totalPercent / gradedCount : null,
-      avgDuration: durationCount > 0 ? totalDuration / durationCount : null,
-      passRate: judgedCount > 0 ? (totalPassed / judgedCount) * 100 : null,
-      avgScore: gradedCount > 0 ? totalScore / gradedCount : null,
-      maxScore,
+      gradedAttempts: stats.gradedAttempts,
+      judgedAttempts: stats.judgedAttempts,
+      uniqueUsers: stats.uniqueParticipants,
+      avgPercent: stats.avgPercent,
+      // Секунды: контракт экрана не меняется от смены источника данных.
+      avgDuration: stats.avgDurationMs === null ? null : stats.avgDurationMs / 1000,
+      // Медиана рядом со средним — величина, которой экран будет пользоваться после Э4
+      // (эскиз обзора подписывает плитку «Время, медиана»).
+      medianDuration: stats.medianDurationMs === null ? null : stats.medianDurationMs / 1000,
+      passRate: stats.passRate,
+      avgScore: stats.avgScore,
+      maxScore: stats.maxScore ?? 0,
     };
 
-    // Topic stats
-    interface TopicStatsEntry {
-      topicId: string;
-      topicName: string;
-      totalAnswers: number;
-      correctAnswers: number;
-      earnedPoints: number;
-      possiblePoints: number;
-      passedCount: number;
-      failedCount: number;
-    }
-
-    const topicStatsMap = new Map<string, TopicStatsEntry>();
-
-    for (const attempt of completedAttempts) {
-      const result = attempt.resultJson as any;
-      if (!result?.topicResults) continue;
-
-      for (const tr of result.topicResults) {
-        const existing = topicStatsMap.get(tr.topicId) || {
-          topicId: tr.topicId,
-          topicName: tr.topicName,
-          totalAnswers: 0,
-          correctAnswers: 0,
-          earnedPoints: 0,
-          possiblePoints: 0,
-          passedCount: 0,
-          failedCount: 0,
-        };
-
-        existing.totalAnswers += tr.total || tr.totalQuestionsAnswered || 0;
-        existing.correctAnswers += tr.correct || tr.totalCorrect || 0;
-        existing.earnedPoints += tr.earnedPoints || 0;
-        existing.possiblePoints += tr.possiblePoints || 0;
-
-        if (tr.passed === true || (tr.achievedLevelIndex !== undefined && tr.achievedLevelIndex !== null)) {
-          existing.passedCount++;
-        } else if (tr.passed === false || tr.achievedLevelIndex === null) {
-          existing.failedCount++;
-        }
-
-        topicStatsMap.set(tr.topicId, existing);
-      }
-    }
-
-    const topicStats = Array.from(topicStatsMap.values()).map(ts => ({
-      topicId: ts.topicId,
-      topicName: ts.topicName,
-      totalAnswers: ts.totalAnswers,
-      correctAnswers: ts.correctAnswers,
-      avgPercent: ts.possiblePoints > 0 ? (ts.earnedPoints / ts.possiblePoints) * 100 : 0,
-      passRate: (ts.passedCount + ts.failedCount) > 0
-        ? (ts.passedCount / (ts.passedCount + ts.failedCount)) * 100
-        : null,
-    }));
 
     // Question stats
     const allQuestionIds = new Set<string>();
     for (const attempt of testAttempts) {
-      const variant = attempt.variantJson as any;
-      if (variant?.sections) {
-        for (const section of variant.sections) {
-          for (const qId of section.questionIds || []) {
-            allQuestionIds.add(qId);
-          }
-        }
-      }
-      if (variant?.topics) {
-        for (const topic of variant.topics) {
-          for (const level of topic.levelsState || []) {
-            for (const qId of level.questionIds || []) {
-              allQuestionIds.add(qId);
-            }
-          }
-        }
+      for (const questionId of variantQuestionIds(attempt.variantJson)) {
+        allQuestionIds.add(questionId);
       }
     }
+
+    // PRD-56 FR-25: ответы прохождений из LMS. Задание, выданное только пакетом, в вариантах
+    // веб-попыток не встречается — без этого шага его ответы отбрасывались бы молча.
+    const lmsAnswers = await storage.selectAnswersForTest(testId);
+    for (const answer of lmsAnswers) allQuestionIds.add(answer.questionId);
 
     const questions = await storage.getQuestionsByIds(Array.from(allQuestionIds));
     const questionMap = new Map(questions.map(q => [q.id, q]));
@@ -183,38 +122,96 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       topicId: string;
       topicName: string;
       difficulty: number;
+      /** Сколько раз ответили — включая ответы, которым нечего было оценивать. */
       totalAnswers: number;
+      /** Сколько из них оценивалось: только по ним законна доля верных. */
+      gradedAnswers: number;
       correctAnswers: number;
+      /** Доля верных; `null` — оценивать было нечего (измерительный вопрос). */
+      correctPercent: number | null;
+      answersBySource: Record<string, number>;
     }
 
     const questionStatsMap = new Map<string, QuestionStatsEntry>();
 
-    for (const attempt of completedAttempts) {
-      const answers = (attempt.answersJson || {}) as Record<string, unknown>;
-
-      for (const [qId, answer] of Object.entries(answers)) {
-        const question = questionMap.get(qId);
-        if (!question) continue;
-
-        const existing = questionStatsMap.get(qId) || {
-          questionId: qId,
-          questionPrompt: stripMarkdown(question.prompt),
-          questionType: question.type,
-          topicId: question.topicId,
-          topicName: topicMap.get(question.topicId) || "Unknown",
-          difficulty: scoring.difficultyOf(question) || 50,
-          totalAnswers: 0,
-          correctAnswers: 0,
-        };
-
-        existing.totalAnswers++;
-        if (checkAnswer(question, answer, scoring.resolve(question).scoring) === 1) {
-          existing.correctAnswers++;
+    /**
+     * PRD-56 FR-25: ответы обоих источников сводятся одним расчётом.
+     *
+     * Оценка веб-ответа остаётся здесь: эффективная стоимость и правило проверки вопроса
+     * внутри теста уже разрешены (`loadTestScoringContext`), и считать их во второй раз в
+     * слое ответов значило бы завести второй источник правды о том, что такое «верно».
+     * Измерительный вопрос не оценивается вовсе — у него нет эталона (PRD-26 FR-08,
+     * PRD-44 FR-09), и его ответ приходит третьим состоянием.
+     */
+    const facts = await loadAnswerFacts(testId, {
+      attempts: completedAttempts,
+      grade: (questionId, answer) => {
+        const question = questionMap.get(questionId);
+        if (!question) return null;
+        if (question.type === "scale" || question.type === "allocation") {
+          return { result: "neutral", earnedPoints: null, possiblePoints: null };
         }
+        const effective = scoring.resolve(question);
+        const ratio = checkAnswer(question, answer, effective.scoring);
+        return {
+          result: ratio === 1 ? "correct" : "incorrect",
+          earnedPoints: ratio * effective.points,
+          possiblePoints: effective.points,
+        };
+      },
+    });
 
-        questionStatsMap.set(qId, existing);
-      }
+    for (const stats of summariseAnswers(facts)) {
+      const question = questionMap.get(stats.questionId);
+      if (!question) continue;
+
+      questionStatsMap.set(stats.questionId, {
+        questionId: stats.questionId,
+        questionPrompt: stripMarkdown(question.prompt),
+        questionType: question.type,
+        topicId: question.topicId,
+        topicName: topicMap.get(question.topicId) || "Unknown",
+        difficulty: scoring.difficultyOf(question) || 50,
+        totalAnswers: stats.answered,
+        gradedAnswers: stats.graded,
+        correctAnswers: stats.correct,
+        correctPercent: stats.correctPercent,
+        answersBySource: stats.bySource,
+      });
     }
+
+    /**
+     * PRD-56 FR-14, FR-14a: разрезы по темам и подтемам — из тех же ответов.
+     *
+     * Порог темы разрешается правилом теста (`resolveTopicRule`), а исход считает движок
+     * PRD-50: своего правила аналитика не заводит, иначе исход в отчёте участника и исход
+     * на этом экране однажды разойдутся.
+     */
+    const sections = await storage.getTestSections(testId);
+    const overallRule = resolveOverallRule(test.overallPassRuleJson);
+    const topicRules = new Map(sections.map(section => [
+      section.topicId,
+      resolveTopicRule(section.topicPassRuleJson, overallRule),
+    ]));
+
+    const topicStats = summariseTopics(
+      facts.flatMap(fact => {
+        const question = questionMap.get(fact.questionId);
+        if (!question) return [];
+        return [{
+          attemptId: fact.attemptId,
+          topicId: question.topicId,
+          topicName: topicMap.get(question.topicId) || "Без темы",
+          // Подтема — тег вопроса (PRD-11): ответ может попасть в несколько, и это правда
+          // о данных, а не ошибка счёта.
+          subtopics: question.tags ?? [],
+          result: fact.result,
+          earnedPoints: fact.earnedPoints,
+          possiblePoints: fact.possiblePoints,
+        }];
+      }),
+      topicRules,
+    );
 
     // Знаменатель доли — попытки теста за окно, считая БРОШЕННЫЕ: счётчик выдач пополняется на
     // старте попытки (FR-02), потому что брошенная попытка показала задание так же, как
@@ -252,22 +249,69 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     }
 
 
+    /**
+     * PRD-56 FR-15: доля ПРОПУСКОВ — выданных заданий, оставшихся без ответа.
+     *
+     * Считается по веб-попыткам: у них известен и состав выдачи (`variantJson`), и ответы.
+     * Пакет состава по попытке не сообщает — он шлёт выданный набор в счётчик экспозиции
+     * (PRD-55), а тот агрегирован по месяцам и с ответами построчно не сопоставляется.
+     * Поэтому у теста, который проходят только в LMS, доли пропусков нет, и это честнее
+     * числа, собранного из двух разных окон.
+     */
+    const deliveredWeb = new Map<string, number>();
+    const skippedWeb = new Map<string, number>();
+    for (const attempt of completedAttempts) {
+      const answers = (attempt.answersJson ?? {}) as Record<string, unknown>;
+      for (const questionId of variantQuestionIds(attempt.variantJson)) {
+        deliveredWeb.set(questionId, (deliveredWeb.get(questionId) ?? 0) + 1);
+        if (!(questionId in answers)) {
+          skippedWeb.set(questionId, (skippedWeb.get(questionId) ?? 0) + 1);
+        }
+      }
+    }
+
+    /** PRD-56 FR-17a: задания, исключённые из выдачи этого теста — состояние видно в таблице. */
+    const excludedFromDelivery = new Set(
+      (await storage.getTestQuestionScoring(testId))
+        .filter(row => row.excludedFromDelivery)
+        .map(row => row.questionId),
+    );
+
     const questionStats = Array.from(questionStatsMap.values()).map(qs => {
       const exposureCount = exposureOwn.get(qs.questionId) ?? 0;
       const lat = latency.get(qs.questionId);
+      const delivered = deliveredWeb.get(qs.questionId) ?? 0;
+      const skipped = skippedWeb.get(qs.questionId) ?? 0;
+      const exposurePercent =
+        attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null;
+
       return {
         ...qs,
-        correctPercent: qs.totalAnswers > 0 ? (qs.correctAnswers / qs.totalAnswers) * 100 : 0,
         exposureCount,
-        exposurePercent:
-          attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null,
+        exposurePercent,
         globalExposureCount: exposureGlobal.get(qs.questionId) ?? 0,
         otherTestsCount: otherTests.get(qs.questionId) ?? 0,
         // Своя выборка: веб времени не измеряет, пакеты старше 2026-09-12 его не сообщают.
         latencyMedianMs: lat ? lat.medianMs : null,
         latencySampleSize: lat ? lat.sampleSize : 0,
+        excludedFromDelivery: excludedFromDelivery.has(qs.questionId),
+        deliveredWeb: delivered,
+        skippedWeb: skipped,
+        skipShare: delivered > 0 ? (skipped / delivered) * 100 : null,
+        // FR-16: признаки ревизии считает сервис — вид «требуют ревизии» это отбор по ним,
+        // а не собственное правило экрана.
+        reviewFlags: reviewFlags({
+          questionId: qs.questionId,
+          gradedAnswers: qs.gradedAnswers,
+          correctPercent: qs.correctPercent,
+          exposurePercent,
+          latencyMedianMs: lat ? lat.medianMs : null,
+          latencySampleSize: lat ? lat.sampleSize : 0,
+        }, { minObservations: config.analytics.minObservations }),
       };
-    }).sort((a, b) => a.correctPercent - b.correctPercent);
+      // Первыми — самые трудные; вопросы без оценивания (измерительные) уходят в конец:
+      // сортировать их вместе с долей верных не по чему, доли у них нет.
+    }).sort((a, b) => (a.correctPercent ?? Infinity) - (b.correctPercent ?? Infinity));
 
     // Level stats (adaptive)
     interface LevelStatsEntry {
@@ -347,62 +391,29 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       });
     }
 
-    // Score distribution
-    const scoreRanges = [
-      { range: "0-10", min: 0, max: 10, count: 0 },
-      { range: "11-20", min: 11, max: 20, count: 0 },
-      { range: "21-30", min: 21, max: 30, count: 0 },
-      { range: "31-40", min: 31, max: 40, count: 0 },
-      { range: "41-50", min: 41, max: 50, count: 0 },
-      { range: "51-60", min: 51, max: 60, count: 0 },
-      { range: "61-70", min: 61, max: 70, count: 0 },
-      { range: "71-80", min: 71, max: 80, count: 0 },
-      { range: "81-90", min: 81, max: 90, count: 0 },
-      { range: "91-100", min: 91, max: 100, count: 0 },
-    ];
+    /**
+     * PRD-56 FR-13a: корзины одной ширины, цвет — от проходного балла.
+     *
+     * Считается по тем же наблюдениям, что и плитки: иначе экран противоречит сам себе —
+     * «18 прохождений» сверху и гистограмма по пятнадцати веб-попыткам. Прохождения без
+     * результата в корзины не попадают: у них нет процента, а не ноль.
+     */
+    const percents = observations.rows
+      .map(observation => observation.percent)
+      .filter((percent): percent is number => percent !== null);
+    const scoreDistribution = scoreBuckets(
+      percents,
+      thresholdPercentOfTest(test),
+    );
 
-    for (const attempt of completedAttempts) {
-      const result = attempt.resultJson as AttemptResult | null;
-      const percent = result?.overallPercent || 0;
-      for (const range of scoreRanges) {
-        if (percent >= range.min && percent <= range.max) {
-          range.count++;
-          break;
-        }
-      }
-    }
-
-    const scoreDistribution = scoreRanges.map(r => ({ range: r.range, count: r.count }));
-
-    // Daily trends
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const dailyMap = new Map<string, { date: string; attempts: number; totalPercent: number; passed: number }>();
-
-    for (const attempt of completedAttempts) {
-      if (!attempt.finishedAt) continue;
-      const finishedDate = new Date(attempt.finishedAt);
-      if (finishedDate < thirtyDaysAgo) continue;
-
-      const dateStr = finishedDate.toISOString().split("T")[0];
-      const result = attempt.resultJson as AttemptResult | null;
-
-      const existing = dailyMap.get(dateStr) || { date: dateStr, attempts: 0, totalPercent: 0, passed: 0 };
-      existing.attempts++;
-      existing.totalPercent += result?.overallPercent || 0;
-      if (result?.overallPassed) existing.passed++;
-      dailyMap.set(dateStr, existing);
-    }
-
-    const dailyTrends = Array.from(dailyMap.values())
-      .map(d => ({
-        date: d.date,
-        attempts: d.attempts,
-        avgPercent: d.attempts > 0 ? d.totalPercent / d.attempts : 0,
-        passRate: d.attempts > 0 ? (d.passed / d.attempts) * 100 : 0,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    /**
+     * PRD-56 FR-13: динамика сдаваемости ПО МЕСЯЦАМ.
+     *
+     * Дневная линия за тридцать дней, которая была здесь, для теста нечитаема: прохождения
+     * идут волнами по назначениям, и график превращался в частокол из единиц. Месяц — та
+     * единица, в которой об обучении и говорят.
+     */
+    const passTrend = passTrendByMonth(observations.rows);
 
     res.json({
       testId: test.id,
@@ -410,6 +421,14 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       testMode: test.mode,
       // The test's half of the PRD-29 §6.7 rule (see `summary` above).
       hasPassThreshold: thresholdDeclared,
+      /**
+       * PRD-56 FR-13a: проходной балл В ПРОЦЕНТАХ — число, а не граница корзины.
+       *
+       * Выводить его на клиенте из раскраски столбиков можно только при пороге, кратном их
+       * ширине: при 75 % такой вывод давал «порог 70 %» и ставил вертикаль на границу,
+       * а не на её место. `null` — тест не оценивает либо порог задан в баллах.
+       */
+      thresholdPercent: thresholdPercentOfTest(test),
       summary,
       topicStats,
       questionStats,
@@ -419,7 +438,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       exposureAttempts: attemptsInWindow,
       levelStats: test.mode === "adaptive" ? levelStats : undefined,
       scoreDistribution,
-      dailyTrends,
+      passTrend,
     });
 
   } catch (error) {

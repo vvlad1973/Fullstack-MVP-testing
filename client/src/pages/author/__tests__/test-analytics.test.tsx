@@ -43,20 +43,39 @@ const baseSummary = () => ({
 const standardAnalytics = () => ({
   testId: "t1", testTitle: "Тест по финансам", testMode: "standard" as const,
   summary: baseSummary(),
+  thresholdPercent: 70,
   topicStats: [
-    { topicId: "top1", topicName: "Бюджет", totalAnswers: 20, correctAnswers: 15, avgPercent: 75, passRate: 80 },
-    { topicId: "top2", topicName: "Инвестиции", totalAnswers: 18, correctAnswers: 6, avgPercent: 33.3, passRate: null },
+    {
+      topicId: "top1", topicName: "Бюджет",
+      passedShare: 80, correctShare: 75, thresholdPercent: 70, inSample: 20,
+      subtopics: [
+        { name: "Планирование", passedShare: 70, correctShare: 64, thresholdPercent: 70, inSample: 12 },
+      ],
+    },
+    {
+      topicId: "top2", topicName: "Инвестиции",
+      passedShare: null, correctShare: 33, thresholdPercent: null, inSample: 18,
+      subtopics: [],
+    },
   ],
   questionStats: [
-    { questionId: "q1", questionPrompt: "Что такое бюджет?", questionType: "single", topicId: "top1", topicName: "Бюджет", difficulty: 2, totalAnswers: 10, correctAnswers: 7, correctPercent: 70 },
+    {
+      questionId: "q1", questionPrompt: "Что такое бюджет?", questionType: "single",
+      topicId: "top1", topicName: "Бюджет", difficulty: 2,
+      totalAnswers: 10, gradedAnswers: 10, correctAnswers: 7, correctPercent: 70,
+      skipShare: 0, exposurePercent: 80, latencyMedianMs: 42_000, latencySampleSize: 10,
+      reviewFlags: [],
+    },
   ],
   scoreDistribution: [
-    { range: "0-20", count: 1 }, { range: "21-40", count: 2 }, { range: "41-60", count: 1 },
-    { range: "61-80", count: 3 }, { range: "81-100", count: 1 },
+    { label: "0–9", from: 0, to: 10, count: 1, share: 12.5, tone: "error", holdsThreshold: false },
+    { label: "60–69", from: 60, to: 70, count: 2, share: 25, tone: "error", holdsThreshold: false },
+    { label: "70–79", from: 70, to: 80, count: 3, share: 37.5, tone: "success", holdsThreshold: false },
+    { label: "90–100", from: 90, to: 100, count: 2, share: 25, tone: "success", holdsThreshold: false },
   ],
-  dailyTrends: [
-    { date: "2026-06-01", attempts: 5, avgPercent: 70, passRate: 60 },
-    { date: "2026-06-02", attempts: 3, avgPercent: 75, passRate: 65 },
+  passTrend: [
+    { key: "2026-06", label: "июнь 2026", attempts: 5, judged: 5, passRate: 60 },
+    { key: "2026-07", label: "июль 2026", attempts: 3, judged: 3, passRate: 65 },
   ],
 });
 
@@ -65,8 +84,11 @@ const emptyAnalytics = () => ({
   summary: { ...baseSummary(), avgDuration: null },
   topicStats: [],
   questionStats: [],
-  scoreDistribution: [{ range: "0-20", count: 0 }, { range: "81-100", count: 0 }],
-  dailyTrends: [],
+  scoreDistribution: [
+    { label: "0–9", from: 0, to: 10, count: 0, share: 0, tone: "error", holdsThreshold: false },
+    { label: "90–100", from: 90, to: 100, count: 0, share: 0, tone: "success", holdsThreshold: false },
+  ],
+  passTrend: [],
 });
 
 const adaptiveAnalytics = () => ({
@@ -75,21 +97,6 @@ const adaptiveAnalytics = () => ({
   levelStats: [
     { levelIndex: 1, levelName: "Средний", topicId: "top1", topicName: "Бюджет", achievedCount: 2, attemptedCount: 5, passedCount: 2, failedCount: 3, avgCorrectPercent: 45 },
     { levelIndex: 0, levelName: "Базовый", topicId: "top1", topicName: "Бюджет", achievedCount: 5, attemptedCount: 8, passedCount: 5, failedCount: 3, avgCorrectPercent: 60 },
-  ],
-});
-
-const standardAttempts = () => ({
-  testId: "t1", testTitle: "Тест по финансам", testMode: "standard",
-  attempts: [
-    { attemptId: "at1", userId: "u1", username: "Иван Петров", startedAt: "2026-06-01T10:00:00Z", finishedAt: "2026-06-01T10:15:00Z", duration: 900, overallPercent: 85, earnedPoints: 17, possiblePoints: 20, passed: true, completed: true },
-    { attemptId: "at2", userId: "u2", username: "Мария Сидорова", startedAt: "2026-06-02T09:00:00Z", finishedAt: null, duration: null, overallPercent: 0, earnedPoints: 0, possiblePoints: 0, passed: false, completed: false },
-  ],
-});
-
-const adaptiveAttempts = () => ({
-  testId: "t1", testTitle: "Тест по финансам", testMode: "adaptive",
-  attempts: [
-    { attemptId: "at1", userId: "u1", username: "Иван Петров", startedAt: "2026-06-01T10:00:00Z", finishedAt: "2026-06-01T10:15:00Z", duration: 900, overallPercent: 85, earnedPoints: 17, possiblePoints: 20, passed: true, completed: true, achievedLevels: [{ topicName: "Бюджет", levelName: "Средний" }] },
   ],
 });
 
@@ -119,19 +126,17 @@ const adaptiveDetail = () => ({
 type State = {
   mode: "standard" | "adaptive";
   analyticsBody: unknown;
-  attemptsBody: unknown;
   detailBody: unknown;
 };
 let state: State;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  state = { mode: "standard", analyticsBody: standardAnalytics(), attemptsBody: standardAttempts(), detailBody: standardDetail() };
+  state = { mode: "standard", analyticsBody: standardAnalytics(), detailBody: standardDetail() };
   const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
   fetchMock = vi.fn(async (input: string) => {
     const u = String(input);
     if (u === "/api/analytics/tests/t1") return ok(state.analyticsBody);
-    if (u === "/api/analytics/tests/t1/attempts") return ok(state.attemptsBody);
     if (u.startsWith("/api/analytics/attempts/")) return ok(state.detailBody);
     return ok([]);
   });
@@ -157,11 +162,6 @@ async function renderLoaded() {
   await waitFor(() => expect(screen.getByText("Тест по финансам")).toBeInTheDocument());
 }
 
-async function openAttemptsTab() {
-  fireEvent.click(screen.getByRole("tab", { name: "Попытки" }));
-  await waitFor(() => expect(screen.getByText("Иван Петров")).toBeInTheDocument());
-}
-
 describe("<TestAnalyticsPage />", () => {
   it("shows the loading state before analytics arrive", async () => {
     renderPage();
@@ -180,7 +180,6 @@ describe("<TestAnalyticsPage />", () => {
     await renderLoaded();
     expect(screen.getByText("Аналитика")).toBeInTheDocument();
     expect(screen.getByText("Стандартный")).toBeInTheDocument();
-    // «Попытки» is both a KPI card and a tab label — assert it exists at all.
     expect(screen.getAllByText("Попытки").length).toBeGreaterThan(0);
     for (const label of ["Средний балл", "Прохождение", "Среднее время", "Всего"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -193,74 +192,59 @@ describe("<TestAnalyticsPage />", () => {
 
   it("renders the overview: charts and per-topic stats", async () => {
     await renderLoaded();
+    // PRD-56 FR-13, FR-14: три блока обзора — распределение, темы и помесячная динамика.
     expect(screen.getByText("Распределение результатов")).toBeInTheDocument();
-    expect(screen.getByText("Тренды (30 дней)")).toBeInTheDocument();
-    expect(screen.getByText("Статистика по темам")).toBeInTheDocument();
-    // Topic rows with pass-rate tag (top1) and none (top2, passRate null).
+    expect(screen.getByText("Динамика сдаваемости")).toBeInTheDocument();
+    expect(screen.getByText("Темы и подтемы")).toBeInTheDocument();
     expect(screen.getByText("Бюджет")).toBeInTheDocument();
     expect(screen.getByText("Инвестиции")).toBeInTheDocument();
-    expect(screen.getByText("80% сдали")).toBeInTheDocument();
-    expect(screen.getByText("15 / 20 правильных")).toBeInTheDocument();
+    // Подтема — строкой под своей темой.
+    expect(screen.getByText("Планирование")).toBeInTheDocument();
+    // Единицы счёта названы в заголовках: 80 % прохождений против 75 % ответов (FR-14a).
+    expect(screen.getByText("Прошли тему, % прохождений")).toBeInTheDocument();
+    expect(screen.getByText("Доля верных, % ответов")).toBeInTheDocument();
   });
 
   it("falls back to empty states across the overview when there is no data", async () => {
-    state.analyticsBody = emptyAnalytics();
+    state.analyticsBody = { ...emptyAnalytics(), summary: { ...baseSummary(), avgDuration: null, completedAttempts: 0 } };
     await renderLoaded();
-    // Both charts + topic list render their «Нет данных» fallbacks.
-    expect(screen.getAllByText("Нет данных").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("Нет данных по темам")).toBeInTheDocument();
+    // Пустые блоки говорят, ЧЕГО нет, а не «нет данных» вообще: по первому понятно, что
+    // прохождений не было, по второму — что читателю думать.
+    expect(screen.getAllByText(/Прохождений пока нет/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Разрезов по темам пока нет/)).toBeInTheDocument();
+    expect(screen.getByText(/динамику строить не из чего/)).toBeInTheDocument();
     // avgDuration null → «—» in the KPI card.
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("lists attempts with completed and in-progress rows", async () => {
+
+
+  it("не показывает списка попыток: он живёт в реестре прохождений", async () => {
     await renderLoaded();
-    await openAttemptsTab();
-    expect(screen.getByText("Мария Сидорова")).toBeInTheDocument();
-    expect(screen.getByText("Сдан")).toBeInTheDocument();       // completed + passed
-    expect(screen.getByText("В процессе")).toBeInTheDocument(); // not completed
-    expect(screen.getByText("85.0%")).toBeInTheDocument();
+
+    // FR-23: один список на продукт, а не два. Вместо вкладки — переход в реестр, где тот же
+    // список умеет фильтровать, догружать и вести в разбор.
+    expect(screen.queryByRole("tab", { name: "Попытки" })).toBeNull();
+    expect(screen.getByRole("link", { name: /Прохождения в реестре/ })).toBeInTheDocument();
   });
 
-  it("renders the empty attempts state when there are none", async () => {
-    state.attemptsBody = { testId: "t1", testTitle: "Тест по финансам", testMode: "standard", attempts: [] };
+  it("ведёт в реестр с фильтром по этому тесту", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Попытки" }));
-    await waitFor(() => expect(screen.getByText("Нет попыток")).toBeInTheDocument());
+
+    const link = screen.getByRole("link", { name: /Прохождения в реестре/ });
+    expect(link.getAttribute("href")).toContain("/author/analytics?testId=t1");
   });
 
   it("renders the questions tab with per-question stats", async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("tab", { name: "Вопросы" }));
+    // PRD-56 FR-15: карточки заменены таблицей — задания сравнивают между собой.
     await waitFor(() => expect(screen.getByText("Что такое бюджет?")).toBeInTheDocument());
-    expect(screen.getByText("Сложность: 2")).toBeInTheDocument();
-    expect(screen.getByText("70%")).toBeInTheDocument();
+    expect(screen.getByText("Доля верных")).toBeInTheDocument();
+    expect(screen.getByText("70 %")).toBeInTheDocument();
   });
 
-  it("opens the standard attempt-details modal and shows the answers", async () => {
-    await renderLoaded();
-    await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детализация попытки"));
-    const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByText("85.0%")).toBeInTheDocument());
-    // Points, verdict tag and the answers list.
-    expect(within(dialog).getByText("17/20")).toBeInTheDocument();
-    expect(within(dialog).getByText("Пройден")).toBeInTheDocument();
-    expect(within(dialog).getByText("Что такое бюджет?")).toBeInTheDocument();
-    expect(within(dialog).getByText("Виды инвестиций?")).toBeInTheDocument();
-    expect(within(dialog).getByText("Ответы (2)")).toBeInTheDocument();
-  });
 
-  it("shows the modal not-found branch when the detail payload is null", async () => {
-    state.detailBody = null;
-    await renderLoaded();
-    await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детализация попытки"));
-    const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByText("Не удалось загрузить данные")).toBeInTheDocument());
-  });
 
   it("exports to Excel via the header action", async () => {
     await renderLoaded();
@@ -279,23 +263,4 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByText("5 достигли")).toBeInTheDocument();
   });
 
-  it("shows the adaptive «Уровни» attempt column and details modal (levels + trajectory)", async () => {
-    state.analyticsBody = adaptiveAnalytics();
-    state.attemptsBody = adaptiveAttempts();
-    state.detailBody = adaptiveDetail();
-    await renderLoaded();
-    await openAttemptsTab();
-    // Adaptive attempts table carries the achieved-level tag.
-    expect(screen.getAllByText("Средний").length).toBeGreaterThan(0);
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детализация попытки"));
-    const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByText("Достигнутые уровни")).toBeInTheDocument());
-    expect(within(dialog).getByText("Траектория прохождения")).toBeInTheDocument();
-    expect(within(dialog).getByText("Повышение до «Средний»")).toBeInTheDocument();
-    expect(within(dialog).getByText("Понижение до «Базовый»")).toBeInTheDocument();
-    // Close the modal.
-    fireEvent.click(within(dialog).getByLabelText("Закрыть"));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-  });
 });

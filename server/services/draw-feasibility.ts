@@ -242,6 +242,18 @@ async function buildRequirements(
 }
 
 /**
+ * PRD-56 FR-17a: задания, исключённые из выдачи ЭТОГО теста.
+ *
+ * Пул темы для проверки выполнимости обязан их терять: иначе публикация разрешит тест,
+ * который выдать нельзя («выдать 5 из 5», где пятое задание автор снял), и ошибка вскроется
+ * не здесь, а у участника на старте попытки.
+ */
+async function excludedFromDeliveryOf(testId: string): Promise<Set<string>> {
+  const rows = await storage.getTestQuestionScoring(testId);
+  return new Set(rows.filter(row => row.excludedFromDelivery).map(row => row.questionId));
+}
+
+/**
  * Per-test difficulty overrides (block D, FR-34): questionId -> effective
  * difficulty for this test. Null when the test overrides nothing — the core
  * then reads the questions' base difficulty.
@@ -312,7 +324,16 @@ export interface PublishCheckFinding {
  * levels must be satisfiable right now. Advisory issues are filtered out:
  * only hard shortfalls should stop a publication.
  */
-export async function assessTestPublish(testId: string): Promise<PublishCheckFinding[]> {
+export async function assessTestPublish(
+  testId: string,
+  /**
+   * PRD-56 FR-17b: задания, которые ЕЩЁ не исключены, но будут — окно подтверждения и сама
+   * ручка исключения спрашивают о БУДУЩЕМ состоянии. Передать их сюда честнее, чем записать
+   * признак в базу и откатить: между записью и откатом чужая попытка стартует с пулом,
+   * которого автор не утверждал.
+   */
+  alsoExcludedQuestionIds: readonly string[] = [],
+): Promise<PublishCheckFinding[]> {
   const test = await storage.getTest(testId);
   if (!test) return [];
   const sections = await storage.getTestSections(testId);
@@ -320,9 +341,13 @@ export async function assessTestPublish(testId: string): Promise<PublishCheckFin
   // effective difficulty the delivery will use.
   const difficultyOverrides =
     test.mode === "adaptive" ? await difficultyOverridesOf(testId) : null;
+  const excluded = await excludedFromDeliveryOf(testId);
+  for (const questionId of alsoExcludedQuestionIds) excluded.add(questionId);
   const findings: PublishCheckFinding[] = [];
   for (const section of sections) {
-    const pool = (await storage.getQuestionsByTopic(section.topicId)).map(toPoolQuestion);
+    const pool = (await storage.getQuestionsByTopic(section.topicId))
+      .filter(question => !excluded.has(question.id))
+      .map(toPoolQuestion);
     const adaptive =
       test.mode === "adaptive" ? await storage.getAdaptiveLevels(testId, section.topicId) : [];
     const results = checkDrawFeasibility({

@@ -6,6 +6,8 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { checkAnswer } from "../../utils/check-answer";
+import { loadObservations } from "../../services/analytics/observations";
+import { summariseObservations } from "../../services/analytics/test-summary";
 // Analytics reports are read by people, not re-imported: the question text goes in
 // without its markdown markers. The question-bank export is the opposite case and
 // keeps the stored text verbatim, so an export/import round trip cannot lose markup.
@@ -38,6 +40,13 @@ const scaleLabelsOf = (measures: MeasureCatalogue) =>
   new Map(measures.scales.map((s) => [s.key, s.label]));
 
 const router = Router();
+
+/** Как источник прохождения подписывается в книге. */
+const SOURCE_TITLE: Record<string, string> = {
+  web: "Веб",
+  telemetry: "Телеметрия LMS",
+  import: "Импорт",
+};
 
 // GET /api/analytics/tests/:testId/export/excel - Экспорт теста в Excel
 router.get("/tests/:testId/export/excel", requirePermission("analytics.export"), requireTestScope("analytics", "testId"), async (req: Request, res: Response) => {
@@ -100,6 +109,16 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
     const scaleLabels = scaleLabelsOf(measures);
 
     // ЛИСТ 1: Сводка
+    // PRD-56 FR-25: книга считает по ТЕМ ЖЕ наблюдениям, что экран — веб, телеметрия и
+    // импортированные выгрузки. Иначе автор получает два разных ответа на один вопрос:
+    // один в браузере, другой в файле, который отправит коллеге.
+    // Область видимости проверена `requireTestScope` выше.
+    const observations = await loadObservations(
+      { testIds: [testId] },
+      { all: true, ids: new Set([testId]) },
+    );
+    const stats = summariseObservations(observations.rows);
+
     const summaryData: any[][] = [
       ["Аналитика теста"],
       [],
@@ -108,28 +127,23 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
       ["Дата экспорта", new Date().toLocaleString("ru-RU")],
       [],
       ["Показатель", "Значение"],
-      ["Всего попыток", testAttempts.length],
-      ["Завершённых попыток", completedAttempts.length],
-      ["Уникальных пользователей", new Set(completedAttempts.map(a => a.userId)).size],
+      ["Всего попыток", stats.totalAttempts],
+      ["Завершённых попыток", stats.completedAttempts],
+      ["Уникальных пользователей", stats.uniqueParticipants],
     ];
 
     // PRD-29 §6.7: average and pass rate only over the runs those numbers apply to.
     // Averaging a questionnaire's runs printed «Средний результат 0.0%» beside
     // «Процент прохождения 100.0%» — two false statements about a method that grades
     // nothing. The dash says «неприменимо»; the counts above still say what happened.
-    const scoredAttempts = completedAttempts.filter(a => gradingOf(a.resultJson as any, thresholdDeclared).scored);
-    const judgedAttempts = completedAttempts.filter(a => gradingOf(a.resultJson as any, thresholdDeclared).verdictPronounced);
-
     summaryData.push([
       "Средний результат",
-      scoredAttempts.length > 0
-        ? `${(scoredAttempts.reduce((sum, a) => sum + ((a.resultJson as any)?.overallPercent || 0), 0) / scoredAttempts.length).toFixed(1)}%`
-        : NOT_APPLICABLE,
+      stats.avgPercent === null ? NOT_APPLICABLE : `${stats.avgPercent.toFixed(1)}%`,
     ]);
     summaryData.push([
       "Процент прохождения",
-      judgedAttempts.length > 0
-        ? `${((judgedAttempts.filter(a => (a.resultJson as any)?.overallPassed).length / judgedAttempts.length) * 100).toFixed(1)}%`
+      stats.passRate !== null
+        ? `${stats.passRate.toFixed(1)}%`
         : NOT_APPLICABLE,
     ]);
 
@@ -532,6 +546,22 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
       });
     }
 
+    // PRD-56 FR-04: что выгружается, решает фильтр реестра. Источник и исход — его условия,
+    // и книга обязана понимать их так же, как экран.
+    const sources = Array.isArray(config?.sources) ? config.sources : [];
+    const outcomes = Array.isArray(config?.outcomes) ? config.outcomes : [];
+    const observed = (await loadObservations(
+      {
+        testIds: [...selectedTestIds],
+        ...(groupIds.length ? { groupIds } : {}),
+        ...(sources.length ? { sources } : {}),
+        ...(outcomes.length ? { outcomes } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+      },
+      scope,
+    )).rows;
+
     // Only completed
     let completed = attempts.filter(a => a.resultJson !== null);
 
@@ -641,35 +671,32 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
 
     // Sheet: Attempts
     if (includeSheets.attempts) {
+      // PRD-56 FR-04: строки берутся из общего слоя наблюдений — веб, телеметрия и импорт.
+      // До этого лист знал только `attempts`, и выгрузка молчала о половине прохождений.
       const rows: any[][] = [[
-        "Тест", "ID попытки", "Пользователь", "Дата начала", "Дата завершения",
-        "Время (сек)", "Результат (%)", "Баллы", "Макс. баллы", "Статус",
+        "Тест", "ID прохождения", "Участник", "Дата начала", "Дата завершения",
+        "Время (сек)", "Результат (%)", "Баллы", "Макс. баллы", "Статус", "Источник",
       ]];
 
-      for (const a of completed) {
-        const r = a.resultJson as any;
-        const dur = a.startedAt && a.finishedAt
-          ? Math.round((new Date(a.finishedAt).getTime() - new Date(a.startedAt).getTime()) / 1000)
-          : "";
-        // PRD-29 §6.7, per TEST: this report spans several, so the threshold is read
-        // per row rather than once.
-        const { scored, verdictPronounced } = gradingOf(r, thresholdByTest.get(a.testId));
-
+      for (const o of observed) {
         rows.push([
-          testTitleMap.get(a.testId) || a.testId,
-          a.id,
-          userMap.get(a.userId) || "Unknown",
-          a.startedAt ? new Date(a.startedAt).toLocaleString("ru-RU") : "",
-          a.finishedAt ? new Date(a.finishedAt).toLocaleString("ru-RU") : "",
-          dur,
-          scored ? r?.overallPercent?.toFixed(1) ?? "" : NOT_APPLICABLE,
-          scored ? r?.totalEarnedPoints ?? "" : NOT_APPLICABLE,
-          scored ? r?.totalPossiblePoints ?? "" : NOT_APPLICABLE,
-          verdictPronounced ? (r?.overallPassed ? "Сдан" : "Не сдан") : NOT_APPLICABLE,
+          testTitleMap.get(o.testId ?? "") || o.testId || "Удалённый тест",
+          o.id,
+          o.participant,
+          o.startedAt ? new Date(o.startedAt).toLocaleString("ru-RU") : "",
+          o.finishedAt ? new Date(o.finishedAt).toLocaleString("ru-RU") : "",
+          o.durationMs === null ? "" : Math.round(o.durationMs / 1000),
+          o.percent === null ? NOT_APPLICABLE : o.percent.toFixed(1),
+          o.earnedPoints === null ? NOT_APPLICABLE : o.earnedPoints,
+          o.possiblePoints === null ? NOT_APPLICABLE : o.possiblePoints,
+          o.outcome === "passed" ? "Сдан"
+            : o.outcome === "failed" ? "Не сдан"
+              : o.outcome === "incomplete" ? "Не завершено" : NOT_APPLICABLE,
+          SOURCE_TITLE[o.source],
         ]);
       }
 
-      addAoaSheet(wb, "Попытки", rows, [24, 36, 18, 18, 18, 12, 12, 10, 12, 10]);
+      addAoaSheet(wb, "Попытки", rows, [24, 36, 22, 18, 18, 12, 12, 10, 12, 12, 14]);
     }
 
     // Sheet: Answers

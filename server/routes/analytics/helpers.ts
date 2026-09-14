@@ -10,70 +10,10 @@ import {
   findOutcome,
 } from "@shared/scales/interpretation";
 import type { AttemptResult } from "@shared/schema";
-
-/**
- * Пакет, которым выдано LMS-прохождение, — или `undefined`, если пакета нет.
- *
- * PRD-54: `scorm_attempts.package_id` стал необязательным, потому что импортированная строка
- * приехала книгой, а не рантаймом, и пакета за ней не стоит. Один помощник на все места чтения:
- * восемь разных `packageMap.get(a.packageId)` с восемью разными способами обойти `null` — это
- * восемь мест, где однажды забудут.
- *
- * @param attempt попытка с возможным пакетом
- * @param packages карта пакетов по идентификатору
- * @returns пакет или `undefined`
- */
-export function attemptPackage<T>(
-  attempt: { packageId: string | null },
-  packages: ReadonlyMap<string, T>,
-): T | undefined {
-  return attempt.packageId ? packages.get(attempt.packageId) : undefined;
-}
-
-/**
- * Тест LMS-прохождения (PRD-54 раздел 12).
- *
- * `scorm_attempts.test_id` — источник истины: у импорта он единственный возможный, а телеметрии его
- * проставил backfill миграции 0029. Пакет остаётся ЗАПАСНЫМ путём и нужен ровно для тех старых
- * строк, чей тест уже удалён, — им backfill ничего не нашёл.
- *
- * @param attempt попытка
- * @param packages карта пакетов по идентификатору
- * @returns идентификатор теста или `null`, если его не знает ни попытка, ни пакет
- */
-export function attemptTestId(
-  attempt: { testId: string | null; packageId: string | null },
-  packages: ReadonlyMap<string, { testId: string | null }>,
-): string | null {
-  return attempt.testId ?? attemptPackage(attempt, packages)?.testId ?? null;
-}
-
-/**
- * Подпись участника LMS-прохождения (PRD-54 раздел 12).
- *
- * Порядок именно такой. Связь с пользователем ЗАВОДИЛАСЬ ради того, чтобы видеть человека, поэтому
- * она перебивает всё остальное. Дальше идёт имя из LMS — оно есть у телеметрии и у импорта без
- * обезличивания. Последним — псевдоним, и печатается он ПРЕФИКСОМ: полные 64 знака в таблице
- * нечитаемы, а шести хватает, чтобы отличить участников друг от друга глазами.
- *
- * Связь на удалённого пользователя откатывается к псевдониму, а не оставляет строку без подписи.
- *
- * @param attempt попытка
- * @param users карта пользователей по идентификатору
- * @returns строка для колонки «Участник»
- */
-export function attemptParticipant(
-  attempt: { userId: string | null; participantKey: string | null; lmsUserName: string | null },
-  users: ReadonlyMap<string, { name: string | null }>,
-): string {
-  if (attempt.userId) {
-    const name = users.get(attempt.userId)?.name;
-    if (name) return name;
-  }
-  if (attempt.lmsUserName) return attempt.lmsUserName;
-  if (attempt.participantKey) return `Участник ${attempt.participantKey.slice(0, 6)}`;
-  return "Неизвестный участник";
-}
+// Разбор строки прохождения переехал в слой наблюдений (PRD-56 FR-33): сервис не может
+// зависеть от маршрутов, а эти помощники нужны обоим. Реэкспорт оставлен, чтобы места
+// чтения не переписывались ради переезда.
+export { attemptPackage, attemptParticipant, attemptTestId } from "../../services/analytics/attempt-row";
 
 /**
  * What a report prints where a question CANNOT have the value the column asks for —
@@ -94,10 +34,16 @@ export const NOT_APPLICABLE = "—";
  */
 export async function analyticsScope(
   req: Request,
-): Promise<{ all: boolean; has: (testId: string | null | undefined) => boolean }> {
+): Promise<{
+  all: boolean;
+  /** Доступные тесты множеством: PRD-56 FR-35 — область видимости уходит в УСЛОВИЕ запроса. */
+  ids: ReadonlySet<string>;
+  has: (testId: string | null | undefined) => boolean;
+}> {
   const scope = await readableTestScope(req.effectiveRoles ?? [], req.currentUser?.id ?? "");
   return {
     all: scope.all,
+    ids: scope.ids,
     has: (testId) => scope.all || (!!testId && scope.ids.has(testId)),
   };
 }
@@ -321,6 +267,18 @@ export function gradingOf(
 export function declaresPassThreshold(test: { overallPassRuleJson?: unknown }): boolean | undefined {
   if (test.overallPassRuleJson === undefined || test.overallPassRuleJson === null) return undefined;
   return resolveOverallRule(test.overallPassRuleJson) !== null;
+}
+
+/**
+ * Проходной балл теста В ПРОЦЕНТАХ — тем, кто рисует шкалу результата (PRD-56 FR-13a).
+ *
+ * `null` не только у теста без правила, но и у правила В БАЛЛАХ: сколько это процентов,
+ * зависит от достижимых баллов прохождения, а они у разных вариантов выдачи разные. Нарисовать
+ * такой порог одной вертикалью значило бы показать линию, которой ни для кого нет.
+ */
+export function thresholdPercentOfTest(test: { overallPassRuleJson?: unknown }): number | null {
+  const rule = resolveOverallRule(test.overallPassRuleJson);
+  return rule?.type === "percent" ? rule.value : null;
 }
 
 /**

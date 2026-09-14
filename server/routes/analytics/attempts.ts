@@ -41,110 +41,13 @@ function storedMeasures(result: unknown): {
 
 const router = Router();
 
-// GET /api/analytics/tests/:testId/attempts - Список попыток теста
-router.get("/tests/:testId/attempts", requirePermission("analytics.read"), requireTestScope("analytics", "testId"), async (req: Request, res: Response) => {
-  try {
-    const testId = req.params.testId;
-    const test = await storage.getTest(testId);
-
-    if (!test) {
-      return res.status(404).json({ error: "Test not found" });
-    }
-
-    const allAttempts = await storage.getAllAttempts();
-    const testAttempts = allAttempts.filter(a => a.testId === testId);
-
-    const userIds = Array.from(new Set(testAttempts.map(a => a.userId)));
-    const users = await Promise.all(userIds.map(id => storage.getUser(id)));
-    const userMap = new Map<string, string>();
-    for (const u of users) {
-      if (u) userMap.set(u.id, u.name || u.email || "Unknown");
-    }
-
-    // PRD-15 T-20 (FR-15): resolve each attempt's publication version. Attempts
-    // pinned to a snapshot carry its monotonic version; legacy/transitional
-    // attempts (no snapshot) report null.
-    const snapshots = await storage.getSnapshotsForTest(testId);
-    const versionBySnapshot = new Map(snapshots.map(s => [s.id, s.version]));
-
-    // PRD-5/PRD-2: what this test MEASURES, so the attempts table can carry a column
-    // per scale/indicator instead of registering a questionnaire run as «0.0 % / Сдан».
-    const measures: MeasureCatalogue = await loadMeasureCatalogue(testId);
-    const thresholdDeclared = declaresPassThreshold(test);
-
-    const attemptsList = testAttempts.map(attempt => {
-      const result = attempt.resultJson as any;
-      const duration = attempt.startedAt && attempt.finishedAt
-        ? (new Date(attempt.finishedAt).getTime() - new Date(attempt.startedAt).getTime()) / 1000
-        : null;
-
-      let achievedLevels: Array<{ topicName: string; levelName: string | null }> | undefined;
-      if (test.mode === "adaptive" && result?.topicResults) {
-        achievedLevels = result.topicResults.map((tr: any) => ({
-          topicName: tr.topicName,
-          levelName: tr.achievedLevelName || null,
-        }));
-      }
-
-      return {
-        attemptId: attempt.id,
-        userId: attempt.userId,
-        username: userMap.get(attempt.userId) || "Unknown",
-        startedAt: attempt.startedAt?.toISOString() || null,
-        finishedAt: attempt.finishedAt?.toISOString() || null,
-        duration,
-        overallPercent: result?.overallPercent || 0,
-        earnedPoints: result?.totalEarnedPoints || 0,
-        possiblePoints: result?.totalPossiblePoints || 0,
-        passed: result?.overallPassed || false,
-        // PRD-29 §6.7 reaches the AUTHOR too: without these two the table printed a
-        // green «Сдан» over «0.0 %» for every questionnaire run — the default 70%
-        // threshold every test is born with, applied to a run that grades nothing.
-        // `passed` itself is left as stored so no existing reader loses its field.
-        ...gradingOf(result, thresholdDeclared),
-        completed: result !== null,
-        // What the run actually measured (absent for a control test).
-        ...storedMeasures(result),
-        achievedLevels,
-        // PRD-15 T-20: which published edition this attempt was taken on.
-        snapshotVersion: attempt.snapshotId ? versionBySnapshot.get(attempt.snapshotId) ?? null : null,
-      };
-    }).sort((a, b) => {
-      if (a.completed !== b.completed) return b.completed ? 1 : -1;
-      const dateA = a.finishedAt || a.startedAt || "";
-      const dateB = b.finishedAt || b.startedAt || "";
-      return dateB.localeCompare(dateA);
-    });
-
-    // PRD-15 T-20: distribution of attempts across publication versions, so the
-    // author sees which edition learners took (sorted newest version first;
-    // `null` = legacy/pre-snapshot attempts).
-    const versionCounts = new Map<number | null, number>();
-    for (const a of attemptsList) {
-      versionCounts.set(a.snapshotVersion, (versionCounts.get(a.snapshotVersion) ?? 0) + 1);
-    }
-    const versions = [...versionCounts.entries()]
-      .map(([snapshotVersion, attemptCount]) => ({ snapshotVersion, attemptCount }))
-      .sort((a, b) => (b.snapshotVersion ?? -1) - (a.snapshotVersion ?? -1));
-
-    res.json({
-      testId: test.id,
-      testTitle: test.title,
-      testMode: test.mode,
-      // Whether the TEST declares an overall threshold at all — the half of the
-      // PRD-29 §6.7 rule that belongs to the test rather than to a single run.
-      hasPassThreshold: thresholdDeclared,
-      measures,
-      currentVersion: snapshots[0]?.version ?? null,
-      versions,
-      attempts: attemptsList,
-    });
-
-  } catch (error) {
-    logger.error("Test attempts list error: " + (error as Error).message);
-    res.status(500).json({ error: "Failed to fetch attempts list" });
-  }
-});
+/*
+ * PRD-56 FR-23: список попыток теста снят вместе с его вкладкой. Один список прохождений на
+ * продукт — реестр (`registry.ts`), который умеет фильтровать, догружать порциями и вести в
+ * разбор; два списка означали бы два ответа на вопрос «кто проходил этот тест».
+ *
+ * Разбор ОДНОГО прохождения (ниже) остался: в него ведут и реестр, и очередь дел.
+ */
 
 // GET /api/analytics/attempts/:attemptId - Детали попытки
 router.get("/attempts/:attemptId", requirePermission("analytics.read"), async (req: Request, res: Response) => {

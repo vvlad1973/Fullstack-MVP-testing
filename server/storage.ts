@@ -21,6 +21,13 @@ import {
 } from "./storage/scorm-repository";
 import { AdaptiveRepository } from "./storage/adaptive-repository";
 import { ExposureRepository } from "./storage/exposure-repository";
+import {
+  AnalyticsRepository,
+  type ObservationQuery,
+  type ObservationRows,
+  type TestAnswerRow,
+} from "./storage/analytics-repository";
+import { SlicesRepository } from "./storage/slices-repository";
 import { AttemptsRepository } from "./storage/attempts-repository";
 import { ScalesVariablesRepository } from "./storage/scales-variables-repository";
 import { TestsRepository, type TestUsageRef } from "./storage/tests-repository";
@@ -71,6 +78,7 @@ import type {
   ScormAttempt, InsertScormAttempt,
   ScormAnswer, InsertScormAnswer,
   LmsImportBatch, InsertLmsImportBatch,
+  AnalyticsSlice, InsertAnalyticsSlice,
   Group, InsertGroup,
   UserGroup,
   TestAccessGrant, InsertTestAccessGrant,
@@ -335,6 +343,20 @@ export interface IStorage {
   getOtherTestsCount(questionIds: string[], testId: string, since: Date): Promise<Map<string, number>>;
   /** PRD-55 (FR-31a): медиана времени на задание и СВОЙ объём выборки (веб времени не даёт). */
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>>;
+  /** PRD-56 FR-33: страница прохождений веба, телеметрии и импорта одной выборкой. */
+  selectObservations(query: ObservationQuery): Promise<ObservationRows>;
+  /** PRD-56 FR-25: ответы прохождений теста, пришедших из LMS. */
+  selectAnswersForTest(testId: string): Promise<TestAnswerRow[]>;
+  /** PRD-56 FR-07b: срезы — сохранённые наборы условий отбора. */
+  getSlices(ownerId: string): Promise<AnalyticsSlice[]>;
+  getSlice(id: string, ownerId: string): Promise<AnalyticsSlice | undefined>;
+  createSlice(input: InsertAnalyticsSlice): Promise<AnalyticsSlice>;
+  updateSlice(
+    id: string,
+    ownerId: string,
+    patch: Partial<Pick<AnalyticsSlice, "name" | "testId" | "conditionsJson">>,
+  ): Promise<AnalyticsSlice | undefined>;
+  deleteSlice(id: string, ownerId: string): Promise<boolean>;
 
   createScormAttempt(attempt: InsertScormAttempt & { id: string }): Promise<ScormAttempt>;
   getScormAttempt(id: string): Promise<ScormAttempt | undefined>;
@@ -401,6 +423,12 @@ export interface IStorage {
     values: Omit<InsertTestQuestionScoring, "testId" | "questionId">,
   ): Promise<TestQuestionScoring>;
   deleteTestQuestionScoring(testId: string, questionId: string): Promise<boolean>;
+  /** PRD-56 FR-17a: включить или снять состояние «исключён из выдачи» у задания теста. */
+  setQuestionDelivery(
+    testId: string,
+    questionId: string,
+    excluded: boolean,
+  ): Promise<TestQuestionScoring>;
   replaceTestQuestionScoring(
     testId: string,
     rows: Omit<InsertTestQuestionScoring, "testId">[],
@@ -460,6 +488,8 @@ export class DatabaseStorage implements IStorage {
   private readonly scormRepo = new ScormRepository();
   private readonly adaptiveRepo = new AdaptiveRepository();
   private readonly exposureRepo = new ExposureRepository();
+  private readonly analyticsRepo = new AnalyticsRepository();
+  private readonly slicesRepo = new SlicesRepository();
   private readonly attemptsRepo = new AttemptsRepository();
   private readonly scalesVariablesRepo = new ScalesVariablesRepository();
   private readonly testsRepo = new TestsRepository();
@@ -1148,6 +1178,38 @@ export class DatabaseStorage implements IStorage {
     return this.exposureRepo.getOtherTestsCount(questionIds, testId, since);
   }
 
+  selectObservations(query: ObservationQuery): Promise<ObservationRows> {
+    return this.analyticsRepo.selectObservations(query);
+  }
+
+  selectAnswersForTest(testId: string): Promise<TestAnswerRow[]> {
+    return this.analyticsRepo.selectAnswersForTest(testId);
+  }
+
+  getSlices(ownerId: string): Promise<AnalyticsSlice[]> {
+    return this.slicesRepo.getSlices(ownerId);
+  }
+
+  getSlice(id: string, ownerId: string): Promise<AnalyticsSlice | undefined> {
+    return this.slicesRepo.getSlice(id, ownerId);
+  }
+
+  createSlice(input: InsertAnalyticsSlice): Promise<AnalyticsSlice> {
+    return this.slicesRepo.createSlice(input);
+  }
+
+  updateSlice(
+    id: string,
+    ownerId: string,
+    patch: Partial<Pick<AnalyticsSlice, "name" | "testId" | "conditionsJson">>,
+  ): Promise<AnalyticsSlice | undefined> {
+    return this.slicesRepo.updateSlice(id, ownerId, patch);
+  }
+
+  deleteSlice(id: string, ownerId: string): Promise<boolean> {
+    return this.slicesRepo.deleteSlice(id, ownerId);
+  }
+
   getLatencyStats(questionIds: string[], testId: string, since: Date): Promise<Map<string, { medianMs: number; sampleSize: number }>> {
     return this.exposureRepo.getLatencyStats(questionIds, testId, since);
   }
@@ -1335,6 +1397,14 @@ export class DatabaseStorage implements IStorage {
     values: Omit<InsertTestQuestionScoring, "testId" | "questionId">,
   ): Promise<TestQuestionScoring> {
     return this.scalesVariablesRepo.upsertTestQuestionScoring(testId, questionId, values);
+  }
+
+  setQuestionDelivery(
+    testId: string,
+    questionId: string,
+    excluded: boolean,
+  ): Promise<TestQuestionScoring> {
+    return this.scalesVariablesRepo.setQuestionDelivery(testId, questionId, excluded);
   }
 
   deleteTestQuestionScoring(testId: string, questionId: string): Promise<boolean> {

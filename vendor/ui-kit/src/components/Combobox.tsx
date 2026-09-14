@@ -265,6 +265,9 @@ function ComboboxInner<T extends string = string>(
       ref={wrapRef}
       className={cn(
         'ou-combo',
+        // Single select shows exactly one chip, so it may use the whole control;
+        // the chip width cap exists for multi-select, where chips share the row.
+        !multiple && 'ou-combo--single',
         size === 's' && 'ou-combo--s',
         size === 'l' && 'ou-combo--l',
         t === 'error' && 'ou-combo--error',

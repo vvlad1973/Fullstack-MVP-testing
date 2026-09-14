@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
+import { observationsDouble } from "./helpers/observations-double";
 import express from "express";
 import session from "express-session";
 
@@ -16,6 +17,10 @@ const { storageMock } = vi.hoisted(() => ({
   storageMock: {
     getTest: vi.fn(),
     getAllAttempts: vi.fn(),
+    // PRD-56 FR-33: страница теста читает прохождения через выборку DAL.
+    selectObservations: vi.fn(),
+    // PRD-56 FR-25: ответы прохождений из LMS — часть выборки страницы теста.
+    selectAnswersForTest: vi.fn().mockResolvedValue([]),
     getTestSections: vi.fn().mockResolvedValue([]),
     getTopics: vi.fn().mockResolvedValue([{ id: "t1", name: "Финансы" }]),
     getQuestionsByIds: vi.fn(),
@@ -80,6 +85,7 @@ let app: express.Express;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
   storageMock.getUser.mockResolvedValue(authorUser);
   storageMock.getUserRoles.mockResolvedValue(["administrator"]);
   storageMock.getTest.mockResolvedValue(dbTest);

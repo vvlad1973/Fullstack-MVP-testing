@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { cn, cssStyleClass } from '../utils';
 import type { SortDir, TableAlign } from './Table';
 
@@ -58,16 +58,47 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
    */
   canExpand?: (row: T, index: number) => boolean;
 
+  /**
+   * Ленивая подгрузка вместо страниц: есть ли ещё строки за последней показанной.
+   *
+   * Пока он задан, постраничность не рисуется — два способа двигаться по одному списку
+   * противоречат друг другу, и подвал должен говорить что-то одно.
+   */
+  hasMore?: boolean;
+  /** Сколько строк подходит под условия всего — знаменатель «показано N из M». */
+  total?: number;
+  /** Идёт загрузка следующей порции: повторный запрос не отправляется. */
+  loadingMore?: boolean;
+  /** Запросить следующую порцию — зовётся, когда хвост списка показался на экране. */
+  onLoadMore?: () => void;
+
   /** Пагинация. */
   page?: number;
   pageSize?: number;
-  total?: number;
   onPageChange?: (page: number) => void;
   pageSizeOptions?: number[];
   onPageSizeChange?: (size: number) => void;
 
   /** Сообщение пустого состояния. */
   emptyMessage?: React.ReactNode;
+
+  /**
+   * Open the row itself. The row gets `is-clickable` (pointer cursor), the way
+   * `Table` already does it, so a grid whose rows lead somewhere does not have to
+   * spend a column on a link.
+   *
+   * Clicks coming from the control cells (expand chevron, selection checkbox) and
+   * from anything interactive inside a cell — a button, a link, an input — are the
+   * cell's own and never reach here: opening the row out from under a button the
+   * user actually pressed is the bug this guard exists for.
+   */
+  onRowClick?: (row: T, index: number) => void;
+}
+
+/** Whether the click landed on something that handles it itself. */
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  const el = target instanceof Element ? target : null;
+  return !!el?.closest('button, a, input, select, textarea, label, [role="button"], .ou-grid__control-cell');
 }
 
 const SortIcon: React.FC<{ dir?: SortDir; active?: boolean }> = ({ dir, active }) => (
@@ -102,9 +133,25 @@ export function DataGrid<T>({
   selectable, selected = [], onSelectChange, bulkActions,
   expandable, renderExpanded, canExpand,
   page, pageSize, total, onPageChange, pageSizeOptions, onPageSizeChange,
+  hasMore, loadingMore, onLoadMore,
   emptyMessage = 'Нет данных',
+  onRowClick,
   className, style, ...rest
 }: DataGridProps<T>) {
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  // Хвост списка виден — значит пора за следующей порцией. Наблюдатель не заводится, когда
+  // догружать нечего или запрос уже в пути: иначе одна прокрутка выстреливает несколько раз.
+  useEffect(() => {
+    if (!hasMore || !onLoadMore || loadingMore) return;
+    const target = sentinel.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) onLoadMore();
+    }, { root: target.closest('.ou-grid__scroll') });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore, rows.length]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -140,30 +187,40 @@ export function DataGrid<T>({
   const lastFrozen = frozenIndices.length ? frozenIndices[frozenIndices.length - 1] : -1;
 
   const totalRows = total ?? rows.length;
-  const showPager = page !== undefined && pageSize !== undefined && onPageChange !== undefined;
+  const showPager = hasMore === undefined
+    && page !== undefined && pageSize !== undefined && onPageChange !== undefined;
   const totalPages = showPager ? Math.max(1, Math.ceil(totalRows / pageSize!)) : 1;
+
+  /**
+   * Счётчик — спутник заголовка, а не самостоятельный блок: без заголовка, поиска и своих
+   * кнопок над таблицей осталось бы одно число, которое читателю не к чему отнести (сколько
+   * чего и из скольких — это говорят подвал и подзаголовок карточки).
+   */
+  const showToolbar = Boolean(title || onQueryChange || toolbarExtra);
 
   return (
     <div className={cn('ou-grid', className, cssStyleClass(style, 'ou-grid-sx'))} {...rest}>
       {/* Toolbar */}
-      <div className="ou-grid__toolbar">
-        {title && <span className="ou-grid__toolbar-title">{title}</span>}
-        <span className="ou-grid__toolbar-count">{totalRows}</span>
-        <span className="ou-grid__toolbar-spacer" />
-        {onQueryChange && (
-          <div className="ou-grid__search">
-            <SearchIcon />
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={query ?? ''}
-              onChange={(e) => onQueryChange(e.target.value)}
-              aria-label={searchPlaceholder}
-            />
-          </div>
-        )}
-        {toolbarExtra}
-      </div>
+      {showToolbar && (
+        <div className="ou-grid__toolbar">
+          {title && <span className="ou-grid__toolbar-title">{title}</span>}
+          <span className="ou-grid__toolbar-count">{totalRows}</span>
+          <span className="ou-grid__toolbar-spacer" />
+          {onQueryChange && (
+            <div className="ou-grid__search">
+              <SearchIcon />
+              <input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={query ?? ''}
+                onChange={(e) => onQueryChange(e.target.value)}
+                aria-label={searchPlaceholder}
+              />
+            </div>
+          )}
+          {toolbarExtra}
+        </div>
+      )}
 
       {/* Bulk bar */}
       {selectable && selected.length > 0 && (
@@ -231,7 +288,12 @@ export function DataGrid<T>({
               const isExp = canExp && expanded.has(id);
               return (
                 <React.Fragment key={id}>
-                  <tr className={cn(isSel && 'is-selected')}>
+                  <tr
+                    className={cn(isSel && 'is-selected', onRowClick && 'is-clickable')}
+                    onClick={onRowClick
+                      ? (e) => { if (!isInteractiveTarget(e.target)) onRowClick(row, idx); }
+                      : undefined}
+                  >
                     {expandable && (
                       <td className="ou-grid__control-cell">
                         {canExp && (
@@ -288,7 +350,20 @@ export function DataGrid<T>({
             })}
           </tbody>
         </table>
+        {/*
+          Хвост для наблюдателя — последний элемент ПРОКРУЧИВАЕМОЙ области. Положенный
+          снаружи, он попадает в видимую часть сразу и запускает догрузку до конца списка.
+        */}
+        {hasMore && <div ref={sentinel} className="ou-grid__sentinel" aria-hidden="true" />}
       </div>
+
+      {/* Подвал ленивого списка: сколько показано из скольких. */}
+      {hasMore !== undefined && (
+        <div className="ou-grid__footer">
+          <span>Показано {rows.length}{total === undefined ? '' : ` из ${total}`}</span>
+          <span>{loadingMore ? 'Загружаем следующие…' : hasMore ? 'Следующие подгружаются при прокрутке' : ''}</span>
+        </div>
+      )}
 
       {/* Footer / pagination */}
       {showPager && (

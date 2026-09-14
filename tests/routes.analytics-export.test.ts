@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
+import { observationsDouble } from "./helpers/observations-double";
 import express from "express";
 import session from "express-session";
 
@@ -12,7 +13,9 @@ const { storageMock } = vi.hoisted(() => ({
     getUser: vi.fn(),
     getUserRoles: vi.fn().mockResolvedValue(["administrator"]),
     getTest: vi.fn(), getTests: vi.fn(), getTopics: vi.fn(),
-    getAllAttempts: vi.fn(), getAttemptsByUser: vi.fn(),
+    getAllAttempts: vi.fn(),
+    // PRD-56 FR-33: сводка книги читает прохождения через выборку DAL.
+    selectObservations: vi.fn(), getAttemptsByUser: vi.fn(),
     getQuestionsByIds: vi.fn(), getTopicCourses: vi.fn(),
     // PRD-15 block D: effective-scoring chain sources (no overrides by default).
     getTestSections: vi.fn(), getTestQuestionScoring: vi.fn(),
@@ -114,6 +117,7 @@ describe("GET /analytics/tests/:testId/export/excel", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.clearAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
     app = makeApp();
   });
@@ -164,6 +168,7 @@ describe("GET /analytics/export/filters", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.clearAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
     app = makeApp();
   });
@@ -229,6 +234,7 @@ describe("POST /analytics/export/excel", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.resetAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUserRoles.mockResolvedValue(["administrator"]);
     storageMock.getUser.mockResolvedValue(authorUser);
     // PRD-5/PRD-2 measurement sources — re-armed because `resetAllMocks` drops the
@@ -334,6 +340,7 @@ describe("POST /analytics/export/excel-lms", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.clearAllMocks();
+    storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
     app = makeApp();
   });

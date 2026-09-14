@@ -1,0 +1,120 @@
+/**
+ * @module server/routes/analytics/registry
+ * @description PRD-56 FR-01 - FR-05: реестр прохождений — рабочее место оценщика.
+ *
+ * Один плоский список на все источники: веб, телеметрия и импортированные выгрузки. Экран
+ * сканируют глазами по колонкам, сортируют и догружают прокруткой, поэтому ручка отдаёт порцию
+ * И общее число: «показано 25 из 128» в подвале таблицы — два разных факта, второй из первого
+ * не выводится.
+ *
+ * Ни одного собственного правила расчёта здесь нет: что считать результатом, исходом и
+ * участником, решает слой наблюдений (FR-33), а маршрут переводит условия из адреса в отбор.
+ */
+import { Router, type Request, type Response } from "express";
+
+import { logger } from "../../logger";
+import { requirePermission } from "../../middleware/auth";
+import { storage } from "../../storage";
+import {
+  loadObservations,
+  type ObservationOutcome,
+  type ObservationSource,
+} from "../../services/analytics/observations";
+import { analyticsScope } from "./helpers";
+
+const router = Router();
+
+/** Сколько строк отдаётся за раз, когда порция не названа. */
+const DEFAULT_LIMIT = 25;
+const MAX_LIMIT = 200;
+
+const SOURCES: ObservationSource[] = ["web", "telemetry", "import"];
+const OUTCOMES: ObservationOutcome[] = ["passed", "failed", "completed", "incomplete"];
+
+/** Значения параметра, повторённого несколько раз или перечисленного через запятую. */
+function listOf(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : value === undefined ? [] : [value];
+  return raw
+    .flatMap(item => String(item).split(","))
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Дата из параметра.
+ *
+ * Конец периода — конец ДНЯ: «по 30 сентября» в интерфейсе означает включительно, и без этого
+ * прохождения последнего дня выборки молча пропадали бы.
+ */
+function dateOf(value: unknown, edge: "start" | "end"): Date | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const date = new Date(`${value}T${edge === "start" ? "00:00:00.000" : "23:59:59.999"}Z`);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+// GET /api/analytics/registry — порция прохождений и общее их число
+router.get("/registry", requirePermission("analytics.read"), async (req: Request, res: Response) => {
+  try {
+    const scope = await analyticsScope(req);
+    const limit = Math.min(Number(req.query.limit) || DEFAULT_LIMIT, MAX_LIMIT);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+    const sources = listOf(req.query.source).filter((s): s is ObservationSource =>
+      (SOURCES as string[]).includes(s));
+    const outcomes = listOf(req.query.outcome).filter((o): o is ObservationOutcome =>
+      (OUTCOMES as string[]).includes(o));
+    const testIds = listOf(req.query.testId);
+    const groupIds = listOf(req.query.groupId);
+
+    const page = await loadObservations(
+      {
+        ...(testIds.length ? { testIds } : {}),
+        ...(groupIds.length ? { groupIds } : {}),
+        ...(sources.length ? { sources } : {}),
+        ...(outcomes.length ? { outcomes } : {}),
+        ...(dateOf(req.query.from, "start") ? { from: dateOf(req.query.from, "start") } : {}),
+        ...(dateOf(req.query.to, "end") ? { to: dateOf(req.query.to, "end") } : {}),
+        limit,
+        offset,
+      },
+      scope,
+    );
+
+    // Названия тестов спрашиваются поимённо: в порции их единицы, а весь справочник ради
+    // двадцати пяти строк — то самое чтение таблицы целиком, от которого ушли.
+    const testIdsInPage = [...new Set(page.rows.map(r => r.testId).filter((id): id is string => !!id))];
+    const titles = new Map(
+      (await Promise.all(testIdsInPage.map(id => storage.getTest(id))))
+        .filter((test): test is NonNullable<typeof test> => !!test)
+        .map(test => [test.id, test.title]),
+    );
+
+    res.json({
+      rows: page.rows.map(row => ({
+        id: row.id,
+        participant: row.participant,
+        participantKey: row.participantKey,
+        userId: row.userId,
+        testId: row.testId,
+        // Тест мог быть удалён: строка прохождения от этого не перестаёт существовать.
+        testTitle: row.testId ? titles.get(row.testId) ?? "Удалённый тест" : "Удалённый тест",
+        startedAt: row.startedAt,
+        finishedAt: row.finishedAt,
+        durationMs: row.durationMs,
+        percent: row.percent,
+        passed: row.passed,
+        outcome: row.outcome,
+        source: row.source,
+        groupId: row.groupId,
+      })),
+      total: page.total,
+      limit,
+      offset,
+    });
+  } catch (error) {
+    logger.error("Registry analytics error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to load registry" });
+  }
+});
+
+export default router;

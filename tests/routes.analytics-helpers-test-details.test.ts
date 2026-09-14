@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
+import { observationsDouble } from "./helpers/observations-double";
 import express from "express";
 import session from "express-session";
 
@@ -149,6 +150,10 @@ describe("formatUserAnswerText", () => {
 const { storageMock } = vi.hoisted(() => ({
   storageMock: {
     getUser: vi.fn(), getUserRoles: vi.fn().mockResolvedValue(["administrator"]), getTest: vi.fn(), getAllAttempts: vi.fn(),
+    // PRD-56 FR-33: страница теста читает прохождения через выборку DAL.
+    selectObservations: vi.fn(),
+    // PRD-56 FR-25: ответы прохождений из LMS — часть выборки страницы теста.
+    selectAnswersForTest: vi.fn().mockResolvedValue([]),
     getQuestionsByIds: vi.fn(), getTopics: vi.fn(),
     // PRD-15 block D: effective-scoring chain sources (no overrides by default).
     getTestSections: vi.fn(), getTestQuestionScoring: vi.fn(),
@@ -207,7 +212,11 @@ describe("Analytics test-details route", () => {
   let app: express.Express;
   beforeEach(() => {
     vi.clearAllMocks();
+  storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
+    // Разрезы по темам читают секции теста: порог темы разрешается их правилом (PRD-56 FR-14).
+    storageMock.getTestSections.mockResolvedValue([]);
+    storageMock.getTestQuestionScoring.mockResolvedValue([]);
     app = makeApp(testDetailsRouter, "/api/analytics");
   });
 
@@ -239,7 +248,7 @@ describe("Analytics test-details route", () => {
     expect(res.body.questionStats).toHaveLength(1);
     expect(res.body.questionStats[0].correctPercent).toBe(100);
     expect(res.body.scoreDistribution).toHaveLength(10);
-    expect(res.body.dailyTrends).toHaveLength(1);
+    expect(res.body.passTrend).toHaveLength(1);
     // levelStats only present for adaptive
     expect(res.body.levelStats).toBeUndefined();
   });
@@ -272,13 +281,12 @@ describe("Analytics test-details route", () => {
     storageMock.getTopics.mockResolvedValue([{ id: "t1", name: "JS" }]);
     const res = await asAuthor(request(app).get("/api/analytics/test1"));
     expect(res.status).toBe(200);
+    // PRD-56 FR-13a: корзины одной ширины, нижняя граница включается, верхняя — нет.
     const dist = res.body.scoreDistribution;
-    const range1120 = dist.find((r: any) => r.range === "11-20");
-    const range7180 = dist.find((r: any) => r.range === "71-80");
-    const range91100 = dist.find((r: any) => r.range === "91-100");
-    expect(range1120.count).toBe(1);
-    expect(range7180.count).toBe(1);
-    expect(range91100.count).toBe(1);
+    const at = (label: string) => dist.find((b: any) => b.label === label).count;
+    expect(at("10–19")).toBe(1);
+    expect(at("70–79")).toBe(1);
+    expect(at("90–100")).toBe(1);
   });
 
   it("GET /:testId — includes levelStats for adaptive test", async () => {

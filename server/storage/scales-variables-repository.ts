@@ -248,6 +248,29 @@ export class ScalesVariablesRepository {
     return row;
   }
 
+  /**
+   * PRD-56 FR-17a: включить или снять состояние «исключён из выдачи».
+   *
+   * Узкий upsert, а не общий `upsertTestQuestionScoring`: тот пишет строку целиком, и
+   * переключение показа сбросило бы соседние переопределения — цену и трудность задания в
+   * этом тесте. Исключение из выдачи говорит о ПОКАЗЕ, а не о стоимости, и молча менять
+   * результат теста у всех, кто его пройдёт, оно не имеет права.
+   */
+  async setQuestionDelivery(
+    testId: string,
+    questionId: string,
+    excluded: boolean,
+  ): Promise<TestQuestionScoring> {
+    const [row] = await db.insert(testQuestionScoring)
+      .values({ testId, questionId, excludedFromDelivery: excluded })
+      .onConflictDoUpdate({
+        target: [testQuestionScoring.testId, testQuestionScoring.questionId],
+        set: { excludedFromDelivery: excluded, updatedAt: new Date() },
+      })
+      .returning();
+    return row;
+  }
+
   async deleteTestQuestionScoring(testId: string, questionId: string): Promise<boolean> {
     const result = await db.delete(testQuestionScoring)
       .where(and(
