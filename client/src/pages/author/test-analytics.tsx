@@ -13,6 +13,12 @@ import { PassTrend } from "@/features/analytics/test/pass-trend";
 import { ScoreDistribution } from "@/features/analytics/test/score-distribution";
 import { QuestionTable } from "@/features/analytics/test/question-table";
 import { TopicBreakdown } from "@/features/analytics/test/topic-breakdown";
+import { VariantTable, type VariantSectionView } from "@/features/analytics/test/variant-table";
+import { VersionTable, type VersionRowView } from "@/features/analytics/test/version-table";
+import {
+    ExposureProfile,
+    type ExposureProfileView,
+} from "@/features/analytics/test/exposure-profile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -170,6 +176,15 @@ interface TestAnalytics {
         judged: number;
         passRate: number | null;
     }>;
+}
+
+/** PRD-56 FR-18 - FR-20: ответ вкладки «Выдача». */
+interface DeliveryAnalytics {
+    variants: VariantSectionView[];
+    versions: VersionRowView[];
+    exposure: ExposureProfileView | null;
+    topics: Array<{ topicId: string; topicName: string }>;
+    minObservations: number;
 }
 
 interface AttemptListItem {
@@ -438,11 +453,36 @@ export default function TestAnalyticsPage() {
     const [activeTab, setActiveTab] = useState("overview");
     /** PRD-54: окно загрузки выгрузки отчёта LMS. Тест здесь задан страницей. */
     const [lmsImportOpen, setLmsImportOpen] = useState(false);
+    /**
+     * PRD-56 FR-20: тема профиля экспозиции. Держится в состоянии, а не выводится из данных:
+     * профиль строится по банку ОДНОЙ темы, и выбирать её должен читатель.
+     */
+    const [exposureTopic, setExposureTopic] = useState<string | null>(null);
     const queryClient = useQueryClient();
 
     const { data: analytics, isLoading: analyticsLoading } = useQuery<TestAnalytics>({
         queryKey: [`/api/analytics/tests/${testId}`],
         enabled: !!testId,
+    });
+
+    /**
+     * PRD-56 FR-18 - FR-20: данные вкладки «Выдача» — своим запросом и ТОЛЬКО когда вкладку
+     * открыли: варианты, версии и профиль банка не нужны тому, кто смотрит обзор.
+     */
+    const { data: delivery } = useQuery<DeliveryAnalytics>({
+        queryKey: [
+            `/api/analytics/tests/${testId}/delivery`,
+            ...(exposureTopic ? [exposureTopic] : []),
+        ],
+        queryFn: async () => {
+            const query = exposureTopic ? `?topicId=${encodeURIComponent(exposureTopic)}` : "";
+            const response = await fetch(`/api/analytics/tests/${testId}/delivery${query}`, {
+                credentials: "include",
+            });
+            if (!response.ok) throw new Error("Не удалось загрузить данные выдачи");
+            return response.json();
+        },
+        enabled: !!testId && activeTab === "delivery",
     });
 
     // Функция экспорта в Excel
@@ -599,6 +639,25 @@ export default function TestAnalyticsPage() {
         </Card>
     );
 
+    /**
+     * PRD-56 FR-18 - FR-20: вкладка «Выдача» — как тест выдавался и кому что досталось.
+     *
+     * Сюда же переехала статистика по уровням адаптивного теста: она о том же — об устройстве
+     * выдачи, — и отдельной вкладки ей не нужно.
+     */
+    const deliveryPanel = (
+        <Stack gap={5}>
+            <VariantTable sections={delivery?.variants ?? []} />
+            <VersionTable versions={delivery?.versions ?? []} />
+            <ExposureProfile
+                profile={delivery?.exposure ?? null}
+                topics={delivery?.topics ?? []}
+                onTopicChange={setExposureTopic}
+            />
+            {analytics.testMode === "adaptive" && levelsPanel}
+        </Stack>
+    );
+
     return (
         <Stack gap={6}>
             {/* Header */}
@@ -711,9 +770,8 @@ export default function TestAnalyticsPage() {
                 items={[
                     { id: "overview", label: "Обзор", content: overviewPanel },
                     { id: "questions", label: "Вопросы", content: questionsPanel },
-                    ...(analytics.testMode === "adaptive"
-                        ? [{ id: "levels", label: "Уровни", content: levelsPanel }]
-                        : []),
+                    // PRD-56: «Уровни» отдельной вкладкой больше нет — они внутри «Выдачи».
+                    { id: "delivery", label: "Выдача", content: deliveryPanel },
                 ]}
             />
 
