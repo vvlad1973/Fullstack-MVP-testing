@@ -14,7 +14,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QuestionTable } from "../question-table";
 
@@ -112,5 +112,95 @@ describe("QuestionTable", () => {
     // при возрастании и в начало при убывании), затем 41 %, затем 20 %.
     expect(within(rows[0]).getByText("Насколько вы согласны?")).toBeTruthy();
     expect(within(rows[2]).getByText("Быстрый и мимо")).toBeTruthy();
+  });
+});
+
+describe("QuestionTable — исключение из выдачи", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ topicName: "Право и комплаенс", remaining: 11, drawCount: 10, allowed: true }),
+    }));
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("метит исключённое задание перечёркнутым кругом с подсказкой", () => {
+    render(<QuestionTable questions={[{ ...QUESTIONS[0], excludedFromDelivery: true }]} />);
+
+    // FR-17a: тегом состояние не метится — тег стоит в одном ряду с темой и подтемой и
+    // читается как ярлык СОДЕРЖАНИЯ, а речь о состоянии выдачи.
+    expect(screen.getByLabelText(/Исключён из выдачи/i)).toBeTruthy();
+  });
+
+  it("отбирает исключённые отдельным видом со счётчиком", async () => {
+    render(<QuestionTable questions={[QUESTIONS[0], { ...QUESTIONS[1], excludedFromDelivery: true }]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Исключённые/ }));
+
+    expect(screen.getByText("Быстрый и мимо")).toBeTruthy();
+    expect(screen.queryByText("Какая мера относится к антикоррупционным?")).toBeNull();
+  });
+
+  it("спрашивает подтверждение и называет последствия числами", async () => {
+    render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+
+    // FR-17b: окно говорит, сколько заданий останется в теме при её квоте выдачи, и что
+    // опубликованная версия не меняется.
+    expect(await screen.findByText(/останется 11/i)).toBeTruthy();
+    expect(screen.getByText(/опубликованная версия не меняется/i)).toBeTruthy();
+  });
+
+  it("не исключает, пока подтверждение не дано", async () => {
+    const onDeliveryChange = vi.fn();
+    render(<QuestionTable questions={QUESTIONS} onDeliveryChange={onDeliveryChange} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await screen.findByText(/останется 11/i);
+    await userEvent.click(screen.getByRole("button", { name: "Отмена" }));
+
+    expect(onDeliveryChange).not.toHaveBeenCalled();
+  });
+
+  it("исключает задание после подтверждения", async () => {
+    const onDeliveryChange = vi.fn();
+    render(<QuestionTable questions={QUESTIONS} onDeliveryChange={onDeliveryChange} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await screen.findByText(/останется 11/i);
+    await userEvent.click(screen.getByRole("button", { name: "Исключить" }));
+
+    expect(onDeliveryChange).toHaveBeenCalledWith("q1", true);
+  });
+
+  it("запрещает исключение, после которого выдачу собрать нельзя", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ topicName: "Право", remaining: 9, drawCount: 10, allowed: false }),
+    }));
+    render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+
+    // Не «выполнено с предупреждением»: кнопка выключена, и сказано почему.
+    expect(await screen.findByText(/выдачу собрать будет нельзя/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Исключить" })).toBeDisabled();
+  });
+
+  it("возвращает задание в выдачу без подтверждения", async () => {
+    // Возврат ничего не отнимает — спрашивать не о чем.
+    const onDeliveryChange = vi.fn();
+    render(
+      <QuestionTable
+        questions={[{ ...QUESTIONS[0], excludedFromDelivery: true }]}
+        onDeliveryChange={onDeliveryChange}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Вернуть в выдачу: Какая мера/ }));
+
+    expect(onDeliveryChange).toHaveBeenCalledWith("q1", false);
   });
 });

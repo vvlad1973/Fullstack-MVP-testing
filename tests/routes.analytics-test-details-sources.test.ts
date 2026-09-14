@@ -225,6 +225,24 @@ describe("GET /api/analytics/tests/:testId — блоки экрана", () => {
     expect(question.reviewFlags[0].reason).toMatch(/не читают/);
   });
 
+  it("говорит, что задание исключено из выдачи", async () => {
+    // PRD-56 FR-17a: состояние видно там же, где назначено — в таблице заданий аналитики.
+    storageMock.getQuestionsByIds.mockResolvedValue([
+      { id: "q1", prompt: "В1", type: "single", topicId: "t1", difficulty: 50, tags: [], correctJson: { correctIndex: 0 } },
+    ]);
+    storageMock.selectAnswersForTest.mockResolvedValue([
+      { questionId: "q1", attemptId: "lms-1", result: "correct", latencyMs: null, points: 1, maxPoints: 1, origin: "telemetry" },
+    ]);
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "test1", questionId: "q1", excludedFromDelivery: true },
+    ]);
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const question = res.body.questionStats.find((q: { questionId: string }) => q.questionId === "q1");
+    expect(question.excludedFromDelivery).toBe(true);
+  });
+
   it("не считает измерительный ответ ни верным, ни неверным", async () => {
     storageMock.getQuestionsByIds.mockResolvedValue([
       { id: "q1", prompt: "Шкальный", type: "scale", topicId: "t1", difficulty: 50 },

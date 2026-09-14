@@ -3,6 +3,7 @@ import testDetailsRouter from "./test-details";
 import attemptsRouter from "./attempts";
 import scormRouter from "./scorm";
 import summaryRouter from "./summary";
+import questionDeliveryRouter from "./question-delivery";
 import registryRouter from "./registry";
 import attentionRouter from "./attention";
 import slicesRouter from "./slices";
@@ -30,6 +31,9 @@ router.use("/", scormRouter);
 
 // Сводка по отбору: GET /api/analytics/summary
 router.use("/", summaryRouter);
+
+// PRD-56 FR-17a: исключение задания из выдачи теста и возврат в неё
+router.use("/", questionDeliveryRouter);
 
 // PRD-56: реестр прохождений — GET /api/analytics/registry
 router.use("/", registryRouter);

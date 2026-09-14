@@ -324,7 +324,16 @@ export interface PublishCheckFinding {
  * levels must be satisfiable right now. Advisory issues are filtered out:
  * only hard shortfalls should stop a publication.
  */
-export async function assessTestPublish(testId: string): Promise<PublishCheckFinding[]> {
+export async function assessTestPublish(
+  testId: string,
+  /**
+   * PRD-56 FR-17b: задания, которые ЕЩЁ не исключены, но будут — окно подтверждения и сама
+   * ручка исключения спрашивают о БУДУЩЕМ состоянии. Передать их сюда честнее, чем записать
+   * признак в базу и откатить: между записью и откатом чужая попытка стартует с пулом,
+   * которого автор не утверждал.
+   */
+  alsoExcludedQuestionIds: readonly string[] = [],
+): Promise<PublishCheckFinding[]> {
   const test = await storage.getTest(testId);
   if (!test) return [];
   const sections = await storage.getTestSections(testId);
@@ -333,6 +342,7 @@ export async function assessTestPublish(testId: string): Promise<PublishCheckFin
   const difficultyOverrides =
     test.mode === "adaptive" ? await difficultyOverridesOf(testId) : null;
   const excluded = await excludedFromDeliveryOf(testId);
+  for (const questionId of alsoExcludedQuestionIds) excluded.add(questionId);
   const findings: PublishCheckFinding[] = [];
   for (const section of sections) {
     const pool = (await storage.getQuestionsByTopic(section.topicId))

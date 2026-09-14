@@ -12,9 +12,13 @@
  * У измерительного задания доли верных нет вовсе (FR-22): эталона у него не существует, и ноль
  * в этой колонке был бы про него ложью — поэтому прочерк.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, CardBody, CardHeader, DataGrid, SegmentedControl, Stack, Text } from "@skillum/ui-kit";
+import { Ban } from "lucide-react";
+
+import {
+  Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, SegmentedControl, Stack, Text,
+} from "@skillum/ui-kit";
 
 import type { QuestionType } from "@shared/questions/question-type";
 import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
@@ -44,15 +48,29 @@ export interface QuestionRow {
   latencyMedianMs: number | null;
   latencySampleSize: number;
   reviewFlags: ReviewFlagView[];
+  /** PRD-56 FR-17a: задание исключено из выдачи ЭТОГО теста. */
+  excludedFromDelivery?: boolean;
 }
 
 export interface QuestionTableProps {
   questions: QuestionRow[];
   /** Уйти в реестр к прохождениям, где на этом задании ошиблись (FR-17). */
   onOpenRegistry?: (questionId: string) => void;
+  /** Переключить состояние «исключён из выдачи» (FR-17a). Без него действие не предлагается. */
+  onDeliveryChange?: (questionId: string, excluded: boolean) => void;
+  /** Тест, у которого спрашиваются последствия исключения. */
+  testId?: string;
 }
 
-type View = "all" | "review";
+/** Последствия исключения — то, что отдаёт `GET .../delivery-impact` (FR-17b). */
+interface DeliveryImpact {
+  topicName: string;
+  remaining: number;
+  drawCount: number;
+  allowed: boolean;
+}
+
+type View = "all" | "review" | "excluded";
 type SortDir = "asc" | "desc";
 
 /** Процент для чтения человеком; прочерк там, где величины нет. */
@@ -78,23 +96,58 @@ function sortValue(row: QuestionRow, key: string): number {
   return value ?? Number.POSITIVE_INFINITY;
 }
 
-export function QuestionTable({ questions, onOpenRegistry }: QuestionTableProps) {
+export function QuestionTable({
+  questions, onOpenRegistry, onDeliveryChange, testId,
+}: QuestionTableProps) {
   const [view, setView] = useState<View>("all");
   const [sortKey, setSortKey] = useState("correct");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  /** Задание, для которого открыто окно подтверждения исключения. */
+  const [pending, setPending] = useState<QuestionRow | null>(null);
+  const [impact, setImpact] = useState<DeliveryImpact | null>(null);
 
   const flagged = useMemo(
     () => questions.filter(question => question.reviewFlags.length > 0),
     [questions],
   );
+  const excludedRows = useMemo(
+    () => questions.filter(question => question.excludedFromDelivery),
+    [questions],
+  );
+
+  // Последствия спрашиваются у сервера при открытии окна: считать остаток пула на клиенте
+  // значило бы завести вторую копию правил выдачи, которая однажды разойдётся с первой.
+  useEffect(() => {
+    if (!pending) {
+      setImpact(null);
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/analytics/tests/${testId}/questions/${pending.questionId}/delivery-impact`,
+          { credentials: "include" },
+        );
+        if (!response.ok) throw new Error(String(response.status));
+        const data = await response.json() as DeliveryImpact;
+        if (alive) setImpact(data);
+      } catch {
+        // Вслепую окно подтверждения не спрашивает: без последствий кнопка остаётся
+        // выключенной, а читателю сказано, что считаем.
+        if (alive) setImpact(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [pending, testId]);
 
   const rows = useMemo(() => {
-    const shown = view === "review" ? flagged : questions;
+    const shown = view === "review" ? flagged : view === "excluded" ? excludedRows : questions;
     return [...shown].sort((a, b) => {
       const diff = sortValue(a, sortKey) - sortValue(b, sortKey);
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [questions, flagged, view, sortKey, sortDir]);
+  }, [questions, flagged, excludedRows, view, sortKey, sortDir]);
 
   const columns = [
     {
@@ -105,6 +158,20 @@ export function QuestionTable({ questions, onOpenRegistry }: QuestionTableProps)
         <Stack gap={1}>
           <Stack direction="row" gap={2} align="center">
             <QuestionTypeIcon type={row.questionType as QuestionType} />
+            {/*
+              FR-17a: состояние выдачи метится перечёркнутым кругом с подсказкой, а НЕ тегом:
+              тег стоит в одном ряду с темой и подтемой и читается как ярлык содержания, а
+              речь идёт о состоянии выдачи.
+            */}
+            {row.excludedFromDelivery && (
+              <span
+                className="tb-qscoring__qtype"
+                title="Исключён из выдачи — в новые прохождения не попадает"
+                aria-label="Исключён из выдачи"
+              >
+                <Ban size={16} color="var(--ou-error-default)" aria-hidden="true" />
+              </span>
+            )}
             <span className="ou-grid__cell-strong">{row.questionPrompt}</span>
           </Stack>
           <Text variant="body-xs" tone="muted">{row.topicName}</Text>
@@ -151,6 +218,33 @@ export function QuestionTable({ questions, onOpenRegistry }: QuestionTableProps)
       render: (row: QuestionRow) => row.difficulty,
     },
     {
+      key: "delivery",
+      header: "",
+      render: (row: QuestionRow) => {
+        if (!onDeliveryChange) return null;
+        return row.excludedFromDelivery ? (
+          <Button
+            variant="ghost"
+            size="s"
+            // Возврат ничего не отнимает и подтверждения не требует (FR-17b).
+            aria-label={`Вернуть в выдачу: ${row.questionPrompt}`}
+            onClick={() => onDeliveryChange(row.questionId, false)}
+          >
+            Вернуть в выдачу
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="s"
+            aria-label={`Исключить из выдачи: ${row.questionPrompt}`}
+            onClick={() => setPending(row)}
+          >
+            Исключить
+          </Button>
+        );
+      },
+    },
+    {
       key: "actions",
       header: "",
       render: (row: QuestionRow) => (onOpenRegistry && row.correctPercent !== null ? (
@@ -182,6 +276,7 @@ export function QuestionTable({ questions, onOpenRegistry }: QuestionTableProps)
             items={[
               { value: "all", label: "Все вопросы" },
               { value: "review", label: "Требуют ревизии", badge: flagged.length },
+              { value: "excluded", label: "Исключённые", badge: excludedRows.length },
             ]}
           />
         }
@@ -196,9 +291,63 @@ export function QuestionTable({ questions, onOpenRegistry }: QuestionTableProps)
           onSort={(key, dir) => { setSortKey(key); setSortDir(dir); }}
           emptyMessage={view === "review"
             ? "Признаки проблем не сошлись ни у одного задания: чинить нечего"
-            : "Заданий в выдаче пока нет"}
+            : view === "excluded"
+              ? "Из выдачи ничего не исключено"
+              : "Заданий в выдаче пока нет"}
         />
       </CardBody>
+
+      {/*
+        FR-17b: исключение подтверждается отдельным окном, и окно называет последствия числами.
+        Невыполнимая выдача ЗАПРЕЩАЕТ действие, а не сопровождает его предупреждением: тест,
+        который нельзя собрать, ломается у участника на старте попытки.
+      */}
+      <ModalDialog
+        open={pending !== null}
+        onClose={() => setPending(null)}
+        size="s"
+        title="Исключить задание из выдачи?"
+        description={pending?.questionPrompt}
+        footer={
+          <>
+            <Button variant="ghost" size="m" onClick={() => setPending(null)}>Отмена</Button>
+            <Button
+              variant="primary"
+              size="m"
+              disabled={!impact?.allowed}
+              onClick={() => {
+                if (pending && onDeliveryChange) onDeliveryChange(pending.questionId, true);
+                setPending(null);
+              }}
+            >
+              Исключить
+            </Button>
+          </>
+        }
+      >
+        <Stack gap={3}>
+          {impact === null ? (
+            <Text tone="muted">Считаем, сколько заданий останется в теме…</Text>
+          ) : (
+            <>
+              <Text>
+                В теме «{impact.topicName}» останется {impact.remaining} заданий, а выдавать
+                нужно {impact.drawCount}.
+              </Text>
+              {!impact.allowed && (
+                <Text tone="error">
+                  Выдачу собрать будет нельзя: заданий в теме меньше, чем требует раздел.
+                  Уменьшите число выдаваемых заданий или добавьте новые.
+                </Text>
+              )}
+            </>
+          )}
+          <Text variant="body-s" tone="muted">
+            Опубликованная версия не меняется: пока тест не опубликован заново, и веб, и
+            выгруженный пакет SCORM продолжают выдавать это задание по снимку.
+          </Text>
+        </Stack>
+      </ModalDialog>
     </Card>
   );
 }

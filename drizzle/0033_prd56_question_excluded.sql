@@ -4,7 +4,6 @@
 -- внутри одного теста: негодное здесь задание может быть годно в другом, а отключение в банке
 -- это операция владельца темы, а не читателя аналитики.
 --
--- Добавление аддитивное: у всех существующих строк признак `false`, поведение выдачи не
--- меняется, пока автор явно не исключит задание.
-ALTER TABLE "test_question_scoring"
-  ADD COLUMN IF NOT EXISTS "excluded_from_delivery" boolean DEFAULT false NOT NULL;
+-- Добавление аддитивное: у всех существующих строк признак `false`, и выдача не меняется,
+-- пока автор явно не исключит задание.
+ALTER TABLE "test_question_scoring" ADD COLUMN "excluded_from_delivery" boolean DEFAULT false NOT NULL;

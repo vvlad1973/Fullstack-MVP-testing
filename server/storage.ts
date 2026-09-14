@@ -423,6 +423,12 @@ export interface IStorage {
     values: Omit<InsertTestQuestionScoring, "testId" | "questionId">,
   ): Promise<TestQuestionScoring>;
   deleteTestQuestionScoring(testId: string, questionId: string): Promise<boolean>;
+  /** PRD-56 FR-17a: включить или снять состояние «исключён из выдачи» у задания теста. */
+  setQuestionDelivery(
+    testId: string,
+    questionId: string,
+    excluded: boolean,
+  ): Promise<TestQuestionScoring>;
   replaceTestQuestionScoring(
     testId: string,
     rows: Omit<InsertTestQuestionScoring, "testId">[],
@@ -1391,6 +1397,14 @@ export class DatabaseStorage implements IStorage {
     values: Omit<InsertTestQuestionScoring, "testId" | "questionId">,
   ): Promise<TestQuestionScoring> {
     return this.scalesVariablesRepo.upsertTestQuestionScoring(testId, questionId, values);
+  }
+
+  setQuestionDelivery(
+    testId: string,
+    questionId: string,
+    excluded: boolean,
+  ): Promise<TestQuestionScoring> {
+    return this.scalesVariablesRepo.setQuestionDelivery(testId, questionId, excluded);
   }
 
   deleteTestQuestionScoring(testId: string, questionId: string): Promise<boolean> {

@@ -270,6 +270,13 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       }
     }
 
+    /** PRD-56 FR-17a: задания, исключённые из выдачи этого теста — состояние видно в таблице. */
+    const excludedFromDelivery = new Set(
+      (await storage.getTestQuestionScoring(testId))
+        .filter(row => row.excludedFromDelivery)
+        .map(row => row.questionId),
+    );
+
     const questionStats = Array.from(questionStatsMap.values()).map(qs => {
       const exposureCount = exposureOwn.get(qs.questionId) ?? 0;
       const lat = latency.get(qs.questionId);
@@ -287,6 +294,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
         // Своя выборка: веб времени не измеряет, пакеты старше 2026-09-12 его не сообщают.
         latencyMedianMs: lat ? lat.medianMs : null,
         latencySampleSize: lat ? lat.sampleSize : 0,
+        excludedFromDelivery: excludedFromDelivery.has(qs.questionId),
         deliveredWeb: delivered,
         skippedWeb: skipped,
         skipShare: delivered > 0 ? (skipped / delivered) * 100 : null,

@@ -128,6 +128,8 @@ interface TestAnalytics {
         skippedWeb?: number;
         /** PRD-56 FR-16: признаки, по которым задание попало в вид «требуют ревизии». */
         reviewFlags: Array<{ kind: string; reason: string }>;
+        /** PRD-56 FR-17a: задание исключено из выдачи этого теста. */
+        excludedFromDelivery?: boolean;
         // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
         // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
         exposureCount?: number;
@@ -897,6 +899,26 @@ export default function TestAnalyticsPage() {
         */
         <QuestionTable
             questions={questionStats}
+            testId={testId ?? undefined}
+            onDeliveryChange={async (questionId, excluded) => {
+                // FR-17a: состояние меняется там же, где видно. Отказ сервера (выдачу собрать
+                // нельзя) показывается как есть: он и есть ответ на вопрос «почему нельзя».
+                const response = await fetch(
+                    `/api/analytics/tests/${testId}/questions/${questionId}/delivery`,
+                    {
+                        method: "PUT",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ excluded }),
+                    },
+                );
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({})) as { error?: string };
+                    alert(data.error ?? "Не удалось изменить состояние задания");
+                    return;
+                }
+                await queryClient.invalidateQueries({ queryKey: [`/api/analytics/tests/${testId}`] });
+            }}
             onOpenRegistry={questionId => {
                 // FR-17: переход в реестр к прохождениям, где на задании ошиблись. Условия
                 // отбора живут в адресе реестра (FR-03), поэтому это обычная ссылка.
