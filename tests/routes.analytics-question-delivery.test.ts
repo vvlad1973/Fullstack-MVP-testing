@@ -153,10 +153,27 @@ describe("GET /api/analytics/tests/:testId/questions/:questionId/delivery-impact
     storageMock.getTestSections.mockResolvedValue([
       { id: "s1", testId: "test1", topicId: "t1", drawCount: 3 },
     ]);
+    feasibilityMock.mockResolvedValue([
+      { topicId: "t1", topicName: "Право", issues: [{ kind: "pool_shortfall", required: 3, available: 2 }] },
+    ]);
 
     const res = await impact();
 
     expect(res.body).toMatchObject({ remaining: 2, drawCount: 3, allowed: false });
+  });
+
+  it("судит о выполнимости тем же движком, что и само действие", async () => {
+    // Приёмка Э4: окно считало остаток наивно и обещало «можно» там, где квота по тегу
+    // (PRD-11) уже не набиралась, — а действие отказывало. Обещание и отказ обязаны
+    // приходить из одного расчёта.
+    feasibilityMock.mockResolvedValue([
+      { topicId: "t1", topicName: "Право", issues: [{ kind: "quota_shortfall", tag: "Охрана труда", requested: 3, available: 2 }] },
+    ]);
+
+    const res = await impact();
+
+    expect(res.body.allowed).toBe(false);
+    expect(res.body.findings[0].issues[0]).toMatchObject({ kind: "quota_shortfall", tag: "Охрана труда" });
   });
 
   it("не считает доступными задания, исключённые ранее", async () => {

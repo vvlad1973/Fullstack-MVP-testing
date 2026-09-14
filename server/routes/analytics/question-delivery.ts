@@ -60,13 +60,22 @@ router.get(
 
       const topic = await storage.getTopic(section.topicId);
       const drawCount = section.drawAll ? remaining : section.drawCount;
+      /**
+       * Выполнимость судит ТОТ ЖЕ движок, что и само действие.
+       *
+       * Наивный остаток («восемь заданий на семь мест») не знает о квотах по тегам (PRD-11):
+       * на приёмке окно обещало «можно» там, где квота «Охрана труда» уже не набиралась, а
+       * действие отказывало. Обещание и отказ обязаны приходить из одного расчёта.
+       */
+      const findings = await assessTestPublish(testId, [questionId]);
 
       res.json({
         topicId: section.topicId,
         topicName: topic?.name ?? "Тема",
         remaining,
         drawCount,
-        allowed: remaining >= drawCount,
+        allowed: findings.length === 0,
+        findings,
       });
     } catch (error) {
       logger.error("Delivery impact error: " + (error as Error).message);

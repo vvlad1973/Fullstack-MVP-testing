@@ -62,12 +62,38 @@ export interface QuestionTableProps {
   testId?: string;
 }
 
+/** Почему выдачу собрать нельзя — находка проверки выполнимости. */
+interface DeliveryIssue {
+  kind: string;
+  tag?: string;
+  requested?: number;
+  available?: number;
+  required?: number;
+}
+
 /** Последствия исключения — то, что отдаёт `GET .../delivery-impact` (FR-17b). */
 interface DeliveryImpact {
   topicName: string;
   remaining: number;
   drawCount: number;
   allowed: boolean;
+  findings?: Array<{ topicName: string; issues: DeliveryIssue[] }>;
+}
+
+/**
+ * Причина отказа словами.
+ *
+ * «Выдачу собрать нельзя» без причины оставляет автора гадать, что чинить: не хватает заданий
+ * вообще или проседает квота одного тега — это разные починки.
+ */
+function issueText(issue: DeliveryIssue): string {
+  if (issue.kind === "quota_shortfall") {
+    return `Подтема «${issue.tag}»: нужно ${issue.requested}, останется ${issue.available}`;
+  }
+  if (issue.kind === "pool_shortfall") {
+    return `Заданий в теме: нужно ${issue.required}, останется ${issue.available}`;
+  }
+  return "Выдача этого раздела перестанет собираться";
 }
 
 type View = "all" | "review" | "excluded";
@@ -335,10 +361,15 @@ export function QuestionTable({
                 нужно {impact.drawCount}.
               </Text>
               {!impact.allowed && (
-                <Text tone="error">
-                  Выдачу собрать будет нельзя: заданий в теме меньше, чем требует раздел.
-                  Уменьшите число выдаваемых заданий или добавьте новые.
-                </Text>
+                <Stack gap={1}>
+                  <Text tone="error">Выдачу собрать будет нельзя:</Text>
+                  {(impact.findings ?? []).flatMap(finding => finding.issues).map((issue, index) => (
+                    <Text key={index} variant="body-s" tone="error">{issueText(issue)}</Text>
+                  ))}
+                  <Text variant="body-s" tone="muted">
+                    Уменьшите число выдаваемых заданий или добавьте новые в тему.
+                  </Text>
+                </Stack>
               )}
             </>
           )}

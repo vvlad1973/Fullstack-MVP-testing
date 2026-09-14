@@ -175,10 +175,32 @@ describe("QuestionTable — исключение из выдачи", () => {
     expect(onDeliveryChange).toHaveBeenCalledWith("q1", true);
   });
 
+  it("называет квоту, из-за которой исключить нельзя", async () => {
+    // Приёмка Э4: «выдачу собрать нельзя» без причины оставляет автора гадать, что чинить.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        topicName: "Право", remaining: 11, drawCount: 10, allowed: false,
+        findings: [{
+          topicId: "t1", topicName: "Право",
+          issues: [{ kind: "quota_shortfall", tag: "Охрана труда", requested: 3, available: 2 }],
+        }],
+      }),
+    }));
+    render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+
+    expect(await screen.findByText(/Подтема «Охрана труда»: нужно 3, останется 2/)).toBeTruthy();
+  });
+
   it("запрещает исключение, после которого выдачу собрать нельзя", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ topicName: "Право", remaining: 9, drawCount: 10, allowed: false }),
+      json: async () => ({
+        topicName: "Право", remaining: 9, drawCount: 10, allowed: false,
+        findings: [{ topicId: "t1", topicName: "Право", issues: [{ kind: "pool_shortfall", required: 10, available: 9 }] }],
+      }),
     }));
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
