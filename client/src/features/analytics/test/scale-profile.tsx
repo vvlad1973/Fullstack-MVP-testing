@@ -59,8 +59,10 @@ function averageText(scale: ScaleProfileView): string {
 }
 
 export function ScaleProfilePanel({ scales, observations }: ScaleProfilePanelProps) {
-  const withBands = scales.filter(scale => scale.hasBands && scale.bands.length > 0);
-  const withoutBands = scales.filter(scale => !scale.hasBands || scale.bands.length === 0);
+  const withBands = scales.filter(scale => scale.bands.length > 0);
+  // Две РАЗНЫЕ причины молчать, и путать их нельзя: у одной шкалы полос нет вовсе, у другой
+  // они заданы, но распределять пока некого. «Полосы не заданы» на второй — прямая неправда.
+  const withoutBands = scales.filter(scale => scale.bands.length === 0);
 
   return (
     <Stack gap={5}>
@@ -120,7 +122,9 @@ export function ScaleProfilePanel({ scales, observations }: ScaleProfilePanelPro
               <Stack key={scale.key} gap={1}>
                 <Text variant="body-s" weight="medium" tone="muted">{scale.label}</Text>
                 <Text variant="body-xs" tone="muted">
-                  полосы толкования не заданы · {scale.sampleSize} прохождений
+                  {scale.hasBands
+                    ? `полосы заданы, но прохождений с этим значением нет · ${scale.sampleSize} прохождений`
+                    : `полосы толкования не заданы · ${scale.sampleSize} прохождений`}
                 </Text>
               </Stack>
             ))}

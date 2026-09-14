@@ -62,6 +62,20 @@ describe("ScaleProfilePanel", () => {
     expect(screen.getByText(/полосы толкования не заданы · 412 прохождений/)).toBeTruthy();
   });
 
+  it("шкалу С полосами, но без прохождений, не объявляет беспорожной", () => {
+    // Приёмка в браузере поймала именно это: у опросника с тремя полосами экран печатал
+    // «полосы толкования не заданы» просто потому, что распределять было некого.
+    render(
+      <ScaleProfilePanel
+        scales={[{ ...BURNOUT, average: null, sampleSize: 0, bands: [] }]}
+        observations={0}
+      />,
+    );
+
+    expect(screen.getByText(/полосы заданы, но прохождений с этим значением нет/)).toBeTruthy();
+    expect(screen.queryByText(/полосы толкования не заданы/)).toBeNull();
+  });
+
   it("у теста без шкал говорит, что показывать нечего", () => {
     render(<ScaleProfilePanel scales={[]} observations={0} />);
 
