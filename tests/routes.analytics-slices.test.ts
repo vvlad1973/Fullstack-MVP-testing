@@ -198,3 +198,26 @@ describe("GET /api/analytics/slices?axis=... — разбиение", () => {
     expect(res.body.error).toMatch(/ось/i);
   });
 });
+
+describe("GET /api/analytics/slices?withWhole=1 — тест целиком", () => {
+  it("добавляет срез без условий, которым сравнивают с тестом целиком (FR-07a)", async () => {
+    const res = await ask("?testId=test1&withWhole=1");
+
+    expect(res.status).toBe(200);
+    const whole = res.body.slices.find((slice: { id: string }) => slice.id === "whole");
+    expect(whole).toMatchObject({ name: "Тест целиком", completed: 12, passed: 9 });
+  });
+
+  it("не заводит отдельной сущности «эталон»: это обычный срез без условий", async () => {
+    const res = await ask("?testId=test1&withWhole=1");
+
+    const whole = res.body.slices.find((slice: { id: string }) => slice.id === "whole");
+    expect(whole.conditions).toEqual({});
+  });
+
+  it("без параметра среза «тест целиком» в списке нет", async () => {
+    const res = await ask("?testId=test1");
+
+    expect(res.body.slices.some((slice: { id: string }) => slice.id === "whole")).toBe(false);
+  });
+});

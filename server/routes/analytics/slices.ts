@@ -129,7 +129,19 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
 
     const saved = await storage.getSlices(ownerId);
 
-    const slices = await Promise.all(saved.map(async slice => {
+    /**
+     * Срез «тест целиком» — обычный срез БЕЗ условий (FR-07a).
+     *
+     * Отдельной сущности «эталон» в продукте не заводится: сравнение с тестом целиком
+     * делается тем же механизмом, что сравнение двух групп. Иначе у эталона завелись бы свои
+     * правила, и однажды он стал бы считаться не так, как всё остальное.
+     */
+    const withWhole = req.query.withWhole === "1" || req.query.withWhole === "true";
+    const sources = withWhole
+      ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }, ...saved]
+      : saved;
+
+    const slices = await Promise.all(sources.map(async slice => {
       // Тест рамки перебивает тест среза (FR-07e): он общий для всех сравниваемых срезов и в
       // их собственные условия не входит.
       const { rows } = await loadObservations(

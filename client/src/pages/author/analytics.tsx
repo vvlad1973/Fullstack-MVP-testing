@@ -10,6 +10,7 @@ import { useState } from "react";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { SliceList } from "@/features/analytics/slices/slice-list";
+import { SliceCompare } from "@/features/analytics/slices/slice-compare";
 import { AttentionQueue } from "@/features/analytics/attention/attention-queue";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
@@ -1380,6 +1381,8 @@ export default function AnalyticsPage() {
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
   /** PRD-56 FR-06a: ось разбиения срезов. Пустая — показываются сохранённые срезы. */
   const [sliceAxis, setSliceAxis] = useState<string>("group");
+  /** PRD-56 FR-07: список срезов и их сравнение — два режима одной вкладки. */
+  const [sliceMode, setSliceMode] = useState<"list" | "compare">("list");
 
   const queryParams = new URLSearchParams({ source });
   if (testId !== "all") queryParams.append("testId", testId);
@@ -1837,6 +1840,22 @@ export default function AnalyticsPage() {
                       : "Кого учили и с каким результатом · за всё время"
                   }
                   trail={
+                    <Cluster gap={2}>
+                      <Button
+                        variant={sliceMode === "list" ? "secondary" : "ghost"}
+                        size="s"
+                        onClick={() => setSliceMode("list")}
+                      >
+                        Список срезов
+                      </Button>
+                      <Button
+                        variant={sliceMode === "compare" ? "secondary" : "ghost"}
+                        size="s"
+                        onClick={() => setSliceMode("compare")}
+                      >
+                        Сравнение
+                      </Button>
+                      {sliceMode === "list" && (
                     <Select
                       size="s"
                       value={sliceAxis}
@@ -1851,6 +1870,8 @@ export default function AnalyticsPage() {
                         { value: "external", label: "Внутренние и внешние" },
                       ]}
                     />
+                      )}
+                    </Cluster>
                   }
                 />
                 <CardBody>
@@ -1858,6 +1879,8 @@ export default function AnalyticsPage() {
                     <Text tone="muted">
                       Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы.
                     </Text>
+                  ) : sliceMode === "compare" ? (
+                    <SliceCompare testId={testId} />
                   ) : (
                     <SliceList testId={testId} axis={sliceAxis} />
                   )}
