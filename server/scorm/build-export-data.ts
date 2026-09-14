@@ -72,10 +72,27 @@ export async function buildScormExportData(
   }
 
   const sections = await src.getTestSections(test.id);
+
+  /**
+   * PRD-56 FR-17a: задания, снятые с выдачи ЭТОГО теста.
+   *
+   * Только для ЖИВОЙ сборки — черновика и отладочного прогона. Пакет по снимку состав не
+   * меняет: снимок уже отфильтрован публикацией, и применять к нему сегодняшние настройки
+   * значило бы переписать опубликованную версию задним числом (PRD-15). То же правило и та
+   * же оговорка, что на старте попытки.
+   */
+  const excludedFromDelivery = new Set<string>();
+  if (snapshot === null) {
+    for (const row of await src.getTestQuestionScoring(test.id)) {
+      if (row.excludedFromDelivery) excludedFromDelivery.add(row.questionId);
+    }
+  }
+
   const exportSections = await Promise.all(
     sections.map(async (s) => {
       const topic = await src.getTopic(s.topicId);
-      const questions = await src.getQuestionsByTopic(s.topicId);
+      const questions = (await src.getQuestionsByTopic(s.topicId))
+        .filter((question) => !excludedFromDelivery.has(question.id));
       const courses = await src.getTopicCourses(s.topicId);
       const events = await src.getTopicEvents(s.topicId);
       return { ...s, topic: topic!, questions, courses, events };

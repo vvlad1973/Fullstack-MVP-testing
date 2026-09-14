@@ -26,6 +26,29 @@ describe.each(THEMES)("мобильный слой: %s", (rel) => {
   /** Файл без комментариев: правила ищем в объявлениях, а не в пояснениях к ним. */
   const declarations = css.replace(/\/\*[\s\S]*?\*\//g, "");
 
+  /**
+   * Тело ступени: ВСЕ её блоки, а не «от первого заголовка до конца файла».
+   *
+   * Одну ступень файл объявляет НЕСКОЛЬКО раз — правила лежат рядом со своим блоком, а не
+   * собраны в одном месте. Пока 520 встречалась однажды и последней, чтение «до конца файла»
+   * работало; со вторым таким блоком та же выборка стала захватывать ступень 700 и читать её
+   * значения как свои — тест падал на ВЕРНОМ CSS.
+   */
+  function stepBody(px: number): string {
+    const headers = [...declarations.matchAll(
+      /@container\s+tbscene\s*\(max-width:\s*(\d+)px\)\s*\{/g,
+    )];
+    const parts = headers
+      .filter(header => Number(header[1]) === px)
+      .map(header => {
+        const start = header.index! + header[0].length;
+        const next = headers.find(other => other.index! > header.index!);
+        return declarations.slice(start, next ? next.index! : declarations.length);
+      });
+    expect(parts.length, `нет ступени ${px}`).toBeGreaterThan(0);
+    return parts.join("\n");
+  }
+
   describe("контейнер сцены", () => {
     it("сцена объявлена размерным контейнером tbscene", () => {
       expect(declarations).toMatch(/\.tb-scene\s*\{[^}]*container:\s*tbscene\s*\/\s*inline-size/);
@@ -140,9 +163,7 @@ describe.each(THEMES)("мобильный слой: %s", (rel) => {
           new RegExp(`${sel}\\s*\\{[^}]*--ou-text-body-s`),
         );
       }
-      const s3 = declarations.match(/@container\s+tbscene\s*\(max-width:\s*520px\)\s*\{([\s\S]*)$/);
-      expect(s3).toBeTruthy();
-      expect(s3![1]).toMatch(/\.tb-scene__mapcount\s*\{[^}]*--ou-text-body-s/);
+      expect(stepBody(520)).toMatch(/\.tb-scene__mapcount\s*\{[^}]*--ou-text-body-s/);
     });
 
     it("центрированная колонка не обрезает контент выше поля", () => {
@@ -180,25 +201,14 @@ describe.each(THEMES)("мобильный слой: %s", (rel) => {
   });
 
   describe("пороги CSS и подгонки шрифта не разъезжаются", () => {
-    /** Тело ступени: от её заголовка до конца файла (S3 — последняя). */
-    function step(px: number): string {
-      const m = declarations.match(
-        new RegExp(`@container\\s+tbscene\\s*\\(max-width:\\s*${px}px\\)\\s*\\{([\\s\\S]*)$`),
-      );
-      expect(m, `нет ступени ${px}`).toBeTruthy();
-      return m![1];
-    }
-
     /** Границы clamp() для заданного селектора внутри ступени S3. */
     function clampBounds(selector: string): [number, number] {
-      const s3 = declarations.match(/@container\s+tbscene\s*\(max-width:\s*520px\)\s*\{([\s\S]*)$/);
-      expect(s3).toBeTruthy();
       // Средний аргумент — `var(--tb-*-fs, 30px)`, внутри него СВОЯ запятая, поэтому
       // разделять по запятым нельзя: берём var(...) целиком.
       const rule = new RegExp(
         `${selector}[^{]*\\{[^}]*clamp\\(\\s*(\\d+)px\\s*,\\s*var\\([^)]*\\)\\s*,\\s*(\\d+)px\\s*\\)`,
       );
-      const m = s3![1].match(rule);
+      const m = stepBody(520).match(rule);
       expect(m, `нет clamp() для ${selector} в S3`).toBeTruthy();
       return [Number(m![1]), Number(m![2])];
     }
@@ -229,7 +239,7 @@ describe.each(THEMES)("мобильный слой: %s", (rel) => {
       expect(wide, "не найден широкий профиль в fit-question.ts").toBeTruthy();
       const [, , qMin, , aMin] = wide!.map(Number);
 
-      const s2 = step(700);
+      const s2 = stepBody(700);
       const floor = (selector: string) => {
         const m = s2.match(new RegExp(`${selector}[^{]*\\{[^}]*clamp\\(\\s*(\\d+)px`));
         expect(m, `нет clamp() для ${selector} в S2`).toBeTruthy();

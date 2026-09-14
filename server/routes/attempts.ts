@@ -887,6 +887,22 @@ router.post("/tests/:testId/attempts/start-adaptive", requirePermission("attempt
     // the per-test override wins over the question's base value.
     const scoring = await loadTestScoringContext(test.id, src);
 
+    /**
+     * PRD-56 FR-17a: задания, исключённые из выдачи ЭТОГО теста.
+     *
+     * То же правило и с той же оговоркой, что у обычной выдачи выше: фильтр применяется
+     * только к ЖИВОЙ выдаче, потому что прохождение по снимку состав не меняет (PRD-15).
+     * Уровни собираются здесь, мимо `drawSection`, — и правило сюда сначала не доехало
+     * вовсе: у опубликованного теста его выполнял снимок, а черновик выдавал снятое
+     * задание. Дефект найден 2026-09-14 разбором техдолга.
+     */
+    const excludedFromDelivery = new Set<string>();
+    if (snapshotId === null) {
+      for (const row of await storage.getTestQuestionScoring(test.id)) {
+        if (row.excludedFromDelivery) excludedFromDelivery.add(row.questionId);
+      }
+    }
+
     // Build adaptive variant
     const adaptiveTopics: any[] = [];
 
@@ -897,7 +913,8 @@ router.post("/tests/:testId/attempts/start-adaptive", requirePermission("attempt
 
       if (topicLevels.length === 0) continue;
 
-      const allQuestions = await src.getQuestionsByTopic(topicSettings.topicId);
+      const allQuestions = (await src.getQuestionsByTopic(topicSettings.topicId))
+        .filter((question) => !excludedFromDelivery.has(question.id));
       const levelsState: any[] = [];
 
       for (const level of topicLevels) {
