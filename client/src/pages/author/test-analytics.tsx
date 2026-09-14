@@ -428,300 +428,11 @@ function AnswerRow({ label, children }: { label: string; children: React.ReactNo
     );
 }
 
-// Attempt Detail Modal
-function AttemptDetailModal({
-    attemptId,
-    open,
-    onClose,
-}: {
-    attemptId: string | null;
-    open: boolean;
-    onClose: () => void;
-}) {
-    const { data, isLoading } = useQuery<AttemptDetail>({
-        queryKey: [`/api/analytics/attempts/${attemptId}`],
-        enabled: !!attemptId && open,
-    });
-
-    // Ключ шкалы -> её название: вклад ответа приходит по ключам (DSL-идентификаторам),
-    // а в строке должно стоять то, как автор шкалу назвал.
-    const scaleLabels = new Map((data?.measures?.scales ?? []).map((s) => [s.key, s.label]));
-
-    return (
-        <ModalDialog
-            open={open}
-            onClose={onClose}
-            size="xl"
-            title={
-                <Cluster gap={2}>
-                    <Text>Детализация попытки</Text>
-                    {data && <Text tone="muted">— {data.username}</Text>}
-                    {/* Состояние попытки — тег при заголовке, а не плитка: плитка
-                        показывает величину с подписью, а здесь величины нет. */}
-                    {data && (data.verdictPronounced !== false ? (
-                        <Tag tone={data.passed ? "success" : "error"}>
-                            {data.passed ? "Пройден" : "Не пройден"}
-                        </Tag>
-                    ) : (
-                        <Tag>Завершена</Tag>
-                    ))}
-                </Cluster>
-            }
-        >
-            {isLoading ? (
-                <LoadingState message="Загрузка..." />
-            ) : data ? (
-                <Stack gap={1}>
-                        {/* Summary. PRD-29 §6.7: у прогона, которому нечего оценивать, две
-                            оценочные плитки МЕНЯЮТ содержимое — печатать два прочерка значит
-                            оставить половину шапки пустой там, где есть что показать. */}
-                        <Grid minItem="sm" gap={1}>
-                            <Box pad={3} surface="muted" radius="l">
-                                <Stack gap={1} align="center">
-                                    {data.scored !== false ? (
-                                        <>
-                                            <Text variant="display-s" weight="bold">{data.overallPercent.toFixed(1)}%</Text>
-                                            <Text variant="body-s" tone="muted">Результат</Text>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Text variant="display-s" weight="bold">
-                                                {data.answeredCount ?? data.answers.length} из {data.questionCount ?? data.answers.length}
-                                            </Text>
-                                            <Text variant="body-s" tone="muted">Отвечено</Text>
-                                        </>
-                                    )}
-                                </Stack>
-                            </Box>
-                            <Box pad={3} surface="muted" radius="l">
-                                <Stack gap={1} align="center">
-                                    {data.scored !== false ? (
-                                        <>
-                                            <Text variant="display-s" weight="bold">{data.earnedPoints}/{data.possiblePoints}</Text>
-                                            <Text variant="body-s" tone="muted">Баллы</Text>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Text variant="display-s" weight="bold">{formatDate(data.finishedAt)}</Text>
-                                            <Text variant="body-s" tone="muted">Завершена</Text>
-                                        </>
-                                    )}
-                                </Stack>
-                            </Box>
-                            <Box pad={3} surface="muted" radius="l">
-                                <Stack gap={1} align="center">
-                                    <Text variant="display-s" weight="bold">{formatDuration(data.duration)}</Text>
-                                    <Text variant="body-s" tone="muted">Время</Text>
-                                </Stack>
-                            </Box>
-                        </Grid>
-
-                        {/* Achieved Levels (for adaptive) */}
-                        {data.testMode === "adaptive" && data.achievedLevels && (
-                            <Card>
-                                <CardHeader lead={<Layers size={16} />} title="Достигнутые уровни" />
-                                <CardBody>
-                                    <Cluster gap={2}>
-                                        {data.achievedLevels.map((level, idx) => (
-                                            <Tag key={idx} tone={level.levelName ? "success" : "neutral"}>
-                                                {level.topicName}: {level.levelName || "Не достигнут"}
-                                            </Tag>
-                                        ))}
-                                    </Cluster>
-                                </CardBody>
-                            </Card>
-                        )}
-
-                        {/* Trajectory (for adaptive) */}
-                        {data.trajectory && data.trajectory.length > 0 && (
-                            <Card>
-                                <CardHeader title="Траектория прохождения" />
-                                <CardBody>
-                                    <Stack gap={2}>
-                                        {data.trajectory.map((event, idx) => (
-                                            <Cluster key={idx} gap={2}>
-                                                {event.action === "level_up" ? (
-                                                    <CheckCircle size={16} color="var(--ou-success-600)" />
-                                                ) : (
-                                                    <XCircle size={16} color="var(--ou-error-600)" />
-                                                )}
-                                                <Text variant="body-s">{event.message}</Text>
-                                            </Cluster>
-                                        ))}
-                                    </Stack>
-                                </CardBody>
-                            </Card>
-                        )}
-
-                        {/* PRD-2: показатели. Порядок «показатели → шкалы» — тот же, что на
-                            экране итогов у ученика (fillMeasureBlocks): автор смотрит на то же
-                            и в том же порядке, что видел ученик. */}
-                        {data.indicatorViews && data.indicatorViews.length > 0 && (
-                            <Card>
-                                <CardHeader lead={<Target size={16} />} title="Показатели" />
-                                <CardBody>
-                                    {/* Две колонки, не три: окно ФИКСИРУЕТ результат прогона.
-                                        Авторский текст исхода — это листовка для ученика (на
-                                        референсной методике он идёт на полторы страницы), её
-                                        место на экране итогов и в отчёте, а не в ячейке таблицы. */}
-                                    <Table
-                                        columns={[
-                                            { key: "label", header: "Показатель", render: (i) => <Text variant="body-s">{i.label}</Text> },
-                                            {
-                                                key: "value",
-                                                header: "Значение",
-                                                // Метка исхода, если автор её задал: «Командный» вместо
-                                                // кода «kom». Код остаётся в Excel-выгрузке, где он и
-                                                // нужен — там значения сопоставляют между прогонами.
-                                                render: (i) => (
-                                                    <Text variant="body-s" weight="medium">
-                                                        {i.interpretation ?? formatIndicatorValue(i.value)}
-                                                    </Text>
-                                                ),
-                                            },
-                                        ]}
-                                        rows={data.indicatorViews}
-                                        rowKey={(i) => i.name}
-                                    />
-                                </CardBody>
-                            </Card>
-                        )}
-
-                        {/* PRD-5: шкалы. Колонка «Уровень» — только если у теста есть шкалы с
-                            полосами толкования: всегда пустая колонка читается как потеря данных. */}
-                        {data.measures && data.measures.scales.length > 0 && data.scaleResults && (
-                            <Card>
-                                <CardHeader lead={<Gauge size={16} />} title="По шкалам" />
-                                <CardBody>
-                                    <Table
-                                        columns={[
-                                            { key: "label", header: "Шкала", render: (s) => <Text variant="body-s">{s.label}</Text> },
-                                            {
-                                                key: "value",
-                                                header: "Значение",
-                                                align: "right",
-                                                render: (s) => {
-                                                    const value = data.scaleResults?.[s.key];
-                                                    return typeof value?.raw === "number"
-                                                        ? <Text variant="body-s" weight="medium">{value.raw}</Text>
-                                                        : <Text variant="body-s" tone="muted">—</Text>;
-                                                },
-                                            },
-                                            ...(data.measures.scales.some((s) => s.hasLevels)
-                                                ? [{
-                                                    key: "level",
-                                                    header: "Уровень",
-                                                    render: (s: { key: string }) => {
-                                                        const value = data.scaleResults?.[s.key];
-                                                        // Метка полосы, код — запасной вариант (PRD-45).
-                                                        const level = value?.label || value?.level;
-                                                        return level
-                                                            ? <Tag size="s">{level}</Tag>
-                                                            : <Text variant="body-s" tone="muted">—</Text>;
-                                                    },
-                                                }]
-                                                : []),
-                                        ]}
-                                        rows={data.measures.scales}
-                                        rowKey={(s) => s.key}
-                                    />
-                                </CardBody>
-                            </Card>
-                        )}
-
-                        {/* Answers */}
-                        <Card>
-                            <CardHeader title={`Ответы (${data.answers.length})`} />
-                            <CardBody>
-                                <Stack gap={3}>
-                                        {data.answers.map((answer, idx) => {
-                                            // PRD-10: ответ бывает ЧАСТИЧНО верным. Крестик рядом с
-                                            // «1.5/3» — два несогласных утверждения в одной строке.
-                                            const ratio = answer.ratio ?? (answer.isCorrect ? 1 : 0);
-                                            const partial = !answer.measurementOnly && ratio > 0 && ratio < 1;
-                                            // Эталон печатается только там, где он что-то добавляет:
-                                            // у верного ответа он совпадает с ответом.
-                                            const showReference = !answer.measurementOnly
-                                                && ratio < 1
-                                                && answer.correctAnswer !== null
-                                                && answer.correctAnswer !== undefined;
-
-                                            return (
-                                                <Box
-                                                    key={answer.questionId}
-                                                    pad={3}
-                                                    radius="l"
-                                                    border
-                                                    surface={answer.measurementOnly || answer.isCorrect ? "muted" : "subtle"}
-                                                >
-                                                    <Stack gap={2}>
-                                                        <Cluster justify="between" align="start" gap={2}>
-                                                            <Stack gap={1} grow>
-                                                                <Cluster gap={2}>
-                                                                    <Text variant="body-xs" tone="muted">#{idx + 1}</Text>
-                                                                    <Tag variant="outline" size="s">{answer.topicName}</Tag>
-                                                                    {answer.levelName && (
-                                                                        <Tag size="s">{answer.levelName}</Tag>
-                                                                    )}
-                                                                    {partial && <Tag tone="warning" size="s">Частично</Tag>}
-                                                                </Cluster>
-                                                                <Text variant="body-s" weight="medium">{answer.questionPrompt}</Text>
-                                                            </Stack>
-                                                            {/* PRD-26 FR-08 / PRD-44 FR-09: у измерительного вопроса
-                                                                ни балла, ни галочки — «0/1 ✗» это вердикт вопросу,
-                                                                у которого его не бывает. */}
-                                                            {!answer.measurementOnly && (
-                                                                <Cluster gap={2} wrap={false}>
-                                                                    <Text variant="body-s">
-                                                                        {answer.earnedPoints}/{answer.possiblePoints}
-                                                                    </Text>
-                                                                    {ratio === 1 && <CheckCircle size={20} color="var(--ou-success-600)" />}
-                                                                    {ratio === 0 && <XCircle size={20} color="var(--ou-error-600)" />}
-                                                                </Cluster>
-                                                            )}
-                                                        </Cluster>
-
-                                                        <Stack gap={1}>
-                                                            <AnswerRow label="Ответ">
-                                                                {renderAnswerValue(answer.userAnswer, answer.userAnswerRaw)}
-                                                            </AnswerRow>
-                                                            {showReference && (
-                                                                <AnswerRow label="Эталон">
-                                                                    {renderReferenceValue(answer.correctAnswer, answer.correctAnswerRaw)}
-                                                                </AnswerRow>
-                                                            )}
-                                                            {answer.contribs && answer.contribs.length > 0 && (
-                                                                <AnswerRow label="Вклад">
-                                                                    <Cluster gap={1}>
-                                                                        {answer.contribs.map((c) => (
-                                                                            <Tag key={c.scaleKey} tone="accent" size="s">
-                                                                                {scaleLabels.get(c.scaleKey) ?? c.scaleKey} {c.delta > 0 ? "+" : ""}{c.delta}
-                                                                            </Tag>
-                                                                        ))}
-                                                                    </Cluster>
-                                                                </AnswerRow>
-                                                            )}
-                                                        </Stack>
-                                                    </Stack>
-                                                </Box>
-                                            );
-                                        })}
-                                </Stack>
-                            </CardBody>
-                        </Card>
-                </Stack>
-            ) : (
-                <Box pad={8}><Text align="center" tone="muted">Не удалось загрузить данные</Text></Box>
-            )}
-        </ModalDialog>
-    );
-}
 
 export default function TestAnalyticsPage() {
     const [, params] = useRoute("/author/tests/:testId/analytics");
     const testId = params?.testId;
 
-    const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState("overview");
     /** PRD-54: окно загрузки выгрузки отчёта LMS. Тест здесь задан страницей. */
     const [lmsImportOpen, setLmsImportOpen] = useState(false);
@@ -730,16 +441,6 @@ export default function TestAnalyticsPage() {
     const { data: analytics, isLoading: analyticsLoading } = useQuery<TestAnalytics>({
         queryKey: [`/api/analytics/tests/${testId}`],
         enabled: !!testId,
-    });
-
-    const { data: attemptsData, isLoading: attemptsLoading } = useQuery<{
-        testId: string;
-        testTitle: string;
-        testMode: string;
-        attempts: AttemptListItem[];
-    }>({
-        queryKey: [`/api/analytics/tests/${testId}/attempts`],
-        enabled: !!testId && activeTab === "attempts",
     });
 
     // Функция экспорта в Excel
@@ -796,99 +497,6 @@ export default function TestAnalyticsPage() {
             <TopicBreakdown topics={topicStats} />
             <PassTrend points={passTrend} />
         </Stack>
-    );
-
-    const attemptColumns: TableColumn<AttemptListItem>[] = [
-        {
-            key: "user",
-            header: "Пользователь",
-            render: (a) => <Text variant="body-s" weight="medium">{a.username}</Text>,
-        },
-        {
-            key: "date",
-            header: "Дата",
-            render: (a) => <Text variant="body-xs" tone="muted">{formatDate(a.finishedAt)}</Text>,
-        },
-        {
-            key: "duration",
-            header: "Время",
-            align: "right",
-            render: (a) => <Text variant="body-s">{formatDuration(a.duration)}</Text>,
-        },
-        {
-            key: "result",
-            header: "Результат",
-            align: "right",
-            // PRD-29 §6.7: a run that graded nothing has no percent to show. «0.0 %»
-            // over a questionnaire is not a low score — there was no score.
-            render: (a) =>
-                a.completed && a.scored !== false
-                    ? <Text variant="body-s" weight="medium">{a.overallPercent.toFixed(1)}%</Text>
-                    : <Text variant="body-s" tone="muted">—</Text>,
-        },
-        {
-            key: "status",
-            header: "Статус",
-            align: "right",
-            render: (a) =>
-                !a.completed
-                    ? <Tag>В процессе</Tag>
-                    : a.verdictPronounced !== false
-                        ? <Tag tone={a.passed ? "success" : "error"}>{a.passed ? "Сдан" : "Не сдан"}</Tag>
-                        // Nobody pronounced a verdict on this run — the stored `passed`
-                        // is the default of a test that judges nothing, not a decision.
-                        : <Tag>Завершён</Tag>,
-        },
-        ...(analytics.testMode === "adaptive"
-            ? [{
-                key: "levels",
-                header: "Уровни",
-                render: (a: AttemptListItem) => (
-                    <Cluster gap={1}>
-                        {a.achievedLevels?.map((level, idx) => (
-                            <Tag key={idx} variant="outline" size="s">
-                                {level.levelName || "—"}
-                            </Tag>
-                        ))}
-                    </Cluster>
-                ),
-            } as TableColumn<AttemptListItem>]
-            : []),
-        {
-            key: "actions",
-            header: "",
-            width: "56px",
-            align: "center",
-            render: (a) =>
-                a.completed ? (
-                    <IconButton
-                        variant="ghost"
-                        size="s"
-                        aria-label="Детализация попытки"
-                        icon={<FileText size={16} />}
-                        onClick={() => setSelectedAttemptId(a.attemptId)}
-                    />
-                ) : null,
-        },
-    ];
-
-    const attemptsPanel = (
-        <Card>
-            <CardHeader title="Список попыток" />
-            <CardBody>
-                {attemptsLoading ? (
-                    <LoadingState message="Загрузка..." />
-                ) : attemptsData?.attempts && attemptsData.attempts.length > 0 ? (
-                    <Table
-                        columns={attemptColumns}
-                        rows={attemptsData.attempts}
-                        rowKey={(a) => a.attemptId}
-                    />
-                ) : (
-                    <Box pad={8}><Text align="center" tone="muted">Нет попыток</Text></Box>
-                )}
-            </CardBody>
-        </Card>
     );
 
     const questionsPanel = (
@@ -1023,6 +631,16 @@ export default function TestAnalyticsPage() {
                     <Button onClick={handleExportExcel} variant="secondary" leadingIcon={<FileSpreadsheet size={16} />}>
                         Экспорт Excel
                     </Button>
+                    {/*
+                      PRD-56 FR-23: список попыток со страницы снят — он есть в реестре
+                      прохождений, где умеет фильтровать, догружать порциями и вести в разбор.
+                      Два списка на продукт означали бы два ответа на вопрос «кто проходил».
+                    */}
+                    <Link href={`/author/analytics?testId=${testId}`}>
+                        <Button variant="secondary" size="s" leadingIcon={<FileText size={16} />}>
+                            Прохождения в реестре
+                        </Button>
+                    </Link>
                 </Cluster>
             </Cluster>
 
@@ -1030,7 +648,7 @@ export default function TestAnalyticsPage() {
                 open={lmsImportOpen}
                 onClose={() => setLmsImportOpen(false)}
                 title="Загрузка выгрузки LMS"
-                description={attemptsData?.testTitle}
+                description={analytics.testTitle}
             >
                 <LmsImportForm
                     fixedTestId={testId}
@@ -1093,7 +711,6 @@ export default function TestAnalyticsPage() {
                 onChange={setActiveTab}
                 items={[
                     { id: "overview", label: "Обзор", content: overviewPanel },
-                    { id: "attempts", label: "Попытки", content: attemptsPanel },
                     { id: "questions", label: "Вопросы", content: questionsPanel },
                     ...(analytics.testMode === "adaptive"
                         ? [{ id: "levels", label: "Уровни", content: levelsPanel }]
@@ -1101,12 +718,6 @@ export default function TestAnalyticsPage() {
                 ]}
             />
 
-            {/* Attempt Detail Modal */}
-            <AttemptDetailModal
-                attemptId={selectedAttemptId}
-                open={!!selectedAttemptId}
-                onClose={() => setSelectedAttemptId(null)}
-            />
         </Stack>
     );
 }

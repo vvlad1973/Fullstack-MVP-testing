@@ -130,6 +130,11 @@ const lmsDetail = () => ({
   answers: [],
   topicResults: [],
   achievedLevels: [{ topicId: "top1", topicName: "Бюджетирование", levelIndex: 1, levelName: "Средний" }],
+  // PRD-56 FR-23: траектория переехала сюда со страницы теста вместе со списком попыток.
+  trajectory: [
+    { action: "level_up", levelName: "Средний", message: "Повышение до «Средний»" },
+    { action: "level_down", levelName: "Базовый", message: "Понижение до «Базовый»" },
+  ],
   source: "lms",
 });
 
@@ -372,6 +377,19 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     // Close it.
     fireEvent.click(within(dialog).getByLabelText("Закрыть"));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("показывает траекторию адаптивного прохождения", async () => {
+    // FR-23: список попыток со страницы теста уходит, и окно разбора там же. Траектория была
+    // видна ТОЛЬКО в нём — если не перенести, функция исчезнет молча.
+    await renderLoaded();
+    await openAttemptsTab();
+    fireEvent.click(screen.getByText("Мария Сидорова").closest("tr")!);
+
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(within(dialog).getByText("Траектория прохождения")).toBeInTheDocument());
+    expect(within(dialog).getByText("Повышение до «Средний»")).toBeInTheDocument();
+    expect(within(dialog).getByText("Понижение до «Базовый»")).toBeInTheDocument();
   });
 
   it("opens the adaptive LMS attempt-details modal with achieved levels", async () => {

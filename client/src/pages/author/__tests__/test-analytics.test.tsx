@@ -99,21 +99,6 @@ const adaptiveAnalytics = () => ({
   ],
 });
 
-const standardAttempts = () => ({
-  testId: "t1", testTitle: "Тест по финансам", testMode: "standard",
-  attempts: [
-    { attemptId: "at1", userId: "u1", username: "Иван Петров", startedAt: "2026-06-01T10:00:00Z", finishedAt: "2026-06-01T10:15:00Z", duration: 900, overallPercent: 85, earnedPoints: 17, possiblePoints: 20, passed: true, completed: true },
-    { attemptId: "at2", userId: "u2", username: "Мария Сидорова", startedAt: "2026-06-02T09:00:00Z", finishedAt: null, duration: null, overallPercent: 0, earnedPoints: 0, possiblePoints: 0, passed: false, completed: false },
-  ],
-});
-
-const adaptiveAttempts = () => ({
-  testId: "t1", testTitle: "Тест по финансам", testMode: "adaptive",
-  attempts: [
-    { attemptId: "at1", userId: "u1", username: "Иван Петров", startedAt: "2026-06-01T10:00:00Z", finishedAt: "2026-06-01T10:15:00Z", duration: 900, overallPercent: 85, earnedPoints: 17, possiblePoints: 20, passed: true, completed: true, achievedLevels: [{ topicName: "Бюджет", levelName: "Средний" }] },
-  ],
-});
-
 const standardDetail = () => ({
   attemptId: "at1", userId: "u1", username: "Иван Петров", testId: "t1", testTitle: "Тест по финансам",
   testMode: "standard", startedAt: "2026-06-01T10:00:00Z", finishedAt: "2026-06-01T10:15:00Z", duration: 900,
@@ -140,19 +125,17 @@ const adaptiveDetail = () => ({
 type State = {
   mode: "standard" | "adaptive";
   analyticsBody: unknown;
-  attemptsBody: unknown;
   detailBody: unknown;
 };
 let state: State;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  state = { mode: "standard", analyticsBody: standardAnalytics(), attemptsBody: standardAttempts(), detailBody: standardDetail() };
+  state = { mode: "standard", analyticsBody: standardAnalytics(), detailBody: standardDetail() };
   const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
   fetchMock = vi.fn(async (input: string) => {
     const u = String(input);
     if (u === "/api/analytics/tests/t1") return ok(state.analyticsBody);
-    if (u === "/api/analytics/tests/t1/attempts") return ok(state.attemptsBody);
     if (u.startsWith("/api/analytics/attempts/")) return ok(state.detailBody);
     return ok([]);
   });
@@ -178,11 +161,6 @@ async function renderLoaded() {
   await waitFor(() => expect(screen.getByText("Тест по финансам")).toBeInTheDocument());
 }
 
-async function openAttemptsTab() {
-  fireEvent.click(screen.getByRole("tab", { name: "Попытки" }));
-  await waitFor(() => expect(screen.getByText("Иван Петров")).toBeInTheDocument());
-}
-
 describe("<TestAnalyticsPage />", () => {
   it("shows the loading state before analytics arrive", async () => {
     renderPage();
@@ -201,7 +179,6 @@ describe("<TestAnalyticsPage />", () => {
     await renderLoaded();
     expect(screen.getByText("Аналитика")).toBeInTheDocument();
     expect(screen.getByText("Стандартный")).toBeInTheDocument();
-    // «Попытки» is both a KPI card and a tab label — assert it exists at all.
     expect(screen.getAllByText("Попытки").length).toBeGreaterThan(0);
     for (const label of ["Средний балл", "Прохождение", "Среднее время", "Всего"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
@@ -239,20 +216,22 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("lists attempts with completed and in-progress rows", async () => {
+
+
+  it("не показывает списка попыток: он живёт в реестре прохождений", async () => {
     await renderLoaded();
-    await openAttemptsTab();
-    expect(screen.getByText("Мария Сидорова")).toBeInTheDocument();
-    expect(screen.getByText("Сдан")).toBeInTheDocument();       // completed + passed
-    expect(screen.getByText("В процессе")).toBeInTheDocument(); // not completed
-    expect(screen.getByText("85.0%")).toBeInTheDocument();
+
+    // FR-23: один список на продукт, а не два. Вместо вкладки — переход в реестр, где тот же
+    // список умеет фильтровать, догружать и вести в разбор.
+    expect(screen.queryByRole("tab", { name: "Попытки" })).toBeNull();
+    expect(screen.getByRole("link", { name: /Прохождения в реестре/ })).toBeInTheDocument();
   });
 
-  it("renders the empty attempts state when there are none", async () => {
-    state.attemptsBody = { testId: "t1", testTitle: "Тест по финансам", testMode: "standard", attempts: [] };
+  it("ведёт в реестр с фильтром по этому тесту", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Попытки" }));
-    await waitFor(() => expect(screen.getByText("Нет попыток")).toBeInTheDocument());
+
+    const link = screen.getByRole("link", { name: /Прохождения в реестре/ });
+    expect(link.getAttribute("href")).toContain("/author/analytics?testId=t1");
   });
 
   it("renders the questions tab with per-question stats", async () => {
@@ -264,30 +243,7 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByText("70 %")).toBeInTheDocument();
   });
 
-  it("opens the standard attempt-details modal and shows the answers", async () => {
-    await renderLoaded();
-    await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детализация попытки"));
-    const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByText("85.0%")).toBeInTheDocument());
-    // Points, verdict tag and the answers list.
-    expect(within(dialog).getByText("17/20")).toBeInTheDocument();
-    expect(within(dialog).getByText("Пройден")).toBeInTheDocument();
-    expect(within(dialog).getByText("Что такое бюджет?")).toBeInTheDocument();
-    expect(within(dialog).getByText("Виды инвестиций?")).toBeInTheDocument();
-    expect(within(dialog).getByText("Ответы (2)")).toBeInTheDocument();
-  });
 
-  it("shows the modal not-found branch when the detail payload is null", async () => {
-    state.detailBody = null;
-    await renderLoaded();
-    await openAttemptsTab();
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детализация попытки"));
-    const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByText("Не удалось загрузить данные")).toBeInTheDocument());
-  });
 
   it("exports to Excel via the header action", async () => {
     await renderLoaded();
@@ -306,23 +262,4 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByText("5 достигли")).toBeInTheDocument();
   });
 
-  it("shows the adaptive «Уровни» attempt column and details modal (levels + trajectory)", async () => {
-    state.analyticsBody = adaptiveAnalytics();
-    state.attemptsBody = adaptiveAttempts();
-    state.detailBody = adaptiveDetail();
-    await renderLoaded();
-    await openAttemptsTab();
-    // Adaptive attempts table carries the achieved-level tag.
-    expect(screen.getAllByText("Средний").length).toBeGreaterThan(0);
-    const row = screen.getByText("Иван Петров").closest("tr")!;
-    fireEvent.click(within(row).getByLabelText("Детализация попытки"));
-    const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(within(dialog).getByText("Достигнутые уровни")).toBeInTheDocument());
-    expect(within(dialog).getByText("Траектория прохождения")).toBeInTheDocument();
-    expect(within(dialog).getByText("Повышение до «Средний»")).toBeInTheDocument();
-    expect(within(dialog).getByText("Понижение до «Базовый»")).toBeInTheDocument();
-    // Close the modal.
-    fireEvent.click(within(dialog).getByLabelText("Закрыть"));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-  });
 });

@@ -479,6 +479,29 @@ function AttemptDetailsDialog({
             </CardBody>
           </Card>
         )}
+
+        {/*
+          PRD-56 FR-23: траектория адаптивного прохождения. Переехала сюда со страницы теста
+          вместе со снятым оттуда списком попыток: другого места, где видно, на каком шаге
+          участник поднялся и где сорвался, в продукте нет.
+        */}
+        {details.trajectory && details.trajectory.length > 0 && (
+          <Card>
+            <CardHeader title="Траектория прохождения" />
+            <CardBody>
+              <Stack gap={2}>
+                {details.trajectory.map((event, index) => (
+                  <Cluster key={index} gap={2}>
+                    {event.action === "level_up"
+                      ? <CheckCircle size={16} color="var(--ou-success-600)" />
+                      : <XCircle size={16} color="var(--ou-error-600)" />}
+                    <Text variant="body-s">{event.message}</Text>
+                  </Cluster>
+                ))}
+              </Stack>
+            </CardBody>
+          </Card>
+        )}
     </Stack>
   );
 
