@@ -214,6 +214,9 @@ describe("Analytics test-details route", () => {
     vi.clearAllMocks();
   storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
     storageMock.getUser.mockResolvedValue(authorUser);
+    // Разрезы по темам читают секции теста: порог темы разрешается их правилом (PRD-56 FR-14).
+    storageMock.getTestSections.mockResolvedValue([]);
+    storageMock.getTestQuestionScoring.mockResolvedValue([]);
     app = makeApp(testDetailsRouter, "/api/analytics");
   });
 

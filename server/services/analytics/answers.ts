@@ -18,11 +18,16 @@ import type { ObservationSource } from "./observations";
 /** Один ответ на один вопрос, приведённый к общему виду независимо от источника. */
 export interface AnswerFact {
   questionId: string;
+  /** Прохождение, которому принадлежит ответ: по нему считаются доли ПРОХОЖДЕНИЙ (FR-14a). */
+  attemptId: string;
   /** `neutral` — ответ, которому нечего было оценивать (измерительный вопрос). */
   result: "correct" | "incorrect" | "neutral";
   source: ObservationSource;
   /** Время на вопрос; `null` — не измерялось (PRD-55: пакеты до 2026-09-12 его не шлют). */
   latencyMs: number | null;
+  /** Баллы ответа; `null` — оценивать было нечего. */
+  earnedPoints: number | null;
+  possiblePoints: number | null;
 }
 
 /** Сколько наблюдений пришло из каждого источника — на чём стоит число. */
@@ -41,15 +46,19 @@ export interface QuestionAnswerStats {
   bySource: AnswersBySource;
 }
 
+/** Оценка ответа веб-попытки: чем он стал и во сколько баллов обошёлся. */
+export interface WebGrade {
+  result: AnswerFact["result"];
+  earnedPoints: number | null;
+  possiblePoints: number | null;
+}
+
 /** Как оценён ответ веб-попытки. `null` — вопроса в тесте больше нет, ответ не учитывается. */
-export type GradeWebAnswer = (
-  questionId: string,
-  answer: unknown,
-) => AnswerFact["result"] | null;
+export type GradeWebAnswer = (questionId: string, answer: unknown) => WebGrade | null;
 
 /** Веб-часть выборки: попытки с их ответами и правило оценки. */
 export interface WebAnswerInput {
-  attempts: ReadonlyArray<{ answersJson?: unknown }>;
+  attempts: ReadonlyArray<{ id?: string; answersJson?: unknown }>;
   /**
    * Оценка ответа.
    *
@@ -76,19 +85,30 @@ export async function loadAnswerFacts(
   for (const attempt of web.attempts) {
     const answers = (attempt.answersJson ?? {}) as Record<string, unknown>;
     for (const [questionId, answer] of Object.entries(answers)) {
-      const result = web.grade(questionId, answer);
-      if (result === null) continue;
-      // Веб времени на вопрос не измеряет: `latency_ms` заполняет только пакет (PRD-55).
-      facts.push({ questionId, result, source: "web", latencyMs: null });
+      const grade = web.grade(questionId, answer);
+      if (grade === null) continue;
+      facts.push({
+        questionId,
+        attemptId: attempt.id ?? "",
+        result: grade.result,
+        source: "web",
+        // Веб времени на вопрос не измеряет: `latency_ms` заполняет только пакет (PRD-55).
+        latencyMs: null,
+        earnedPoints: grade.earnedPoints,
+        possiblePoints: grade.possiblePoints,
+      });
     }
   }
 
   for (const row of await storage.selectAnswersForTest(testId)) {
     facts.push({
       questionId: row.questionId,
+      attemptId: row.attemptId,
       result: row.result,
       source: row.origin,
       latencyMs: row.latencyMs,
+      earnedPoints: row.points,
+      possiblePoints: row.maxPoints,
     });
   }
 

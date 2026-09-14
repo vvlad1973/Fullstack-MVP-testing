@@ -11,7 +11,9 @@ import { stripMarkdown } from "@shared/text";
 import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answers";
 import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
+import { summariseTopics } from "../../services/analytics/topic-stats";
 import { summariseObservations } from "../../services/analytics/test-summary";
+import { resolveOverallRule, resolveTopicRule } from "@shared/scoring/pass-rule";
 import { declaresPassThreshold, thresholdPercentOfTest } from "./helpers";
 
 const router = Router();
@@ -67,61 +69,6 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       maxScore: stats.maxScore ?? 0,
     };
 
-    // Topic stats
-    interface TopicStatsEntry {
-      topicId: string;
-      topicName: string;
-      totalAnswers: number;
-      correctAnswers: number;
-      earnedPoints: number;
-      possiblePoints: number;
-      passedCount: number;
-      failedCount: number;
-    }
-
-    const topicStatsMap = new Map<string, TopicStatsEntry>();
-
-    for (const attempt of completedAttempts) {
-      const result = attempt.resultJson as any;
-      if (!result?.topicResults) continue;
-
-      for (const tr of result.topicResults) {
-        const existing = topicStatsMap.get(tr.topicId) || {
-          topicId: tr.topicId,
-          topicName: tr.topicName,
-          totalAnswers: 0,
-          correctAnswers: 0,
-          earnedPoints: 0,
-          possiblePoints: 0,
-          passedCount: 0,
-          failedCount: 0,
-        };
-
-        existing.totalAnswers += tr.total || tr.totalQuestionsAnswered || 0;
-        existing.correctAnswers += tr.correct || tr.totalCorrect || 0;
-        existing.earnedPoints += tr.earnedPoints || 0;
-        existing.possiblePoints += tr.possiblePoints || 0;
-
-        if (tr.passed === true || (tr.achievedLevelIndex !== undefined && tr.achievedLevelIndex !== null)) {
-          existing.passedCount++;
-        } else if (tr.passed === false || tr.achievedLevelIndex === null) {
-          existing.failedCount++;
-        }
-
-        topicStatsMap.set(tr.topicId, existing);
-      }
-    }
-
-    const topicStats = Array.from(topicStatsMap.values()).map(ts => ({
-      topicId: ts.topicId,
-      topicName: ts.topicName,
-      totalAnswers: ts.totalAnswers,
-      correctAnswers: ts.correctAnswers,
-      avgPercent: ts.possiblePoints > 0 ? (ts.earnedPoints / ts.possiblePoints) * 100 : 0,
-      passRate: (ts.passedCount + ts.failedCount) > 0
-        ? (ts.passedCount / (ts.passedCount + ts.failedCount)) * 100
-        : null,
-    }));
 
     // Question stats
     const allQuestionIds = new Set<string>();
@@ -191,10 +138,16 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       grade: (questionId, answer) => {
         const question = questionMap.get(questionId);
         if (!question) return null;
-        if (question.type === "scale" || question.type === "allocation") return "neutral";
-        return checkAnswer(question, answer, scoring.resolve(question).scoring) === 1
-          ? "correct"
-          : "incorrect";
+        if (question.type === "scale" || question.type === "allocation") {
+          return { result: "neutral", earnedPoints: null, possiblePoints: null };
+        }
+        const effective = scoring.resolve(question);
+        const ratio = checkAnswer(question, answer, effective.scoring);
+        return {
+          result: ratio === 1 ? "correct" : "incorrect",
+          earnedPoints: ratio * effective.points,
+          possiblePoints: effective.points,
+        };
       },
     });
 
@@ -216,6 +169,39 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
         answersBySource: stats.bySource,
       });
     }
+
+    /**
+     * PRD-56 FR-14, FR-14a: разрезы по темам и подтемам — из тех же ответов.
+     *
+     * Порог темы разрешается правилом теста (`resolveTopicRule`), а исход считает движок
+     * PRD-50: своего правила аналитика не заводит, иначе исход в отчёте участника и исход
+     * на этом экране однажды разойдутся.
+     */
+    const sections = await storage.getTestSections(testId);
+    const overallRule = resolveOverallRule(test.overallPassRuleJson);
+    const topicRules = new Map(sections.map(section => [
+      section.topicId,
+      resolveTopicRule(section.topicPassRuleJson, overallRule),
+    ]));
+
+    const topicStats = summariseTopics(
+      facts.flatMap(fact => {
+        const question = questionMap.get(fact.questionId);
+        if (!question) return [];
+        return [{
+          attemptId: fact.attemptId,
+          topicId: question.topicId,
+          topicName: topicMap.get(question.topicId) || "Без темы",
+          // Подтема — тег вопроса (PRD-11): ответ может попасть в несколько, и это правда
+          // о данных, а не ошибка счёта.
+          subtopics: question.tags ?? [],
+          result: fact.result,
+          earnedPoints: fact.earnedPoints,
+          possiblePoints: fact.possiblePoints,
+        }];
+      }),
+      topicRules,
+    );
 
     // Знаменатель доли — попытки теста за окно, считая БРОШЕННЫЕ: счётчик выдач пополняется на
     // старте попытки (FR-02), потому что брошенная попытка показала задание так же, как

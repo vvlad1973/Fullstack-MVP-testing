@@ -24,9 +24,12 @@ import { loadAnswerFacts, summariseAnswers, type AnswerFact } from "../answers";
 function fact(over: Partial<AnswerFact> = {}): AnswerFact {
   return {
     questionId: "q1",
+    attemptId: "a1",
     result: "correct",
     source: "web",
     latencyMs: null,
+    earnedPoints: 1,
+    possiblePoints: 1,
     ...over,
   };
 }
@@ -109,13 +112,17 @@ describe("loadAnswerFacts", () => {
     // Правила оценивания живут в маршруте вместе со scoring-контекстом теста: тащить их сюда
     // значило бы считать эффективную стоимость вопроса второй раз и рискнуть разойтись.
     const facts = await loadAnswerFacts("test1", {
-      attempts: [{ answersJson: { q1: 0, q2: 1 } }],
-      grade: questionId => (questionId === "q1" ? "correct" : "incorrect"),
+      attempts: [{ id: "a1", answersJson: { q1: 0, q2: 1 } }],
+      grade: questionId => (questionId === "q1"
+        ? { result: "correct", earnedPoints: 1, possiblePoints: 1 }
+        : { result: "incorrect", earnedPoints: 0, possiblePoints: 1 }),
     });
 
     expect(facts).toEqual([
-      { questionId: "q1", result: "correct", source: "web", latencyMs: null },
-      { questionId: "q2", result: "incorrect", source: "web", latencyMs: null },
+      { questionId: "q1", attemptId: "a1", result: "correct", source: "web", latencyMs: null,
+        earnedPoints: 1, possiblePoints: 1 },
+      { questionId: "q2", attemptId: "a1", result: "incorrect", source: "web", latencyMs: null,
+        earnedPoints: 0, possiblePoints: 1 },
     ]);
   });
 
@@ -123,8 +130,10 @@ describe("loadAnswerFacts", () => {
     // Вопрос могли убрать из темы: его ответы остались в попытке, но приписывать их
     // несуществующему заданию незачем — строки статистики у него не будет.
     const facts = await loadAnswerFacts("test1", {
-      attempts: [{ answersJson: { q1: 0, ghost: 1 } }],
-      grade: questionId => (questionId === "q1" ? "correct" : null),
+      attempts: [{ id: "a1", answersJson: { q1: 0, ghost: 1 } }],
+      grade: questionId => (questionId === "q1"
+        ? { result: "correct", earnedPoints: 1, possiblePoints: 1 }
+        : null),
     });
 
     expect(facts.map(f => f.questionId)).toEqual(["q1"]);
@@ -132,15 +141,22 @@ describe("loadAnswerFacts", () => {
 
   it("добавляет ответы из LMS, сохраняя источник и время", async () => {
     storageMock.selectAnswersForTest.mockResolvedValue([
-      { questionId: "q1", result: "incorrect", latencyMs: 48_000, origin: "telemetry" },
-      { questionId: "q2", result: "neutral", latencyMs: null, origin: "import" },
+      { questionId: "q1", attemptId: "lms-1", result: "incorrect", latencyMs: 48_000,
+        points: 0, maxPoints: 1, origin: "telemetry" },
+      { questionId: "q2", attemptId: "lms-2", result: "neutral", latencyMs: null,
+        points: null, maxPoints: null, origin: "import" },
     ]);
 
-    const facts = await loadAnswerFacts("test1", { attempts: [], grade: () => "correct" });
+    const facts = await loadAnswerFacts("test1", {
+      attempts: [],
+      grade: () => ({ result: "correct", earnedPoints: 1, possiblePoints: 1 }),
+    });
 
     expect(facts).toEqual([
-      { questionId: "q1", result: "incorrect", source: "telemetry", latencyMs: 48_000 },
-      { questionId: "q2", result: "neutral", source: "import", latencyMs: null },
+      { questionId: "q1", attemptId: "lms-1", result: "incorrect", source: "telemetry",
+        latencyMs: 48_000, earnedPoints: 0, possiblePoints: 1 },
+      { questionId: "q2", attemptId: "lms-2", result: "neutral", source: "import",
+        latencyMs: null, earnedPoints: null, possiblePoints: null },
     ]);
     expect(storageMock.selectAnswersForTest).toHaveBeenCalledWith("test1");
   });

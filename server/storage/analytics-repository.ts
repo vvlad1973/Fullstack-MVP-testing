@@ -237,8 +237,11 @@ export class AnalyticsRepository {
     const rows = await db
       .select({
         questionId: scormAnswers.questionId,
+        attemptId: scormAnswers.attemptId,
         result: scormAnswers.result,
         latencyMs: scormAnswers.latencyMs,
+        points: scormAnswers.points,
+        maxPoints: scormAnswers.maxPoints,
         origin: scormAttempts.origin,
       })
       .from(scormAnswers)
@@ -248,8 +251,11 @@ export class AnalyticsRepository {
 
     return rows.map(row => ({
       questionId: row.questionId,
+      attemptId: row.attemptId,
       result: (row.result ?? "incorrect") as TestAnswerRow["result"],
       latencyMs: row.latencyMs ?? null,
+      points: row.points ?? null,
+      maxPoints: row.maxPoints ?? null,
       origin: (row.origin ?? "telemetry") as ObservationSourceName,
     }));
   }
@@ -258,10 +264,15 @@ export class AnalyticsRepository {
 /** Ответ на вопрос, записанный прохождением из LMS. */
 export interface TestAnswerRow {
   questionId: string;
+  /** Прохождение ответа: по нему считаются доли ПРОХОЖДЕНИЙ, а не ответов (FR-14a). */
+  attemptId: string;
   /** `neutral` — измерительный ответ: ему нечего было оценивать (PRD-54). */
   result: "correct" | "incorrect" | "neutral";
   /** Время на вопрос; `null` — не измерялось (PRD-55). */
   latencyMs: number | null;
+  /** Баллы ответа; `null` — пакет их не сообщил либо оценивать было нечего. */
+  points: number | null;
+  maxPoints: number | null;
   origin: ObservationSourceName;
 }
 
