@@ -46,7 +46,7 @@ describe("FR-41: состав телеметрии финиша зафиксир
     ]);
   });
 
-  it("маршрут финиша пишет ровно десять колонок и ни одной под разрез", () => {
+  it("маршрут финиша пишет ровно двенадцать колонок и ни одной под разрез", () => {
     const src = read("server/routes/scorm-telemetry.ts");
     // Якорь по `finishedAt:` обязателен: в файле есть ещё два вызова
     // `updateScormAttempt(attempt.id, { … })`, и без якоря ленивый разбор уезжает в них.
@@ -55,7 +55,7 @@ describe("FR-41: состав телеметрии финиша зафиксир
     expect(literalKeys(body!)).toEqual([
       "finishedAt", "lastActivityAt", "resultPercent", "resultPassed", "totalPoints",
       "maxPoints", "totalQuestions", "correctAnswers", "achievedLevelsJson",
-      "failedTopicCoursesJson",
+      "failedTopicCoursesJson", "scalesJson", "variablesJson",
     ]);
   });
 });

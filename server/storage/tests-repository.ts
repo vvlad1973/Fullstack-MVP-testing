@@ -116,6 +116,19 @@ export class TestsRepository {
     return row || undefined;
   }
 
+  /**
+   * PRD-56 FR-19a: снимок теста по НОМЕРУ версии — так прохождение из LMS находит свою
+   * версию публикации. Пара (тест, версия) уникальна (`test_snapshots_test_version_idx`),
+   * поэтому номера в пакете достаточно и идентификатор снимка наружу не уезжает.
+   */
+  async getSnapshotByVersion(testId: string, version: number): Promise<TestSnapshot | undefined> {
+    const [row] = await db
+      .select()
+      .from(testSnapshots)
+      .where(and(eq(testSnapshots.testId, testId), eq(testSnapshots.version, version)));
+    return row || undefined;
+  }
+
   async getSnapshot(id: string): Promise<TestSnapshot | undefined> {
     const [row] = await db.select().from(testSnapshots).where(eq(testSnapshots.id, id));
     return row || undefined;

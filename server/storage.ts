@@ -156,6 +156,8 @@ export interface IStorage {
     publishedBy: string | null;
   }): Promise<TestSnapshot>;
   getLatestSnapshot(testId: string): Promise<TestSnapshot | undefined>;
+  /** PRD-56 FR-19a: снимок по номеру версии — так прохождение из LMS находит свою версию. */
+  getSnapshotByVersion(testId: string, version: number): Promise<TestSnapshot | undefined>;
   getSnapshot(id: string): Promise<TestSnapshot | undefined>;
   getSnapshotsForTest(testId: string): Promise<TestSnapshot[]>;
   /** Every snapshot in the database, for the media re-sync (Медиатека). */
@@ -648,6 +650,10 @@ export class DatabaseStorage implements IStorage {
 
   getLatestSnapshot(testId: string): Promise<TestSnapshot | undefined> {
     return this.testsRepo.getLatestSnapshot(testId);
+  }
+
+  getSnapshotByVersion(testId: string, version: number): Promise<TestSnapshot | undefined> {
+    return this.testsRepo.getSnapshotByVersion(testId, version);
   }
 
   getSnapshot(id: string): Promise<TestSnapshot | undefined> {
