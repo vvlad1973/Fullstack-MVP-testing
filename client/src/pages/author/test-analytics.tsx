@@ -9,6 +9,9 @@
  */
 import { useState } from "react";
 import { QuestionMetrics } from "@/features/analytics/question-metrics";
+import { PassTrend } from "@/features/analytics/test/pass-trend";
+import { ScoreDistribution } from "@/features/analytics/test/score-distribution";
+import { TopicBreakdown } from "@/features/analytics/test/topic-breakdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -87,13 +90,21 @@ interface TestAnalytics {
         avgScore: number | null;
         maxScore: number;
     };
+    /** PRD-56 FR-14a: у каждой доли своя единица счёта — прохождения против ответов. */
     topicStats: Array<{
         topicId: string;
         topicName: string;
-        totalAnswers: number;
-        correctAnswers: number;
-        avgPercent: number;
-        passRate: number | null;
+        passedShare: number | null;
+        correctShare: number | null;
+        thresholdPercent: number | null;
+        inSample: number;
+        subtopics: Array<{
+            name: string;
+            passedShare: number | null;
+            correctShare: number | null;
+            thresholdPercent: number | null;
+            inSample: number;
+        }>;
     }>;
     /** PRD-55 (FR-31): попытки за окно наблюдения, считая брошенные, — знаменатель доли выдачи. */
     exposureAttempts?: number;
@@ -106,7 +117,10 @@ interface TestAnalytics {
         difficulty: number;
         totalAnswers: number;
         correctAnswers: number;
-        correctPercent: number;
+        /** `null` — оценивать было нечего: у измерительного вопроса эталона нет. */
+        correctPercent: number | null;
+        /** Сколько ответов оценивалось: знаменатель доли верных. */
+        gradedAnswers?: number;
         // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
         // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
         exposureCount?: number;
@@ -137,11 +151,13 @@ interface TestAnalytics {
         tone: "error" | "warning" | "success" | "neutral";
         holdsThreshold: boolean;
     }>;
-    dailyTrends: Array<{
-        date: string;
+    /** PRD-56 FR-13: динамика сдаваемости по месяцам. */
+    passTrend: Array<{
+        key: string;
+        label: string;
         attempts: number;
-        avgPercent: number;
-        passRate: number;
+        judged: number;
+        passRate: number | null;
     }>;
 }
 
@@ -742,109 +758,34 @@ export default function TestAnalyticsPage() {
         );
     }
 
-    const { summary, topicStats, questionStats, levelStats, scoreDistribution, dailyTrends } = analytics;
+    const { summary, topicStats, questionStats, levelStats, scoreDistribution, passTrend } = analytics;
+
+    /**
+     * Проходной балл в процентах — подпись гистограммы и её цвета.
+     *
+     * Берётся из корзин: их красит сервер, и та, что держит порог, знает его границу. Считать
+     * порог второй раз на клиенте значило бы завести второй источник правды о нём.
+     */
+    const thresholdPercent = scoreDistribution.some(bucket => bucket.tone !== "neutral")
+        ? scoreDistribution.find(bucket => bucket.holdsThreshold)?.from
+            ?? scoreDistribution.find(bucket => bucket.tone === "success")?.from
+            ?? null
+        : null;
 
     const overviewPanel = (
-        <Stack gap={1}>
-            <Grid minItem="lg" gap={1}>
-                {/* Score Distribution */}
-                <Card>
-                    <CardHeader title="Распределение результатов" />
-                    <CardBody>
-                        {scoreDistribution.some((d) => d.count > 0) ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={scoreDistribution}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ou-border-soft)" />
-                                    <XAxis dataKey="label" fontSize={12} />
-                                    <YAxis fontSize={12} />
-                                    <Tooltip contentStyle={chartTooltipStyle} />
-                                    <Bar dataKey="count" fill="var(--ou-accent-default)" name="Попытки" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <Box pad={8}><Text align="center" tone="muted">Нет данных</Text></Box>
-                        )}
-                    </CardBody>
-                </Card>
-
-                {/* Daily Trends */}
-                <Card>
-                    <CardHeader title="Тренды (30 дней)" />
-                    <CardBody>
-                        {dailyTrends.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                                <LineChart data={dailyTrends}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ou-border-soft)" />
-                                    <XAxis
-                                        dataKey="date"
-                                        tickFormatter={(val) =>
-                                            new Date(val).toLocaleDateString("ru-RU", {
-                                                day: "numeric",
-                                                month: "short",
-                                            })
-                                        }
-                                        fontSize={12}
-                                    />
-                                    <YAxis fontSize={12} />
-                                    <Tooltip
-                                        labelFormatter={(val) => new Date(String(val)).toLocaleDateString("ru-RU")}
-                                        contentStyle={chartTooltipStyle}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="avgPercent"
-                                        stroke="var(--ou-accent-default)"
-                                        strokeWidth={2}
-                                        name="Средний %"
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="passRate"
-                                        stroke="var(--ou-success-default)"
-                                        strokeWidth={2}
-                                        name="% прохождения"
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <Box pad={8}><Text align="center" tone="muted">Нет данных</Text></Box>
-                        )}
-                    </CardBody>
-                </Card>
-            </Grid>
-
-            {/* Topic Stats */}
-            <Card>
-                <CardHeader title="Статистика по темам" />
-                <CardBody>
-                    {topicStats.length > 0 ? (
-                        <Stack gap={3}>
-                            {topicStats.map((topic) => (
-                                <Box key={topic.topicId} pad={3} surface="muted" radius="l">
-                                    <Cluster justify="between" gap={4}>
-                                        <Stack gap={1} grow>
-                                            <Text weight="medium">{topic.topicName}</Text>
-                                            <Text variant="body-s" tone="muted">
-                                                {topic.correctAnswers} / {topic.totalAnswers} правильных
-                                            </Text>
-                                        </Stack>
-                                        <Cluster gap={3} wrap={false}>
-                                            <Tag>{topic.avgPercent.toFixed(1)}%</Tag>
-                                            {topic.passRate !== null && (
-                                                <Tag tone={topic.passRate >= 70 ? "success" : "error"}>
-                                                    {topic.passRate.toFixed(0)}% сдали
-                                                </Tag>
-                                            )}
-                                        </Cluster>
-                                    </Cluster>
-                                </Box>
-                            ))}
-                        </Stack>
-                    ) : (
-                        <Box pad={8}><Text align="center" tone="muted">Нет данных по темам</Text></Box>
-                    )}
-                </CardBody>
-            </Card>
+        <Stack gap={5}>
+            {/*
+              PRD-56 FR-13, FR-13a, FR-14: три блока обзора, и каждый отвечает на свой вопрос —
+              как результаты легли относительно порога, где тяжёлые темы и что меняется со
+              временем. Считает их сервер по ВСЕМ источникам (FR-25), экран только показывает.
+            */}
+            <ScoreDistribution
+                buckets={scoreDistribution}
+                completed={summary.completedAttempts}
+                thresholdPercent={thresholdPercent}
+            />
+            <TopicBreakdown topics={topicStats} />
+            <PassTrend points={passTrend} />
         </Stack>
     );
 
@@ -964,27 +905,38 @@ export default function TestAnalyticsPage() {
                                         </Stack>
                                         {/* PRD-55 (FR-31/FR-31a/FR-32): к доле верных добавлены
                                             экспозиция и медиана времени — см. эскиз
-                                            docs/wireframes/prd55-item-exposure.html. */}
-                                        <QuestionMetrics
-                                            correctPercent={q.correctPercent}
-                                            correctTone={percentTone(q.correctPercent)}
-                                            correctAnswers={q.correctAnswers}
-                                            totalAnswers={q.totalAnswers}
-                                            exposurePercent={q.exposurePercent ?? null}
-                                            exposureCount={q.exposureCount ?? 0}
-                                            globalExposureCount={q.globalExposureCount ?? 0}
-                                            otherTestsCount={q.otherTestsCount ?? 0}
-                                            latencyMedianMs={q.latencyMedianMs ?? null}
-                                            latencySampleSize={q.latencySampleSize ?? 0}
-                                            attemptsInWindow={analytics.exposureAttempts ?? summary.completedAttempts}
-                                        />
+                                            docs/wireframes/prd55-item-exposure.html.
+                                            PRD-56 FR-22: у измерительного вопроса доли верных
+                                            НЕТ — эталона у него не существует, и метрики,
+                                            построенные вокруг доли, для него неприменимы. */}
+                                        {q.correctPercent === null ? (
+                                            <Text variant="body-s" tone="muted">
+                                                Оценивания не было: у вопроса нет эталона
+                                            </Text>
+                                        ) : (
+                                            <QuestionMetrics
+                                                correctPercent={q.correctPercent}
+                                                correctTone={percentTone(q.correctPercent)}
+                                                correctAnswers={q.correctAnswers}
+                                                totalAnswers={q.totalAnswers}
+                                                exposurePercent={q.exposurePercent ?? null}
+                                                exposureCount={q.exposureCount ?? 0}
+                                                globalExposureCount={q.globalExposureCount ?? 0}
+                                                otherTestsCount={q.otherTestsCount ?? 0}
+                                                latencyMedianMs={q.latencyMedianMs ?? null}
+                                                latencySampleSize={q.latencySampleSize ?? 0}
+                                                attemptsInWindow={analytics.exposureAttempts ?? summary.completedAttempts}
+                                            />
+                                        )}
                                     </Cluster>
-                                    <ProgressBar
-                                        value={q.correctPercent}
-                                        tone={percentProgressTone(q.correctPercent)}
-                                        size="s"
-                                        hideHeader
-                                    />
+                                    {q.correctPercent !== null && (
+                                        <ProgressBar
+                                            value={q.correctPercent}
+                                            tone={percentProgressTone(q.correctPercent)}
+                                            size="s"
+                                            hideHeader
+                                        />
+                                    )}
                                 </Stack>
                             </Box>
                         ))}

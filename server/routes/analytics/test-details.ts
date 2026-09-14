@@ -11,6 +11,7 @@ import { stripMarkdown } from "@shared/text";
 import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answers";
 import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
+import { passTrendByMonth } from "../../services/analytics/pass-trend";
 import { summariseTopics } from "../../services/analytics/topic-stats";
 import { summariseObservations } from "../../services/analytics/test-summary";
 import { resolveOverallRule, resolveTopicRule } from "@shared/scoring/pass-rule";
@@ -350,33 +351,14 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       thresholdPercentOfTest(test),
     );
 
-    // Daily trends
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const dailyMap = new Map<string, { date: string; attempts: number; totalPercent: number; passed: number }>();
-
-    for (const observation of observations.rows) {
-      if (!observation.finishedAt) continue;
-      const finishedDate = new Date(observation.finishedAt);
-      if (finishedDate < thirtyDaysAgo) continue;
-
-      const dateStr = finishedDate.toISOString().split("T")[0];
-      const existing = dailyMap.get(dateStr) || { date: dateStr, attempts: 0, totalPercent: 0, passed: 0 };
-      existing.attempts++;
-      existing.totalPercent += observation.percent ?? 0;
-      if (observation.passed) existing.passed++;
-      dailyMap.set(dateStr, existing);
-    }
-
-    const dailyTrends = Array.from(dailyMap.values())
-      .map(d => ({
-        date: d.date,
-        attempts: d.attempts,
-        avgPercent: d.attempts > 0 ? d.totalPercent / d.attempts : 0,
-        passRate: d.attempts > 0 ? (d.passed / d.attempts) * 100 : 0,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    /**
+     * PRD-56 FR-13: динамика сдаваемости ПО МЕСЯЦАМ.
+     *
+     * Дневная линия за тридцать дней, которая была здесь, для теста нечитаема: прохождения
+     * идут волнами по назначениям, и график превращался в частокол из единиц. Месяц — та
+     * единица, в которой об обучении и говорят.
+     */
+    const passTrend = passTrendByMonth(observations.rows);
 
     res.json({
       testId: test.id,
@@ -393,7 +375,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       exposureAttempts: attemptsInWindow,
       levelStats: test.mode === "adaptive" ? levelStats : undefined,
       scoreDistribution,
-      dailyTrends,
+      passTrend,
     });
 
   } catch (error) {

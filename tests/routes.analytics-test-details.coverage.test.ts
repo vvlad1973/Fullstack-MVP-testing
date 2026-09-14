@@ -213,10 +213,10 @@ describe("GET /:testId — question stats branches", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Daily trends & duration filters
+// Динамика сдаваемости и длительность
 // ─────────────────────────────────────────────────────────────────────────────
-describe("GET /:testId — daily trends & duration", () => {
-  it("excludes null-finish and >30-day-old attempts, counts durations only when timestamps present", async () => {
+describe("GET /:testId — динамика и длительность", () => {
+  it("держит в линии все месяцы, а в длительности — только прохождения с обеими отметками", async () => {
     storageMock.getTest.mockResolvedValue({ id: "test1", title: "T", mode: "standard", ownerId: null });
     const recent = {
       id: "r", testId: "test1", userId: "u1",
@@ -231,7 +231,7 @@ describe("GET /:testId — daily trends & duration", () => {
       variantJson: { sections: [] },
       resultJson: { overallPercent: 40, overallPassed: false, topicResults: [] },
     };
-    // Old finished attempt -> excluded from trends by the 30-day window.
+    // Прохождение прошлого месяца: в помесячной линии у него СВОЯ точка (FR-13).
     const old = {
       id: "o", testId: "test1", userId: "u3",
       startedAt: daysAgo(41), finishedAt: daysAgo(40),
@@ -250,7 +250,12 @@ describe("GET /:testId — daily trends & duration", () => {
     expect(res.status).toBe(200);
     expect(res.body.summary.totalAttempts).toBe(4);
     expect(res.body.summary.completedAttempts).toBe(3);
-    expect(res.body.dailyTrends).toHaveLength(1); // only `recent`
+    // PRD-56 FR-13: линия помесячная, окна в тридцать дней у неё нет — старое прохождение
+    // не исчезает, а даёт точку своего месяца. В точку идут ВСЕ прохождения месяца, включая
+    // незавершённые: они показывают, сколько людей за тест брались.
+    expect(res.body.passTrend.length).toBeGreaterThanOrEqual(1);
+    const trendTotal = res.body.passTrend.reduce((sum: number, p: any) => sum + p.attempts, 0);
+    expect(trendTotal).toBe(4);
     expect(res.body.summary.avgDuration).toBeGreaterThan(0); // only `recent` had both timestamps
   });
 });

@@ -458,6 +458,12 @@ export interface BarSeries {
   data: number[];
   color?: string;
   /**
+   * Цвет ОТДЕЛЬНОГО столбика по индексу категории — там, где цвет говорит о самой категории,
+   * а не о серии (распределение результатов: ниже порога / у порога / выше). Перекрывает
+   * `color`; где элемента нет, столбик остаётся цветом серии.
+   */
+  colors?: Array<string | undefined>;
+  /**
    * Show value labels on bars.
    * - `true` / `'outside'` — above the bar top (or above the segment top for stacked)
    * - `'inside'`           — centered inside the bar segment; falls back to outside when bar is too short
@@ -489,6 +495,12 @@ export interface BarChartProps extends React.HTMLAttributes<HTMLDivElement>, Cha
    * @param seriesId - id of the series
    */
   labelFormat?: (value: number, seriesId: string) => string;
+  /**
+   * Вертикальная линия-маркер поперёк области графика: порог, норматив, целевое значение.
+   * `position` — доля ширины области построения [0, 1]; линия может стоять ВНУТРИ столбика,
+   * а не только на границе между категориями.
+   */
+  xMarker?: { position: number; label?: React.ReactNode };
 }
 
 /** Minimum bar height (px in viewBox) for 'inside' labels to fit. */
@@ -502,6 +514,7 @@ export const BarChart = forwardRef<HTMLDivElement, BarChartProps>(
     hideXAxis, hideXLabels, hideYAxis, hideYLabels,
     yTickValues, yTickFormat,
     labelFormat: chartLabelFormat,
+    xMarker,
     className, ...rest
   }, ref) => {
     const [width, attachWrap] = useMeasuredWidth(widthFallback, ref);
@@ -564,6 +577,34 @@ export const BarChart = forwardRef<HTMLDivElement, BarChartProps>(
               y1={pt} y2={pb}
             />
           ))}
+          {/* Marker line (threshold, target) */}
+          {xMarker && (() => {
+            const x = pl + innerW * Math.min(Math.max(xMarker.position, 0), 1);
+            return (
+              <g>
+                <line className="ou-chart__marker" x1={x} x2={x} y1={pt} y2={pb} />
+                {xMarker.label != null && (
+                  <text className="ou-chart__marker-label" x={x} y={pt - 4} textAnchor="middle">
+                    {xMarker.label}
+                  </text>
+                )}
+              </g>
+            );
+          })()}
+          {/* Marker line (threshold, target) */}
+          {xMarker && (() => {
+            const x = pl + innerW * Math.min(Math.max(xMarker.position, 0), 1);
+            return (
+              <g>
+                <line className="ou-chart__marker" x1={x} x2={x} y1={pt} y2={pb} />
+                {xMarker.label != null && (
+                  <text className="ou-chart__marker-label" x={x} y={pt - 4} textAnchor="middle">
+                    {xMarker.label}
+                  </text>
+                )}
+              </g>
+            );
+          })()}
           {/* Y-axis line */}
           {!hideYAxis && (
             <line className="ou-chart__axis-line" x1={pl} x2={pl} y1={pt} y2={pb} />
@@ -606,7 +647,9 @@ export const BarChart = forwardRef<HTMLDivElement, BarChartProps>(
             categories.forEach((_, ci) => {
               let stackY = yAt(min);
               series.forEach((s, si) => {
-                const color = s.color ?? DEFAULT_PALETTE[si % DEFAULT_PALETTE.length];
+                const color = s.colors?.[ci]
+                  ?? s.color
+                  ?? DEFAULT_PALETTE[si % DEFAULT_PALETTE.length];
                 const v = s.data[ci] ?? 0;
                 const fmt = s.labelFormat
                   ? s.labelFormat

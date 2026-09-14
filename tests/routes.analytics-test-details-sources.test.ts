@@ -120,7 +120,7 @@ describe("GET /api/analytics/tests/:testId — блоки экрана", () => {
   it("строит динамику по всем источникам", async () => {
     const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
 
-    const total = res.body.dailyTrends.reduce((sum: number, d: { attempts: number }) => sum + d.attempts, 0);
+    const total = res.body.passTrend.reduce((sum: number, d: { attempts: number }) => sum + d.attempts, 0);
     expect(total).toBe(2);
   });
 

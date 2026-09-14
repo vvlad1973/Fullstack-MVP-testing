@@ -44,8 +44,18 @@ const standardAnalytics = () => ({
   testId: "t1", testTitle: "Тест по финансам", testMode: "standard" as const,
   summary: baseSummary(),
   topicStats: [
-    { topicId: "top1", topicName: "Бюджет", totalAnswers: 20, correctAnswers: 15, avgPercent: 75, passRate: 80 },
-    { topicId: "top2", topicName: "Инвестиции", totalAnswers: 18, correctAnswers: 6, avgPercent: 33.3, passRate: null },
+    {
+      topicId: "top1", topicName: "Бюджет",
+      passedShare: 80, correctShare: 75, thresholdPercent: 70, inSample: 20,
+      subtopics: [
+        { name: "Планирование", passedShare: 70, correctShare: 64, thresholdPercent: 70, inSample: 12 },
+      ],
+    },
+    {
+      topicId: "top2", topicName: "Инвестиции",
+      passedShare: null, correctShare: 33, thresholdPercent: null, inSample: 18,
+      subtopics: [],
+    },
   ],
   questionStats: [
     { questionId: "q1", questionPrompt: "Что такое бюджет?", questionType: "single", topicId: "top1", topicName: "Бюджет", difficulty: 2, totalAnswers: 10, correctAnswers: 7, correctPercent: 70 },
@@ -56,9 +66,9 @@ const standardAnalytics = () => ({
     { label: "70–79", from: 70, to: 80, count: 3, share: 37.5, tone: "success", holdsThreshold: false },
     { label: "90–100", from: 90, to: 100, count: 2, share: 25, tone: "success", holdsThreshold: false },
   ],
-  dailyTrends: [
-    { date: "2026-06-01", attempts: 5, avgPercent: 70, passRate: 60 },
-    { date: "2026-06-02", attempts: 3, avgPercent: 75, passRate: 65 },
+  passTrend: [
+    { key: "2026-06", label: "июнь 2026", attempts: 5, judged: 5, passRate: 60 },
+    { key: "2026-07", label: "июль 2026", attempts: 3, judged: 3, passRate: 65 },
   ],
 });
 
@@ -71,7 +81,7 @@ const emptyAnalytics = () => ({
     { label: "0–9", from: 0, to: 10, count: 0, share: 0, tone: "error", holdsThreshold: false },
     { label: "90–100", from: 90, to: 100, count: 0, share: 0, tone: "success", holdsThreshold: false },
   ],
-  dailyTrends: [],
+  passTrend: [],
 });
 
 const adaptiveAnalytics = () => ({
@@ -198,22 +208,27 @@ describe("<TestAnalyticsPage />", () => {
 
   it("renders the overview: charts and per-topic stats", async () => {
     await renderLoaded();
+    // PRD-56 FR-13, FR-14: три блока обзора — распределение, темы и помесячная динамика.
     expect(screen.getByText("Распределение результатов")).toBeInTheDocument();
-    expect(screen.getByText("Тренды (30 дней)")).toBeInTheDocument();
-    expect(screen.getByText("Статистика по темам")).toBeInTheDocument();
-    // Topic rows with pass-rate tag (top1) and none (top2, passRate null).
+    expect(screen.getByText("Динамика сдаваемости")).toBeInTheDocument();
+    expect(screen.getByText("Темы и подтемы")).toBeInTheDocument();
     expect(screen.getByText("Бюджет")).toBeInTheDocument();
     expect(screen.getByText("Инвестиции")).toBeInTheDocument();
-    expect(screen.getByText("80% сдали")).toBeInTheDocument();
-    expect(screen.getByText("15 / 20 правильных")).toBeInTheDocument();
+    // Подтема — строкой под своей темой.
+    expect(screen.getByText("Планирование")).toBeInTheDocument();
+    // Единицы счёта названы в заголовках: 80 % прохождений против 75 % ответов (FR-14a).
+    expect(screen.getByText("Прошли тему, % прохождений")).toBeInTheDocument();
+    expect(screen.getByText("Доля верных, % ответов")).toBeInTheDocument();
   });
 
   it("falls back to empty states across the overview when there is no data", async () => {
-    state.analyticsBody = emptyAnalytics();
+    state.analyticsBody = { ...emptyAnalytics(), summary: { ...baseSummary(), avgDuration: null, completedAttempts: 0 } };
     await renderLoaded();
-    // Both charts + topic list render their «Нет данных» fallbacks.
-    expect(screen.getAllByText("Нет данных").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("Нет данных по темам")).toBeInTheDocument();
+    // Пустые блоки говорят, ЧЕГО нет, а не «нет данных» вообще: по первому понятно, что
+    // прохождений не было, по второму — что читателю думать.
+    expect(screen.getAllByText(/Прохождений пока нет/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Разрезов по темам пока нет/)).toBeInTheDocument();
+    expect(screen.getByText(/динамику строить не из чего/)).toBeInTheDocument();
     // avgDuration null → «—» in the KPI card.
     expect(screen.getByText("—")).toBeInTheDocument();
   });

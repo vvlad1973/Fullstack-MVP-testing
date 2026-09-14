@@ -1677,6 +1677,10 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-chart__grid-strong { stroke: var(--ou-border-default); stroke-width: 1; }
 
 .ou-chart__grid-x { stroke: var(--ou-border-soft); stroke-width: 1; }
+/* Маркер-порог: вертикаль поперёк области графика. Пунктир и приглушённый тон отличают её
+   от столбиков и от сетки — это не данные, а граница, с которой данные сравнивают. */
+.ou-chart__marker { stroke: var(--ou-fg-muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.ou-chart__marker-label { font: var(--ou-text-body-xs); fill: var(--ou-fg-muted); }
 .ou-chart__axis-line { stroke: var(--ou-border-default); stroke-width: 1; }
 
 .ou-chart__line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

@@ -248,7 +248,7 @@ describe("Analytics test-details route", () => {
     expect(res.body.questionStats).toHaveLength(1);
     expect(res.body.questionStats[0].correctPercent).toBe(100);
     expect(res.body.scoreDistribution).toHaveLength(10);
-    expect(res.body.dailyTrends).toHaveLength(1);
+    expect(res.body.passTrend).toHaveLength(1);
     // levelStats only present for adaptive
     expect(res.body.levelStats).toBeUndefined();
   });
