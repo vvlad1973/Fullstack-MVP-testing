@@ -270,6 +270,18 @@ export function declaresPassThreshold(test: { overallPassRuleJson?: unknown }): 
 }
 
 /**
+ * Проходной балл теста В ПРОЦЕНТАХ — тем, кто рисует шкалу результата (PRD-56 FR-13a).
+ *
+ * `null` не только у теста без правила, но и у правила В БАЛЛАХ: сколько это процентов,
+ * зависит от достижимых баллов прохождения, а они у разных вариантов выдачи разные. Нарисовать
+ * такой порог одной вертикалью значило бы показать линию, которой ни для кого нет.
+ */
+export function thresholdPercentOfTest(test: { overallPassRuleJson?: unknown }): number | null {
+  const rule = resolveOverallRule(test.overallPassRuleJson);
+  return rule?.type === "percent" ? rule.value : null;
+}
+
+/**
  * PRD-5: how ONE answer moved the scales, as a report cell — «Целевой: +7; Командный: 0».
  *
  * Signed on purpose: a contribution is a movement, and an inverse-direction measurement

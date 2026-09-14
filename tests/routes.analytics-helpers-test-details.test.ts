@@ -278,13 +278,12 @@ describe("Analytics test-details route", () => {
     storageMock.getTopics.mockResolvedValue([{ id: "t1", name: "JS" }]);
     const res = await asAuthor(request(app).get("/api/analytics/test1"));
     expect(res.status).toBe(200);
+    // PRD-56 FR-13a: корзины одной ширины, нижняя граница включается, верхняя — нет.
     const dist = res.body.scoreDistribution;
-    const range1120 = dist.find((r: any) => r.range === "11-20");
-    const range7180 = dist.find((r: any) => r.range === "71-80");
-    const range91100 = dist.find((r: any) => r.range === "91-100");
-    expect(range1120.count).toBe(1);
-    expect(range7180.count).toBe(1);
-    expect(range91100.count).toBe(1);
+    const at = (label: string) => dist.find((b: any) => b.label === label).count;
+    expect(at("10–19")).toBe(1);
+    expect(at("70–79")).toBe(1);
+    expect(at("90–100")).toBe(1);
   });
 
   it("GET /:testId — includes levelStats for adaptive test", async () => {

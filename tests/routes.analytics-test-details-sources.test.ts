@@ -88,11 +88,33 @@ describe("GET /api/analytics/tests/:testId — блоки экрана", () => {
     const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
 
     expect(res.status).toBe(200);
-    const byRange = Object.fromEntries(
-      res.body.scoreDistribution.map((r: { range: string; count: number }) => [r.range, r.count]),
+    const byLabel = Object.fromEntries(
+      res.body.scoreDistribution.map((b: { label: string; count: number }) => [b.label, b.count]),
     );
-    expect(byRange["21-30"]).toBe(1);
-    expect(byRange["91-100"]).toBe(1);
+    expect(byLabel["20–29"]).toBe(1);
+    expect(byLabel["90–100"]).toBe(1);
+  });
+
+  it("красит корзины распределения по проходному баллу", async () => {
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const buckets = res.body.scoreDistribution as Array<{ label: string; tone: string }>;
+    expect(buckets.find(b => b.label === "20–29")?.tone).toBe("error");
+    expect(buckets.find(b => b.label === "90–100")?.tone).toBe("success");
+  });
+
+  it("не рисует порога, заданного в баллах", async () => {
+    // Сколько это процентов — зависит от достижимых баллов прохождения, а они у разных
+    // вариантов выдачи разные: одна вертикаль показала бы линию, которой ни для кого нет.
+    storageMock.getTest.mockResolvedValue({
+      ...TEST, overallPassRuleJson: { type: "count", value: 14 },
+    });
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const buckets = res.body.scoreDistribution as Array<{ tone: string; holdsThreshold: boolean }>;
+    expect(buckets.every(b => b.tone === "neutral")).toBe(true);
+    expect(buckets.some(b => b.holdsThreshold)).toBe(false);
   });
 
   it("строит динамику по всем источникам", async () => {

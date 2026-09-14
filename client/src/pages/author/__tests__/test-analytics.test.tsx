@@ -51,8 +51,10 @@ const standardAnalytics = () => ({
     { questionId: "q1", questionPrompt: "Что такое бюджет?", questionType: "single", topicId: "top1", topicName: "Бюджет", difficulty: 2, totalAnswers: 10, correctAnswers: 7, correctPercent: 70 },
   ],
   scoreDistribution: [
-    { range: "0-20", count: 1 }, { range: "21-40", count: 2 }, { range: "41-60", count: 1 },
-    { range: "61-80", count: 3 }, { range: "81-100", count: 1 },
+    { label: "0–9", from: 0, to: 10, count: 1, share: 12.5, tone: "error", holdsThreshold: false },
+    { label: "60–69", from: 60, to: 70, count: 2, share: 25, tone: "error", holdsThreshold: false },
+    { label: "70–79", from: 70, to: 80, count: 3, share: 37.5, tone: "success", holdsThreshold: false },
+    { label: "90–100", from: 90, to: 100, count: 2, share: 25, tone: "success", holdsThreshold: false },
   ],
   dailyTrends: [
     { date: "2026-06-01", attempts: 5, avgPercent: 70, passRate: 60 },
@@ -65,7 +67,10 @@ const emptyAnalytics = () => ({
   summary: { ...baseSummary(), avgDuration: null },
   topicStats: [],
   questionStats: [],
-  scoreDistribution: [{ range: "0-20", count: 0 }, { range: "81-100", count: 0 }],
+  scoreDistribution: [
+    { label: "0–9", from: 0, to: 10, count: 0, share: 0, tone: "error", holdsThreshold: false },
+    { label: "90–100", from: 90, to: 100, count: 0, share: 0, tone: "success", holdsThreshold: false },
+  ],
   dailyTrends: [],
 });
 

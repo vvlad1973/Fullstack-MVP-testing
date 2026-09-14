@@ -9,9 +9,10 @@ import { loadTestScoringContext } from "../../services/effective-scoring";
 import type { AttemptResult } from "@shared/schema";
 import { stripMarkdown } from "@shared/text";
 import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answers";
+import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
 import { summariseObservations } from "../../services/analytics/test-summary";
-import { declaresPassThreshold, gradingOf } from "./helpers";
+import { declaresPassThreshold, thresholdPercentOfTest } from "./helpers";
 
 const router = Router();
 
@@ -348,34 +349,20 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       });
     }
 
-    // Score distribution
-    const scoreRanges = [
-      { range: "0-10", min: 0, max: 10, count: 0 },
-      { range: "11-20", min: 11, max: 20, count: 0 },
-      { range: "21-30", min: 21, max: 30, count: 0 },
-      { range: "31-40", min: 31, max: 40, count: 0 },
-      { range: "41-50", min: 41, max: 50, count: 0 },
-      { range: "51-60", min: 51, max: 60, count: 0 },
-      { range: "61-70", min: 61, max: 70, count: 0 },
-      { range: "71-80", min: 71, max: 80, count: 0 },
-      { range: "81-90", min: 81, max: 90, count: 0 },
-      { range: "91-100", min: 91, max: 100, count: 0 },
-    ];
-
-    // PRD-56 FR-33: распределение строится по тем же наблюдениям, что и плитки. Иначе экран
-    // противоречит сам себе: «18 прохождений» сверху и гистограмма по пятнадцати веб-попыткам.
-    // Прохождения без результата в корзины не попадают: у них нет процента, а не ноль.
-    for (const observation of observations.rows) {
-      if (observation.percent === null) continue;
-      for (const range of scoreRanges) {
-        if (observation.percent >= range.min && observation.percent <= range.max) {
-          range.count++;
-          break;
-        }
-      }
-    }
-
-    const scoreDistribution = scoreRanges.map(r => ({ range: r.range, count: r.count }));
+    /**
+     * PRD-56 FR-13a: корзины одной ширины, цвет — от проходного балла.
+     *
+     * Считается по тем же наблюдениям, что и плитки: иначе экран противоречит сам себе —
+     * «18 прохождений» сверху и гистограмма по пятнадцати веб-попыткам. Прохождения без
+     * результата в корзины не попадают: у них нет процента, а не ноль.
+     */
+    const percents = observations.rows
+      .map(observation => observation.percent)
+      .filter((percent): percent is number => percent !== null);
+    const scoreDistribution = scoreBuckets(
+      percents,
+      thresholdPercentOfTest(test),
+    );
 
     // Daily trends
     const thirtyDaysAgo = new Date();

@@ -127,9 +127,15 @@ interface TestAnalytics {
         failedCount: number;
         avgCorrectPercent: number;
     }>;
+    /** PRD-56 FR-13a: корзины одной ширины с цветом от проходного балла. */
     scoreDistribution: Array<{
-        range: string;
+        label: string;
+        from: number;
+        to: number;
         count: number;
+        share: number;
+        tone: "error" | "warning" | "success" | "neutral";
+        holdsThreshold: boolean;
     }>;
     dailyTrends: Array<{
         date: string;
@@ -749,7 +755,7 @@ export default function TestAnalyticsPage() {
                             <ResponsiveContainer width="100%" height={250}>
                                 <BarChart data={scoreDistribution}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--ou-border-soft)" />
-                                    <XAxis dataKey="range" fontSize={12} />
+                                    <XAxis dataKey="label" fontSize={12} />
                                     <YAxis fontSize={12} />
                                     <Tooltip contentStyle={chartTooltipStyle} />
                                     <Bar dataKey="count" fill="var(--ou-accent-default)" name="Попытки" />
