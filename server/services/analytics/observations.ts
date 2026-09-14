@@ -63,9 +63,17 @@ export interface Observation {
    * Усреднять такой процент вместе с обычными значит складывать разные величины.
    */
   adaptive: boolean;
-  /** Версия публикации (PRD-15) и вариант выдачи (PRD-17) — разрезы вкладки «Выдача». */
+  /** Версия публикации (PRD-15) — разрез вкладки «Выдача». */
   snapshotId: string | null;
-  formId: string | null;
+  /**
+   * Выданные варианты (PRD-17) картой «тема -> вариант».
+   *
+   * Карта, а не одна строка: вариант — свойство РАЗДЕЛА (`variant_json.sections[].formId`), и
+   * у теста с двумя наборами форм прохождению принадлежат два варианта. Раньше здесь читалось
+   * поле `variant_json.formId` верхнего уровня, которого в схеме варианта нет вовсе, — оттого
+   * ось «вариант» среза отвечала «Без варианта» на всё.
+   */
+  forms: Record<string, string>;
 }
 
 /** Справочники, общие для всех строк одного запроса. */
@@ -107,6 +115,9 @@ interface LmsAttemptRow {
   maxPoints: number | null;
   startedAt: Date;
   finishedAt: Date | null;
+  /** PRD-56 FR-19a: версия публикации и выданные варианты, сообщённые пакетом. */
+  snapshotId?: string | null;
+  formsJson?: Record<string, string> | null;
 }
 
 /**
@@ -138,6 +149,24 @@ function gradedUnits(
   if (possiblePoints !== null && possiblePoints !== undefined) return possiblePoints;
   if (gradedTest === false) return 0;
   return percent !== null && percent !== undefined ? 1 : 0;
+}
+
+/**
+ * Выданные варианты веб-попытки картой «тема -> вариант».
+ *
+ * Пин лежит ПОСЕКЦИОННО (`variant_json.sections[].formId`, PRD-17 BR-12) — именно так его
+ * пишет старт попытки. Раздел без вариантов ключа не добавляет: пустая карта означает, что
+ * вариантов не было, а не что их не нашли.
+ */
+function formsOfVariant(variantJson: unknown): Record<string, string> {
+  const sections = (variantJson as { sections?: Array<{ topicId?: string; formId?: string }> } | null)
+    ?.sections ?? [];
+
+  const out: Record<string, string> = {};
+  for (const section of sections) {
+    if (section?.topicId && section.formId) out[section.topicId] = section.formId;
+  }
+  return out;
 }
 
 /** Исход по завершённости и вердикту — единственное место, где он выводится. */
@@ -198,7 +227,7 @@ export const toObservation = {
       outcome: outcomeOf(finished, passed),
       adaptive,
       snapshotId: row.snapshotId ?? null,
-      formId: (row.variantJson as { formId?: string } | null)?.formId ?? null,
+      forms: formsOfVariant(row.variantJson),
     };
   },
 
@@ -233,10 +262,11 @@ export const toObservation = {
       outcome: outcomeOf(finished, passed),
       // Режим прохождения телеметрия не сообщает: адаптивные разрезы считаются по вебу.
       adaptive: false,
-      // Версия публикации и вариант выдачи в LMS пока не доезжают: FR-19a заводит их
-      // проносом в пакет и парсером выгрузок, до этого разрез по версиям видит только веб.
-      snapshotId: null,
-      formId: null,
+      // PRD-56 FR-19a: версия и варианты приезжают из пакета — телеметрией со стартом попытки
+      // и служебными блоками выгрузки. Пусто у пакетов, собранных до этой работы: такое
+      // прохождение идёт в разрез «версия не указана», а не приписывается текущей версии.
+      snapshotId: row.snapshotId ?? null,
+      forms: row.formsJson ?? {},
     };
   },
 };

@@ -26,7 +26,9 @@ function webAttempt(over: Record<string, unknown> = {}) {
     userId: USER_ID,
     testId: TEST_ID,
     snapshotId: "snap-1",
-    variantJson: { formId: "form-A" },
+    // Пин варианта лежит ПОСЕКЦИОННО — ровно так его пишет старт попытки (PRD-17 BR-12).
+    // Поля `formId` верхнего уровня в `testVariantSchema` нет и никогда не было.
+    variantJson: { sections: [{ topicId: "topic-1", questionIds: ["q1"], formId: "form-A" }] },
     resultJson: { overallPercent: 78, overallPassed: true, totalPossiblePoints: 20 },
     startedAt: new Date("2026-09-11T14:00:00Z"),
     finishedAt: new Date("2026-09-11T14:20:00Z"),
@@ -119,11 +121,56 @@ describe("toObservation — web and telemetry describe one passage the same way"
     ).toBeNull();
   });
 
-  it("keeps the publication version and the delivered form of a web attempt", () => {
+  it("keeps the publication version and the delivered forms of a web attempt", () => {
     const observation = toObservation.web(webAttempt(), { users, gradedTest: true });
 
     expect(observation.snapshotId).toBe("snap-1");
-    expect(observation.formId).toBe("form-A");
+    expect(observation.forms).toEqual({ "topic-1": "form-A" });
+  });
+
+  it("собирает варианты ВСЕХ разделов, а не один", () => {
+    // Вариант — свойство РАЗДЕЛА: у теста с двумя наборами форм прохождению принадлежат два
+    // варианта, и склеивать их в одну строку нечем.
+    const observation = toObservation.web(
+      webAttempt({
+        variantJson: {
+          sections: [
+            { topicId: "topic-1", formId: "form-A" },
+            { topicId: "topic-2", formId: "form-B" },
+            { topicId: "topic-3" },
+          ],
+        },
+      }),
+      { users, gradedTest: true },
+    );
+
+    expect(observation.forms).toEqual({ "topic-1": "form-A", "topic-2": "form-B" });
+  });
+
+  it("прохождение без вариантов даёт пустую карту, а не выдуманный ключ", () => {
+    const observation = toObservation.web(
+      webAttempt({ variantJson: { sections: [{ topicId: "topic-1", questionIds: ["q1"] }] } }),
+      { users, gradedTest: true },
+    );
+
+    expect(observation.forms).toEqual({});
+  });
+
+  it("прохождение из LMS несёт версию публикации и варианты (PRD-56 FR-19a)", () => {
+    const observation = toObservation.lms(
+      lmsAttempt({ snapshotId: "snap-2", formsJson: { "topic-1": "form-B" } }),
+      { users, packages, gradedTest: true },
+    );
+
+    expect(observation.snapshotId).toBe("snap-2");
+    expect(observation.forms).toEqual({ "topic-1": "form-B" });
+  });
+
+  it("прохождение пакета прошлой сборки версии не несёт и текущей не приписывается", () => {
+    const observation = toObservation.lms(lmsAttempt(), { users, packages, gradedTest: true });
+
+    expect(observation.snapshotId).toBeNull();
+    expect(observation.forms).toEqual({});
   });
 
   it("resolves the test of a legacy telemetry row through its package", () => {

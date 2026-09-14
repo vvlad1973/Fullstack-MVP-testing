@@ -40,6 +40,13 @@ export interface AxisContext {
   externalParticipants: ReadonlySet<string>;
   /** Номер версии публикации по идентификатору снимка. */
   snapshotVersions: ReadonlyMap<string, number>;
+  /**
+   * Название варианта по его идентификатору (`form_set_json.forms[].label`).
+   *
+   * Без него срез подписывался бы сырым `formId`, а это uuid: подписать им строку значит не
+   * подписать её вовсе.
+   */
+  formLabels: ReadonlyMap<string, string>;
 }
 
 /** Один срез, полученный разбиением. */
@@ -136,9 +143,15 @@ function keysOf(
       }];
     }
     case "variant": {
-      return observation.formId
-        ? [{ key: observation.formId, label: `Вариант ${observation.formId}` }]
-        : [{ key: NONE, label: "Без варианта" }];
+      // Вариантов у прохождения столько, сколько у теста разделов с наборами форм, — и оно
+      // попадает в строку КАЖДОГО, как участник попадает в каждую свою группу.
+      const formIds = Object.values(observation.forms);
+      if (formIds.length === 0) return [{ key: NONE, label: "Без варианта" }];
+      return formIds.map(formId => ({
+        key: formId,
+        // Названия нет — вариант удалён из теста после прохождения; печатать uuid незачем.
+        label: context.formLabels.get(formId) ?? "Удалённый вариант",
+      }));
     }
     case "source": {
       return [{ key: observation.source, label: SOURCE_LABEL[observation.source] ?? observation.source }];
