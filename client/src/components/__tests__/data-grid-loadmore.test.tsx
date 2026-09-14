@@ -118,6 +118,26 @@ describe("DataGrid — ленивая подгрузка", () => {
     expect(screen.queryByText(/Стр\. 1 из/)).toBeNull();
   });
 
+  it("не вешает над таблицей голое число без подписи", () => {
+    // Счётчик тулбара — спутник заголовка. Без заголовка, поиска и своих кнопок над таблицей
+    // остаётся одно число, которое читателю не к чему отнести: сколько чего и из скольких —
+    // это говорит подвал («Показано 25 из 158») и подзаголовок карточки.
+    const { container } = render(
+      <DataGrid columns={COLUMNS} rows={ROWS} rowKey={r => r.id} total={158} />,
+    );
+
+    expect(container.querySelector(".ou-grid__toolbar")).toBeNull();
+  });
+
+  it("показывает тулбар, когда в нём есть что показать", () => {
+    const { container } = render(
+      <DataGrid columns={COLUMNS} rows={ROWS} rowKey={r => r.id} total={158} title="Прохождения" />,
+    );
+
+    expect(container.querySelector(".ou-grid__toolbar")).not.toBeNull();
+    expect(screen.getByText("158")).toBeTruthy();
+  });
+
   it("следит за хвостом ВНУТРИ области прокрутки таблицы", () => {
     // Таблица прокручивается в своём контейнере (`ou-grid__scroll`, max-height). Метка,
     // положенная снаружи, видна всегда — и список догружался бы до конца сам, без участия

@@ -14,8 +14,7 @@ import { useState } from "react";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
 import type { RegistryFilter } from "@/features/analytics/registry/filter-state";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
-import { SliceList } from "@/features/analytics/slices/slice-list";
-import { SliceCompare } from "@/features/analytics/slices/slice-compare";
+import { SlicesTab } from "@/features/analytics/slices/slices-tab";
 import { AttentionQueue, type AttentionRow } from "@/features/analytics/attention/attention-queue";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
@@ -966,18 +965,12 @@ function ExportSection() {
 // ============================================
 
 export default function AnalyticsPage() {
-  /** Тест, внутри которого считаются срезы (FR-07e): у разных тестов разные пороги и шкалы. */
-  const [testId, setTestId] = useState<string>("all");
   const [selectedAttempt, setSelectedAttempt] = useState<CombinedAttempt | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   /** PRD-54: окно загрузки выгрузки отчёта LMS. */
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
   /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
-  /** PRD-56 FR-06a: ось разбиения срезов. Пустая — показываются сохранённые срезы. */
-  const [sliceAxis, setSliceAxis] = useState<string>("group");
-  /** PRD-56 FR-07: список срезов и их сравнение — два режима одной вкладки. */
-  const [sliceMode, setSliceMode] = useState<"list" | "compare">("list");
   /**
    * Открытая вкладка. Держится состоянием, а не умолчанием, ради FR-08: переход из строки
    * среза открывает реестр и должен ПЕРЕКЛЮЧИТЬ экран, а не только подставить условия.
@@ -1026,8 +1019,8 @@ export default function AnalyticsPage() {
   /**
    * FR-08: открыть реестр по условиям среза.
    *
-   * Тест рамки добавляется к условиям: у среза его нет — он общий для всех срезов вкладки
-   * (FR-07e), а реестр без него показал бы прохождения всех тестов разом.
+   * Условия приходят от вкладки срезов уже вместе с рамкой расчёта — тестом и периодом:
+   * у самого среза их нет, они общие для всей вкладки (FR-07e).
    */
   const handleOpenSliceInRegistry = (conditions: Record<string, unknown>) => {
     const list = (value: unknown): string[] =>
@@ -1036,7 +1029,7 @@ export default function AnalyticsPage() {
       typeof value === "string" && value ? value : undefined;
 
     setRegistryFilter({
-      testIds: testId === "all" ? [] : [testId],
+      testIds: list(conditions.testIds),
       groupIds: list(conditions.groupIds),
       sources: list(conditions.sources) as RegistryFilter["sources"],
       outcomes: list(conditions.outcomes) as RegistryFilter["outcomes"],
@@ -1177,7 +1170,7 @@ export default function AnalyticsPage() {
       <Cluster justify="between">
         <Stack gap={1}>
           <Text as="h1" variant="display-s" weight="semibold">Аналитика</Text>
-          <Text tone="muted">Обзор эффективности тестов и статистика по источникам</Text>
+          <Text tone="muted">Прохождения, срезы и дела, по которым нужно действие</Text>
         </Stack>
         <Cluster gap={2}>
           {/* PRD-54: вторая точка входа. Теста в контексте нет — он берётся из самого файла. */}
@@ -1208,96 +1201,27 @@ export default function AnalyticsPage() {
             id: "attempts",
             label: "Прохождения",
             content: (
-              <Card>
-                <CardHeader
-                  title="Реестр прохождений"
-                  subtitle="Веб, телеметрия LMS и импортированные выгрузки"
-                />
-                <CardBody>
-                  {/*
-                    PRD-56 FR-01 - FR-04: один список на все источники. Своя панель фильтров,
-                    постраничность и сортировка в памяти сняты: условия отбора живут в адресе,
-                    порции приходят с сервера, состав строк книги задаёт тот же фильтр.
-                  */}
-                  <PassageRegistry
-                    filter={registryFilter}
-                    onFilterChange={setRegistryFilter}
-                    onOpenPassage={handleOpenPassage}
-                  />
-                </CardBody>
-              </Card>
+              /*
+                PRD-56 FR-01 - FR-04: один список на все источники. Своя панель фильтров,
+                постраничность и сортировка в памяти сняты: условия отбора живут в адресе,
+                порции приходят с сервера, состав строк книги задаёт тот же фильтр. Карточку
+                со счётом прохождений рисует сам реестр — число знает он.
+              */
+              <PassageRegistry
+                filter={registryFilter}
+                onFilterChange={setRegistryFilter}
+                onOpenPassage={handleOpenPassage}
+              />
             ),
           },
           {
             id: "slices",
             label: "Срезы",
             content: (
-              <Card>
-                <CardHeader
-                  title="Срезы прохождений"
-                  subtitle="Кого учили и с каким результатом · за всё время"
-                  lead={
-                    <Select
-                      size="s"
-                      value={testId}
-                      onChange={(value) => setTestId(String(value))}
-                      options={[
-                        { value: "all", label: "Выберите тест" },
-                        ...(tests ?? []).map(test => ({ value: test.id, label: test.title })),
-                      ]}
-                    />
-                  }
-                  trail={
-                    <Cluster gap={2}>
-                      <Button
-                        variant={sliceMode === "list" ? "secondary" : "ghost"}
-                        size="s"
-                        onClick={() => setSliceMode("list")}
-                      >
-                        Список срезов
-                      </Button>
-                      <Button
-                        variant={sliceMode === "compare" ? "secondary" : "ghost"}
-                        size="s"
-                        onClick={() => setSliceMode("compare")}
-                      >
-                        Сравнение
-                      </Button>
-                      {sliceMode === "list" && (
-                    <Select
-                      size="s"
-                      value={sliceAxis}
-                      onChange={(value) => setSliceAxis(String(value))}
-                      options={[
-                        { value: "group", label: "По группам" },
-                        { value: "period", label: "По месяцам" },
-                        { value: "attempt", label: "По номеру попытки" },
-                        { value: "version", label: "По версии публикации" },
-                        { value: "variant", label: "По варианту выдачи" },
-                        { value: "source", label: "По источнику" },
-                        { value: "external", label: "Внутренние и внешние" },
-                      ]}
-                    />
-                      )}
-                    </Cluster>
-                  }
-                />
-                <CardBody>
-                  {testId === "all" ? (
-                    <Text tone="muted">
-                      Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы.
-                    </Text>
-                  ) : sliceMode === "compare" ? (
-                    <SliceCompare testId={testId} />
-                  ) : (
-                    <SliceList
-                      testId={testId}
-                      axis={sliceAxis}
-                      onOpenRegistry={handleOpenSliceInRegistry}
-                    />
-                  )}
-                </CardBody>
-              </Card>
+              <SlicesTab
+                tests={tests ?? []}
+                onOpenRegistry={handleOpenSliceInRegistry}
+              />
             ),
           },
           {

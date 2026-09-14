@@ -213,13 +213,12 @@ async function openAttemptsTab() {
   await waitFor(() => expect(screen.getByText("Иван Петров")).toBeInTheDocument());
 }
 
-/** Открыть вкладку «Срезы» и выбрать тест — без него срезы не считаются (FR-07e). */
+/** Открыть вкладку «Срезы» и выбрать тест рамки — без него срезы не считаются (FR-07e). */
 async function openSlicesForTest() {
   fireEvent.click(screen.getByRole("tab", { name: "Срезы" }));
-  fireEvent.click(screen.getByText("Выберите тест").closest("button")!);
-  // Список тестов приходит запросом: до его ответа в меню один пункт-заглушка.
-  const option = await within(screen.getByRole("listbox")).findByText("Тест по финансам");
-  fireEvent.click(option);
+  fireEvent.click(screen.getByLabelText("Тест"));
+  // Список тестов приходит запросом: до его ответа выбирать нечего.
+  fireEvent.click(await screen.findByText("Тест по финансам"));
   await waitFor(() => expect(screen.getByText("Розница")).toBeInTheDocument());
 }
 

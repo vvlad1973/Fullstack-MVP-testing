@@ -191,27 +191,36 @@ export function DataGrid<T>({
     && page !== undefined && pageSize !== undefined && onPageChange !== undefined;
   const totalPages = showPager ? Math.max(1, Math.ceil(totalRows / pageSize!)) : 1;
 
+  /**
+   * Счётчик — спутник заголовка, а не самостоятельный блок: без заголовка, поиска и своих
+   * кнопок над таблицей осталось бы одно число, которое читателю не к чему отнести (сколько
+   * чего и из скольких — это говорят подвал и подзаголовок карточки).
+   */
+  const showToolbar = Boolean(title || onQueryChange || toolbarExtra);
+
   return (
     <div className={cn('ou-grid', className, cssStyleClass(style, 'ou-grid-sx'))} {...rest}>
       {/* Toolbar */}
-      <div className="ou-grid__toolbar">
-        {title && <span className="ou-grid__toolbar-title">{title}</span>}
-        <span className="ou-grid__toolbar-count">{totalRows}</span>
-        <span className="ou-grid__toolbar-spacer" />
-        {onQueryChange && (
-          <div className="ou-grid__search">
-            <SearchIcon />
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={query ?? ''}
-              onChange={(e) => onQueryChange(e.target.value)}
-              aria-label={searchPlaceholder}
-            />
-          </div>
-        )}
-        {toolbarExtra}
-      </div>
+      {showToolbar && (
+        <div className="ou-grid__toolbar">
+          {title && <span className="ou-grid__toolbar-title">{title}</span>}
+          <span className="ou-grid__toolbar-count">{totalRows}</span>
+          <span className="ou-grid__toolbar-spacer" />
+          {onQueryChange && (
+            <div className="ou-grid__search">
+              <SearchIcon />
+              <input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={query ?? ''}
+                onChange={(e) => onQueryChange(e.target.value)}
+                aria-label={searchPlaceholder}
+              />
+            </div>
+          )}
+          {toolbarExtra}
+        </div>
+      )}
 
       {/* Bulk bar */}
       {selectable && selected.length > 0 && (

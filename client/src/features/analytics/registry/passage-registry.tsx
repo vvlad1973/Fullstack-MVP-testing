@@ -11,7 +11,11 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, DataGrid, FilterBar, Input, ModalDialog, Stack, Tag, Text } from "@skillum/ui-kit";
+import {
+  Button, Card, CardBody, CardHeader, DataGrid, FilterBar, Input, ModalDialog, Stack, Tag, Text,
+} from "@skillum/ui-kit";
+
+import { pluralize } from "@/lib/i18n";
 
 import { RegistryFilterDialog } from "./filter-dialog";
 
@@ -65,6 +69,18 @@ const OUTCOME_LABEL: Record<RegistryOutcome, string> = {
   completed: "завершено",
   incomplete: "не завершено",
 };
+
+/**
+ * Подзаголовок реестра: сколько прохождений в выборке и из каких источников.
+ *
+ * Оговорка «под условия отбора» обязательна: «128 прохождений» без неё читается как весь
+ * объём данных, и тогда снятие условия выглядит потерей данных, а не расширением выборки.
+ */
+function subtitleOf(total: number, conditions: number): string {
+  const noun = pluralize(total, "прохождение", "прохождения", "прохождений");
+  const scope = conditions > 0 ? "под условия отбора" : "за всё время";
+  return `${total} ${noun} ${scope} · веб, телеметрия LMS и импортированные выгрузки`;
+}
 
 /** Дата и время прохождения — как их читает человек. */
 function formatMoment(iso: string): string {
@@ -216,97 +232,103 @@ export function PassageRegistry({
   };
 
   return (
-    <div>
-      <FilterBar
-        count={conditionCount}
-        applied={applied}
-        actions={
-          <>
-            {actions}
-            <Button
-              variant="ghost"
-              size="s"
-              // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
-              // спрятана: спрятанная не объясняет, почему действия нет.
-              disabled={conditionCount === 0}
-              onClick={() => setSaveOpen(true)}
-            >
-              Сохранить как срез
-            </Button>
-          </>
-        }
-        onOpenFilter={() => setFilterOpen(true)}
-        onRemove={removeCondition}
-        onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
-        resetLabel="Сбросить фильтры"
+    <Card>
+      <CardHeader
+        title="Реестр прохождений"
+        subtitle={subtitleOf(total, conditionCount)}
       />
-
-      <ModalDialog
-        open={saveOpen}
-        onClose={() => setSaveOpen(false)}
-        size="s"
-        title="Сохранить как срез"
-        description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
-        footer={
-          <>
-            <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
-            <Button
-              variant="primary"
-              size="m"
-              disabled={!sliceName.trim()}
-              onClick={() => void saveSlice()}
-            >
-              Сохранить
-            </Button>
-          </>
-        }
-      >
-        <Stack gap={3}>
-          <label htmlFor="slice-name">
-            <Text variant="body-s">Название среза</Text>
-          </label>
-          <Input
-            id="slice-name"
-            value={sliceName}
-            onChange={event => setSliceName(event.target.value)}
-            placeholder="Например: Розница, не сдали"
-          />
-          <Text variant="body-xs" tone="muted">
-            Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
-            завтра число может быть другим, потому что срез считается заново.
-          </Text>
-          {saveError && <Text tone="error">{saveError}</Text>}
-        </Stack>
-      </ModalDialog>
-
-      <RegistryFilterDialog
-        open={filterOpen}
-        filter={filter}
-        onApply={onFilterChange}
-        onClose={() => setFilterOpen(false)}
-      />
-
-      {failed ? (
-        <Text tone="error">Не удалось загрузить прохождения. Обновите страницу.</Text>
-      ) : (
-        <DataGrid
-          columns={columns}
-          rows={rows}
-          rowKey={row => row.id}
-          total={total}
-          hasMore={hasMore}
-          loadingMore={loading}
-          onLoadMore={() => void load(rows.length)}
-          onRowClick={onOpenPassage ? row => onOpenPassage(row) : undefined}
-          emptyMessage={
-            loading
-              ? "Загружаем прохождения…"
-              : countConditions(filter) > 0
-                ? "Под эти условия не подошло ни одного прохождения. Снимите условие или расширьте период."
-                : "Прохождений пока нет"
+      <CardBody>
+        <FilterBar
+          count={conditionCount}
+          applied={applied}
+          actions={
+            <>
+              {actions}
+              <Button
+                variant="ghost"
+                size="s"
+                // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
+                // спрятана: спрятанная не объясняет, почему действия нет.
+                disabled={conditionCount === 0}
+                onClick={() => setSaveOpen(true)}
+              >
+                Сохранить как срез
+              </Button>
+            </>
           }
+          onOpenFilter={() => setFilterOpen(true)}
+          onRemove={removeCondition}
+          onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
+          resetLabel="Сбросить фильтры"
         />
-      )}
-    </div>
+
+        <ModalDialog
+          open={saveOpen}
+          onClose={() => setSaveOpen(false)}
+          size="s"
+          title="Сохранить как срез"
+          description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
+          footer={
+            <>
+              <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
+              <Button
+                variant="primary"
+                size="m"
+                disabled={!sliceName.trim()}
+                onClick={() => void saveSlice()}
+              >
+                Сохранить
+              </Button>
+            </>
+          }
+        >
+          <Stack gap={3}>
+            <label htmlFor="slice-name">
+              <Text variant="body-s">Название среза</Text>
+            </label>
+            <Input
+              id="slice-name"
+              value={sliceName}
+              onChange={event => setSliceName(event.target.value)}
+              placeholder="Например: Розница, не сдали"
+            />
+            <Text variant="body-xs" tone="muted">
+              Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
+              завтра число может быть другим, потому что срез считается заново.
+            </Text>
+            {saveError && <Text tone="error">{saveError}</Text>}
+          </Stack>
+        </ModalDialog>
+
+        <RegistryFilterDialog
+          open={filterOpen}
+          filter={filter}
+          onApply={onFilterChange}
+          onClose={() => setFilterOpen(false)}
+        />
+
+        {failed ? (
+          <Text tone="error">Не удалось загрузить прохождения. Обновите страницу.</Text>
+        ) : (
+          <DataGrid
+            columns={columns}
+            rows={rows}
+            rowKey={row => row.id}
+            total={total}
+            hasMore={hasMore}
+            loadingMore={loading}
+            onLoadMore={() => void load(rows.length)}
+            onRowClick={onOpenPassage ? row => onOpenPassage(row) : undefined}
+            emptyMessage={
+              loading
+                ? "Загружаем прохождения…"
+                : countConditions(filter) > 0
+                  ? "Под эти условия не подошло ни одного прохождения. Снимите условие или расширьте период."
+                  : "Прохождений пока нет"
+            }
+          />
+        )}
+      </CardBody>
+    </Card>
   );
 }

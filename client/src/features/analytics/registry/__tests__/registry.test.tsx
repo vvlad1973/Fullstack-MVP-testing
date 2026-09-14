@@ -56,6 +56,30 @@ describe("PassageRegistry", () => {
     expect(screen.getByText("Сертификация руководителей")).toBeTruthy();
   });
 
+  it("говорит в подзаголовке, сколько прохождений и откуда они", async () => {
+    fetchMock.mockResolvedValue(page([ROW], 1284));
+
+    render(<PassageRegistry filter={{ testIds: [], groupIds: [], sources: [], outcomes: [] }} onFilterChange={() => {}} />);
+
+    expect(await screen.findByText(/1284 прохождения за всё время/)).toBeTruthy();
+    expect(screen.getByText(/веб, телеметрия LMS и импортированные выгрузки/)).toBeTruthy();
+  });
+
+  it("говорит, что число относится к условиям отбора, когда они есть", async () => {
+    fetchMock.mockResolvedValue(page([ROW], 128));
+
+    render(
+      <PassageRegistry
+        filter={{ testIds: [], groupIds: [], sources: ["import"], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    // «128 прохождений» без оговорки читается как весь объём данных — и тогда снятие условия
+    // выглядит потерей данных, а не расширением выборки.
+    expect(await screen.findByText(/128 прохождений под условия отбора/)).toBeTruthy();
+  });
+
   it("печатает в подвале, сколько строк показано из скольких", async () => {
     fetchMock.mockResolvedValue(page([ROW], 128));
 
