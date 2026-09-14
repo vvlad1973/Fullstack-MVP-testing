@@ -58,7 +58,13 @@ const standardAnalytics = () => ({
     },
   ],
   questionStats: [
-    { questionId: "q1", questionPrompt: "Что такое бюджет?", questionType: "single", topicId: "top1", topicName: "Бюджет", difficulty: 2, totalAnswers: 10, correctAnswers: 7, correctPercent: 70 },
+    {
+      questionId: "q1", questionPrompt: "Что такое бюджет?", questionType: "single",
+      topicId: "top1", topicName: "Бюджет", difficulty: 2,
+      totalAnswers: 10, gradedAnswers: 10, correctAnswers: 7, correctPercent: 70,
+      skipShare: 0, exposurePercent: 80, latencyMedianMs: 42_000, latencySampleSize: 10,
+      reviewFlags: [],
+    },
   ],
   scoreDistribution: [
     { label: "0–9", from: 0, to: 10, count: 1, share: 12.5, tone: "error", holdsThreshold: false },
@@ -252,9 +258,10 @@ describe("<TestAnalyticsPage />", () => {
   it("renders the questions tab with per-question stats", async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("tab", { name: "Вопросы" }));
+    // PRD-56 FR-15: карточки заменены таблицей — задания сравнивают между собой.
     await waitFor(() => expect(screen.getByText("Что такое бюджет?")).toBeInTheDocument());
-    expect(screen.getByText("Сложность: 2")).toBeInTheDocument();
-    expect(screen.getByText("70%")).toBeInTheDocument();
+    expect(screen.getByText("Доля верных")).toBeInTheDocument();
+    expect(screen.getByText("70 %")).toBeInTheDocument();
   });
 
   it("opens the standard attempt-details modal and shows the answers", async () => {

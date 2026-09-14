@@ -11,6 +11,7 @@ import { useState } from "react";
 import { QuestionMetrics } from "@/features/analytics/question-metrics";
 import { PassTrend } from "@/features/analytics/test/pass-trend";
 import { ScoreDistribution } from "@/features/analytics/test/score-distribution";
+import { QuestionTable } from "@/features/analytics/test/question-table";
 import { TopicBreakdown } from "@/features/analytics/test/topic-breakdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
@@ -120,15 +121,21 @@ interface TestAnalytics {
         /** `null` — оценивать было нечего: у измерительного вопроса эталона нет. */
         correctPercent: number | null;
         /** Сколько ответов оценивалось: знаменатель доли верных. */
-        gradedAnswers?: number;
+        gradedAnswers: number;
+        /** PRD-56 FR-15: доля пропусков; `null` — состав выдачи по попытке неизвестен. */
+        skipShare: number | null;
+        deliveredWeb?: number;
+        skippedWeb?: number;
+        /** PRD-56 FR-16: признаки, по которым задание попало в вид «требуют ревизии». */
+        reviewFlags: Array<{ kind: string; reason: string }>;
         // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
         // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
         exposureCount?: number;
-        exposurePercent?: number | null;
+        exposurePercent: number | null;
         globalExposureCount?: number;
         otherTestsCount?: number;
-        latencyMedianMs?: number | null;
-        latencySampleSize?: number;
+        latencyMedianMs: number | null;
+        latencySampleSize: number;
     }>;
     levelStats?: Array<{
         levelIndex: number;
@@ -883,69 +890,19 @@ export default function TestAnalyticsPage() {
     );
 
     const questionsPanel = (
-        <Card>
-            <CardHeader lead={<HelpCircle size={20} />} title="Статистика по вопросам" />
-            <CardBody>
-                {questionStats.length > 0 ? (
-                    <Stack gap={3}>
-                        {questionStats.map((q, idx) => (
-                            <Box key={q.questionId} pad={3} radius="l" border>
-                                <Stack gap={2}>
-                                    <Cluster justify="between" align="start" gap={4}>
-                                        <Stack gap={1} grow>
-                                            <Cluster gap={2}>
-                                                <Text variant="body-xs" tone="muted">#{idx + 1}</Text>
-                                                <Tag variant="outline" size="s">{q.topicName}</Tag>
-                                                <Tag size="s">Сложность: {q.difficulty}</Tag>
-                                                {(q.otherTestsCount ?? 0) > 0 && (
-                                                    <Tag size="s" tone="info">ещё в {q.otherTestsCount} тестах</Tag>
-                                                )}
-                                            </Cluster>
-                                            <Text variant="body-s">{q.questionPrompt}</Text>
-                                        </Stack>
-                                        {/* PRD-55 (FR-31/FR-31a/FR-32): к доле верных добавлены
-                                            экспозиция и медиана времени — см. эскиз
-                                            docs/wireframes/prd55-item-exposure.html.
-                                            PRD-56 FR-22: у измерительного вопроса доли верных
-                                            НЕТ — эталона у него не существует, и метрики,
-                                            построенные вокруг доли, для него неприменимы. */}
-                                        {q.correctPercent === null ? (
-                                            <Text variant="body-s" tone="muted">
-                                                Оценивания не было: у вопроса нет эталона
-                                            </Text>
-                                        ) : (
-                                            <QuestionMetrics
-                                                correctPercent={q.correctPercent}
-                                                correctTone={percentTone(q.correctPercent)}
-                                                correctAnswers={q.correctAnswers}
-                                                totalAnswers={q.totalAnswers}
-                                                exposurePercent={q.exposurePercent ?? null}
-                                                exposureCount={q.exposureCount ?? 0}
-                                                globalExposureCount={q.globalExposureCount ?? 0}
-                                                otherTestsCount={q.otherTestsCount ?? 0}
-                                                latencyMedianMs={q.latencyMedianMs ?? null}
-                                                latencySampleSize={q.latencySampleSize ?? 0}
-                                                attemptsInWindow={analytics.exposureAttempts ?? summary.completedAttempts}
-                                            />
-                                        )}
-                                    </Cluster>
-                                    {q.correctPercent !== null && (
-                                        <ProgressBar
-                                            value={q.correctPercent}
-                                            tone={percentProgressTone(q.correctPercent)}
-                                            size="s"
-                                            hideHeader
-                                        />
-                                    )}
-                                </Stack>
-                            </Box>
-                        ))}
-                    </Stack>
-                ) : (
-                    <Box pad={8}><Text align="center" tone="muted">Нет данных по вопросам</Text></Box>
-                )}
-            </CardBody>
-        </Card>
+        /*
+          PRD-56 FR-15 - FR-17: одна таблица вместо карточек. Карточки не сравнивались между
+          собой — а разбор задания начинается со сравнения: где доля верных ниже, где чаще
+          выдаётся, где отвечают подозрительно быстро.
+        */
+        <QuestionTable
+            questions={questionStats}
+            onOpenRegistry={questionId => {
+                // FR-17: переход в реестр к прохождениям, где на задании ошиблись. Условия
+                // отбора живут в адресе реестра (FR-03), поэтому это обычная ссылка.
+                window.location.href = `/author/analytics?testId=${testId}&outcome=failed&questionId=${questionId}`;
+            }}
+        />
     );
 
     const levelsPanel = (

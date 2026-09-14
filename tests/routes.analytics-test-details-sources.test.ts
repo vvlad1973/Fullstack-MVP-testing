@@ -26,6 +26,9 @@ const { storageMock } = vi.hoisted(() => ({
     getQuestionMeasurements: vi.fn().mockResolvedValue([]),
     getSnapshotsForTest: vi.fn().mockResolvedValue([]),
     selectObservations: vi.fn(), selectAnswersForTest: vi.fn(),
+    // PRD-55: экспозиция и время задания — их читает та же ручка.
+    getDeliveryCountsForTest: vi.fn(), getDeliveryCounts: vi.fn(),
+    getOtherTestsCount: vi.fn(), getLatencyStats: vi.fn(),
   },
 }));
 
@@ -69,6 +72,10 @@ beforeEach(() => {
   storageMock.getTestQuestionScoring.mockResolvedValue([]);
   storageMock.getScormPackages.mockResolvedValue([]);
   storageMock.selectAnswersForTest.mockResolvedValue([]);
+  for (const fn of [storageMock.getDeliveryCountsForTest, storageMock.getDeliveryCounts,
+    storageMock.getOtherTestsCount, storageMock.getLatencyStats]) {
+    fn.mockResolvedValue(new Map());
+  }
   storageMock.getAllAttempts.mockResolvedValue([{
     id: "web-1", testId: "test1", userId: "u1",
     startedAt: recently(2), finishedAt: recently(2),
@@ -164,6 +171,58 @@ describe("GET /api/analytics/tests/:testId — блоки экрана", () => {
 
     expect(res.body.questionStats.map((q: { questionId: string }) => q.questionId))
       .toContain("only-lms");
+  });
+
+  it("считает долю пропусков по выданным, но не отвеченным заданиям", async () => {
+    // Пропуск — это выданное задание БЕЗ ответа. Состав выдачи известен у веб-попытки
+    // (`variantJson`), поэтому доля считается по ней: пакет состава по попытке не сообщает.
+    storageMock.getQuestionsByIds.mockResolvedValue([
+      { id: "q1", prompt: "В1", type: "single", topicId: "t1", difficulty: 50, tags: [], correctJson: { correctIndex: 0 } },
+      { id: "q2", prompt: "В2", type: "single", topicId: "t1", difficulty: 50, tags: [], correctJson: { correctIndex: 0 } },
+    ]);
+    const attempt = (id: string, answers: Record<string, number>) => ({
+      id, testId: "test1", userId: id,
+      startedAt: recently(2), finishedAt: recently(2),
+      variantJson: { sections: [{ questionIds: ["q1", "q2"] }] },
+      answersJson: answers,
+      resultJson: { overallPercent: 50, overallPassed: false, totalPossiblePoints: 2, totalEarnedPoints: 1 },
+    });
+    // q1 отвечен в обеих попытках, q2 — только в одной: половина выдач пропущена.
+    storageMock.getAllAttempts.mockResolvedValue([
+      attempt("a1", { q1: 0, q2: 0 }),
+      attempt("a2", { q1: 0 }),
+    ]);
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const byId = Object.fromEntries(
+      res.body.questionStats.map((q: { questionId: string }) => [q.questionId, q]),
+    );
+    expect(byId.q1).toMatchObject({ deliveredWeb: 2, skippedWeb: 0, skipShare: 0 });
+    expect(byId.q2).toMatchObject({ deliveredWeb: 2, skippedWeb: 1, skipShare: 50 });
+  });
+
+  it("метит задание, у которого сошлись признаки ревизии", async () => {
+    storageMock.getQuestionsByIds.mockResolvedValue([
+      { id: "q1", prompt: "В1", type: "single", topicId: "t1", difficulty: 50, tags: [], correctJson: { correctIndex: 0 } },
+    ]);
+    // Двенадцать ответов мимо — выше порога наблюдений, доля верных 0 %.
+    storageMock.selectAnswersForTest.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => ({
+        questionId: "q1", attemptId: `lms-${i}`, result: "incorrect",
+        latencyMs: 3_000, points: 0, maxPoints: 1, origin: "telemetry",
+      })),
+    );
+    storageMock.getLatencyStats.mockResolvedValue(
+      new Map([["q1", { medianMs: 3_000, sampleSize: 12 }]]),
+    );
+
+    const res = await request(makeApp()).get("/api/analytics/tests/test1").set("x-test-user", "a1");
+
+    const question = res.body.questionStats.find((q: { questionId: string }) => q.questionId === "q1");
+    // FR-16: признак назван словами и несёт числа, которые его вызвали.
+    expect(question.reviewFlags[0].kind).toBe("fast-and-wrong");
+    expect(question.reviewFlags[0].reason).toMatch(/не читают/);
   });
 
   it("не считает измерительный ответ ни верным, ни неверным", async () => {

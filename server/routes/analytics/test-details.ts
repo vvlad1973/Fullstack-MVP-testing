@@ -12,12 +12,35 @@ import { loadAnswerFacts, summariseAnswers } from "../../services/analytics/answ
 import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
 import { passTrendByMonth } from "../../services/analytics/pass-trend";
+import { reviewFlags } from "../../services/analytics/question-review";
 import { summariseTopics } from "../../services/analytics/topic-stats";
 import { summariseObservations } from "../../services/analytics/test-summary";
 import { resolveOverallRule, resolveTopicRule } from "@shared/scoring/pass-rule";
 import { declaresPassThreshold, thresholdPercentOfTest } from "./helpers";
 
 const router = Router();
+
+/**
+ * Состав выданной формы прохождения — идентификаторы заданий, которые человек ВИДЕЛ.
+ *
+ * У обычного теста это вопросы разделов, у адаптивного — вопросы пройденных уровней.
+ * Отвеченное описывает `answersJson`; разница между двумя множествами и есть пропуски
+ * (PRD-56 FR-15).
+ */
+function variantQuestionIds(variantJson: unknown): string[] {
+  const variant = variantJson as {
+    sections?: Array<{ questionIds?: string[] }>;
+    topics?: Array<{ levelsState?: Array<{ questionIds?: string[] }> }>;
+  } | null;
+  if (!variant) return [];
+
+  const ids: string[] = [];
+  for (const section of variant.sections ?? []) ids.push(...(section.questionIds ?? []));
+  for (const topic of variant.topics ?? []) {
+    for (const level of topic.levelsState ?? []) ids.push(...(level.questionIds ?? []));
+  }
+  return ids;
+}
 
 // GET /api/analytics/tests/:testId - Детальная аналитика теста
 router.get("/:testId", requirePermission("analytics.read"), requireTestScope("analytics", "testId"), async (req: Request, res: Response) => {
@@ -74,22 +97,8 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     // Question stats
     const allQuestionIds = new Set<string>();
     for (const attempt of testAttempts) {
-      const variant = attempt.variantJson as any;
-      if (variant?.sections) {
-        for (const section of variant.sections) {
-          for (const qId of section.questionIds || []) {
-            allQuestionIds.add(qId);
-          }
-        }
-      }
-      if (variant?.topics) {
-        for (const topic of variant.topics) {
-          for (const level of topic.levelsState || []) {
-            for (const qId of level.questionIds || []) {
-              allQuestionIds.add(qId);
-            }
-          }
-        }
+      for (const questionId of variantQuestionIds(attempt.variantJson)) {
+        allQuestionIds.add(questionId);
       }
     }
 
@@ -240,19 +249,57 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     }
 
 
+    /**
+     * PRD-56 FR-15: доля ПРОПУСКОВ — выданных заданий, оставшихся без ответа.
+     *
+     * Считается по веб-попыткам: у них известен и состав выдачи (`variantJson`), и ответы.
+     * Пакет состава по попытке не сообщает — он шлёт выданный набор в счётчик экспозиции
+     * (PRD-55), а тот агрегирован по месяцам и с ответами построчно не сопоставляется.
+     * Поэтому у теста, который проходят только в LMS, доли пропусков нет, и это честнее
+     * числа, собранного из двух разных окон.
+     */
+    const deliveredWeb = new Map<string, number>();
+    const skippedWeb = new Map<string, number>();
+    for (const attempt of completedAttempts) {
+      const answers = (attempt.answersJson ?? {}) as Record<string, unknown>;
+      for (const questionId of variantQuestionIds(attempt.variantJson)) {
+        deliveredWeb.set(questionId, (deliveredWeb.get(questionId) ?? 0) + 1);
+        if (!(questionId in answers)) {
+          skippedWeb.set(questionId, (skippedWeb.get(questionId) ?? 0) + 1);
+        }
+      }
+    }
+
     const questionStats = Array.from(questionStatsMap.values()).map(qs => {
       const exposureCount = exposureOwn.get(qs.questionId) ?? 0;
       const lat = latency.get(qs.questionId);
+      const delivered = deliveredWeb.get(qs.questionId) ?? 0;
+      const skipped = skippedWeb.get(qs.questionId) ?? 0;
+      const exposurePercent =
+        attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null;
+
       return {
         ...qs,
         exposureCount,
-        exposurePercent:
-          attemptsInWindow > 0 && exposureCount > 0 ? (exposureCount / attemptsInWindow) * 100 : null,
+        exposurePercent,
         globalExposureCount: exposureGlobal.get(qs.questionId) ?? 0,
         otherTestsCount: otherTests.get(qs.questionId) ?? 0,
         // Своя выборка: веб времени не измеряет, пакеты старше 2026-09-12 его не сообщают.
         latencyMedianMs: lat ? lat.medianMs : null,
         latencySampleSize: lat ? lat.sampleSize : 0,
+        deliveredWeb: delivered,
+        skippedWeb: skipped,
+        skipShare: delivered > 0 ? (skipped / delivered) * 100 : null,
+        // FR-16: признаки ревизии считает сервис — вид «требуют ревизии» это отбор по ним,
+        // а не собственное правило экрана.
+        reviewFlags: reviewFlags({
+          questionId: qs.questionId,
+          gradedAnswers: qs.gradedAnswers,
+          correctPercent: qs.correctPercent,
+          exposurePercent,
+          latencyMedianMs: lat ? lat.medianMs : null,
+          latencySampleSize: lat ? lat.sampleSize : 0,
+        }, { minObservations: config.analytics.minObservations }),
       };
       // Первыми — самые трудные; вопросы без оценивания (измерительные) уходят в конец:
       // сортировать их вместе с долей верных не по чему, доли у них нет.
