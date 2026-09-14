@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DataGrid, FilterBar, Tag, Text } from "@skillum/ui-kit";
+import { Button, DataGrid, FilterBar, Input, ModalDialog, Stack, Tag, Text } from "@skillum/ui-kit";
 
 import { RegistryFilterDialog } from "./filter-dialog";
 
@@ -85,6 +85,9 @@ export function PassageRegistry({
   filter, onFilterChange, onOpenPassage, actions,
 }: PassageRegistryProps) {
   const [filterOpen, setFilterOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [sliceName, setSliceName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [rows, setRows] = useState<RegistryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -185,18 +188,96 @@ export function PassageRegistry({
   ];
 
   const hasMore = rows.length < total;
+  const conditionCount = countConditions(filter);
+
+  /** Сохранить текущий отбор срезом (FR-07c). */
+  const saveSlice = async () => {
+    setSaveError(null);
+    try {
+      const response = await fetch("/api/analytics/slices", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: sliceName.trim(),
+          testId: filter.testIds[0] ?? null,
+          conditions: filter,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? "Не удалось сохранить срез");
+      }
+      setSaveOpen(false);
+      setSliceName("");
+    } catch (error) {
+      setSaveError((error as Error).message);
+    }
+  };
 
   return (
     <div>
       <FilterBar
-        count={countConditions(filter)}
+        count={conditionCount}
         applied={applied}
-        actions={actions}
+        actions={
+          <>
+            {actions}
+            <Button
+              variant="ghost"
+              size="s"
+              // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
+              // спрятана: спрятанная не объясняет, почему действия нет.
+              disabled={conditionCount === 0}
+              onClick={() => setSaveOpen(true)}
+            >
+              Сохранить как срез
+            </Button>
+          </>
+        }
         onOpenFilter={() => setFilterOpen(true)}
         onRemove={removeCondition}
         onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
         resetLabel="Сбросить фильтры"
       />
+
+      <ModalDialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        size="s"
+        title="Сохранить как срез"
+        description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
+        footer={
+          <>
+            <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
+            <Button
+              variant="primary"
+              size="m"
+              disabled={!sliceName.trim()}
+              onClick={() => void saveSlice()}
+            >
+              Сохранить
+            </Button>
+          </>
+        }
+      >
+        <Stack gap={3}>
+          <label htmlFor="slice-name">
+            <Text variant="body-s">Название среза</Text>
+          </label>
+          <Input
+            id="slice-name"
+            value={sliceName}
+            onChange={event => setSliceName(event.target.value)}
+            placeholder="Например: Розница, не сдали"
+          />
+          <Text variant="body-xs" tone="muted">
+            Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
+            завтра число может быть другим, потому что срез считается заново.
+          </Text>
+          {saveError && <Text tone="error">{saveError}</Text>}
+        </Stack>
+      </ModalDialog>
 
       <RegistryFilterDialog
         open={filterOpen}

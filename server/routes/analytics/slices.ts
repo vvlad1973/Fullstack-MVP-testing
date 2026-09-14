@@ -169,4 +169,44 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
   }
 });
 
+// POST /api/analytics/slices — сохранить текущий отбор как срез (FR-07c)
+router.post("/slices", requirePermission("analytics.read"), async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const conditions = (body.conditions ?? {}) as Record<string, unknown>;
+    const testId = typeof body.testId === "string" && body.testId.trim() ? body.testId.trim() : null;
+
+    if (!name) {
+      // Безымянный срез неотличим в списке от соседнего: выбор между ними становится
+      // случайным, а сохранять то, что нельзя потом найти, незачем.
+      return res.status(400).json({ error: "Нужно имя среза" });
+    }
+
+    const hasConditions = Object.values(conditions).some(value =>
+      Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
+    if (!hasConditions) {
+      // Срез без условий — это весь тест; он и так доступен как «Тест целиком» (FR-07a).
+      return res.status(400).json({ error: "Нужно хотя бы одно условие отбора" });
+    }
+
+    const slice = await storage.createSlice({
+      name,
+      testId,
+      conditionsJson: conditions,
+      createdBy: req.currentUser?.id ?? "",
+    });
+
+    res.status(201).json({ slice });
+  } catch (error) {
+    // Уникальность имени стережёт индекс: сюда его нарушение приходит ошибкой базы, и
+    // читателю надо сказать по-человечески, а не «23505».
+    if ((error as { code?: string }).code === "23505") {
+      return res.status(409).json({ error: "Срез с таким именем уже есть" });
+    }
+    logger.error("Save slice error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to save slice" });
+  }
+});
+
 export default router;

@@ -56,6 +56,9 @@ function makeApp() {
 const ask = (query = "") =>
   request(makeApp()).get(`/api/analytics/slices${query}`).set("x-test-user", "u-owner");
 
+const save = (body: Record<string, unknown>) =>
+  request(makeApp()).post("/api/analytics/slices").set("x-test-user", "u-owner").send(body);
+
 /** Двенадцать веб-попыток: выборка выше порога наблюдений. */
 function attempts(count: number, passedCount: number) {
   return Array.from({ length: count }, (_, index) => ({
@@ -219,5 +222,54 @@ describe("GET /api/analytics/slices?withWhole=1 — тест целиком", ()
     const res = await ask("?testId=test1");
 
     expect(res.body.slices.some((slice: { id: string }) => slice.id === "whole")).toBe(false);
+  });
+});
+
+describe("POST /api/analytics/slices — сохранение среза", () => {
+  it("заводит срез с именем и условиями", async () => {
+    storageMock.createSlice.mockResolvedValue({
+      id: "new", name: "Розница, не сдали", testId: "test1",
+      conditionsJson: { groupIds: ["g1"], outcomes: ["failed"] }, createdBy: "u-owner",
+    });
+
+    const res = await save({
+      name: "Розница, не сдали",
+      testId: "test1",
+      conditions: { groupIds: ["g1"], outcomes: ["failed"] },
+    });
+
+    expect(res.status).toBe(201);
+    expect(storageMock.createSlice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Розница, не сдали",
+        conditionsJson: { groupIds: ["g1"], outcomes: ["failed"] },
+        createdBy: "u-owner",
+      }),
+    );
+  });
+
+  it("не сохраняет срез без имени: безымянный срез неотличим в списке", async () => {
+    const res = await save({ conditions: { groupIds: ["g1"] } });
+
+    expect(res.status).toBe(400);
+    expect(storageMock.createSlice).not.toHaveBeenCalled();
+  });
+
+  it("не сохраняет срез без условий: это не отбор, а весь тест", async () => {
+    const res = await save({ name: "Пустой", conditions: {} });
+
+    expect(res.status).toBe(400);
+    expect(storageMock.createSlice).not.toHaveBeenCalled();
+  });
+
+  it("сообщает понятно, когда имя уже занято", async () => {
+    storageMock.createSlice.mockRejectedValue(
+      Object.assign(new Error("duplicate key"), { code: "23505" }),
+    );
+
+    const res = await save({ name: "Розница", conditions: { groupIds: ["g1"] } });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/уже есть/i);
   });
 });

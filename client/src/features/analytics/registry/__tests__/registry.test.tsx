@@ -142,3 +142,44 @@ describe("PassageRegistry", () => {
     expect(lastQuery().get("offset")).toBe("0");
   });
 });
+
+describe("PassageRegistry — сохранение среза", () => {
+  it("не предлагает сохранить срез, когда условий нет", async () => {
+    render(
+      <PassageRegistry
+        filter={{ testIds: [], groupIds: [], sources: [], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    await screen.findByText("Морозова Анна");
+    expect(screen.getByRole("button", { name: /Сохранить как срез/ })).toBeDisabled();
+  });
+
+  it("сохраняет отбор срезом и говорит, что хранятся условия, а не состав", async () => {
+    render(
+      <PassageRegistry
+        filter={{ testIds: ["t1"], groupIds: [], sources: ["import"], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /Сохранить как срез/ }));
+
+    // FR-07d: срез — это условия, а не снимок состава. Сказать об этом нужно там, где
+    // человек нажимает «сохранить», иначе он примет срез за список людей.
+    expect(screen.getByText(/пересчитывается при каждом открытии/i)).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText(/Название среза/), "Импорт по тесту");
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => {
+      const saved = fetchMock.mock.calls.find(call => String(call[0]).endsWith("/api/analytics/slices"));
+      expect(saved).toBeTruthy();
+      expect(JSON.parse(String((saved![1] as RequestInit).body))).toMatchObject({
+        name: "Импорт по тесту",
+        conditions: { testIds: ["t1"], sources: ["import"] },
+      });
+    });
+  });
+});
