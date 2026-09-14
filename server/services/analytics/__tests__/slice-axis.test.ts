@@ -1,0 +1,179 @@
+/**
+ * @module server/services/analytics/__tests__/slice-axis
+ * @description PRD-56 FR-06a: ось разбиения — все срезы по одному признаку сразу.
+ *
+ * Ось отвечает на «покажи мне все группы», а не «покажи вот эту». Проверяется состав срезов и
+ * то, что ни одно прохождение не пропадает: строка «без группы» существует именно ради этого
+ * (FR-09) — исчезнувшее прохождение читается как «таких нет», а не «у них не проставлен признак».
+ */
+
+import { describe, expect, it } from "vitest";
+
+import type { Observation } from "../observations";
+import { splitByAxis, type AxisContext } from "../slice-axis";
+
+function observation(over: Partial<Observation> = {}): Observation {
+  return {
+    id: "o1",
+    source: "web",
+    testId: "test1",
+    userId: "u1",
+    participant: "Морозова Анна",
+    participantKey: null,
+    participantId: "u1",
+    groupId: null,
+    startedAt: new Date("2026-09-11T14:00:00Z"),
+    finishedAt: new Date("2026-09-11T14:20:00Z"),
+    durationMs: 1_200_000,
+    percent: 80,
+    passed: true,
+    earnedPoints: 16,
+    possiblePoints: 20,
+    outcome: "passed",
+    adaptive: false,
+    snapshotId: null,
+    formId: null,
+    ...over,
+  };
+}
+
+const context: AxisContext = {
+  groupsOfParticipant: new Map([
+    ["u1", ["g1"]],
+    ["u2", ["g1", "g2"]],
+  ]),
+  groupNames: new Map([["g1", "Отдел продаж"], ["g2", "Розница"]]),
+  externalParticipants: new Set(["u2"]),
+  snapshotVersions: new Map([["snap-1", 3]]),
+};
+
+describe("splitByAxis", () => {
+  it("разбивает по группе, беря членство участника", () => {
+    const buckets = splitByAxis(
+      [observation({ id: "a", participantId: "u1" }), observation({ id: "b", participantId: "u2" })],
+      "group",
+      context,
+    );
+
+    expect(buckets.map(b => b.label)).toEqual(
+      expect.arrayContaining(["Отдел продаж", "Розница"]),
+    );
+    const sales = buckets.find(b => b.label === "Отдел продаж")!;
+    expect(sales.observations.map(o => o.id)).toEqual(["a", "b"]);
+  });
+
+  it("не теряет прохождение вне групп: оно попадает в «без группы»", () => {
+    const buckets = splitByAxis(
+      [observation({ id: "lonely", participantId: "u-nobody" })],
+      "group",
+      context,
+    );
+
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0].label).toBe("Без группы");
+  });
+
+  it("берёт у импортированной строки её собственную метку группы", () => {
+    // У импорта участник может быть не заведён вовсе — метку проставил импорт (PRD-54).
+    const buckets = splitByAxis(
+      [observation({ id: "imported", source: "import", participantId: null, groupId: "g2" })],
+      "group",
+      context,
+    );
+
+    expect(buckets[0].label).toBe("Розница");
+  });
+
+  it("разбивает по потоку — календарному месяцу начала", () => {
+    const buckets = splitByAxis(
+      [
+        observation({ id: "sep", startedAt: new Date("2026-09-03T10:00:00Z") }),
+        observation({ id: "oct", startedAt: new Date("2026-10-01T10:00:00Z") }),
+      ],
+      "period",
+      context,
+    );
+
+    expect(buckets.map(b => b.key)).toEqual(["2026-09", "2026-10"]);
+  });
+
+  it("разбивает по номеру попытки: первая против повторных", () => {
+    const buckets = splitByAxis(
+      [
+        observation({ id: "first", participantId: "u1", startedAt: new Date("2026-09-01T10:00:00Z") }),
+        observation({ id: "second", participantId: "u1", startedAt: new Date("2026-09-05T10:00:00Z") }),
+        observation({ id: "third", participantId: "u1", startedAt: new Date("2026-09-09T10:00:00Z") }),
+      ],
+      "attempt",
+      context,
+    );
+
+    expect(buckets.map(b => b.label)).toEqual(["Первая попытка", "Вторая попытка", "Третья и далее"]);
+    expect(buckets[0].observations.map(o => o.id)).toEqual(["first"]);
+    expect(buckets[2].observations.map(o => o.id)).toEqual(["third"]);
+  });
+
+  it("разбивает по версии публикации и называет прохождения без неё", () => {
+    const buckets = splitByAxis(
+      [
+        observation({ id: "v3", snapshotId: "snap-1" }),
+        observation({ id: "lms", source: "telemetry", snapshotId: null }),
+      ],
+      "version",
+      context,
+    );
+
+    expect(buckets.map(b => b.label)).toEqual(
+      expect.arrayContaining(["Версия 3", "Версия не указана"]),
+    );
+  });
+
+  it("разбивает по варианту выдачи", () => {
+    const buckets = splitByAxis(
+      [
+        observation({ id: "a", formId: "form-A" }),
+        observation({ id: "b", formId: null }),
+      ],
+      "variant",
+      context,
+    );
+
+    expect(buckets.map(b => b.label)).toEqual(
+      expect.arrayContaining(["Вариант form-A", "Без варианта"]),
+    );
+  });
+
+  it("разбивает по источнику", () => {
+    const buckets = splitByAxis(
+      [
+        observation({ id: "w", source: "web" }),
+        observation({ id: "t", source: "telemetry" }),
+        observation({ id: "i", source: "import" }),
+      ],
+      "source",
+      context,
+    );
+
+    expect(buckets.map(b => b.label)).toEqual(
+      expect.arrayContaining(["Веб", "Телеметрия LMS", "Импорт"]),
+    );
+  });
+
+  it("разбивает на внутренних и внешних участников", () => {
+    const buckets = splitByAxis(
+      [
+        observation({ id: "inside", participantId: "u1" }),
+        observation({ id: "outside", participantId: "u2" }),
+      ],
+      "external",
+      context,
+    );
+
+    const external = buckets.find(b => b.key === "external")!;
+    expect(external.observations.map(o => o.id)).toEqual(["outside"]);
+  });
+
+  it("не выдумывает срезов на пустой выборке", () => {
+    expect(splitByAxis([], "group", context)).toEqual([]);
+  });
+});

@@ -21,10 +21,49 @@ import {
   type ObservationOutcome,
   type ObservationSource,
 } from "../../services/analytics/observations";
+import {
+  splitByAxis,
+  type AxisContext,
+  type SliceAxis,
+} from "../../services/analytics/slice-axis";
 import { summariseSlice } from "../../services/analytics/slice-stats";
 import { analyticsScope } from "./helpers";
 
 const router = Router();
+
+/** Оси, для которых данные уже есть (FR-06a). Оргструктуры среди них нет и не будет (FR-06b). */
+const AXES: readonly SliceAxis[] = [
+  "group", "period", "attempt", "version", "variant", "source", "external",
+];
+
+/**
+ * Справочники для оси: членство в группах, их названия, номера версий и внешние участники.
+ *
+ * Читаются один раз на запрос и только когда ось запрошена: списку сохранённых срезов они не
+ * нужны, а группы с пользователями — это столько запросов, сколько в инсталляции групп.
+ */
+async function axisContext(testId: string): Promise<AxisContext> {
+  const [groups, snapshots] = await Promise.all([
+    storage.getGroups(),
+    storage.getSnapshotsForTest(testId),
+  ]);
+
+  const groupsOfParticipant = new Map<string, string[]>();
+  const externalParticipants = new Set<string>();
+  await Promise.all(groups.map(async group => {
+    for (const member of await storage.getGroupUsers(group.id)) {
+      groupsOfParticipant.set(member.id, [...(groupsOfParticipant.get(member.id) ?? []), group.id]);
+      if ((member as { isExternal?: boolean }).isExternal) externalParticipants.add(member.id);
+    }
+  }));
+
+  return {
+    groupsOfParticipant,
+    groupNames: new Map(groups.map(group => [group.id, group.name])),
+    externalParticipants,
+    snapshotVersions: new Map(snapshots.map(snapshot => [snapshot.id, snapshot.version])),
+  };
+}
 
 /** Дата из параметра; конец периода — конец дня, «по 30 сентября» включает этот день. */
 function dateOf(value: unknown, edge: "start" | "end"): Date | undefined {
@@ -61,6 +100,32 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
     const from = dateOf(req.query.from, "start");
     const to = dateOf(req.query.to, "end");
     const minObservations = config.analytics.minObservations;
+
+    const axis = typeof req.query.axis === "string" ? req.query.axis.trim() : "";
+    if (axis && !AXES.includes(axis as SliceAxis)) {
+      // Молча отдать вместо разбиения сохранённые срезы — значит ответить не на тот вопрос.
+      // Ось, которой нет (например «должность»), — это отсутствующие данные, а не опечатка.
+      return res.status(400).json({ error: `Неизвестная ось разбиения: ${axis}` });
+    }
+
+    if (axis) {
+      const { rows } = await loadObservations(
+        { testIds: [testId], ...(from ? { from } : {}), ...(to ? { to } : {}) },
+        scope,
+      );
+      const buckets = splitByAxis(rows, axis as SliceAxis, await axisContext(testId));
+
+      return res.json({
+        axis,
+        slices: buckets.map(bucket => ({
+          id: `${axis}:${bucket.key}`,
+          name: bucket.label,
+          conditions: { axis, key: bucket.key },
+          ...summariseSlice({ observations: bucket.observations, minObservations }),
+        })),
+        minObservations,
+      });
+    }
 
     const saved = await storage.getSlices(ownerId);
 

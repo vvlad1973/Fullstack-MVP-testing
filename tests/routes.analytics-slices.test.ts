@@ -23,6 +23,11 @@ const { storageMock } = vi.hoisted(() => ({
     selectObservations: vi.fn(),
     getSlices: vi.fn(), getSlice: vi.fn(), createSlice: vi.fn(),
     updateSlice: vi.fn(), deleteSlice: vi.fn(),
+    // Справочники оси разбиения: членство, названия групп, снимки публикации.
+    getGroups: vi.fn().mockResolvedValue([]),
+    getUserGroups: vi.fn().mockResolvedValue([]),
+    getGroupUsers: vi.fn().mockResolvedValue([]),
+    getSnapshotsForTest: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -76,6 +81,9 @@ beforeEach(() => {
   storageMock.getScormPackages.mockResolvedValue([]);
   storageMock.getAllScormAttempts.mockResolvedValue([]);
   storageMock.getAllAttempts.mockResolvedValue(attempts(12, 9));
+  storageMock.getGroups.mockResolvedValue([]);
+  storageMock.getGroupUsers.mockResolvedValue([]);
+  storageMock.getSnapshotsForTest.mockResolvedValue([]);
   storageMock.getSlices.mockResolvedValue([
     {
       id: "s1", name: "Отдел продаж", testId: "test1",
@@ -152,5 +160,41 @@ describe("GET /api/analytics/slices", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.slices).toEqual([]);
+  });
+});
+
+describe("GET /api/analytics/slices?axis=... — разбиение", () => {
+  it("разбивает выборку по оси и считает каждый срез", async () => {
+    storageMock.getGroups.mockResolvedValue([
+      { id: "g1", name: "Отдел продаж" },
+      { id: "g2", name: "Розница" },
+    ]);
+    storageMock.getGroupUsers.mockImplementation(async (groupId: string) =>
+      groupId === "g1"
+        ? Array.from({ length: 12 }, (_, i) => ({ id: `u${i}` }))
+        : [],
+    );
+
+    const res = await ask("?testId=test1&axis=group");
+
+    expect(res.status).toBe(200);
+    const sales = res.body.slices.find((slice: { name: string }) => slice.name === "Отдел продаж");
+    expect(sales).toMatchObject({ completed: 12, passed: 9, enoughData: true });
+  });
+
+  it("не теряет прохождения вне групп", async () => {
+    storageMock.getGroups.mockResolvedValue([{ id: "g1", name: "Отдел продаж" }]);
+    storageMock.getGroupUsers.mockResolvedValue([]);
+
+    const res = await ask("?testId=test1&axis=group");
+
+    expect(res.body.slices.map((slice: { name: string }) => slice.name)).toEqual(["Без группы"]);
+  });
+
+  it("отказывает в неизвестной оси, а не молча отдаёт сохранённые срезы", async () => {
+    const res = await ask("?testId=test1&axis=должность");
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/ось/i);
   });
 });
