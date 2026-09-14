@@ -194,6 +194,20 @@ describe("GET /api/analytics/slices?axis=... — разбиение", () => {
     expect(res.body.slices.map((slice: { name: string }) => slice.name)).toEqual(["Без группы"]);
   });
 
+  it("отдаёт условия среза на языке реестра, чтобы из строки был переход (FR-08)", async () => {
+    storageMock.getGroups.mockResolvedValue([{ id: "g1", name: "Отдел продаж" }]);
+    storageMock.getGroupUsers.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => ({ id: `u${i}` })),
+    );
+
+    const res = await ask("?testId=test1&axis=group");
+
+    const sales = res.body.slices.find((slice: { name: string }) => slice.name === "Отдел продаж");
+    // Не `{ axis, key }`: реестр отбирает своим языком условий, и перевод делается там, где
+    // разбиение известно, — иначе клиенту пришлось бы завести второе описание осей.
+    expect(sales.conditions).toEqual({ groupIds: ["g1"] });
+  });
+
   it("отказывает в неизвестной оси, а не молча отдаёт сохранённые срезы", async () => {
     const res = await ask("?testId=test1&axis=должность");
 

@@ -32,6 +32,13 @@ export interface AttentionItem {
   testId: string | null;
   /** Прохождение, из-за которого позиция появилась. У «срок истёк» его нет. */
   observationId?: string;
+  /**
+   * Источник этого прохождения.
+   *
+   * Нужен, чтобы позиция вела к разбору (FR-11): веб-попытка и запись из LMS читаются разными
+   * ручками, и без источника читателю пришлось бы угадывать, какую звать.
+   */
+  source?: Observation["source"];
   /** Срок назначения — только у «срок истёк». */
   dueAt?: Date;
   /**
@@ -117,6 +124,7 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
       participant: latest.participant,
       testId: latest.testId,
       observationId: latest.id,
+      source: latest.source,
       startedAt: latest.startedAt,
     };
 

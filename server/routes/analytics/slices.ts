@@ -22,6 +22,7 @@ import {
   type ObservationSource,
 } from "../../services/analytics/observations";
 import {
+  registryConditions,
   splitByAxis,
   type AxisContext,
   type SliceAxis,
@@ -120,7 +121,10 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
         slices: buckets.map(bucket => ({
           id: `${axis}:${bucket.key}`,
           name: bucket.label,
-          conditions: { axis, key: bucket.key },
+          // FR-08: условия на языке реестра, чтобы из строки был переход к прохождениям.
+          // Перевод делается здесь, где разбиение известно: иначе оси пришлось бы описывать
+          // второй раз на клиенте, и два описания однажды разошлись бы.
+          conditions: registryConditions(axis as SliceAxis, bucket.key),
           ...summariseSlice({ observations: bucket.observations, minObservations }),
         })),
         minObservations,

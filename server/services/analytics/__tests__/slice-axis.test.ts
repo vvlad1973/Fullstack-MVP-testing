@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Observation } from "../observations";
-import { splitByAxis, type AxisContext } from "../slice-axis";
+import { registryConditions, splitByAxis, type AxisContext } from "../slice-axis";
 
 function observation(over: Partial<Observation> = {}): Observation {
   return {
@@ -175,5 +175,42 @@ describe("splitByAxis", () => {
 
   it("не выдумывает срезов на пустой выборке", () => {
     expect(splitByAxis([], "group", context)).toEqual([]);
+  });
+});
+
+/**
+ * PRD-56 FR-08: из любой строки — переход в реестр с предзаполненным фильтром.
+ *
+ * Реестр отбирает своим языком условий (тест, группа, источник, исход, период), и срез оси
+ * должен быть на него переведён. Перевод честный: там, где условия реестра такого признака не
+ * знают (номер попытки, версия публикации, вариант выдачи, внешний участник), выдаётся пусто —
+ * иначе реестр показал бы ДРУГУЮ выборку под именем среза, и числа разошлись бы молча.
+ */
+describe("registryConditions", () => {
+  it("переводит группу в условие по группе", () => {
+    expect(registryConditions("group", "g1")).toEqual({ groupIds: ["g1"] });
+  });
+
+  it("переводит источник в условие по источнику", () => {
+    expect(registryConditions("source", "telemetry")).toEqual({ sources: ["telemetry"] });
+  });
+
+  it("переводит месяц в период от первого до последнего дня", () => {
+    // Февраль високосного года: последний день считается, а не берётся из таблицы «30/31».
+    expect(registryConditions("period", "2026-02")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(registryConditions("period", "2028-02")).toEqual({ from: "2028-02-01", to: "2028-02-29" });
+  });
+
+  it("ничего не выдумывает для срезов «без признака»", () => {
+    // «Без группы» — это отсутствие условия, а не условие: отбор по нему в реестре невыразим.
+    expect(registryConditions("group", "none")).toEqual({});
+    expect(registryConditions("variant", "none")).toEqual({});
+  });
+
+  it("молчит там, где у реестра такого условия нет", () => {
+    expect(registryConditions("attempt", "2")).toEqual({});
+    expect(registryConditions("version", "snap-1")).toEqual({});
+    expect(registryConditions("variant", "form-a")).toEqual({});
+    expect(registryConditions("external", "external")).toEqual({});
   });
 });

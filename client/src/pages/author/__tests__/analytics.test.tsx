@@ -298,6 +298,37 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     expect(await screen.findByText("Не сдал, попытки остались")).toBeInTheDocument();
   });
 
+  it("ведёт из строки среза в реестр с предзаполненными условиями", async () => {
+    await renderLoaded();
+    await openSlicesForTest();
+
+    fireEvent.click(screen.getByRole("button", { name: "Прохождения: Розница" }));
+
+    // FR-08: переход не просто открывает список, он показывает ТОТ ЖЕ состав — иначе строка
+    // среза и открытый по ней реестр отвечали бы на один вопрос разными числами (FR-25).
+    expect(screen.getByRole("tab", { name: /Прохождения/ })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => {
+      const asked = fetchMock.mock.calls
+        .map(call => String(call[0]))
+        .filter(url => url.includes("/api/analytics/registry"))
+        .at(-1);
+      expect(asked).toContain("groupId=g1");
+      expect(asked).toContain("testId=test1");
+    });
+  });
+
+  it("ведёт из очереди дел в разбор прохождения", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByRole("tab", { name: "Требует внимания" }));
+
+    // FR-11: каждая позиция ведёт к участнику и его прохождению. Список дел, из которого
+    // некуда пойти, заставляет искать человека руками в другом списке.
+    fireEvent.click(await screen.findByRole("button", { name: "Иван Петров" }));
+
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(within(dialog).getByText("Детали попытки")).toBeInTheDocument());
+  });
+
   it("renders the registry with web and LMS passages", async () => {
     await renderLoaded();
     await openAttemptsTab();

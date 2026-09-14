@@ -12,10 +12,11 @@
  */
 import { useState } from "react";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
+import type { RegistryFilter } from "@/features/analytics/registry/filter-state";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { SliceList } from "@/features/analytics/slices/slice-list";
 import { SliceCompare } from "@/features/analytics/slices/slice-compare";
-import { AttentionQueue } from "@/features/analytics/attention/attention-queue";
+import { AttentionQueue, type AttentionRow } from "@/features/analytics/attention/attention-queue";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
@@ -977,6 +978,11 @@ export default function AnalyticsPage() {
   const [sliceAxis, setSliceAxis] = useState<string>("group");
   /** PRD-56 FR-07: список срезов и их сравнение — два режима одной вкладки. */
   const [sliceMode, setSliceMode] = useState<"list" | "compare">("list");
+  /**
+   * Открытая вкладка. Держится состоянием, а не умолчанием, ради FR-08: переход из строки
+   * среза открывает реестр и должен ПЕРЕКЛЮЧИТЬ экран, а не только подставить условия.
+   */
+  const [tab, setTab] = useState("attempts");
 
   // PRD-56 FR-12: combined-full и summary сняты вместе с «Обзором». Величины, которые они
   // считали — средний балл и pass rate ПО ВСЕМ тестам, тренды и проблемные темы вне контекста
@@ -1011,6 +1017,49 @@ export default function AnalyticsPage() {
       // Ноль здесь — не оценка, а отсутствие числа: окно показывает прочерк по своим правилам.
       resultPercent: row.percent ?? 0,
       resultPassed: row.passed === true,
+      totalPoints: 0,
+      maxPoints: 0,
+      source: row.source === "web" ? "web" : "lms",
+    });
+  };
+
+  /**
+   * FR-08: открыть реестр по условиям среза.
+   *
+   * Тест рамки добавляется к условиям: у среза его нет — он общий для всех срезов вкладки
+   * (FR-07e), а реестр без него показал бы прохождения всех тестов разом.
+   */
+  const handleOpenSliceInRegistry = (conditions: Record<string, unknown>) => {
+    const list = (value: unknown): string[] =>
+      Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+    const text = (value: unknown): string | undefined =>
+      typeof value === "string" && value ? value : undefined;
+
+    setRegistryFilter({
+      testIds: testId === "all" ? [] : [testId],
+      groupIds: list(conditions.groupIds),
+      sources: list(conditions.sources) as RegistryFilter["sources"],
+      outcomes: list(conditions.outcomes) as RegistryFilter["outcomes"],
+      ...(text(conditions.from) ? { from: text(conditions.from) } : {}),
+      ...(text(conditions.to) ? { to: text(conditions.to) } : {}),
+    });
+    setTab("attempts");
+  };
+
+  /** FR-11: открыть разбор прохождения, из-за которого дело попало в очередь. */
+  const handleOpenAttentionPassage = (row: AttentionRow) => {
+    if (!row.observationId) return;
+    handleViewDetails({
+      id: row.observationId,
+      testId: row.testId,
+      testTitle: row.testTitle,
+      userId: row.participantId ?? undefined,
+      username: row.participant,
+      startedAt: row.startedAt ?? "",
+      finishedAt: null,
+      duration: null,
+      resultPercent: 0,
+      resultPassed: false,
       totalPoints: 0,
       maxPoints: 0,
       source: row.source === "web" ? "web" : "lms",
@@ -1152,7 +1201,8 @@ export default function AnalyticsPage() {
 
       {/* Табы */}
       <Tabs
-        defaultValue="attempts"
+        value={tab}
+        onChange={setTab}
         items={[
           {
             id: "attempts",
@@ -1240,7 +1290,11 @@ export default function AnalyticsPage() {
                   ) : sliceMode === "compare" ? (
                     <SliceCompare testId={testId} />
                   ) : (
-                    <SliceList testId={testId} axis={sliceAxis} />
+                    <SliceList
+                      testId={testId}
+                      axis={sliceAxis}
+                      onOpenRegistry={handleOpenSliceInRegistry}
+                    />
                   )}
                 </CardBody>
               </Card>
@@ -1249,7 +1303,7 @@ export default function AnalyticsPage() {
           {
             id: "attention",
             label: "Требует внимания",
-            content: <AttentionQueue />,
+            content: <AttentionQueue onOpenPassage={handleOpenAttentionPassage} />,
           },
           {
             id: "export",

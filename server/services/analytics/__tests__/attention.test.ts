@@ -177,6 +177,16 @@ describe("buildAttentionQueue", () => {
     expect(countAttention(queue)).toEqual({ overdue: 1, failed: 1, abandoned: 0, exhausted: 0 });
   });
 
+  it("несёт источник прохождения — без него дело некуда открыть", () => {
+    // FR-11: позиция ведёт к прохождению, а разбор веб-попытки и записи из LMS читается
+    // разными ручками. Без источника пришлось бы угадывать, какую звать.
+    const queue = buildAttentionQueue(input({
+      observations: [observation({ source: "telemetry", id: "lms-1" })],
+    }));
+
+    expect(queue[0]).toMatchObject({ source: "telemetry", observationId: "lms-1" });
+  });
+
   it("несёт дату прохождения у всех дел, где прохождение есть", () => {
     // Колонка «Когда» пуста только там, где события ещё не было: у просроченного назначения
     // это срок, у остальных — когда человек проходил тест.

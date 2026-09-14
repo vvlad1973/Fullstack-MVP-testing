@@ -20,6 +20,8 @@ export interface AttentionRow {
   testId: string | null;
   testTitle: string;
   observationId?: string;
+  /** Источник прохождения: по нему открывается его разбор (FR-11). */
+  source?: "web" | "telemetry" | "import";
   dueAt?: string;
   startedAt?: string;
 }
