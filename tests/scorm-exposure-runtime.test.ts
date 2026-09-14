@@ -80,4 +80,18 @@ describe("рантайм пакета и запечённый вес", () => {
     // подмена `drawSection` на взвешенный отбор должна читать `q.exposureWeight`.
     expect(src).toContain("q.exposureWeight === undefined ? 1 : q.exposureWeight");
   });
+
+  it("адаптивный уровень отбирает взвешенно, а не тасует", () => {
+    // Уровень собирается СВОИМ кодом (`app/adaptive/adaptive.js`), мимо `generateVariant`, и
+    // поправка туда сначала не доехала: банк уровня узок — полоса трудности отсекает большую
+    // часть темы, — поэтому выработка головы там заметнее, чем в обычной выдаче.
+    const adaptiveSrc = readFileSync(
+      resolve(process.cwd(), "server/scorm/template/app/adaptive/adaptive.js"),
+      "utf8",
+    );
+    expect(adaptiveSrc).toContain("weightedPick(");
+    expect(adaptiveSrc).toContain("exposureWeight");
+    // Прежняя тасовка уровня снята: она не знала веса и давала неравномерную перестановку.
+    expect(adaptiveSrc).not.toContain("shuffle(eligibleQuestions");
+  });
 });

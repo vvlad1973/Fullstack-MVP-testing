@@ -584,8 +584,18 @@ export function buildTestJson(data: ExportData): string {
         levels: levelsByTopic[s.topic.id] || [],
         // Include all questions for this topic (they will be filtered by difficulty
         // in runtime — against the baked EFFECTIVE difficulty, FR-34).
-        questions: s.questions.map((q) => {
+        questions: ((): unknown[] => {
+        // PRD-55 (FR-27): вес считается по ТЕМЕ — из неё уровень и отбирает, отсекая полосой
+        // трудности. Нормировка по теме, а не по уровню: полосы задаёт автор и они меняются
+        // правкой теста, а пакет уже собран. Внутри уровня шкала остаётся сравнительной —
+        // `weightedPick` смотрит на отношение весов, а не на их абсолют.
+        const exposureWeights = computeWeights(
+          s.questions.map((q) => q.id),
+          data.exposureCounts ?? new Map<string, number>(),
+        );
+        return s.questions.map((q) => {
           const baked = bakeScoring(q);
+          const exposureWeight = exposureWeights.get(q.id) ?? 1;
           return {
             id: q.id,
             type: q.type,
@@ -607,8 +617,11 @@ export function buildTestJson(data: ExportData): string {
             // PRD-50 FR-17: axis keys are needed in adaptive mode too. Include only
             // a non-empty list so packages without tags stay byte-identical (FR-02).
             ...(Array.isArray(q.tags) && q.tags.length ? { tags: q.tags } : {}),
+            // Единица — прежнее поведение, поэтому поле не добавляется вовсе (FR-30).
+            ...(exposureWeight !== 1 ? { exposureWeight } : {}),
           };
-        }),
+        });
+        })(),
       };
     });
   }

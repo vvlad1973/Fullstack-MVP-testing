@@ -98,3 +98,54 @@ describe("экспозиция: честность поправки", () => {
     }
   });
 });
+
+/**
+ * PRD-55 для АДАПТИВНОЙ выдачи: банк уровня узок — полоса трудности отсекает большую часть
+ * темы, — и там выработка головы заметнее, чем в разделе обычного теста. Замер повторяет
+ * основной, но на пуле уровня: восемь заданий в полосе, три на уровень.
+ */
+describe("экспозиция: честность поправки на уровне адаптивного теста", () => {
+  const LEVEL_POOL = 8;
+  const LEVEL_SIZE = 3;
+
+  /** Разброс показов внутри полосы трудности за серию попыток. */
+  function simulateLevel(weighted: boolean, seed: number): number {
+    const pool = Array.from({ length: LEVEL_POOL }, (_, i) => ({ id: `lvl-q${i}` }));
+    const counts = new Map<string, number>();
+    const rnd = seeded(seed);
+
+    for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
+      const weights = weighted
+        ? computeWeights(pool.map((q) => q.id), counts)
+        : new Map(pool.map((q) => [q.id, 1] as const));
+      for (const q of weightedPick(pool, LEVEL_SIZE, weights, rnd)) {
+        counts.set(q.id, (counts.get(q.id) ?? 0) + 1);
+      }
+    }
+
+    const shown = pool.map((q) => counts.get(q.id) ?? 0);
+    const mean = shown.reduce((a, b) => a + b, 0) / shown.length;
+    return Math.sqrt(shown.reduce((a, b) => a + (b - mean) ** 2, 0) / shown.length);
+  }
+
+  it("сокращает разброс показов и в узком пуле уровня", () => {
+    for (const seed of [1, 777, 20260914]) {
+      expect(simulateLevel(true, seed)).toBeLessThan(simulateLevel(false, seed));
+    }
+  });
+
+  it("ни одно задание полосы не выпадает из оборота", () => {
+    // Узкий пул — там, где детерминированный обход был бы особенно соблазнителен: предел
+    // отношения весов держит отбор статистическим, и хвост полосы тоже выдаётся.
+    const pool = Array.from({ length: LEVEL_POOL }, (_, i) => ({ id: `lvl-q${i}` }));
+    const counts = new Map<string, number>();
+    const rnd = seeded(31337);
+    for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
+      const weights = computeWeights(pool.map((q) => q.id), counts);
+      for (const q of weightedPick(pool, LEVEL_SIZE, weights, rnd)) {
+        counts.set(q.id, (counts.get(q.id) ?? 0) + 1);
+      }
+    }
+    for (const item of pool) expect(counts.get(item.id) ?? 0).toBeGreaterThan(0);
+  });
+});
