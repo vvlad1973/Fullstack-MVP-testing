@@ -19,7 +19,7 @@ export interface ScaleBandView {
   label: string;
   count: number;
   share: number;
-  /** Готовая тройка HSL из рампы теста либо авторского тона уровня. */
+  /** ГОТОВЫЙ CSS-цвет: его решает сервер по рампе теста и тону уровня (FR-21a). */
   color: string;
   tone: string | null;
 }
@@ -110,7 +110,7 @@ export function ScaleProfilePanel({ scales, observations }: ScaleProfilePanelPro
                   showLegend
                   segments={scale.bands.map(band => ({
                     value: Math.round(band.share),
-                    color: `hsl(${band.color})`,
+                    color: band.color,
                     label: `${band.label} — ${Math.round(band.share)} %`,
                   }))}
                 />

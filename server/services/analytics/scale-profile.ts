@@ -17,7 +17,7 @@
  */
 
 import { findBand, parseScaleInterpretation, type LevelTone } from "@shared/scales/interpretation";
-import { zoneColors, type HslTriple, type LevelRamp } from "@shared/template/level-ramp";
+import { zoneColors, type LevelRamp } from "@shared/template/level-ramp";
 import type { ScaleValuesRow } from "../../storage/analytics-repository";
 
 /** Шкала теста в том виде, в каком её читает профиль. */
@@ -33,7 +33,15 @@ export interface ScaleBandShare {
   count: number;
   /** Доля прохождений, попавших в полосу, в процентах. */
   share: number;
-  color: HslTriple;
+  /**
+   * ГОТОВЫЙ CSS-цвет полосы (`hsl(142 76% 36%)`), а не тройка.
+   *
+   * Обёртка живёт здесь, потому что цвет решается здесь же: экран его только печатает и о
+   * формате хранения троек знать не должен. Заодно в клиенте не появляется того, что гард
+   * цветов ДС читает как литерал, — и правильно читает: место для литерала цвета в
+   * приложении одно, и оно не в компоненте.
+   */
+  color: string;
   /** Тон, заданный АВТОРОМ; `null` — цвет пришёл из рампы теста. */
   tone: LevelTone | null;
 }
@@ -89,7 +97,7 @@ export function summariseScales(
         label: band.label ?? band.level,
         count,
         share: values.length > 0 ? (count / values.length) * 100 : 0,
-        color: colors[index],
+        color: `hsl(${colors[index]})`,
         // Тон автора печатается как есть; цвет полосы при этом остаётся из рампы, а тон
         // говорит экрану, что оценка ЗАДАНА, а не выведена из порядка.
         tone: band.tone ?? null,

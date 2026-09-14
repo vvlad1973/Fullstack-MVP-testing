@@ -84,8 +84,9 @@ describe("summariseScales — распределение уровней (FR-21a)
       { ramp: LEVEL_SCHEMES.traffic },
     );
 
+    // Цвет отдаётся ГОТОВЫМ CSS-значением: экран его только печатает.
     expect(profile.bands.map(b => b.color))
-      .toEqual(zoneColors(LEVEL_SCHEMES.traffic, 3, "lower_is_better"));
+      .toEqual(zoneColors(LEVEL_SCHEMES.traffic, 3, "lower_is_better").map(t => `hsl(${t})`));
   });
 
   it("авторский тон уровня перебивает рампу", () => {

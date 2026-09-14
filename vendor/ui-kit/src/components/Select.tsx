@@ -45,10 +45,6 @@ function SelectInner<T extends string = string>(
   {
     label, hint, error, size = 'm', tone, options, value, defaultValue, onChange,
     placeholder = 'Выберите…', disabled, fullWidth, id, name, className,
-    // Имя поля принадлежит КНОПКЕ-триггеру, а не обёртке: на обёртке-`div` его не объявит ни
-    // скринридер, ни поиск по доступному имени. Поле без видимой подписи иначе остаётся вовсе
-    // безымянным.
-    'aria-label': ariaLabel,
     ...rest
   }: SelectProps<T>,
   ref: React.Ref<HTMLButtonElement>,
@@ -113,7 +109,6 @@ function SelectInner<T extends string = string>(
         aria-haspopup="listbox"
         aria-expanded={open ? 'true' : 'false'}
         aria-invalid={t === 'error' || undefined}
-        aria-label={ariaLabel}
       >
         <span className={cn('ou-select__value', !selected && 'is-placeholder')}>
           {selected?.label ?? placeholder}

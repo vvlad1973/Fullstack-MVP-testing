@@ -116,10 +116,13 @@ export function ExposureProfile({ profile, topics, onTopicChange }: ExposureProf
         trail={topics.length > 0 && (
           <Select
             size="s"
+            // Подпись ВИДИМАЯ: доступным именем кнопки-триггера в ДС служит выбранное
+            // ЗНАЧЕНИЕ, поэтому невидимый `aria-label` либо не объявится вовсе, либо
+            // перекроет значение — и тогда читатель не услышит, какая тема выбрана.
+            label="Тема"
             value={profile?.topicId ?? topics[0]?.topicId}
             onChange={onTopicChange}
             options={topics.map(topic => ({ value: topic.topicId, label: topic.topicName }))}
-            aria-label="Тема банка"
           />
         )}
       />

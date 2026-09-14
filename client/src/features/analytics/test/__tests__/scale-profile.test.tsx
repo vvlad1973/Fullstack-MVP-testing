@@ -19,9 +19,9 @@ const BURNOUT = {
   domainMax: 54,
   hasBands: true,
   bands: [
-    { level: "low", label: "Низкий", count: 74, share: 18, color: "142 76% 36%", tone: null },
-    { level: "mid", label: "Средний", count: 202, share: 49, color: "38 92% 50%", tone: null },
-    { level: "high", label: "Высокий", count: 136, share: 33, color: "0 84% 60%", tone: "critical" },
+    { level: "low", label: "Низкий", count: 74, share: 18, color: "hsl(142 76% 36%)", tone: null },
+    { level: "mid", label: "Средний", count: 202, share: 49, color: "hsl(38 92% 50%)", tone: null },
+    { level: "high", label: "Высокий", count: 136, share: 33, color: "hsl(0 84% 60%)", tone: "critical" },
   ],
 };
 

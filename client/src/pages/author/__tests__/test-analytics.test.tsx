@@ -252,11 +252,14 @@ describe("<TestAnalyticsPage />", () => {
     expect(window.open).toHaveBeenCalledWith("/api/analytics/tests/t1/export/excel", "_blank");
   });
 
-  it("renders the adaptive dashboard: tag, levels tab and per-level stats", async () => {
+  it("renders the adaptive dashboard: tag, levels inside «Выдача» and per-level stats", async () => {
+    // PRD-56: отдельной вкладки «Уровни» больше нет — статистика по уровням переехала в
+    // «Выдачу», рядом с вариантами и версиями: она о том же, об устройстве выдачи.
     state.analyticsBody = adaptiveAnalytics();
     await renderLoaded();
     expect(screen.getByText("Адаптивный")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Уровни" }));
+    expect(screen.queryByRole("tab", { name: "Уровни" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Выдача" }));
     await waitFor(() => expect(screen.getByText("Базовый")).toBeInTheDocument());
     // Both levels of the topic render, sorted by index.
     expect(screen.getByText("Средний")).toBeInTheDocument();

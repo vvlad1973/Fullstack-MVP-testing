@@ -160,7 +160,7 @@ describe("ExposureProfile (FR-20)", () => {
       />,
     );
 
-    await userEvent.click(screen.getByLabelText("Тема банка"));
+    await userEvent.click(screen.getByLabelText("Тема"));
     await userEvent.click(screen.getByText("Охрана труда"));
 
     expect(onTopicChange).toHaveBeenCalledWith("tp-2");
