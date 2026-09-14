@@ -641,6 +641,26 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
       sectionBanks.push(await src.getQuestionsByTopic(section.topicId));
     }
 
+    /**
+     * PRD-56 FR-17a: задания, исключённые из выдачи ЭТОГО теста.
+     *
+     * Фильтр применяется только к ЖИВОЙ выдаче. Прохождение по снимку состав не меняет
+     * (PRD-15): опубликованная версия — это обещание, данное тем, кто уже её проходит, и
+     * исключение задания сегодня не имеет права переписать вчерашнюю публикацию.
+     */
+    if (snapshotId === null) {
+      const excluded = new Set(
+        (await storage.getTestQuestionScoring(test.id))
+          .filter(row => row.excludedFromDelivery)
+          .map(row => row.questionId),
+      );
+      if (excluded.size > 0) {
+        for (const [index, bank] of sectionBanks.entries()) {
+          sectionBanks[index] = bank.filter(question => !excluded.has(question.id));
+        }
+      }
+    }
+
     // Веса считаются ВНУТРИ каждого пула отдельно (FR-12), поэтому здесь достаточно собрать
     // счётчики по всем заданиям теста. Сбой чтения не имеет права ронять старт попытки: без
     // счётчиков веса выходят равными, то есть выдача просто остаётся сегодняшней (FR-17).

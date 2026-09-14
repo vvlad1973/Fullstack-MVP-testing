@@ -155,8 +155,22 @@ export async function buildSnapshotContent(testId: string): Promise<TestSnapshot
   const questionsByTopic: Record<string, Question[]> = {};
   const topicCoursesByTopic: Record<string, TopicCourse[]> = {};
   const topicEventsByTopic: Record<string, TopicEvent[]> = {};
+  /**
+   * PRD-56 FR-17a: задания, исключённые из выдачи этого теста, в НОВУЮ публикацию не идут.
+   *
+   * Снимок фиксирует то, что тест выдаёт СЕЙЧАС, а сейчас он их не выдаёт: иначе автор
+   * снимает вопрос, публикует тест и молча получает его обратно. Уже опубликованные версии
+   * при этом не меняются — в этом и смысл снимка (PRD-15), и об этом говорит окно
+   * подтверждения (FR-17b).
+   */
+  const excludedFromDelivery = new Set(
+    (await storage.getTestQuestionScoring(testId))
+      .filter(row => row.excludedFromDelivery)
+      .map(row => row.questionId),
+  );
   for (const topicId of topicIds) {
-    questionsByTopic[topicId] = await storage.getQuestionsByTopic(topicId);
+    questionsByTopic[topicId] = (await storage.getQuestionsByTopic(topicId))
+      .filter(question => !excludedFromDelivery.has(question.id));
     topicCoursesByTopic[topicId] = await storage.getTopicCourses(topicId);
     topicEventsByTopic[topicId] = await storage.getTopicEvents(topicId);
   }
@@ -378,6 +392,9 @@ function synthesizeFrozenOverrides(
       difficulty: null,
       // Pin to the frozen question so the resolver never marks it stale.
       pinnedContentHash: q.contentHash ?? null,
+      // Задание, лежащее В СНИМКЕ, по определению не исключено из его выдачи: исключённые
+      // в снимок не попадают (PRD-56 FR-17a), а уже опубликованный состав не меняется.
+      excludedFromDelivery: false,
       createdAt: new Date(0),
       updatedAt: new Date(0),
     });

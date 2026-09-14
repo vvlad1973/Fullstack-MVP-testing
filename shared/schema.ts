@@ -922,6 +922,15 @@ export const testQuestionScoring = pgTable("test_question_scoring", {
   scoringJson: jsonb("scoring_json").$type<QuestionScoring>(),
   difficulty: integer("difficulty"),
   pinnedContentHash: text("pinned_content_hash"),
+  /**
+   * PRD-56 FR-17a: задание исключено из выдачи ЭТОГО теста.
+   *
+   * Состояние, а не разовая команда: выдача перестаёт его брать, пока признак стоит. Живёт
+   * здесь, а не у вопроса, потому что негодное ЗДЕСЬ задание может быть годно в другом тесте,
+   * а отключение в банке — операция владельца темы, а не читателя аналитики. Собранные
+   * ответы и статистика сохраняются: из аналитики задание не пропадает.
+   */
+  excludedFromDelivery: boolean("excluded_from_delivery").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

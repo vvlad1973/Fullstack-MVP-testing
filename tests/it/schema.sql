@@ -366,6 +366,7 @@ CREATE TABLE "test_question_scoring" (
 	"scoring_json" jsonb,
 	"difficulty" integer,
 	"pinned_content_hash" text,
+	"excluded_from_delivery" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
