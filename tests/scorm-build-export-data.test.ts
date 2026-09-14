@@ -296,3 +296,65 @@ describe("liveDataSource — live read facade backing the debug source", () => {
     expect(storageMock.getTest).toHaveBeenCalledWith("t1");
   });
 });
+
+/**
+ * PRD-56 FR-17a: снятое задание не уезжает и в пакет ЧЕРНОВИКА.
+ *
+ * У опубликованного теста правило выполняет снимок (`buildSnapshotContent` фильтрует состав
+ * при публикации), поэтому пакет по снимку состав не меняет — это обратная сторона того же
+ * правила (PRD-15). А черновик и отладочный прогон собираются ЖИВЫМИ, и без собственного
+ * фильтра автор, снявший задание, продолжал видеть его в своём же прогоне.
+ */
+describe("buildScormExportData — исключённые задания (PRD-56 FR-17a)", () => {
+  beforeEach(() => {
+    storageMock.getQuestionsByTopic.mockResolvedValue([
+      { id: "q1", type: "single", topicId: "tp1" },
+      { id: "q2", type: "single", topicId: "tp1" },
+    ] as never);
+  });
+
+  it("живая сборка снятое задание не берёт", async () => {
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "t1", questionId: "q2", excludedFromDelivery: true },
+    ] as never);
+
+    const data = await buildScormExportData("t1", { source: "debug" });
+
+    expect(data.sections[0].questions.map((q) => q.id)).toEqual(["q1"]);
+  });
+
+  it("без признака состав прежний", async () => {
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "t1", questionId: "q2", points: 3, excludedFromDelivery: false },
+    ] as never);
+
+    const data = await buildScormExportData("t1", { source: "debug" });
+
+    expect(data.sections[0].questions.map((q) => q.id)).toEqual(["q1", "q2"]);
+  });
+
+  it("сборка ПО СНИМКУ состав не меняет", async () => {
+    // Снимок уже отфильтрован публикацией; применять к нему сегодняшние настройки значит
+    // переписывать опубликованную версию задним числом.
+    storageMock.getTest.mockResolvedValue(baseTest({ status: "published" }));
+    storageMock.getLatestSnapshot.mockResolvedValue({
+      version: 1,
+      contentJson: {
+        test: baseTest({ status: "published" }),
+        sections: [{ id: "s1", topicId: "tp1" }],
+        topics: [{ id: "tp1", name: "Topic" }],
+        questionsByTopic: { tp1: [{ id: "q1", type: "single", topicId: "tp1" }, { id: "q2", type: "single", topicId: "tp1" }] },
+        topicCoursesByTopic: { tp1: [] },
+        topicEventsByTopic: { tp1: [] },
+        adaptiveSettings: [], adaptiveLevels: [], adaptiveLevelLinksByLevel: {},
+        scales: [], measurements: [], resultVariables: [], contentPages: [],
+        // Снимок несёт СВОИ строки настроек: сегодняшнее исключение в них не попадает.
+        questionScoring: [],
+      },
+    } as never);
+
+    const data = await buildScormExportData("t1", { source: "export" });
+
+    expect(data.sections[0].questions.map((q) => q.id)).toEqual(["q1", "q2"]);
+  });
+});

@@ -10,6 +10,10 @@
  * не опубликован заново, и веб, и выгруженный пакет продолжают выдавать вопрос — об этом
  * говорит окно подтверждения (FR-17b), и здесь это проверяется прямо.
  *
+ * Оба пути выдачи проверяются здесь: обычный и АДАПТИВНЫЙ. Уровни адаптивного теста
+ * собираются своим обработчиком, мимо `drawSection`, и правило «исключённое не выдаётся» туда
+ * сначала не доехало вовсе — черновик выдавал снятое задание.
+ *
  * Обвязка скопирована из tests/routes.attempts-exposure.test.ts, чтобы файлы оставались
  * независимыми.
  */
@@ -160,5 +164,85 @@ describe("исключённое задание не выдаётся", () => {
     await asLearner(request(app).post("/api/tests/test1/attempts/start"));
 
     expect(deliveredIds()).toHaveLength(2);
+  });
+});
+
+describe("исключённое задание не выдаётся адаптивным тестом", () => {
+  /** Задание с трудностью: уровень отбирает по её полосе. */
+  const qd = (id: string, difficulty: number) => ({ ...q(id), difficulty });
+
+  /** Состав уровней адаптивной попытки — то, что записано в вариант. */
+  function levelIds(): string[] {
+    const variant = storageMock.createAttempt.mock.calls[0][0].variantJson as {
+      topics?: Array<{ levelsState?: Array<{ questionIds?: string[] }> }>;
+    };
+    return (variant.topics ?? []).flatMap(topic =>
+      (topic.levelsState ?? []).flatMap(level => level.questionIds ?? []));
+  }
+
+  beforeEach(() => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive" });
+    storageMock.getAdaptiveTopicSettingsByTest.mockResolvedValue([{ topicId: "t1" }]);
+    storageMock.getAdaptiveLevelsByTest.mockResolvedValue([
+      {
+        topicId: "t1", levelIndex: 0, levelName: "Лёгкий", minDifficulty: 0, maxDifficulty: 100,
+        questionsCount: 3, passThreshold: 70, passThresholdType: "percent",
+      },
+    ]);
+    storageMock.getQuestionsByTopic.mockResolvedValue([qd("a", 50), qd("b", 50), qd("c", 50)]);
+  });
+
+  it("не берёт в уровень задание с признаком исключения", async () => {
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "test1", questionId: "b", excludedFromDelivery: true },
+    ]);
+
+    const res = await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+
+    expect(res.status).toBe(201);
+    expect(levelIds()).not.toContain("b");
+    expect(levelIds().sort()).toEqual(["a", "c"]);
+  });
+
+  it("оставляет задание в уровне, пока признак не поставлен", async () => {
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "test1", questionId: "b", points: 3, excludedFromDelivery: false },
+    ]);
+
+    await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+
+    expect(levelIds().sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("прохождение ПО СНИМКУ состав не меняет", async () => {
+    // Та же обратная сторона правила, что и у обычной выдачи (PRD-15): опубликованная
+    // версия — обещание тем, кто её уже проходит, и сегодняшнее исключение не переписывает
+    // вчерашнюю публикацию. Снимок несёт свой состав, живые настройки к нему не применяются.
+    storageMock.getLatestSnapshot.mockResolvedValue({
+      id: "snap-1",
+      contentJson: {
+        test: { ...dbTest, mode: "adaptive", status: "published" },
+        sections: [{ topicId: "t1", drawCount: 3 }],
+        topics: [{ id: "t1", name: "JS" }],
+        questionsByTopic: { t1: [qd("a", 50), qd("b", 50), qd("c", 50)] },
+        topicCoursesByTopic: { t1: [] },
+        topicEventsByTopic: { t1: [] },
+        adaptiveSettings: [{ topicId: "t1" }],
+        adaptiveLevels: [{
+          topicId: "t1", levelIndex: 0, levelName: "Лёгкий", minDifficulty: 0, maxDifficulty: 100,
+          questionsCount: 3, passThreshold: 70, passThresholdType: "percent",
+        }],
+        adaptiveLevelLinksByLevel: {},
+        scales: [], measurements: [], resultVariables: [], contentPages: [], questionScoring: [],
+      },
+    });
+    storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive", status: "published" });
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "test1", questionId: "b", excludedFromDelivery: true },
+    ]);
+
+    await asLearner(request(app).post("/api/tests/test1/attempts/start-adaptive"));
+
+    expect(levelIds().sort()).toEqual(["a", "b", "c"]);
   });
 });
