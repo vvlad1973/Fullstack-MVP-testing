@@ -1227,7 +1227,12 @@ export default function AnalyticsPage() {
           {
             id: "attention",
             label: "Требует внимания",
-            content: <AttentionQueue onOpenPassage={handleOpenAttentionPassage} />,
+            content: (
+              <AttentionQueue
+                onOpenPassage={handleOpenAttentionPassage}
+                onOpenRegistry={handleOpenSliceInRegistry}
+              />
+            ),
           },
           {
             id: "export",

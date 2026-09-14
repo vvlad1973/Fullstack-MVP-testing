@@ -46,6 +46,16 @@ export interface AttentionItem {
    * «когда» пуста только там, где события ещё не было — у просроченного назначения.
    */
   startedAt?: Date;
+  /**
+   * Результат прохождения в процентах; `null`, когда оценивать было нечего.
+   *
+   * «Не сдал» с 68 % при пороге 70 и «не сдал» с 20 % — разные дела: первому хватит
+   * пересдачи, второго надо учить заново. Без числа они выглядят одинаково.
+   */
+  percent?: number | null;
+  /** Которая это попытка участника по счёту и сколько их разрешено (`null` — без лимита). */
+  attemptNumber?: number;
+  attemptLimit?: number | null;
 }
 
 export interface AttentionInput {
@@ -119,6 +129,9 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
 
   for (const list of groups.values()) {
     const latest = list[0];
+    const limit = latest.testId ? attemptLimits.get(latest.testId) ?? null : null;
+    // Порядковый номер последней попытки: список отсортирован новыми вперёд, поэтому счёт
+    // ведётся от его длины. Незавершённые считаются тоже — человек их потратил.
     const base = {
       participantId: latest.participantId,
       participant: latest.participant,
@@ -126,6 +139,9 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
       observationId: latest.id,
       source: latest.source,
       startedAt: latest.startedAt,
+      percent: latest.percent,
+      attemptNumber: list.length,
+      attemptLimit: limit,
     };
 
     if (latest.outcome === "incomplete") {
@@ -139,7 +155,6 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
     // Сдавшие и прохождения без оценивания в очередь не попадают: делать по ним нечего.
     if (latest.outcome !== "failed") continue;
 
-    const limit = latest.testId ? attemptLimits.get(latest.testId) ?? null : null;
     const used = list.filter(observation => observation.outcome !== "incomplete").length;
     // Исчерпавший лимит и просто не сдавший — разные дела: первому нужно решение человека,
     // второму хватит напоминания.

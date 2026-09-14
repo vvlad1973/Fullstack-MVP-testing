@@ -2,13 +2,21 @@
  * @module features/analytics/attention/attention-queue
  * @description PRD-56 FR-10, FR-11: очередь «требует внимания».
  *
- * Единственный экран аналитики, который говорит «сделай». Отсюда два правила показа: у каждой
- * позиции названа ПРИЧИНА, по которой она здесь, и из каждой есть ход к участнику и его
- * прохождению. Список дел без причины превращается в список претензий.
+ * Единственный экран аналитики, который говорит «сделай». Дела разложены по корзинам: у каждой
+ * свой вопрос («напомнить», «назначить пересдачу», «разобраться») и своё действие. Один общий
+ * список заставил бы читателя сортировать глазами — а он пришёл работать, а не разбирать.
+ *
+ * Позиция подписана тем, по чему принимают решение: «58 % при пороге 70 % · попытка 1 из 3».
+ * «Не сдал» без этих чисел выглядит одинаково и для того, кому хватит пересдачи, и для того,
+ * кого надо учить заново. Пустая корзина не показывается вовсе: ноль дел — это не тревога.
  */
 import { useEffect, useState } from "react";
 
-import { Button, Card, CardBody, CardHeader, DataGrid, Tag, Text } from "@skillum/ui-kit";
+import {
+  Box, Button, Card, CardBody, CardHeader, Separator, Stack, Tag, Text,
+} from "@skillum/ui-kit";
+
+import { pluralize } from "@/lib/i18n";
 
 /** Вид дела. Совпадает с `AttentionKind` сервера. */
 export type AttentionKind = "overdue" | "failed" | "abandoned" | "exhausted";
@@ -24,28 +32,61 @@ export interface AttentionRow {
   source?: "web" | "telemetry" | "import";
   dueAt?: string;
   startedAt?: string;
+  /** Результат прохождения; `null` — оценивать было нечего. */
+  percent?: number | null;
+  /** Проходной балл теста; `null` — тест его не объявлял. */
+  threshold?: number | null;
+  attemptNumber?: number;
+  attemptLimit?: number | null;
 }
 
 export interface AttentionQueueProps {
   /** Открыть прохождение позиции. Там, где прохождения нет, ход не предлагается. */
   onOpenPassage?: (row: AttentionRow) => void;
+  /** Уйти в реестр за остальными делами корзины (FR-08). */
+  onOpenRegistry?: (conditions: Record<string, unknown>) => void;
 }
 
-/** Причина, по которой дело попало в очередь: словами, а не кодом. */
-const REASON: Record<AttentionKind, string> = {
-  overdue: "Срок истёк, к тесту не приступали",
-  failed: "Не сдал, попытки остались",
-  abandoned: "Начал и не завершил",
-  exhausted: "Попытки исчерпаны, тест не сдан",
-};
+/** Сколько дел корзины видно сразу. Остальные — в реестре: экран не список, а рабочее место. */
+const PREVIEW = 3;
 
-/** Тон причины: исчерпанные попытки требуют решения человека, остальное — напоминания. */
-const TONE: Record<AttentionKind, "error" | "warning" | "neutral"> = {
-  overdue: "warning",
-  failed: "warning",
-  abandoned: "neutral",
-  exhausted: "error",
-};
+/** Корзины в порядке срочности: сначала то, где ещё можно успеть. */
+const BUCKETS: Array<{
+  kind: AttentionKind;
+  title: string;
+  note: string;
+  tone: "warning" | "error" | "neutral";
+  /** Условия реестра, которыми виден весь список корзины. Пусто — в реестре его не собрать. */
+  conditions?: Record<string, unknown>;
+}> = [
+  {
+    kind: "overdue",
+    title: "Не начали к сроку",
+    note: "срок истёк, попытка не начиналась",
+    tone: "warning",
+  },
+  {
+    kind: "failed",
+    title: "Не сдали",
+    note: "попытки ещё остались",
+    tone: "error",
+    conditions: { outcomes: ["failed"] },
+  },
+  {
+    kind: "abandoned",
+    title: "Брошенные попытки",
+    note: "начаты и не завершены больше двух суток назад",
+    tone: "warning",
+    conditions: { outcomes: ["incomplete"] },
+  },
+  {
+    kind: "exhausted",
+    title: "Исчерпан лимит попыток",
+    note: "лимит исчерпан, тест не сдан",
+    tone: "error",
+    conditions: { outcomes: ["failed"] },
+  },
+];
 
 /** Дата для человека. */
 function formatDate(iso?: string): string {
@@ -56,8 +97,47 @@ function formatDate(iso?: string): string {
     : date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export function AttentionQueue({ onOpenPassage }: AttentionQueueProps) {
+/** На сколько дней просрочено — целыми днями, как об этом и говорят. */
+function overdueDays(iso?: string): number | null {
+  if (!iso) return null;
+  const due = new Date(iso);
+  if (Number.isNaN(due.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - due.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+/**
+ * Подпись позиции: то, по чему принимают решение.
+ *
+ * У просроченного назначения прохождения НЕТ — там единственный факт это срок и просрочка;
+ * выводить для него результат было бы выдумкой.
+ */
+function details(row: AttentionRow): string {
+  if (row.kind === "overdue") {
+    const days = overdueDays(row.dueAt);
+    return [
+      `Срок ${formatDate(row.dueAt)}`,
+      days === null ? null : `просрочено на ${days} дн.`,
+    ].filter(Boolean).join(" · ");
+  }
+
+  const parts: string[] = [];
+  if (typeof row.percent === "number") {
+    parts.push(row.threshold === null || row.threshold === undefined
+      ? `${Math.round(row.percent)} %`
+      : `${Math.round(row.percent)} % при пороге ${Math.round(row.threshold)} %`);
+  }
+  if (row.attemptNumber) {
+    parts.push(row.attemptLimit
+      ? `попытка ${row.attemptNumber} из ${row.attemptLimit}`
+      : `попытка ${row.attemptNumber}`);
+  }
+  parts.push(formatDate(row.startedAt));
+  return parts.join(" · ");
+}
+
+export function AttentionQueue({ onOpenPassage, onOpenRegistry }: AttentionQueueProps) {
   const [rows, setRows] = useState<AttentionRow[]>([]);
+  const [counts, setCounts] = useState<Record<AttentionKind, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -67,8 +147,13 @@ export function AttentionQueue({ onOpenPassage }: AttentionQueueProps) {
       try {
         const response = await fetch("/api/analytics/attention", { credentials: "include" });
         if (!response.ok) throw new Error(String(response.status));
-        const data = await response.json() as { items: AttentionRow[] };
-        if (alive) setRows(data.items);
+        const data = await response.json() as {
+          items: AttentionRow[];
+          counts: Record<AttentionKind, number>;
+        };
+        if (!alive) return;
+        setRows(data.items);
+        setCounts(data.counts);
       } catch {
         // Ошибку нельзя показывать как пустую очередь: «дел нет» — это разрешение
         // заниматься чем-то другим, и выдавать его по сбою загрузки нечестно.
@@ -84,46 +169,79 @@ export function AttentionQueue({ onOpenPassage }: AttentionQueueProps) {
     return <Text tone="error">Не удалось загрузить очередь. Обновите страницу.</Text>;
   }
 
-  const columns = [
-    {
-      key: "participant",
-      header: "Участник",
-      frozen: true,
-      render: (row: AttentionRow) => (row.observationId && onOpenPassage ? (
-        <Button variant="ghost" size="s" onClick={() => onOpenPassage(row)}>
-          {row.participant}
-        </Button>
-      ) : (
-        <span className="ou-grid__cell-strong">{row.participant}</span>
-      )),
-    },
-    { key: "test", header: "Тест", render: (row: AttentionRow) => row.testTitle },
-    {
-      key: "reason",
-      header: "Что случилось",
-      render: (row: AttentionRow) => <Tag tone={TONE[row.kind]}>{REASON[row.kind]}</Tag>,
-    },
-    {
-      key: "when",
-      header: "Когда",
-      render: (row: AttentionRow) => formatDate(row.dueAt ?? row.startedAt),
-    },
-  ];
+  if (loading) return <Text tone="muted">Собираем очередь…</Text>;
+
+  const filled = BUCKETS.filter(bucket => rows.some(row => row.kind === bucket.kind));
+
+  if (filled.length === 0) {
+    return (
+      <Card>
+        <CardBody>
+          <Text tone="muted">Дел нет: никто не просрочил срок, не бросил попытку и не исчерпал лимит.</Text>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
-    <Card>
-      <CardHeader
-        title="Требует внимания"
-        subtitle="Дела, по которым нужно действие: напомнить, назначить пересдачу, разобраться"
-      />
-      <CardBody>
-        <DataGrid
-          columns={columns}
-          rows={rows}
-          rowKey={row => `${row.kind}:${row.participantId ?? row.participant}:${row.testId ?? ""}`}
-          emptyMessage={loading ? "Собираем очередь…" : "Дел нет"}
-        />
-      </CardBody>
-    </Card>
+    <Stack gap={5}>
+      {filled.map(bucket => {
+        const items = rows.filter(row => row.kind === bucket.kind);
+        const total = counts?.[bucket.kind] ?? items.length;
+        const shown = items.slice(0, PREVIEW);
+
+        return (
+          <Card key={bucket.kind}>
+            <CardHeader
+              title={bucket.title}
+              subtitle={`${total} ${pluralize(total, "дело", "дела", "дел")} · ${bucket.note}`}
+              trail={<Tag tone={bucket.tone} size="s">{total}</Tag>}
+            />
+            <CardBody>
+              <Stack gap={0}>
+                {shown.map((row, index) => (
+                  <div key={row.observationId ?? `${row.participantId}:${row.testId}`}>
+                    {index > 0 && <Separator />}
+                    <Box padY={3}>
+                      <Stack direction="row" align="center" gap={3}>
+                        <Stack gap={1} grow>
+                          <Text variant="body-m" weight="medium">
+                            {row.participant} · {row.testTitle}
+                          </Text>
+                          <Text variant="body-xs" tone="muted">{details(row)}</Text>
+                        </Stack>
+                        {row.observationId && onOpenPassage && (
+                          <Button variant="ghost" size="s" onClick={() => onOpenPassage(row)}>
+                            Разбор прохождения
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  </div>
+                ))}
+              </Stack>
+
+              {bucket.kind === "overdue" && (
+                <Text variant="body-xs" tone="muted">
+                  Назначения без срока в очередь не попадают.
+                </Text>
+              )}
+            </CardBody>
+
+            {bucket.conditions && onOpenRegistry && total > shown.length && (
+              <CardBody>
+                <Button
+                  variant="ghost"
+                  size="s"
+                  onClick={() => onOpenRegistry(bucket.conditions!)}
+                >
+                  Показать все {total} в реестре
+                </Button>
+              </CardBody>
+            )}
+          </Card>
+        );
+      })}
+    </Stack>
   );
 }

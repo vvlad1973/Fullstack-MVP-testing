@@ -294,7 +294,8 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("tab", { name: "Требует внимания" }));
 
-    expect(await screen.findByText("Не сдал, попытки остались")).toBeInTheDocument();
+    expect(await screen.findByText("Не сдали")).toBeInTheDocument();
+    expect(screen.getByText(/Иван Петров/)).toBeInTheDocument();
   });
 
   it("ведёт из строки среза в реестр с предзаполненными условиями", async () => {
@@ -322,7 +323,7 @@ describe("<AnalyticsPage /> — состав экрана", () => {
 
     // FR-11: каждая позиция ведёт к участнику и его прохождению. Список дел, из которого
     // некуда пойти, заставляет искать человека руками в другом списке.
-    fireEvent.click(await screen.findByRole("button", { name: "Иван Петров" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Разбор прохождения/ }));
 
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect(within(dialog).getByText("Детали попытки")).toBeInTheDocument());

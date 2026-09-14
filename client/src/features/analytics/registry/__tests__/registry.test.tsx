@@ -104,6 +104,30 @@ describe("PassageRegistry", () => {
     expect(query.get("from")).toBe("2026-09-01");
   });
 
+  it("называет тест и группу в чипах по-человечески", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).startsWith("/api/tests")) {
+        return { ok: true, json: async () => [{ id: "t1", title: "Сертификация руководителей" }] };
+      }
+      if (String(url).startsWith("/api/groups")) {
+        return { ok: true, json: async () => [{ id: "g1", name: "Розница" }] };
+      }
+      return page([ROW], 1);
+    });
+
+    render(
+      <PassageRegistry
+        filter={{ testIds: ["t1"], groupIds: ["g1"], sources: [], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    // Идентификатор в чипе не говорит читателю ничего: применённое условие он узнаёт по
+    // названию, а по «6e10d1e6-0fc9…» не может ни проверить отбор, ни объяснить его коллеге.
+    expect(await screen.findByText("Тест: Сертификация руководителей")).toBeTruthy();
+    expect(screen.getByText("Группа: Розница")).toBeTruthy();
+  });
+
   it("показывает применённые условия чипами и снимает их по одному", async () => {
     const onFilterChange = vi.fn();
     render(
@@ -153,16 +177,20 @@ describe("PassageRegistry", () => {
   });
 
   it("запрашивает первую порцию заново, когда условия изменились", async () => {
+    /** Запросы прохождений: справочники тестов и групп к порциям отношения не имеют. */
+    const registryCalls = () =>
+      fetchMock.mock.calls.filter(call => String(call[0]).includes("/api/analytics/registry")).length;
+
     const { rerender } = render(
       <PassageRegistry filter={{ testIds: [], groupIds: [], sources: [], outcomes: [] }} onFilterChange={() => {}} />,
     );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(registryCalls()).toBe(1));
 
     rerender(
       <PassageRegistry filter={{ testIds: [], groupIds: [], sources: ["web"], outcomes: [] }} onFilterChange={() => {}} />,
     );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(registryCalls()).toBe(2));
     expect(lastQuery().get("offset")).toBe("0");
   });
 });

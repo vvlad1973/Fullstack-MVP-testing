@@ -177,6 +177,21 @@ describe("buildAttentionQueue", () => {
     expect(countAttention(queue)).toEqual({ overdue: 1, failed: 1, abandoned: 0, exhausted: 0 });
   });
 
+  it("несёт результат и номер попытки: по ним решают, что делать", () => {
+    // «Не сдал» — это не одно и то же для 68 % при пороге 70 и для 20 %: первому хватит
+    // пересдачи, второго надо учить заново. И «попытка 1 из 3» отличается от «3 из 3»:
+    // у одного попытки ещё есть, у другого нет.
+    const queue = buildAttentionQueue(input({
+      observations: [
+        observation({ id: "prev", startedAt: hoursAgo(200) }),
+        observation({ id: "last", startedAt: hoursAgo(100), percent: 68 }),
+      ],
+      attemptLimits: new Map([["test1", 3]]),
+    }));
+
+    expect(queue[0]).toMatchObject({ percent: 68, attemptNumber: 2, attemptLimit: 3 });
+  });
+
   it("несёт источник прохождения — без него дело некуда открыть", () => {
     // FR-11: позиция ведёт к прохождению, а разбор веб-попытки и записи из LMS читается
     // разными ручками. Без источника пришлось бы угадывать, какую звать.

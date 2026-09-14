@@ -109,6 +109,37 @@ describe("GET /api/analytics/attention", () => {
     expect(res.body.items[0].observationId).toBe("web-1");
   });
 
+  it("несёт порог теста: без него процент прохождения не с чем сравнить", async () => {
+    storageMock.getAllAttempts.mockResolvedValue([{
+      id: "web-1", testId: "test1", userId: "u1",
+      startedAt: daysAgo(5), finishedAt: daysAgo(5),
+      variantJson: {}, answersJson: {},
+      resultJson: { overallPercent: 58, overallPassed: false, totalPossiblePoints: 20, totalEarnedPoints: 12 },
+    }]);
+
+    const res = await ask();
+
+    // «58 %» само по себе не говорит, насколько человек промахнулся: у одного теста это
+    // почти порог, у другого — половина требуемого.
+    expect(res.body.items[0]).toMatchObject({ percent: 58, threshold: 70, attemptLimit: 3 });
+  });
+
+  it("не выдумывает порога там, где тест его не объявил", async () => {
+    storageMock.getTests.mockResolvedValue([
+      { ...TEST, overallPassRuleJson: { type: "none", value: 0 } },
+    ]);
+    storageMock.getAllAttempts.mockResolvedValue([{
+      id: "web-1", testId: "test1", userId: "u1",
+      startedAt: daysAgo(5), finishedAt: daysAgo(5),
+      variantJson: {}, answersJson: {},
+      resultJson: { mode: "adaptive", overallPassed: false, topicResults: [] },
+    }]);
+
+    const res = await ask();
+
+    expect(res.body.items[0].threshold).toBeNull();
+  });
+
   it("отвечает пустой очередью, когда дел нет", async () => {
     const res = await ask();
 

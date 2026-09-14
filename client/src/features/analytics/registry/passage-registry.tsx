@@ -18,6 +18,7 @@ import {
 import { pluralize } from "@/lib/i18n";
 
 import { RegistryFilterDialog } from "./filter-dialog";
+import { useRegistryDictionaries } from "./use-dictionaries";
 
 import {
   countConditions,
@@ -109,6 +110,8 @@ export function PassageRegistry({
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const search = filterToSearch(filter);
+  /** Названия тестов и групп — чтобы условие в чипе читалось, а не значилось кодом (FR-02). */
+  const dictionaries = useRegistryDictionaries();
 
   /** Номер запроса: ответ на устаревшие условия не должен затирать свежий список. */
   const request = useRef(0);
@@ -142,9 +145,15 @@ export function PassageRegistry({
   }, [load]);
 
   const applied = useMemo(() => {
+    // Название, а не идентификатор: по «6e10d1e6-0fc9…» читатель не может ни проверить
+    // отбор, ни объяснить его коллеге. Справочник не доехал — остаётся идентификатор:
+    // условие названо хуже, но отбор работает.
+    const testTitle = (id: string) => dictionaries.tests.find(test => test.id === id)?.title ?? id;
+    const groupName = (id: string) => dictionaries.groups.find(group => group.id === id)?.name ?? id;
+
     const items: Array<{ id: string; label: string }> = [];
-    for (const id of filter.testIds) items.push({ id: `test:${id}`, label: `Тест: ${id}` });
-    for (const id of filter.groupIds) items.push({ id: `group:${id}`, label: `Группа: ${id}` });
+    for (const id of filter.testIds) items.push({ id: `test:${id}`, label: `Тест: ${testTitle(id)}` });
+    for (const id of filter.groupIds) items.push({ id: `group:${id}`, label: `Группа: ${groupName(id)}` });
     for (const source of filter.sources) {
       items.push({ id: `source:${source}`, label: `Источник: ${SOURCE_LABEL[source]}` });
     }
@@ -158,7 +167,7 @@ export function PassageRegistry({
       });
     }
     return items;
-  }, [filter]);
+  }, [filter, dictionaries]);
 
   /** Снять одно условие: чип удаляется поштучно, остальные остаются (FR-02). */
   const removeCondition = (id: string) => {

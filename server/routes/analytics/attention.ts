@@ -72,12 +72,25 @@ router.get("/attention", requirePermission("analytics.read"), async (req: Reques
     });
 
     const titles = new Map(visible.map(test => [test.id, test.title]));
+    /**
+     * Проходной балл теста — то, с чем читатель сравнивает процент прохождения.
+     *
+     * `null` там, где теста нет или он порога не объявлял: выдуманный порог превратил бы
+     * «нечего оценивать» в «не дотянул», а это разные вещи (PRD-29 §6.7).
+     */
+    const thresholds = new Map(visible.map(test => {
+      const rule = test.overallPassRuleJson as { type?: string; value?: number } | null;
+      const declared = rule?.type !== undefined && rule.type !== "none";
+      return [test.id, declared ? rule?.value ?? null : null];
+    }));
+
     res.json({
       counts: countAttention(items),
       items: items.map((item: AttentionItem) => ({
         ...item,
         // Тест мог быть удалён: дело от этого не перестаёт существовать.
         testTitle: item.testId ? titles.get(item.testId) ?? "Удалённый тест" : "Удалённый тест",
+        threshold: item.testId ? thresholds.get(item.testId) ?? null : null,
       })),
     });
   } catch (error) {

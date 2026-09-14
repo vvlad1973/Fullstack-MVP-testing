@@ -21,6 +21,7 @@ import {
   type RegistryOutcome,
   type RegistrySource,
 } from "./filter-state";
+import { useRegistryDictionaries } from "./use-dictionaries";
 
 export interface RegistryFilterDialogProps {
   open: boolean;
@@ -49,40 +50,15 @@ function toggle<T>(list: T[], value: T): T[] {
 
 export function RegistryFilterDialog({ open, filter, onApply, onClose }: RegistryFilterDialogProps) {
   const [draft, setDraft] = useState<RegistryFilter>(filter);
-  const [tests, setTests] = useState<Array<{ id: string; title: string }>>([]);
-  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  // Справочники спрашиваются только у открытого окна и тем же хуком, что зовут чипы: иначе
+  // одно и то же условие называлось бы в двух местах по-разному.
+  const { tests, groups } = useRegistryDictionaries(open);
 
   // Открытие — момент, когда черновик берётся из применённых условий: окно, закрытое отменой,
   // не должно помнить набранное в прошлый раз.
   useEffect(() => {
     if (open) setDraft(filter);
   }, [open, filter]);
-
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    void (async () => {
-      try {
-        const [testsRes, groupsRes] = await Promise.all([
-          fetch("/api/tests", { credentials: "include" }),
-          fetch("/api/groups", { credentials: "include" }),
-        ]);
-        if (!alive) return;
-        if (testsRes.ok) {
-          const data = await testsRes.json() as Array<{ id: string; title: string }>;
-          setTests(data.map(t => ({ id: t.id, title: t.title })));
-        }
-        if (groupsRes.ok) {
-          const data = await groupsRes.json() as Array<{ id: string; name: string }>;
-          setGroups(data.map(g => ({ id: g.id, name: g.name })));
-        }
-      } catch {
-        // Справочники — подсказка, а не условие работы: без них окно остаётся годным,
-        // просто без списков тестов и групп.
-      }
-    })();
-    return () => { alive = false; };
-  }, [open]);
 
   return (
     <ModalDialog
