@@ -234,6 +234,9 @@
    удалению заодно сворачивал бы карточку. */
 .tb-acc-head { display: flex; align-items: center; gap: var(--ou-space-1); padding-right: var(--ou-space-6); }
 .tb-acc-head > .ou-acc__trigger { flex: 1 1 auto; min-width: 0; padding-right: var(--ou-space-3); }
+/* Шеврон этой шапки — мишень разворота (клик висит на нём), поэтому курсор обязан об этом
+   говорить: в ДС он лежит внутри кнопки и курсор достаётся ему от неё. */
+.tb-acc-head > .ou-acc__chev { cursor: pointer; }
 .tb-topic-actions { display: inline-flex; align-items: center; gap: var(--ou-space-1); }
 
 /* Числовое поле имеет свою ширину; в группе-flex оно растягивалось на весь ящик.

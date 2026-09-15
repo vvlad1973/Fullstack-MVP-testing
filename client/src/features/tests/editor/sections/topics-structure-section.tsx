@@ -542,7 +542,23 @@ function TopicRow(props: {
               data-testid={`topic-remove-${section.topicId}`}
             />
           </span>
-          <span className="ou-acc__chev" aria-hidden="true">
+          {/*
+            Шеврон — привычная мишень разворота, и в дизайн-системе он ЧАСТЬ кнопки-триггера
+            (`Accordion`: `.ou-acc__chev` лежит внутри `.ou-acc__trigger`). Здесь шапка собрана
+            вручную — кнопку удаления нельзя вкладывать в кнопку раскрытия, — и шеврон оказался
+            снаружи: выглядел живым, а кликов не принимал.
+
+            Клик повешен на сам `span`, и роли с `tabIndex` у него СОЗНАТЕЛЬНО нет: рядом стоит
+            настоящая кнопка-триггер с `aria-expanded`, она и есть клавиатурный путь. Сделать
+            шеврон второй кнопкой значило бы завести второй таб-стоп и второе объявление того же
+            действия — для скринридера он остаётся декорацией, для мыши становится мишенью.
+          */}
+          <span
+            className="ou-acc__chev"
+            aria-hidden="true"
+            onClick={props.onToggleOpen}
+            data-testid={`topic-chev-${section.topicId}`}
+          >
             <ChevronDown size={16} />
           </span>
         </div>

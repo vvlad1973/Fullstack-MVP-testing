@@ -105,6 +105,29 @@ describe("<CompositionSection />", () => {
     expect(screen.getByTestId("composition-empty")).toBeInTheDocument();
   });
 
+  it("шеврон строки темы разворачивает её, а не молчит", () => {
+    // Шеврон — привычная мишень разворота, и в дизайн-системе он ЧАСТЬ кнопки-триггера.
+    // В этой карточке шапка собрана вручную (кнопку удаления нельзя вкладывать в кнопку
+    // раскрытия), шеврон оказался снаружи и кликов не принимал: выглядел живым, а не был.
+    const model = baseModel({
+      sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ", drawCount: 4 })],
+    });
+    renderWithClient(<CompositionSection model={model} updateModel={() => {}} />);
+
+    const row = screen.getByTestId("topic-row-top-1");
+    const trigger = screen.getByTestId("topic-toggle-top-1");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByTestId("topic-chev-top-1"));
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(row.className).toContain("is-open");
+
+    // И обратно: второй клик сворачивает.
+    fireEvent.click(screen.getByTestId("topic-chev-top-1"));
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("renders a tb-topic-row per section", () => {
     const model = baseModel({
       sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ", drawCount: 4 })],
