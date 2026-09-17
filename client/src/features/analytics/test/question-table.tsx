@@ -17,7 +17,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Ban } from "lucide-react";
 
 import {
-  Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, SegmentedControl, Stack, Text,
+  Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, ProgressBar, SegmentedControl,
+  Stack, Text,
 } from "@skillum/ui-kit";
 
 import type { QuestionType } from "@shared/questions/question-type";
@@ -50,10 +51,25 @@ export interface QuestionRow {
   reviewFlags: ReviewFlagView[];
   /** PRD-56 FR-17a: задание исключено из выдачи ЭТОГО теста. */
   excludedFromDelivery?: boolean;
+  /**
+   * PRD-56 FR-22: разброс ответов измерительного задания — то, чем у него заменена доля
+   * верных. `null` — задание оценивается либо разбрасывать нечего.
+   */
+  spread?: { options: Array<{ label: string; share: number }>; answered: number } | null;
 }
 
 export interface QuestionTableProps {
   questions: QuestionRow[];
+  /**
+   * Тест измерительный: вместо доли верных таблица показывает разброс ответов (FR-22).
+   *
+   * Признак приходит сверху, а не выводится из строк: таблица, где доля верных пуста у всех
+   * заданий, бывает и у оцениваемого теста, по которому ещё никто не проходил, а набор
+   * колонок от количества прохождений зависеть не должен.
+   */
+  measurement?: boolean;
+  /** Порог наблюдений: ниже него разброс не печатается, потому что он шум (FR-06d). */
+  minObservations?: number;
   /** Уйти в реестр к прохождениям, где на этом задании ошиблись (FR-17). */
   onOpenRegistry?: (questionId: string) => void;
   /** Переключить состояние «исключён из выдачи» (FR-17a). Без него действие не предлагается. */
@@ -122,11 +138,28 @@ function sortValue(row: QuestionRow, key: string): number {
   return value ?? Number.POSITIVE_INFINITY;
 }
 
+/**
+ * Разброс ответов строкой: «Командный 62 % · Вдохновляющий 21 %» (FR-22).
+ *
+ * У шкалы подписи — короткие градации («1», «Иногда»), и между меткой и долей ставится тире:
+ * без него «1 6 %» читается как одно число. У распределения подписи — утверждения, и тире там
+ * лишнее (эскиз prd56-test-analytics.html, состояние items-measurement).
+ */
+function spreadLabel(
+  options: ReadonlyArray<{ label: string; share: number }>,
+  type: string,
+): string {
+  const dash = type === "scale" ? " — " : " ";
+  return options
+    .map(option => `${option.label}${dash}${Math.round(option.share)} %`)
+    .join(" · ");
+}
+
 export function QuestionTable({
-  questions, onOpenRegistry, onDeliveryChange, testId,
+  questions, onOpenRegistry, onDeliveryChange, testId, measurement, minObservations = 0,
 }: QuestionTableProps) {
   const [view, setView] = useState<View>("all");
-  const [sortKey, setSortKey] = useState("correct");
+  const [sortKey, setSortKey] = useState(measurement ? "answers" : "correct");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   /** Задание, для которого открыто окно подтверждения исключения. */
   const [pending, setPending] = useState<QuestionRow | null>(null);
@@ -208,13 +241,44 @@ export function QuestionTable({
         </Stack>
       ),
     },
-    {
+    // FR-22: у опросника эталона нет, и доля верных заменяется разбросом ответов — полосой
+    // с долей лидирующего варианта и полным перечнем долей подписью. Полоса АКЦЕНТНАЯ, без
+    // тонов «успех / предупреждение»: высокая доля градации не хороша и не плоха, оценивать
+    // её не относительно чего (FR-21b).
+    ...(measurement ? [{
+      key: "spread",
+      header: "Разброс ответов",
+      render: (row: QuestionRow) => {
+        if (!row.spread || row.totalAnswers < minObservations) {
+          return <Text variant="body-s" tone="muted">мало данных</Text>;
+        }
+        const leader = row.spread.options.reduce(
+          (top, option) => (option.share > top.share ? option : top),
+          row.spread.options[0],
+        );
+        return (
+          <Stack gap={1}>
+            <ProgressBar size="s" value={Math.round(leader.share)} hideHeader />
+            <Text variant="body-xs" tone="muted">
+              {spreadLabel(row.spread.options, row.questionType)}
+            </Text>
+          </Stack>
+        );
+      },
+    }] : []),
+    ...(measurement ? [{
+      key: "answers",
+      header: "Ответов",
+      numeric: true,
+      sortable: true,
+      render: (row: QuestionRow) => row.totalAnswers,
+    }] : [{
       key: "correct",
       header: "Доля верных",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => percent(row.correctPercent),
-    },
+    }]),
     {
       key: "skip",
       header: "Пропуски",
@@ -222,13 +286,16 @@ export function QuestionTable({
       sortable: true,
       render: (row: QuestionRow) => percent(row.skipShare),
     },
-    {
+    // Экспозиция — свойство ВЫДАЧИ, и у опросника она есть, но эскиз её в этой таблице не
+    // держит: строка опросника отвечает на «что выбирали», а как часто задание показывали —
+    // вопрос вкладки «Выдача», где профиль банка и стоит (FR-20).
+    ...(measurement ? [] : [{
       key: "exposure",
       header: "Выдаётся",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => percent(row.exposurePercent),
-    },
+    }]),
     {
       key: "latency",
       header: "Время, медиана",
@@ -236,13 +303,15 @@ export function QuestionTable({
       sortable: true,
       render: (row: QuestionRow) => duration(row.latencyMedianMs),
     },
-    {
+    // Авторская трудность у опросника бессмысленна: трудным бывает задание с верным ответом,
+    // а здесь верного ответа нет вовсе.
+    ...(measurement ? [] : [{
       key: "difficulty",
       header: "Трудность",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => row.difficulty,
-    },
+    }]),
     {
       key: "delivery",
       header: "",

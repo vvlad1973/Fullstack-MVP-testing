@@ -131,6 +131,21 @@ describe("SliceList", () => {
     expect(onOpenRegistry).toHaveBeenCalledWith(SLICE.conditions);
   });
 
+  // FR-24: реестр отвечает «кто эти люди», аналитика теста — «что у них не получилось».
+  // Условия среза едут в оба перехода, иначе на той стороне их пришлось бы набирать заново.
+  it("ведёт из строки в аналитику теста с условиями этого среза", async () => {
+    const onOpenTestAnalytics = vi.fn();
+    fetchMock.mockResolvedValue(answer([SLICE]));
+
+    render(
+      <SliceList testId="test1" axis="group" onOpenTestAnalytics={onOpenTestAnalytics} />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Аналитика теста" }));
+
+    expect(onOpenTestAnalytics).toHaveBeenCalledWith({ groupIds: ["g1"] });
+  });
+
   it("говорит, когда срезов ещё нет", async () => {
     fetchMock.mockResolvedValue(answer([]));
 

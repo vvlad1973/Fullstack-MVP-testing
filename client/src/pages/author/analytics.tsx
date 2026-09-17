@@ -13,7 +13,14 @@
 import { useState } from "react";
 import { ExportDialog } from "@/features/analytics/registry/export-dialog";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
-import type { RegistryFilter } from "@/features/analytics/registry/filter-state";
+import { useLocation } from "wouter";
+
+import {
+  conditionsToFilter,
+  filterToSearch,
+  EMPTY_FILTER,
+  type RegistryFilter,
+} from "@/features/analytics/registry/filter-state";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { SlicesTab } from "@/features/analytics/slices/slices-tab";
 import { AttentionQueue, type AttentionRow } from "@/features/analytics/attention/attention-queue";
@@ -997,6 +1004,8 @@ export default function AnalyticsPage() {
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
   /** PRD-56 FR-04: окно выгрузки отфильтрованного — открывается из панели фильтра реестра. */
   const [exportOpen, setExportOpen] = useState(false);
+  /** FR-24: переход «группа → тест» уводит со страницы, поэтому нужен переход маршрутизатора. */
+  const [, setLocation] = useLocation();
   /**
    * Открытая вкладка. Держится состоянием, а не умолчанием, ради FR-08: переход из строки
    * среза открывает реестр и должен ПЕРЕКЛЮЧИТЬ экран, а не только подставить условия.
@@ -1256,6 +1265,17 @@ export default function AnalyticsPage() {
               <SlicesTab
                 tests={tests ?? []}
                 onOpenRegistry={handleOpenSliceInRegistry}
+                // FR-24, переход «группа → тест»: условия среза едут в адрес аналитики теста,
+                // где их читает тот же разбор, что у реестра. Тест в условия не входит — он
+                // задан адресом страницы.
+                onOpenTestAnalytics={(openTestId, conditions) => {
+                  const search = filterToSearch({
+                    ...EMPTY_FILTER,
+                    ...conditionsToFilter(conditions),
+                    testIds: [],
+                  });
+                  setLocation(`/author/tests/${openTestId}/analytics${search}`);
+                }}
               />
             ),
           },

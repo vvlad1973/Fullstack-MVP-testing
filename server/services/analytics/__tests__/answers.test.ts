@@ -30,6 +30,7 @@ function fact(over: Partial<AnswerFact> = {}): AnswerFact {
     latencyMs: null,
     earnedPoints: 1,
     possiblePoints: 1,
+    answer: 0,
     ...over,
   };
 }
@@ -118,11 +119,13 @@ describe("loadAnswerFacts", () => {
         : { result: "incorrect", earnedPoints: 0, possiblePoints: 1 }),
     });
 
+    // Сам ответ едет вместе с оценкой (FR-22): разбросу измерительного задания нужен именно
+    // он — что выбрали, — а из «верно / неверно» этого не восстановить.
     expect(facts).toEqual([
       { questionId: "q1", attemptId: "a1", result: "correct", source: "web", latencyMs: null,
-        earnedPoints: 1, possiblePoints: 1 },
+        earnedPoints: 1, possiblePoints: 1, answer: 0 },
       { questionId: "q2", attemptId: "a1", result: "incorrect", source: "web", latencyMs: null,
-        earnedPoints: 0, possiblePoints: 1 },
+        earnedPoints: 0, possiblePoints: 1, answer: 1 },
     ]);
   });
 

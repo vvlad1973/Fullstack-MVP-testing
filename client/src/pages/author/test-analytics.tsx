@@ -55,6 +55,7 @@ import {
     type RegistryFilter,
 } from "@/features/analytics/registry/filter-state";
 import { useRegistryDictionaries } from "@/features/analytics/registry/use-dictionaries";
+import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import {
     ArrowLeft,
     Users,
@@ -78,6 +79,8 @@ interface TestAnalytics {
     hasScales?: boolean;
     /** Does the test declare an overall pass threshold at all (PRD-29 §6.7)? */
     hasPassThreshold: boolean;
+    /** Порог наблюдений инстанса: ниже него разброс ответов не печатается (FR-22). */
+    minObservations: number;
     summary: {
         totalAttempts: number;
         completedAttempts: number;
@@ -137,6 +140,8 @@ interface TestAnalytics {
         reviewFlags: Array<{ kind: string; reason: string }>;
         /** PRD-56 FR-17a: задание исключено из выдачи этого теста. */
         excludedFromDelivery?: boolean;
+        /** PRD-56 FR-22: разброс ответов измерительного задания вместо доли верных. */
+        spread?: { options: Array<{ label: string; share: number }>; answered: number } | null;
         // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
         // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
         exposureCount?: number;
@@ -229,11 +234,11 @@ export default function TestAnalyticsPage() {
      * PRD-56 FR-13: экран считается по отобранному — источнику, группе и периоду. Форма
      * отбора та же, что у реестра, только без условия «тест»: он задан страницей.
      *
-     * Условия живут в состоянии, а не в адресе: адрес этой страницы уже занят тестом, а
-     * пересылать «аналитику теста по группе» ссылкой требование не просит — за пересылаемой
-     * выборкой ходят в реестр (FR-03).
+     * Условия держатся в адресе тем же хуком, что у реестра, и это не украшение: переход
+     * «группа → тест» (FR-24) приводит сюда со своим условием, и прочитать его можно только
+     * из адреса. Заодно ссылка на «аналитику теста по этой группе» пересылается коллеге.
      */
-    const [filter, setFilter] = useState<RegistryFilter>(EMPTY_FILTER);
+    const [filter, setFilter] = useRegistryFilter();
     const [filterOpen, setFilterOpen] = useState(false);
     const dictionaries = useRegistryDictionaries();
     const queryClient = useQueryClient();
@@ -340,6 +345,15 @@ export default function TestAnalyticsPage() {
         <QuestionTable
             questions={questionStats}
             testId={testId ?? undefined}
+            // FR-22: измерительным считается тест, который не объявляет проходного балла, —
+            // тот же признак, по которому плитки отвечают «неприменимо» вместо нуля
+            // (PRD-29 §6.7). У такого теста эталона нет, и доля верных заменяется разбросом.
+            //
+            // Сравнение строгое: отсутствие поля (ответ сервера прежней сборки) значит
+            // «неизвестно», и тогда таблица остаётся прежней. Иначе смена набора колонок
+            // происходила бы от того, что поле не доехало.
+            measurement={analytics.hasPassThreshold === false}
+            minObservations={analytics.minObservations}
             onDeliveryChange={async (questionId, excluded) => {
                 // FR-17a: состояние меняется там же, где видно. Отказ сервера (выдачу собрать
                 // нельзя) показывается как есть: он и есть ответ на вопрос «почему нельзя».
@@ -518,10 +532,15 @@ export default function TestAnalyticsPage() {
                 onOpenFilter={() => setFilterOpen(true)}
                 onRemove={(id: string) => {
                     const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
-                    if (kind === "group") setFilter(f => ({ ...f, groupIds: f.groupIds.filter(x => x !== value) }));
-                    else if (kind === "source") setFilter(f => ({ ...f, sources: f.sources.filter(x => x !== value) }));
-                    else if (kind === "outcome") setFilter(f => ({ ...f, outcomes: f.outcomes.filter(x => x !== value) }));
-                    else if (id === "period") setFilter(f => ({ ...f, from: undefined, to: undefined }));
+                    if (kind === "group") {
+                        setFilter({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
+                    } else if (kind === "source") {
+                        setFilter({ ...filter, sources: filter.sources.filter(x => x !== value) });
+                    } else if (kind === "outcome") {
+                        setFilter({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
+                    } else if (id === "period") {
+                        setFilter({ ...filter, from: undefined, to: undefined });
+                    }
                 }}
                 onReset={() => setFilter(EMPTY_FILTER)}
                 resetLabel="Сбросить фильтры"

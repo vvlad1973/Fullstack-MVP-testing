@@ -242,6 +242,7 @@ export class AnalyticsRepository {
         latencyMs: scormAnswers.latencyMs,
         points: scormAnswers.points,
         maxPoints: scormAnswers.maxPoints,
+        userAnswer: scormAnswers.userAnswerJson,
         origin: scormAttempts.origin,
       })
       .from(scormAnswers)
@@ -256,6 +257,7 @@ export class AnalyticsRepository {
       latencyMs: row.latencyMs ?? null,
       points: row.points ?? null,
       maxPoints: row.maxPoints ?? null,
+      userAnswer: row.userAnswer,
       origin: (row.origin ?? "telemetry") as ObservationSourceName,
     }));
   }
@@ -320,6 +322,11 @@ export interface TestAnswerRow {
   /** Баллы ответа; `null` — пакет их не сообщил либо оценивать было нечего. */
   points: number | null;
   maxPoints: number | null;
+  /**
+   * Сам ответ, как его дал участник (PRD-56 FR-22). Нужен разбросу ответов измерительного
+   * задания: у него нет эталона, и рассказать о нём можно только тем, ЧТО выбирали.
+   */
+  userAnswer: unknown;
   origin: ObservationSourceName;
 }
 

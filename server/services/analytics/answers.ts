@@ -28,6 +28,13 @@ export interface AnswerFact {
   /** Баллы ответа; `null` — оценивать было нечего. */
   earnedPoints: number | null;
   possiblePoints: number | null;
+  /**
+   * Сам ответ участника (FR-22). Верному/неверному он не нужен — там всё сказано `result`, —
+   * но у измерительного задания эталона нет, и единственное, что о нём можно рассказать, это
+   * ЧТО выбирали. Тип свободный: у шкалы это индекс градации, у распределения — баллы по
+   * утверждениям, и приводит их к общему виду тот, кто считает разброс.
+   */
+  answer: unknown;
 }
 
 /** Сколько наблюдений пришло из каждого источника — на чём стоит число. */
@@ -96,6 +103,7 @@ export async function loadAnswerFacts(
         latencyMs: null,
         earnedPoints: grade.earnedPoints,
         possiblePoints: grade.possiblePoints,
+        answer,
       });
     }
   }
@@ -109,6 +117,7 @@ export async function loadAnswerFacts(
       latencyMs: row.latencyMs,
       earnedPoints: row.points,
       possiblePoints: row.maxPoints,
+      answer: row.userAnswer,
     });
   }
 

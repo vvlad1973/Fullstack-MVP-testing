@@ -324,6 +324,9 @@ export function PassageRegistry({
             columns={columns}
             rows={rows}
             rowKey={row => row.id}
+            // Реестр и есть содержимое экрана: без этого он листался бы в окошке на 540px,
+            // под которым остаётся пустой монитор.
+            fill
             total={total}
             hasMore={hasMore}
             loadingMore={loading}

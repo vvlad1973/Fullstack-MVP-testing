@@ -16,7 +16,7 @@
  */
 import { useEffect, useState } from "react";
 
-import { Button, DataGrid, Text } from "@skillum/ui-kit";
+import { Button, Cluster, DataGrid, Text } from "@skillum/ui-kit";
 
 /** Срез с посчитанными величинами — то, что отдаёт `GET /api/analytics/slices`. */
 export interface SliceRow {
@@ -54,6 +54,14 @@ export interface SliceListProps {
   axis?: string;
   /** Перейти в реестр с условиями среза (FR-08). */
   onOpenRegistry?: (conditions: Record<string, unknown>) => void;
+  /**
+   * Уйти в аналитику ТЕСТА с условиями этого среза (FR-24, переход «группа → тест»).
+   *
+   * Реестр отвечает на «кто эти люди», аналитика теста — на «что у них не получилось»: где
+   * провалились темы, какие задания подвели. Без перехода второй вопрос требовал бы заново
+   * искать тест в списке и там набирать условие, которое уже набрано здесь.
+   */
+  onOpenTestAnalytics?: (conditions: Record<string, unknown>) => void;
 }
 
 /** Процент для чтения человеком: без десятых, которых в таких числах всё равно нет. */
@@ -72,7 +80,9 @@ export interface SliceTopic {
 /** Состояние разворота одной строки: пока грузится — `null`, потом список тем. */
 type TopicsState = Record<string, SliceTopic[] | null>;
 
-export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListProps) {
+export function SliceList({
+  testId, from, to, axis, onOpenRegistry, onOpenTestAnalytics,
+}: SliceListProps) {
   const [slices, setSlices] = useState<SliceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -212,15 +222,23 @@ export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListP
     {
       key: "actions",
       header: "",
-      render: (row: SliceRow) => (onOpenRegistry ? (
-        <Button
-          variant="ghost"
-          size="s"
-          onClick={() => onOpenRegistry(row.conditions)}
-        >
-          Прохождения: {row.name}
-        </Button>
-      ) : null),
+      // Два перехода, а не один: реестр отвечает «кто эти люди», аналитика теста — «что у них
+      // не получилось» (FR-08, FR-24). Оба несут условия ЭТОГО среза, чтобы на той стороне
+      // ничего не пришлось набирать заново.
+      render: (row: SliceRow) => (
+        <Cluster gap={1}>
+          {onOpenRegistry && (
+            <Button variant="ghost" size="s" onClick={() => onOpenRegistry(row.conditions)}>
+              Прохождения: {row.name}
+            </Button>
+          )}
+          {onOpenTestAnalytics && (
+            <Button variant="ghost" size="s" onClick={() => onOpenTestAnalytics(row.conditions)}>
+              Аналитика теста
+            </Button>
+          )}
+        </Cluster>
+      ),
     },
   ];
 

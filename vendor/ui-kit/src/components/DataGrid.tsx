@@ -56,8 +56,8 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
    * строки, под которыми нечего показать: раскрытие в пустоту читается как
    * обещание, которого стол не держит.
    */
-  canExpand?: (row: T, index: number) => boolean;
-
+  canExpand?: (row: T, index: number) => boolean;
+
   /**
    * Строку РАЗВЕРНУЛИ. Вызывается только на открытии, не на закрытии.
    *
@@ -90,6 +90,15 @@ export interface DataGridProps<T> extends Omit<React.HTMLAttributes<HTMLDivEleme
 
   /** Сообщение пустого состояния. */
   emptyMessage?: React.ReactNode;
+
+  /**
+   * Стол занимает экран: потолок прокрутки считается от вьюпорта, а не от умолчания в 540px.
+   *
+   * Для стола, который и есть содержимое страницы (реестр, журнал): иначе строки листаются в
+   * окошке, под которым остаётся пустой экран. Столу ВНУТРИ страницы, рядом с другими
+   * блоками, этот режим не нужен — там окошко и есть верное поведение.
+   */
+  fill?: boolean;
 
   /**
    * Open the row itself. The row gets `is-clickable` (pointer cursor), the way
@@ -144,10 +153,52 @@ export function DataGrid<T>({
   page, pageSize, total, onPageChange, pageSizeOptions, onPageSizeChange,
   hasMore, loadingMore, onLoadMore,
   emptyMessage = 'Нет данных',
+  fill,
   onRowClick,
   className, style, ...rest
 }: DataGridProps<T>) {
   const sentinel = useRef<HTMLDivElement | null>(null);
+  const scrollArea = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Точный потолок стола в режиме `fill`: от его фактического верха до низа окна.
+   *
+   * CSS один этого не умеет. Вычесть из высоты окна фиксированную величину — значит угадать
+   * высоту всего, что стоит выше: шапки, вкладок, заголовка карточки, панели фильтра с чипами,
+   * которых бывает одна строка, а бывает три. Промах в любую сторону виден сразу: стол либо
+   * не достаёт до низа экрана, либо вылезает за него и страница получает ВТОРУЮ прокрутку —
+   * ту самую, из-за которой закреплённая шапка перестаёт держаться.
+   *
+   * Замер повторяется при изменении размера окна и при перекладке страницы. CSS-правило
+   * `.ou-grid--fill` остаётся запасным: оно работает там, где скрипта нет вовсе (эскизы).
+   */
+  useEffect(() => {
+    const area = scrollArea.current;
+    if (!fill || !area || typeof window === 'undefined') return;
+
+    /** Запас снизу: нижнее поле карточки и воздух страницы под ней. */
+    const GAP = 48;
+
+    const apply = () => {
+      const top = area.getBoundingClientRect().top + window.scrollY;
+      const footer = area.nextElementSibling as HTMLElement | null;
+      const below = footer ? footer.getBoundingClientRect().height : 0;
+      const room = window.innerHeight - top - below - GAP;
+      area.style.maxHeight = `${Math.max(room, 240)}px`;
+    };
+
+    apply();
+    window.addEventListener('resize', apply);
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(apply);
+    if (observer && area.parentElement) observer.observe(area.parentElement);
+
+    return () => {
+      window.removeEventListener('resize', apply);
+      observer?.disconnect();
+    };
+  }, [fill, rows.length]);
 
   // Хвост списка виден — значит пора за следующей порцией. Наблюдатель не заводится, когда
   // догружать нечего или запрос уже в пути: иначе одна прокрутка выстреливает несколько раз.
@@ -212,7 +263,10 @@ export function DataGrid<T>({
   const showToolbar = Boolean(title || onQueryChange || toolbarExtra);
 
   return (
-    <div className={cn('ou-grid', className, cssStyleClass(style, 'ou-grid-sx'))} {...rest}>
+    <div
+      className={cn('ou-grid', fill && 'ou-grid--fill', className, cssStyleClass(style, 'ou-grid-sx'))}
+      {...rest}
+    >
       {/* Toolbar */}
       {showToolbar && (
         <div className="ou-grid__toolbar">
@@ -247,7 +301,7 @@ export function DataGrid<T>({
         </div>
       )}
 
-      <div className="ou-grid__scroll">
+      <div className="ou-grid__scroll" ref={scrollArea}>
         <table className="ou-grid__table">
           <thead>
             <tr>

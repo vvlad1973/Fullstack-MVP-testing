@@ -28,6 +28,8 @@ vi.mock("recharts", () => {
 
 vi.mock("wouter", () => ({
   useRoute: () => [true, { testId: "t1" }],
+  // Условия отбора экрана живут в адресе (FR-13, FR-24), поэтому странице нужен и `useLocation`.
+  useLocation: () => ["/author/tests/t1/analytics", vi.fn()],
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
 }));
 

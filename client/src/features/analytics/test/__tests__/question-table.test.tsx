@@ -226,3 +226,60 @@ describe("QuestionTable — исключение из выдачи", () => {
     expect(onDeliveryChange).toHaveBeenCalledWith("q1", false);
   });
 });
+
+/**
+ * FR-22: у опросника эталона нет, поэтому доля верных заменяется РАЗБРОСОМ ответов, а
+ * колонки, которые без эталона ничего не значат, из таблицы уходят.
+ */
+describe("QuestionTable — измерительный тест", () => {
+  const SURVEY = [
+    {
+      ...QUESTIONS[2],
+      questionId: "s1", questionPrompt: "Насколько часто вы делегируете решения?",
+      questionType: "scale", totalAnswers: 412,
+      spread: {
+        answered: 412,
+        options: [
+          { label: "1", share: 6 }, { label: "2", share: 14 }, { label: "3", share: 44 },
+          { label: "4", share: 26 }, { label: "5", share: 10 },
+        ],
+      },
+    },
+    {
+      ...QUESTIONS[2],
+      questionId: "s2", questionPrompt: "Что вдохновляет вас как лидера?",
+      questionType: "allocation", totalAnswers: 7, spread: null,
+    },
+  ];
+
+  it("показывает разброс ответов вместо доли верных", () => {
+    render(<QuestionTable questions={SURVEY} measurement minObservations={10} />);
+
+    expect(screen.getByText("Разброс ответов")).toBeTruthy();
+    expect(screen.queryByText("Доля верных")).toBeNull();
+    // У шкалы подписи короткие, поэтому доля отделена тире: «1 6 %» читалось бы как число.
+    expect(screen.getByText(/1 — 6 % · 2 — 14 % · 3 — 44 %/)).toBeTruthy();
+  });
+
+  it("ниже порога наблюдений говорит «мало данных», а не рисует полосу", () => {
+    render(<QuestionTable questions={SURVEY} measurement minObservations={10} />);
+
+    expect(screen.getByText("мало данных")).toBeTruthy();
+  });
+
+  it("убирает колонки, которые без эталона ничего не значат", () => {
+    // Трудность — свойство задания с верным ответом, экспозиция — вопрос вкладки «Выдача».
+    render(<QuestionTable questions={SURVEY} measurement minObservations={10} />);
+
+    expect(screen.queryByText("Трудность")).toBeNull();
+    expect(screen.queryByText("Выдаётся")).toBeNull();
+    expect(screen.getByText("Ответов")).toBeTruthy();
+  });
+
+  it("оцениваемому тесту таблицу не меняет", () => {
+    render(<QuestionTable questions={QUESTIONS} />);
+
+    expect(screen.getByText("Доля верных")).toBeTruthy();
+    expect(screen.queryByText("Разброс ответов")).toBeNull();
+  });
+});

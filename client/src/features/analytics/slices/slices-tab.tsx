@@ -34,6 +34,8 @@ export interface SlicesTabProps {
   tests: Array<{ id: string; title: string }>;
   /** Открыть реестр по условиям среза (FR-08). */
   onOpenRegistry?: (conditions: Record<string, unknown>) => void;
+  /** Открыть аналитику теста по условиям среза — переход «группа → тест» (FR-24). */
+  onOpenTestAnalytics?: (testId: string, conditions: Record<string, unknown>) => void;
 }
 
 /** Оси разбиения: только те, для которых данные уже есть (FR-06a, FR-06b). */
@@ -62,7 +64,7 @@ function periodLabel(from?: string, to?: string): string {
   return from ? `с ${from}` : `по ${to}`;
 }
 
-export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
+export function SlicesTab({ tests, onOpenRegistry, onOpenTestAnalytics }: SlicesTabProps) {
   const [testId, setTestId] = useState<string | null>(null);
   const [from, setFrom] = useState<DatePickerValue>(null);
   const [to, setTo] = useState<DatePickerValue>(null);
@@ -148,6 +150,16 @@ export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
                     ...(fromIso ? { from: fromIso } : {}),
                     ...(toIso ? { to: toIso } : {}),
                   }))}
+                  // Тест переход несёт отдельно: на той стороне он задан страницей, а не
+                  // условием отбора (FR-13), поэтому в условия его класть нельзя.
+                  onOpenTestAnalytics={onOpenTestAnalytics && (conditions => onOpenTestAnalytics(
+                    testId,
+                    {
+                      ...conditions,
+                      ...(fromIso ? { from: fromIso } : {}),
+                      ...(toIso ? { to: toIso } : {}),
+                    },
+                  ))}
                 />
               )}
             </Stack>

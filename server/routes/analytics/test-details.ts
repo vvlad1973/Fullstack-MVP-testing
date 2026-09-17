@@ -6,6 +6,7 @@ import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { stripMarkdown } from "@shared/text";
 import { summariseAnswers } from "../../services/analytics/answers";
+import { answerSpread, type AnswerSpread } from "../../services/analytics/answer-spread";
 import { loadTestAnswerFacts, variantQuestionIds } from "../../services/analytics/test-answer-facts";
 import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
@@ -131,15 +132,42 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       /** Доля верных; `null` — оценивать было нечего (измерительный вопрос). */
       correctPercent: number | null;
       answersBySource: Record<string, number>;
+      /**
+       * Разброс ответов (FR-22): чем доля верных заменяется у измерительного задания.
+       * `null` — задание оценивается либо разбрасывать нечего.
+       */
+      spread: AnswerSpread | null;
     }
 
     const questionStatsMap = new Map<string, QuestionStatsEntry>();
+
+    /** Ответы по заданиям — сырьё разброса (FR-22). Собираются один раз, не в цикле. */
+    const answersOfQuestion = new Map<string, unknown[]>();
+    for (const fact of facts) {
+      const list = answersOfQuestion.get(fact.questionId);
+      if (list) list.push(fact.answer);
+      else answersOfQuestion.set(fact.questionId, [fact.answer]);
+    }
 
     for (const stats of summariseAnswers(facts)) {
       const question = questionMap.get(stats.questionId);
       if (!question) continue;
 
+      /**
+       * FR-22: у измерительного задания эталона нет, и вместо доли верных экран показывает
+       * разброс ответов. Считается только там, где он определён — у шкалы и распределения
+       * баллов: у задания с верным ответом разброс ничего не добавляет к доле верных.
+       */
+      const spread = question.type === "scale" || question.type === "allocation"
+        ? answerSpread({
+          type: question.type,
+          options: ((question.dataJson ?? {}) as { options?: string[] }).options ?? [],
+          answers: answersOfQuestion.get(stats.questionId) ?? [],
+        })
+        : null;
+
       questionStatsMap.set(stats.questionId, {
+        spread,
         questionId: stats.questionId,
         questionPrompt: stripMarkdown(question.prompt),
         questionType: question.type,
@@ -397,6 +425,12 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       hasScales,
       // The test's half of the PRD-29 §6.7 rule (see `summary` above).
       hasPassThreshold: thresholdDeclared,
+      /**
+       * Порог наблюдений инстанса: им экран решает, печатать ли разброс ответов задания или
+       * сказать «мало данных» (FR-22, FR-06d). Отдаётся вместе с данными, потому что настройка
+       * инстанса, а не клиента, и второго её значения на экране быть не должно.
+       */
+      minObservations: config.analytics.minObservations,
       /**
        * PRD-56 FR-13a: проходной балл В ПРОЦЕНТАХ — число, а не граница корзины.
        *
