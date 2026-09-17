@@ -654,7 +654,9 @@
                     <button type="button" class="ou-acc__trigger" aria-expanded="true">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title">1. О компании</span>
-                      <span class="ou-acc__subtitle">41 вопрос в банке · выдаётся 16</span>
+                      <!-- PRD-55 (FR-33): ожидаемая экспозиция хвостом существующей сводки — так она
+                           видна по всем темам разом, без разворачивания каждой. -->
+                      <span class="ou-acc__subtitle">41 вопрос в банке · выдаётся 16<span> · увидят 39%</span></span>
                     </span>
                     </button>
                     <span class="tb-topic-actions"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Убрать тему «1. О компании»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button></span>
@@ -683,6 +685,18 @@
                         </div>
                       </div>
                       <span class="tb-draw-count-row__max">из 41</span>
+                    </div>
+                    <!-- PRD-55 (FR-33): ожидаемая экспозиция — сколько участников увидят каждое задание
+                         темы при нынешней выдаче. Данных о прохождениях НЕ требует, поэтому работает и
+                         на пустом тесте, то есть тогда, когда настройку ещё можно исправить. Величина
+                         показывается всегда, меняется только тон: выше 70% — предупреждение о том, что
+                         банк вырабатывается за один поток. -->
+                    <div class="ou-banner ou-banner--subtle ou-banner--info" role="status" data-testid="topic-exposure-banner">
+                      <span class="ou-banner__ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg></span>
+                      <div class="ou-banner__body">
+                        <div class="ou-banner__title">Каждое задание темы увидят около 39% участников</div>
+                        <div class="ou-banner__desc">Выдача 16 из 41 — запаса банка хватает, задания не приедаются.</div>
+                      </div>
                     </div>
                     <div class="tb-question-order-row">
                       <span class="tb-question-order-row__lbl">Порядок вопросов</span>
@@ -840,7 +854,7 @@
                     <button type="button" class="ou-acc__trigger" aria-expanded="false">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title">2. Корпоративные финансы</span>
-                      <span class="ou-acc__subtitle">25 вопросов в банке · выдаётся 10</span>
+                      <span class="ou-acc__subtitle">25 вопросов в банке · выдаётся 10<span> · увидят 40%</span></span>
                     </span>
                     </button>
                     <span class="tb-topic-actions"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Убрать тему «2. Корпоративные финансы»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button></span>
@@ -853,7 +867,7 @@
                     <button type="button" class="ou-acc__trigger" aria-expanded="false">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title">3. Технологии</span>
-                      <span class="ou-acc__subtitle">28 вопросов в банке · выдаётся 12</span>
+                      <span class="ou-acc__subtitle">28 вопросов в банке · выдаётся 12<span> · увидят 43%</span></span>
                     </span>
                     </button>
                     <span class="tb-topic-actions"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Убрать тему «3. Технологии»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button></span>
