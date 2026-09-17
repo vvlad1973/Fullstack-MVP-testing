@@ -1529,6 +1529,12 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-card__header { padding-bottom: var(--ou-space-1); }
 .ou-card__body   { padding-top: 0; padding-bottom: 0; flex: 1; min-height: 0; }
 .ou-card__body:last-child { padding-bottom: var(--_pad); }
+/* Тело — ПЕРВЫЙ слот (карточка без шапки и без медиа): сверху те же 6x от края, что
+   `:last-child` уже даёт снизу. Обнуление padding-top выше рассчитано на шапку,
+   которая отступ и держит; без шапки верхняя строка прилипала к рамке. */
+.ou-card__body:first-child { padding-top: var(--_pad); }
+/* `--flush` снимает отступы слотов; правило выше специфичнее — гасим его явно. */
+.ou-card--flush > .ou-card__body:first-child { padding-top: 0; }
 .ou-card__header + .ou-card__body { padding-top: 0; }
 .ou-card__media + .ou-card__header,
 .ou-card__media + .ou-card__body { padding-top: var(--_pad); }
