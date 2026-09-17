@@ -25,6 +25,17 @@ export interface AssignedReader {
    *   величина к нему неприменима.
    */
   countFor(groupIds: readonly string[] | null): number | null;
+
+  /**
+   * Сколько назначенных — внешние участники, а сколько сотрудники.
+   *
+   * Отдельный счёт, потому что «внутренние и внешние» — ось про ЛЮДЕЙ, как и группа: у
+   * назначенного, который так и не начал, источника и номера попытки не существует, а
+   * признак внешнего есть всегда (PRD-28).
+   *
+   * @param external считать внешних (`true`) либо сотрудников (`false`)
+   */
+  countByKind(external: boolean): number;
 }
 
 /**
@@ -47,11 +58,20 @@ export async function readAssigned(
     if (assignment.groupId) needed.add(assignment.groupId);
   }
 
+  // Признак внешнего участника читается вместе с составом групп: список членов его уже несёт,
+  // а поимённо назначенных дочитываем ниже — их единицы.
+  const external = new Set<string>();
+  /** Про кого признак уже известен: все, кто попался в составе прочитанных групп. */
+  const knownKind = new Set<string>();
   const membersOfGroup = new Map<string, string[]>(
-    await Promise.all([...needed].map(async id => [
-      id,
-      (await storage.getGroupUsers(id)).map(user => user.id),
-    ] as const)),
+    await Promise.all([...needed].map(async id => {
+      const members = await storage.getGroupUsers(id);
+      for (const member of members) {
+        knownKind.add(member.id);
+        if ((member as { isExternal?: boolean }).isExternal) external.add(member.id);
+      }
+      return [id, members.map(user => user.id)] as const;
+    })),
   );
 
   // Назначение группе — это назначение каждому её участнику: человек, попавший в срез, должен
@@ -64,7 +84,25 @@ export async function readAssigned(
     }
   }
 
+  // Поимённо назначенный мог не состоять ни в одной группе — тогда его признак неизвестен и
+  // дочитывается по одному. Иначе внешний участник, позванный ссылкой, считался бы
+  // сотрудником. Дочитываются ТОЛЬКО такие: про членов групп всё уже прочитано выше.
+  await Promise.all([...assignedUsers]
+    .filter(id => !knownKind.has(id))
+    .map(async id => {
+      const user = await storage.getUser(id);
+      if (user && (user as { isExternal?: boolean }).isExternal) external.add(id);
+    }));
+
   return {
+    countByKind(wantExternal) {
+      let count = 0;
+      for (const userId of assignedUsers) {
+        if (external.has(userId) === wantExternal) count += 1;
+      }
+      return count;
+    },
+
     countFor(groupIds) {
       if (groupIds === null) return null;
       if (groupIds.length === 0) return assignedUsers.size;

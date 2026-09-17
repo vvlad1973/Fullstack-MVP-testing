@@ -210,4 +210,43 @@ describe("SliceCompare", () => {
     expect(screen.getAllByText(/мало данных/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/п\.п\./)).toBeNull();
   });
+  // FR-07b: набранный отбор сравнивается НАРАВНЕ с сохранёнными срезами. Сохранение нужно,
+  // когда срезом будут пользоваться и завтра, а вопрос «чем эти хуже тех» живёт одну минуту.
+  it("сравнивает набранный отбор, не требуя сохранять его срезом", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        slices: [
+          { ...SLICES[0], id: "adhoc", name: "Текущий отбор", conditions: { outcomes: ["failed"] } },
+          ...SLICES,
+        ],
+        minObservations: 10,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SliceCompare testId="test1" adhoc={{ outcomes: ["failed"] }} />);
+
+    // Условия уходят на сервер: срез считается тем же кодом, что сохранённый (FR-25).
+    await waitFor(() => expect(
+      fetchMock.mock.calls.some(call => String(call[0]).includes("conditions=")),
+    ).toBe(true));
+    // Слот занят сразу: пришли сюда именно за этим сравнением, и выбирать нечего.
+    // Имя встречается дважды — в слоте и в заголовке столбца, — что само по себе и есть
+    // ответ: отбор попал и в выбор, и в таблицу.
+    expect((await screen.findAllByText("Текущий отбор")).length).toBeGreaterThan(1);
+  });
+
+  // Править условия можно у СОХРАНЁННОГО среза: «тест целиком» условий не имеет, а набранный
+  // отбор правится там, где набран, — в фильтре реестра.
+  it("предлагает правку условий только сохранённому срезу", async () => {
+    render(<SliceCompare testId="test1" />);
+
+    await pick("Тест целиком");
+    expect(screen.queryByRole("button", { name: "Изменить условия" })).toBeNull();
+
+    await addSlot();
+    await pick("Розница");
+    expect(screen.getByRole("button", { name: "Изменить условия" })).toBeTruthy();
+  });
 });

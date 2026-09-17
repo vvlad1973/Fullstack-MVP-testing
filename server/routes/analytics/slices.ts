@@ -152,12 +152,20 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
       // сразу. Платы за это столько же, сколько за один разворот: ответы теста собираются
       // единожды, а срез — подмножество тех же фактов.
       const topics = await readSliceTopics(testId, rows);
-      // «Назначено» определено только у разбиения по группам: по остальным осям срез описывает
-      // попытку, а назначают человека (см. модуль назначений).
+      // «Назначено» определено у осей, которые описывают ЛЮДЕЙ: группа и признак внешнего
+      // участника. По остальным срез описывает попытку, а назначают человека, а не попытку.
       const assigned = await readAssigned(
         testId,
         axis === "group" ? buckets.map(bucket => bucket.key) : [],
       );
+      /** Сколько назначено этому срезу; `null` — величина к оси неприменима. */
+      const assignedOf = (key: string): number | null => {
+        // «Без группы» — не группа: её участники известны только по своим прохождениям, а
+        // назначенных без единой попытки в такой строке взять неоткуда.
+        if (axis === "group") return key === NONE ? null : assigned.countFor([key]);
+        if (axis === "external") return assigned.countByKind(key === "external");
+        return null;
+      };
 
       return res.json({
         axis,
@@ -169,11 +177,7 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
           // второй раз на клиенте, и два описания однажды разошлись бы.
           conditions: registryConditions(axis as SliceAxis, bucket.key),
           ...summariseSlice({ observations: bucket.observations, minObservations }),
-          // «Без группы» — не группа: её участники известны только по своим прохождениям, а
-          // назначенных без единой попытки в такой строке взять неоткуда. Прочерк честнее нуля.
-          assigned: assigned.countFor(
-            axis === "group" && bucket.key !== NONE ? [bucket.key] : null,
-          ),
+          assigned: assignedOf(bucket.key),
           weakest: weakestTopic(
             topics.topicsOf(new Set(bucket.observations.map(o => o.id))),
             minObservations,
@@ -193,9 +197,36 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
      * правила, и однажды он стал бы считаться не так, как всё остальное.
      */
     const withWhole = req.query.withWhole === "1" || req.query.withWhole === "true";
-    const sources = withWhole
-      ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }, ...saved]
-      : saved;
+
+    /**
+     * Отбор, набранный ПРЯМО СЕЙЧАС, — временный срез наравне с сохранёнными (FR-07b).
+     *
+     * Сравнение не должно требовать сохранения: «сравни то, что я отобрал, с Розницей» —
+     * обычный вопрос, а заставлять ради него придумывать имя и заводить строку в списке
+     * значит копить мусор из срезов, нужных на одну минуту.
+     */
+    const adhoc = ((): Record<string, unknown> | null => {
+      const raw = typeof req.query.conditions === "string" ? req.query.conditions.trim() : "";
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed as Record<string, unknown>
+          : null;
+      } catch {
+        // Условия приезжают из адреса и могут быть испорчены при пересылке: молча считаем,
+        // что их нет, — экран аналитики не место для разбора чужих ссылок.
+        return null;
+      }
+    })();
+
+    const sources = [
+      ...(adhoc ? [{ id: "adhoc", name: "Текущий отбор", conditionsJson: adhoc }] : []),
+      ...(withWhole
+        ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }]
+        : []),
+      ...saved,
+    ];
 
     // Один сбор ответов на все сохранённые срезы: каждый из них — подмножество прохождений
     // одной и той же рамки, и разбирать ответы заново на каждый значило бы платить за то же
@@ -358,6 +389,58 @@ router.post("/slices", requirePermission("analytics.read"), async (req: Request,
     }
     logger.error("Save slice error: " + (error as Error).message);
     res.status(500).json({ error: "Failed to save slice" });
+  }
+});
+
+/**
+ * PUT /api/analytics/slices/:id — поправить имя и условия среза (FR-07b).
+ *
+ * Без правки срез приходилось пересобирать заново: уйти в реестр, набрать условия, сохранить
+ * под новым именем, вернуться в сравнение. Имя при этом плодилось («Розница 2»), а старый
+ * срез оставался в списке мусором.
+ *
+ * Правка меняет и то, что срез ПОКАЗЫВАЕТ: он хранит условия, а не список прохождений
+ * (FR-07d), и пересчитывается при каждом открытии — это его свойство, а не следствие правки.
+ */
+router.put("/slices/:id", requirePermission("analytics.read"), async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: { name?: string; conditionsJson?: Record<string, unknown> } = {};
+
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) return res.status(400).json({ error: "Нужно имя среза" });
+      patch.name = name;
+    }
+
+    if (body.conditions !== undefined) {
+      const conditions = (body.conditions ?? {}) as Record<string, unknown>;
+      const hasConditions = Object.values(conditions).some(value =>
+        Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
+      if (!hasConditions) {
+        // Тот же запрет, что при сохранении: срез без условий — это весь тест, и он уже есть
+        // отдельной строкой «Тест целиком».
+        return res.status(400).json({ error: "Нужно хотя бы одно условие отбора" });
+      }
+      patch.conditionsJson = conditions;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: "Нечего менять" });
+    }
+
+    // Владелец проверяется запросом: чужой срез не найдётся, и это тот же ответ, что у
+    // несуществующего, — знать о чужих срезах читателю незачем.
+    const slice = await storage.updateSlice(req.params.id, req.currentUser?.id ?? "", patch);
+    if (!slice) return res.status(404).json({ error: "Срез не найден" });
+
+    res.json({ slice });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return res.status(409).json({ error: "Срез с таким именем уже есть" });
+    }
+    logger.error("Update slice error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to update slice" });
   }
 });
 

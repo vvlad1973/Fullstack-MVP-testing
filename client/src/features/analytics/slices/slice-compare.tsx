@@ -16,6 +16,7 @@ import {
   Accordion, AccordionItem, Box, Button, EmptyState, Select, Stack, Text,
 } from "@skillum/ui-kit";
 
+import { RegistryFilterDialog } from "../registry/filter-dialog";
 import { conditionsToFilter, describeConditions } from "../registry/filter-state";
 import { useRegistryDictionaries } from "../registry/use-dictionaries";
 
@@ -26,6 +27,12 @@ export interface SliceCompareProps {
   testId: string;
   from?: string;
   to?: string;
+  /**
+   * Отбор, набранный в реестре, — сравнивается НАРАВНЕ с сохранёнными срезами и сохранения
+   * не требует (FR-07b). Без этого «сравни то, что я отобрал, с Розницей» стоило бы похода в
+   * реестр, придумывания имени и лишней строки в списке срезов, нужной на одну минуту.
+   */
+  adhoc?: Record<string, unknown> | null;
 }
 
 /**
@@ -144,11 +151,15 @@ function ColumnHead(props: { name: string; conditions: Array<{ id: string; label
   );
 }
 
-export function SliceCompare({ testId, from, to }: SliceCompareProps) {
+export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
   const [available, setAvailable] = useState<SliceRow[]>([]);
   /** Слоты сравнения: по одному на срез, пустой слот — «не выбран» (эскиз, состояние compare). */
   const [slots, setSlots] = useState<Array<string | null>>([null]);
   const [failed, setFailed] = useState(false);
+  /** Срез, у которого открыта правка условий (FR-07b). */
+  const [editing, setEditing] = useState<SliceRow | null>(null);
+  /** Счётчик перезагрузок: правка условий меняет числа, и список надо пересчитать. */
+  const [reloads, setReloads] = useState(0);
   /** Названия тестов и групп — чтобы условие читалось, а не значилось кодом. */
   const dictionaries = useRegistryDictionaries();
 
@@ -157,6 +168,9 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
     const query = new URLSearchParams({ testId, withWhole: "1" });
     if (from) query.set("from", from);
     if (to) query.set("to", to);
+    // Набранный отбор считается сервером тем же кодом, что сохранённый срез: двух расчётов
+    // одной величины в продукте быть не должно (FR-25).
+    if (adhoc && Object.keys(adhoc).length > 0) query.set("conditions", JSON.stringify(adhoc));
 
     void (async () => {
       try {
@@ -172,7 +186,18 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
     })();
 
     return () => { alive = false; };
-  }, [testId, from, to]);
+  }, [testId, from, to, adhoc, reloads]);
+
+  /**
+   * Пришли из реестра с набранным отбором — он и занимает первый слот.
+   *
+   * Иначе переход «сравнить это» приводил бы на экран с пустым слотом, где отбор надо
+   * выбирать заново из списка, в котором его ещё и нет.
+   */
+  useEffect(() => {
+    if (!adhoc) return;
+    setSlots(prev => (prev.length === 1 && prev[0] === null ? ["adhoc"] : prev));
+  }, [adhoc]);
 
   const selected = useMemo(
     () => slots
@@ -268,6 +293,13 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
 
               {slice && (
                 <Stack direction="row" gap={2}>
+                  {/* Править можно СОХРАНЁННЫЙ срез: «тест целиком» условий не имеет вовсе, а
+                      набранный отбор правится там, где набран, — в фильтре реестра. */}
+                  {slice.id !== "whole" && slice.id !== "adhoc" && (
+                    <Button variant="secondary" size="s" onClick={() => setEditing(slice)}>
+                      Изменить условия
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="s"
@@ -416,6 +448,37 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
           </Stack>
         </>
       )}
+
+      {/* Правка условий среза — той же формой отбора, что в реестре (FR-07b): двух языков
+          условий в продукте нет, и заводить второй ради правки было бы худшим из решений. */}
+      <RegistryFilterDialog
+        open={editing !== null}
+        filter={conditionsToFilter(editing?.conditions ?? {})}
+        hideTest
+        onClose={() => setEditing(null)}
+        onApply={async next => {
+          const target = editing;
+          setEditing(null);
+          if (!target) return;
+          await fetch(`/api/analytics/slices/${target.id}`, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              conditions: {
+                groupIds: next.groupIds,
+                sources: next.sources,
+                outcomes: next.outcomes,
+                ...(next.from ? { from: next.from } : {}),
+                ...(next.to ? { to: next.to } : {}),
+              },
+            }),
+          });
+          // Срез хранит УСЛОВИЯ и пересчитывается при открытии (FR-07d): после правки числа
+          // другие, и список надо перечитать, а не поправить на месте.
+          setReloads(value => value + 1);
+        }}
+      />
     </Stack>
   );
 }

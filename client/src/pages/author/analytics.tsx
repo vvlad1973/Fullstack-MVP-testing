@@ -17,6 +17,7 @@ import { useLocation } from "wouter";
 
 import {
   conditionsToFilter,
+  countConditions,
   filterToSearch,
   EMPTY_FILTER,
   type RegistryFilter,
@@ -1007,6 +1008,13 @@ export default function AnalyticsPage() {
   /** FR-24: переход «группа → тест» уводит со страницы, поэтому нужен переход маршрутизатора. */
   const [, setLocation] = useLocation();
   /**
+   * Отбор, отправленный из реестра в сравнение (FR-07b).
+   *
+   * Держится состоянием страницы, а не адресом: это не выборка, а НАМЕРЕНИЕ сравнить —
+   * пересылать его ссылкой незачем, а вкладка «Срезы» о нём должна узнать сразу.
+   */
+  const [compareWith, setCompareWith] = useState<RegistryFilter | null>(null);
+  /**
    * Открытая вкладка. Держится состоянием, а не умолчанием, ради FR-08: переход из строки
    * среза открывает реестр и должен ПЕРЕКЛЮЧИТЬ экран, а не только подставить условия.
    */
@@ -1251,9 +1259,25 @@ export default function AnalyticsPage() {
                 // описания одной выборки однажды разойдутся, и книга перестанет отвечать
                 // экрану (эскиз prd56-analytics-section.html, состояние reg-export).
                 actions={(
-                  <Button variant="secondary" size="s" onClick={() => setExportOpen(true)}>
-                    Экспорт
-                  </Button>
+                  <>
+                    {/* FR-07b: сравнить набранный отбор со срезом можно НЕ СОХРАНЯЯ его —
+                        сохранение нужно, когда срезом будут пользоваться и завтра, а вопрос
+                        «чем эти хуже тех» живёт одну минуту. */}
+                    <Button
+                      variant="secondary"
+                      size="s"
+                      disabled={countConditions(registryFilter) === 0}
+                      onClick={() => {
+                        setCompareWith(registryFilter);
+                        setTab("slices");
+                      }}
+                    >
+                      Сравнить со срезом
+                    </Button>
+                    <Button variant="secondary" size="s" onClick={() => setExportOpen(true)}>
+                      Экспорт
+                    </Button>
+                  </>
                 )}
               />
             ),
@@ -1264,6 +1288,18 @@ export default function AnalyticsPage() {
             content: (
               <SlicesTab
                 tests={tests ?? []}
+                // Условия уходят в сравнение БЕЗ теста: он там рамка расчёта, а не условие
+                // отбора (FR-07e), и приезжает отдельным полем.
+                adhoc={compareWith
+                  ? {
+                    groupIds: compareWith.groupIds,
+                    sources: compareWith.sources,
+                    outcomes: compareWith.outcomes,
+                    ...(compareWith.from ? { from: compareWith.from } : {}),
+                    ...(compareWith.to ? { to: compareWith.to } : {}),
+                  }
+                  : null}
+                adhocTestId={compareWith?.testIds[0] ?? null}
                 onOpenRegistry={handleOpenSliceInRegistry}
                 // FR-24, переход «группа → тест»: условия среза едут в адрес аналитики теста,
                 // где их читает тот же разбор, что у реестра. Тест в условия не входит — он
