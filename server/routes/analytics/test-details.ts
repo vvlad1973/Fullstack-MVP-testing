@@ -77,6 +77,16 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
      * а факт ответа знает, какому прохождению принадлежит.
      */
     const inScope = new Set(observations.rows.map(row => row.id));
+    /**
+     * Отбор задан — значит выборку надо резать; не задан — резать нечего.
+     *
+     * Разница не косметическая. Без условий выборка и так равна всем прохождениям теста, и
+     * пересечение с ней ничего не меняет — но выбрасывает ответ, у которого прохождение не
+     * названо (старые строки телеметрии). Резать такие следует только тогда, когда отбор
+     * ДЕЙСТВИТЕЛЬНО что-то ограничивает, иначе экран молча теряет данные на ровном месте.
+     */
+    const narrowed = Object.keys(filter).length > 0;
+    const selects = (attemptId: string) => !narrowed || inScope.has(attemptId);
 
     const summary = {
       totalAttempts: stats.totalAttempts,
@@ -106,14 +116,14 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
      * бы с первым молча — расхождением чисел на двух экранах.
      */
     /** Завершённые веб-попытки ВЫБОРКИ: всё, что считается по попыткам, считается по ним. */
-    const selectedAttempts = completedAttempts.filter(attempt => inScope.has(attempt.id));
+    const selectedAttempts = completedAttempts.filter(attempt => selects(attempt.id));
 
     const {
       facts: allFacts, questionById, topicNameById, topicRules, difficultyOf,
     } = await loadTestAnswerFacts(testId, selectedAttempts);
     // Ответы прохождений из LMS дочитываются по тесту целиком, поэтому отбор применяется и к
     // ним: иначе фильтр по группе резал бы веб, а телеметрию оставлял бы нетронутой (FR-25).
-    const facts = allFacts.filter(fact => inScope.has(fact.attemptId));
+    const facts = allFacts.filter(fact => selects(fact.attemptId));
     const questionMap = questionById;
     const topicMap = topicNameById;
 

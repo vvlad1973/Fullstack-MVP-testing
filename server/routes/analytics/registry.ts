@@ -72,31 +72,39 @@ async function groupsOfPage(
   rows: Array<{ id: string; userId: string | null; groupId: string | null }>,
 ): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
+  // Группа — ДОПОЛНЕНИЕ к строке, а не условие её существования: прохождение состоялось
+  // независимо от того, прочиталось ли членство. Сбой справочника уходит в лог, реестр
+  // отдаётся без групп — тот же порядок, что у экспозиции и времени задания (PRD-55).
+  try {
+    const ownGroupIds = [...new Set(
+      rows.map(row => row.groupId).filter((id): id is string => !!id),
+    )];
+    const ownNames = new Map(
+      (await Promise.all(ownGroupIds.map(id => storage.getGroup(id))))
+        .filter((group): group is NonNullable<typeof group> => !!group)
+        .map(group => [group.id, group.name]),
+    );
 
-  const ownGroupIds = [...new Set(rows.map(row => row.groupId).filter((id): id is string => !!id))];
-  const ownNames = new Map(
-    (await Promise.all(ownGroupIds.map(id => storage.getGroup(id))))
-      .filter((group): group is NonNullable<typeof group> => !!group)
-      .map(group => [group.id, group.name]),
-  );
+    const userIds = [...new Set(
+      rows.filter(row => !row.groupId).map(row => row.userId).filter((id): id is string => !!id),
+    )];
+    const membership = new Map(
+      await Promise.all(userIds.map(async id => [
+        id,
+        (await storage.getUserGroups(id)).map(group => group.name),
+      ] as const)),
+    );
 
-  const userIds = [...new Set(
-    rows.filter(row => !row.groupId).map(row => row.userId).filter((id): id is string => !!id),
-  )];
-  const membership = new Map(
-    await Promise.all(userIds.map(async id => [
-      id,
-      (await storage.getUserGroups(id)).map(group => group.name),
-    ] as const)),
-  );
-
-  for (const row of rows) {
-    if (row.groupId) {
-      const name = ownNames.get(row.groupId);
-      out.set(row.id, name ? [name] : []);
-      continue;
+    for (const row of rows) {
+      if (row.groupId) {
+        const name = ownNames.get(row.groupId);
+        out.set(row.id, name ? [name] : []);
+        continue;
+      }
+      out.set(row.id, row.userId ? membership.get(row.userId) ?? [] : []);
     }
-    out.set(row.id, row.userId ? membership.get(row.userId) ?? [] : []);
+  } catch (error) {
+    logger.warn("Группы прохождений не прочитаны — " + (error as Error).message);
   }
   return out;
 }

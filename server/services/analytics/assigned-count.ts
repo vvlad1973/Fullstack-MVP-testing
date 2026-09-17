@@ -13,6 +13,7 @@
  * (FR-29).
  */
 
+import { logger } from "../../logger";
 import { storage } from "../../storage";
 
 /** Готовый справочник назначений теста: счёт по срезам без новых запросов. */
@@ -51,7 +52,18 @@ export async function readAssigned(
   testId: string,
   sliceGroupIds: readonly string[] = [],
 ): Promise<AssignedReader> {
-  const assignments = await storage.getTestAssignments(testId);
+  /**
+   * Назначения — ДОПОЛНЕНИЕ к срезу, а не условие его существования: прохождения случились
+   * независимо от того, прочиталось ли, кого звали. Сбой чтения уходит в лог, а величина
+   * отвечает «неизвестно» прочерком — экран срезов от этого не перестаёт работать.
+   */
+  let assignments: Awaited<ReturnType<typeof storage.getTestAssignments>>;
+  try {
+    assignments = await storage.getTestAssignments(testId);
+  } catch (error) {
+    logger.warn("Назначения теста не прочитаны — " + (error as Error).message);
+    return { countFor: () => null, countByKind: () => 0 };
+  }
 
   const needed = new Set<string>(sliceGroupIds);
   for (const assignment of assignments) {
