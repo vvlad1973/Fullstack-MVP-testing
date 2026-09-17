@@ -2764,6 +2764,17 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-grid__table tbody td.is-muted { color: var(--ou-fg-muted); }
 
 .ou-grid__cell-strong { font: var(--ou-text-body-m); font-weight: 500; color: var(--ou-fg-default); }
+
+/**
+ * Ячейка, которой позволено переноситься.
+ *
+ * Строки стола по умолчанию не переносятся: так столбцы остаются сопоставимыми по высоте, и
+ * это верно для чисел и коротких подписей. Но ячейка бывает содержательной — текст задания,
+ * перечень долей ответов, — и тогда запрет переноса распирает столбец по самой длинной
+ * строке, выталкивая за край экрана всё, что правее. Класс ставится на СОДЕРЖИМОЕ ячейки,
+ * а не на неё саму, чтобы соседние столбцы правил не меняли.
+ */
+.ou-grid__cell-wrap { display: block; white-space: normal; }
 .ou-grid__cell-sub { display: block; font: var(--ou-text-body-xs); color: var(--ou-fg-muted); margin-top: 2px; }
 
 .ou-grid__check { accent-color: var(--ou-accent-default); }

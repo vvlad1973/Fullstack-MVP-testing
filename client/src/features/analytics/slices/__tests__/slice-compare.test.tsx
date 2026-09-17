@@ -59,9 +59,25 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-/** Выбрать срез в списке доступных. */
+/**
+ * Выбрать срез в очередном слоте сравнения.
+ *
+ * Слоты устроены как в эскизе (состояние `compare`): в каждом свой список сохранённых срезов,
+ * а новый слот добавляется плиткой «+ Добавить срез». Поэтому выбор — это «открыть список
+ * последнего слота и взять в нём срез», а не нажатие кнопки с именем.
+ */
 async function pick(name: string) {
-  await userEvent.click(await screen.findByRole("button", { name: `Добавить срез: ${name}` }));
+  // Доступное имя кнопке списка даёт ПОДПИСЬ поля, а не выбранное значение, поэтому пустой
+  // слот отличается по тексту внутри неё.
+  const triggers = await screen.findAllByRole("button", { name: /Сохранённый срез/ });
+  const empty = triggers.filter(trigger => trigger.textContent?.includes("— не выбран —"));
+  await userEvent.click(empty[empty.length - 1] ?? triggers[triggers.length - 1]);
+  await userEvent.click(await screen.findByRole("option", { name }));
+}
+
+/** Добавить пустой слот — для срезов со второго и далее. */
+async function addSlot() {
+  await userEvent.click(screen.getByRole("button", { name: "+ Добавить срез" }));
 }
 
 describe("SliceCompare", () => {
@@ -71,29 +87,33 @@ describe("SliceCompare", () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Розница");
+    await addSlot();
     await pick("Отдел продаж");
 
-    const table = screen.getByRole("table");
-    expect(within(table).getByText("Доля верных ответов по темам")).toBeTruthy();
+    // Доли по темам вынесены отдельной таблицей: единица счёта у них другая — доля ОТВЕТОВ,
+    // а не прохождений (эскиз, состояние compare).
+    expect(screen.getByText("Доля верных ответов")).toBeTruthy();
 
-    const financeRow = within(table).getByText("Финансы").closest("tr")!;
+    const financeRow = screen.getByText("Финансы").closest("tr")!;
     expect(within(financeRow).getByText("81 %")).toBeTruthy();
     expect(within(financeRow).getByText("64 %")).toBeTruthy();
     expect(within(financeRow).getByText("+17 п.п.")).toBeTruthy();
 
     // «Право» есть только у одного среза: разницы нет, и выдумывать её не из чего.
-    const lawRow = within(table).getByText("Право").closest("tr")!;
+    const lawRow = screen.getByText("Право").closest("tr")!;
     expect(within(lawRow).getByText("55 %")).toBeTruthy();
     expect(within(lawRow).getAllByText("—").length).toBe(2);
   });
 
-  // FR-07f: имя срезу даёт автор, и оно может обещать не то, что срез считает.
-  it("показывает условия сравниваемого среза карточкой", async () => {
+  // FR-07f: имя срезу даёт автор, и оно может обещать не то, что срез считает, — поэтому
+  // условия видны и в слоте, и подписью под именем столбца.
+  it("показывает условия выбранного среза", async () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Тест целиком");
 
-    expect(await screen.findByText("без условий — тест целиком")).toBeTruthy();
+    expect(await screen.findByText("Условия отбора · 0")).toBeTruthy();
+    expect(screen.getAllByText("без условий — тест целиком").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Убрать" })).toBeTruthy();
   });
 
@@ -101,9 +121,10 @@ describe("SliceCompare", () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Розница");
+    await addSlot();
     await pick("Отдел продаж");
 
-    const table = screen.getByRole("table");
+    const table = screen.getAllByRole("table")[0];
     expect(within(table).getByText("Розница")).toBeTruthy();
     expect(within(table).getByText("Отдел продаж")).toBeTruthy();
   });
@@ -112,9 +133,10 @@ describe("SliceCompare", () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Розница");
+    await addSlot();
     await pick("Отдел продаж");
 
-    const table = screen.getByRole("table");
+    const table = screen.getAllByRole("table")[0];
     expect(within(table).getByText("Разница")).toBeTruthy();
     // Доли: 83 − 60 = 23 п.п., 78 − 64 = 14 п.п.
     expect(within(table).getByText("+23 п.п.")).toBeTruthy();
@@ -127,21 +149,25 @@ describe("SliceCompare", () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Розница");
+    await addSlot();
     await pick("Отдел продаж");
+    await addSlot();
     await pick("Логистика");
 
-    expect(within(screen.getByRole("table")).queryByText("Разница")).toBeNull();
+    expect(within(screen.getAllByRole("table")[0]).queryByText("Разница")).toBeNull();
   });
 
   it("не даёт сравнивать больше четырёх срезов и говорит почему", async () => {
     render(<SliceCompare testId="test1" />);
 
-    for (const name of ["Розница", "Отдел продаж", "Логистика", "Подрядчики"]) await pick(name);
+    for (const name of ["Розница", "Отдел продаж", "Логистика", "Подрядчики"]) {
+      await pick(name);
+      await addSlot();
+    }
 
-    // FR-07g: кнопка ВЫКЛЮЧАЕТСЯ, а не исчезает — исчезнувшая читается как «больше срезов
-    // нет», а выключенная с подписью объясняет, почему пятый не добавить.
-    expect(screen.getByRole("button", { name: /Добавить срез: Тест целиком/ }))
-      .toBeDisabled();
+    // FR-07g: плитка ВЫКЛЮЧАЕТСЯ, а не исчезает — исчезнувшая читается как «больше срезов
+    // нет», а выключенная с подписью объясняет, почему пятого не будет.
+    expect(screen.getByRole("button", { name: "+ Добавить срез" })).toBeDisabled();
     expect(screen.getByText(/Сравнивают не больше четырёх/i)).toBeTruthy();
   });
 
@@ -149,9 +175,10 @@ describe("SliceCompare", () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Тест целиком");
+    await addSlot();
     await pick("Розница");
 
-    const table = screen.getByRole("table");
+    const table = screen.getAllByRole("table")[0];
     expect(within(table).getByText("Тест целиком")).toBeTruthy();
   });
 
@@ -177,10 +204,10 @@ describe("SliceCompare", () => {
     render(<SliceCompare testId="test1" />);
 
     await pick("Розница");
+    await addSlot();
     await pick("Отдел продаж");
 
-    const table = screen.getByRole("table");
-    expect(within(table).getAllByText(/мало данных/i).length).toBeGreaterThan(0);
-    expect(within(table).queryByText(/п\.п\./)).toBeNull();
+    expect(screen.getAllByText(/мало данных/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/п\.п\./)).toBeNull();
   });
 });
