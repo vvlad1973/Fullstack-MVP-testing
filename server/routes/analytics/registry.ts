@@ -20,6 +20,7 @@ import {
   type ObservationOutcome,
   type ObservationSource,
 } from "../../services/analytics/observations";
+import type { ObservationSort } from "../../storage/analytics-repository";
 import { analyticsScope } from "./helpers";
 
 const router = Router();
@@ -30,6 +31,9 @@ const MAX_LIMIT = 200;
 
 const SOURCES: ObservationSource[] = ["web", "telemetry", "import"];
 const OUTCOMES: ObservationOutcome[] = ["passed", "failed", "completed", "incomplete"];
+
+/** Столбцы, по которым реестр сортируется. Те же, что видны на экране. */
+const SORTS: ObservationSort[] = ["participant", "test", "date", "result", "outcome", "source"];
 
 /** Значения параметра, повторённого несколько раз или перечисленного через запятую. */
 function listOf(value: unknown): string[] {
@@ -111,6 +115,13 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
     const testIds = listOf(req.query.testId);
     const groupIds = listOf(req.query.groupId);
 
+    // Столбец сортировки принимается только из перечня: незнакомое имя — это опечатка в
+    // чужой ссылке, и отвечать на неё ошибкой незачем, реестр просто встаёт по умолчанию.
+    const sort = SORTS.includes(String(req.query.sort) as ObservationSort)
+      ? String(req.query.sort) as ObservationSort
+      : undefined;
+    const dir = req.query.dir === "asc" ? "asc" as const : undefined;
+
     const page = await loadObservations(
       {
         ...(testIds.length ? { testIds } : {}),
@@ -119,6 +130,8 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
         ...(outcomes.length ? { outcomes } : {}),
         ...(dateOf(req.query.from, "start") ? { from: dateOf(req.query.from, "start") } : {}),
         ...(dateOf(req.query.to, "end") ? { to: dateOf(req.query.to, "end") } : {}),
+        ...(sort ? { sort } : {}),
+        ...(dir ? { dir } : {}),
         limit,
         offset,
       },

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Button, Card, CardBody, CardHeader, DataGrid, FilterBar, Input, ModalDialog, Stack, Tag, Text,
+  type SortDir,
 } from "@skillum/ui-kit";
 
 import { pluralize } from "@/lib/i18n";
@@ -122,6 +123,15 @@ export function PassageRegistry({
   /** Номер запроса: ответ на устаревшие условия не должен затирать свежий список. */
   const request = useRef(0);
 
+  /**
+   * Чем упорядочен реестр (FR-01a).
+   *
+   * Держится здесь, а не в адресе: порядок — это не выборка, и пересылать «отсортировано по
+   * результату» коллеге незачем, а условия отбора в ссылке не должны шуметь.
+   */
+  const [sortKey, setSortKey] = useState("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
   const load = useCallback(async (offset: number) => {
     const ticket = (request.current += 1);
     setLoading(true);
@@ -130,6 +140,10 @@ export function PassageRegistry({
       const query = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
       query.set("limit", String(PAGE_SIZE));
       query.set("offset", String(offset));
+      // Сортировка идёт НА СЕРВЕР: строки приходят порциями, и разложить по столбцу можно
+      // лишь то, что уже пришло, — худший результат на второй странице так не найти.
+      query.set("sort", sortKey);
+      query.set("dir", sortDir);
       const response = await fetch(`/api/analytics/registry?${query.toString()}`, {
         credentials: "include",
       });
@@ -143,7 +157,7 @@ export function PassageRegistry({
     } finally {
       if (ticket === request.current) setLoading(false);
     }
-  }, [search]);
+  }, [search, sortKey, sortDir]);
 
   // Смена условий начинает список заново: догруженный хвост принадлежал прежней выборке.
   useEffect(() => {
@@ -172,12 +186,14 @@ export function PassageRegistry({
       key: "participant",
       header: "Участник",
       frozen: true,
+      sortable: true,
       render: (row: RegistryRow) => <span className="ou-grid__cell-strong">{row.participant}</span>,
     },
-    { key: "test", header: "Тест", render: (row: RegistryRow) => row.testTitle },
-    { key: "date", header: "Дата", render: (row: RegistryRow) => formatMoment(row.startedAt) },
+    { key: "test", header: "Тест", sortable: true, render: (row: RegistryRow) => row.testTitle },
+    { key: "date", header: "Дата", sortable: true, render: (row: RegistryRow) => formatMoment(row.startedAt) },
     {
       key: "result",
+      sortable: true,
       header: "Результат",
       numeric: true,
       // Прочерк, а не ноль: у прохождения без оценивания результата нет (PRD-29 §6.7).
@@ -185,6 +201,7 @@ export function PassageRegistry({
     },
     {
       key: "outcome",
+      sortable: true,
       header: "Исход",
       render: (row: RegistryRow) => (
         <Tag tone={outcomeTone(row.outcome)}>{OUTCOME_LABEL[row.outcome]}</Tag>
@@ -192,6 +209,7 @@ export function PassageRegistry({
     },
     {
       key: "source",
+      sortable: true,
       header: "Источник",
       render: (row: RegistryRow) => <Tag>{SOURCE_LABEL[row.source]}</Tag>,
     },
@@ -327,6 +345,9 @@ export function PassageRegistry({
             // Реестр и есть содержимое экрана: без этого он листался бы в окошке на 540px,
             // под которым остаётся пустой монитор.
             fill
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={(key, dir) => { setSortKey(key); setSortDir(dir); }}
             total={total}
             hasMore={hasMore}
             loadingMore={loading}

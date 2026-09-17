@@ -10,12 +10,12 @@
  * Репозиторий отдаёт сырые строки — приведение к наблюдению живёт в сервисе, потому что зависит
  * от правил оценивания, а не от хранения.
  */
-import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 
 import { db } from "../db";
 import {
-  attempts, scormAnswers, scormAttempts, scormPackages, tests, userGroups,
+  attempts, scormAnswers, scormAttempts, scormPackages, tests, userGroups, users,
   type Attempt, type ScormAttempt,
 } from "@shared/schema";
 
@@ -38,7 +38,19 @@ export interface ObservationQuery {
   offset?: number;
   /** Ни одна строка подойти не может: доступных тестов нет вовсе. */
   impossible?: boolean;
+  /**
+   * Чем упорядочить выборку. Умолчание — дата начала по убыванию.
+   *
+   * Сортировка обязана быть здесь, а не в компоненте: строки приходят порциями, и разложить
+   * по столбцу можно лишь то, что уже пришло, — «худший результат» на второй странице так
+   * не найти никогда.
+   */
+  sort?: ObservationSort;
+  dir?: "asc" | "desc";
 }
+
+/** Столбцы реестра, по которым он сортируется. Совпадают с колонками экрана. */
+export type ObservationSort = "participant" | "test" | "date" | "result" | "outcome" | "source";
 
 export interface ObservationRows {
   web: Attempt[];
@@ -174,10 +186,104 @@ export class AnalyticsRepository {
       ...(query.impossible ? [NOTHING] : []),
     );
 
+    /**
+     * Подписи и величины, по которым реестр сортируется, — в обоих источниках по одному
+     * правилу, иначе половина выборки встанет не туда.
+     *
+     * Участник: у веб-попытки это имя учётной записи, у строки из LMS — имя, пришедшее из
+     * отчёта, а где и его нет — псевдоним (то же правило, что рисует подпись на экране).
+     * Процент: у веба он лежит в итоге попытки, у LMS — своей колонкой.
+     */
+    // `nullif` не украшение: безымянная строка — это «участник неизвестен», и по алфавиту она
+    // не стоит нигде. Пустая строка встала бы в начало возрастающей сортировки, заняв место
+    // перед реальными людьми; NULL уходит в конец вместе с прочими «нет данных».
+    const webParticipant = sql`nullif(${users.name}, '')`;
+    const lmsParticipant = sql`nullif(coalesce(${scormAttempts.lmsUserName}, ${scormAttempts.participantKey}), '')`;
+    const webPercent = sql`(${attempts.resultJson} ->> 'overallPercent')::numeric`;
+    const lmsPercent = scormAttempts.resultPercent;
+
+    /**
+     * Ключ сортировки едет ОТДЕЛЬНОЙ колонкой объединения, а не выражением над номером.
+     *
+     * Сослаться на колонку union можно только её номером, но номер — это ссылка, а не
+     * значение: `(3 is null)` PostgreSQL понимает как условие над числом три и запрос
+     * отвергает. Поэтому выбранная величина и признак её отсутствия считаются в каждой ветке
+     * заранее, и порядок задаётся уже по ним.
+     */
+    const sortOf = (of: Record<ObservationSort, unknown>) => of[query.sort ?? "date"];
+    /**
+     * Процент как ВЕЛИЧИНА СОРТИРОВКИ подчиняется тому же правилу, что колонка на экране:
+     * результата нет у незавершённого прохождения; у теста без проходного балла ноль процентов
+     * не результат, а отсутствие оценивания (PRD-29 §6.7); и там, где оценивать было нечего,
+     * его тоже нет. Все три случая уходят в конец вместе с прочими «нет данных» — те же три
+     * условия, по которым процент становится прочерком в колонке «Результат».
+     *
+     * Без этого сортировка спорила бы с тем, что видно: наверху вставали бы строки, у которых
+     * в колонке «Результат» стоит прочерк.
+     */
+    const gradedPercent = (percent: unknown, finished: unknown, graded: unknown) => sql`case
+      when not ${finished} then null
+      when coalesce(${tests.overallPassRuleJson} ->> 'type', 'none') = 'none' then null
+      when coalesce(${graded}, 0) <= 0 then null
+      else ${percent}
+    end`;
+    /**
+     * Ключ сортировки считается СВОИМИ выражениями, а не теми, что стоят в выборке.
+     *
+     * Выражение выборки несёт псевдоним, и подстановка его же во второе место даёт ссылку на
+     * псевдоним — а ссылаться на псевдоним внутри того же SELECT нельзя: запрос падает на
+     * «column "participant" does not exist».
+     */
+    const webSortKey = sortOf({
+      date: attempts.startedAt,
+      participant: sql`nullif(${users.name}, '')`,
+      test: sql`coalesce(${tests.title}, '')`,
+      result: gradedPercent(
+        sql`(${attempts.resultJson} ->> 'overallPercent')::numeric`,
+        webFinished,
+        webGraded,
+      ),
+      outcome: outcomeSql(
+        webFinished,
+        sql`(${attempts.resultJson} ->> 'mode') = 'adaptive'`,
+        webGraded,
+        sql`(${attempts.resultJson} ->> 'overallPassed')::boolean`,
+      ),
+      source: sql`'web'`,
+    });
+    const lmsSortKey = sortOf({
+      date: scormAttempts.startedAt,
+      participant: sql`nullif(coalesce(${scormAttempts.lmsUserName}, ${scormAttempts.participantKey}), '')`,
+      test: sql`coalesce(${tests.title}, '')`,
+      result: gradedPercent(
+        scormAttempts.resultPercent,
+        sql`${scormAttempts.finishedAt} is not null`,
+        lmsGraded,
+      ),
+      outcome: outcomeSql(
+        sql`${scormAttempts.finishedAt} is not null`,
+        sql`false`,
+        lmsGraded,
+        scormAttempts.resultPassed,
+      ),
+      source: scormAttempts.origin,
+    });
+
     const webKeys = db
-      .select({ id: attempts.id, source: sql<string>`'web'`, startedAt: attempts.startedAt })
+      .select({
+        id: attempts.id,
+        source: sql<string>`'web'`.as("source"),
+        startedAt: attempts.startedAt,
+        participant: webParticipant.as("participant"),
+        testTitle: sql`coalesce(${tests.title}, '')`.as("test_title"),
+        percent: webPercent.as("percent"),
+        outcome: webOutcome.as("outcome"),
+        sortEmpty: sql`(${webSortKey} is null)`.as("sort_empty"),
+        sortKey: sql`${webSortKey}`.as("sort_key"),
+      })
       .from(attempts)
       .leftJoin(tests, eq(tests.id, attempts.testId))
+      .leftJoin(users, eq(users.id, attempts.userId))
       .where(webWhere);
 
     const lmsKeys = db
@@ -185,15 +291,49 @@ export class AnalyticsRepository {
         id: scormAttempts.id,
         source: scormAttempts.origin,
         startedAt: scormAttempts.startedAt,
+        participant: lmsParticipant.as("participant"),
+        testTitle: sql`coalesce(${tests.title}, '')`.as("test_title"),
+        percent: lmsPercent,
+        outcome: lmsOutcome.as("outcome"),
+        sortEmpty: sql`(${lmsSortKey} is null)`.as("sort_empty"),
+        sortKey: sql`${lmsSortKey}`.as("sort_key"),
       })
       .from(scormAttempts)
       .leftJoin(scormPackages, eq(scormPackages.id, scormAttempts.packageId))
       .leftJoin(tests, eq(tests.id, sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`))
       .where(lmsWhere);
 
-    // Сортировка задана номерами колонок — единственный способ сослаться на колонку
-    // объединения, у которой нет своей таблицы.
-    const ordered = unionAll(webKeys, lmsKeys).orderBy(sql`3 desc`, sql`1 desc`);
+    /**
+     * Порядок задан НОМЕРАМИ колонок: сослаться на колонку объединения иначе нельзя — своей
+     * таблицы у неё нет. Восьмая колонка — признак «величины нет», девятая — сама величина.
+     *
+     * Первым ключом идёт признак пустоты, и всегда по возрастанию: строки без величины
+     * оказываются в конце при любом направлении, иначе сортировка по результату начиналась бы
+     * с прочерков. Последним — идентификатор: у прохождений одной секунды (или с одинаковым
+     * результатом) иначе нет определённого места, и при догрузке порциями строки терялись бы
+     * или двоились.
+     */
+    const direction = query.dir === "asc" ? "asc" : "desc";
+    /**
+     * Объединение заворачивается в подзапрос, и порядок задаётся по ИМЕНАМ его колонок.
+     *
+     * Ссылаться номерами тоже можно, но номер — это ссылка, а не значение: условие над ним
+     * PostgreSQL отвергает, а `nulls last` при этом молча теряется. Имя колонки подзапроса
+     * снимает оба ограничения разом и переживает добавление новой колонки в выборку.
+     */
+    const union = unionAll(webKeys, lmsKeys).as("observations");
+    const ordered = db
+      .select({ id: union.id, source: union.source })
+      .from(union)
+      .orderBy(
+        // Первый ключ — «величины нет», всегда по возрастанию: такие строки уходят в конец при
+        // ЛЮБОМ направлении, иначе сортировка по результату начинается с прочерков.
+        asc(union.sortEmpty),
+        direction === "asc" ? asc(union.sortKey) : desc(union.sortKey),
+        // Последний — идентификатор: у прохождений одной секунды (или с равным результатом)
+        // иначе нет определённого места, и при догрузке порциями строки терялись бы.
+        desc(union.id),
+      );
     const limited = query.limit === undefined ? ordered : ordered.limit(query.limit);
     const keysQuery: PromiseLike<Array<{ id: string; source: string }>> =
       query.offset ? limited.offset(query.offset) : limited;

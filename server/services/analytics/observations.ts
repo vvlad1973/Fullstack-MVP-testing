@@ -15,6 +15,7 @@
 import { hasPronouncedVerdict, nothingToGrade } from "@shared/scoring/pass-rule";
 
 import { storage } from "../../storage";
+import type { ObservationSort } from "../../storage/analytics-repository";
 import { attemptParticipant, attemptTestId } from "./attempt-row";
 
 /** Откуда приехало прохождение. Фильтр экрана говорит ровно в этих терминах. */
@@ -282,6 +283,9 @@ export interface ObservationFilter {
   to?: Date;
   limit?: number;
   offset?: number;
+  /** Чем упорядочить выборку (FR-01a): столбец реестра и направление. */
+  sort?: ObservationSort;
+  dir?: "asc" | "desc";
 }
 
 /**
@@ -331,6 +335,8 @@ export async function loadObservations(
     to: filter.to,
     limit: filter.limit,
     offset: filter.offset,
+    sort: filter.sort,
+    dir: filter.dir,
     impossible: !scope.all && (allowed?.length ?? 0) === 0,
   });
 
