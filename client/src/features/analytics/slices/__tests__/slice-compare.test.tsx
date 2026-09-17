@@ -23,11 +23,20 @@ const SLICES = [
     id: "s1", name: "Розница", conditions: { groupIds: ["g1"] },
     started: 20, completed: 18, passed: 15, participants: 18,
     passRate: 83, avgPercent: 78, enoughData: true,
+    topics: [
+      { topicId: "t1", topicName: "Финансы", correctShare: 81, inSample: 18 },
+      { topicId: "t2", topicName: "Право", correctShare: 55, inSample: 18 },
+    ],
   },
   {
     id: "s2", name: "Отдел продаж", conditions: { groupIds: ["g2"] },
     started: 22, completed: 20, passed: 12, participants: 20,
     passRate: 60, avgPercent: 64, enoughData: true,
+    topics: [
+      { topicId: "t1", topicName: "Финансы", correctShare: 64, inSample: 20 },
+      // Темы «Право» у этого среза нет: вопросы не выпали. Ячейка обязана сказать прочерк.
+      { topicId: "t3", topicName: "Логистика", correctShare: 70, inSample: 20 },
+    ],
   },
   {
     id: "s3", name: "Логистика", conditions: { groupIds: ["g3"] },
@@ -56,6 +65,38 @@ async function pick(name: string) {
 }
 
 describe("SliceCompare", () => {
+  // FR-07: доли верных ПО ТЕМАМ — ради них сравнение и затевают. Тема, которой у одного из
+  // срезов не было, не прячется: прочерк говорит «этих вопросов здесь не выпало».
+  it("сопоставляет доли верных по темам и считает разницу только там, где есть обе", async () => {
+    render(<SliceCompare testId="test1" />);
+
+    await pick("Розница");
+    await pick("Отдел продаж");
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Доля верных ответов по темам")).toBeTruthy();
+
+    const financeRow = within(table).getByText("Финансы").closest("tr")!;
+    expect(within(financeRow).getByText("81 %")).toBeTruthy();
+    expect(within(financeRow).getByText("64 %")).toBeTruthy();
+    expect(within(financeRow).getByText("+17 п.п.")).toBeTruthy();
+
+    // «Право» есть только у одного среза: разницы нет, и выдумывать её не из чего.
+    const lawRow = within(table).getByText("Право").closest("tr")!;
+    expect(within(lawRow).getByText("55 %")).toBeTruthy();
+    expect(within(lawRow).getAllByText("—").length).toBe(2);
+  });
+
+  // FR-07f: имя срезу даёт автор, и оно может обещать не то, что срез считает.
+  it("показывает условия сравниваемого среза карточкой", async () => {
+    render(<SliceCompare testId="test1" />);
+
+    await pick("Тест целиком");
+
+    expect(await screen.findByText("без условий — тест целиком")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Убрать" })).toBeTruthy();
+  });
+
   it("называет сравниваемые срезы в заголовках столбцов", async () => {
     render(<SliceCompare testId="test1" />);
 

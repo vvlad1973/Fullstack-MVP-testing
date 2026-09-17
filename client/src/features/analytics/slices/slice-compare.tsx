@@ -287,10 +287,15 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
                   </tr>
                 )}
                 {topicRows.map(topic => {
-                  const shares = selected.map(slice => topicOf(slice, topic.id));
+                  // Доля по теме — такой же процент, как доля сдавших, и подчиняется тому же
+                  // порогу наблюдений (FR-06d): у среза из четырёх прохождений она шумит
+                  // одинаково, о чём бы ни говорила.
+                  const shares = selected.map(slice => (slice.enoughData
+                    ? topicOf(slice, topic.id)
+                    : undefined));
                   const comparable = showDifference
-                    && shares[0]?.correctShare !== null && shares[0] !== undefined
-                    && shares[1]?.correctShare !== null && shares[1] !== undefined;
+                    && shares[0] !== undefined && shares[0].correctShare !== null
+                    && shares[1] !== undefined && shares[1].correctShare !== null;
                   const delta = comparable
                     ? Math.round((shares[0]!.correctShare as number) - (shares[1]!.correctShare as number))
                     : null;
@@ -299,9 +304,11 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
                       <td>{topic.name}</td>
                       {shares.map((share, index) => (
                         <td key={selected[index].id} className="is-numeric">
-                          {share === undefined || share.correctShare === null
-                            ? "—"
-                            : `${Math.round(share.correctShare)} %`}
+                          {!selected[index].enoughData
+                            ? <Text variant="body-s" tone="muted">мало данных</Text>
+                            : share === undefined || share.correctShare === null
+                              ? "—"
+                              : `${Math.round(share.correctShare)} %`}
                         </td>
                       ))}
                       {showDifference && (

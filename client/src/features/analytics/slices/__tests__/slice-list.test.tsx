@@ -65,6 +65,29 @@ describe("SliceList", () => {
     expect(screen.getByText("14")).toBeTruthy();
   });
 
+  // FR-06 называет «назначено» и слабейшую тему наравне с объёмами. Обе величины бывают
+  // неопределимы, и тогда экран обязан сказать прочерк, а не выдумать ноль или «первую попавшуюся
+  // тему»: по оси номера попытки назначать нечего, а тема ниже порога наблюдений — шум.
+  it("показывает «Назначено» и слабейшую тему, а где их нет — прочерк", async () => {
+    fetchMock.mockResolvedValue(answer([
+      {
+        ...SLICE,
+        assigned: 18,
+        weakest: { topicId: "t2", topicName: "Право", correctShare: 46, inSample: 12 },
+      },
+      { ...SLICE, id: "s3", name: "Вторая попытка", assigned: null, weakest: null },
+    ]));
+
+    render(<SliceList testId="test1" axis="group" />);
+
+    expect(await screen.findByText("Назначено")).toBeTruthy();
+    expect(screen.getByText("Слабое место")).toBeTruthy();
+    expect(screen.getByText("18")).toBeTruthy();
+    expect(screen.getByText("Право · 46 %")).toBeTruthy();
+    // Строка без обеих величин: два прочерка, а не «0» и не пустая ячейка.
+    expect(screen.getAllByText("—").length).toBe(2);
+  });
+
   it("ниже порога говорит «мало данных» и оставляет объём", async () => {
     fetchMock.mockResolvedValue(answer([SCARCE]));
 

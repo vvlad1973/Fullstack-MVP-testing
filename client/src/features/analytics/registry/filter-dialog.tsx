@@ -28,6 +28,11 @@ export interface RegistryFilterDialogProps {
   filter: RegistryFilter;
   onApply: (filter: RegistryFilter) => void;
   onClose: () => void;
+  /**
+   * Скрыть условие «Тест» (FR-13): на аналитике теста он задан страницей и в условия не
+   * входит. Форма отбора при этом та же самая — второй формы условий в продукте нет.
+   */
+  hideTest?: boolean;
 }
 
 const SOURCES: Array<{ value: RegistrySource; label: string }> = [
@@ -48,7 +53,9 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter(item => item !== value) : [...list, value];
 }
 
-export function RegistryFilterDialog({ open, filter, onApply, onClose }: RegistryFilterDialogProps) {
+export function RegistryFilterDialog({
+  open, filter, onApply, onClose, hideTest,
+}: RegistryFilterDialogProps) {
   const [draft, setDraft] = useState<RegistryFilter>(filter);
   // Справочники спрашиваются только у открытого окна и тем же хуком, что зовут чипы: иначе
   // одно и то же условие называлось бы в двух местах по-разному.
@@ -106,15 +113,17 @@ export function RegistryFilterDialog({ open, filter, onApply, onClose }: Registr
           Тесты и группы выбираются поиском, а не списком: тестов на инсталляции десятки, и
           двадцать чекбоксов подряд — это не выбор, а прокрутка.
         */}
-        <Combobox
-          label="Тест"
-          multiple
-          placeholder="Все тесты"
-          options={tests.map(test => ({ value: test.id, label: test.title }))}
-          values={draft.testIds}
-          onValuesChange={values => setDraft(d => ({ ...d, testIds: values }))}
-          fullWidth
-        />
+        {!hideTest && (
+          <Combobox
+            label="Тест"
+            multiple
+            placeholder="Все тесты"
+            options={tests.map(test => ({ value: test.id, label: test.title }))}
+            values={draft.testIds}
+            onValuesChange={values => setDraft(d => ({ ...d, testIds: values }))}
+            fullWidth
+          />
+        )}
 
         <Combobox
           label="Группа"

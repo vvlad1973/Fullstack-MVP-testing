@@ -35,6 +35,7 @@ import {
     CardHeader,
     Cluster,
     EmptyState,
+    FilterBar,
     Grid,
     IconButton,
     ModalDialog,
@@ -45,6 +46,15 @@ import {
 } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
+import { RegistryFilterDialog } from "@/features/analytics/registry/filter-dialog";
+import {
+    countConditions,
+    describeConditions,
+    filterToSearch,
+    EMPTY_FILTER,
+    type RegistryFilter,
+} from "@/features/analytics/registry/filter-state";
+import { useRegistryDictionaries } from "@/features/analytics/registry/use-dictionaries";
 import {
     ArrowLeft,
     Users,
@@ -215,10 +225,30 @@ export default function TestAnalyticsPage() {
      * профиль строится по банку ОДНОЙ темы, и выбирать её должен читатель.
      */
     const [exposureTopic, setExposureTopic] = useState<string | null>(null);
+    /**
+     * PRD-56 FR-13: экран считается по отобранному — источнику, группе и периоду. Форма
+     * отбора та же, что у реестра, только без условия «тест»: он задан страницей.
+     *
+     * Условия живут в состоянии, а не в адресе: адрес этой страницы уже занят тестом, а
+     * пересылать «аналитику теста по группе» ссылкой требование не просит — за пересылаемой
+     * выборкой ходят в реестр (FR-03).
+     */
+    const [filter, setFilter] = useState<RegistryFilter>(EMPTY_FILTER);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const dictionaries = useRegistryDictionaries();
     const queryClient = useQueryClient();
 
+    const filterSearch = filterToSearch({ ...filter, testIds: [] });
+
     const { data: analytics, isLoading: analyticsLoading } = useQuery<TestAnalytics>({
-        queryKey: [`/api/analytics/tests/${testId}`],
+        queryKey: [`/api/analytics/tests/${testId}`, filterSearch],
+        queryFn: async () => {
+            const response = await fetch(`/api/analytics/tests/${testId}${filterSearch}`, {
+                credentials: "include",
+            });
+            if (!response.ok) throw new Error("Не удалось загрузить аналитику теста");
+            return response.json();
+        },
         enabled: !!testId,
     });
 
@@ -476,6 +506,34 @@ export default function TestAnalyticsPage() {
                     onDone={() => queryClient.invalidateQueries({ queryKey: ["/api/analytics"] })}
                 />
             </ModalDialog>
+
+            {/*
+              PRD-56 FR-13, FR-31: один фильтр на экран, и он стоит НАД плитками — всё, что
+              ниже, посчитано по отобранному. Условия те же, что в реестре, минус тест: он
+              задан страницей (эскиз prd56-test-analytics.html, шаблон wf-filter-tpl).
+            */}
+            <FilterBar
+                count={countConditions({ ...filter, testIds: [] })}
+                applied={describeConditions({ ...filter, testIds: [] }, dictionaries)}
+                onOpenFilter={() => setFilterOpen(true)}
+                onRemove={(id: string) => {
+                    const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
+                    if (kind === "group") setFilter(f => ({ ...f, groupIds: f.groupIds.filter(x => x !== value) }));
+                    else if (kind === "source") setFilter(f => ({ ...f, sources: f.sources.filter(x => x !== value) }));
+                    else if (kind === "outcome") setFilter(f => ({ ...f, outcomes: f.outcomes.filter(x => x !== value) }));
+                    else if (id === "period") setFilter(f => ({ ...f, from: undefined, to: undefined }));
+                }}
+                onReset={() => setFilter(EMPTY_FILTER)}
+                resetLabel="Сбросить фильтры"
+            />
+
+            <RegistryFilterDialog
+                open={filterOpen}
+                filter={filter}
+                hideTest
+                onApply={setFilter}
+                onClose={() => setFilterOpen(false)}
+            />
 
             {/* Summary Cards */}
             <Grid minItem="sm" gap={1}>

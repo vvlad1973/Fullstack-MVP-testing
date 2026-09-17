@@ -27,6 +27,28 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       return res.status(404).json({ error: "Test not found" });
     }
 
+    /**
+     * PRD-56 FR-13: экран считается по отобранному — источнику, группе и периоду.
+     *
+     * Условия те же, что у реестра, и разбираются так же: тест в них не входит, он задан
+     * страницей. Отсутствие условий значит «все прохождения», а не «никакие».
+     */
+    const listOf = (value: unknown): string[] => {
+      const raw = Array.isArray(value) ? value : value === undefined ? [] : [value];
+      return raw.flatMap(item => String(item).split(",")).map(item => item.trim()).filter(Boolean);
+    };
+    const dateOf = (value: unknown, edge: "start" | "end"): Date | undefined => {
+      if (typeof value !== "string" || !value.trim()) return undefined;
+      const date = new Date(`${value}T${edge === "start" ? "00:00:00.000" : "23:59:59.999"}Z`);
+      return Number.isNaN(date.getTime()) ? undefined : date;
+    };
+    const filter = {
+      ...(listOf(req.query.source).length ? { sources: listOf(req.query.source) as never } : {}),
+      ...(listOf(req.query.groupId).length ? { groupIds: listOf(req.query.groupId) } : {}),
+      ...(dateOf(req.query.from, "start") ? { from: dateOf(req.query.from, "start") } : {}),
+      ...(dateOf(req.query.to, "end") ? { to: dateOf(req.query.to, "end") } : {}),
+    };
+
     const allAttempts = await storage.getAllAttempts();
     const testAttempts = allAttempts.filter(a => a.testId === testId);
     const completedAttempts = testAttempts.filter(a => a.resultJson !== null);
@@ -44,10 +66,16 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     // который проходят в LMS, её числа расходились с разделом «Аналитика» (FR-25).
     // Область видимости уже проверена `requireTestScope` выше, поэтому здесь она открыта.
     const observations = await loadObservations(
-      { testIds: [testId] },
+      { testIds: [testId], ...filter },
       { all: true, ids: new Set([testId]) },
     );
     const stats = summariseObservations(observations.rows);
+    /**
+     * Что попало в выборку — по идентификаторам прохождений. Ими режутся и ответы: у
+     * прохождения из LMS своей записи в `attempts` нет, и фильтровать его попыткой нечем,
+     * а факт ответа знает, какому прохождению принадлежит.
+     */
+    const inScope = new Set(observations.rows.map(row => row.id));
 
     const summary = {
       totalAttempts: stats.totalAttempts,
@@ -76,8 +104,15 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
      * третьим состоянием) живёт в `test-answer-facts`: второй экземпляр этой логики разошёлся
      * бы с первым молча — расхождением чисел на двух экранах.
      */
-    const { facts, questionById, topicNameById, topicRules, difficultyOf } =
-      await loadTestAnswerFacts(testId, completedAttempts);
+    /** Завершённые веб-попытки ВЫБОРКИ: всё, что считается по попыткам, считается по ним. */
+    const selectedAttempts = completedAttempts.filter(attempt => inScope.has(attempt.id));
+
+    const {
+      facts: allFacts, questionById, topicNameById, topicRules, difficultyOf,
+    } = await loadTestAnswerFacts(testId, selectedAttempts);
+    // Ответы прохождений из LMS дочитываются по тесту целиком, поэтому отбор применяется и к
+    // ним: иначе фильтр по группе резал бы веб, а телеметрию оставлял бы нетронутой (FR-25).
+    const facts = allFacts.filter(fact => inScope.has(fact.attemptId));
     const questionMap = questionById;
     const topicMap = topicNameById;
 
@@ -193,7 +228,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
      */
     const deliveredWeb = new Map<string, number>();
     const skippedWeb = new Map<string, number>();
-    for (const attempt of completedAttempts) {
+    for (const attempt of selectedAttempts) {
       const answers = (attempt.answersJson ?? {}) as Record<string, unknown>;
       for (const questionId of variantQuestionIds(attempt.variantJson)) {
         deliveredWeb.set(questionId, (deliveredWeb.get(questionId) ?? 0) + 1);
@@ -265,7 +300,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
     if (test.mode === "adaptive") {
       const levelStatsMap = new Map<string, LevelStatsEntry>();
 
-      for (const attempt of completedAttempts) {
+      for (const attempt of selectedAttempts) {
         const result = attempt.resultJson as any;
         if (!result?.topicResults) continue;
 
