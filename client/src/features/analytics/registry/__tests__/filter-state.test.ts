@@ -9,13 +9,24 @@
 
 import { describe, expect, it } from "vitest";
 
-import { parseFilter, filterToSearch, isEmptyFilter, type RegistryFilter } from "../filter-state";
+import {
+  describeConditions,
+  filterToSearch,
+  isEmptyFilter,
+  parseFilter,
+  EMPTY_FILTER,
+  type RegistryFilter,
+} from "../filter-state";
 
 describe("filter-state", () => {
   it("переживает круговой рейс: условия — адрес — условия", () => {
     const filter: RegistryFilter = {
       testIds: ["t1", "t2"],
       groupIds: ["g1"],
+      // Вариант выдачи и версия публикации — такие же условия, как остальные, и ссылку они
+      // переживают наравне с ними.
+      formIds: ["form-a"],
+      snapshotIds: ["snap-1"],
       sources: ["web", "import"],
       outcomes: ["failed"],
       from: "2026-09-01",
@@ -62,5 +73,42 @@ describe("filter-state", () => {
   it("отличает пустой фильтр от заполненного", () => {
     expect(isEmptyFilter(parseFilter(""))).toBe(true);
     expect(isEmptyFilter(parseFilter("?outcome=passed"))).toBe(false);
+    // Вариант и версия — полноценные условия: фильтр с ними пустым не считается, иначе
+    // «Сбросить» и счётчик на кнопке говорили бы, что отбора нет.
+    expect(isEmptyFilter(parseFilter("?formId=form-a"))).toBe(false);
+    expect(isEmptyFilter(parseFilter("?snapshotId=snap-1"))).toBe(false);
+  });
+
+  /**
+   * Подписи условий: одно и то же условие на всех экранах называется одинаково, иначе
+   * читатель решит, что выборки разные.
+   */
+  describe("describeConditions", () => {
+    const dictionaries = {
+      tests: [{ id: "t1", title: "Сертификация" }],
+      groups: [{ id: "g1", name: "Розница" }],
+      forms: [{ id: "form-a", label: "Вариант A" }],
+      versions: [{ id: "snap-1", version: 9 }],
+    };
+
+    it("называет вариант и версию по справочнику теста", () => {
+      const items = describeConditions(
+        { ...EMPTY_FILTER, formIds: ["form-a"], snapshotIds: ["snap-1"] },
+        dictionaries,
+      );
+
+      expect(items.map(item => item.label)).toEqual(["Вариант: Вариант A", "Версия: 9"]);
+    });
+
+    it("не печатает идентификатор, когда справочник не доехал", () => {
+      // Uuid в чипе не говорит читателю ничего: условие честнее назвать «удалённый», чем
+      // показать строку, по которой отбор не проверить и не объяснить.
+      const items = describeConditions(
+        { ...EMPTY_FILTER, formIds: ["form-x"], snapshotIds: ["snap-x"] },
+        { tests: [], groups: [] },
+      );
+
+      expect(items.map(item => item.label)).toEqual(["Вариант: удалённый", "Версия: публикации"]);
+    });
   });
 });

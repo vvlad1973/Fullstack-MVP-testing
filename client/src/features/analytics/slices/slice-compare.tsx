@@ -1,22 +1,38 @@
 /**
  * @module features/analytics/slices/slice-compare
- * @description PRD-56 FR-07, FR-07a, FR-07g: режим сравнения срезов.
+ * @description PRD-56 FR-07, FR-07a, FR-07f, FR-07g: режим сравнения срезов.
  *
- * Сравниваемые срезы названы явно — их имена стоят в заголовках столбцов, и читателю не нужно
- * помнить, что с чем сравнивается. Это и есть причина, по которой «база» из продукта убрана:
- * невидимая величина, с которой всё молча сравнивалось, порождала числа, необъяснимые на месте.
+ * Сравниваемые срезы названы явно — имя стоит в заголовке столбца, а под ним условия, по
+ * которым срез отобран. Это и есть причина, по которой «база» из продукта убрана: невидимая
+ * величина, с которой всё молча сравнивалось, порождала числа, необъяснимые на месте.
+ *
+ * Эскиз: docs/wireframes/prd56-analytics-section.html, состояния `compare` и `compare-many`.
+ * Оттуда же порядок: сначала слоты срезов, затем «Прохождения и результат», затем «Доля
+ * верных ответов» — объёмы отвечают на «кого сравниваем», доли по темам на «где расходятся».
  */
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Text } from "@skillum/ui-kit";
+import {
+  Accordion, AccordionItem, Box, Button, EmptyState, Select, Stack, Text,
+} from "@skillum/ui-kit";
 
-import type { SliceRow } from "./slice-list";
+import { RegistryFilterDialog } from "../registry/filter-dialog";
+import { conditionsToFilter, describeConditions } from "../registry/filter-state";
+import { useRegistryDictionaries } from "../registry/use-dictionaries";
+
+import type { SliceRow, SliceTopic } from "./slice-list";
 
 export interface SliceCompareProps {
   /** Тест — общее условие сравнения (FR-07e): он один для всех сравниваемых срезов. */
   testId: string;
   from?: string;
   to?: string;
+  /**
+   * Отбор, набранный в реестре, — сравнивается НАРАВНЕ с сохранёнными срезами и сохранения
+   * не требует (FR-07b). Без этого «сравни то, что я отобрал, с Розницей» стоило бы похода в
+   * реестр, придумывания имени и лишней строки в списке срезов, нужной на одну минуту.
+   */
+  adhoc?: Record<string, unknown> | null;
 }
 
 /**
@@ -27,6 +43,9 @@ export interface SliceCompareProps {
  */
 const MAX_SLICES = 4;
 
+/** Сколько условий видно в подписи столбца до свёртки в «ещё N» (FR-07f). */
+const VISIBLE_CONDITIONS = 2;
+
 /** Показатели сравнения: что именно сопоставляется построчно. */
 const ROWS: Array<{
   key: keyof SliceRow;
@@ -34,6 +53,7 @@ const ROWS: Array<{
   /** Доля — у неё разницу считать можно; объём — нельзя. */
   share: boolean;
 }> = [
+  { key: "assigned", label: "Назначено", share: false },
   { key: "started", label: "Начато", share: false },
   { key: "completed", label: "Завершено", share: false },
   { key: "participants", label: "Участников", share: false },
@@ -49,6 +69,24 @@ function cell(slice: SliceRow, key: keyof SliceRow, share: boolean): string {
   return share ? `${Math.round(Number(value))} %` : String(value);
 }
 
+/** Разница в процентных пунктах словами, со знаком. */
+function deltaLabel(delta: number): string {
+  return `${delta > 0 ? "+" : delta < 0 ? "−" : ""}${Math.abs(delta)} п.п.`;
+}
+
+/**
+ * Тон разницы: тревога у падения, внимание у заметного, обычный у остального.
+ *
+ * Цветом отмечается ТОЛЬКО разница, и только у долей: она сравнивает сопоставимые величины.
+ * Само значение доли тона не получает — «68 % сдали» не хорошо и не плохо без того, с чем
+ * сравнивают (FR-29).
+ */
+function deltaTone(delta: number): "error" | "warning" | "muted" {
+  if (delta <= -20) return "error";
+  if (delta <= -5) return "warning";
+  return "muted";
+}
+
 /**
  * Разница между двумя срезами — только у долей и только когда обе доли есть.
  *
@@ -56,25 +94,83 @@ function cell(slice: SliceRow, key: keyof SliceRow, share: boolean): string {
  * больше» — не вывод, а состав штата, и ставить это число рядом с разницей долей значит
  * приглашать читателя сложить их в одну мысль.
  */
-function difference(a: SliceRow, b: SliceRow, key: keyof SliceRow): string | null {
+function difference(a: SliceRow, b: SliceRow, key: keyof SliceRow): number | null {
   if (!a.enoughData || !b.enoughData) return null;
   const first = a[key];
   const second = b[key];
   if (typeof first !== "number" || typeof second !== "number") return null;
-  const delta = Math.round(first - second);
-  return `${delta > 0 ? "+" : delta < 0 ? "−" : ""}${Math.abs(delta)} п.п.`;
+  return Math.round(first - second);
 }
 
-export function SliceCompare({ testId, from, to }: SliceCompareProps) {
+/**
+ * Темы, которые есть хотя бы у одного сравниваемого среза (FR-07).
+ *
+ * Объединение, а не пересечение: тема, не попавшая в выдачу одной из групп, — это факт о
+ * сравнении, и прятать её значило бы молча укоротить разговор. У такого среза в ячейке
+ * прочерк, и он честно говорит «этих вопросов здесь не было».
+ */
+function topicsOfAll(slices: readonly SliceRow[]): Array<{ id: string; name: string }> {
+  const names = new Map<string, string>();
+  for (const slice of slices) {
+    for (const topic of slice.topics ?? []) names.set(topic.topicId, topic.topicName);
+  }
+  return [...names.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Доля верных ответов среза по одной теме. */
+function topicOf(slice: SliceRow, topicId: string): SliceTopic | undefined {
+  return (slice.topics ?? []).find(topic => topic.topicId === topicId);
+}
+
+/**
+ * Шапка столбца: имя среза и условия, по которым он отобран (FR-07f).
+ *
+ * Условия стоят под именем, потому что имя даёт срезу автор и оно может обещать не то, что
+ * срез считает. Видны первые, остальные свёрнуты в «ещё N», а полный перечень — подсказкой:
+ * у среза их бывает пять, и пять строк в шапке съели бы таблицу.
+ */
+function ColumnHead(props: { name: string; conditions: Array<{ id: string; label: string }> }) {
+  const visible = props.conditions.slice(0, VISIBLE_CONDITIONS);
+  const hidden = props.conditions.slice(VISIBLE_CONDITIONS);
+  const summary = visible.map(condition => condition.label).join(" · ");
+
+  return (
+    <Stack gap={1}>
+      <span>{props.name}</span>
+      <Text variant="body-xs" tone="muted" weight="regular">
+        {props.conditions.length === 0 ? "без условий — тест целиком" : summary}
+        {hidden.length > 0 && (
+          <span title={hidden.map(condition => condition.label).join("; ")}>
+            {` · ещё ${hidden.length}`}
+          </span>
+        )}
+      </Text>
+    </Stack>
+  );
+}
+
+export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
   const [available, setAvailable] = useState<SliceRow[]>([]);
-  const [chosen, setChosen] = useState<string[]>([]);
+  /** Слоты сравнения: по одному на срез, пустой слот — «не выбран» (эскиз, состояние compare). */
+  const [slots, setSlots] = useState<Array<string | null>>([null]);
   const [failed, setFailed] = useState(false);
+  /** Срез, у которого открыта правка условий (FR-07b). */
+  const [editing, setEditing] = useState<SliceRow | null>(null);
+  /** Счётчик перезагрузок: правка условий меняет числа, и список надо пересчитать. */
+  const [reloads, setReloads] = useState(0);
+  /** Названия тестов и групп — чтобы условие читалось, а не значилось кодом. */
+  const dictionaries = useRegistryDictionaries();
 
   useEffect(() => {
     let alive = true;
     const query = new URLSearchParams({ testId, withWhole: "1" });
     if (from) query.set("from", from);
     if (to) query.set("to", to);
+    // Набранный отбор считается сервером тем же кодом, что сохранённый срез: двух расчётов
+    // одной величины в продукте быть не должно (FR-25).
+    if (adhoc && Object.keys(adhoc).length > 0) query.set("conditions", JSON.stringify(adhoc));
 
     void (async () => {
       try {
@@ -90,93 +186,299 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
     })();
 
     return () => { alive = false; };
-  }, [testId, from, to]);
+  }, [testId, from, to, adhoc, reloads]);
+
+  /**
+   * Пришли из реестра с набранным отбором — он и занимает первый слот.
+   *
+   * Иначе переход «сравнить это» приводил бы на экран с пустым слотом, где отбор надо
+   * выбирать заново из списка, в котором его ещё и нет.
+   */
+  useEffect(() => {
+    if (!adhoc) return;
+    setSlots(prev => (prev.length === 1 && prev[0] === null ? ["adhoc"] : prev));
+  }, [adhoc]);
 
   const selected = useMemo(
-    () => chosen
-      .map(id => available.find(slice => slice.id === id))
+    () => slots
+      .map(id => (id === null ? undefined : available.find(slice => slice.id === id)))
       .filter((slice): slice is SliceRow => !!slice),
-    [chosen, available],
+    [slots, available],
+  );
+
+  const conditionsOf = useMemo(
+    () => new Map(available.map(slice => [
+      slice.id,
+      describeConditions(conditionsToFilter(slice.conditions), dictionaries),
+    ])),
+    [available, dictionaries],
   );
 
   if (failed) {
     return <Text tone="error">Не удалось загрузить срезы. Обновите страницу.</Text>;
   }
 
-  const full = chosen.length >= MAX_SLICES;
   const showDifference = selected.length === 2;
+  const topicRows = topicsOfAll(selected);
+
+  /** Столбцы таблиц: заголовок «Показатель» плюс по столбцу на срез плюс «Разница». */
+  const head = (first: string) => (
+    <thead>
+      <tr>
+        <th><div className="ou-grid__th">{first}</div></th>
+        {selected.map(slice => (
+          <th key={slice.id}>
+            <div className="ou-grid__th">
+              <ColumnHead name={slice.name} conditions={conditionsOf.get(slice.id) ?? []} />
+            </div>
+          </th>
+        ))}
+        {showDifference && <th><div className="ou-grid__th">Разница</div></th>}
+      </tr>
+    </thead>
+  );
 
   return (
-    <div>
-      <div className="ou-stack ou-stack--row ou-stack--wrap ou-stack--gap-2">
-        {available
-          .filter(slice => !chosen.includes(slice.id))
-          .map(slice => (
+    <Stack gap={4}>
+      {/* Слоты сравниваемых срезов: выбор, условия и снятие (FR-07f, FR-07g). */}
+      <Stack direction="row" gap={4} wrap align="start">
+        {slots.map((id, index) => {
+          const slice = id === null ? undefined : available.find(item => item.id === id);
+          const conditions = id === null ? [] : conditionsOf.get(id) ?? [];
+          const taken = new Set(slots.filter((value): value is string => value !== null && value !== id));
+
+          return (
+            <Stack key={index} gap={3}>
+              <Stack direction="row" gap={2} align="center">
+                <Text variant="body-s" weight="medium">{`Срез ${index + 1}`}</Text>
+                {slice && (
+                  <Text variant="body-xs" tone="muted">
+                    {`${slice.completed} завершённых`}
+                  </Text>
+                )}
+              </Stack>
+
+              <Select
+                size="s"
+                label="Сохранённый срез"
+                value={id ?? ""}
+                onChange={value => setSlots(prev => prev.map((item, at) =>
+                  (at === index ? (String(value) === "" ? null : String(value)) : item)))}
+                options={[
+                  { value: "", label: "— не выбран —" },
+                  ...available
+                    .filter(item => !taken.has(item.id))
+                    .map(item => ({ value: item.id, label: item.name })),
+                ]}
+              />
+
+              {slice && (
+                <Accordion>
+                  <AccordionItem
+                    value={`conditions-${index}`}
+                    title={`Условия отбора · ${conditions.length}`}
+                  >
+                    <Stack gap={2}>
+                      {conditions.length === 0 ? (
+                        // Срез без условий — это «тест целиком» (FR-07a), и сказать об этом
+                        // надо словом: пустой список читается как незагрузившийся.
+                        <Text variant="body-xs" tone="muted">без условий — тест целиком</Text>
+                      ) : conditions.map(condition => (
+                        <Text key={condition.id} variant="body-xs">{condition.label}</Text>
+                      ))}
+                    </Stack>
+                  </AccordionItem>
+                </Accordion>
+              )}
+
+              {slice && (
+                <Stack direction="row" gap={2}>
+                  {/* Править можно СОХРАНЁННЫЙ срез: «тест целиком» условий не имеет вовсе, а
+                      набранный отбор правится там, где набран, — в фильтре реестра. */}
+                  {slice.id !== "whole" && slice.id !== "adhoc" && (
+                    <Button variant="secondary" size="s" onClick={() => setEditing(slice)}>
+                      Изменить условия
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="s"
+                    onClick={() => setSlots(prev => (prev.length === 1
+                      ? [null]
+                      : prev.filter((_, at) => at !== index)))}
+                  >
+                    Убрать
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
+          );
+        })}
+
+        {/* FR-07g: на четвёртом срезе плитка ВЫКЛЮЧАЕТСЯ, а не исчезает. Исчезнувшая читается
+            как «больше срезов нет», выключенная с подписью объясняет, почему пятого не будет. */}
+        <Box pad={4} border="dashed" radius="l">
+          <Stack gap={1}>
             <Button
-              key={slice.id}
               variant="secondary"
               size="s"
-              disabled={full}
-              onClick={() => setChosen(prev => [...prev, slice.id])}
+              disabled={slots.length >= MAX_SLICES}
+              onClick={() => setSlots(prev => [...prev, null])}
             >
-              Добавить срез: {slice.name}
+              + Добавить срез
             </Button>
-          ))}
-      </div>
-
-      {full && (
-        <Text variant="body-s" tone="muted">
-          Сравнивают не больше четырёх срезов: пятая колонка перестаёт читаться, а «сравнить все
-          группы разом» — это разбиение по оси, а не сравнение.
-        </Text>
-      )}
+            <Text variant="body-xs" tone="muted">
+              {slots.length >= MAX_SLICES
+                ? "Сравнивают не больше четырёх срезов: пятая колонка перестаёт читаться, а «сравнить все группы разом» — это разбиение по оси, а не сравнение."
+                : "до четырёх срезов"}
+            </Text>
+          </Stack>
+        </Box>
+      </Stack>
 
       {selected.length === 0 ? (
-        <Text tone="muted">Выберите срезы, которые нужно сравнить.</Text>
+        // Срезов может не быть вовсе: тогда сравнивать нечего, и экран обязан сказать, где их
+        // берут, — иначе он выглядит сломанным.
+        <EmptyState
+          layout="inline"
+          title={available.length === 0
+            ? "Сохранённых срезов пока нет"
+            : "Выберите срезы, которые нужно сравнить"}
+          description={available.length === 0
+            ? "Срез сохраняют на вкладке «Прохождения»: отберите нужные условия в фильтре и нажмите «Сохранить как срез»."
+            : "Выберите два среза — тогда появится столбец «Разница»."}
+        />
       ) : (
-        <div className="ou-grid">
-          <div className="ou-grid__scroll">
-            <table className="ou-grid__table" role="table">
-              <thead>
-                <tr>
-                  <th><div className="ou-grid__th">Показатель</div></th>
-                  {selected.map(slice => (
-                    <th key={slice.id}>
-                      <div className="ou-grid__th">{slice.name}</div>
-                    </th>
-                  ))}
-                  {showDifference && <th><div className="ou-grid__th">Разница</div></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {ROWS.map(row => (
-                  <tr key={String(row.key)}>
-                    <td className="ou-grid__cell-strong">{row.label}</td>
-                    {selected.map(slice => (
-                      <td key={slice.id} className="is-numeric">
-                        {cell(slice, row.key, row.share)}
-                      </td>
-                    ))}
-                    {showDifference && (
-                      <td className="is-numeric">
-                        {/* Разница только у долей: вычитать объёмы — значит называть
-                            разницу в составе штата результатом обучения. */}
-                        {row.share ? difference(selected[0], selected[1], row.key) ?? "—" : "—"}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          <Text variant="body-s" weight="medium">Прохождения и результат</Text>
+          <div className="ou-grid">
+            <div className="ou-grid__scroll">
+              <table className="ou-grid__table" role="table">
+                {head("Показатель")}
+                <tbody>
+                  {ROWS.map(row => {
+                    const delta = showDifference && row.share
+                      ? difference(selected[0], selected[1], row.key)
+                      : null;
+                    return (
+                      <tr key={String(row.key)}>
+                        <td className="ou-grid__cell-strong">{row.label}</td>
+                        {selected.map(slice => (
+                          <td key={slice.id} className="is-numeric">
+                            {cell(slice, row.key, row.share)}
+                          </td>
+                        ))}
+                        {showDifference && (
+                          <td className="is-numeric">
+                            {/* Разница только у долей: вычитать объёмы — значит называть
+                                разницу в составе штата результатом обучения. */}
+                            {delta === null
+                              ? <Text variant="body-s" tone="muted">—</Text>
+                              : <Text variant="body-s" tone={deltaTone(delta)}>{deltaLabel(delta)}</Text>}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* FR-07: доли верных ПО ТЕМАМ — ради них сравнение и затевают. Отдельной таблицей,
+              как в эскизе: единица счёта здесь другая (доля ОТВЕТОВ, а не прохождений), и
+              мешать её с объёмами в одном столбце значило бы звать читателя их сложить. */}
+          <Text variant="body-s" weight="medium">Доля верных ответов</Text>
+          {topicRows.length === 0 ? (
+            <Text variant="body-s" tone="muted">
+              По темам сравнивать нечего: у выбранных срезов нет оценённых ответов.
+            </Text>
+          ) : (
+            <div className="ou-grid">
+              <div className="ou-grid__scroll">
+                <table className="ou-grid__table" role="table">
+                  {head("Тема")}
+                  <tbody>
+                    {topicRows.map(topic => {
+                      // Порог наблюдений распространяется и сюда: доля по теме — такой же
+                      // процент, как доля сдавших, и у среза из четырёх прохождений шумит
+                      // одинаково (FR-06d).
+                      const shares = selected.map(slice => (slice.enoughData
+                        ? topicOf(slice, topic.id)
+                        : undefined));
+                      const comparable = showDifference
+                        && shares[0] !== undefined && shares[0].correctShare !== null
+                        && shares[1] !== undefined && shares[1].correctShare !== null;
+                      const delta = comparable
+                        ? Math.round((shares[0]!.correctShare as number) - (shares[1]!.correctShare as number))
+                        : null;
+
+                      return (
+                        <tr key={topic.id}>
+                          <td className="ou-grid__cell-strong">{topic.name}</td>
+                          {shares.map((share, index) => (
+                            <td key={selected[index].id} className="is-numeric">
+                              {!selected[index].enoughData
+                                ? <Text variant="body-s" tone="muted">мало данных</Text>
+                                : share === undefined || share.correctShare === null
+                                  ? "—"
+                                  : `${Math.round(share.correctShare)} %`}
+                            </td>
+                          ))}
+                          {showDifference && (
+                            <td className="is-numeric">
+                              {delta === null
+                                ? <Text variant="body-s" tone="muted">—</Text>
+                                : <Text variant="body-s" tone={deltaTone(delta)}>{deltaLabel(delta)}</Text>}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <Stack direction="row" gap={2}>
+            <Button variant="ghost" size="s" onClick={() => setSlots([null])}>
+              Очистить сравнение
+            </Button>
+          </Stack>
+        </>
       )}
 
-      {selected.length > 0 && (
-        <Button variant="ghost" size="s" onClick={() => setChosen([])}>
-          Очистить сравнение
-        </Button>
-      )}
-    </div>
+      {/* Правка условий среза — той же формой отбора, что в реестре (FR-07b): двух языков
+          условий в продукте нет, и заводить второй ради правки было бы худшим из решений. */}
+      <RegistryFilterDialog
+        open={editing !== null}
+        filter={conditionsToFilter(editing?.conditions ?? {})}
+        hideTest
+        onClose={() => setEditing(null)}
+        onApply={async next => {
+          const target = editing;
+          setEditing(null);
+          if (!target) return;
+          await fetch(`/api/analytics/slices/${target.id}`, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              conditions: {
+                groupIds: next.groupIds,
+                sources: next.sources,
+                outcomes: next.outcomes,
+                ...(next.from ? { from: next.from } : {}),
+                ...(next.to ? { to: next.to } : {}),
+              },
+            }),
+          });
+          // Срез хранит УСЛОВИЯ и пересчитывается при открытии (FR-07d): после правки числа
+          // другие, и список надо перечитать, а не поправить на месте.
+          setReloads(value => value + 1);
+        }}
+      />
+    </Stack>
   );
 }

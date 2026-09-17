@@ -20,6 +20,7 @@ import {
   type ObservationOutcome,
   type ObservationSource,
 } from "../../services/analytics/observations";
+import type { ObservationSort } from "../../storage/analytics-repository";
 import { analyticsScope } from "./helpers";
 
 const router = Router();
@@ -30,6 +31,9 @@ const MAX_LIMIT = 200;
 
 const SOURCES: ObservationSource[] = ["web", "telemetry", "import"];
 const OUTCOMES: ObservationOutcome[] = ["passed", "failed", "completed", "incomplete"];
+
+/** Столбцы, по которым реестр сортируется. Те же, что видны на экране. */
+const SORTS: ObservationSort[] = ["participant", "test", "date", "result", "outcome", "source"];
 
 /** Значения параметра, повторённого несколько раз или перечисленного через запятую. */
 function listOf(value: unknown): string[] {
@@ -52,6 +56,51 @@ function dateOf(value: unknown, edge: "start" | "end"): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+/**
+ * Группы прохождений одной порции — по правилу FR-09.
+ *
+ * У веб-попытки группа выводится из ЧЛЕНСТВА участника, и членств может быть несколько: человек
+ * состоит в отделе и в потоке обучения разом, поэтому строка несёт список, а не одно значение.
+ * У импортированного прохождения группа приехала с выгрузкой (`scorm_attempts.group_id`) и
+ * членство не спрашивается: участник там может быть не заведён вовсе (PRD-54).
+ *
+ * Справочники читаются поимённо, по тем участникам и группам, что попали в порцию: читать всё
+ * членство инсталляции ради двадцати пяти строк — то самое чтение таблицы целиком, от которого
+ * реестр и ушёл.
+ */
+async function groupsOfPage(
+  rows: Array<{ id: string; userId: string | null; groupId: string | null }>,
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+
+  const ownGroupIds = [...new Set(rows.map(row => row.groupId).filter((id): id is string => !!id))];
+  const ownNames = new Map(
+    (await Promise.all(ownGroupIds.map(id => storage.getGroup(id))))
+      .filter((group): group is NonNullable<typeof group> => !!group)
+      .map(group => [group.id, group.name]),
+  );
+
+  const userIds = [...new Set(
+    rows.filter(row => !row.groupId).map(row => row.userId).filter((id): id is string => !!id),
+  )];
+  const membership = new Map(
+    await Promise.all(userIds.map(async id => [
+      id,
+      (await storage.getUserGroups(id)).map(group => group.name),
+    ] as const)),
+  );
+
+  for (const row of rows) {
+    if (row.groupId) {
+      const name = ownNames.get(row.groupId);
+      out.set(row.id, name ? [name] : []);
+      continue;
+    }
+    out.set(row.id, row.userId ? membership.get(row.userId) ?? [] : []);
+  }
+  return out;
+}
+
 // GET /api/analytics/registry — порция прохождений и общее их число
 router.get("/registry", requirePermission("analytics.read"), async (req: Request, res: Response) => {
   try {
@@ -65,15 +114,31 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
       (OUTCOMES as string[]).includes(o));
     const testIds = listOf(req.query.testId);
     const groupIds = listOf(req.query.groupId);
+    // Вариант и версия — условия ВНУТРИ одного теста: у разных тестов они свои, и отбор по
+    // ним поверх нескольких тестов ничего не значит. Экран их и предлагает только при одном
+    // выбранном тесте; ручка принимает как есть — чужая ссылка не повод падать.
+    const formIds = listOf(req.query.formId);
+    const snapshotIds = listOf(req.query.snapshotId);
+
+    // Столбец сортировки принимается только из перечня: незнакомое имя — это опечатка в
+    // чужой ссылке, и отвечать на неё ошибкой незачем, реестр просто встаёт по умолчанию.
+    const sort = SORTS.includes(String(req.query.sort) as ObservationSort)
+      ? String(req.query.sort) as ObservationSort
+      : undefined;
+    const dir = req.query.dir === "asc" ? "asc" as const : undefined;
 
     const page = await loadObservations(
       {
         ...(testIds.length ? { testIds } : {}),
         ...(groupIds.length ? { groupIds } : {}),
+        ...(formIds.length ? { formIds } : {}),
+        ...(snapshotIds.length ? { snapshotIds } : {}),
         ...(sources.length ? { sources } : {}),
         ...(outcomes.length ? { outcomes } : {}),
         ...(dateOf(req.query.from, "start") ? { from: dateOf(req.query.from, "start") } : {}),
         ...(dateOf(req.query.to, "end") ? { to: dateOf(req.query.to, "end") } : {}),
+        ...(sort ? { sort } : {}),
+        ...(dir ? { dir } : {}),
         limit,
         offset,
       },
@@ -88,6 +153,8 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
         .filter((test): test is NonNullable<typeof test> => !!test)
         .map(test => [test.id, test.title]),
     );
+
+    const groups = await groupsOfPage(page.rows);
 
     res.json({
       rows: page.rows.map(row => ({
@@ -106,6 +173,7 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
         outcome: row.outcome,
         source: row.source,
         groupId: row.groupId,
+        groups: groups.get(row.id) ?? [],
       })),
       total: page.total,
       limit,

@@ -22,14 +22,15 @@ import {
   type ObservationSource,
 } from "../../services/analytics/observations";
 import {
+  NONE,
   registryConditions,
   splitByAxis,
   type AxisContext,
   type SliceAxis,
 } from "../../services/analytics/slice-axis";
+import { readAssigned } from "../../services/analytics/assigned-count";
 import { summariseSlice } from "../../services/analytics/slice-stats";
-import { summariseTopics } from "../../services/analytics/topic-stats";
-import { loadTestAnswerFacts } from "../../services/analytics/test-answer-facts";
+import { readSliceTopics, weakestTopic } from "../../services/analytics/slice-topics";
 import { analyticsScope } from "./helpers";
 
 const router = Router();
@@ -97,6 +98,27 @@ function conditionsOf(raw: unknown): ObservationFilter {
   };
 }
 
+/**
+ * Группы, которыми описан срез, — основание считать ему «назначено» (FR-06).
+ *
+ * Пустой список значит «срез без условий», то есть тест целиком: назначено там всем, кому тест
+ * назначен. `null` — срез описан условиями другого рода (источник, исход, период), и назначение
+ * к нему не относится: звали человека, а не источник его прохождения.
+ */
+function groupIdsOf(raw: unknown): string[] | null {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  const groupIds = Array.isArray(source.groupIds)
+    ? source.groupIds.filter((item): item is string => typeof item === "string")
+    : [];
+  if (groupIds.length > 0) return groupIds;
+
+  const hasOther = ["sources", "outcomes", "testIds"].some(key =>
+    Array.isArray(source[key]) && (source[key] as unknown[]).length > 0)
+    || typeof source.from === "string"
+    || typeof source.to === "string";
+  return hasOther ? null : [];
+}
+
 // GET /api/analytics/slices — сохранённые срезы с посчитанными величинами
 router.get("/slices", requirePermission("analytics.read"), async (req: Request, res: Response) => {
   try {
@@ -126,6 +148,24 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
         scope,
       );
       const buckets = splitByAxis(rows, axis as SliceAxis, await axisContext(testId));
+      // Слабейшая тема названа в FR-06 наравне с объёмами, поэтому считается для ВСЕХ строк
+      // сразу. Платы за это столько же, сколько за один разворот: ответы теста собираются
+      // единожды, а срез — подмножество тех же фактов.
+      const topics = await readSliceTopics(testId, rows);
+      // «Назначено» определено у осей, которые описывают ЛЮДЕЙ: группа и признак внешнего
+      // участника. По остальным срез описывает попытку, а назначают человека, а не попытку.
+      const assigned = await readAssigned(
+        testId,
+        axis === "group" ? buckets.map(bucket => bucket.key) : [],
+      );
+      /** Сколько назначено этому срезу; `null` — величина к оси неприменима. */
+      const assignedOf = (key: string): number | null => {
+        // «Без группы» — не группа: её участники известны только по своим прохождениям, а
+        // назначенных без единой попытки в такой строке взять неоткуда.
+        if (axis === "group") return key === NONE ? null : assigned.countFor([key]);
+        if (axis === "external") return assigned.countByKind(key === "external");
+        return null;
+      };
 
       return res.json({
         axis,
@@ -137,6 +177,11 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
           // второй раз на клиенте, и два описания однажды разошлись бы.
           conditions: registryConditions(axis as SliceAxis, bucket.key),
           ...summariseSlice({ observations: bucket.observations, minObservations }),
+          assigned: assignedOf(bucket.key),
+          weakest: weakestTopic(
+            topics.topicsOf(new Set(bucket.observations.map(o => o.id))),
+            minObservations,
+          ),
         })),
         minObservations,
       });
@@ -152,9 +197,51 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
      * правила, и однажды он стал бы считаться не так, как всё остальное.
      */
     const withWhole = req.query.withWhole === "1" || req.query.withWhole === "true";
-    const sources = withWhole
-      ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }, ...saved]
-      : saved;
+
+    /**
+     * Отбор, набранный ПРЯМО СЕЙЧАС, — временный срез наравне с сохранёнными (FR-07b).
+     *
+     * Сравнение не должно требовать сохранения: «сравни то, что я отобрал, с Розницей» —
+     * обычный вопрос, а заставлять ради него придумывать имя и заводить строку в списке
+     * значит копить мусор из срезов, нужных на одну минуту.
+     */
+    const adhoc = ((): Record<string, unknown> | null => {
+      const raw = typeof req.query.conditions === "string" ? req.query.conditions.trim() : "";
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed as Record<string, unknown>
+          : null;
+      } catch {
+        // Условия приезжают из адреса и могут быть испорчены при пересылке: молча считаем,
+        // что их нет, — экран аналитики не место для разбора чужих ссылок.
+        return null;
+      }
+    })();
+
+    const sources = [
+      ...(adhoc ? [{ id: "adhoc", name: "Текущий отбор", conditionsJson: adhoc }] : []),
+      ...(withWhole
+        ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }]
+        : []),
+      ...saved,
+    ];
+
+    // Один сбор ответов на все сохранённые срезы: каждый из них — подмножество прохождений
+    // одной и той же рамки, и разбирать ответы заново на каждый значило бы платить за то же
+    // самое столько раз, сколько срезов сохранил пользователь.
+    const frameRows = (await loadObservations(
+      { testIds: [testId], ...(from ? { from } : {}), ...(to ? { to } : {}) },
+      scope,
+    )).rows;
+    const topics = await readSliceTopics(testId, frameRows);
+    // Группы, которыми описаны сохранённые срезы: по ним и считается «назначено». Срез с
+    // условием другого рода (источник, исход, период) к назначениям отношения не имеет.
+    const assigned = await readAssigned(
+      testId,
+      sources.flatMap(slice => groupIdsOf(slice.conditionsJson) ?? []),
+    );
 
     const slices = await Promise.all(sources.map(async slice => {
       // Тест рамки перебивает тест среза (FR-07e): он общий для всех сравниваемых срезов и в
@@ -169,11 +256,17 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
         scope,
       );
 
+      // Темы среза считаются один раз и служат двум ответам: слабейшему месту в списке
+      // (FR-06) и сопоставлению долей верных в режиме сравнения (FR-07).
+      const ofSlice = topics.topicsOf(new Set(rows.map(row => row.id)));
       return {
         id: slice.id,
         name: slice.name,
         conditions: slice.conditionsJson,
         ...summariseSlice({ observations: rows, minObservations }),
+        assigned: assigned.countFor(groupIdsOf(slice.conditionsJson)),
+        weakest: weakestTopic(ofSlice, minObservations),
+        topics: ofSlice,
       };
     }));
 
@@ -247,39 +340,11 @@ router.get("/slices/topics", requirePermission("analytics.read"), async (req: Re
 
     // Ответы теста собираются ОДНИМ общим сбором и режутся прохождениями среза: свой разбор
     // ответов здесь означал бы второй источник правды о том, что такое «верно».
-    const webAttempts = observations.filter(o => o.source === "web").map(o => o.id);
-    const attempts = webAttempts.length
-      ? (await storage.getAllAttempts()).filter(a => webAttempts.includes(a.id))
-      : [];
-    const { facts, questionById, topicNameById, topicRules } =
-      await loadTestAnswerFacts(testId, attempts);
-
-    const ofSlice = new Set(observations.map(o => o.id));
-    const rows = summariseTopics(
-      facts.filter(fact => ofSlice.has(fact.attemptId)).flatMap(fact => {
-        const question = questionById.get(fact.questionId);
-        if (!question) return [];
-        return [{
-          attemptId: fact.attemptId,
-          topicId: question.topicId,
-          topicName: topicNameById.get(question.topicId) ?? "Без темы",
-          subtopics: question.tags ?? [],
-          result: fact.result,
-          earnedPoints: fact.earnedPoints,
-          possiblePoints: fact.possiblePoints,
-        }];
-      }),
-      topicRules,
-    );
+    const reader = await readSliceTopics(testId, observations);
 
     res.json({
       // Только то, о чём спрашивает FR-06e: доля верных этого среза по темам и объём выборки.
-      topics: rows.map(row => ({
-        topicId: row.topicId,
-        topicName: row.topicName,
-        correctShare: row.correctShare,
-        inSample: row.inSample,
-      })),
+      topics: reader.topicsOf(new Set(observations.map(o => o.id))),
     });
   } catch (error) {
     logger.error("Slice topics error: " + (error as Error).message);
@@ -324,6 +389,58 @@ router.post("/slices", requirePermission("analytics.read"), async (req: Request,
     }
     logger.error("Save slice error: " + (error as Error).message);
     res.status(500).json({ error: "Failed to save slice" });
+  }
+});
+
+/**
+ * PUT /api/analytics/slices/:id — поправить имя и условия среза (FR-07b).
+ *
+ * Без правки срез приходилось пересобирать заново: уйти в реестр, набрать условия, сохранить
+ * под новым именем, вернуться в сравнение. Имя при этом плодилось («Розница 2»), а старый
+ * срез оставался в списке мусором.
+ *
+ * Правка меняет и то, что срез ПОКАЗЫВАЕТ: он хранит условия, а не список прохождений
+ * (FR-07d), и пересчитывается при каждом открытии — это его свойство, а не следствие правки.
+ */
+router.put("/slices/:id", requirePermission("analytics.read"), async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: { name?: string; conditionsJson?: Record<string, unknown> } = {};
+
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) return res.status(400).json({ error: "Нужно имя среза" });
+      patch.name = name;
+    }
+
+    if (body.conditions !== undefined) {
+      const conditions = (body.conditions ?? {}) as Record<string, unknown>;
+      const hasConditions = Object.values(conditions).some(value =>
+        Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
+      if (!hasConditions) {
+        // Тот же запрет, что при сохранении: срез без условий — это весь тест, и он уже есть
+        // отдельной строкой «Тест целиком».
+        return res.status(400).json({ error: "Нужно хотя бы одно условие отбора" });
+      }
+      patch.conditionsJson = conditions;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: "Нечего менять" });
+    }
+
+    // Владелец проверяется запросом: чужой срез не найдётся, и это тот же ответ, что у
+    // несуществующего, — знать о чужих срезах читателю незачем.
+    const slice = await storage.updateSlice(req.params.id, req.currentUser?.id ?? "", patch);
+    if (!slice) return res.status(404).json({ error: "Срез не найден" });
+
+    res.json({ slice });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return res.status(409).json({ error: "Срез с таким именем уже есть" });
+    }
+    logger.error("Update slice error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to update slice" });
   }
 });
 

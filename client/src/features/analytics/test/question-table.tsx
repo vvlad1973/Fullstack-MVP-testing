@@ -17,7 +17,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Ban } from "lucide-react";
 
 import {
-  Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, SegmentedControl, Stack, Text,
+  Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, ProgressBar, SegmentedControl,
+  Stack, Text,
 } from "@skillum/ui-kit";
 
 import type { QuestionType } from "@shared/questions/question-type";
@@ -50,10 +51,25 @@ export interface QuestionRow {
   reviewFlags: ReviewFlagView[];
   /** PRD-56 FR-17a: задание исключено из выдачи ЭТОГО теста. */
   excludedFromDelivery?: boolean;
+  /**
+   * PRD-56 FR-22: разброс ответов измерительного задания — то, чем у него заменена доля
+   * верных. `null` — задание оценивается либо разбрасывать нечего.
+   */
+  spread?: { options: Array<{ label: string; share: number }>; answered: number } | null;
 }
 
 export interface QuestionTableProps {
   questions: QuestionRow[];
+  /**
+   * Тест измерительный: вместо доли верных таблица показывает разброс ответов (FR-22).
+   *
+   * Признак приходит сверху, а не выводится из строк: таблица, где доля верных пуста у всех
+   * заданий, бывает и у оцениваемого теста, по которому ещё никто не проходил, а набор
+   * колонок от количества прохождений зависеть не должен.
+   */
+  measurement?: boolean;
+  /** Порог наблюдений: ниже него разброс не печатается, потому что он шум (FR-06d). */
+  minObservations?: number;
   /** Уйти в реестр к прохождениям, где на этом задании ошиблись (FR-17). */
   onOpenRegistry?: (questionId: string) => void;
   /** Переключить состояние «исключён из выдачи» (FR-17a). Без него действие не предлагается. */
@@ -122,11 +138,58 @@ function sortValue(row: QuestionRow, key: string): number {
   return value ?? Number.POSITIVE_INFINITY;
 }
 
+/**
+ * Сколько долей печатается в строке разброса; остальные — «ещё N».
+ *
+ * У шкалы подписи — градации в слово или цифру, их влезает четыре. У распределения баллов
+ * подпись это утверждение на строку, и больше двух в колонку не помещается никак.
+ */
+const SPREAD_VISIBLE: Record<string, number> = { scale: 4, allocation: 2 };
+
+/** Предел длины подписи варианта: утверждения опросника бывают в целое предложение. */
+const SPREAD_LABEL_MAX = 44;
+
+/**
+ * Разброс ответов строкой: «Командный 62 % · Вдохновляющий 21 % · ещё 2» (FR-22).
+ *
+ * Два ограничения, и оба из данных, а не из вкуса. Варианты печатаются по убыванию доли и
+ * только первые три: у распределения баллов их бывает десять, и полный перечень занял бы
+ * строку на весь экран, ничего к ответу не добавив — хвост из процента-двух не о чём.
+ * Подпись варианта режется, потому что у распределения это не слово «Командный», а целое
+ * утверждение на строку; полный текст и полный перечень остаются в подсказке.
+ *
+ * У шкалы подписи короткие («1», «Иногда»), и между меткой и долей ставится тире: без него
+ * «1 6 %» читается как одно число. У распределения тире лишнее — эскиз
+ * prd56-test-analytics.html, состояние items-measurement.
+ */
+function spreadLabel(
+  options: ReadonlyArray<{ label: string; share: number }>,
+  type: string,
+): { short: string; full: string } {
+  const dash = type === "scale" ? " — " : " ";
+  const say = (option: { label: string; share: number }, cut: boolean) => {
+    const label = cut && option.label.length > SPREAD_LABEL_MAX
+      ? `${option.label.slice(0, SPREAD_LABEL_MAX).trimEnd()}…`
+      : option.label;
+    return `${label}${dash}${Math.round(option.share)} %`;
+  };
+
+  const ranked = [...options].sort((a, b) => b.share - a.share);
+  const visible = ranked.slice(0, SPREAD_VISIBLE[type] ?? 3);
+  const hidden = ranked.length - visible.length;
+
+  return {
+    short: visible.map(option => say(option, true)).join(" · ")
+      + (hidden > 0 ? ` · ещё ${hidden}` : ""),
+    full: ranked.map(option => say(option, false)).join(" · "),
+  };
+}
+
 export function QuestionTable({
-  questions, onOpenRegistry, onDeliveryChange, testId,
+  questions, onOpenRegistry, onDeliveryChange, testId, measurement, minObservations = 0,
 }: QuestionTableProps) {
   const [view, setView] = useState<View>("all");
-  const [sortKey, setSortKey] = useState("correct");
+  const [sortKey, setSortKey] = useState(measurement ? "answers" : "correct");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   /** Задание, для которого открыто окно подтверждения исключения. */
   const [pending, setPending] = useState<QuestionRow | null>(null);
@@ -180,8 +243,13 @@ export function QuestionTable({
       key: "question",
       header: "Задание",
       frozen: true,
+      // У опросника колонка ограничена: рядом с ней стоит разброс ответов, и текст вопроса,
+      // растянувший её по себе, вытолкнул бы за край экрана всё, что правее.
+      ...(measurement ? { width: "40%" } : {}),
       render: (row: QuestionRow) => (
-        <Stack gap={1}>
+        // Текст задания переносится, иначе строка вопроса распирает столбец по себе: ячейки
+        // стола по умолчанию не переносятся, и это верно для чисел, но не для предложения.
+        <Stack gap={1} className="ou-grid__cell-wrap">
           <Stack direction="row" gap={2} align="center">
             <QuestionTypeIcon type={row.questionType as QuestionType} />
             {/*
@@ -208,13 +276,48 @@ export function QuestionTable({
         </Stack>
       ),
     },
-    {
+    // FR-22: у опросника эталона нет, и доля верных заменяется разбросом ответов — полосой
+    // с долей лидирующего варианта и полным перечнем долей подписью. Полоса АКЦЕНТНАЯ, без
+    // тонов «успех / предупреждение»: высокая доля градации не хороша и не плоха, оценивать
+    // её не относительно чего (FR-21b).
+    ...(measurement ? [{
+      key: "spread",
+      header: "Разброс ответов",
+      // Ширина задана, иначе перечень долей растягивает колонку и выталкивает за край
+      // экрана те, что стоят правее: у распределения баллов подпись варианта — утверждение.
+      width: "34%",
+      render: (row: QuestionRow) => {
+        if (!row.spread || row.totalAnswers < minObservations) {
+          return <Text variant="body-s" tone="muted">мало данных</Text>;
+        }
+        const leader = row.spread.options.reduce(
+          (top, option) => (option.share > top.share ? option : top),
+          row.spread.options[0],
+        );
+        const label = spreadLabel(row.spread.options, row.questionType);
+        return (
+          <Stack gap={1} className="ou-grid__cell-wrap">
+            <ProgressBar size="s" value={Math.round(leader.share)} hideHeader />
+            <Text variant="body-xs" tone="muted" title={label.full}>
+              {label.short}
+            </Text>
+          </Stack>
+        );
+      },
+    }] : []),
+    ...(measurement ? [{
+      key: "answers",
+      header: "Ответов",
+      numeric: true,
+      sortable: true,
+      render: (row: QuestionRow) => row.totalAnswers,
+    }] : [{
       key: "correct",
       header: "Доля верных",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => percent(row.correctPercent),
-    },
+    }]),
     {
       key: "skip",
       header: "Пропуски",
@@ -222,13 +325,16 @@ export function QuestionTable({
       sortable: true,
       render: (row: QuestionRow) => percent(row.skipShare),
     },
-    {
+    // Экспозиция — свойство ВЫДАЧИ, и у опросника она есть, но эскиз её в этой таблице не
+    // держит: строка опросника отвечает на «что выбирали», а как часто задание показывали —
+    // вопрос вкладки «Выдача», где профиль банка и стоит (FR-20).
+    ...(measurement ? [] : [{
       key: "exposure",
       header: "Выдаётся",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => percent(row.exposurePercent),
-    },
+    }]),
     {
       key: "latency",
       header: "Время, медиана",
@@ -236,13 +342,15 @@ export function QuestionTable({
       sortable: true,
       render: (row: QuestionRow) => duration(row.latencyMedianMs),
     },
-    {
+    // Авторская трудность у опросника бессмысленна: трудным бывает задание с верным ответом,
+    // а здесь верного ответа нет вовсе.
+    ...(measurement ? [] : [{
       key: "difficulty",
       header: "Трудность",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => row.difficulty,
-    },
+    }]),
     {
       key: "delivery",
       header: "",

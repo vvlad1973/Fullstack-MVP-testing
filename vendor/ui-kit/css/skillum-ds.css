@@ -1529,6 +1529,12 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-card__header { padding-bottom: var(--ou-space-1); }
 .ou-card__body   { padding-top: 0; padding-bottom: 0; flex: 1; min-height: 0; }
 .ou-card__body:last-child { padding-bottom: var(--_pad); }
+/* Тело — ПЕРВЫЙ слот (карточка без шапки и без медиа): сверху те же 6x от края, что
+   `:last-child` уже даёт снизу. Обнуление padding-top выше рассчитано на шапку,
+   которая отступ и держит; без шапки верхняя строка прилипала к рамке. */
+.ou-card__body:first-child { padding-top: var(--_pad); }
+/* `--flush` снимает отступы слотов; правило выше специфичнее — гасим его явно. */
+.ou-card--flush > .ou-card__body:first-child { padding-top: 0; }
 .ou-card__header + .ou-card__body { padding-top: 0; }
 .ou-card__media + .ou-card__header,
 .ou-card__media + .ou-card__body { padding-top: var(--_pad); }
@@ -2688,6 +2694,21 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
   max-height: 540px;
 }
 
+/**
+ * Стол во всю доступную высоту экрана.
+ *
+ * Умолчание в 540px рассчитано на стол ВНУТРИ страницы, рядом с другими блоками. Столу,
+ * который занимает экран целиком (реестр прохождений, журнал), оно оставляет половину
+ * монитора пустой: строки прокручиваются в окошке, под которым ничего нет.
+ *
+ * Потолок считается от вьюпорта, а не от содержимого, потому что прокрутка обязана остаться
+ * ВНУТРИ стола: на ней держатся и закреплённая шапка, и догрузка следующей порции строк.
+ * Нижняя граница — чтобы на низком экране стол не схлопнулся до двух строк.
+ */
+.ou-grid--fill > .ou-grid__scroll {
+  max-height: max(24rem, calc(100vh - 16rem));
+}
+
 /* Table */
 .ou-grid__table { width: 100%; border-collapse: separate; border-spacing: 0; font: var(--ou-text-body-m); }
 .ou-grid__table thead th {
@@ -2749,6 +2770,17 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-grid__table tbody td.is-muted { color: var(--ou-fg-muted); }
 
 .ou-grid__cell-strong { font: var(--ou-text-body-m); font-weight: 500; color: var(--ou-fg-default); }
+
+/**
+ * Ячейка, которой позволено переноситься.
+ *
+ * Строки стола по умолчанию не переносятся: так столбцы остаются сопоставимыми по высоте, и
+ * это верно для чисел и коротких подписей. Но ячейка бывает содержательной — текст задания,
+ * перечень долей ответов, — и тогда запрет переноса распирает столбец по самой длинной
+ * строке, выталкивая за край экрана всё, что правее. Класс ставится на СОДЕРЖИМОЕ ячейки,
+ * а не на неё саму, чтобы соседние столбцы правил не меняли.
+ */
+.ou-grid__cell-wrap { display: block; white-space: normal; }
 .ou-grid__cell-sub { display: block; font: var(--ou-text-body-xs); color: var(--ou-fg-muted); margin-top: 2px; }
 
 .ou-grid__check { accent-color: var(--ou-accent-default); }

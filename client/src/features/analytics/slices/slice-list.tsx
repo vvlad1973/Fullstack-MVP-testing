@@ -16,7 +16,7 @@
  */
 import { useEffect, useState } from "react";
 
-import { Button, DataGrid, Text } from "@skillum/ui-kit";
+import { Button, Cluster, DataGrid, Text } from "@skillum/ui-kit";
 
 /** Срез с посчитанными величинами — то, что отдаёт `GET /api/analytics/slices`. */
 export interface SliceRow {
@@ -30,6 +30,18 @@ export interface SliceRow {
   passRate: number | null;
   avgPercent: number | null;
   enoughData: boolean;
+  /**
+   * Сколько людей среза получили назначение теста (FR-06). `null` — величина к этому срезу
+   * неприменима: назначают человека, а срез по номеру попытки или варианту описывает попытку.
+   */
+  assigned?: number | null;
+  /**
+   * Слабейшая тема среза (FR-06): та, где доля верных ниже всех. `null` — говорить не о чем:
+   * ответов нет либо ни одна тема не набрала порога наблюдений.
+   */
+  weakest?: SliceTopic | null;
+  /** Темы среза целиком — ими сравнение сопоставляет доли верных (FR-07). */
+  topics?: SliceTopic[];
 }
 
 export interface SliceListProps {
@@ -42,6 +54,14 @@ export interface SliceListProps {
   axis?: string;
   /** Перейти в реестр с условиями среза (FR-08). */
   onOpenRegistry?: (conditions: Record<string, unknown>) => void;
+  /**
+   * Уйти в аналитику ТЕСТА с условиями этого среза (FR-24, переход «группа → тест»).
+   *
+   * Реестр отвечает на «кто эти люди», аналитика теста — на «что у них не получилось»: где
+   * провалились темы, какие задания подвели. Без перехода второй вопрос требовал бы заново
+   * искать тест в списке и там набирать условие, которое уже набрано здесь.
+   */
+  onOpenTestAnalytics?: (conditions: Record<string, unknown>) => void;
 }
 
 /** Процент для чтения человеком: без десятых, которых в таких числах всё равно нет. */
@@ -50,7 +70,7 @@ function percent(value: number | null): string {
 }
 
 /** Тема развёрнутой строки — то, что отдаёт `GET /api/analytics/slices/topics`. */
-interface SliceTopic {
+export interface SliceTopic {
   topicId: string;
   topicName: string;
   correctShare: number | null;
@@ -60,7 +80,9 @@ interface SliceTopic {
 /** Состояние разворота одной строки: пока грузится — `null`, потом список тем. */
 type TopicsState = Record<string, SliceTopic[] | null>;
 
-export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListProps) {
+export function SliceList({
+  testId, from, to, axis, onOpenRegistry, onOpenTestAnalytics,
+}: SliceListProps) {
   const [slices, setSlices] = useState<SliceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -144,6 +166,16 @@ export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListP
       frozen: true,
       render: (row: SliceRow) => <span className="ou-grid__cell-strong">{row.name}</span>,
     },
+    {
+      key: "assigned",
+      header: "Назначено",
+      numeric: true,
+      // Прочерк здесь значит «величина к этому срезу неприменима», а не «ноль назначений»:
+      // по оси вроде номера попытки назначать нечего — назначают человека (FR-27).
+      render: (row: SliceRow) => (row.assigned === null || row.assigned === undefined
+        ? "—"
+        : row.assigned),
+    },
     { key: "started", header: "Начато", numeric: true, render: (row: SliceRow) => row.started },
     {
       key: "completed",
@@ -176,17 +208,37 @@ export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListP
         : <Text variant="body-s" tone="muted">мало данных</Text>),
     },
     {
+      key: "weakest",
+      header: "Слабое место",
+      // Тема названа вместе со своей долей: «Корпоративные финансы» без числа не говорит,
+      // провал это или ровный результат, у которого просто кто-то обязан быть последним.
+      // Прочерк здесь честен — он значит «называть слабейшую не из чего» (FR-06d).
+      render: (row: SliceRow) => (row.weakest
+        ? `${row.weakest.topicName}${row.weakest.correctShare === null
+          ? ""
+          : ` · ${Math.round(row.weakest.correctShare)} %`}`
+        : "—"),
+    },
+    {
       key: "actions",
       header: "",
-      render: (row: SliceRow) => (onOpenRegistry ? (
-        <Button
-          variant="ghost"
-          size="s"
-          onClick={() => onOpenRegistry(row.conditions)}
-        >
-          Прохождения: {row.name}
-        </Button>
-      ) : null),
+      // Два перехода, а не один: реестр отвечает «кто эти люди», аналитика теста — «что у них
+      // не получилось» (FR-08, FR-24). Оба несут условия ЭТОГО среза, чтобы на той стороне
+      // ничего не пришлось набирать заново.
+      render: (row: SliceRow) => (
+        <Cluster gap={1}>
+          {onOpenRegistry && (
+            <Button variant="ghost" size="s" onClick={() => onOpenRegistry(row.conditions)}>
+              Прохождения: {row.name}
+            </Button>
+          )}
+          {onOpenTestAnalytics && (
+            <Button variant="ghost" size="s" onClick={() => onOpenTestAnalytics(row.conditions)}>
+              Аналитика теста
+            </Button>
+          )}
+        </Cluster>
+      ),
     },
   ];
 

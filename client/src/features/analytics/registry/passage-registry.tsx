@@ -13,16 +13,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Button, Card, CardBody, CardHeader, DataGrid, FilterBar, Input, ModalDialog, Stack, Tag, Text,
+  type SortDir,
 } from "@skillum/ui-kit";
 
 import { pluralize } from "@/lib/i18n";
 
 import { RegistryFilterDialog } from "./filter-dialog";
-import { useRegistryDictionaries } from "./use-dictionaries";
+import { useRegistryDictionaries, useTestDictionary } from "./use-dictionaries";
 
 import {
   countConditions,
+  describeConditions,
   filterToSearch,
+  EMPTY_FILTER,
   type RegistryFilter,
   type RegistryOutcome,
   type RegistrySource,
@@ -44,6 +47,11 @@ export interface RegistryRow {
   outcome: RegistryOutcome;
   source: RegistrySource;
   groupId: string | null;
+  /**
+   * Группы прохождения (FR-01, FR-09). Список, а не одно значение: у веб-попытки группа
+   * выводится из членства участника, а человек состоит и в отделе, и в потоке обучения.
+   */
+  groups: string[];
 }
 
 export interface PassageRegistryProps {
@@ -112,9 +120,21 @@ export function PassageRegistry({
   const search = filterToSearch(filter);
   /** Названия тестов и групп — чтобы условие в чипе читалось, а не значилось кодом (FR-02). */
   const dictionaries = useRegistryDictionaries();
+  // Вариант и версия называются по справочнику ТОГО теста, что стоит в условиях: у разных
+  // тестов они свои, и общего перечня для них не существует.
+  const testDictionary = useTestDictionary(filter.testIds.length === 1 ? filter.testIds[0] : null);
 
   /** Номер запроса: ответ на устаревшие условия не должен затирать свежий список. */
   const request = useRef(0);
+
+  /**
+   * Чем упорядочен реестр (FR-01a).
+   *
+   * Держится здесь, а не в адресе: порядок — это не выборка, и пересылать «отсортировано по
+   * результату» коллеге незачем, а условия отбора в ссылке не должны шуметь.
+   */
+  const [sortKey, setSortKey] = useState("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const load = useCallback(async (offset: number) => {
     const ticket = (request.current += 1);
@@ -124,6 +144,10 @@ export function PassageRegistry({
       const query = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
       query.set("limit", String(PAGE_SIZE));
       query.set("offset", String(offset));
+      // Сортировка идёт НА СЕРВЕР: строки приходят порциями, и разложить по столбцу можно
+      // лишь то, что уже пришло, — худший результат на второй странице так не найти.
+      query.set("sort", sortKey);
+      query.set("dir", sortDir);
       const response = await fetch(`/api/analytics/registry?${query.toString()}`, {
         credentials: "include",
       });
@@ -137,37 +161,19 @@ export function PassageRegistry({
     } finally {
       if (ticket === request.current) setLoading(false);
     }
-  }, [search]);
+  }, [search, sortKey, sortDir]);
 
   // Смена условий начинает список заново: догруженный хвост принадлежал прежней выборке.
   useEffect(() => {
     void load(0);
   }, [load]);
 
-  const applied = useMemo(() => {
-    // Название, а не идентификатор: по «6e10d1e6-0fc9…» читатель не может ни проверить
-    // отбор, ни объяснить его коллеге. Справочник не доехал — остаётся идентификатор:
-    // условие названо хуже, но отбор работает.
-    const testTitle = (id: string) => dictionaries.tests.find(test => test.id === id)?.title ?? id;
-    const groupName = (id: string) => dictionaries.groups.find(group => group.id === id)?.name ?? id;
-
-    const items: Array<{ id: string; label: string }> = [];
-    for (const id of filter.testIds) items.push({ id: `test:${id}`, label: `Тест: ${testTitle(id)}` });
-    for (const id of filter.groupIds) items.push({ id: `group:${id}`, label: `Группа: ${groupName(id)}` });
-    for (const source of filter.sources) {
-      items.push({ id: `source:${source}`, label: `Источник: ${SOURCE_LABEL[source]}` });
-    }
-    for (const outcome of filter.outcomes) {
-      items.push({ id: `outcome:${outcome}`, label: `Исход: ${OUTCOME_LABEL[outcome]}` });
-    }
-    if (filter.from || filter.to) {
-      items.push({
-        id: "period",
-        label: `Период: ${filter.from ?? "…"} — ${filter.to ?? "…"}`,
-      });
-    }
-    return items;
-  }, [filter, dictionaries]);
+  // Перевод условий в подписи общий с карточкой среза (FR-07b): срез и фильтр — одна сущность,
+  // и говорить о ней двумя наборами формулировок значило бы намекать на две разные выборки.
+  const applied = useMemo(
+    () => describeConditions(filter, { ...dictionaries, ...testDictionary }),
+    [filter, dictionaries, testDictionary],
+  );
 
   /** Снять одно условие: чип удаляется поштучно, остальные остаются (FR-02). */
   const removeCondition = (id: string) => {
@@ -176,6 +182,10 @@ export function PassageRegistry({
     else if (kind === "group") onFilterChange({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
     else if (kind === "source") onFilterChange({ ...filter, sources: filter.sources.filter(x => x !== value) });
     else if (kind === "outcome") onFilterChange({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
+    else if (kind === "form") onFilterChange({ ...filter, formIds: filter.formIds.filter(x => x !== value) });
+    else if (kind === "snapshot") {
+      onFilterChange({ ...filter, snapshotIds: filter.snapshotIds.filter(x => x !== value) });
+    }
     else if (id === "period") {
       const { from: _from, to: _to, ...rest } = filter;
       onFilterChange({ ...rest });
@@ -187,12 +197,14 @@ export function PassageRegistry({
       key: "participant",
       header: "Участник",
       frozen: true,
+      sortable: true,
       render: (row: RegistryRow) => <span className="ou-grid__cell-strong">{row.participant}</span>,
     },
-    { key: "test", header: "Тест", render: (row: RegistryRow) => row.testTitle },
-    { key: "date", header: "Дата", render: (row: RegistryRow) => formatMoment(row.startedAt) },
+    { key: "test", header: "Тест", sortable: true, render: (row: RegistryRow) => row.testTitle },
+    { key: "date", header: "Дата", sortable: true, render: (row: RegistryRow) => formatMoment(row.startedAt) },
     {
       key: "result",
+      sortable: true,
       header: "Результат",
       numeric: true,
       // Прочерк, а не ноль: у прохождения без оценивания результата нет (PRD-29 §6.7).
@@ -200,6 +212,7 @@ export function PassageRegistry({
     },
     {
       key: "outcome",
+      sortable: true,
       header: "Исход",
       render: (row: RegistryRow) => (
         <Tag tone={outcomeTone(row.outcome)}>{OUTCOME_LABEL[row.outcome]}</Tag>
@@ -207,8 +220,21 @@ export function PassageRegistry({
     },
     {
       key: "source",
+      sortable: true,
       header: "Источник",
       render: (row: RegistryRow) => <Tag>{SOURCE_LABEL[row.source]}</Tag>,
+    },
+    {
+      key: "group",
+      header: "Группа",
+      // «Без группы» — это факт о прохождении, а не отсутствие данных, поэтому словом, а не
+      // прочерком: прочерк здесь читался бы как «группу не посчитали». Так же названа строка
+      // среза по группам, и два экрана говорят об одном одинаково (FR-09).
+      // Поле читается мягко: строка приходит из сети, и отсутствие списка (ответ ручки прежнего
+      // выпуска) должно давать «без группы», а не ронять таблицу целиком.
+      render: (row: RegistryRow) => ((row.groups ?? []).length > 0
+        ? row.groups.join(", ")
+        : <Text variant="body-s" tone="muted">без группы</Text>),
     },
   ];
 
@@ -247,65 +273,69 @@ export function PassageRegistry({
         subtitle={subtitleOf(total, conditionCount)}
       />
       <CardBody>
-        <FilterBar
-          count={conditionCount}
-          applied={applied}
-          actions={
-            <>
-              {actions}
-              <Button
-                variant="ghost"
-                size="s"
-                // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
-                // спрятана: спрятанная не объясняет, почему действия нет.
-                disabled={conditionCount === 0}
-                onClick={() => setSaveOpen(true)}
-              >
-                Сохранить как срез
-              </Button>
-            </>
-          }
-          onOpenFilter={() => setFilterOpen(true)}
-          onRemove={removeCondition}
-          onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
-          resetLabel="Сбросить фильтры"
-        />
+        {/* Тело карточки — обычный блок без собственных отступов между детьми, поэтому строка
+            отбора и таблица слипались вплотную. Между РАЗНЫМИ блоками модульная сетка требует
+            16px, и расставляет их примитив, а не поля у соседей. */}
+        <Stack gap={4}>
+          <FilterBar
+            count={conditionCount}
+            applied={applied}
+            actions={
+              <>
+                {actions}
+                <Button
+                  variant="ghost"
+                  size="s"
+                  // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
+                  // спрятана: спрятанная не объясняет, почему действия нет.
+                  disabled={conditionCount === 0}
+                  onClick={() => setSaveOpen(true)}
+                >
+                  Сохранить как срез
+                </Button>
+              </>
+            }
+            onOpenFilter={() => setFilterOpen(true)}
+            onRemove={removeCondition}
+            onReset={() => onFilterChange(EMPTY_FILTER)}
+            resetLabel="Сбросить фильтры"
+          />
 
-        <ModalDialog
-          open={saveOpen}
-          onClose={() => setSaveOpen(false)}
-          size="s"
-          title="Сохранить как срез"
-          description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
-          footer={
-            <>
-              <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
-              <Button
-                variant="primary"
-                size="m"
-                disabled={!sliceName.trim()}
-                onClick={() => void saveSlice()}
-              >
-                Сохранить
-              </Button>
-            </>
-          }
-        >
-          <Stack gap={3}>
-            <label htmlFor="slice-name">
-              <Text variant="body-s">Название среза</Text>
-            </label>
-            <Input
-              id="slice-name"
-              value={sliceName}
-              onChange={event => setSliceName(event.target.value)}
-              placeholder="Например: Розница, не сдали"
-            />
-            <Text variant="body-xs" tone="muted">
-              Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
-              завтра число может быть другим, потому что срез считается заново.
-            </Text>
-            {saveError && <Text tone="error">{saveError}</Text>}
+          <ModalDialog
+            open={saveOpen}
+            onClose={() => setSaveOpen(false)}
+            size="s"
+            title="Сохранить как срез"
+            description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
+            footer={
+              <>
+                <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
+                <Button
+                  variant="primary"
+                  size="m"
+                  disabled={!sliceName.trim()}
+                  onClick={() => void saveSlice()}
+                >
+                  Сохранить
+                </Button>
+              </>
+            }
+          >
+            <Stack gap={3}>
+              <label htmlFor="slice-name">
+                <Text variant="body-s">Название среза</Text>
+              </label>
+              <Input
+                id="slice-name"
+                value={sliceName}
+                onChange={event => setSliceName(event.target.value)}
+                placeholder="Например: Розница, не сдали"
+              />
+              <Text variant="body-xs" tone="muted">
+                Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
+                завтра число может быть другим, потому что срез считается заново.
+              </Text>
+              {saveError && <Text tone="error">{saveError}</Text>}
           </Stack>
         </ModalDialog>
 
@@ -323,6 +353,12 @@ export function PassageRegistry({
             columns={columns}
             rows={rows}
             rowKey={row => row.id}
+            // Реестр и есть содержимое экрана: без этого он листался бы в окошке на 540px,
+            // под которым остаётся пустой монитор.
+            fill
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={(key, dir) => { setSortKey(key); setSortDir(dir); }}
             total={total}
             hasMore={hasMore}
             loadingMore={loading}
@@ -337,6 +373,7 @@ export function PassageRegistry({
             }
           />
         )}
+        </Stack>
       </CardBody>
     </Card>
   );

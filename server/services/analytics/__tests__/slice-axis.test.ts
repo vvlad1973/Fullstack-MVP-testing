@@ -221,10 +221,17 @@ describe("registryConditions", () => {
     expect(registryConditions("variant", "none")).toEqual({});
   });
 
+  // Вариант и версия заведены условиями отбора наравне с группой, поэтому переводятся точно:
+  // переход «из строки среза в прохождения» открывает тот же состав, что в строке.
+  it("переводит вариант выдачи и версию публикации", () => {
+    expect(registryConditions("version", "snap-1")).toEqual({ snapshotIds: ["snap-1"] });
+    expect(registryConditions("variant", "form-a")).toEqual({ formIds: ["form-a"] });
+  });
+
   it("молчит там, где у реестра такого условия нет", () => {
+    // Номер попытки и признак внешнего участника условиями отбора не выражаются: подменить
+    // невыразимое условие похожим значило бы показать ДРУГУЮ выборку под именем среза.
     expect(registryConditions("attempt", "2")).toEqual({});
-    expect(registryConditions("version", "snap-1")).toEqual({});
-    expect(registryConditions("variant", "form-a")).toEqual({});
     expect(registryConditions("external", "external")).toEqual({});
   });
 });

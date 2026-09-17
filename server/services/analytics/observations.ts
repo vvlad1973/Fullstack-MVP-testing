@@ -15,6 +15,7 @@
 import { hasPronouncedVerdict, nothingToGrade } from "@shared/scoring/pass-rule";
 
 import { storage } from "../../storage";
+import type { ObservationSort } from "../../storage/analytics-repository";
 import { attemptParticipant, attemptTestId } from "./attempt-row";
 
 /** Откуда приехало прохождение. Фильтр экрана говорит ровно в этих терминах. */
@@ -277,11 +278,18 @@ export interface ObservationFilter {
   groupIds?: string[];
   sources?: ObservationSource[];
   outcomes?: ObservationOutcome[];
+  /** Варианты выдачи (PRD-17 `formId`): условие осмысленно внутри одного теста. */
+  formIds?: string[];
+  /** Версии публикации (`snapshot_id`): тоже условие внутри одного теста. */
+  snapshotIds?: string[];
   /** Период по дате НАЧАЛА прохождения. */
   from?: Date;
   to?: Date;
   limit?: number;
   offset?: number;
+  /** Чем упорядочить выборку (FR-01a): столбец реестра и направление. */
+  sort?: ObservationSort;
+  dir?: "asc" | "desc";
 }
 
 /**
@@ -327,10 +335,14 @@ export async function loadObservations(
     groupIds: filter.groupIds,
     sources: filter.sources,
     outcomes: filter.outcomes,
+    formIds: filter.formIds,
+    snapshotIds: filter.snapshotIds,
     from: filter.from,
     to: filter.to,
     limit: filter.limit,
     offset: filter.offset,
+    sort: filter.sort,
+    dir: filter.dir,
     impossible: !scope.all && (allowed?.length ?? 0) === 0,
   });
 

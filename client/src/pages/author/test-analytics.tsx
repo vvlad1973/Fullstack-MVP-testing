@@ -35,6 +35,7 @@ import {
     CardHeader,
     Cluster,
     EmptyState,
+    FilterBar,
     Grid,
     IconButton,
     ModalDialog,
@@ -45,6 +46,16 @@ import {
 } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
+import { RegistryFilterDialog } from "@/features/analytics/registry/filter-dialog";
+import {
+    countConditions,
+    describeConditions,
+    filterToSearch,
+    EMPTY_FILTER,
+    type RegistryFilter,
+} from "@/features/analytics/registry/filter-state";
+import { useRegistryDictionaries, useTestDictionary } from "@/features/analytics/registry/use-dictionaries";
+import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import {
     ArrowLeft,
     Users,
@@ -68,6 +79,8 @@ interface TestAnalytics {
     hasScales?: boolean;
     /** Does the test declare an overall pass threshold at all (PRD-29 §6.7)? */
     hasPassThreshold: boolean;
+    /** Порог наблюдений инстанса: ниже него разброс ответов не печатается (FR-22). */
+    minObservations: number;
     summary: {
         totalAttempts: number;
         completedAttempts: number;
@@ -127,6 +140,8 @@ interface TestAnalytics {
         reviewFlags: Array<{ kind: string; reason: string }>;
         /** PRD-56 FR-17a: задание исключено из выдачи этого теста. */
         excludedFromDelivery?: boolean;
+        /** PRD-56 FR-22: разброс ответов измерительного задания вместо доли верных. */
+        spread?: { options: Array<{ label: string; share: number }>; answered: number } | null;
         // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
         // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
         exposureCount?: number;
@@ -215,10 +230,33 @@ export default function TestAnalyticsPage() {
      * профиль строится по банку ОДНОЙ темы, и выбирать её должен читатель.
      */
     const [exposureTopic, setExposureTopic] = useState<string | null>(null);
+    /**
+     * PRD-56 FR-13: экран считается по отобранному — источнику, группе и периоду. Форма
+     * отбора та же, что у реестра, только без условия «тест»: он задан страницей.
+     *
+     * Условия держатся в адресе тем же хуком, что у реестра, и это не украшение: переход
+     * «группа → тест» (FR-24) приводит сюда со своим условием, и прочитать его можно только
+     * из адреса. Заодно ссылка на «аналитику теста по этой группе» пересылается коллеге.
+     */
+    const [filter, setFilter] = useRegistryFilter();
+    const [filterOpen, setFilterOpen] = useState(false);
+    const dictionaries = useRegistryDictionaries();
+    // Вариант и версия — условия внутри теста, а он здесь задан страницей: справочник для
+    // чипов и для окна отбора читается по нему.
+    const testDictionary = useTestDictionary(testId ?? null);
     const queryClient = useQueryClient();
 
+    const filterSearch = filterToSearch({ ...filter, testIds: [] });
+
     const { data: analytics, isLoading: analyticsLoading } = useQuery<TestAnalytics>({
-        queryKey: [`/api/analytics/tests/${testId}`],
+        queryKey: [`/api/analytics/tests/${testId}`, filterSearch],
+        queryFn: async () => {
+            const response = await fetch(`/api/analytics/tests/${testId}${filterSearch}`, {
+                credentials: "include",
+            });
+            if (!response.ok) throw new Error("Не удалось загрузить аналитику теста");
+            return response.json();
+        },
         enabled: !!testId,
     });
 
@@ -310,6 +348,16 @@ export default function TestAnalyticsPage() {
         <QuestionTable
             questions={questionStats}
             testId={testId ?? undefined}
+            // FR-22: измерительным тест считается по ФАКТУ — прохождения есть, а оценённых
+            // среди них нет ни одного. Объявленный проходной балл признаком не годится:
+            // опросник нередко несёт его по умолчанию, ничего при этом не оценивая, и тест
+            // с порогом 70 % показывал бы колонку «Доля верных», пустую во всех строках.
+            //
+            // Тот же счёт стоит за «неприменимо» в плитках (PRD-29 §6.7). Пока прохождений
+            // нет вовсе, таблица остаётся обычной: набор колонок не должен зависеть от того,
+            // успел ли кто-то пройти тест.
+            measurement={summary.completedAttempts > 0 && summary.gradedAttempts === 0}
+            minObservations={analytics.minObservations}
             onDeliveryChange={async (questionId, excluded) => {
                 // FR-17a: состояние меняется там же, где видно. Отказ сервера (выдачу собрать
                 // нельзя) показывается как есть: он и есть ответ на вопрос «почему нельзя».
@@ -476,6 +524,47 @@ export default function TestAnalyticsPage() {
                     onDone={() => queryClient.invalidateQueries({ queryKey: ["/api/analytics"] })}
                 />
             </ModalDialog>
+
+            {/*
+              PRD-56 FR-13, FR-31: один фильтр на экран, и он стоит НАД плитками — всё, что
+              ниже, посчитано по отобранному. Условия те же, что в реестре, минус тест: он
+              задан страницей (эскиз prd56-test-analytics.html, шаблон wf-filter-tpl).
+            */}
+            <FilterBar
+                count={countConditions({ ...filter, testIds: [] })}
+                applied={describeConditions(
+                  { ...filter, testIds: [] },
+                  { ...dictionaries, ...testDictionary },
+                )}
+                onOpenFilter={() => setFilterOpen(true)}
+                onRemove={(id: string) => {
+                    const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
+                    if (kind === "group") {
+                        setFilter({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
+                    } else if (kind === "source") {
+                        setFilter({ ...filter, sources: filter.sources.filter(x => x !== value) });
+                    } else if (kind === "outcome") {
+                        setFilter({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
+                    } else if (kind === "form") {
+                        setFilter({ ...filter, formIds: filter.formIds.filter(x => x !== value) });
+                    } else if (kind === "snapshot") {
+                        setFilter({ ...filter, snapshotIds: filter.snapshotIds.filter(x => x !== value) });
+                    } else if (id === "period") {
+                        setFilter({ ...filter, from: undefined, to: undefined });
+                    }
+                }}
+                onReset={() => setFilter(EMPTY_FILTER)}
+                resetLabel="Сбросить фильтры"
+            />
+
+            <RegistryFilterDialog
+                open={filterOpen}
+                filter={filter}
+                hideTest
+                scopeTestId={testId ?? null}
+                onApply={setFilter}
+                onClose={() => setFilterOpen(false)}
+            />
 
             {/* Summary Cards */}
             <Grid minItem="sm" gap={1}>

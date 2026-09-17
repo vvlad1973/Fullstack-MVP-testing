@@ -21,13 +21,25 @@ import {
   type RegistryOutcome,
   type RegistrySource,
 } from "./filter-state";
-import { useRegistryDictionaries } from "./use-dictionaries";
+import { useRegistryDictionaries, useTestDictionary } from "./use-dictionaries";
 
 export interface RegistryFilterDialogProps {
   open: boolean;
   filter: RegistryFilter;
   onApply: (filter: RegistryFilter) => void;
   onClose: () => void;
+  /**
+   * Скрыть условие «Тест» (FR-13): на аналитике теста он задан страницей и в условия не
+   * входит. Форма отбора при этом та же самая — второй формы условий в продукте нет.
+   */
+  hideTest?: boolean;
+  /**
+   * Тест, внутри которого набираются условия, когда его не выбирают в самом окне.
+   *
+   * Нужен аналитике теста: там тест задан страницей, а вариант и версия — условия ВНУТРИ
+   * теста, и без него их не из чего предложить.
+   */
+  scopeTestId?: string | null;
 }
 
 const SOURCES: Array<{ value: RegistrySource; label: string }> = [
@@ -48,11 +60,19 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter(item => item !== value) : [...list, value];
 }
 
-export function RegistryFilterDialog({ open, filter, onApply, onClose }: RegistryFilterDialogProps) {
+export function RegistryFilterDialog({
+  open, filter, onApply, onClose, hideTest, scopeTestId,
+}: RegistryFilterDialogProps) {
   const [draft, setDraft] = useState<RegistryFilter>(filter);
   // Справочники спрашиваются только у открытого окна и тем же хуком, что зовут чипы: иначе
   // одно и то же условие называлось бы в двух местах по-разному.
   const { tests, groups } = useRegistryDictionaries(open);
+  /**
+   * Тест, внутри которого осмысленны вариант и версия: заданный страницей либо единственный
+   * выбранный. Несколько тестов сразу — условие теряет смысл, и поля не показываются.
+   */
+  const scopedTestId = scopeTestId ?? (draft.testIds.length === 1 ? draft.testIds[0] : null);
+  const { forms, versions } = useTestDictionary(scopedTestId, open);
 
   // Открытие — момент, когда черновик берётся из применённых условий: окно, закрытое отменой,
   // не должно помнить набранное в прошлый раз.
@@ -106,15 +126,17 @@ export function RegistryFilterDialog({ open, filter, onApply, onClose }: Registr
           Тесты и группы выбираются поиском, а не списком: тестов на инсталляции десятки, и
           двадцать чекбоксов подряд — это не выбор, а прокрутка.
         */}
-        <Combobox
-          label="Тест"
-          multiple
-          placeholder="Все тесты"
-          options={tests.map(test => ({ value: test.id, label: test.title }))}
-          values={draft.testIds}
-          onValuesChange={values => setDraft(d => ({ ...d, testIds: values }))}
-          fullWidth
-        />
+        {!hideTest && (
+          <Combobox
+            label="Тест"
+            multiple
+            placeholder="Все тесты"
+            options={tests.map(test => ({ value: test.id, label: test.title }))}
+            values={draft.testIds}
+            onValuesChange={values => setDraft(d => ({ ...d, testIds: values }))}
+            fullWidth
+          />
+        )}
 
         <Combobox
           label="Группа"
@@ -125,6 +147,39 @@ export function RegistryFilterDialog({ open, filter, onApply, onClose }: Registr
           onValuesChange={values => setDraft(d => ({ ...d, groupIds: values }))}
           fullWidth
         />
+
+        {/*
+          Вариант выдачи и версия публикации — условия ВНУТРИ одного теста: у разных тестов
+          они свои, и общий список из них был бы перечнем несравнимого. Поэтому поля
+          появляются, когда тест в условиях ровно один, и исчезают, когда их несколько или
+          нет вовсе. На аналитике теста он задан страницей — там они есть всегда.
+        */}
+        {scopedTestId && forms.length > 0 && (
+          <Combobox
+            label="Вариант выдачи"
+            multiple
+            placeholder="Все варианты"
+            options={forms.map(form => ({ value: form.id, label: form.label }))}
+            values={draft.formIds}
+            onValuesChange={values => setDraft(d => ({ ...d, formIds: values }))}
+            fullWidth
+          />
+        )}
+
+        {scopedTestId && versions.length > 0 && (
+          <Combobox
+            label="Версия публикации"
+            multiple
+            placeholder="Все версии"
+            options={versions.map(snapshot => ({
+              value: snapshot.id,
+              label: `Версия ${snapshot.version}`,
+            }))}
+            values={draft.snapshotIds}
+            onValuesChange={values => setDraft(d => ({ ...d, snapshotIds: values }))}
+            fullWidth
+          />
+        )}
 
         <Stack gap={2}>
           <Text variant="body-s" weight="medium">Период</Text>

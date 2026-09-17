@@ -19,10 +19,10 @@ import {
   CardHeader,
   Combobox,
   DatePicker,
+  EmptyState,
   SegmentedControl,
   Select,
   Stack,
-  Text,
   type DatePickerValue,
 } from "@skillum/ui-kit";
 
@@ -34,6 +34,16 @@ export interface SlicesTabProps {
   tests: Array<{ id: string; title: string }>;
   /** Открыть реестр по условиям среза (FR-08). */
   onOpenRegistry?: (conditions: Record<string, unknown>) => void;
+  /** Открыть аналитику теста по условиям среза — переход «группа → тест» (FR-24). */
+  onOpenTestAnalytics?: (testId: string, conditions: Record<string, unknown>) => void;
+  /**
+   * Отбор, с которым пришли из реестра: сравнивается наравне с сохранёнными срезами и
+   * сохранения не требует (FR-07b). Заодно открывает вкладку сразу в режиме сравнения — за
+   * этим сюда и пришли.
+   */
+  adhoc?: Record<string, unknown> | null;
+  /** Тест, отобранный в реестре: он становится рамкой расчёта. */
+  adhocTestId?: string | null;
 }
 
 /** Оси разбиения: только те, для которых данные уже есть (FR-06a, FR-06b). */
@@ -62,12 +72,14 @@ function periodLabel(from?: string, to?: string): string {
   return from ? `с ${from}` : `по ${to}`;
 }
 
-export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
-  const [testId, setTestId] = useState<string | null>(null);
+export function SlicesTab({
+  tests, onOpenRegistry, onOpenTestAnalytics, adhoc, adhocTestId,
+}: SlicesTabProps) {
+  const [testId, setTestId] = useState<string | null>(adhocTestId ?? null);
   const [from, setFrom] = useState<DatePickerValue>(null);
   const [to, setTo] = useState<DatePickerValue>(null);
   const [axis, setAxis] = useState("group");
-  const [mode, setMode] = useState<"list" | "compare">("list");
+  const [mode, setMode] = useState<"list" | "compare">(adhoc ? "compare" : "list");
 
   const fromIso = isoOf(from);
   const toIso = isoOf(to);
@@ -92,13 +104,13 @@ export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
       </Stack>
 
       {testId === null ? (
-        <Card>
-          <CardBody>
-            <Text tone="muted">
-              Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы.
-            </Text>
-          </CardBody>
-        </Card>
+        // Пустое состояние, а не карточка с серой строкой: карточка во всю ширину с одной
+        // фразой внутри читается как поле ввода, которое почему-то не работает. Экран здесь
+        // не «показывает ничего», а ЖДЁТ выбора, и сказать об этом должен сам.
+        <EmptyState
+          title="Выберите тест"
+          description="Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы, и среднее поверх них ничего не значит."
+        />
       ) : (
         <Card>
           <CardHeader
@@ -133,7 +145,7 @@ export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
               )}
 
               {mode === "compare" ? (
-                <SliceCompare testId={testId} from={fromIso} to={toIso} />
+                <SliceCompare testId={testId} from={fromIso} to={toIso} adhoc={adhoc} />
               ) : (
                 <SliceList
                   testId={testId}
@@ -148,6 +160,16 @@ export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
                     ...(fromIso ? { from: fromIso } : {}),
                     ...(toIso ? { to: toIso } : {}),
                   }))}
+                  // Тест переход несёт отдельно: на той стороне он задан страницей, а не
+                  // условием отбора (FR-13), поэтому в условия его класть нельзя.
+                  onOpenTestAnalytics={onOpenTestAnalytics && (conditions => onOpenTestAnalytics(
+                    testId,
+                    {
+                      ...conditions,
+                      ...(fromIso ? { from: fromIso } : {}),
+                      ...(toIso ? { to: toIso } : {}),
+                    },
+                  ))}
                 />
               )}
             </Stack>

@@ -11,8 +11,17 @@
  * describes. Rendered entirely with the Skillum design system.
  */
 import { useState } from "react";
+import { ExportDialog } from "@/features/analytics/registry/export-dialog";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
-import type { RegistryFilter } from "@/features/analytics/registry/filter-state";
+import { useLocation } from "wouter";
+
+import {
+  conditionsToFilter,
+  countConditions,
+  filterToSearch,
+  EMPTY_FILTER,
+  type RegistryFilter,
+} from "@/features/analytics/registry/filter-state";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { SlicesTab } from "@/features/analytics/slices/slices-tab";
 import { AttentionQueue, type AttentionRow } from "@/features/analytics/attention/attention-queue";
@@ -42,6 +51,8 @@ import {
 } from "@skillum/ui-kit";
 import {
   CheckCircle,
+  ChevronDown,
+  ChevronRight,
   FileSpreadsheet,
   Globe,
   Server,
@@ -54,6 +65,9 @@ import {
   Upload,
   FileDown,
 } from "lucide-react";
+import type { QuestionType } from "@shared/questions/question-type";
+import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
+import { FoldAllButtons, useSectionFold } from "@/features/tests/editor/sections/section-fold";
 
 // ============================================
 // Интерфейсы
@@ -227,12 +241,15 @@ function formatUserAnswer(answer: DetailedAnswer): string {
 
     case "multiple":
       if (Array.isArray(userAnswer)) {
-        if (options) {
-          return userAnswer.map(i => options[i] || `Вариант ${i + 1}`).join(", ");
-        }
-        // Если userAnswer уже отформатирован как массив строк
+        // Подписи проверяются ПЕРВЫМИ: сервер отдаёт множественный ответ уже готовыми
+        // строками вариантов (`formattedUserAnswer`), а `questionData` приходит рядом —
+        // ветка по индексам брала `options["Нанимать молодых…"]`, получала `undefined` и
+        // складывала строки в «Вариант Нанимать молодых…1».
         if (typeof userAnswer[0] === "string") {
           return userAnswer.join(", ");
+        }
+        if (options) {
+          return userAnswer.map(i => options[i] || `Вариант ${i + 1}`).join(", ");
         }
         return userAnswer.join(", ");
       }
@@ -373,6 +390,16 @@ function AttemptDetailsDialog({
     enabled: open && !!attempt,
   });
 
+  /**
+   * Сворачивание карточек ответов. Разбор на два десятка вопросов — стена текста, в
+   * которой нужный вопрос ищут прокруткой; свёрнутая карточка оставляет шапку (номер,
+   * тема, тип, текст задания, балл и вердикт), и список читается одним экраном.
+   *
+   * Состояние живёт, пока окно открыто, и по умолчанию РАЗВЁРНУТО: автор пришёл читать
+   * ответы, а не раскрывать их по одному, — свернуть все он просит одной кнопкой.
+   */
+  const fold = useSectionFold((details?.answers ?? []).map((a) => a.questionId));
+
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return "—";
     const mins = Math.floor(seconds / 60);
@@ -507,20 +534,59 @@ function AttemptDetailsDialog({
 
   const answersContent = details && (
     <Stack gap={3}>
-        {details.answers?.map((answer, index) => (
+        {(details.answers?.length ?? 0) > 1 && (
+          <div className="tb-fold-toolbar">
+            <FoldAllButtons fold={fold} testIdPrefix="attempt-answers" />
+          </div>
+        )}
+        {details.answers?.map((answer, index) => {
+          const open = fold.isOpen(answer.questionId);
+          /*
+            Эталон печатается ТОЛЬКО там, где ответ неверен (согласованный эскиз
+            `analytics-attempt-details.html`: «печатается при ratio < 1»). У верного
+            ответа это буквальный повтор соседней ячейки — читать нечего, а разбор
+            растёт вдвое. У измерительного вопроса эталона нет по природе (PRD-26/PRD-44).
+          */
+          const showCorrect = !answer.measurementOnly && !answer.isCorrect;
+          return (
           <Card key={answer.questionId} variant="outlined">
             <CardBody>
               <Stack gap={3}>
                 <Cluster justify="between" align="start" gap={4}>
-                  <Stack gap={1}>
-                    <Cluster gap={2}>
-                      <Text variant="body-xs" weight="medium" tone="muted">#{index + 1}</Text>
-                      <Tag variant="outline" size="s">{answer.questionType}</Tag>
-                      {answer.topicName && <Tag size="s">{answer.topicName}</Tag>}
-                      {answer.levelName && <Tag tone="accent" size="s">{answer.levelName}</Tag>}
-                    </Cluster>
-                    <Text weight="medium">{answer.questionPrompt}</Text>
-                  </Stack>
+                  {/*
+                    Внутри кнопки только строчные элементы: Stack/Cluster — это `div`,
+                    а блочное содержимое в `button` недопустимо, поэтому колонка шапки
+                    собрана на `tb-ansfold__*`, как и сам примитив сворачивания.
+                  */}
+                  <button
+                    type="button"
+                    className="tb-fold-trigger tb-ansfold__head"
+                    aria-expanded={open ? "true" : "false"}
+                    aria-label={open ? `Свернуть вопрос ${index + 1}` : `Развернуть вопрос ${index + 1}`}
+                    onClick={() => fold.toggle(answer.questionId)}
+                    data-testid={`attempt-answer-toggle-${index + 1}`}
+                  >
+                    {open
+                      ? <ChevronDown className="tb-fold-chev" width={16} height={16} aria-hidden="true" />
+                      : <ChevronRight className="tb-fold-chev" width={16} height={16} aria-hidden="true" />}
+                    <span className="tb-ansfold__title">
+                      <span className="tb-ansfold__meta">
+                        <Text variant="body-xs" weight="medium" tone="muted">#{index + 1}</Text>
+                        {answer.topicName && <Tag size="s">{answer.topicName}</Tag>}
+                        {answer.levelName && <Tag tone="accent" size="s">{answer.levelName}</Tag>}
+                      </span>
+                      {/*
+                        Тип вопроса — пиктограмма перед текстом задания, та же, что в
+                        «Оценке», «Вкладах вопросов» и дереве содержания. Тег печатал
+                        сырое значение колонки (`multiple`, `single`) — по-английски и
+                        мимо общей условности.
+                      */}
+                      <Text weight="medium">
+                        <QuestionTypeIcon type={answer.questionType as QuestionType} />
+                        {answer.questionPrompt}
+                      </Text>
+                    </span>
+                  </button>
                   <Cluster gap={2}>
                     {answer.measurementOnly
                       ? <Tag size="s">Измерение</Tag>
@@ -535,28 +601,33 @@ function AttemptDetailsDialog({
                   </Cluster>
                 </Cluster>
 
-                <Separator />
+                {open && (
+                  <>
+                    <Separator />
 
-                <Grid minItem="md" gap={1}>
-                  <Stack gap={1}>
-                    <Text variant="body-xs" tone="muted">Ответ пользователя:</Text>
-                    <Box pad={3} radius="l" surface="muted">
-                      <Text variant="body-s" tone={answer.measurementOnly ? "default" : (answer.isCorrect ? "success" : "error")}>{formatUserAnswer(answer)}</Text>
-                    </Box>
-                  </Stack>
-                  {!answer.measurementOnly && (
-                    <Stack gap={1}>
-                      <Text variant="body-xs" tone="muted">Правильный ответ:</Text>
-                      <Box pad={3} radius="l" surface="muted">
-                        <Text variant="body-s">{formatCorrectAnswer(answer)}</Text>
-                      </Box>
-                    </Stack>
-                  )}
-                </Grid>
+                    <Grid minItem="md" gap={1}>
+                      <Stack gap={1}>
+                        <Text variant="body-xs" tone="muted">Ответ пользователя:</Text>
+                        <Box pad={3} radius="l" surface="muted">
+                          <Text variant="body-s" tone={answer.measurementOnly ? "default" : (answer.isCorrect ? "success" : "error")}>{formatUserAnswer(answer)}</Text>
+                        </Box>
+                      </Stack>
+                      {showCorrect && (
+                        <Stack gap={1}>
+                          <Text variant="body-xs" tone="muted">Правильный ответ:</Text>
+                          <Box pad={3} radius="l" surface="muted">
+                            <Text variant="body-s">{formatCorrectAnswer(answer)}</Text>
+                          </Box>
+                        </Stack>
+                      )}
+                    </Grid>
+                  </>
+                )}
               </Stack>
             </CardBody>
           </Card>
-        ))}
+          );
+        })}
 
         {(!details.answers || details.answers.length === 0) && emptyState("Нет данных об ответах")}
     </Stack>
@@ -994,6 +1065,17 @@ export default function AnalyticsPage() {
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
   /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
+  /** PRD-56 FR-04: окно выгрузки отфильтрованного — открывается из панели фильтра реестра. */
+  const [exportOpen, setExportOpen] = useState(false);
+  /** FR-24: переход «группа → тест» уводит со страницы, поэтому нужен переход маршрутизатора. */
+  const [, setLocation] = useLocation();
+  /**
+   * Отбор, отправленный из реестра в сравнение (FR-07b).
+   *
+   * Держится состоянием страницы, а не адресом: это не выборка, а НАМЕРЕНИЕ сравнить —
+   * пересылать его ссылкой незачем, а вкладка «Срезы» о нём должна узнать сразу.
+   */
+  const [compareWith, setCompareWith] = useState<RegistryFilter | null>(null);
   /**
    * Открытая вкладка. Держится состоянием, а не умолчанием, ради FR-08: переход из строки
    * среза открывает реестр и должен ПЕРЕКЛЮЧИТЬ экран, а не только подставить условия.
@@ -1054,6 +1136,10 @@ export default function AnalyticsPage() {
     setRegistryFilter({
       testIds: list(conditions.testIds),
       groupIds: list(conditions.groupIds),
+      // Вариант и версия приезжают из срезов по этим осям: перевод условий больше не теряет
+      // их, и реестр открывается ровно тем составом, что в строке среза (FR-08).
+      formIds: list(conditions.formIds),
+      snapshotIds: list(conditions.snapshotIds),
       sources: list(conditions.sources) as RegistryFilter["sources"],
       outcomes: list(conditions.outcomes) as RegistryFilter["outcomes"],
       ...(text(conditions.from) ? { from: text(conditions.from) } : {}),
@@ -1234,6 +1320,31 @@ export default function AnalyticsPage() {
                 filter={registryFilter}
                 onFilterChange={setRegistryFilter}
                 onOpenPassage={handleOpenPassage}
+                // FR-04: выгрузка живёт там же, где фильтр, и берёт его условия. Отдельного
+                // набора галочек для состава строк книги в продукте быть не должно — два
+                // описания одной выборки однажды разойдутся, и книга перестанет отвечать
+                // экрану (эскиз prd56-analytics-section.html, состояние reg-export).
+                actions={(
+                  <>
+                    {/* FR-07b: сравнить набранный отбор со срезом можно НЕ СОХРАНЯЯ его —
+                        сохранение нужно, когда срезом будут пользоваться и завтра, а вопрос
+                        «чем эти хуже тех» живёт одну минуту. */}
+                    <Button
+                      variant="secondary"
+                      size="s"
+                      disabled={countConditions(registryFilter) === 0}
+                      onClick={() => {
+                        setCompareWith(registryFilter);
+                        setTab("slices");
+                      }}
+                    >
+                      Сравнить со срезом
+                    </Button>
+                    <Button variant="secondary" size="s" onClick={() => setExportOpen(true)}>
+                      Экспорт
+                    </Button>
+                  </>
+                )}
               />
             ),
           },
@@ -1243,7 +1354,30 @@ export default function AnalyticsPage() {
             content: (
               <SlicesTab
                 tests={tests ?? []}
+                // Условия уходят в сравнение БЕЗ теста: он там рамка расчёта, а не условие
+                // отбора (FR-07e), и приезжает отдельным полем.
+                adhoc={compareWith
+                  ? {
+                    groupIds: compareWith.groupIds,
+                    sources: compareWith.sources,
+                    outcomes: compareWith.outcomes,
+                    ...(compareWith.from ? { from: compareWith.from } : {}),
+                    ...(compareWith.to ? { to: compareWith.to } : {}),
+                  }
+                  : null}
+                adhocTestId={compareWith?.testIds[0] ?? null}
                 onOpenRegistry={handleOpenSliceInRegistry}
+                // FR-24, переход «группа → тест»: условия среза едут в адрес аналитики теста,
+                // где их читает тот же разбор, что у реестра. Тест в условия не входит — он
+                // задан адресом страницы.
+                onOpenTestAnalytics={(openTestId, conditions) => {
+                  const search = filterToSearch({
+                    ...EMPTY_FILTER,
+                    ...conditionsToFilter(conditions),
+                    testIds: [],
+                  });
+                  setLocation(`/author/tests/${openTestId}/analytics${search}`);
+                }}
               />
             ),
           },
@@ -1263,6 +1397,12 @@ export default function AnalyticsPage() {
             content: <ExportSection />,
           },
         ]}
+      />
+
+      <ExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        filter={registryFilter}
       />
 
       {/* Модальное окно деталей */}

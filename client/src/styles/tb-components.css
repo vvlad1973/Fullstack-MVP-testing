@@ -2582,6 +2582,13 @@
 .tb-fold-sec-name { font: var(--ou-text-body-m); font-weight: 700; min-width: 0; }
 .tb-fold-sec__body { display: flex; flex-direction: column; gap: var(--ou-space-4); margin-top: var(--ou-space-4); }
 
+/* Шапка карточки ответа в разборе попытки — тот же триггер сворачивания, но с текстом
+   задания в две-три строки: шеврон держится верхней строки, а не середины абзаца.
+   Колонка собрана на строчных элементах — блочное содержимое в `button` недопустимо. */
+.tb-ansfold__head { align-items: flex-start; }
+.tb-ansfold__title { display: flex; flex-direction: column; gap: var(--ou-space-1); min-width: 0; }
+.tb-ansfold__meta { display: flex; align-items: center; gap: var(--ou-space-2); flex-wrap: wrap; }
+
 /* Disabled state for a Drawer rail item (DS has none): e.g. «Вклады вопросов»
    stays inert until a scale exists. */
 .ou-drawer__rail-item:disabled { opacity: 0.5; cursor: not-allowed; }
