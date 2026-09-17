@@ -22,6 +22,7 @@ import { useRegistryDictionaries } from "./use-dictionaries";
 
 import {
   countConditions,
+  describeConditions,
   filterToSearch,
   type RegistryFilter,
   type RegistryOutcome,
@@ -44,6 +45,11 @@ export interface RegistryRow {
   outcome: RegistryOutcome;
   source: RegistrySource;
   groupId: string | null;
+  /**
+   * Группы прохождения (FR-01, FR-09). Список, а не одно значение: у веб-попытки группа
+   * выводится из членства участника, а человек состоит и в отделе, и в потоке обучения.
+   */
+  groups: string[];
 }
 
 export interface PassageRegistryProps {
@@ -144,30 +150,9 @@ export function PassageRegistry({
     void load(0);
   }, [load]);
 
-  const applied = useMemo(() => {
-    // Название, а не идентификатор: по «6e10d1e6-0fc9…» читатель не может ни проверить
-    // отбор, ни объяснить его коллеге. Справочник не доехал — остаётся идентификатор:
-    // условие названо хуже, но отбор работает.
-    const testTitle = (id: string) => dictionaries.tests.find(test => test.id === id)?.title ?? id;
-    const groupName = (id: string) => dictionaries.groups.find(group => group.id === id)?.name ?? id;
-
-    const items: Array<{ id: string; label: string }> = [];
-    for (const id of filter.testIds) items.push({ id: `test:${id}`, label: `Тест: ${testTitle(id)}` });
-    for (const id of filter.groupIds) items.push({ id: `group:${id}`, label: `Группа: ${groupName(id)}` });
-    for (const source of filter.sources) {
-      items.push({ id: `source:${source}`, label: `Источник: ${SOURCE_LABEL[source]}` });
-    }
-    for (const outcome of filter.outcomes) {
-      items.push({ id: `outcome:${outcome}`, label: `Исход: ${OUTCOME_LABEL[outcome]}` });
-    }
-    if (filter.from || filter.to) {
-      items.push({
-        id: "period",
-        label: `Период: ${filter.from ?? "…"} — ${filter.to ?? "…"}`,
-      });
-    }
-    return items;
-  }, [filter, dictionaries]);
+  // Перевод условий в подписи общий с карточкой среза (FR-07b): срез и фильтр — одна сущность,
+  // и говорить о ней двумя наборами формулировок значило бы намекать на две разные выборки.
+  const applied = useMemo(() => describeConditions(filter, dictionaries), [filter, dictionaries]);
 
   /** Снять одно условие: чип удаляется поштучно, остальные остаются (FR-02). */
   const removeCondition = (id: string) => {
@@ -210,6 +195,18 @@ export function PassageRegistry({
       header: "Источник",
       render: (row: RegistryRow) => <Tag>{SOURCE_LABEL[row.source]}</Tag>,
     },
+    {
+      key: "group",
+      header: "Группа",
+      // «Без группы» — это факт о прохождении, а не отсутствие данных, поэтому словом, а не
+      // прочерком: прочерк здесь читался бы как «группу не посчитали». Так же названа строка
+      // среза по группам, и два экрана говорят об одном одинаково (FR-09).
+      // Поле читается мягко: строка приходит из сети, и отсутствие списка (ответ ручки прежнего
+      // выпуска) должно давать «без группы», а не ронять таблицу целиком.
+      render: (row: RegistryRow) => ((row.groups ?? []).length > 0
+        ? row.groups.join(", ")
+        : <Text variant="body-s" tone="muted">без группы</Text>),
+    },
   ];
 
   const hasMore = rows.length < total;
@@ -247,65 +244,69 @@ export function PassageRegistry({
         subtitle={subtitleOf(total, conditionCount)}
       />
       <CardBody>
-        <FilterBar
-          count={conditionCount}
-          applied={applied}
-          actions={
-            <>
-              {actions}
-              <Button
-                variant="ghost"
-                size="s"
-                // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
-                // спрятана: спрятанная не объясняет, почему действия нет.
-                disabled={conditionCount === 0}
-                onClick={() => setSaveOpen(true)}
-              >
-                Сохранить как срез
-              </Button>
-            </>
-          }
-          onOpenFilter={() => setFilterOpen(true)}
-          onRemove={removeCondition}
-          onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
-          resetLabel="Сбросить фильтры"
-        />
+        {/* Тело карточки — обычный блок без собственных отступов между детьми, поэтому строка
+            отбора и таблица слипались вплотную. Между РАЗНЫМИ блоками модульная сетка требует
+            16px, и расставляет их примитив, а не поля у соседей. */}
+        <Stack gap={4}>
+          <FilterBar
+            count={conditionCount}
+            applied={applied}
+            actions={
+              <>
+                {actions}
+                <Button
+                  variant="ghost"
+                  size="s"
+                  // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
+                  // спрятана: спрятанная не объясняет, почему действия нет.
+                  disabled={conditionCount === 0}
+                  onClick={() => setSaveOpen(true)}
+                >
+                  Сохранить как срез
+                </Button>
+              </>
+            }
+            onOpenFilter={() => setFilterOpen(true)}
+            onRemove={removeCondition}
+            onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
+            resetLabel="Сбросить фильтры"
+          />
 
-        <ModalDialog
-          open={saveOpen}
-          onClose={() => setSaveOpen(false)}
-          size="s"
-          title="Сохранить как срез"
-          description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
-          footer={
-            <>
-              <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
-              <Button
-                variant="primary"
-                size="m"
-                disabled={!sliceName.trim()}
-                onClick={() => void saveSlice()}
-              >
-                Сохранить
-              </Button>
-            </>
-          }
-        >
-          <Stack gap={3}>
-            <label htmlFor="slice-name">
-              <Text variant="body-s">Название среза</Text>
-            </label>
-            <Input
-              id="slice-name"
-              value={sliceName}
-              onChange={event => setSliceName(event.target.value)}
-              placeholder="Например: Розница, не сдали"
-            />
-            <Text variant="body-xs" tone="muted">
-              Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
-              завтра число может быть другим, потому что срез считается заново.
-            </Text>
-            {saveError && <Text tone="error">{saveError}</Text>}
+          <ModalDialog
+            open={saveOpen}
+            onClose={() => setSaveOpen(false)}
+            size="s"
+            title="Сохранить как срез"
+            description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
+            footer={
+              <>
+                <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
+                <Button
+                  variant="primary"
+                  size="m"
+                  disabled={!sliceName.trim()}
+                  onClick={() => void saveSlice()}
+                >
+                  Сохранить
+                </Button>
+              </>
+            }
+          >
+            <Stack gap={3}>
+              <label htmlFor="slice-name">
+                <Text variant="body-s">Название среза</Text>
+              </label>
+              <Input
+                id="slice-name"
+                value={sliceName}
+                onChange={event => setSliceName(event.target.value)}
+                placeholder="Например: Розница, не сдали"
+              />
+              <Text variant="body-xs" tone="muted">
+                Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
+                завтра число может быть другим, потому что срез считается заново.
+              </Text>
+              {saveError && <Text tone="error">{saveError}</Text>}
           </Stack>
         </ModalDialog>
 
@@ -337,6 +338,7 @@ export function PassageRegistry({
             }
           />
         )}
+        </Stack>
       </CardBody>
     </Card>
   );

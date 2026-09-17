@@ -103,6 +103,82 @@ export function isEmptyFilter(filter: RegistryFilter): boolean {
     && !filter.to;
 }
 
+/** Как называются источники и исходы там, где условие показывают человеку. */
+const SOURCE_LABEL: Record<string, string> = {
+  web: "веб",
+  telemetry: "телеметрия LMS",
+  import: "импорт",
+};
+
+const OUTCOME_LABEL: Record<string, string> = {
+  passed: "сдал",
+  failed: "не сдал",
+  completed: "завершено",
+  incomplete: "не завершено",
+};
+
+/** Справочники названий: без них условие читается идентификатором и не проверяется глазом. */
+export interface ConditionDictionaries {
+  tests: Array<{ id: string; title: string }>;
+  groups: Array<{ id: string; name: string }>;
+}
+
+/**
+ * Условия отбора словами — одинаково в чипах реестра и в карточке среза (FR-02, FR-07f).
+ *
+ * Перевод один на оба места намеренно: срез и фильтр — одна и та же сущность (FR-07b), и два
+ * описания одного набора условий однажды разошлись бы формулировками, а читатель решил бы,
+ * что разошлись сами выборки.
+ *
+ * Название, а не идентификатор: по «6e10d1e6-0fc9…» отбор нельзя ни проверить, ни объяснить
+ * коллеге. Справочник не доехал — остаётся идентификатор: условие названо хуже, но показано.
+ */
+export function describeConditions(
+  filter: RegistryFilter,
+  dictionaries: ConditionDictionaries,
+): Array<{ id: string; label: string }> {
+  const testTitle = (id: string) => dictionaries.tests.find(test => test.id === id)?.title ?? id;
+  const groupName = (id: string) => dictionaries.groups.find(group => group.id === id)?.name ?? id;
+
+  const items: Array<{ id: string; label: string }> = [];
+  for (const id of filter.testIds) items.push({ id: `test:${id}`, label: `Тест: ${testTitle(id)}` });
+  for (const id of filter.groupIds) items.push({ id: `group:${id}`, label: `Группа: ${groupName(id)}` });
+  for (const source of filter.sources) {
+    items.push({ id: `source:${source}`, label: `Источник: ${SOURCE_LABEL[source] ?? source}` });
+  }
+  for (const outcome of filter.outcomes) {
+    items.push({ id: `outcome:${outcome}`, label: `Исход: ${OUTCOME_LABEL[outcome] ?? outcome}` });
+  }
+  if (filter.from || filter.to) {
+    items.push({ id: "period", label: `Период: ${filter.from ?? "…"} — ${filter.to ?? "…"}` });
+  }
+  return items;
+}
+
+/**
+ * Условия сохранённого среза в фильтр реестра.
+ *
+ * Срез хранит условия тем же языком, что фильтр (FR-07b), но приезжает из базы нетипизированным
+ * объектом: он мог быть сохранён прежним выпуском или отредактирован руками. Всё, что не похоже
+ * на условие, отбрасывается молча — по тому же правилу, что и разбор адреса страницы.
+ */
+export function conditionsToFilter(raw: unknown): RegistryFilter {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  const strings = (value: unknown): string[] =>
+    (Array.isArray(value) ? value : []).filter((item): item is string => typeof item === "string");
+  const date = (value: unknown): string | undefined =>
+    (typeof value === "string" ? dateOf(value) : undefined);
+
+  return {
+    testIds: strings(source.testIds),
+    groupIds: strings(source.groupIds),
+    sources: strings(source.sources).filter((s): s is RegistrySource => SOURCES.includes(s)),
+    outcomes: strings(source.outcomes).filter((o): o is RegistryOutcome => OUTCOMES.includes(o)),
+    ...(date(source.from) ? { from: date(source.from) } : {}),
+    ...(date(source.to) ? { to: date(source.to) } : {}),
+  };
+}
+
 /** Сколько условий применено — счётчик на кнопке фильтра. */
 export function countConditions(filter: RegistryFilter): number {
   return filter.testIds.length

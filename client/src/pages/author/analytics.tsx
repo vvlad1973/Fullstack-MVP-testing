@@ -11,6 +11,7 @@
  * describes. Rendered entirely with the Skillum design system.
  */
 import { useState } from "react";
+import { ExportDialog } from "@/features/analytics/registry/export-dialog";
 import { PassageRegistry, type RegistryRow } from "@/features/analytics/registry/passage-registry";
 import type { RegistryFilter } from "@/features/analytics/registry/filter-state";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
@@ -994,6 +995,8 @@ export default function AnalyticsPage() {
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
   /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
+  /** PRD-56 FR-04: окно выгрузки отфильтрованного — открывается из панели фильтра реестра. */
+  const [exportOpen, setExportOpen] = useState(false);
   /**
    * Открытая вкладка. Держится состоянием, а не умолчанием, ради FR-08: переход из строки
    * среза открывает реестр и должен ПЕРЕКЛЮЧИТЬ экран, а не только подставить условия.
@@ -1234,6 +1237,15 @@ export default function AnalyticsPage() {
                 filter={registryFilter}
                 onFilterChange={setRegistryFilter}
                 onOpenPassage={handleOpenPassage}
+                // FR-04: выгрузка живёт там же, где фильтр, и берёт его условия. Отдельного
+                // набора галочек для состава строк книги в продукте быть не должно — два
+                // описания одной выборки однажды разойдутся, и книга перестанет отвечать
+                // экрану (эскиз prd56-analytics-section.html, состояние reg-export).
+                actions={(
+                  <Button variant="secondary" size="s" onClick={() => setExportOpen(true)}>
+                    Экспорт
+                  </Button>
+                )}
               />
             ),
           },
@@ -1263,6 +1275,12 @@ export default function AnalyticsPage() {
             content: <ExportSection />,
           },
         ]}
+      />
+
+      <ExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        filter={registryFilter}
       />
 
       {/* Модальное окно деталей */}

@@ -8,9 +8,12 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Text } from "@skillum/ui-kit";
+import { Button, Card, CardBody, Chip, Cluster, EmptyState, Stack, Text } from "@skillum/ui-kit";
 
-import type { SliceRow } from "./slice-list";
+import { conditionsToFilter, describeConditions } from "../registry/filter-state";
+import { useRegistryDictionaries } from "../registry/use-dictionaries";
+
+import type { SliceRow, SliceTopic } from "./slice-list";
 
 export interface SliceCompareProps {
   /** Тест — общее условие сравнения (FR-07e): он один для всех сравниваемых срезов. */
@@ -34,6 +37,7 @@ const ROWS: Array<{
   /** Доля — у неё разницу считать можно; объём — нельзя. */
   share: boolean;
 }> = [
+  { key: "assigned", label: "Назначено", share: false },
   { key: "started", label: "Начато", share: false },
   { key: "completed", label: "Завершено", share: false },
   { key: "participants", label: "Участников", share: false },
@@ -65,10 +69,89 @@ function difference(a: SliceRow, b: SliceRow, key: keyof SliceRow): string | nul
   return `${delta > 0 ? "+" : delta < 0 ? "−" : ""}${Math.abs(delta)} п.п.`;
 }
 
+/**
+ * Сколько условий помещается в карточке среза до свёртки (FR-07f).
+ *
+ * Три — не вёрсточный предел, а читательский: карточка должна опознаваться взглядом, а не
+ * читаться построчно. Остальные не исчезают: они названы в «ещё N» и целиком видны подсказкой.
+ */
+const VISIBLE_CONDITIONS = 3;
+
+/**
+ * Карточка сравниваемого среза: имя и условия, по которым он отобран (FR-07f).
+ *
+ * Условия показаны рядом с именем, потому что имя даёт срезу автор и оно может обещать не то,
+ * что срез считает. Читатель сравнения обязан видеть, ЧТО именно сравнивается, не уходя в
+ * форму отбора.
+ */
+function SliceCard(props: {
+  slice: SliceRow;
+  conditions: Array<{ id: string; label: string }>;
+  onRemove: () => void;
+}) {
+  const visible = props.conditions.slice(0, VISIBLE_CONDITIONS);
+  const hidden = props.conditions.slice(VISIBLE_CONDITIONS);
+
+  return (
+    <Card>
+      <CardBody>
+        <Stack gap={2}>
+          <Stack direction="row" gap={2} align="center" justify="between">
+            <Text variant="body-s" weight="semibold">{props.slice.name}</Text>
+            <Button variant="ghost" size="s" onClick={props.onRemove}>Убрать</Button>
+          </Stack>
+          <Cluster gap={2}>
+            {props.conditions.length === 0 ? (
+              // Срез без условий — это «тест целиком» (FR-07a), и сказать об этом надо словом:
+              // пустая карточка читается как незагрузившаяся.
+              <Text variant="body-xs" tone="muted">без условий — тест целиком</Text>
+            ) : (
+              <>
+                {visible.map(condition => (
+                  <Chip key={condition.id} size="s">{condition.label}</Chip>
+                ))}
+                {hidden.length > 0 && (
+                  <Chip size="s" title={hidden.map(condition => condition.label).join("; ")}>
+                    ещё {hidden.length}
+                  </Chip>
+                )}
+              </>
+            )}
+          </Cluster>
+        </Stack>
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * Темы, которые есть хотя бы у одного сравниваемого среза (FR-07).
+ *
+ * Объединение, а не пересечение: тема, не попавшая в выдачу одной из групп, — это факт о
+ * сравнении, и прятать её значило бы молча укоротить разговор. У такого среза в ячейке
+ * прочерк, и он честно говорит «этих вопросов здесь не было».
+ */
+function topicsOfAll(slices: readonly SliceRow[]): Array<{ id: string; name: string }> {
+  const names = new Map<string, string>();
+  for (const slice of slices) {
+    for (const topic of slice.topics ?? []) names.set(topic.topicId, topic.topicName);
+  }
+  return [...names.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Доля верных ответов среза по одной теме. */
+function topicOf(slice: SliceRow, topicId: string): SliceTopic | undefined {
+  return (slice.topics ?? []).find(topic => topic.topicId === topicId);
+}
+
 export function SliceCompare({ testId, from, to }: SliceCompareProps) {
   const [available, setAvailable] = useState<SliceRow[]>([]);
   const [chosen, setChosen] = useState<string[]>([]);
   const [failed, setFailed] = useState(false);
+  /** Названия тестов и групп — чтобы условие в карточке среза читалось, а не значилось кодом. */
+  const dictionaries = useRegistryDictionaries();
 
   useEffect(() => {
     let alive = true;
@@ -105,24 +188,25 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
 
   const full = chosen.length >= MAX_SLICES;
   const showDifference = selected.length === 2;
+  const topicRows = topicsOfAll(selected);
+
+  const addable = available.filter(slice => !chosen.includes(slice.id));
 
   return (
-    <div>
-      <div className="ou-stack ou-stack--row ou-stack--wrap ou-stack--gap-2">
-        {available
-          .filter(slice => !chosen.includes(slice.id))
-          .map(slice => (
-            <Button
-              key={slice.id}
-              variant="secondary"
-              size="s"
-              disabled={full}
-              onClick={() => setChosen(prev => [...prev, slice.id])}
-            >
-              Добавить срез: {slice.name}
-            </Button>
-          ))}
-      </div>
+    <Stack gap={4}>
+      <Cluster gap={2}>
+        {addable.map(slice => (
+          <Button
+            key={slice.id}
+            variant="secondary"
+            size="s"
+            disabled={full}
+            onClick={() => setChosen(prev => [...prev, slice.id])}
+          >
+            Добавить срез: {slice.name}
+          </Button>
+        ))}
+      </Cluster>
 
       {full && (
         <Text variant="body-s" tone="muted">
@@ -131,8 +215,32 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
         </Text>
       )}
 
+      {/* Карточки сравниваемых срезов с их условиями (FR-07f). */}
+      {selected.length > 0 && (
+        <Cluster gap={3} align="start">
+          {selected.map(slice => (
+            <SliceCard
+              key={slice.id}
+              slice={slice}
+              conditions={describeConditions(conditionsToFilter(slice.conditions), dictionaries)}
+              onRemove={() => setChosen(prev => prev.filter(id => id !== slice.id))}
+            />
+          ))}
+        </Cluster>
+      )}
+
       {selected.length === 0 ? (
-        <Text tone="muted">Выберите срезы, которые нужно сравнить.</Text>
+        // Срезов может не быть вовсе: тогда сравнивать нечего, и экран обязан сказать, где их
+        // берут, — иначе он выглядит сломанным (кнопок нет, таблицы нет, объяснения нет).
+        <EmptyState
+          layout="inline"
+          title={addable.length === 0
+            ? "Сохранённых срезов пока нет"
+            : "Выберите срезы, которые нужно сравнить"}
+          description={addable.length === 0
+            ? "Срез сохраняют на вкладке «Прохождения»: отберите нужные условия в фильтре и нажмите «Сохранить как срез»."
+            : "Добавьте два среза — тогда появится столбец «Разница»."}
+        />
       ) : (
         <div className="ou-grid">
           <div className="ou-grid__scroll">
@@ -166,6 +274,46 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
                     )}
                   </tr>
                 ))}
+
+                {/* FR-07: доли верных ПО ТЕМАМ — ради них сравнение и затевают. Разница по теме
+                    считается по тому же правилу, что у прочих долей: обе стороны должны иметь
+                    число, иначе сравнивать нечего. Единица счёта названа в подписи строки —
+                    это доля ОТВЕТОВ, а не доля прошедших тему (FR-14a). */}
+                {topicRows.length > 0 && (
+                  <tr>
+                    <td className="ou-grid__cell-strong" colSpan={selected.length + (showDifference ? 2 : 1)}>
+                      Доля верных ответов по темам
+                    </td>
+                  </tr>
+                )}
+                {topicRows.map(topic => {
+                  const shares = selected.map(slice => topicOf(slice, topic.id));
+                  const comparable = showDifference
+                    && shares[0]?.correctShare !== null && shares[0] !== undefined
+                    && shares[1]?.correctShare !== null && shares[1] !== undefined;
+                  const delta = comparable
+                    ? Math.round((shares[0]!.correctShare as number) - (shares[1]!.correctShare as number))
+                    : null;
+                  return (
+                    <tr key={topic.id}>
+                      <td>{topic.name}</td>
+                      {shares.map((share, index) => (
+                        <td key={selected[index].id} className="is-numeric">
+                          {share === undefined || share.correctShare === null
+                            ? "—"
+                            : `${Math.round(share.correctShare)} %`}
+                        </td>
+                      ))}
+                      {showDifference && (
+                        <td className="is-numeric">
+                          {delta === null
+                            ? "—"
+                            : `${delta > 0 ? "+" : delta < 0 ? "−" : ""}${Math.abs(delta)} п.п.`}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -173,10 +321,12 @@ export function SliceCompare({ testId, from, to }: SliceCompareProps) {
       )}
 
       {selected.length > 0 && (
-        <Button variant="ghost" size="s" onClick={() => setChosen([])}>
-          Очистить сравнение
-        </Button>
+        <Cluster gap={2}>
+          <Button variant="ghost" size="s" onClick={() => setChosen([])}>
+            Очистить сравнение
+          </Button>
+        </Cluster>
       )}
-    </div>
+    </Stack>
   );
 }

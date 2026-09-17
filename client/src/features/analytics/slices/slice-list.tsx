@@ -30,6 +30,18 @@ export interface SliceRow {
   passRate: number | null;
   avgPercent: number | null;
   enoughData: boolean;
+  /**
+   * Сколько людей среза получили назначение теста (FR-06). `null` — величина к этому срезу
+   * неприменима: назначают человека, а срез по номеру попытки или варианту описывает попытку.
+   */
+  assigned?: number | null;
+  /**
+   * Слабейшая тема среза (FR-06): та, где доля верных ниже всех. `null` — говорить не о чем:
+   * ответов нет либо ни одна тема не набрала порога наблюдений.
+   */
+  weakest?: SliceTopic | null;
+  /** Темы среза целиком — ими сравнение сопоставляет доли верных (FR-07). */
+  topics?: SliceTopic[];
 }
 
 export interface SliceListProps {
@@ -50,7 +62,7 @@ function percent(value: number | null): string {
 }
 
 /** Тема развёрнутой строки — то, что отдаёт `GET /api/analytics/slices/topics`. */
-interface SliceTopic {
+export interface SliceTopic {
   topicId: string;
   topicName: string;
   correctShare: number | null;
@@ -144,6 +156,16 @@ export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListP
       frozen: true,
       render: (row: SliceRow) => <span className="ou-grid__cell-strong">{row.name}</span>,
     },
+    {
+      key: "assigned",
+      header: "Назначено",
+      numeric: true,
+      // Прочерк здесь значит «величина к этому срезу неприменима», а не «ноль назначений»:
+      // по оси вроде номера попытки назначать нечего — назначают человека (FR-27).
+      render: (row: SliceRow) => (row.assigned === null || row.assigned === undefined
+        ? "—"
+        : row.assigned),
+    },
     { key: "started", header: "Начато", numeric: true, render: (row: SliceRow) => row.started },
     {
       key: "completed",
@@ -174,6 +196,18 @@ export function SliceList({ testId, from, to, axis, onOpenRegistry }: SliceListP
       render: (row: SliceRow) => (row.enoughData
         ? percent(row.avgPercent)
         : <Text variant="body-s" tone="muted">мало данных</Text>),
+    },
+    {
+      key: "weakest",
+      header: "Слабое место",
+      // Тема названа вместе со своей долей: «Корпоративные финансы» без числа не говорит,
+      // провал это или ровный результат, у которого просто кто-то обязан быть последним.
+      // Прочерк здесь честен — он значит «называть слабейшую не из чего» (FR-06d).
+      render: (row: SliceRow) => (row.weakest
+        ? `${row.weakest.topicName}${row.weakest.correctShare === null
+          ? ""
+          : ` · ${Math.round(row.weakest.correctShare)} %`}`
+        : "—"),
     },
     {
       key: "actions",

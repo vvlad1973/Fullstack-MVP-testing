@@ -57,7 +57,7 @@ export interface AxisBucket {
 }
 
 /** Ключ «ничего не проставлено» — у каждой оси он свой по смыслу, но всегда существует. */
-const NONE = "none";
+export const NONE = "none";
 
 const SOURCE_LABEL: Record<string, string> = {
   web: "Веб",

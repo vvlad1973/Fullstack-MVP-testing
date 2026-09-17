@@ -19,10 +19,10 @@ import {
   CardHeader,
   Combobox,
   DatePicker,
+  EmptyState,
   SegmentedControl,
   Select,
   Stack,
-  Text,
   type DatePickerValue,
 } from "@skillum/ui-kit";
 
@@ -92,13 +92,13 @@ export function SlicesTab({ tests, onOpenRegistry }: SlicesTabProps) {
       </Stack>
 
       {testId === null ? (
-        <Card>
-          <CardBody>
-            <Text tone="muted">
-              Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы.
-            </Text>
-          </CardBody>
-        </Card>
+        // Пустое состояние, а не карточка с серой строкой: карточка во всю ширину с одной
+        // фразой внутри читается как поле ввода, которое почему-то не работает. Экран здесь
+        // не «показывает ничего», а ЖДЁТ выбора, и сказать об этом должен сам.
+        <EmptyState
+          title="Выберите тест"
+          description="Срезы считаются внутри одного теста: у разных тестов разные пороги и шкалы, и среднее поверх них ничего не значит."
+        />
       ) : (
         <Card>
           <CardHeader

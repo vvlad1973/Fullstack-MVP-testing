@@ -23,7 +23,7 @@ const ROW = {
   testId: "t1", testTitle: "Сертификация руководителей",
   startedAt: "2026-09-11T14:00:00.000Z", finishedAt: "2026-09-11T14:20:00.000Z",
   durationMs: 1_200_000, percent: 78, passed: true, outcome: "passed",
-  source: "web", groupId: null,
+  source: "web", groupId: null, groups: ["Отдел продаж"],
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -54,6 +54,22 @@ describe("PassageRegistry", () => {
 
     expect(await screen.findByText("Морозова Анна")).toBeTruthy();
     expect(screen.getByText("Сертификация руководителей")).toBeTruthy();
+  });
+
+  // FR-01: группа названа прямо в перечне колонок реестра, а FR-09 говорит, что прохождение
+  // вне групп не исчезает. Обе половины проверяются здесь, потому что одна без другой
+  // оставляет колонку, которая молчит ровно там, где от неё ждут ответа.
+  it("показывает группы прохождения, а вне групп говорит «без группы»", async () => {
+    fetchMock.mockResolvedValue(page([
+      { ...ROW, groups: ["Отдел продаж", "Поток 2026"] },
+      { ...ROW, id: "web-2", participant: "Сомов Пётр", groups: [] },
+    ], 2));
+
+    render(<PassageRegistry filter={{ testIds: [], groupIds: [], sources: [], outcomes: [] }} onFilterChange={() => {}} />);
+
+    expect(await screen.findByText("Группа")).toBeTruthy();
+    expect(screen.getByText("Отдел продаж, Поток 2026")).toBeTruthy();
+    expect(screen.getByText("без группы")).toBeTruthy();
   });
 
   it("говорит в подзаголовке, сколько прохождений и откуда они", async () => {

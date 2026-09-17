@@ -52,6 +52,51 @@ function dateOf(value: unknown, edge: "start" | "end"): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+/**
+ * Группы прохождений одной порции — по правилу FR-09.
+ *
+ * У веб-попытки группа выводится из ЧЛЕНСТВА участника, и членств может быть несколько: человек
+ * состоит в отделе и в потоке обучения разом, поэтому строка несёт список, а не одно значение.
+ * У импортированного прохождения группа приехала с выгрузкой (`scorm_attempts.group_id`) и
+ * членство не спрашивается: участник там может быть не заведён вовсе (PRD-54).
+ *
+ * Справочники читаются поимённо, по тем участникам и группам, что попали в порцию: читать всё
+ * членство инсталляции ради двадцати пяти строк — то самое чтение таблицы целиком, от которого
+ * реестр и ушёл.
+ */
+async function groupsOfPage(
+  rows: Array<{ id: string; userId: string | null; groupId: string | null }>,
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+
+  const ownGroupIds = [...new Set(rows.map(row => row.groupId).filter((id): id is string => !!id))];
+  const ownNames = new Map(
+    (await Promise.all(ownGroupIds.map(id => storage.getGroup(id))))
+      .filter((group): group is NonNullable<typeof group> => !!group)
+      .map(group => [group.id, group.name]),
+  );
+
+  const userIds = [...new Set(
+    rows.filter(row => !row.groupId).map(row => row.userId).filter((id): id is string => !!id),
+  )];
+  const membership = new Map(
+    await Promise.all(userIds.map(async id => [
+      id,
+      (await storage.getUserGroups(id)).map(group => group.name),
+    ] as const)),
+  );
+
+  for (const row of rows) {
+    if (row.groupId) {
+      const name = ownNames.get(row.groupId);
+      out.set(row.id, name ? [name] : []);
+      continue;
+    }
+    out.set(row.id, row.userId ? membership.get(row.userId) ?? [] : []);
+  }
+  return out;
+}
+
 // GET /api/analytics/registry — порция прохождений и общее их число
 router.get("/registry", requirePermission("analytics.read"), async (req: Request, res: Response) => {
   try {
@@ -89,6 +134,8 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
         .map(test => [test.id, test.title]),
     );
 
+    const groups = await groupsOfPage(page.rows);
+
     res.json({
       rows: page.rows.map(row => ({
         id: row.id,
@@ -106,6 +153,7 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
         outcome: row.outcome,
         source: row.source,
         groupId: row.groupId,
+        groups: groups.get(row.id) ?? [],
       })),
       total: page.total,
       limit,
