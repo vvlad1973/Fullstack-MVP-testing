@@ -24,6 +24,15 @@ export interface RegistryFilter {
   groupIds: string[];
   sources: RegistrySource[];
   outcomes: RegistryOutcome[];
+  /**
+   * Варианты выдачи (PRD-17) и версии публикации (PRD-15).
+   *
+   * Условия ВНУТРИ одного теста: у разных тестов и варианты, и версии свои, поэтому окно
+   * отбора предлагает их, только когда тест в условиях ровно один. Само условие при этом
+   * равноправно с остальными — иначе срез по варианту нельзя было бы открыть в реестре.
+   */
+  formIds: string[];
+  snapshotIds: string[];
   /** Границы периода в формате `ГГГГ-ММ-ДД`; каждая необязательна. */
   from?: string;
   to?: string;
@@ -34,7 +43,7 @@ const OUTCOMES: readonly string[] = ["passed", "failed", "completed", "incomplet
 
 /** Пустой фильтр — то, что видит пользователь, открывший реестр без ссылки. */
 export const EMPTY_FILTER: RegistryFilter = {
-  testIds: [], groupIds: [], sources: [], outcomes: [],
+  testIds: [], groupIds: [], sources: [], outcomes: [], formIds: [], snapshotIds: [],
 };
 
 /**
@@ -67,6 +76,8 @@ export function parseFilter(search: string): RegistryFilter {
   return {
     testIds: valuesOf(params, "testId"),
     groupIds: valuesOf(params, "groupId"),
+    formIds: valuesOf(params, "formId"),
+    snapshotIds: valuesOf(params, "snapshotId"),
     sources: valuesOf(params, "source").filter((s): s is RegistrySource => SOURCES.includes(s)),
     outcomes: valuesOf(params, "outcome").filter((o): o is RegistryOutcome => OUTCOMES.includes(o)),
     ...(from ? { from } : {}),
@@ -84,6 +95,8 @@ export function filterToSearch(filter: Partial<RegistryFilter>): string {
   const params = new URLSearchParams();
   for (const id of filter.testIds ?? []) params.append("testId", id);
   for (const id of filter.groupIds ?? []) params.append("groupId", id);
+  for (const id of filter.formIds ?? []) params.append("formId", id);
+  for (const id of filter.snapshotIds ?? []) params.append("snapshotId", id);
   for (const source of filter.sources ?? []) params.append("source", source);
   for (const outcome of filter.outcomes ?? []) params.append("outcome", outcome);
   if (filter.from) params.set("from", filter.from);
@@ -97,6 +110,8 @@ export function filterToSearch(filter: Partial<RegistryFilter>): string {
 export function isEmptyFilter(filter: RegistryFilter): boolean {
   return filter.testIds.length === 0
     && filter.groupIds.length === 0
+    && filter.formIds.length === 0
+    && filter.snapshotIds.length === 0
     && filter.sources.length === 0
     && filter.outcomes.length === 0
     && !filter.from
@@ -121,6 +136,9 @@ const OUTCOME_LABEL: Record<string, string> = {
 export interface ConditionDictionaries {
   tests: Array<{ id: string; title: string }>;
   groups: Array<{ id: string; name: string }>;
+  /** Варианты и версии ОДНОГО теста: их подписи живут внутри теста, а не в общем списке. */
+  forms?: Array<{ id: string; label: string }>;
+  versions?: Array<{ id: string; version: number }>;
 }
 
 /**
@@ -143,6 +161,16 @@ export function describeConditions(
   const items: Array<{ id: string; label: string }> = [];
   for (const id of filter.testIds) items.push({ id: `test:${id}`, label: `Тест: ${testTitle(id)}` });
   for (const id of filter.groupIds) items.push({ id: `group:${id}`, label: `Группа: ${groupName(id)}` });
+  // Вариант и версия называются так же, как в срезах по этим осям: одно и то же условие не
+  // должно на двух экранах читаться по-разному.
+  for (const id of filter.formIds) {
+    const label = dictionaries.forms?.find(form => form.id === id)?.label;
+    items.push({ id: `form:${id}`, label: `Вариант: ${label ?? "удалённый"}` });
+  }
+  for (const id of filter.snapshotIds) {
+    const version = dictionaries.versions?.find(snapshot => snapshot.id === id)?.version;
+    items.push({ id: `snapshot:${id}`, label: `Версия: ${version ? `${version}` : "публикации"}` });
+  }
   for (const source of filter.sources) {
     items.push({ id: `source:${source}`, label: `Источник: ${SOURCE_LABEL[source] ?? source}` });
   }
@@ -172,6 +200,8 @@ export function conditionsToFilter(raw: unknown): RegistryFilter {
   return {
     testIds: strings(source.testIds),
     groupIds: strings(source.groupIds),
+    formIds: strings(source.formIds),
+    snapshotIds: strings(source.snapshotIds),
     sources: strings(source.sources).filter((s): s is RegistrySource => SOURCES.includes(s)),
     outcomes: strings(source.outcomes).filter((o): o is RegistryOutcome => OUTCOMES.includes(o)),
     ...(date(source.from) ? { from: date(source.from) } : {}),
@@ -183,6 +213,8 @@ export function conditionsToFilter(raw: unknown): RegistryFilter {
 export function countConditions(filter: RegistryFilter): number {
   return filter.testIds.length
     + filter.groupIds.length
+    + filter.formIds.length
+    + filter.snapshotIds.length
     + filter.sources.length
     + filter.outcomes.length
     + (filter.from || filter.to ? 1 : 0);

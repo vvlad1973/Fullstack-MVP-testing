@@ -114,6 +114,11 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
       (OUTCOMES as string[]).includes(o));
     const testIds = listOf(req.query.testId);
     const groupIds = listOf(req.query.groupId);
+    // Вариант и версия — условия ВНУТРИ одного теста: у разных тестов они свои, и отбор по
+    // ним поверх нескольких тестов ничего не значит. Экран их и предлагает только при одном
+    // выбранном тесте; ручка принимает как есть — чужая ссылка не повод падать.
+    const formIds = listOf(req.query.formId);
+    const snapshotIds = listOf(req.query.snapshotId);
 
     // Столбец сортировки принимается только из перечня: незнакомое имя — это опечатка в
     // чужой ссылке, и отвечать на неё ошибкой незачем, реестр просто встаёт по умолчанию.
@@ -126,6 +131,8 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
       {
         ...(testIds.length ? { testIds } : {}),
         ...(groupIds.length ? { groupIds } : {}),
+        ...(formIds.length ? { formIds } : {}),
+        ...(snapshotIds.length ? { snapshotIds } : {}),
         ...(sources.length ? { sources } : {}),
         ...(outcomes.length ? { outcomes } : {}),
         ...(dateOf(req.query.from, "start") ? { from: dateOf(req.query.from, "start") } : {}),

@@ -59,3 +59,53 @@ export function useRegistryDictionaries(enabled = true): RegistryDictionaries {
 
   return dictionaries;
 }
+
+/**
+ * Варианты и версии ОДНОГО теста — справочник условий, осмысленных только внутри него.
+ *
+ * Читается отдельно и только когда тест выбран ровно один: у разных тестов варианты свои, и
+ * общий список из них был бы перечнем несравнимого. Пустой ответ — обычное дело: у теста без
+ * наборов форм вариантов нет вовсе, и условие тогда не предлагается.
+ *
+ * @param testId тест условий; `null` — спрашивать нечего
+ * @param enabled окно отбора закрыто — запросов нет
+ */
+export function useTestDictionary(
+  testId: string | null,
+  enabled = true,
+): { forms: Array<{ id: string; label: string }>; versions: Array<{ id: string; version: number }> } {
+  const [dictionary, setDictionary] = useState<{
+    forms: Array<{ id: string; label: string }>;
+    versions: Array<{ id: string; version: number }>;
+  }>({ forms: [], versions: [] });
+
+  useEffect(() => {
+    if (!enabled || !testId) {
+      setDictionary({ forms: [], versions: [] });
+      return;
+    }
+    let alive = true;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/analytics/tests/${testId}/dictionary`, {
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error(String(response.status));
+        const data = await response.json() as {
+          forms?: Array<{ id: string; label: string }>;
+          versions?: Array<{ id: string; version: number }>;
+        };
+        if (alive) setDictionary({ forms: data.forms ?? [], versions: data.versions ?? [] });
+      } catch {
+        // Справочник не доехал — условие просто не предлагается: выпадающий список с
+        // идентификаторами вместо названий хуже, чем его отсутствие.
+        if (alive) setDictionary({ forms: [], versions: [] });
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [testId, enabled]);
+
+  return dictionary;
+}

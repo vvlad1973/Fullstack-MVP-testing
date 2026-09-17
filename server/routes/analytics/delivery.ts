@@ -27,6 +27,47 @@ import {
 
 const router = Router();
 
+/**
+ * GET /api/analytics/tests/:testId/dictionary — варианты и версии теста для окна условий.
+ *
+ * Лёгкий справочник, а не соседняя ручка выдачи: та считает проходимость по каждому варианту
+ * и профиль банка, а форме отбора нужны только подписи. Платить за расчёт, чтобы наполнить
+ * выпадающий список, значит делать открытие фильтра дороже самой выборки.
+ *
+ * Условия «вариант» и «версия» осмысленны ВНУТРИ одного теста (у разных тестов они свои),
+ * поэтому справочник и привязан к тесту, а не отдаётся общим списком.
+ */
+router.get(
+  "/tests/:testId/dictionary",
+  requirePermission("analytics.read"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const { testId } = req.params;
+      const [sections, snapshots] = await Promise.all([
+        storage.getTestSections(testId),
+        storage.getSnapshotsForTest(testId),
+      ]);
+
+      res.json({
+        // Вариант принадлежит РАЗДЕЛУ, но в условии отбора он один на тест: прохождение
+        // попадает в выборку, если хоть один его вариант отобран.
+        forms: sections.flatMap(section => (section.formSetJson?.forms ?? []).map(form => ({
+          id: form.id,
+          label: form.label,
+        }))),
+        versions: snapshots.map(snapshot => ({
+          id: snapshot.id,
+          version: snapshot.version,
+        })),
+      });
+    } catch (error) {
+      logger.error("Test dictionary error: " + (error as Error).message);
+      res.status(500).json({ error: "Failed to load test dictionary" });
+    }
+  },
+);
+
 router.get(
   "/tests/:testId/delivery",
   requirePermission("analytics.read"),

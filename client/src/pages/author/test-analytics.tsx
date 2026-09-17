@@ -54,7 +54,7 @@ import {
     EMPTY_FILTER,
     type RegistryFilter,
 } from "@/features/analytics/registry/filter-state";
-import { useRegistryDictionaries } from "@/features/analytics/registry/use-dictionaries";
+import { useRegistryDictionaries, useTestDictionary } from "@/features/analytics/registry/use-dictionaries";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import {
     ArrowLeft,
@@ -241,6 +241,9 @@ export default function TestAnalyticsPage() {
     const [filter, setFilter] = useRegistryFilter();
     const [filterOpen, setFilterOpen] = useState(false);
     const dictionaries = useRegistryDictionaries();
+    // Вариант и версия — условия внутри теста, а он здесь задан страницей: справочник для
+    // чипов и для окна отбора читается по нему.
+    const testDictionary = useTestDictionary(testId ?? null);
     const queryClient = useQueryClient();
 
     const filterSearch = filterToSearch({ ...filter, testIds: [] });
@@ -529,7 +532,10 @@ export default function TestAnalyticsPage() {
             */}
             <FilterBar
                 count={countConditions({ ...filter, testIds: [] })}
-                applied={describeConditions({ ...filter, testIds: [] }, dictionaries)}
+                applied={describeConditions(
+                  { ...filter, testIds: [] },
+                  { ...dictionaries, ...testDictionary },
+                )}
                 onOpenFilter={() => setFilterOpen(true)}
                 onRemove={(id: string) => {
                     const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
@@ -539,6 +545,10 @@ export default function TestAnalyticsPage() {
                         setFilter({ ...filter, sources: filter.sources.filter(x => x !== value) });
                     } else if (kind === "outcome") {
                         setFilter({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
+                    } else if (kind === "form") {
+                        setFilter({ ...filter, formIds: filter.formIds.filter(x => x !== value) });
+                    } else if (kind === "snapshot") {
+                        setFilter({ ...filter, snapshotIds: filter.snapshotIds.filter(x => x !== value) });
                     } else if (id === "period") {
                         setFilter({ ...filter, from: undefined, to: undefined });
                     }
@@ -551,6 +561,7 @@ export default function TestAnalyticsPage() {
                 open={filterOpen}
                 filter={filter}
                 hideTest
+                scopeTestId={testId ?? null}
                 onApply={setFilter}
                 onClose={() => setFilterOpen(false)}
             />

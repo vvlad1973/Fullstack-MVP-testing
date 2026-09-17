@@ -19,12 +19,13 @@ import {
 import { pluralize } from "@/lib/i18n";
 
 import { RegistryFilterDialog } from "./filter-dialog";
-import { useRegistryDictionaries } from "./use-dictionaries";
+import { useRegistryDictionaries, useTestDictionary } from "./use-dictionaries";
 
 import {
   countConditions,
   describeConditions,
   filterToSearch,
+  EMPTY_FILTER,
   type RegistryFilter,
   type RegistryOutcome,
   type RegistrySource,
@@ -119,6 +120,9 @@ export function PassageRegistry({
   const search = filterToSearch(filter);
   /** Названия тестов и групп — чтобы условие в чипе читалось, а не значилось кодом (FR-02). */
   const dictionaries = useRegistryDictionaries();
+  // Вариант и версия называются по справочнику ТОГО теста, что стоит в условиях: у разных
+  // тестов они свои, и общего перечня для них не существует.
+  const testDictionary = useTestDictionary(filter.testIds.length === 1 ? filter.testIds[0] : null);
 
   /** Номер запроса: ответ на устаревшие условия не должен затирать свежий список. */
   const request = useRef(0);
@@ -166,7 +170,10 @@ export function PassageRegistry({
 
   // Перевод условий в подписи общий с карточкой среза (FR-07b): срез и фильтр — одна сущность,
   // и говорить о ней двумя наборами формулировок значило бы намекать на две разные выборки.
-  const applied = useMemo(() => describeConditions(filter, dictionaries), [filter, dictionaries]);
+  const applied = useMemo(
+    () => describeConditions(filter, { ...dictionaries, ...testDictionary }),
+    [filter, dictionaries, testDictionary],
+  );
 
   /** Снять одно условие: чип удаляется поштучно, остальные остаются (FR-02). */
   const removeCondition = (id: string) => {
@@ -175,6 +182,10 @@ export function PassageRegistry({
     else if (kind === "group") onFilterChange({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
     else if (kind === "source") onFilterChange({ ...filter, sources: filter.sources.filter(x => x !== value) });
     else if (kind === "outcome") onFilterChange({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
+    else if (kind === "form") onFilterChange({ ...filter, formIds: filter.formIds.filter(x => x !== value) });
+    else if (kind === "snapshot") {
+      onFilterChange({ ...filter, snapshotIds: filter.snapshotIds.filter(x => x !== value) });
+    }
     else if (id === "period") {
       const { from: _from, to: _to, ...rest } = filter;
       onFilterChange({ ...rest });
@@ -286,7 +297,7 @@ export function PassageRegistry({
             }
             onOpenFilter={() => setFilterOpen(true)}
             onRemove={removeCondition}
-            onReset={() => onFilterChange({ testIds: [], groupIds: [], sources: [], outcomes: [] })}
+            onReset={() => onFilterChange(EMPTY_FILTER)}
             resetLabel="Сбросить фильтры"
           />
 

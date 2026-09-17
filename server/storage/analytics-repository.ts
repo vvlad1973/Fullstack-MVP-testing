@@ -32,6 +32,15 @@ export interface ObservationQuery {
   groupIds?: string[];
   sources?: ObservationSourceName[];
   outcomes?: ObservationOutcomeName[];
+  /**
+   * Варианты выдачи (PRD-17 `formId`) и версии публикации (`snapshot_id`).
+   *
+   * Условия осмысленны внутри ОДНОГО теста: у разных тестов и варианты, и версии свои, и
+   * отбор по ним поверх нескольких тестов ничего не значит. Ограничение стережёт экран, а
+   * не запрос: сюда уже приходят выбранные идентификаторы.
+   */
+  formIds?: string[];
+  snapshotIds?: string[];
   from?: Date;
   to?: Date;
   limit?: number;
@@ -119,7 +128,24 @@ export class AnalyticsRepository {
       where ${userGroups.userId} = ${userIdColumn}
         and ${userGroups.groupId} in ${ids}
     )`;
-    const { testIds, groupIds, sources, outcomes } = query;
+    const { testIds, groupIds, sources, outcomes, formIds, snapshotIds } = query;
+
+    /**
+     * Прохождение выдано одним из отобранных вариантов.
+     *
+     * У веб-попытки состав формы лежит в `variant_json.sections[].formId`, у прохождения из
+     * LMS — в `forms_json` (PRD-56 FR-19a: пакет сообщает его телеметрией). Разделов с
+     * наборами форм у теста бывает несколько, поэтому подходит СОВПАДЕНИЕ ХОТЬ ПО ОДНОМУ —
+     * как строка среза по варианту, в которую прохождение попадает каждым своим вариантом.
+     */
+    const webInForms = (ids: string[]) => sql`exists (
+      select 1 from jsonb_array_elements(coalesce(${attempts.variantJson} -> 'sections', '[]'::jsonb)) as section
+      where section ->> 'formId' in ${ids}
+    )`;
+    const lmsInForms = (ids: string[]) => sql`exists (
+      select 1 from jsonb_each_text(coalesce(${scormAttempts.formsJson}, '{}'::jsonb)) as form(key, value)
+      where form.value in ${ids}
+    )`;
 
     // Единицы оценивания: достижимые баллы, а где их не записали — сам факт посчитанного
     // процента. Правило повторяет `gradedUnits` сервиса; у теста без проходного балла оба
@@ -157,6 +183,8 @@ export class AnalyticsRepository {
       ...(query.to ? [lte(attempts.startedAt, query.to)] : []),
       ...(outcomes?.length ? [inArray(webOutcome, outcomes)] : []),
       ...(groupIds?.length ? [inGroups(attempts.userId, groupIds)] : []),
+      ...(formIds?.length ? [webInForms(formIds)] : []),
+      ...(snapshotIds?.length ? [inArray(attempts.snapshotId, snapshotIds)] : []),
       ...(sources?.length && !sources.includes("web") ? [NOTHING] : []),
       ...(query.impossible ? [NOTHING] : []),
     );
@@ -182,6 +210,8 @@ export class AnalyticsRepository {
           )!]
         : []),
       ...(outcomes?.length ? [inArray(lmsOutcome, outcomes)] : []),
+      ...(formIds?.length ? [lmsInForms(formIds)] : []),
+      ...(snapshotIds?.length ? [inArray(scormAttempts.snapshotId, snapshotIds)] : []),
       ...(lmsOrigins.length ? [inArray(scormAttempts.origin, lmsOrigins)] : [NOTHING]),
       ...(query.impossible ? [NOTHING] : []),
     );

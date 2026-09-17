@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RegistryFilterDialog } from "../filter-dialog";
 
-const EMPTY = { testIds: [], groupIds: [], sources: [], outcomes: [] };
+const EMPTY = { testIds: [], groupIds: [], formIds: [], snapshotIds: [], sources: [], outcomes: [] };
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (input: string) => ({

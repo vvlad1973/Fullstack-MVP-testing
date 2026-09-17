@@ -278,6 +278,10 @@ export interface ObservationFilter {
   groupIds?: string[];
   sources?: ObservationSource[];
   outcomes?: ObservationOutcome[];
+  /** Варианты выдачи (PRD-17 `formId`): условие осмысленно внутри одного теста. */
+  formIds?: string[];
+  /** Версии публикации (`snapshot_id`): тоже условие внутри одного теста. */
+  snapshotIds?: string[];
   /** Период по дате НАЧАЛА прохождения. */
   from?: Date;
   to?: Date;
@@ -331,6 +335,8 @@ export async function loadObservations(
     groupIds: filter.groupIds,
     sources: filter.sources,
     outcomes: filter.outcomes,
+    formIds: filter.formIds,
+    snapshotIds: filter.snapshotIds,
     from: filter.from,
     to: filter.to,
     limit: filter.limit,
