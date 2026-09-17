@@ -64,7 +64,13 @@ export const EXTRACT = `() => {
         items.push({ role: "empty", text: norm(child.textContent) });
         continue;
       } else if (/ou-banner__desc/.test(cls)) {
-        items.push({ role: "banner", text: norm(child.textContent) });
+        // Баннер ожидаемой экспозиции (PRD-55) — ДАННЫЕ целиком: и доля, и тон следуют из
+        // банка темы и объёма её выдачи. Сверять его подпись значило бы сравнивать числа
+        // эскиза с числами тестового теста, и тогда тема, у которой выдача выше порога,
+        // читалась бы как лишний баннер, которого нет в эскизе. В опись он идёт структурой,
+        // без подписи — по тому же правилу, что и заголовок свёртки ниже.
+        const dataDriven = child.closest("[data-testid^='topic-exposure-banner']");
+        items.push({ role: "banner", text: dataDriven ? "" : norm(child.textContent) });
         continue;
       } else if (tag === "table") {
         const columns = [...child.querySelectorAll("th")].map((th) => norm(th.textContent).split(" ")[0]);
