@@ -14,9 +14,12 @@
     со «ступенями»:
       - набор правил показан СПИСКОМ прямо в ящике вопроса: свёрнутая строка
         говорит, что правило проверяет, раскрытая показывает поля;
-      - правил может быть сколько угодно, объединяются через «и» либо «или»;
+      - правил может быть сколько угодно; связка ОДНА на вопрос: либо «и»,
+        либо «или», смешивать их в одном наборе нельзя;
       - вид правил — РЕЖИМ ВОПРОСА, а не свойство отдельной строки: ответ либо
-        текст, либо число, и в одном наборе они не соседствуют;
+        текст, либо число, и в одном наборе они не соседствуют; переключение
+        вида не теряет набранного — до ближайшего сохранения оба набора живут
+        в черновике, и правки можно вернуть;
       - число: равно, не равно, больше, больше или равно, меньше, меньше или
         равно, плюс допуск в процентах либо в единицах;
       - текст: обычное сравнение либо регулярное выражение; в обычном работают
@@ -39,6 +42,8 @@
       k-number  — числовое правило: отрицательное значение, допуск в единицах
       k-frac    — числовое правило: обыкновенная дробь, допуск в процентах
       k-probe   — проба ответа не зачтена, видно, какие правила не выполнены
+      k-switch  — вид ответа только что переключён: правил ещё нет, прежние
+                  остались в черновике, в подвале — возврат правок
       k-off     — проверка выключена
       s-notes   — пояснения и DS Mapping
   -->
@@ -111,6 +116,13 @@
       align-items: center;
     }
 
+    /* Состояние вопроса и возврат правок — одной группой в подвале ящика. */
+    .tb-dirty {
+      display: flex;
+      align-items: center;
+      gap: var(--ou-space-4);
+    }
+
     /* Панель вставки кусков выражения. Кнопки — родственные, шаг между ними
        наименьший; переносится по ширине поля. */
     .tb-rxbar {
@@ -162,6 +174,7 @@
   <button class="wf-btn" type="button" onclick="showRules(this,'k-frac')">Дробь и проценты</button>
   <div class="wf-nav-sep"></div>
   <button class="wf-btn" type="button" onclick="showRules(this,'k-probe')">Проба не зачтена</button>
+  <button class="wf-btn" type="button" onclick="showRules(this,'k-switch')">Вид переключён</button>
   <button class="wf-btn" type="button" onclick="showRules(this,'k-off')">Проверка выключена</button>
   <div class="wf-nav-sep"></div>
   <button class="wf-btn" type="button" onclick="showType(this,'type-select')">Список типов</button>
@@ -281,7 +294,7 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-17516">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-94673">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Ростехнадзор</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
@@ -289,13 +302,13 @@
                       <span class="ou-tag ou-tag--neutral ou-tag--s">не выполнено</span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-17516">
+                    <div class="ou-acc__body" role="region" id="b-94673">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38190">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-64489">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">РТН</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
@@ -303,13 +316,13 @@
                       <span class="ou-tag ou-tag--neutral ou-tag--s">не выполнено</span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38190">
+                    <div class="ou-acc__body" role="region" id="b-64489">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38563">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-15661">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Федеральная служба по * надзору</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
@@ -317,7 +330,7 @@
                       <span class="ou-tag ou-tag--success ou-tag--s">выполнено</span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38563">
+                    <div class="ou-acc__body" role="region" id="b-15661">
                       <!-- поля правила -->
                     </div>
                   </div>
@@ -369,40 +382,40 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-17516">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-94673">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Ростехнадзор</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-17516">
+                    <div class="ou-acc__body" role="region" id="b-94673">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38190">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-64489">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">РТН</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38190">
+                    <div class="ou-acc__body" role="region" id="b-64489">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item is-open">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-38563">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-15661">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Федеральная служба по * надзору</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38563">
+                    <div class="ou-acc__body" role="region" id="b-15661">
                       <div class="ou-formgroup ou-formgroup--one">
                         <div class="ou-formfield">
                           <span class="ou-formfield__lbl">Как сравнивать</span>
@@ -474,40 +487,40 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-17516">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-94673">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Ростехнадзор</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-17516">
+                    <div class="ou-acc__body" role="region" id="b-94673">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38190">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-64489">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">РТН</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38190">
+                    <div class="ou-acc__body" role="region" id="b-64489">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item is-open">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-80598">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-97522">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title tb-mono">^федеральн\S+ служб\S+ по .+ надзору$</span>
                         <span class="ou-acc__subtitle">Регулярное выражение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-80598">
+                    <div class="ou-acc__body" role="region" id="b-97522">
                       <div class="ou-formgroup ou-formgroup--one">
                         <div class="ou-formfield">
                           <span class="ou-formfield__lbl">Как сравнивать</span>
@@ -594,40 +607,40 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-17516">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-94673">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Ростехнадзор</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-17516">
+                    <div class="ou-acc__body" role="region" id="b-94673">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38190">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-64489">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">РТН</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38190">
+                    <div class="ou-acc__body" role="region" id="b-64489">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item is-open">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-86381">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-95300">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title tb-mono">^(\S+\s?)+ надзору$</span>
                         <span class="ou-acc__subtitle">Регулярное выражение</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-86381">
+                    <div class="ou-acc__body" role="region" id="b-95300">
                       <div class="ou-formgroup ou-formgroup--one">
                         <div class="ou-formfield">
                           <span class="ou-formfield__lbl">Как сравнивать</span>
@@ -721,14 +734,14 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item is-open">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-62893">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-85233">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">равно -25 °C</span>
                         <span class="ou-acc__subtitle">Допуск ±2 °C</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-62893">
+                    <div class="ou-acc__body" role="region" id="b-85233">
                       <div class="ou-formgroup ou-formgroup--one">
                         <div class="ou-formfield">
                           <span class="ou-formfield__lbl">Условие</span>
@@ -833,14 +846,14 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item is-open">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-8515">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-60999">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">равно 1/3 смены</span>
                         <span class="ou-acc__subtitle">Допуск ±5 %</span>
                       </span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-8515">
+                    <div class="ou-acc__body" role="region" id="b-60999">
                       <div class="ou-formgroup ou-formgroup--one">
                         <div class="ou-formfield">
                           <span class="ou-formfield__lbl">Условие</span>
@@ -945,7 +958,7 @@
                 <span class="ou-formfield__lbl">Правила</span>
                 <div class="ou-acc ou-acc--bordered">
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-17516">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-94673">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Ростехнадзор</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
@@ -953,13 +966,13 @@
                       <span class="ou-tag ou-tag--neutral ou-tag--s">не выполнено</span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-17516">
+                    <div class="ou-acc__body" role="region" id="b-94673">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38190">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-64489">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">РТН</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
@@ -967,13 +980,13 @@
                       <span class="ou-tag ou-tag--neutral ou-tag--s">не выполнено</span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38190">
+                    <div class="ou-acc__body" role="region" id="b-64489">
                       <!-- поля правила -->
                     </div>
                   </div>
                   <div class="tb-rules__join">или</div>
                   <div class="ou-acc__item">
-                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-38563">
+                    <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-15661">
                       <span class="ou-acc__trigger-text">
                         <span class="ou-acc__title">Федеральная служба по * надзору</span>
                         <span class="ou-acc__subtitle">Обычное сравнение</span>
@@ -981,7 +994,7 @@
                       <span class="ou-tag ou-tag--neutral ou-tag--s">не выполнено</span>
                       <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                     </button>
-                    <div class="ou-acc__body" role="region" id="b-38563">
+                    <div class="ou-acc__body" role="region" id="b-15661">
                       <!-- поля правила -->
                     </div>
                   </div>
@@ -1001,6 +1014,38 @@
                   <span class="ou-tag ou-tag--error">Не зачтено</span>
                 </div>
                 <span class="ou-formfield__desc">Не выполнено ни одно правило, а ответ засчитывается, если выполнено любое из них. Проба не сохраняется и на статистику не влияет.</span>
+              </div>
+            </div>
+            <div class="wf-rules" id="k-switch">
+              <div class="ou-formfield">
+                <span class="ou-formfield__lbl">Проверка ответа</span>
+                <label class="ou-switch-field">
+                  <span class="ou-switch ou-switch--m is-on"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  <span class="ou-switch-field__text">
+                    <span class="ou-switch-field__label">Проверять ответ автоматически</span>
+                    <span class="ou-switch-field__desc">Без правил задание собирает короткий текст и не приносит баллов</span>
+                  </span>
+                </label>
+              </div>
+              <div class="ou-formfield">
+                <span class="ou-formfield__lbl">Ответ участника — это</span>
+                <div class="ou-seg ou-seg--s" role="group" aria-label="Что проверяем">
+                  <button type="button" class="ou-seg__item" aria-pressed="false">Текст</button>
+                  <button type="button" class="ou-seg__item is-active" aria-pressed="true">Число</button>
+                </div>
+                <span class="ou-formfield__desc">Текстовые правила остались в черновике: вернитесь на «Текст» — и они будут на месте. Сохранение оставит у вопроса правила только выбранного вида.</span>
+              </div>
+              <div class="ou-formfield">
+                <span class="ou-formfield__lbl">Правила</span>
+                <div class="ou-empty ou-empty--inline ou-empty--well">
+                  <div class="ou-empty__content">
+                    <h2 class="ou-empty__title">Правил пока нет</h2>
+                    <p class="ou-empty__desc">Числовых правил у вопроса ещё не было. Пока их нет, ответ не проверяется и баллов не приносит.</p>
+                    <div class="ou-empty__actions">
+                      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-plus"/></svg></span>Добавить правило</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="wf-rules" id="k-off">
@@ -1052,7 +1097,14 @@
 
         </div>
       </div>
+      <!-- Пока правки не сохранены, автор должен уметь их вернуть: слева в
+           подвале стоит состояние вопроса и возврат к последнему сохранённому
+           виду. В сохранённом состоянии этой пары нет. -->
       <footer class="ou-drawer__foot">
+        <div class="tb-dirty" id="qd-dirty" hidden>
+          <span class="ou-tag ou-tag--warning ou-tag--s">Изменения не сохранены</span>
+          <button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Вернуть изменения</button>
+        </div>
         <div style="margin-right:auto"></div>
         <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
         <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
@@ -1075,6 +1127,11 @@
     одном наборе: соседствовать они не могут. Участник вводит либо слова, либо число, и
     правило другого вида в таком вопросе всё равно не сработало бы ни разу. Поэтому вид
     выбирается один раз наверху, а кнопка добавления одна — «Добавить правило».</p>
+  <p class="wf-notes-text">Переключение вида ничего не уничтожает: набранные правила
+    остаются в черновике до ближайшего сохранения, и возврат на прежний вид возвращает их
+    как были. Пока правки не сохранены, в подвале ящика стоит «Изменения не сохранены» и
+    «Вернуть изменения» — откат вопроса к последнему сохранённому виду. Сохранение
+    оставляет у вопроса правила только выбранного вида.</p>
   <p class="wf-notes-text">Перечень синонимов получается объединением правил через «или»:
     «Ростехнадзор» или «РТН» или «Федеральная служба по * надзору». Требование, чтобы в
     ответе было сразу несколько вещей, — объединением через «и». Отдельного поля со списком
@@ -1125,18 +1182,17 @@
     пять» числовым правилом не проверяется вовсе.</p>
 </section>
 
-<section class="wf-notes" aria-label="Вопросы к согласованию">
-  <h3 class="wf-notes-title">Вопросы к согласованию</h3>
-  <p class="wf-notes-text"><strong>1. Связка одна на весь набор.</strong> На эскизе «и» либо
-    «или» выбирается переключателем для всего списка сразу. Разрешить смешивать их в одном
-    наборе нельзя без скобок, а скобки в списке — это уже конструктор выражений, от которого
-    мы уходим. Если смешанные наборы нужны, решение придётся принимать отдельно.</p>
-  <p class="wf-notes-text"><strong>2. Смена вида при готовых правилах.</strong> Если автор
-    переключит «Ответ участника — это» с текста на число, набранные текстовые правила станут
-    неприменимы. На эскизе этого состояния нет: нужно решить, спрашивать ли подтверждение с
-    потерей правил, или хранить два набора порознь и возвращать прежний при обратном
-    переключении.</p>
-  <p class="wf-notes-text"><strong>3. Вердикт на строках.</strong> Отметки «выполнено» и «не
+<section class="wf-notes" aria-label="Принятые решения">
+  <h3 class="wf-notes-title">Принятые решения</h3>
+  <p class="wf-notes-text"><strong>Связка одна на вопрос.</strong> «И» и «или» в одном наборе
+    не смешиваются: выбор действует на весь список сразу. Смешанный набор потребовал бы
+    скобок, а скобки в списке — это уже конструктор выражений, от которого трек уходит.
+    Решение владельца 2026-09-18.</p>
+  <p class="wf-notes-text"><strong>Переключение вида не теряет работу.</strong> До ближайшего
+    сохранения набранные правила обоих видов живут в черновике: вернулись на прежний вид —
+    правила на месте. Пока изменения не сохранены, подвал ящика показывает это состояние и
+    даёт «Вернуть изменения». Решение владельца 2026-09-18.</p>
+  <p class="wf-notes-text"><strong>Вердикт на строках.</strong> Отметки «выполнено» и «не
     выполнено» появляются только тогда, когда в строке пробы есть ответ, и исчезают, когда она
     пуста. Иначе список показывал бы отметки, которые не к чему отнести.</p>
 </section>
@@ -1154,12 +1210,13 @@
       <tr><td>Панель вставки кусков выражения</td><td><code>Button</code> (<code>ou-btn--secondary ou-btn--xs</code>) + <code>Tooltip</code> (<code>ou-tip</code>)</td></tr>
       <tr><td>Строки из двух полей</td><td><code>FormGroup</code> (<code>ou-formgroup ou-formgroup--two</code>)</td></tr>
       <tr><td>Список правил</td><td><code>Accordion</code> (<code>ou-acc ou-acc--bordered</code>)</td></tr>
-      <tr><td>Вердикт пробы и отметки на строках</td><td><code>Tag</code> (<code>ou-tag</code>)</td></tr>
+      <tr><td>Вердикт пробы, отметки на строках, состояние вопроса</td><td><code>Tag</code> (<code>ou-tag</code>)</td></tr>
+      <tr><td>Набор правил пуст</td><td><code>EmptyState</code> (<code>ou-empty--inline ou-empty--well</code>)</td></tr>
       <tr><td>Поля значения, допуска, выражения, пробы</td><td><code>Input</code> (<code>ou-field</code>)</td></tr>
       <tr><td>Отказ заслона</td><td><code>Banner</code> (<code>ou-banner--subtle ou-banner--warning</code>)</td></tr>
       <tr><td>Добавить и удалить правило</td><td><code>Button</code> (<code>ou-btn--ghost</code>)</td></tr>
       <tr><td>Теги (подтемы)</td><td><code>TagInput</code> (<code>ou-taginput</code>)</td></tr>
-      <tr><td>Связка, строка пробы, панель вставки, моноширинный текст</td><td>Кандидаты в <code>tb-components.css</code>: <code>tb-rules__join</code>, <code>tb-probe</code>, <code>tb-rxbar</code>, <code>tb-mono</code></td></tr>
+      <tr><td>Связка, строка пробы, панель вставки, состояние в подвале, моноширинный текст</td><td>Кандидаты в <code>tb-components.css</code>: <code>tb-rules__join</code>, <code>tb-probe</code>, <code>tb-rxbar</code>, <code>tb-dirty</code>, <code>tb-mono</code></td></tr>
       <tr><td>Навбар, аннотации, переключатели состояний</td><td><code>Wireframe utility</code> (<code>wf-nav</code>, <code>wf-annot</code>, <code>wf-rules</code>, <code>wf-notes</code>, <code>wf-mapping</code>)</td></tr>
     </tbody>
   </table>
@@ -1201,6 +1258,7 @@
     topic: 'Наряд-допуск',
     prompt: 'Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?'
   };
+  var DIRTY = ['k-switch'];
 
   window.showState = function showState(btn, id) {
     var target = document.getElementById(id);
@@ -1223,6 +1281,10 @@
     if (prompt) prompt.value = q.prompt;
     var desc = document.querySelector('#s-drawer .ou-drawer__desc');
     if (desc) desc.textContent = 'Тема: ' + q.topic;
+    /* Подвал с возвратом правок показывается там, где вопрос ИМЕННО ЧТО
+       правили и правка ещё не сохранена. */
+    var dirty = document.getElementById('qd-dirty');
+    if (dirty) dirty.hidden = DIRTY.indexOf(id) < 0;
     if (btn) markNavButton(btn);
     updateWireframeNavOffset();
   };
