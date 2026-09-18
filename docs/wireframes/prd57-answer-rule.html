@@ -1,0 +1,1220 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    Wireframe: правило проверки ответа — лестница ступеней, числовые операторы,
+    конструктор условий и двусторонняя проверка на примерах.
+    Файл: docs/wireframes/prd57-answer-rule.html
+    Спека: docs/specs/prd-57/open-response-and-formatting.md
+           (§6.1 FR-28a..FR-28d; §6.3 FR-28g..FR-28n; §6.4 FR-28o..FR-28t;
+            §6.5 FR-28u..FR-28w; §6.6 FR-28z..FR-28ad).
+    Issue: #40 (PRD-57, Э0) — блокирует Э3, Э5, Э6, Э7, Э8.
+    Статус: НА СОГЛАСОВАНИИ.
+
+    Холст ящика вопроса взят один в один с согласованного эскиза
+    (docs/wireframes/approved/content-bank-explorer.html, состояние s-q-drawer):
+    тема, тип, текст, сложность, медиа, теги — без изменений. Дельта ящика ровно
+    одна — блок «Проверка ответа» вместо блока вариантов.
+
+    Правило вынесено в модальное окно, а не в секцию ящика, по двум причинам:
+    объём UI сопоставим с самим типом задания (FR-28n), и одно и то же окно
+    открывается как для короткого ответа, так и для КАЖДОГО пропуска (FR-24c) —
+    иначе один экран пришлось бы рисовать дважды.
+
+    Состояния (переключатель в навбаре):
+      s-drawer      — ящик вопроса «Короткий ответ», свёрнутая строка правила
+      r-list        — ступень 2: перечень допустимых ответов
+      r-wild        — ступень 3: подстановочный знак
+      r-builder     — ступень 4: конструктор правила из именованных условий
+      r-num         — числовое правило: операторы с расшифровкой словами
+      r-num-graded  — числовое правило: несколько условий с разными баллами
+      r-set         — ответ-список: разделитель, значения, порядок, лишние
+      r-raw         — сырое выражение: экспертный режим
+      r-raw-reject  — отказ заслона: строка, на которой выражение зависло
+      e-real        — подстановка реальных ответов участников
+      e-warn        — предупреждение: нет ни одного отрицательного примера
+
+    Решения, зафиксированные до эскиза (из спеки):
+      - ступень 1 (нормализация) действует ВСЕГДА и не отключается (FR-28a);
+      - правило ступени 4 СОБИРАЕТСЯ из именованных условий, а не набирается
+        синтаксисом; регулярное выражение — результат компиляции (FR-28g);
+      - сырой ввод остаётся, но отдельным режимом и через заслон (FR-28i, §6.4);
+      - проверка на примерах доступна на ВСЕХ ступенях, а не только на
+        четвёртой (FR-28m), поэтому она не состояние, а вторая колонка окна;
+      - оператор выбирается из списка, а не набирается; рядом — расшифровка
+        словами (FR-28aa1, FR-28aa2);
+      - числовой ответ отдельным типом задания НЕ становится (FR-28ad).
+  -->
+  <title>PRD-57 · Правило проверки ответа</title>
+
+  <link rel="stylesheet" href="/docs/wireframes/ds/skillum-ds.css" />
+  <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
+  <script defer src="/docs/wireframes/prd7-shared.js"></script>
+  <link rel="stylesheet" href="/docs/wireframes/ds/wf-utils.css" />
+  <link rel="stylesheet" href="/docs/wireframes/tb-components.css" />
+
+  <style>
+    /* ─── Эскизный фрейм ──────────────────────────────────────────────────
+       Перенесён из approved/question-scale.html без изменений. */
+    .wf-annot-wrap { position: relative; display: inline-flex; }
+    .wf-annot-wrap--block { position: relative; display: block; }
+    .wf-annot {
+      display: none;
+      position: absolute;
+      top: calc(-1 * var(--ou-space-2));
+      right: calc(-1 * var(--ou-space-1));
+      z-index: 200;
+      background: var(--ou-warning-default);
+      color: var(--ou-fg-default);
+      border-radius: var(--ou-radius-s);
+      padding: 0 var(--ou-space-1);
+      font-weight: 700;
+      font-size: var(--wf-space-10);
+      line-height: var(--ou-space-5);
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: var(--ou-shadow-sm);
+    }
+    body.wf-annots-on .wf-annot { display: block; }
+
+    /* Окно и ящик — во весь экран под навбаром эскиза. */
+    .wf-state > .ou-modal-root,
+    .wf-state > .ou-drawer-root { top: var(--wf-nav-offset, var(--wf-size-52)); bottom: 0; height: auto; }
+    .wf-state > .ou-drawer-root > .ou-drawer {
+      height: calc(100vh - var(--wf-nav-offset, var(--wf-size-52)));
+      max-height: calc(100vh - var(--wf-nav-offset, var(--wf-size-52)));
+    }
+    .wf-state > .ou-modal-root .ou-modal {
+      max-height: calc(100vh - var(--wf-nav-offset, var(--wf-size-52)) - var(--ou-space-8));
+      display: flex; flex-direction: column;
+    }
+    .wf-state > .ou-modal-root .ou-modal__body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+    /* Вложенные переключатели. `.wf-rule` меняет ЛЕВУЮ колонку окна (вид
+       правила), `.wf-ex` — ПРАВУЮ (состояние проверки на примерах). Две оси
+       нужны потому, что проверка живёт на всех ступенях и меняется независимо
+       от того, какое правило собрано. Инфраструктура эскиза, в продукт не
+       мигрирует. */
+    .wf-rule, .wf-ex { display: none; }
+    .wf-rule.active, .wf-ex.active { display: block; }
+
+    /* ─── Кандидаты в tb-components.css: строки конструктора и заслона ──────
+       Проектные паттерны авторского интерфейса (не сцены прохождения),
+       поэтому их место — client/src/styles/tb-components.css и её копия для
+       эскизов. Все три собраны из существующих примитивов ДС и добавляют
+       только раскладку строки. После согласования переезжают туда.
+
+       Строка условия: «связка · условие · значение · удалить». Колонка связки
+       фиксирована, чтобы «и» стояли друг под другом и правило читалось
+       столбиком, а не лесенкой. */
+    .tb-cond { display: grid; grid-template-columns: var(--wf-size-44) minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: var(--ou-space-2); align-items: center; }
+    .tb-cond__join { font: var(--ou-text-body-s); color: var(--ou-fg-muted); text-align: center; }
+    /* Расшифровка словами (FR-28aa2) стоит ПОД условием и занимает всю строку:
+       она читается как продолжение фразы, а не как подпись поля. */
+    .tb-cond__say { grid-column: 1 / -1; font: var(--ou-text-body-s); color: var(--ou-fg-muted); padding-left: var(--wf-size-44); }
+    /* Скомпилированное выражение показывается справочно и не редактируется:
+       автор собрал правило блоками, а это — то, во что оно превратилось. */
+    .tb-compiled { font-family: var(--ou-font-family-mono); font-size: var(--ou-text-mono-s-size); color: var(--ou-fg-muted); word-break: break-all; }
+  </style>
+</head>
+<body class="ou ou--dark ou--normal">
+
+<!-- ─── State switcher ─────────────────────────────────────────────────────── -->
+<nav class="wf-nav" aria-label="Wireframe state switcher">
+  <button class="wf-btn active" type="button" onclick="showState(this,'s-drawer')">Ящик вопроса</button>
+  <div class="wf-nav-sep"></div>
+  <span class="wf-nav-title">Правило:</span>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-list','e-list')">Перечень</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-wild','e-wild')">Подстановочный знак</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-builder','e-builder')">Конструктор</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-num','e-num')">Число</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-num-graded','e-num')">Число · ступени</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-set','e-set')">Ответ-список</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-raw','e-raw')">Своё выражение</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-raw-reject','e-raw')">Отказ заслона</button>
+  <div class="wf-nav-sep"></div>
+  <span class="wf-nav-title">Проверка:</span>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-list','e-real')">Ответы участников</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-wild','e-warn')">Нет отрицательных</button>
+  <div class="wf-nav-sep"></div>
+  <button class="wf-btn" type="button" onclick="showState(this,'s-notes')">Пояснения</button>
+  <div class="wf-nav-sep"></div>
+  <button class="wf-btn" type="button" onclick="toggleTheme(this)">Light</button>
+  <button class="wf-btn" type="button" onclick="toggleDensity(this)">Compact</button>
+  <button class="wf-btn" type="button" onclick="toggleAnnots(this)">Аннотации</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     ЯЩИК ВОПРОСА. Разметка снята с approved/content-bank-explorer.html
+     (s-q-drawer). Дельта — блок «Проверка ответа» и три новых пункта в
+     переключателе типа.
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="wf-state active" id="s-drawer">
+  <div class="ou-drawer-root" role="dialog" aria-modal="true" aria-labelledby="qd-title">
+    <div class="ou-drawer__backdrop"></div>
+    <aside class="ou-drawer ou-drawer--wide ou-drawer--right">
+      <header class="ou-drawer__head">
+        <div class="ou-drawer__head-text">
+          <h1 id="qd-title" class="ou-drawer__title">Вопрос</h1>
+          <p class="ou-drawer__desc">Тема: Наряд-допуск</p>
+        </div>
+        <button type="button" class="ou-drawer__close" aria-label="Закрыть">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </header>
+      <div class="ou-drawer__body" tabindex="0">
+        <div class="ou-stack ou-stack--gap-5">
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Тема</span>
+            <div class="ou-select ou-field--m ou-field--full">
+              <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="ou-select__value">Наряд-допуск</span>
+                <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- ДЕЛЬТА 1: три новых типа в переключателе. При девяти пунктах
+               управление перестаёт помещаться в ящик шириной 720px — это
+               видно на холсте и вынесено в «Вопросы к согласованию». -->
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Тип вопроса</span>
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">не помещается — вопрос 1</span>
+              <div class="ou-seg" role="group" aria-label="Тип вопроса">
+                <button type="button" class="ou-seg__item" aria-pressed="false">Один ответ</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Несколько ответов</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Соответствие</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Ранжирование</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Шкала</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Распределение</button>
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Короткий ответ</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Развёрнутый ответ</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Пропуски</button>
+              </div>
+            </div>
+          </div>
+
+          <label class="ou-textarea ou-textarea--full">
+            <span class="ou-textarea__lbl">Текст вопроса</span>
+            <div class="ou-textarea__box">
+              <textarea class="ou-textarea__input" rows="2">Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</textarea>
+            </div>
+            <span class="ou-textarea__msg">Поддерживается Markdown</span>
+          </label>
+
+          <!-- ДЕЛЬТА 2: блок «Проверка ответа» вместо блока вариантов ─────
+               Свёрнутая сводка правила и кнопка «Настроить». Тумблер над ней
+               задаёт второй режим типа (FR-28w): без правила задание собирает
+               короткий текст и не оценивается. -->
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Проверка ответа</span>
+            <label class="ou-switch-field">
+              <span class="ou-switch ou-switch--m is-on"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+              <span class="ou-switch-field__text">
+                <span class="ou-switch-field__label">Проверять ответ автоматически</span>
+                <span class="ou-switch-field__desc">Выключено — задание собирает текст и не приносит баллов</span>
+              </span>
+            </label>
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">FR-28n</span>
+              <div class="ou-stat-row">
+                <div class="ou-stat-row__body">
+                  <div class="ou-stat-row__title">Перечень допустимых ответов · 3 варианта</div>
+                  <div class="ou-stat-row__sub">Ростехнадзор, Федеральная служба по экологическому, технологическому и атомному надзору, РТН · примеров: 7</div>
+                </div>
+                <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showRule(null,'r-list','e-list')">Настроить</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ou-field ou-field--m">
+            <label class="ou-field__lbl" for="qd-limit">Предел длины ответа</label>
+            <div class="ou-field__box" style="width:var(--wf-size-160)">
+              <input class="ou-field__input" id="qd-limit" type="number" value="40" />
+              <span class="ou-field__affix">символов</span>
+            </div>
+            <div class="ou-field__msg">Не больше 250 — предел LMS для типа fill-in</div>
+          </div>
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Сложность</span>
+            <div class="ou-slider ou-slider--h" aria-label="Сложность">
+              <div class="ou-slider__rail">
+                <div class="ou-slider__fill" style="left:0%;right:62%"></div>
+                <div class="ou-slider__marks"><span class="ou-slider__mark" style="left:0%"></span><span class="ou-slider__mark-lbl" style="left:0%">0</span><span class="ou-slider__mark" style="left:50%"></span><span class="ou-slider__mark-lbl" style="left:50%">50</span><span class="ou-slider__mark" style="left:100%"></span><span class="ou-slider__mark-lbl" style="left:100%">100</span></div>
+                <div role="slider" tabindex="0" class="ou-slider__thumb" style="left:38%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="38" aria-label="Сложность"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Теги (подтемы)</span>
+            <div class="ou-taginput">
+              <div class="ou-taginput__wrap">
+                <div class="ou-taginput__field">
+                  <span class="ou-tag ou-tag--neutral ou-tag--s">надзор<button type="button" class="ou-taginput__remove" aria-label="Удалить тег надзор">×</button></span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--s">базовый<button type="button" class="ou-taginput__remove" aria-label="Удалить тег базовый">×</button></span>
+                  <input class="ou-taginput__input" type="text" placeholder="Добавить тег…" aria-label="Добавить тег" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <footer class="ou-drawer__foot">
+        <div style="margin-right:auto"></div>
+        <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
+        <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+      </footer>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     ОКНО ПРАВИЛА. Две колонки: слева — само правило, справа — проверка на
+     примерах. Она стоит РЯДОМ, а не под правилом, потому что смотреть на неё
+     нужно в момент правки правила, а не после (§6.2: два похожих шаблона
+     дают разный результат на законных ответах, и вслепую этого не увидеть).
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="wf-state" id="s-rule">
+  <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="rm-title">
+    <div class="ou-modal__backdrop"></div>
+    <div class="ou-modal ou-modal--xl">
+      <header class="ou-modal__head">
+        <div class="ou-modal__head-text">
+          <h2 id="rm-title" class="ou-modal__title">Правило проверки ответа</h2>
+          <p class="ou-modal__desc">Вопрос 4 · Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</p>
+        </div>
+        <button type="button" class="ou-modal__close" aria-label="Закрыть" onclick="showState(document.querySelector('.wf-nav .wf-btn'),'s-drawer')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </header>
+
+      <div class="ou-modal__body">
+        <div class="ou-lgrid ou-lgrid--main-aside ou-lgrid--gap-6">
+
+          <!-- ══ ЛЕВАЯ КОЛОНКА — правило ══════════════════════════════════ -->
+          <div class="ou-stack ou-stack--gap-5">
+
+            <!-- Ступень 1 действует всегда и не отключается (FR-28a).
+                 Показана не тумблером, а справкой: тумблер, который нельзя
+                 выключить, читается как сломанный. -->
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">FR-28a</span>
+              <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="note">
+                <span class="ou-banner__body">
+                  <span class="ou-banner__title">Ступень 1 · Нормализация — действует всегда</span>
+                  <span class="ou-banner__desc">Различием не считаются: регистр, лишние и неразрывные пробелы, «ё» и «е», разные виды дефисов и кавычек. Это снятие технического шума, а не послабление.</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="ou-formfield">
+              <span class="ou-formfield__lbl">Что сравниваем</span>
+              <div class="ou-seg" role="group" aria-label="Что сравниваем">
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Текст</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showRule(null,'r-num','e-num')">Число</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showRule(null,'r-set','e-set')">Список значений</button>
+              </div>
+              <span class="ou-formfield__desc">Число и список значений сравниваются не как текст: у числа есть допуск и нормализация разделителя, у списка — множество значений.</span>
+            </div>
+
+            <!-- ── r-list: ступень 2, перечень допустимых ответов ────────── -->
+            <div class="wf-rule" id="r-list">
+              <fieldset class="ou-choice-card-group">
+                <legend class="ou-choice-card-group__legend">Строгость сравнения</legend>
+                <p class="ou-choice-card-group__hint">Каждая следующая ступень дороже предыдущей и нужна реже. Поднимайтесь ровно настолько, насколько требует задание.</p>
+                <div class="ou-choice-card-group__items">
+                  <label class="ou-choice-card ou-choice-card--radio is-selected">
+                    <input type="radio" class="ou-choice-card__input" name="rule-list" value="list" checked />
+                    <span class="ou-choice-card__body">
+                      <span class="ou-choice-card__title">Ступень 2 · Перечень допустимых ответов</span>
+                      <span class="ou-choice-card__desc">Ответ засчитывается, если совпал с любым из перечисленных.</span>
+                      <span class="ou-choice-card__inset">
+                        <div class="ou-taginput">
+                          <div class="ou-taginput__wrap">
+                            <div class="ou-taginput__field">
+                              <span class="ou-tag ou-tag--neutral ou-tag--s">Ростехнадзор<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                              <span class="ou-tag ou-tag--neutral ou-tag--s">Федеральная служба по экологическому, технологическому и атомному надзору<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                              <span class="ou-tag ou-tag--neutral ou-tag--s">РТН<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                              <input class="ou-taginput__input" type="text" placeholder="Добавить вариант…" aria-label="Добавить допустимый ответ" />
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                    <span class="ou-choice-card__radio" aria-hidden="true"></span>
+                  </label>
+                  <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-wild','e-wild')">
+                    <input type="radio" class="ou-choice-card__input" name="rule-list" value="wild" />
+                    <span class="ou-choice-card__body">
+                      <span class="ou-choice-card__title">Ступень 3 · Подстановочный знак</span>
+                      <span class="ou-choice-card__desc">Знак <code>*</code> означает любую последовательность: «электро*» зачтёт и «электробезопасность», и «электробезопасности».</span>
+                    </span>
+                    <span class="ou-choice-card__radio" aria-hidden="true"></span>
+                  </label>
+                  <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-builder','e-builder')">
+                    <input type="radio" class="ou-choice-card__input" name="rule-list" value="builder" />
+                    <span class="ou-choice-card__body">
+                      <span class="ou-choice-card__title">Ступень 4 · Правило из условий</span>
+                      <span class="ou-choice-card__desc">Для заданий, где ответ — форма, а не знание: синтаксис команды, формат идентификатора, единицы. Правило собирается из условий.</span>
+                    </span>
+                    <span class="ou-choice-card__radio" aria-hidden="true"></span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- ── r-wild: ступень 3, подстановочный знак ────────────────── -->
+            <div class="wf-rule" id="r-wild">
+              <fieldset class="ou-choice-card-group">
+                <legend class="ou-choice-card-group__legend">Строгость сравнения</legend>
+                <div class="ou-choice-card-group__items">
+                  <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-list','e-list')">
+                    <input type="radio" class="ou-choice-card__input" name="rule-wild" value="list" />
+                    <span class="ou-choice-card__body">
+                      <span class="ou-choice-card__title">Ступень 2 · Перечень допустимых ответов</span>
+                      <span class="ou-choice-card__desc">Ответ засчитывается, если совпал с любым из перечисленных.</span>
+                    </span>
+                    <span class="ou-choice-card__radio" aria-hidden="true"></span>
+                  </label>
+                  <label class="ou-choice-card ou-choice-card--radio is-selected">
+                    <input type="radio" class="ou-choice-card__input" name="rule-wild" value="wild" checked />
+                    <span class="ou-choice-card__body">
+                      <span class="ou-choice-card__title">Ступень 3 · Подстановочный знак</span>
+                      <span class="ou-choice-card__desc">Знак <code>*</code> означает любую последовательность символов.</span>
+                      <span class="ou-choice-card__inset">
+                        <div class="ou-taginput">
+                          <div class="ou-taginput__wrap">
+                            <div class="ou-taginput__field">
+                              <span class="ou-tag ou-tag--neutral ou-tag--s">электро*<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                              <input class="ou-taginput__input" type="text" placeholder="Добавить вариант…" aria-label="Добавить допустимый ответ" />
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                    <span class="ou-choice-card__radio" aria-hidden="true"></span>
+                  </label>
+                  <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-builder','e-builder')">
+                    <input type="radio" class="ou-choice-card__input" name="rule-wild" value="builder" />
+                    <span class="ou-choice-card__body">
+                      <span class="ou-choice-card__title">Ступень 4 · Правило из условий</span>
+                      <span class="ou-choice-card__desc">Правило собирается из именованных условий.</span>
+                    </span>
+                    <span class="ou-choice-card__radio" aria-hidden="true"></span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- ── r-builder: ступень 4, конструктор условий (FR-28g) ────── -->
+            <div class="wf-rule" id="r-builder">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28g · FR-28h</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Ступень 4 · Ответ засчитывается, если</span>
+                    <div class="ou-stack ou-stack--gap-3">
+
+                      <div class="tb-cond">
+                        <span class="tb-cond__join"></span>
+                        <div class="ou-select ou-field--m ou-field--full">
+                          <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="ou-select__value">начинается с</span>
+                            <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                          </button>
+                        </div>
+                        <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="наряд" aria-label="Значение условия" /></div></div>
+                        <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить условие">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                        <span class="tb-cond__say">засчитывается ответ, начинающийся со слова «наряд»</span>
+                      </div>
+
+                      <div class="tb-cond">
+                        <span class="tb-cond__join">и</span>
+                        <div class="ou-select ou-field--m ou-field--full">
+                          <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="ou-select__value">любое окончание после основы</span>
+                            <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                          </button>
+                        </div>
+                        <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="допуск" aria-label="Значение условия" /></div></div>
+                        <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить условие">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                        <span class="tb-cond__say">и содержащий «допуск» с любым окончанием</span>
+                      </div>
+
+                      <div class="tb-cond">
+                        <span class="tb-cond__join">и</span>
+                        <div class="ou-select ou-field--m ou-field--full">
+                          <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="ou-select__value">не содержит</span>
+                            <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                          </button>
+                        </div>
+                        <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="не " aria-label="Значение условия" /></div></div>
+                        <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить условие">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                        <span class="tb-cond__say">и не содержащий отрицания «не»</span>
+                      </div>
+
+                    </div>
+                    <div style="margin-top:var(--ou-space-3)">
+                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s">
+                        <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></span>
+                        Добавить условие
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Во что это собирается</span>
+                  <span class="tb-compiled">/^\s*наряд.*допуск\w*(?!.*\bне\b).*$/i</span>
+                  <span class="ou-formfield__desc">Выражение — результат сборки, редактировать его здесь нельзя. Собранное правило безопасно по построению: ни вложенных повторений, ни обратных ссылок.</span>
+                </div>
+
+                <div>
+                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showRule(null,'r-raw','e-raw')">Перейти к своему выражению…</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── r-num: числовое правило (FR-28aa) ────────────────────── -->
+            <div class="wf-rule" id="r-num">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28aa1 · FR-28aa2</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Ответ засчитывается, если</span>
+                    <div class="tb-cond">
+                      <span class="tb-cond__join"></span>
+                      <div class="ou-select ou-field--m ou-field--full">
+                        <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                          <span class="ou-select__value">=  равно</span>
+                          <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                      </div>
+                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="1100" aria-label="Значение" /><span class="ou-field__affix">мм</span></div></div>
+                      <span></span>
+                      <span class="tb-cond__say">засчитывается ответ, равный 1100 с отклонением не больше 50</span>
+                    </div>
+                    <div class="tb-cond" style="margin-top:var(--ou-space-2)">
+                      <span class="tb-cond__join">±</span>
+                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="50" aria-label="Допуск" /></div></div>
+                      <div class="ou-select ou-field--m ou-field--full">
+                        <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                          <span class="ou-select__value">в единицах</span>
+                          <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                      </div>
+                      <span></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ou-field ou-field--m">
+                  <label class="ou-field__lbl" for="rm-unit">Единица измерения</label>
+                  <div class="ou-field__box" style="width:var(--wf-size-160)"><input class="ou-field__input" id="rm-unit" type="text" value="мм" /></div>
+                  <div class="ou-field__msg">Подпись поля, а не часть ответа: участник вводит только число</div>
+                </div>
+
+                <div>
+                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showRule(null,'r-num-graded','e-num')">Добавить условие с другим баллом…</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── r-num-graded: ступенчатая оценка по точности (FR-28aa4) ─ -->
+            <div class="wf-rule" id="r-num-graded">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28aa4</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Условия проверяются сверху вниз, первое сработавшее назначает балл</span>
+                    <div class="ou-tbl ou-tbl--compact">
+                      <table>
+                        <thead>
+                          <tr><th><span class="ou-tbl__th-inner">Условие</span></th><th><span class="ou-tbl__th-inner">Словами</span></th><th><span class="ou-tbl__th-inner">Балл</span></th><th><span class="ou-tbl__th-inner"></span></th></tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td><code>= 1100</code></td>
+                            <td>ровно 1100</td>
+                            <td class="is-numeric">2</td>
+                            <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Изменить</button></td>
+                          </tr>
+                          <tr>
+                            <td><code>= 1100 ± 50</code></td>
+                            <td>от 1050 до 1150 включительно</td>
+                            <td class="is-numeric">1</td>
+                            <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Изменить</button></td>
+                          </tr>
+                          <tr>
+                            <td><code>≥ 1100</code></td>
+                            <td>не меньше 1100</td>
+                            <td class="is-numeric">1</td>
+                            <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Изменить</button></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <span class="ou-formfield__desc">Тот же аппарат «условие → балл», что у градуированной оценки выбора (PRD-10). Новой механики не заводится.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── r-set: ответ-список (FR-28t) ─────────────────────────── -->
+            <div class="wf-rule" id="r-set">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28t</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Ожидаемые значения</span>
+                    <div class="ou-taginput">
+                      <div class="ou-taginput__wrap">
+                        <div class="ou-taginput__field">
+                          <span class="ou-tag ou-tag--neutral ou-tag--s">каска<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                          <span class="ou-tag ou-tag--neutral ou-tag--s">перчатки<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                          <span class="ou-tag ou-tag--neutral ou-tag--s">очки<button type="button" class="ou-taginput__remove" aria-label="Удалить">×</button></span>
+                          <input class="ou-taginput__input" type="text" placeholder="Добавить значение…" aria-label="Добавить значение" />
+                        </div>
+                      </div>
+                    </div>
+                    <span class="ou-formfield__desc">Сравнение работает множествами, а не текстом: оно линейно по построению и не нуждается ни в валидаторе, ни в бюджете времени.</span>
+                  </div>
+                </div>
+
+                <div class="ou-field ou-field--m">
+                  <label class="ou-field__lbl" for="rm-sep">Разделитель</label>
+                  <div class="ou-field__box" style="width:var(--wf-size-160)"><input class="ou-field__input" id="rm-sep" type="text" value="запятая" /></div>
+                </div>
+
+                <label class="ou-switch-field">
+                  <span class="ou-switch ou-switch--m"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  <span class="ou-switch-field__text"><span class="ou-switch-field__label">Порядок важен</span></span>
+                </label>
+                <label class="ou-switch-field">
+                  <span class="ou-switch ou-switch--m"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  <span class="ou-switch-field__text"><span class="ou-switch-field__label">Лишние значения допустимы</span></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- ── r-raw: сырое выражение, экспертный режим (FR-28i) ─────── -->
+            <div class="wf-rule" id="r-raw">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-banner ou-banner--subtle ou-banner--warning" role="note">
+                  <span class="ou-banner__body">
+                    <span class="ou-banner__title">Экспертный режим</span>
+                    <span class="ou-banner__desc">Нужен для форматов, которые условиями не собираются: синтаксис команды, маска идентификатора. Для остального конструктор надёжнее — он не даёт написать выражение, на котором проверка зависнет.</span>
+                    <span class="ou-banner__actions"><button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showRule(null,'r-builder','e-builder')">Вернуться к конструктору</button></span>
+                  </span>
+                </div>
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28i</span>
+                  <div class="ou-field ou-field--m ou-field--full">
+                    <label class="ou-field__lbl" for="rm-raw">Своё выражение</label>
+                    <div class="ou-field__box"><input class="ou-field__input" id="rm-raw" type="text" value="^[A-Z]{2}-\d{4}/\d{2}$" /></div>
+                    <div class="ou-field__msg">Поддерживаются классы, якоря, границы слова, счётчики и альтернативы в группе</div>
+                  </div>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Что не поддерживается</span>
+                  <span class="ou-formfield__desc">Повторение группы, внутри которой есть своё повторение или взаимозаменяемые варианты. Такое выражение уводит проверку в экспоненту и останавливает её на десятки секунд.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── r-raw-reject: отказ заслона (FR-28o, FR-28p) ──────────── -->
+            <div class="wf-rule" id="r-raw-reject">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28o · FR-28p</span>
+                  <div class="ou-banner ou-banner--subtle ou-banner--error" role="alert">
+                    <span class="ou-banner__body">
+                      <span class="ou-banner__title">Выражение не сохранено: проверка не уложилась в отведённое время</span>
+                      <span class="ou-banner__desc">Оно зависло на строке <code>слово слово слово слово слово слово слово слово!</code> — 60 символов, счёт не завершился за 5 секунд. Причина: повторение группы <code>(\s*\w+\s*)+</code>, внутри которой есть своё повторение.</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="ou-field ou-field--m ou-field--full ou-field--error">
+                  <label class="ou-field__lbl" for="rm-raw-bad">Своё выражение</label>
+                  <div class="ou-field__box"><input class="ou-field__input" id="rm-raw-bad" type="text" value="^(\s*\w+\s*)+$" aria-invalid="true" /></div>
+                </div>
+
+                <!-- Сообщение об отказе ОБЯЗАНО называть замену, иначе запрет
+                     читается как каприз (§6.4, «чем заменить запрещённое»). -->
+                <div class="ou-banner ou-banner--subtle ou-banner--info" role="note">
+                  <span class="ou-banner__body">
+                    <span class="ou-banner__title">Чем это заменить</span>
+                    <span class="ou-banner__desc">Похоже, ожидается несколько значений через разделитель. Для этого есть отдельный вид правила — он сравнивает множества и не может зависнуть.</span>
+                    <span class="ou-banner__actions"><button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showRule(null,'r-set','e-set')">Собрать ответ-списком</button></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══ ПРАВАЯ КОЛОНКА — проверка на примерах ════════════════════
+               Стоит рядом с правилом на ВСЕХ ступенях (FR-28m), а не только
+               на четвёртой: перечень и подстановочный знак ошибаются тише, но
+               так же незаметно. -->
+          <div class="ou-stack ou-stack--gap-4">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">FR-28j · FR-28m</span>
+              <div class="ou-formfield">
+                <span class="ou-formfield__lbl">Проверка на примерах</span>
+                <span class="ou-formfield__desc">Списки сохраняются вместе с вопросом: при следующей правке правила сразу видно, не сломалось ли то, что работало.</span>
+              </div>
+            </div>
+
+            <!-- e-list: правило-перечень, оба списка сходятся -->
+            <div class="wf-ex active" id="e-list">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>Ростехнадзор</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>ростехнадзор</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>РТН</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <div style="margin-top:var(--ou-space-2)"><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Добавить пример</button></div>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>Роспотребнадзор</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>не Ростехнадзор</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <div style="margin-top:var(--ou-space-2)"><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">Добавить пример</button></div>
+                </div>
+                <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showRule(null,'r-list','e-real')">Подставить ответы участников…</button>
+              </div>
+            </div>
+
+            <!-- e-wild: подстановочный знак зачёл лишнее — проверка это видит -->
+            <div class="wf-ex" id="e-wild">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>электробезопасность</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>электробезопасности</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28m</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                    <div class="ou-tbl ou-tbl--compact">
+                      <table><tbody>
+                        <tr class="tb-row--error"><td>электрошок</td><td><span class="ou-tbl__chip ou-tbl__chip--error">засчитан</span></td></tr>
+                        <tr><td>электричество это опасно</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      </tbody></table>
+                    </div>
+                    <span class="ou-formfield__msg ou-formfield__msg--error">Правило засчитывает ответ, который не должно: «электро*» подходит и «электрошоку». Уточните основу или поднимитесь на ступень 4.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-builder -->
+            <div class="wf-ex" id="e-builder">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>наряд-допуск</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>наряд допуска</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>Наряд-допуском</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>не наряд-допуск</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>наряд на работы</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>допуск</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-num -->
+            <div class="wf-ex" id="e-num">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>1100</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт · 2 балла</span></td></tr>
+                      <tr><td>1 100</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт · 2 балла</span></td></tr>
+                      <tr><td>1120</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт · 1 балл</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>1,1</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>около метра</td><td><span class="ou-tbl__chip ou-tbl__chip--warn">не число</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <span class="ou-formfield__desc">«Не число» — отдельный исход: участник увидит подсказку формата ещё на вводе, до отправки.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-set -->
+            <div class="wf-ex" id="e-set">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>каска, перчатки, очки</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>очки, каска, перчатки</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>каска, перчатки</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>каска, перчатки, очки, сапоги</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-raw: примеры автора — тот самый набор, на котором заслон
+                 гоняет выражение перед сохранением (FR-28p) -->
+            <div class="wf-ex" id="e-raw">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>НД-0147/24</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>ПР-0002/25</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>НД-147/24</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>нд-0147/24 копия</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="ou-banner ou-banner--subtle ou-banner--info" role="note">
+                  <span class="ou-banner__body">
+                    <span class="ou-banner__desc">Перед сохранением выражение прогоняется на этих примерах, на автоматических строках-провокациях и на граничных случаях. Превышение бюджета хотя бы на одной строке — выражение не сохраняется.</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-real: подстановка накопленных ответов участников (FR-28l) -->
+            <div class="wf-ex" id="e-real">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28l</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Ответы участников по этому вопросу</span>
+                    <span class="ou-formfield__desc">По вопросу накоплено 184 ответа из прохождений и выгрузок LMS. Отметьте, какие должны засчитываться, — они попадут в списки примеров и останутся там навсегда.</span>
+                    <div class="ou-tbl ou-tbl--compact">
+                      <table>
+                        <thead><tr><th><span class="ou-tbl__th-inner">Ответ</span></th><th><span class="ou-tbl__th-inner">Доля</span></th><th><span class="ou-tbl__th-inner">Сейчас</span></th><th><span class="ou-tbl__th-inner">Куда</span></th></tr></thead>
+                        <tbody>
+                          <tr><td>Ростехнадзор</td><td class="is-numeric">71 %</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td><td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">в «должны»</button></td></tr>
+                          <tr><td>ростехнадзор</td><td class="is-numeric">12 %</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td><td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">в «должны»</button></td></tr>
+                          <tr class="tb-row--error"><td>Ростех надзор</td><td class="is-numeric">9 %</td><td><span class="ou-tbl__chip ou-tbl__chip--error">не зачтено</span></td><td><button type="button" class="ou-btn ou-btn--secondary ou-btn--s">в «должны»</button></td></tr>
+                          <tr><td>Роспотребнадзор</td><td class="is-numeric">5 %</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td><td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s">в «не должны»</button></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-warn: ни одного отрицательного примера (FR-28j) -->
+            <div class="wf-ex" id="e-warn">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>электробезопасность</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>электробезопасности</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">FR-28j</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                    <div class="ou-empty ou-empty--inline ou-empty--tone-warn">
+                      <div class="ou-empty__content">
+                        <span class="ou-empty__title">Примеров нет</span>
+                        <span class="ou-empty__desc">Правило, зачитывающее всё подряд, пройдёт список положительных примеров целиком. Добавьте хотя бы один ответ, который засчитываться не должен.</span>
+                        <div class="ou-empty__actions"><button type="button" class="ou-btn ou-btn--secondary ou-btn--s">Добавить пример</button></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <footer class="ou-modal__foot">
+        <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="showState(document.querySelector('.wf-nav .wf-btn'),'s-drawer')">Отмена</button>
+        <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить правило</button>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* Wireframe-only controls. showState переключает ЭКРАН (ящик / окно правила),
+     showRule — пару «вид правила + состояние проверки на примерах» внутри окна. */
+  function updateWireframeNavOffset() {
+    var nav = document.querySelector('.wf-nav');
+    if (!nav) return;
+    document.body.style.setProperty('--wf-nav-offset', nav.offsetHeight + 'px');
+    document.documentElement.style.setProperty('--wf-nav-h', nav.offsetHeight + 'px');
+  }
+
+  function markNavButton(btn) {
+    document.querySelectorAll('.wf-nav .wf-btn').forEach(function (b) {
+      var a = b.getAttribute('onclick') || '';
+      if (a.indexOf('showState') >= 0 || a.indexOf('showRule') >= 0) {
+        b.classList.toggle('active', b === btn);
+      }
+    });
+  }
+
+  window.showState = function showState(btn, id) {
+    var target = document.getElementById(id);
+    document.querySelectorAll('.wf-state').forEach(function (el) {
+      el.classList.toggle('active', el === target);
+    });
+    if (btn) markNavButton(btn);
+    updateWireframeNavOffset();
+  };
+
+  window.showRule = function showRule(btn, ruleId, exId) {
+    document.querySelectorAll('.wf-state').forEach(function (el) {
+      el.classList.toggle('active', el.id === 's-rule');
+    });
+    document.querySelectorAll('.wf-rule').forEach(function (el) {
+      el.classList.toggle('active', el.id === ruleId);
+    });
+    document.querySelectorAll('.wf-ex').forEach(function (el) {
+      el.classList.toggle('active', el.id === exId);
+    });
+    /* Переключатель «Что сравниваем» живёт в общей шапке окна, а вид правила —
+       в переключаемом блоке. Без этой синхронизации числовое правило
+       показывалось бы с отметкой на «Текст», то есть эскиз врал бы о состоянии
+       собственного контрола. */
+    var subject = 'Текст';
+    if (ruleId === 'r-num' || ruleId === 'r-num-graded') subject = 'Число';
+    if (ruleId === 'r-set') subject = 'Список значений';
+    document.querySelectorAll('#s-rule .ou-seg__item').forEach(function (item) {
+      var on = item.textContent.trim() === subject;
+      item.classList.toggle('is-active', on);
+      item.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (btn) markNavButton(btn);
+    updateWireframeNavOffset();
+  };
+
+  window.toggleTheme = function toggleTheme(btn) {
+    var body = document.body;
+    var isDark = body.classList.contains('ou--dark');
+    body.classList.toggle('ou--dark', !isDark);
+    body.classList.toggle('ou--light', isDark);
+    if (btn) {
+      btn.textContent = isDark ? 'Dark' : 'Light';
+      btn.classList.toggle('active', !isDark);
+    }
+  };
+
+  window.toggleDensity = function toggleDensity(btn) {
+    var body = document.body;
+    var isCompact = body.classList.contains('ou--compact');
+    body.classList.toggle('ou--compact', !isCompact);
+    body.classList.toggle('ou--normal', isCompact);
+    if (btn) {
+      btn.textContent = isCompact ? 'Compact' : 'Normal';
+      btn.classList.toggle('active', !isCompact);
+    }
+  };
+
+  window.toggleAnnots = function toggleAnnots(btn) {
+    var on = document.body.classList.toggle('wf-annots-on');
+    if (btn) btn.classList.toggle('active', on);
+  };
+
+  updateWireframeNavOffset();
+  window.addEventListener('resize', updateWireframeNavOffset);
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     ПОЯСНЕНИЯ И DS MAPPING (вне холста)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="wf-state" id="s-notes">
+<div class="wf-page">
+
+<section class="wf-notes" aria-label="Пояснения к окну">
+  <h3 class="wf-notes-title">Пояснения — поведение окна</h3>
+  <table>
+    <thead>
+      <tr><th>Элемент</th><th>Поле / условие</th><th>Примечание</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Где живёт правило</td>
+        <td>—</td>
+        <td>Модальное окно поверх ящика вопроса. Объём UI сопоставим с самим типом задания (FR-28n), а то же окно открывается и для короткого ответа, и для КАЖДОГО пропуска (FR-24c) — секцией ящика его пришлось бы рисовать дважды.</td>
+      </tr>
+      <tr>
+        <td>Тумблер «Проверять ответ автоматически»</td>
+        <td><code>rule</code> у вопроса пуст / заполнен</td>
+        <td>Второй режим того же типа (FR-28w): без правила задание собирает короткий текст, не приносит баллов и ведёт себя как открытый ответ — нейтральный исход, вне разрезов. Закрывает опросную потребность «должность», «подразделение» без ещё одного типа задания.</td>
+      </tr>
+      <tr>
+        <td>Ступень 1</td>
+        <td>всегда</td>
+        <td>Не отключается (FR-28a), поэтому показана справкой, а не тумблером: тумблер, который нельзя выключить, читается как сломанный.</td>
+      </tr>
+      <tr>
+        <td>«Что сравниваем»</td>
+        <td>текст / число / список значений</td>
+        <td>Лестница §6.1 описывает строгость сравнения ТЕКСТА. Число сравнивается значением с допуском (FR-28aa), список — множествами (FR-28t); ни то, ни другое не ступень строгости, поэтому они вынесены в отдельный выбор. Группировка предложена эскизом — см. «Вопросы к согласованию».</td>
+      </tr>
+      <tr>
+        <td>Раскрытие ступени</td>
+        <td>ступень выбрана</td>
+        <td>Поля ступени показываются внутри её карточки и только у выбранной (<code>ou-choice-card__inset</code>). Так на экране одновременно видно и лестницу целиком, и настройку текущей ступени.</td>
+      </tr>
+      <tr>
+        <td>Конструктор условий</td>
+        <td>ступень 4</td>
+        <td>Автор выбирает условия из перечня; регулярное выражение — РЕЗУЛЬТАТ сборки (FR-28g) и показано справочно, без правки. Компилятор порождает только линейные конструкции, поэтому собранное правило безопасно по построению (FR-28h) — это главный технический довод за конструктор.</td>
+      </tr>
+      <tr>
+        <td>Расшифровка словами</td>
+        <td>числовое условие, условие конструктора</td>
+        <td>Стоит под условием и читается как продолжение фразы (FR-28aa2). Отдельного признака «включительно» нет: он выражен выбором оператора, <code>≤</code> и <code>&lt;</code> различают границу сами.</td>
+      </tr>
+      <tr>
+        <td>Оператор</td>
+        <td>числовое правило</td>
+        <td>Выбирается из списка, а не набирается (FR-28aa1): автор не должен искать на клавиатуре <code>≤</code>, и в правиле живут математические символы, а не ASCII-суррогаты.</td>
+      </tr>
+      <tr>
+        <td>Проверка на примерах</td>
+        <td>всегда</td>
+        <td>Вторая колонка окна на ВСЕХ ступенях (FR-28m), а не состояние ступени 4. Двусторонняя (FR-28j): односторонняя бесполезна — правило, зачитывающее всё подряд, пройдёт список положительных примеров целиком.</td>
+      </tr>
+      <tr>
+        <td>Расхождение в проверке</td>
+        <td>фактическое поведение не совпало с ожидаемым</td>
+        <td>Строка подсвечивается, исход называется прямо («засчитан» там, где ожидалось «не зачтено»). Именно ради этого проверка стоит рядом с правилом, а не под ним.</td>
+      </tr>
+      <tr>
+        <td>Примеры</td>
+        <td>сохраняются с вопросом</td>
+        <td>Не черновик на время настройки, а часть задания (FR-28k): фактически регрессионный тест содержания. Спорный ответ участника добавляется в нужный список и остаётся там навсегда.</td>
+      </tr>
+      <tr>
+        <td>Ответы участников</td>
+        <td>по вопросу есть прохождения</td>
+        <td>Подставляются фактические ответы из накопленных наблюдений — телеметрии и импорта выгрузки LMS (FR-28l). Автор правит правило по тому, что люди пишут, а не по догадке.</td>
+      </tr>
+      <tr>
+        <td>Сырое выражение</td>
+        <td>экспертный режим</td>
+        <td>Остаётся (FR-28i), но не предлагается первым: переход в него — осознанное действие из конструктора. Нужен для форматов, которые блоками не собираются.</td>
+      </tr>
+      <tr>
+        <td>Отказ заслона</td>
+        <td>выражение запрещено или не уложилось в бюджет</td>
+        <td>Сообщение показывает ТУ САМУЮ строку, на которой счёт завис (FR-28p), и обязательно называет замену (§6.4): иначе запрет читается как каприз. Ответ-список — тот самый законный сценарий, ради которого автор и писал повторение группы.</td>
+      </tr>
+      <tr>
+        <td>Что происходит на прохождении</td>
+        <td>правило ступени 4 не уложилось в бюджет у участника</td>
+        <td>Ответ помечается непроверенным и уходит в тот же поток, что открытые ответы: нейтральный исход, «ждёт проверки» (FR-28r). Наказывать участника за ошибку автора запрещено.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="wf-mapping" aria-label="DS mapping">
+  <h3 class="wf-mapping-title">DS Mapping</h3>
+  <table>
+    <thead>
+      <tr><th>Элемент холста</th><th>Компонент DS</th><th>Токены</th><th>Примечания</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Ящик вопроса</td>
+        <td><code>Drawer</code> (<code>ou-drawer ou-drawer--wide ou-drawer--right</code>)</td>
+        <td><code>--ou-*</code></td>
+        <td>Без изменений относительно <code>approved/content-bank-explorer.html</code> (s-q-drawer).</td>
+      </tr>
+      <tr>
+        <td>Окно правила</td>
+        <td><code>Modal</code> (<code>ou-modal ou-modal--xl</code>, <code>__head</code> / <code>__body</code> / <code>__foot</code>)</td>
+        <td><code>--ou-space-*</code>, <code>--ou-radius-l</code></td>
+        <td>Существующий компонент. Прецедент окна поверх поверхности редактора — модал градуированной оценки PRD-10.</td>
+      </tr>
+      <tr>
+        <td>Две колонки окна</td>
+        <td><code>Grid</code> (<code>ou-lgrid ou-lgrid--main-aside ou-lgrid--gap-6</code>)</td>
+        <td><code>--ou-space-6</code></td>
+        <td>Существующий примитив раскладки: 2fr / 1fr, правая колонка липкая, на узком экране схлопывается в одну колонку. Своей сетки не заводится.</td>
+      </tr>
+      <tr>
+        <td>Лестница ступеней</td>
+        <td><code>ChoiceCard</code> / <code>ChoiceCardGroup</code> (<code>ou-choice-card</code>, <code>__title</code> / <code>__desc</code> / <code>__inset</code>, <code>--radio</code>, <code>.is-selected</code>)</td>
+        <td><code>--ou-accent-default</code>, <code>--ou-border-soft</code>, <code>--ou-space-*</code></td>
+        <td>СУЩЕСТВУЮЩИЙ компонент ДС, включая раскрытие вложенного блока у выбранной карточки — ровно то, что нужно лестнице. <strong>Гоча:</strong> его стили есть ТОЛЬКО в снимке для эскизов (<code>docs/wireframes/ds/skillum-ds.css</code>), а в собранном бандле продукта (<code>vendor/ui-kit/css/skillum-ds.css</code> и <code>client/src/styles/vendor/skillum-ds.css</code>) их нет, хотя <code>ChoiceCard.tsx</code> экспортируется. До реализации правила обязаны попасть в ДС, иначе компонент отрисуется без оформления.</td>
+      </tr>
+      <tr>
+        <td>Перечень допустимых ответов, значения списка, теги</td>
+        <td><code>TagInput</code> (<code>ou-taginput</code>, <code>__wrap</code> / <code>__field</code> / <code>__input</code> / <code>__remove</code>) + <code>Tag</code></td>
+        <td><code>--ou-bg-input</code>, <code>--ou-border-default</code></td>
+        <td>Существующий компонент. Перечень вариантов — ровно его задача; самодельного списка строк не заводится.</td>
+      </tr>
+      <tr>
+        <td>Оператор, условие, единица допуска</td>
+        <td><code>Select</code> (<code>ou-select</code> + <code>ou-field--m</code>), <code>Input</code> (<code>ou-field</code>, <code>__affix</code>)</td>
+        <td><code>--ou-*</code></td>
+        <td>Существующие компоненты. Оператор — список, а не свободный ввод (FR-28aa1).</td>
+      </tr>
+      <tr>
+        <td>Строка условия и расшифровка словами</td>
+        <td><code>tb-cond</code> / <code>tb-cond__join</code> / <code>tb-cond__say</code> (кандидат в <code>tb-components.css</code>)</td>
+        <td><code>--ou-space-*</code>, <code>--ou-fg-muted</code></td>
+        <td>Проектный паттерн авторского интерфейса: только раскладка строки «связка · условие · значение · удалить» из существующих примитивов. Колонка связки фиксирована, чтобы «и» стояли друг под другом.</td>
+      </tr>
+      <tr>
+        <td>Скомпилированное выражение</td>
+        <td><code>tb-compiled</code> (кандидат в <code>tb-components.css</code>)</td>
+        <td><code>--ou-font-family-mono</code>, <code>--ou-text-mono-s-size</code></td>
+        <td>Моноширинная справочная строка. Не поле: выражение — результат сборки, а не ввод.</td>
+      </tr>
+      <tr>
+        <td>Списки примеров и их исходы</td>
+        <td><code>Table</code> (<code>ou-tbl ou-tbl--compact</code>, <code>ou-tbl__chip--success</code> / <code>--error</code> / <code>--warn</code> / <code>--neutral</code>) + <code>tb-row--error</code></td>
+        <td><code>--ou-success-soft</code>, <code>--ou-error-soft</code>, <code>--ou-warning-soft</code></td>
+        <td>Существующая таблица и её штатные чипы исходов. <code>tb-row--error</code> — существующий проектный класс подсветки строки (используется в таблице правил прохождения).</td>
+      </tr>
+      <tr>
+        <td>Пустой список отрицательных примеров</td>
+        <td><code>EmptyState</code> (<code>ou-empty ou-empty--inline ou-empty--tone-warn</code>)</td>
+        <td><code>--ou-warning-soft</code></td>
+        <td>Существующий компонент с предупредительным тоном. Собственного баннера-заглушки не заводится.</td>
+      </tr>
+      <tr>
+        <td>Справка ступени 1, экспертный режим, отказ заслона, замена</td>
+        <td><code>Banner</code> (<code>ou-banner--subtle</code> + <code>--neutral</code> / <code>--warning</code> / <code>--error</code> / <code>--info</code>, <code>__actions</code>)</td>
+        <td><code>--ou-error-soft</code>, <code>--ou-warning-soft</code>, <code>--ou-accent-soft</code></td>
+        <td>Существующий компонент, действие — штатный слот <code>__actions</code>.</td>
+      </tr>
+      <tr>
+        <td>Свёрнутая строка правила в ящике</td>
+        <td><code>ou-stat-row</code> + <code>Button</code></td>
+        <td><code>--ou-*</code></td>
+        <td>Существующий строчный примитив: заголовок, подпись, действие справа.</td>
+      </tr>
+      <tr>
+        <td>Метанавигация состояний, метки требований, «Пояснения», «DS Mapping»</td>
+        <td><code>Wireframe utility</code> (<code>wf-nav</code>, <code>wf-annot</code>, <code>wf-rule</code>, <code>wf-ex</code>, <code>wf-notes</code>, <code>wf-mapping</code>)</td>
+        <td><code>--ou-space-*</code>, <code>--ou-border-*</code></td>
+        <td>Каркас эскиза, в продуктовый UI не мигрирует.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="wf-notes" aria-label="Вопросы к согласованию">
+  <h3 class="wf-notes-title">Вопросы к согласованию</h3>
+  <table>
+    <thead>
+      <tr><th>Место</th><th>Неоднозначность</th><th>Решение в эскизе</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Переключатель типа вопроса</strong></td>
+        <td>Трек добавляет три типа к шести существующим. Девять пунктов <code>SegmentedControl</code> не помещаются в ящик шириной 720px — это видно на холсте состояния «Ящик вопроса».</td>
+        <td>Эскиз показывает проблему, а не прячет её: решение за согласованием. Варианты — заменить переключатель на <code>Select</code> с пиктограммами типов; разбить на две строки; сгруппировать типы («выбор», «порядок», «ввод») во вложенное меню. Рекомендация — <code>Select</code>: он масштабируется на следующий тип и уже несёт пиктограмму.</td>
+      </tr>
+      <tr>
+        <td>2. Группировка «Что сравниваем»</td>
+        <td>Спека называет лестницу из четырёх ступеней (§6.1), числовое правило — «ступенью лестницы, доступной и короткому ответу, и пропуску» (FR-28ad), а ответ-список — «отдельным видом правила» (FR-28t). Одним списком это не выстраивается: ступени — про строгость сравнения текста, а число и список сравниваются иначе.</td>
+        <td>Эскиз разделяет: сначала предмет сравнения (текст / число / список значений), внутри текста — лестница ступеней. Это предложение эскиза, не требование спеки.</td>
+      </tr>
+      <tr>
+        <td>3. Перечень именованных условий</td>
+        <td>FR-28g называет семь: «совпадает точно», «начинается с», «заканчивается на», «содержит», «любое из перечисленного», «любое окончание после основы», «не содержит». Нужен ли восьмой — «соответствует формату» (дата, число, идентификатор).</td>
+        <td>В эскизе только семь. Восьмой не заводится: форматы закрываются экспертным режимом, а его расширение перечнем размывает границу между конструктором и выражением.</td>
+      </tr>
+      <tr>
+        <td>4. Бюджет времени при сохранении</td>
+        <td>В сообщении об отказе стоит «5 секунд». Спека бюджет не называет — она называет замеры, на которых порядок роста виден.</td>
+        <td>Число ПРЕДВАРИТЕЛЬНОЕ и подлежит замеру. Бюджет РАНТАЙМА (у участника) обязан быть заметно меньше и задаётся отдельно.</td>
+      </tr>
+      <tr>
+        <td>5. Предел длины короткого ответа в ящике</td>
+        <td>Подпись «Не больше 250 — предел LMS для типа fill-in» опирается на рекомендованный предел спецификации SCORM 2004 4th Edition.</td>
+        <td>Значение ПРЕДВАРИТЕЛЬНОЕ: FR-20 требует измерить поведение WebTutor на стенде до реализации (issue #51).</td>
+      </tr>
+      <tr>
+        <td>6. Стили ChoiceCard в ДС</td>
+        <td>Компонент экспортируется из ui-kit, но его CSS есть только в снимке для эскизов; в бандле продукта правил нет.</td>
+        <td>Блокирующее условие реализации, а не вопрос оформления: без переноса правил в ДС лестница отрисуется без оформления. Вынесено в DS Mapping отдельной строкой.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+</div>
+</div>
+</body>
+</html>
