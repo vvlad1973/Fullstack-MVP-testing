@@ -349,7 +349,10 @@ async function main() {
       overallPassRuleJson: { type: "percent", value: 70 },
       webhookUrl: null,
       feedback: null,
-      timeLimitMinutes: null,
+      // A budget of DAYS on purpose: the start screen prints a label the core formats,
+      // and a limit of a few minutes would look the same either way. Two weeks is the
+      // case that used to reach the learner as «20160 мин».
+      timeLimitMinutes: 20160,
       maxAttempts: null,
       showCorrectAnswers: true,
       startPageContent: "Демонстрационный пакет для отладки и приёмки шаблона.",
