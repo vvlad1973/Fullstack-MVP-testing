@@ -286,10 +286,46 @@ export function createTokenSource() {
       return cached.access_token;
     }
     process.stdout.write("Открываю браузер: нужно войти в repository.rt.ru через корпоративный вход.\n");
-    cached = await loginThroughBrowser();
+    try {
+      cached = await loginThroughBrowser();
+    } catch (error) {
+      // Without this tag, a failed login (Chrome missing, the three-minute timeout, a dropped
+      // CDP socket) looked to the CLI's package loop like an ordinary "could not ask about THIS
+      // package" — recorded, skipped, `continue`. The next package called getToken() again,
+      // which opened another browser window for the same doomed login, forever: on ~690
+      // packages at a 3-minute timeout that is roughly 34 hours of Chrome windows, with the
+      // actual reason never printed to the console (see asLoginFailure's own doc).
+      throw asLoginFailure(error);
+    }
     writeTokens(cached);
     return cached.access_token;
   };
+}
+
+/**
+ * Tags an error thrown by a failed browser login as one that must stop the WHOLE run, not just
+ * this one call. Every failure `loginThroughBrowser()` can throw — Chrome missing, the debug
+ * port already taken, the three-minute timeout, a dropped CDP socket — happens before a single
+ * package has even been asked about, so retrying the next package would only repeat the exact
+ * same failure up to ~690 times (spec `docs/specs/tooling/deps-check.md` section 6: all three
+ * named login failures "прекращают прогон").
+ *
+ * This is the one seam `getToken()` funnels every login error through, so a new failure mode
+ * added inside `loginThroughBrowser()` later is covered automatically instead of needing its own
+ * throw site updated. The flag is a PROPERTY (`stopRun`), matching the one repo-client.mjs sets
+ * on its own fatal errors — never a substring of the message — because a caller (`check-allowed
+ * .mjs`) that sniffed text would silently turn a required stop into "skip this package and carry
+ * on" the moment either message got reworded.
+ *
+ * Idempotent: an error that already carries `stopRun` (there is no such case today, since nothing
+ * upstream of `getToken()` sets it, but nothing here assumes that stays true) is simply
+ * re-tagged, not double-wrapped.
+ *
+ * @param {Error} error
+ * @returns {Error & {stopRun: true}}
+ */
+export function asLoginFailure(error) {
+  return Object.assign(error, { stopRun: true });
 }
 
 /** Path of the persistent profile, for the CLI to name in its messages. */

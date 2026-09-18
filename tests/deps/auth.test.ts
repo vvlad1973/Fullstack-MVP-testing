@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeExpiry, tokenIsUsable } from "../../scripts/deps/repo-auth.mjs";
+import { asLoginFailure, decodeExpiry, tokenIsUsable } from "../../scripts/deps/repo-auth.mjs";
 
 /** Minimal unsigned JWT with the given `exp`. */
 function jwt(exp: number) {
@@ -48,5 +48,39 @@ describe("tokenIsUsable", () => {
     const now = 1960 * 1000; // exp=2000s -> expiry=2_000_000ms
     expect(tokenIsUsable(jwt(2000), now, 30000)).toBe(true);
     expect(tokenIsUsable(jwt(2000), now, 50000)).toBe(false);
+  });
+});
+
+/**
+ * `loginThroughBrowser()` itself needs a live Chrome and CDP session and is out of scope for
+ * unit tests (spec section 10) — but the seam that turns every one of its failures into a
+ * whole-run stop is a plain function, and that seam is exactly what was missing: an unmarked
+ * login error used to read to the CLI's package loop as "could not ask about this ONE package",
+ * so the next package tried to log in again, forever.
+ */
+describe("asLoginFailure", () => {
+  it("помечает ошибку признаком stopRun как свойством, а не переписывает текст", () => {
+    const error = new Error("Вход не завершён за три минуты — прогон остановлен.");
+    const tagged = asLoginFailure(error);
+    expect(tagged.stopRun).toBe(true);
+    expect(tagged.message).toBe("Вход не завершён за три минуты — прогон остановлен.");
+    expect(tagged).toBe(error); // тот же объект, не обёртка — стек ошибки не теряется
+  });
+
+  it("работает для любого сообщения об ошибке входа, не разбирая его текст", () => {
+    // Three different, unrelated messages — a text-sniffing implementation (checking for
+    // "три минуты" or "браузер") would tag some and miss others; a property-based one tags all.
+    for (const message of [
+      "Chrome не найден. Укажите путь в переменной CHROME_BIN.",
+      "Не удалось подключиться к браузеру на порту 9333.",
+      "Соединение с браузером оборвалось до завершения входа.",
+    ]) {
+      expect(asLoginFailure(new Error(message)).stopRun).toBe(true);
+    }
+  });
+
+  it("идемпотентна: уже помеченная ошибка остаётся помеченной", () => {
+    const error = Object.assign(new Error("уже остановлено"), { stopRun: true });
+    expect(asLoginFailure(error).stopRun).toBe(true);
   });
 });
