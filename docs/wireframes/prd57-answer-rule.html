@@ -30,6 +30,7 @@
 
     Состояния (переключатель в навбаре):
       s-drawer      — ящик вопроса «Короткий ответ», свёрнутая строка правила
+      s-drawer-off  — то же с ВЫКЛЮЧЕННОЙ проверкой: второй режим типа (FR-28w)
       r-list        — ступень 2: перечень допустимых ответов
       r-wild        — ступень 3: подстановочный знак
       r-builder     — ступень 4: конструктор правила из именованных условий
@@ -165,6 +166,7 @@
 <!-- ─── State switcher ─────────────────────────────────────────────────────── -->
 <nav class="wf-nav" aria-label="Wireframe state switcher">
   <button class="wf-btn active" type="button" onclick="showState(this,'s-drawer')">Ящик вопроса</button>
+  <button class="wf-btn" type="button" onclick="showState(this,'s-drawer-off')">Проверка выключена</button>
   <div class="wf-nav-sep"></div>
   <button class="wf-btn" type="button" onclick="showType(this,'type-select')">Список типов</button>
   <div class="wf-nav-sep"></div>
@@ -304,6 +306,155 @@
             <label class="ou-field__lbl" for="qd-limit">Предел длины ответа</label>
             <div class="ou-field__box" style="width:var(--wf-size-160)">
               <input class="ou-field__input" id="qd-limit" type="number" value="40" />
+              <span class="ou-field__affix">символов</span>
+            </div>
+            <div class="ou-field__msg">Не больше 250 — предел LMS для типа fill-in</div>
+          </div>
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Сложность</span>
+            <div class="ou-slider ou-slider--h" aria-label="Сложность">
+              <div class="ou-slider__rail">
+                <div class="ou-slider__fill" style="left:0%;right:62%"></div>
+                <div class="ou-slider__marks"><span class="ou-slider__mark" style="left:0%"></span><span class="ou-slider__mark-lbl" style="left:0%">0</span><span class="ou-slider__mark" style="left:50%"></span><span class="ou-slider__mark-lbl" style="left:50%">50</span><span class="ou-slider__mark" style="left:100%"></span><span class="ou-slider__mark-lbl" style="left:100%">100</span></div>
+                <div role="slider" tabindex="0" class="ou-slider__thumb" style="left:38%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="38" aria-label="Сложность"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Теги (подтемы)</span>
+            <div class="ou-taginput">
+              <div class="ou-taginput__wrap">
+                <div class="ou-taginput__field">
+                  <span class="ou-tag ou-tag--neutral ou-tag--s">надзор<button type="button" class="ou-taginput__remove" aria-label="Удалить тег надзор">×</button></span>
+                  <span class="ou-tag ou-tag--neutral ou-tag--s">базовый<button type="button" class="ou-taginput__remove" aria-label="Удалить тег базовый">×</button></span>
+                  <input class="ou-taginput__input" type="text" placeholder="Добавить тег…" aria-label="Добавить тег" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <footer class="ou-drawer__foot">
+        <div style="margin-right:auto"></div>
+        <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
+        <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+      </footer>
+    </aside>
+  </div>
+</div>
+
+<div class="wf-state" id="s-drawer-off">
+  <div class="ou-drawer-root" role="dialog" aria-modal="true" aria-labelledby="qd-off-title">
+    <div class="ou-drawer__backdrop"></div>
+    <aside class="ou-drawer ou-drawer--wide ou-drawer--right">
+      <header class="ou-drawer__head">
+        <div class="ou-drawer__head-text">
+          <h1 id="qd-off-title" class="ou-drawer__title">Вопрос</h1>
+          <p class="ou-drawer__desc">Тема: Наряд-допуск</p>
+        </div>
+        <button type="button" class="ou-drawer__close" aria-label="Закрыть">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </header>
+      <div class="ou-drawer__body" tabindex="0">
+        <div class="ou-stack ou-stack--gap-5">
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Тема</span>
+            <div class="ou-select ou-field--m ou-field--full">
+              <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="ou-select__value">Наряд-допуск</span>
+                <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- ДЕЛЬТА 1: три новых типа в переключателе. Девять пунктов не
+               помещаются в ящик шириной 720px, поэтому здесь нарисованы текущее
+               состояние и три варианта решения. Сравнение — в «Пояснениях». -->
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Тип вопроса</span>
+
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">решение 2026-09-18</span>
+              <div class="ou-select ou-field--m ou-field--full" id="type-select">
+                <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="ou-select__value"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</span>
+                  <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <ul class="ou-select__menu" role="listbox" aria-label="Тип вопроса">
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-single"/></svg></span>Один ответ</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-multiple"/></svg></span>Несколько ответов</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-matching"/></svg></span>Соответствие</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-ranking"/></svg></span>Ранжирование</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-scale"/></svg></span>Шкала</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-allocation"/></svg></span>Распределение</li>
+                  <li role="option" aria-selected="true" class="ou-select__opt is-selected"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Поле «Текст вопроса» — согласованный вид: переключатель режимов
+               над полем, одна панель вставки в подвале. Все режимы и состояния
+               поля нарисованы в prd57-question-text.html; здесь оно стоит
+               в том же виде, чтобы два эскиза не расходились. -->
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Текст вопроса</span>
+            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
+            </div>
+            <label class="ou-textarea ou-textarea--full" style="margin-top:var(--ou-space-2)">
+              <div class="ou-textarea__box">
+                <textarea class="ou-textarea__input" rows="2">Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</textarea>
+                <div class="ou-textarea__footer">
+                  <span class="ou-textarea__toolbar">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+                  </span>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Второй режим типа (FR-28w): проверка выключена. Задание собирает
+               короткий текст, не приносит баллов, исход нейтральный и в разрезы
+               результата не попадает. Настроенное правило НЕ удаляется —
+               иначе выключение тумблера означало бы потерю работы. -->
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Проверка ответа</span>
+            <label class="ou-switch-field">
+              <span class="ou-switch ou-switch--m"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+              <span class="ou-switch-field__text">
+                <span class="ou-switch-field__label">Проверять ответ автоматически</span>
+                <span class="ou-switch-field__desc">Без правила задание собирает короткий текст и не приносит баллов</span>
+              </span>
+            </label>
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">FR-28w</span>
+              <div class="ou-stat-row">
+                <div class="ou-stat-row__body">
+                  <div class="ou-stat-row__title">Перечень допустимых ответов · 3 варианта <span class="ou-tag ou-tag--neutral ou-tag--s">не применяется</span></div>
+                  <div class="ou-stat-row__sub">Правило сохранено и снова заработает, если включить проверку</div>
+                </div>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showRule(null,'r-list','e-list')">Открыть</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ou-field ou-field--m">
+            <label class="ou-field__lbl" for="qd-off-limit">Предел длины ответа</label>
+            <div class="ou-field__box" style="width:var(--wf-size-160)">
+              <input class="ou-field__input" id="qd-off-limit" type="number" value="40" />
               <span class="ou-field__affix">символов</span>
             </div>
             <div class="ou-field__msg">Не больше 250 — предел LMS для типа fill-in</div>
@@ -1240,6 +1391,11 @@
         <td>Тумблер «Проверять ответ автоматически»</td>
         <td><code>rule</code> у вопроса пуст / заполнен</td>
         <td>Второй режим того же типа (FR-28w): без правила задание собирает короткий текст, не приносит баллов и ведёт себя как открытый ответ — нейтральный исход, вне разрезов. Закрывает опросную потребность «должность», «подразделение» без ещё одного типа задания.</td>
+      </tr>
+      <tr>
+        <td>Проверка выключена</td>
+        <td>тумблер снят</td>
+        <td>Второй режим типа (FR-28w): задание собирает короткий текст, не приносит баллов, исход нейтральный, в разрезы результата (PRD-50) не попадает. Закрывает опросную потребность «должность», «подразделение», «свой вариант» без заведения ещё одного типа задания. Настроенное правило при этом НЕ удаляется и помечено как неприменяемое — иначе снятие тумблера означало бы потерю работы, а автор, случайно его тронувший, не смог бы вернуться. Предел длины ответа остаётся: он свойство поля, а не проверки.</td>
       </tr>
       <tr>
         <td>Ступень 1</td>
