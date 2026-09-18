@@ -72,7 +72,6 @@
     "react-hook-form": "^7.84.0",
     "react-is": "^19.2.8",
     "recharts": "^3.10.1",
-    "tsx": "^4.23.8",
     "wouter": "^3.10.0",
     "zod": "^4.4.3"
   },
@@ -102,6 +101,7 @@
     "markdownlint-cli2": "^0.23.2",
     "postcss": "^8.5.25",
     "supertest": "^7.2.2",
+    "tsx": "^4.23.8",
     "typescript": "^6.0.3",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"
