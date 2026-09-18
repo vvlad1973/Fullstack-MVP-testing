@@ -2734,6 +2734,9 @@ export default function TakeTestPage() {
       info: {
         title: testInfo.title,
         description: testInfo.description || "",
+        // PRD-59 FR-12: the format rides with the text; the markup is built by the
+        // shared builder, not here.
+        descriptionFormat: testInfo.descriptionFormat,
         // Adaptive draws from its levels, not from the section quotas, so the
         // count is unknown up front: omit the fact instead of promising «0
         // вопросов» (the layout hides a fact it is not given).
