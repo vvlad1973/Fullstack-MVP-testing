@@ -4,8 +4,14 @@
  *
  * The client carries no verdicts: it delivers records and nothing else. Everything it knows
  * about the API was recovered from a saved session and the client bundle — there is no
- * documentation — so the request shape here is the one the real web client sends, field for
- * field, including `state: {}` and `strict: false`.
+ * documentation. The request shape mirrors what was observed for the real web client's call to
+ * `POST /gateway/artifacts/findArtifacts`: `npm.name`/`npm.scope`/`npm.version`, `offset`,
+ * `limit` and `strict: false` all match. `state` is the one field we deviate on ON PURPOSE: of
+ * eighteen recorded requests, eight carried an empty `state: {}` and ten carried
+ * `state: {"statuses":["PERMITTED"]}` (narrowing to already-permitted artifacts) — both forms
+ * were genuinely observed in the session, neither is a guess standing in for the other. This
+ * client always sends the empty form, deliberately, because a status filter would hide exactly
+ * the RESTRICTED/forbidden records this tool exists to surface.
  *
  * Neither field the request narrows by is trustworthy on its own: the API matches BOTH name and
  * version as a SUBSTRING (spec section 2.2), so a query for "express" comes back with
@@ -34,6 +40,14 @@ const PAGE = 50;
  * without a match throws instead of returning a quietly truncated list — see `findArtifacts`.
  */
 const MAX_RECORDS = 1000;
+/**
+ * How many consecutive refusals stop the run (spec section 5: "three in a row"). The counter this
+ * bounds lives on the CLIENT (`consecutiveRefusals` in `createClient`), not inside a single
+ * `request()` call: a client is reused across every package in the run, so three refusals spread
+ * across three different packages must stop it exactly as three refusals on one package would —
+ * persistence in the middle of skipping from package to package is the behaviour spec section 5
+ * calls out as "the one thing not to do". Any successful response resets the counter to zero.
+ */
 const MAX_REFUSALS = 3;
 /**
  * Generous for a slow corporate network, short enough that one genuinely hung connection cannot
@@ -42,11 +56,18 @@ const MAX_REFUSALS = 3;
 const DEFAULT_TIMEOUT_MS = 30000;
 
 /**
- * HTTP statuses worth the backoff-and-retry dance (401 is handled on its own path above this
- * check and never reaches it). 429 and any 5xx are the system telling us "try again later"; any
- * other status — 400, 403, 404, a malformed request — is almost certainly wrong on OUR side, and
- * three retries with growing pauses would only spend the pace budget on an answer that will not
- * change no matter how long we wait.
+ * HTTP statuses that are worth the backoff-and-retry dance ON THEIR OWN, without needing a
+ * `Retry-After` header to say so (401 is handled on its own path above this check and never
+ * reaches it). 429 and any 5xx are the system telling us "try again later" by their status alone.
+ *
+ * This is only HALF of what decides a rate-limit refusal, though — spec section 5 is explicit
+ * that the OTHER half is any response, whatever its status, that carries a `Retry-After` header.
+ * An earlier version of this client used `isRetryableStatus` as the WHOLE decision and treated
+ * every other status (400, 403, 404, a malformed request, …) as "wrong on our side, retrying
+ * won't help" — which is usually true, but not when the system attaches `Retry-After` to a `403`:
+ * that combination is exactly the shape a blocked or rate-limited account answers with, and
+ * treating it as "our fault, move on" meant hammering an account that had just asked to be left
+ * alone. See the `retryAfterHeader` check at the call site below for the other half.
  *
  * @param {number} status
  * @returns {boolean}
@@ -117,6 +138,18 @@ export function createClient({
    * guard at the top of `findArtifacts`.
    */
   let stoppedError = null;
+  /**
+   * Consecutive refusals across the WHOLE client — every request it has sent, for every package —
+   * not just the retries inside one `request()` call. Spec section 5's "three in a row" is about
+   * upsetting the target system, and the system does not know or care whether the third refusal in
+   * a row landed on the same package as the first two or on a different one three packages later;
+   * scoping this counter to a single `request()` call (as an earlier version did) meant it reset to
+   * zero at every package boundary, so "three in a row" was never actually reachable for a status
+   * this module does not itself retry (see the non-retryable branch in `request` below) — each such
+   * refusal was recorded as "could not be asked" and the run moved on to hammer the next package.
+   * Any successful response resets this to zero (see `request` below).
+   */
+  let consecutiveRefusals = 0;
 
   /** Records the stop, then throws it — the one place `stoppedError` is ever written. */
   function raiseStop(message) {
@@ -126,7 +159,6 @@ export function createClient({
 
   /** One request, with the pace, the 401 retry and the refusal backoff applied. */
   async function request(pkg, offset) {
-    let refusals = 0;
     // True only for the single attempt immediately following a 401 — NOT for the rest of this
     // call's retry loop. An earlier version left this flag raised after the forced refresh
     // succeeded, so a later, unrelated 503 in the same request() call kept forcing a fresh token
@@ -161,18 +193,22 @@ export function createClient({
         // A dropped connection or a timed-out signal never even reaches the ok/status branches
         // below, so without this it would fail (or hang) on the very first try while an ordinary
         // 5xx gets three attempts — the same transient-failure shape retried inconsistently.
-        // Sharing the `refusals` counter with the HTTP-status path below means three failures of
+        // Sharing `consecutiveRefusals` with the HTTP-status path below means three failures of
         // EITHER kind in a row stop the run, matching spec section 5's "three in a row" rule
-        // regardless of which layer the failure came from.
-        refusals += 1;
-        if (refusals >= MAX_REFUSALS) {
+        // regardless of which layer the failure came from — and regardless of which package each
+        // one happened to be asking about (see the field's own comment above).
+        consecutiveRefusals += 1;
+        if (consecutiveRefusals >= MAX_REFUSALS) {
           raiseStop(`Сеть отказала ${timesPhrase(MAX_REFUSALS)} подряд (${networkError.message}): прогон остановлен`);
         }
-        await sleep(retryPlan(refusals - 1, null).waitMs);
+        await sleep(retryPlan(consecutiveRefusals - 1, null).waitMs);
         continue;
       }
 
-      if (response.ok) return (await response.json()).artifacts ?? [];
+      if (response.ok) {
+        consecutiveRefusals = 0;
+        return (await response.json()).artifacts ?? [];
+      }
 
       // Read (or at least drain) the body on every non-ok response. It is the one piece of
       // diagnosis the system gives us for a request built entirely from a reverse-engineered API
@@ -188,19 +224,37 @@ export function createClient({
         continue;
       }
 
-      if (!isRetryableStatus(response.status)) {
+      // Spec section 5: a rate-limit-shaped refusal is "429, 503 OR ANY OTHER RESPONSE WITH
+      // Retry-After" — a `403` (or any other status) carrying `Retry-After` is exactly the shape a
+      // blocked or throttled account answers with, and must be treated the same as a `429`: waited
+      // out (or, past a minute, stopped on) rather than shrugged off as "our request was wrong".
+      const retryAfterHeader = response.headers?.get?.("Retry-After") ?? null;
+      const rateLimitRefusal = isRetryableStatus(response.status) || Boolean(retryAfterHeader);
+
+      if (!rateLimitRefusal) {
+        // Genuinely not worth retrying (no Retry-After, and not 429/5xx) — almost certainly wrong
+        // on OUR side, so this one attempt is not repeated. It still counts toward the same
+        // cross-client "three in a row" ceiling as every other kind of refusal: three packages in
+        // a row answered this way is not proof the request is malformed (a malformed request would
+        // usually say so consistently), it is just as plausibly the target system refusing
+        // everything from this account — and continuing to ask 690 times is exactly the behaviour
+        // spec section 5 rules out.
+        consecutiveRefusals += 1;
+        if (consecutiveRefusals >= MAX_REFUSALS) {
+          raiseStop(`${response.status} от системы ${timesPhrase(MAX_REFUSALS)} подряд: прогон остановлен${detail}`);
+        }
         throw new Error(`${response.status} от системы, повторять бессмысленно${detail}`);
       }
 
-      refusals += 1;
-      const plan = retryPlan(refusals - 1, response.headers?.get?.("Retry-After") ?? null);
+      consecutiveRefusals += 1;
+      const plan = retryPlan(consecutiveRefusals - 1, retryAfterHeader);
       if (plan.stop) {
         raiseStop(
           `Система просит подождать ${Math.round(plan.askedMs / 1000)} секунд — это дольше минуты, ` +
             `прогон остановлен. Проверенное сохранено в кэше, вернитесь позже.${detail}`,
         );
       }
-      if (refusals >= MAX_REFUSALS) {
+      if (consecutiveRefusals >= MAX_REFUSALS) {
         raiseStop(`${response.status} от системы ${timesPhrase(MAX_REFUSALS)} подряд: прогон остановлен${detail}`);
       }
       await sleep(plan.waitMs);

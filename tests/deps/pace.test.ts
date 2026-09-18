@@ -53,8 +53,38 @@ describe("retryPlan", () => {
     expect(retryPlan(10, null)).toEqual({ waitMs: 60000, stop: false, askedMs: null });
   });
 
-  it("игнорирует нечисловой Retry-After", () => {
-    expect(retryPlan(0, "Wed, 21 Oct 2026 07:28:00 GMT")).toEqual({
+  it("разбирает Retry-After в форме HTTP-date, считая интервал от переданного now", () => {
+    // 30 seconds before the asked-for date — well inside the minute cap.
+    const now = Date.parse("Wed, 21 Oct 2026 07:27:30 GMT");
+    expect(retryPlan(0, "Wed, 21 Oct 2026 07:28:00 GMT", now)).toEqual({
+      waitMs: 30000,
+      stop: false,
+      askedMs: 30000,
+    });
+  });
+
+  it("HTTP-date дальше минуты от now останавливает прогон, как и Retry-After в секундах", () => {
+    // 10 minutes before the asked-for date.
+    const now = Date.parse("Wed, 21 Oct 2026 07:18:00 GMT");
+    expect(retryPlan(0, "Wed, 21 Oct 2026 07:28:00 GMT", now)).toEqual({
+      waitMs: 0,
+      stop: true,
+      askedMs: 600000,
+    });
+  });
+
+  it("HTTP-date в прошлом относительно now трактуется как отсутствие Retry-After", () => {
+    // now is AFTER the asked-for date — the instruction has already expired.
+    const now = Date.parse("Wed, 21 Oct 2026 08:00:00 GMT");
+    expect(retryPlan(0, "Wed, 21 Oct 2026 07:28:00 GMT", now)).toEqual({
+      waitMs: 2000,
+      stop: false,
+      askedMs: null,
+    });
+  });
+
+  it("мусор вместо даты и вместо числа игнорируется как отсутствие Retry-After", () => {
+    expect(retryPlan(0, "не дата и не число")).toEqual({
       waitMs: 2000,
       stop: false,
       askedMs: null,

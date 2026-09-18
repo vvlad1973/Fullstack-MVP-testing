@@ -236,6 +236,81 @@ describe("createClient.findArtifacts", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(20);
   });
 
+  it("403 с Retry-After трактуется как отказ по частоте, а не как «повторять бессмысленно»: ждёт и повторяет тот же запрос", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(fail(403, { "Retry-After": "30" }))
+      .mockResolvedValueOnce(ok([]));
+    const artifacts = await client(fetchImpl, { sleep }).findArtifacts(pkg);
+    expect(artifacts).toEqual([]);
+    expect(sleep).toHaveBeenCalledWith(30000);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("стендовый повтор ревью: 403 с Retry-After: 600 (10 минут) останавливает прогон на первом же запросе, без выдержки минутой", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async () => fail(403, { "Retry-After": "600" }));
+    const c = client(fetchImpl, { sleep });
+
+    const first = await c.findArtifacts(pkg).catch((e: Error) => e);
+    expect((first as Error & { stopRun?: boolean }).stopRun).toBe(true);
+    expect((first as Error).message).toMatch(/600|минут/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalledWith(600000);
+
+    // A second package must not reach the network at all once the run has stopped.
+    await expect(c.findArtifacts({ ...pkg, name: "other" })).rejects.toMatchObject({ stopRun: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("любой статус с Retry-After считается отказом по частоте, не только 429/5xx (например 404)", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn().mockResolvedValueOnce(fail(404, { "Retry-After": "5" })).mockResolvedValueOnce(ok([]));
+    const artifacts = await client(fetchImpl, { sleep }).findArtifacts(pkg);
+    expect(artifacts).toEqual([]);
+    expect(sleep).toHaveBeenCalledWith(5000);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("три 403 подряд по трём разным пакетам (без Retry-After) останавливают прогон — счётчик сквозной", async () => {
+    const fetchImpl = vi.fn(async () => fail(403));
+    const c = client(fetchImpl);
+    const pkgs = ["a", "b", "c"].map((name) => ({ ...pkg, name }));
+
+    const errors: Array<Error & { stopRun?: boolean }> = [];
+    for (const p of pkgs) {
+      errors.push(await c.findArtifacts(p).catch((e: Error) => e));
+    }
+
+    expect(errors[0].stopRun).toBeUndefined();
+    expect(errors[1].stopRun).toBeUndefined();
+    expect(errors[2].stopRun).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("успешный ответ обнуляет сквозной счётчик отказов, так что два отказа + успех + два отказа не останавливают прогон", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(fail(403)) // pkgA: refusal #1
+      .mockResolvedValueOnce(fail(403)) // pkgB: refusal #2
+      .mockResolvedValueOnce(ok([])) // pkgC: success -> resets to 0
+      .mockResolvedValueOnce(fail(403)) // pkgD: refusal #1 again
+      .mockResolvedValueOnce(fail(403)); // pkgE: refusal #2 again
+    const c = client(fetchImpl);
+    const results: Array<unknown> = [];
+    for (const name of ["a", "b", "c", "d", "e"]) {
+      results.push(await c.findArtifacts({ ...pkg, name }).catch((err: Error) => err));
+    }
+    const [a, b, cRes, d, e] = results as Array<Error & { stopRun?: boolean }>;
+
+    expect(a.stopRun).toBeUndefined();
+    expect(b.stopRun).toBeUndefined();
+    expect(cRes).toEqual([]);
+    expect(d.stopRun).toBeUndefined();
+    expect(e.stopRun).toBeUndefined();
+  });
+
   it("удваивает выдержку по умолчанию, когда 503 пришёл без Retry-After", async () => {
     const sleep = vi.fn(async () => {});
     const fetchImpl = vi.fn().mockResolvedValueOnce(fail(503)).mockResolvedValueOnce(ok([]));
