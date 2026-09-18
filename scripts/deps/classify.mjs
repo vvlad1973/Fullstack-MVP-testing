@@ -33,9 +33,11 @@ const STATUS_OUTCOME = {
 /**
  * Finds the record that is exactly this package, or null.
  *
- * A missing scope is normalised to "" on both sides, because the API is known to answer an
- * unscoped package with `scope: null` rather than `scope: ""` (observed for the `wouter` case
- * in the recorded session), and the lockfile side always uses "".
+ * A missing scope is normalised to "" on both sides as a defensive measure: the recorded HAR
+ * session never actually returned `scope: null` (every record used "" or a real scope), but
+ * nothing documents the API well enough to rule it out, and treating an unseen `null` as a
+ * mismatch would risk a false "not in the base" for an unscoped package. The lockfile side
+ * always uses "".
  *
  * @param {Array<object>|null|undefined} artifacts Records from `findArtifacts`.
  * @param {{name: string, scope: string, version: string}} pkg
