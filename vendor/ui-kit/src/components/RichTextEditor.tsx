@@ -29,6 +29,24 @@ export interface RichTextEditorProps {
    * about something they never typed and cannot see.
    */
   sanitize?: (html: string) => string;
+  /**
+   * Opt-in: in `plain` mode the value is the author's SOURCE text — real newlines, no
+   * escaping — instead of markup. Mode switches route through these converters, so the
+   * markup policy stays with the host and the DS keeps no second copy of it.
+   *
+   * Needed wherever the stored value is read by something other than a browser: an
+   * e-mail's text part, an XML catalogue entry, a spreadsheet cell. For those readers
+   * `&laquo;` and a lost paragraph break are damage, not formatting.
+   *
+   * Without this prop the component behaves exactly as before — the value is markup in
+   * every mode, and lowering the mode strips tags through `textContent`.
+   */
+  sourceMode?: {
+    /** Plain source -> markup. Called when the author raises the mode. */
+    toMarkup: (text: string) => string;
+    /** Markup -> plain source. Called when the author lowers it; must keep line breaks. */
+    toPlain: (html: string) => string;
+  };
   rows?: number;
   id?: string;
   className?: string;
@@ -129,7 +147,7 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
     {
       label, hint, error, required, size = 'm', fullWidth, disabled,
       value, onChange, modes = ['plain', 'rich', 'html'], mode, onModeChange,
-      sanitize, rows = 4, id, className, ...rest
+      sanitize, sourceMode, rows = 4, id, className, ...rest
     },
     ref,
   ) => {
@@ -153,8 +171,16 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
 
     const switchMode = (next: RichTextMode) => {
       if (next === current) return;
-      if (current === 'html') onChange(clean(value));
-      if (next === 'plain') onChange(fromPlainText(toPlainText(value)));
+      if (sourceMode) {
+        // The value crosses the plain boundary in one direction or the other; between
+        // the two markup modes it only needs cleaning on the way out of raw HTML.
+        if (current === 'plain') onChange(sourceMode.toMarkup(value));
+        else if (next === 'plain') onChange(sourceMode.toPlain(clean(value)));
+        else if (current === 'html') onChange(clean(value));
+      } else {
+        if (current === 'html') onChange(clean(value));
+        if (next === 'plain') onChange(fromPlainText(toPlainText(value)));
+      }
       if (mode === undefined) setInternalMode(next);
       onModeChange?.(next);
     };
@@ -282,11 +308,15 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
             <textarea
               id={fieldId}
               className={cn('ou-rte__input', current === 'html' && 'ou-rte__input--code')}
-              value={current === 'plain' ? toPlainText(value) : value}
+              value={current === 'plain' && !sourceMode ? toPlainText(value) : value}
               rows={rows}
               disabled={disabled}
               onChange={(e) =>
-                onChange(current === 'plain' ? fromPlainText(e.target.value) : e.target.value)
+                onChange(
+                  current === 'plain' && !sourceMode
+                    ? fromPlainText(e.target.value)
+                    : e.target.value,
+                )
               }
               data-testid={rest['data-testid'] ? `${rest['data-testid']}-input` : undefined}
             />
