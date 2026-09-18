@@ -256,25 +256,24 @@
                над полем, одна панель вставки в подвале. Все режимы и состояния
                поля нарисованы в prd57-question-text.html; здесь оно стоит
                в том же виде, чтобы два эскиза не расходились. -->
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
-            </div>
-            <label class="ou-textarea ou-textarea--full" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="2">Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</textarea>
-                <div class="ou-textarea__footer">
-                  <span class="ou-textarea__toolbar">
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
-                  </span>
-                </div>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qd-prompt">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
               </div>
-            </label>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
+            </div>
+            <div class="ou-rte__box">
+              <textarea id="qd-prompt" class="ou-rte__input" rows="9">Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</textarea>
+            </div>
+            <span class="ou-rte__msg">Жирный и курсив — звёздочками, ссылка — квадратными скобками. Листинг, формула и пропуск вставляются кнопками.</span>
           </div>
 
           <!-- ДЕЛЬТА 2: блок «Проверка ответа» вместо блока вариантов ─────

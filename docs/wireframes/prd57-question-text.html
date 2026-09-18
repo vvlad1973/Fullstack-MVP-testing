@@ -38,7 +38,8 @@
       s-html      — режим «HTML»: сырая разметка, листинг тегами
       s-lang      — выбор языка при вставке листинга
       s-diag      — режим «HTML»: диагностика вырезанного при сохранении
-      s-switch    — предупреждение при переключении режима
+      s-switch      — переход «Разметка» -> HTML: что преобразуется
+      s-switch-html — переход HTML -> «Форматированный»: что панель не умеет
       s-preview   — как задание увидит участник (во всех режимах одинаково)
       s-notes     — пояснения и DS Mapping
   -->
@@ -97,6 +98,18 @@
       border-radius: var(--ou-radius-m); padding: var(--ou-space-3) var(--ou-space-4);
       white-space: pre; tab-size: 4;
     }
+    /* ─── Кандидат в tb-components.css: атомарный узел в WYSIWYG ────────────
+       Листинг, формула и пропуск внутри редактируемой области объявлены
+       `contenteditable="false"`. Браузер трактует такой узел как ОДИН
+       неделимый символ: курсор внутрь не попадает, `execCommand` его не рвёт,
+       удаление уносит целиком. Это и есть гарантия сохранности — по
+       построению, а не проверкой после сохранения: иначе браузер вправе
+       вставить `<span>` в середину маркера, и пропуск молча перестанет быть
+       пропуском. Класс добавляет только видимую границу объекта. */
+    .tb-atom { -webkit-user-select: all; -moz-user-select: all; user-select: all; cursor: default; }
+    .tb-atom:hover { outline: var(--wf-border-w) dashed var(--ou-border-strong); outline-offset: var(--wf-border-w); }
+    .tb-atom.is-selected { outline: var(--wf-border-w-2) solid var(--ou-accent-default); outline-offset: var(--wf-border-w); }
+
     /* Палитра подсветки. Ролей ПЯТЬ, и это осознанно: подсветка не должна знать
        язык глубоко, ей достаточно отличить ключевое слово от строки, числа,
        комментария и имени. Цвета — токены ШАБЛОНА, а не тема библиотеки:
@@ -110,6 +123,10 @@
     .tb-code__num { color: var(--ou-warning-on-soft); }
     .tb-code__com { color: var(--ou-fg-muted); font-style: italic; }
     .tb-code__fn  { color: var(--ou-info-on-soft); }
+
+    /* Код пропуска — тот же класс, что в эскизе пропусков: машинное имя
+       моноширинным на мягкой акцентной подложке. */
+    .tb-blank-code { font-family: var(--ou-font-family-mono); font-size: var(--ou-text-mono-s-size); color: var(--ou-accent-on-soft); background: var(--ou-accent-soft); border-radius: var(--ou-radius-s); padding: 0 var(--ou-space-1); }
 
     .tb-code-inline {
       font-family: var(--ou-font-family-mono); font-size: var(--ou-text-mono-s-size);
@@ -132,7 +149,8 @@
   <div class="wf-nav-sep"></div>
   <button class="wf-btn" type="button" onclick="showState(this,'s-lang')">Язык листинга</button>
   <button class="wf-btn" type="button" onclick="showState(this,'s-diag')">Вырезано при сохранении</button>
-  <button class="wf-btn" type="button" onclick="showState(this,'s-switch')">Смена режима</button>
+  <button class="wf-btn" type="button" onclick="showState(this,'s-switch')">Смена: в HTML</button>
+  <button class="wf-btn" type="button" onclick="showState(this,'s-switch-html')">Смена: из HTML</button>
   <button class="wf-btn" type="button" onclick="showState(this,'s-preview')">Как увидит участник</button>
   <div class="wf-nav-sep"></div>
   <button class="wf-btn" type="button" onclick="showState(this,'s-notes')">Пояснения</button>
@@ -173,20 +191,22 @@
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="wf-annot-wrap wf-annot-wrap--block">
-              <span class="wf-annot">режимы · решение 2026-09-18</span>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qt-md">Текст вопроса</label>
+            <div class="ou-rte__bar">
               <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
                 <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[1],'s-rich')">Форматированный</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[2],'s-html')">HTML</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
+              </div>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
               </div>
             </div>
-
-            <label class="ou-textarea ou-textarea--full tb-src" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="9">Что выведет запрос, если таблица `orders` пуста?
+            <div class="ou-rte__box">
+              <textarea id="qt-md" class="ou-rte__input" rows="9">Что выведет запрос, если таблица `orders` пуста?
 
 ```sql
 SELECT COUNT(*)
@@ -195,26 +215,8 @@ SELECT COUNT(*)
 ```
 
 Долю выполненных заказов считают по формуле $$\frac{n_{вып}}{n_{всего}}$$, а порог приёмки — {{porog}} процентов.</textarea>
-                <div class="ou-textarea__footer">
-                  <span class="ou-textarea__toolbar">
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>
-                      Листинг
-                    </button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>
-                      Формула
-                    </button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>
-                      Пропуск
-                    </button>
-                  </span>
-                  <span class="ou-textarea__count">1 листинг · 1 формула · 1 пропуск</span>
-                </div>
-              </div>
-              <span class="ou-textarea__msg">Жирный и курсив — звёздочками, ссылка — квадратными скобками. Листинг — тремя обратными кавычками с языком: python, sql или javascript. Формула — двумя долларами, пропуск — двойными фигурными скобками.</span>
-            </label>
+            </div>
+            <span class="ou-rte__msg">Жирный и курсив — звёздочками, ссылка — квадратными скобками. Листинг — тремя обратными кавычками с языком: python, sql или javascript. Формула — двумя долларами, пропуск — двойными фигурными скобками.</span>
           </div>
 
         </div>
@@ -247,61 +249,40 @@ SELECT COUNT(*)
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[0],'s-md')">Разметка</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Форматированный</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[2],'s-html')">HTML</button>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qt-rich">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item" aria-pressed="false">Разметка</button>
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
+              </div>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <span class="ou-tip" data-placement="top"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Жирный"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bold"/></svg></button><span class="ou-tip__bubble" role="tooltip">Жирный</span></span>
+                <span class="ou-tip" data-placement="top"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Курсив"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-italic"/></svg></button><span class="ou-tip__bubble" role="tooltip">Курсив</span></span>
+                <span class="ou-tip" data-placement="top"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Список"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-list"/></svg></button><span class="ou-tip__bubble" role="tooltip">Список</span></span>
+                <span class="ou-tip" data-placement="top"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Ссылка"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-link"/></svg></button><span class="ou-tip__bubble" role="tooltip">Ссылка</span></span>
+                <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
             </div>
-
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="margin-top:var(--ou-space-2)">
-              <span class="wf-annot">одна панель: листинг, формула, пропуск</span>
-              <label class="ou-textarea ou-textarea--full">
-                <div class="ou-textarea__box">
-                  <div class="ou-textarea__input ou-textarea__rich" contenteditable="true" role="textbox" aria-multiline="true">
-                    <p>Что выведет запрос, если таблица <span class="tb-code-inline">orders</span> пуста?</p>
-                    <p><span class="tb-code">SELECT COUNT(*)
-  FROM orders
- WHERE status = 'new';</span></p>
-                    <p>Долю выполненных заказов считают по формуле <span class="tb-formula"><svg width="52" height="34" viewBox="0 0 52 34" fill="none" aria-label="дробь: n вып делить на n всего"><text x="26" y="14" text-anchor="middle" font-size="12" fill="currentColor">n вып</text><line x1="6" y1="18" x2="46" y2="18" stroke="currentColor" stroke-width="1"/><text x="26" y="31" text-anchor="middle" font-size="12" fill="currentColor">n всего</text></svg></span>, а порог приёмки — <span class="tb-code-inline">{{porog}}</span> процентов.</p>
-                  </div>
-                  <div class="ou-textarea__footer">
-                    <span class="ou-textarea__toolbar">
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Жирный"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bold"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Жирный</span>
-                      </span>
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Курсив"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-italic"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Курсив</span>
-                      </span>
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Список"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-list"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Список</span>
-                      </span>
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Ссылка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Ссылка</span>
-                      </span>
-                      <span class="tb-rte__sep" aria-hidden="true"></span>
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Листинг"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-code"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Листинг кода</span>
-                      </span>
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Формула"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sigma"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Формула</span>
-                      </span>
-                      <span class="ou-tip" data-placement="top">
-                        <button type="button" class="ou-textarea__tool" aria-label="Пропуск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-braces"/></svg></button>
-                        <span class="ou-tip__bubble" role="tooltip">Пропуск</span>
-                      </span>
-                    </span>
-                    <span class="ou-textarea__count">1 листинг · 1 формула · 1 пропуск</span>
-                  </div>
-                </div>
-              </label>
+            <div class="ou-rte__box">
+              <div
+                id="qt-rich"
+                class="ou-rte__area"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+              >
+              <p>Что выведет запрос, если таблица <span class="tb-atom tb-code-inline" contenteditable="false">orders</span> пуста?</p>
+              <p><span class="tb-atom tb-code" contenteditable="false"><span class="tb-code__com">-- заказы, ожидающие обработки</span>
+<span class="tb-code__kw">SELECT</span> <span class="tb-code__fn">COUNT</span>(*)
+  <span class="tb-code__kw">FROM</span> orders
+ <span class="tb-code__kw">WHERE</span> status = <span class="tb-code__str">'new'</span>;</span></p>
+              <p>Долю выполненных заказов считают по формуле <span class="tb-atom tb-formula" contenteditable="false"><svg width="52" height="34" viewBox="0 0 52 34" fill="none" role="img" aria-label="дробь: n вып делить на n всего"><text x="26" y="14" text-anchor="middle" font-size="12" fill="currentColor">n вып</text><line x1="6" y1="18" x2="46" y2="18" stroke="currentColor" stroke-width="1"/><text x="26" y="31" text-anchor="middle" font-size="12" fill="currentColor">n всего</text></svg></span>, а порог приёмки — <span class="tb-atom tb-blank-code" contenteditable="false">{{porog}}</span> процентов.</p>
+              </div>
             </div>
           </div>
 
@@ -335,19 +316,22 @@ SELECT COUNT(*)
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[0],'s-md')">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[1],'s-rich')">Форматированный</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">HTML</button>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qt-html">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item" aria-pressed="false">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">HTML</button>
+              </div>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
             </div>
-
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="margin-top:var(--ou-space-2)">
-              <span class="wf-annot">FR-01 · листинг тегами</span>
-              <label class="ou-textarea ou-textarea--full tb-src">
-                <div class="ou-textarea__box">
-                  <textarea class="ou-textarea__input" rows="11">&lt;p&gt;Что выведет запрос, если таблица &lt;code&gt;orders&lt;/code&gt; пуста?&lt;/p&gt;
+            <div class="ou-rte__box">
+              <textarea id="qt-html" class="ou-rte__input ou-rte__input--code" rows="9">&lt;p&gt;Что выведет запрос, если таблица &lt;code&gt;orders&lt;/code&gt; пуста?&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class="language-sql"&gt;SELECT COUNT(*)
   FROM orders
@@ -356,27 +340,8 @@ SELECT COUNT(*)
 
 &lt;p&gt;Долю выполненных заказов считают по формуле $$\frac{n_{вып}}{n_{всего}}$$,
 а порог приёмки — {{porog}} процентов.&lt;/p&gt;</textarea>
-                  <div class="ou-textarea__footer">
-                    <span class="ou-textarea__toolbar">
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                        <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>
-                        Листинг
-                      </button>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                        <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>
-                        Формула
-                      </button>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                        <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>
-                        Пропуск
-                      </button>
-                    </span>
-                    <span class="ou-textarea__count">1 листинг · 1 формула · 1 пропуск</span>
-                  </div>
-                </div>
-                <span class="ou-textarea__msg">Листинг — <code>&lt;pre&gt;&lt;code class="language-…"&gt;</code>; угловые скобки внутри листинга пишутся как <code>&amp;lt;</code> и <code>&amp;gt;</code>. Формула и пропуск пишутся так же, как в режиме «Разметка».</span>
-              </label>
             </div>
+            <span class="ou-rte__msg">Листинг — <code>&lt;pre&gt;&lt;code class="language-…"&gt;</code>; угловые скобки внутри листинга пишутся как <code>&amp;lt;</code> и <code>&amp;gt;</code>. Формула и пропуск пишутся так же, как в режиме «Разметка».</span>
           </div>
 
         </div>
@@ -409,46 +374,22 @@ SELECT COUNT(*)
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qt-lang">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
+              </div>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
             </div>
-
-            <label class="ou-textarea ou-textarea--full tb-src" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="4">Что выведет запрос, если таблица `orders` пуста?</textarea>
-                <div class="ou-textarea__footer">
-                  <span class="ou-textarea__toolbar">
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs is-active">
-                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>
-                      Листинг
-                    </button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>
-                      Формула
-                    </button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
-                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>
-                      Пропуск
-                    </button>
-                  </span>
-                                  </div>
-              </div>
-            </label>
-
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="margin-top:var(--ou-space-2)">
-              <span class="wf-annot">язык выбирается, а не набирается</span>
-              <div class="ou-menu" role="menu" aria-label="Язык листинга" style="position:static;width:var(--wf-size-240)">
-                <div class="ou-menu__label">Язык листинга</div>
-                <button type="button" class="ou-menu__item" role="menuitem">Python</button>
-                <button type="button" class="ou-menu__item" role="menuitem">SQL</button>
-                <button type="button" class="ou-menu__item" role="menuitem">JavaScript</button>
-                <div class="ou-menu__divider"></div>
-                <button type="button" class="ou-menu__item" role="menuitem">Без подсветки</button>
-              </div>
+            <div class="ou-rte__box">
+              <textarea id="qt-lang" class="ou-rte__input" rows="9">Что выведет запрос, если таблица `orders` пуста?</textarea>
             </div>
           </div>
 
@@ -493,20 +434,25 @@ SELECT COUNT(*)
             </div>
           </div>
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item" aria-pressed="false">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">HTML</button>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qt-diag">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item" aria-pressed="false">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">HTML</button>
+              </div>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
             </div>
-            <label class="ou-textarea ou-textarea--full tb-src" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="6">&lt;p&gt;Что выведет запрос, если таблица &lt;code&gt;orders&lt;/code&gt; пуста?&lt;/p&gt;
+            <div class="ou-rte__box">
+              <textarea id="qt-diag" class="ou-rte__input ou-rte__input--code" rows="9">&lt;p&gt;Что выведет запрос, если таблица &lt;code&gt;orders&lt;/code&gt; пуста?&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class="language-sql"&gt;SELECT COUNT(*) FROM orders;&lt;/code&gt;&lt;/pre&gt;</textarea>
-              </div>
-            </label>
+            </div>
           </div>
 
         </div>
@@ -546,6 +492,49 @@ SELECT COUNT(*)
       <footer class="ou-modal__foot">
         <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[0],'s-md')">Отмена</button>
         <button type="button" class="ou-btn ou-btn--primary ou-btn--m" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[2],'s-html')">Перевести</button>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     s-switch-html — переход HTML -> «Форматированный»: что панель не умеет
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="wf-state" id="s-switch-html">
+  <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="swh-title">
+    <div class="ou-modal__backdrop"></div>
+    <div class="ou-modal ou-modal--m">
+      <header class="ou-modal__head ou-modal__head--icon">
+        <span class="ou-modal__icon ou-modal__icon--warning" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+        <div class="ou-modal__head-text">
+          <h2 id="swh-title" class="ou-modal__title">Открыть текст в режиме «Форматированный»?</h2>
+          <p class="ou-modal__desc">Панель форматирования не умеет часть разметки, которая есть в этом тексте. Если продолжить и что-нибудь изменить, она упростится.</p>
+        </div>
+      </header>
+      <div class="ou-modal__body">
+        <div class="ou-stack ou-stack--gap-4">
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Найдено в тексте</span>
+            <div class="ou-tbl ou-tbl--compact">
+              <table><tbody>
+                <tr><td>Таблица</td><td class="is-numeric">1</td><td>станет строками текста</td></tr>
+                <tr><td>Стиль на абзаце</td><td class="is-numeric">3</td><td>будет снят</td></tr>
+                <tr><td>Атрибут <code>class</code></td><td class="is-numeric">2</td><td>будет снят</td></tr>
+                <tr><td>Изображение</td><td class="is-numeric">1</td><td>сохранится</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+          <div class="ou-banner ou-banner--subtle ou-banner--info" role="status">
+            <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+            <span class="ou-banner__body">
+              <span class="ou-banner__desc">Листинг, формула и пропуск не пострадают: в режиме «Форматированный» они ведут себя как единые объекты — правятся целиком и не разрываются при наборе.</span>
+            </span>
+          </div>
+        </div>
+      </div>
+      <footer class="ou-modal__foot">
+        <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[2],'s-html')">Остаться в HTML</button>
+        <button type="button" class="ou-btn ou-btn--primary ou-btn--m" onclick="showState(document.querySelectorAll('.wf-nav .wf-btn')[1],'s-rich')">Открыть и упростить</button>
       </footer>
     </div>
   </div>
@@ -821,6 +810,40 @@ SELECT COUNT(*)
   вопрос приедет в пакет без подсветки, и заметят это на выдаче, а не на импорте.</p>
 </section>
 
+<section class="wf-notes" aria-label="Сохранность разметки при правке">
+  <h3 class="wf-notes-title">Что гарантирует сохранность вставленного</h3>
+  <p class="wf-notes-text">Вопрос владельца: что не даст разметке, выставленной в «Разметке» или
+  HTML, потеряться при правке в режиме «Форматированный». Своими силами WYSIWYG этого не
+  гарантирует: он работает над <code>contenteditable</code>, а значение читается обратно как
+  <code>el.innerHTML</code> — то есть сохраняется то, что осталось в DOM после того, как браузер и
+  <code>execCommand</code> его переписали.</p>
+  <table>
+    <thead>
+      <tr><th>Что под угрозой</th><th>Как теряется</th><th>Чем закрыто</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Листинг</td>
+        <td><code>&lt;pre&gt;&lt;code&gt;</code> разрывается на <code>&lt;div&gt;</code> и <code>&lt;br&gt;</code> при первом же переносе строки, <code>class="language-…"</code> теряется при любой операции форматирования.</td>
+        <td rowspan="3">Все три становятся АТОМАРНЫМИ узлами: <code>contenteditable="false"</code>. Браузер трактует такой узел как один неделимый символ — курсор внутрь не попадает, форматирование его не рвёт, удаление уносит целиком. Правка — по клику, в своём окне. Гарантия ПО ПОСТРОЕНИЮ, а не проверкой после сохранения.</td>
+      </tr>
+      <tr>
+        <td>Формула</td>
+        <td>Курсор встаёт внутрь записи, браузер вставляет <code>&lt;span&gt;</code> в середину — и маркер перестаёт быть маркером.</td>
+      </tr>
+      <tr>
+        <td>Пропуск</td>
+        <td>То же самое, и молча: ни ошибки, ни предупреждения — поле просто исчезает у участника.</td>
+      </tr>
+      <tr>
+        <td>Произвольная разметка из HTML</td>
+        <td>Таблицы, атрибуты и стили панель не моделирует; любая правка рядом может переписать поддерево.</td>
+        <td>Гарантировать нельзя — панель умеет только то, что умеет. Поэтому переход из HTML спрашивается подтверждением, где перечислено ФАКТИЧЕСКИ найденное в этом тексте, а не общая фраза о возможных потерях (состояние «Смена: из HTML»).</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
 <section class="wf-notes" aria-label="Соответствие разметки и HTML">
   <h3 class="wf-notes-title">Что переводится между режимами</h3>
   <p class="wf-notes-text">Вперёд перевод полный, назад — с потерями. Это не изъян реализации,
@@ -971,7 +994,19 @@ SELECT COUNT(*)
         <td>Существующий компонент, три взаимоисключающих пункта — ровно его случай.</td>
       </tr>
       <tr>
-        <td>Поле, панель вставки, счётчик</td>
+        <td>Поле целиком: метка, переключатель режимов, панель, область ввода, подпись</td>
+        <td><code>RichTextEditor</code> (<code>ou-rte</code>, <code>__lbl</code> / <code>__bar</code> / <code>__tools</code> / <code>__tools-sep</code> / <code>__box</code> / <code>__area</code> / <code>__input</code> / <code>__input--code</code> / <code>__msg</code>; тон <code>ou-rte--error</code>)</td>
+        <td><code>--ou-border-*</code>, <code>--ou-bg-input</code></td>
+        <td>СУЩЕСТВУЮЩИЙ компонент ДС, и он уже применяется в продукте: описание теста собрано ровно на нём (<code>basic-settings-section.tsx</code>) с теми же тремя режимами. Переключатель режимов — его штатная часть, внутри <code>ou-rte__bar</code>, поэтому отдельного контрола над полем не заводится. <strong>Пробел компонента, требующий дополнения ui-kit:</strong> панель <code>ou-rte__tools</code> показывается ТОЛЬКО в режиме WYSIWYG (<code>current === 'rich'</code>), а кнопки вставки листинга, формулы и пропуска нужны во ВСЕХ трёх режимах — механики работают везде. Нужен слот дополнительных инструментов, видимый в любом режиме. <strong>Вторая находка:</strong> компонент вешает <code>ou-rte--{size}</code>, но правил под размеры в таблице стилей нет вовсе — только <code>--full</code> и <code>--error</code>; класс размера молча не делает ничего.</td>
+      </tr>
+      <tr>
+        <td>Атомарный узел вставленного</td>
+        <td><code>tb-atom</code> (кандидат в <code>tb-components.css</code>) + <code>contenteditable="false"</code></td>
+        <td><code>--ou-border-strong</code>, <code>--ou-accent-default</code></td>
+        <td>Класс добавляет только видимую границу объекта; сохранность даёт сам атрибут. Оформление самого содержимого — листинга, формулы, пропуска — нужно И сцене, И редактору, то есть правила обязаны жить в одном месте и подключаться обоим. Сегодня сцена берёт их из <code>theme.css</code>, а авторский интерфейс этой таблицы не грузит — это надо решить до реализации.</td>
+      </tr>
+      <tr>
+        <td>Старое поле и панель вставки</td>
         <td><code>Textarea</code> (<code>ou-textarea</code>, <code>__box</code> / <code>__footer</code> / <code>__toolbar</code> / <code>__tool</code> / <code>__count</code> / <code>__msg</code>); режим «Форматированный» — <code>ou-textarea__rich</code></td>
         <td><code>--ou-border-soft</code>, <code>--ou-bg-hover</code></td>
         <td>СУЩЕСТВУЮЩИЙ компонент целиком, включая редактируемую область и панель. Отдельного редактора не заводится. Кнопки трёх механик в «Разметке» и «HTML» подписаны (<code>Button</code>), в «Форматированном» — значками, как остальные инструменты панели.</td>

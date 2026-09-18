@@ -165,27 +165,24 @@
                действие где-то рядом (FR-24b). -->
           <div class="wf-annot-wrap wf-annot-wrap--block">
             <span class="wf-annot">FR-24b</span>
-            <div class="ou-formfield">
-              <span class="ou-formfield__lbl">Текст вопроса</span>
-              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
-              </div>
-              <label class="ou-textarea ou-textarea--full" style="margin-top:var(--ou-space-2)">
-                <div class="ou-textarea__box">
-                  <textarea class="ou-textarea__input" rows="3">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи.</textarea>
-                  <div class="ou-textarea__footer">
-                    <span class="ou-textarea__toolbar">
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
-                    </span>
-                    <span class="ou-textarea__count">2 пропуска</span>
-                  </div>
+            <div class="ou-rte ou-rte--full">
+              <label class="ou-rte__lbl" for="qb-prompt-0">Текст вопроса</label>
+              <div class="ou-rte__bar">
+                <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                  <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+                  <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                  <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
                 </div>
-                <span class="ou-textarea__msg">Пропуск пишется как <code>{{имя}}</code> и работает во всех режимах; чтобы напечатать фигурные скобки буквально, поставьте перед ними обратный слеш.</span>
-              </label>
+                <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                  <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+                </div>
+              </div>
+              <div class="ou-rte__box">
+                <textarea id="qb-prompt-0" class="ou-rte__input" rows="9">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи.</textarea>
+              </div>
+              <span class="ou-rte__msg">Пропуск пишется как {{имя}} и работает во всех режимах; чтобы напечатать фигурные скобки буквально, поставьте перед ними обратный слеш.</span>
             </div>
           </div>
 
@@ -237,26 +234,23 @@
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
-            </div>
-            <label class="ou-textarea ou-textarea--full" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="3">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи.</textarea>
-                <div class="ou-textarea__footer">
-                  <span class="ou-textarea__toolbar">
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
-                  </span>
-                  <span class="ou-textarea__count">2 пропуска</span>
-                </div>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qb-prompt-1">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
               </div>
-            </label>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
+            </div>
+            <div class="ou-rte__box">
+              <textarea id="qb-prompt-1" class="ou-rte__input" rows="9">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи.</textarea>
+            </div>
           </div>
 
           <div class="wf-annot-wrap wf-annot-wrap--block">
@@ -365,26 +359,23 @@
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
-            </div>
-            <label class="ou-textarea ou-textarea--full" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="3">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи.</textarea>
-                <div class="ou-textarea__footer">
-                  <span class="ou-textarea__toolbar">
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
-                  </span>
-                  <span class="ou-textarea__count">2 пропуска</span>
-                </div>
+          <div class="ou-rte ou-rte--full">
+            <label class="ou-rte__lbl" for="qb-prompt-2">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
               </div>
-            </label>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
+            </div>
+            <div class="ou-rte__box">
+              <textarea id="qb-prompt-2" class="ou-rte__input" rows="9">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи.</textarea>
+            </div>
           </div>
 
           <!-- Предпросмотр рендерится ТЕМ ЖЕ кодом, что сцена прохождения:
@@ -450,28 +441,25 @@
             </div>
           </div>
 
-          <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Текст вопроса</span>
-            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
-            </div>
-            <label class="ou-textarea ou-textarea--full ou-textarea--error" style="margin-top:var(--ou-space-2)">
-              <div class="ou-textarea__box">
-                <textarea class="ou-textarea__input" rows="3" aria-invalid="true">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи. Выдаёт его {{kto}}.</textarea>
-                <div class="ou-textarea__footer">
-                  <span class="ou-textarea__toolbar">
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
-                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
-                  </span>
-                  <span class="ou-textarea__count">2 пропуска</span>
-                </div>
+          <div class="ou-rte ou-rte--full ou-rte--error">
+            <label class="ou-rte__lbl" for="qb-prompt-3">Текст вопроса</label>
+            <div class="ou-rte__bar">
+              <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
               </div>
-              <span class="ou-textarea__msg ou-textarea__msg--error">В тексте есть пропуск <code>{{kto}}</code> без правила</span>
-            </label>
+              <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+              </div>
+            </div>
+            <div class="ou-rte__box">
+              <textarea id="qb-prompt-3" class="ou-rte__input" rows="9">Надзор в области промышленной безопасности осуществляет {{organ}}, а наряд-допуск действует не более {{srok}} суток со дня его выдачи. Выдаёт его {{kto}}.</textarea>
+            </div>
           </div>
+          <span class="ou-rte__msg ou-rte__msg--error">В тексте есть пропуск <code>{{kto}}</code> без правила</span>
 
           <div class="ou-formfield">
             <span class="ou-formfield__lbl">Пропуски</span>
