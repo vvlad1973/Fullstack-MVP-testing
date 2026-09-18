@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { buildResultContext, buildAdaptiveResultContext } from "../server/services/result-context";
 import { renderScreenInto } from "../shared/template/render-screen";
+import { buildSectionIntroContext } from "../shared/template/result-context";
 import type { AttemptResult } from "../shared/schema";
 
 const resultsLayout = fs.readFileSync(
@@ -348,5 +349,31 @@ describe("adaptive results + measures → render real results.adaptive.html (e2e
   it("шкала рисуется линейкой с зонами, как на обычном экране", () => {
     expect(root.querySelector(".tb-measure__slider")).not.toBeNull();
     expect(root.querySelectorAll(".ou-slider__fill.tb-zone").length).toBeGreaterThan(0);
+  });
+});
+
+describe("buildSectionIntroContext — лимит раздела печатается той же строкой, что и на старте", () => {
+  const base = { sectionNumber: 1, topicName: "Раздел", questionCount: 10 };
+
+  it("раскладывает длинный лимит в дни", () => {
+    const { sectionIntro } = buildSectionIntroContext({ ...base, timeLimitMinutes: 20160 });
+    expect(sectionIntro.hasTimeLimit).toBe(true);
+    expect(sectionIntro.timeLimitLabel).toBe("14 дней");
+  });
+
+  it("сокращает часы и минуты", () => {
+    const { sectionIntro } = buildSectionIntroContext({ ...base, timeLimitMinutes: 150 });
+    expect(sectionIntro.timeLimitLabel).toBe("2 ч 30 мин");
+  });
+
+  it("короткий лимит остаётся минутами", () => {
+    const { sectionIntro } = buildSectionIntroContext({ ...base, timeLimitMinutes: 17 });
+    expect(sectionIntro.timeLimitLabel).toBe("17 мин");
+  });
+
+  it("без лимита строки нет", () => {
+    const { sectionIntro } = buildSectionIntroContext(base);
+    expect(sectionIntro.hasTimeLimit).toBe(false);
+    expect(sectionIntro.timeLimitLabel).toBe("");
   });
 });

@@ -108,11 +108,19 @@ function stopTimerCommit() {
 }
 
 /**
- * Format a second count as "M:SS"; negative input clamps to "0:00".
+ * The countdown text. Delegates to the SHARED duration formatter in the bundle
+ * (`TBTemplate.formatCountdown`), so the package prints what the web host prints:
+ * "M:SS", growing an hour part from an hour up and a day part from a day up — a
+ * multi-day budget used to read "20160:00" here.
+ *
+ * With no bundle (a broken build) it degrades to the historical "M:SS" instead of
+ * throwing: the countdown keeps running, it just stops growing units.
  * @param {number} seconds
  * @returns {string}
  */
 function formatTime(seconds) {
+  var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
+  if (TB && typeof TB.formatCountdown === 'function') return TB.formatCountdown(seconds);
   var total = seconds > 0 ? seconds : 0;
   var mins = Math.floor(total / 60);
   var secs = total % 60;

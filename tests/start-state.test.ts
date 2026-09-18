@@ -142,6 +142,38 @@ describe("buildStartState", () => {
     });
   });
 
+  describe("лимит времени печатается человеческой строкой", () => {
+    const base = {
+      maxAttempts: null,
+      completedAttempts: 0,
+      hasCompletedResults: false,
+      canStartNew: true,
+    };
+
+    it("раскладывает длинный лимит в дни", () => {
+      const { course } = buildStartState({
+        info: { title: "Т", timeLimitMinutes: 20160 },
+        ...base,
+      });
+      expect(course.timeLimitLabel).toBe("14 дней");
+      // Число остаётся в контексте: шаблон реестра, знающий только его, не ломается.
+      expect(course.timeLimitMinutes).toBe(20160);
+    });
+
+    it("оставляет короткий лимит минутами", () => {
+      const { course } = buildStartState({
+        info: { title: "Т", timeLimitMinutes: 45 },
+        ...base,
+      });
+      expect(course.timeLimitLabel).toBe("45 мин");
+    });
+
+    it("не даёт строки, когда лимита нет", () => {
+      const { course } = buildStartState({ info: { title: "Т" }, ...base });
+      expect(course.timeLimitLabel).toBe("");
+    });
+  });
+
   describe("PRD-29 §6.7 на обложке — порог только у теста, который оценивает", () => {
     it("измерительный тест: «проходной балл» не показывается", () => {
       const { course } = buildStartState({

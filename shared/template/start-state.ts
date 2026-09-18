@@ -19,6 +19,7 @@
 
 import type { CtxCourse, CtxState, CtxStartCooldown } from "./context";
 import { buildCourseSubtitle } from "./course-subtitle";
+import { formatMinutesHuman } from "./duration";
 import { richTextToHtml, type RichTextFormat } from "./rich-text";
 
 /** Test info shown on the start screen (maps to `course.*`). */
@@ -188,6 +189,10 @@ export function buildStartState(input: StartStateInput): StartRenderContext {
     // the layouts' `{{#if course.passPercent}}` already gates on.
     passPercent: i.hasGradedContent === false ? null : i.passPercent,
     timeLimitMinutes: i.timeLimitMinutes,
+    // The unit is decided by the ONE formatter both hosts share, not by each
+    // layout: a layout can only print the raw number, which reads «20160 мин»
+    // for a two-week budget.
+    timeLimitLabel: formatMinutesHuman(i.timeLimitMinutes),
     maxAttempts: i.maxAttempts,
     startPageContent: i.startPageContent || "",
   };

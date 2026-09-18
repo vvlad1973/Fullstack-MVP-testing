@@ -13,7 +13,7 @@
 пустой папки до загрузки. Разделы 1–16 — подробный справочник: к ним удобно
 возвращаться за деталями.
 
-**Статус:** актуально; соответствует спецификации формата версии 1.7.0 и эталонному шаблону
+**Статус:** актуально; соответствует спецификации формата версии 3.5.0 и эталонному шаблону
 «Стандартный». Учтены системные узлы раздела (`review`, `section-results`), варианты стартового
 экрана (`start.*` со свойством страницы `image`), страница отчёта о результатах
 (`report` / `report.adaptive`, §7.3a) с постраничной раскладкой и меткой `data-page-break`,
@@ -25,7 +25,7 @@
 сводный разрез по тесту отдельным подблоком итогов (`result.breakdown[]`, `isBreakdown`),
 документ отчёта из блоков (`kind: "report.block"`, `reportDocument`, §7.3b).
 
-**Версия руководства:** 3.5.0 · **соответствует спецификации формата:** 3.5.0 ·
+**Версия руководства:** 3.6.0 · **соответствует спецификации формата:** 3.6.0 ·
 **дата актуализации:** 2026-09-18
 
 Руководство написано под конкретную версию спецификации (см. поле выше). При изменении
@@ -35,7 +35,7 @@
 Связанные документы:
 
 - [Платформа SCORM-шаблонов](../specs/spec-template-platform.md) — формальная
-  спецификация формата (источник истины), версия 3.1.0.
+  спецификация формата (источник истины), версия 3.5.0.
 
 Эталонный шаблон, на который опираются примеры ниже, лежит в репозитории:
 `server/scorm/templates/default/`. Он проходит валидацию и проверку
@@ -141,11 +141,11 @@ JS внутри, который загружают в систему диста�
 ```html
 <h1 data-path="course.title"></h1>
 <p>Вопросов: {{ course.questionCount }}</p>
-{{#if course.timeLimitMinutes}}<p>Время: {{ course.timeLimitMinutes }} мин</p>{{/if}}
+{{#if course.timeLimitLabel}}<p>Время: {{ course.timeLimitLabel }}</p>{{/if}}
 ```
 
 Контекст, который дало ядро: `course.title = "Основы ИБ"`,
-`course.questionCount = 10`, `course.timeLimitMinutes = 30`. Результат на экране:
+`course.questionCount = 10`, `course.timeLimitLabel = "30 мин"`. Результат на экране:
 
 ```html
 <h1>Основы ИБ</h1>
@@ -153,7 +153,7 @@ JS внутри, который загружают в систему диста�
 <p>Время: 30 мин</p>
 ```
 
-Если бы `timeLimitMinutes` было пустым, третий абзац просто не появился бы. Весь
+Если бы `timeLimitLabel` было пустым, третий абзац просто не появился бы. Весь
 текст экранируется автоматически — вставить исполняемый HTML через `{{ }}` нельзя
 (это защита; подробности — §5).
 
@@ -410,7 +410,7 @@ my-first-template/
   <ul class="facts">
     <li><strong data-path="course.questionCount"></strong>&nbsp;вопросов</li>
     {{#if course.passPercent}}<li>проходной балл: <strong data-path="course.passPercent"></strong>%</li>{{/if}}
-    {{#if course.timeLimitMinutes}}<li>время: <strong data-path="course.timeLimitMinutes"></strong>&nbsp;мин</li>{{/if}}
+    {{#if course.timeLimitLabel}}<li>время: <strong data-path="course.timeLimitLabel"></strong></li>{{/if}}
   </ul>
 
   <div class="actions">
@@ -1123,10 +1123,10 @@ Placeholders варианта должны соответствовать мак
       <div class="info-row-label">Количество вопросов</div>
       <div class="info-row-value" data-path="course.questionCount"></div>
     </div>
-    {{#if course.timeLimitMinutes}}
+    {{#if course.timeLimitLabel}}
     <div class="info-row">
       <div class="info-row-label">Ограничение времени</div>
-      <div class="info-row-value"><span data-path="course.timeLimitMinutes"></span> мин</div>
+      <div class="info-row-value" data-path="course.timeLimitLabel"></div>
     </div>
     {{/if}}
   </div>
@@ -1249,7 +1249,8 @@ Placeholders варианта должны соответствовать мак
 | `description` | string | Описание |
 | `questionCount` | number | Число вопросов |
 | `passPercent` | number\|null | Проходной балл, %. `null` у измерительной методики — теста, где ни один вопрос не проверяется (распределение баллов, шкала без верной градации). Порог у такого теста задан всегда: он ставится по умолчанию при создании, и автор опросника его не открывает, поэтому обложке его не показывают. Гасите факт через `{{#if course.passPercent}}` — обе поставляемые раскладки так и делают |
-| `timeLimitMinutes` | number\|null | Лимит времени |
+| `timeLimitMinutes` | number\|null | Лимит времени числом минут, как его задал автор |
+| `timeLimitLabel` | string | Он же готовой надписью: «14 дней», «1 день 2 ч», «2 ч 30 мин», «45 мин». Печатайте её и на неё же ставьте гейт: движок не умеет считать, и макет с зашитым «мин» на двухнедельном лимите скажет «20160 мин». Пустая строка = лимита нет |
 | `maxAttempts` | number\|null | Разрешено попыток |
 | `startPageContent` | string | Легаси-текст введения (перенесён в контентную страницу; обычно пустой) |
 
@@ -1767,7 +1768,8 @@ media-конверта параметра), `startImageUrl` — URL иллюст
 
 `sectionIntro.*` (экран «Введение раздела»): `eyebrow` («Раздел N»),
 `topicName`, `description`, `hasDescription`, `questionCount`, `questionCountLabel`
-(напр. «16 вопросов»), `hasTimeLimit`, `timeLimitLabel`, `hasInstruction`, `continueLabel`.
+(напр. «16 вопросов»), `hasTimeLimit`, `timeLimitLabel` (та же надпись, что и у лимита теста:
+«17 мин», «2 ч 30 мин»), `hasInstruction`, `continueLabel`.
 
 `page.*` (любая контентная страница): `dots[]` — точки индикатора последовательности
 (по одной на страницу отрезка; у текущей выставлен `statusClass`), `dotIndex` и `dotsTotal` —

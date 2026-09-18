@@ -40,6 +40,7 @@ import {
   RichTextEditor,
 } from "@skillum/ui-kit";
 import { richTextToHtml, richTextToPlain } from "@shared/template/rich-text";
+import { formatMinutesHuman } from "@shared/template/duration";
 import {
   sanitizeHtml as sanitizeContentHtml,
   DESCRIPTION_SCOPE,
@@ -457,6 +458,14 @@ export function ReportContentPane({ model, updateModel, design }: SettingsSectio
  * block, which lives here instead of a rail item of its own.
  */
 export function LimitsPane({ model, updateModel }: SettingsSectionProps) {
+  // Срок прохождения автор нередко набирает таймером: две недели превращаются в
+  // 20160 минут, и без расшифровки ни поле, ни обложка не говорят, что это за
+  // число. Раскладку даёт ТОТ ЖЕ построитель, что печатает лимит ученику, поэтому
+  // редактор и стартовый экран не могут разойтись. Меньше часа расшифровывать
+  // нечего — строка повторила бы само поле.
+  const timeLimitMinutes = model.runtime.timeLimitMinutes;
+  const timeLimitHint =
+    timeLimitMinutes != null && timeLimitMinutes >= 60 ? formatMinutesHuman(timeLimitMinutes) : "";
   return (
     <>
       {/* Э3.4: два барьера отвечают на разные вопросы — «сколько длится ПОПЫТКА» и
@@ -468,7 +477,11 @@ export function LimitsPane({ model, updateModel }: SettingsSectionProps) {
             id="settings-time-limit"
             size="m"
             label="Лимит времени теста"
-            hint="Оставьте 0, чтобы не ограничивать."
+            hint={
+              timeLimitHint
+                ? `Оставьте 0, чтобы не ограничивать. Сейчас это ${timeLimitHint} на одну попытку.`
+                : "Оставьте 0, чтобы не ограничивать."
+            }
             value={model.runtime.timeLimitMinutes ?? 0}
             min={0}
             suffix="минут"
