@@ -10,6 +10,8 @@
  * other, and neither side leaks the other's shape.
  */
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { richTextToHtml, richTextToPlain } from "../shared/template/rich-text";
 
 describe("описание в письме-приглашении", () => {
@@ -33,5 +35,18 @@ describe("описание в письме-приглашении", () => {
   it("плоское описание сохраняет абзацы в обеих частях", () => {
     expect(richTextToHtml("Первый\nВторой", "plain")).toBe("Первый<br>Второй");
     expect(richTextToPlain("Первый\nВторой", "plain")).toBe("Первый\nВторой");
+  });
+
+  // Поймано приёмкой: описание с разметкой стояло внутри `<p>`, и получался `<p>`
+  // внутри `<p>` — браузер закрывает внешний абзац сам, вёрстка письма едет. Ровно
+  // от этого защищены макеты шаблонов; письмо про это не знало.
+  it("оборачивает описание блочным элементом, а не абзацем", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "server/email.ts"), "utf-8");
+    const line = source
+      .split(/\r?\n/)
+      .find((l) => l.includes("Описание:") && l.includes("richTextToHtml"));
+    expect(line, "строка описания в HTML-части не найдена").toBeDefined();
+    expect(line!).toContain("<div>");
+    expect(line!).not.toContain("<p>");
   });
 });

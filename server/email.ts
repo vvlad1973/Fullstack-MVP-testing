@@ -309,7 +309,7 @@ export async function sendAssignmentEmail(opts: {
       <p>Вам назначено прохождение теста:</p>
       <div class="meta">
         <p><strong>📋 Тест:</strong> ${opts.testTitle}</p>
-        ${opts.testDescription ? `<p><strong>📝 Описание:</strong> ${richTextToHtml(opts.testDescription, opts.testDescriptionFormat)}</p>` : ""}
+        ${opts.testDescription ? `<div><strong>📝 Описание:</strong> ${richTextToHtml(opts.testDescription, opts.testDescriptionFormat)}</div>` : ""}
         ${dueDateStr ? `<p><strong>📅 Срок сдачи:</strong> ${dueDateStr}</p>` : ""}
       </div>
       ${ctaHtmlBlock}
