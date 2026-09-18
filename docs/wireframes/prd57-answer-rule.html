@@ -97,8 +97,20 @@
        нужны потому, что проверка живёт на всех ступенях и меняется независимо
        от того, какое правило собрано. Инфраструктура эскиза, в продукт не
        мигрирует. */
-    .wf-rule, .wf-ex { display: none; }
-    .wf-rule.active, .wf-ex.active { display: block; }
+    .wf-rule, .wf-ex, .wf-type { display: none; }
+    .wf-rule.active, .wf-ex.active, .wf-type.active { display: block; }
+    /* Спрайт пиктограмм — только источник символов, на экране его нет. */
+    .wf-sprite { display: none; }
+
+    /* ─── Предлагаемое дополнение ui-kit: лента с переносом (вариант Б) ─────
+       У SegmentedControl сегодня один ряд без переноса: при девяти пунктах
+       лишние уезжают за край контейнера. Режим меняет ровно перенос строк и
+       посадку пунктов; при согласовании варианта Б переезжает в vendor/ui-kit
+       (проп `wrap` у SegmentedControl + правила в SegmentedControl.css, в ОБЕ
+       копии бандла) и отсюда удаляется. Класс назван `tb-`, а не `ou-`,
+       намеренно: пока правила нет в ДС, эскиз не вправе рисовать его
+       собственным именем дизайн-системы. */
+    .tb-seg-wrap { display: flex; flex-wrap: wrap; }
 
     /* ─── Кандидаты в tb-components.css: строки конструктора и заслона ──────
        Проектные паттерны авторского интерфейса (не сцены прохождения),
@@ -121,9 +133,32 @@
 </head>
 <body class="ou ou--dark ou--normal">
 
+<!-- Спрайт пиктограмм типов вопроса. Значки взяты из Lucide ровно те, что
+     объявлены в client/src/features/tests/editor/sections/question-type-icon.tsx
+     (QUESTION_TYPE_ICON); три новых типа получают значки того же набора:
+     короткий ответ — text-cursor-input, развёрнутый — pilcrow, пропуски —
+     brackets. Второго набора значков для одного и того же понятия не заводится. -->
+<svg class="wf-sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-qt-single" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="10"/></symbol>
+  <symbol id="i-qt-multiple" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m16 9-5.5 5.5L8 12"/></symbol>
+  <symbol id="i-qt-matching" viewBox="0 0 24 24"><path d="m19 5 3-3"/><path d="m2 22 3-3"/><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"/></symbol>
+  <symbol id="i-qt-ranking" viewBox="0 0 24 24"><path d="M11 5h10"/><path d="M11 12h10"/><path d="M11 19h10"/><path d="M4 4h1v5"/><path d="M4 9h2"/><path d="M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02"/></symbol>
+  <symbol id="i-qt-scale" viewBox="0 0 24 24"><path d="M12 2v2"/><path d="M12 8a4 4 0 0 0-1.645 7.647"/><path d="M2 12h2"/><path d="M20 14.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/><path d="m4.93 4.93 1.41 1.41"/><path d="m6.34 17.66-1.41 1.41"/></symbol>
+  <symbol id="i-qt-allocation" viewBox="0 0 24 24"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></symbol>
+  <symbol id="i-qt-short" viewBox="0 0 24 24"><path d="M12 20h-1a2 2 0 0 1-2-2 2 2 0 0 1-2 2H6"/><path d="M13 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-7"/><path d="M5 16H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/><path d="M6 4h1a2 2 0 0 1 2 2 2 2 0 0 1 2-2h1"/><path d="M9 6v12"/></symbol>
+  <symbol id="i-qt-long" viewBox="0 0 24 24"><path d="M13 4v16"/><path d="M17 4v16"/><path d="M19 4H9.5a4.5 4.5 0 0 0 0 9H13"/></symbol>
+  <symbol id="i-qt-blanks" viewBox="0 0 24 24"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></symbol>
+</svg>
+
 <!-- ─── State switcher ─────────────────────────────────────────────────────── -->
 <nav class="wf-nav" aria-label="Wireframe state switcher">
   <button class="wf-btn active" type="button" onclick="showState(this,'s-drawer')">Ящик вопроса</button>
+  <div class="wf-nav-sep"></div>
+  <span class="wf-nav-title">Тип вопроса:</span>
+  <button class="wf-btn" type="button" onclick="showType(this,'t-asis')">Как есть</button>
+  <button class="wf-btn" type="button" onclick="showType(this,'t-a')">А · Список</button>
+  <button class="wf-btn" type="button" onclick="showType(this,'t-b')">Б · С переносом</button>
+  <button class="wf-btn" type="button" onclick="showType(this,'t-v')">В · Группы</button>
   <div class="wf-nav-sep"></div>
   <span class="wf-nav-title">Правило:</span>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-list','e-list')">Перечень</button>
@@ -177,14 +212,17 @@
             </div>
           </div>
 
-          <!-- ДЕЛЬТА 1: три новых типа в переключателе. При девяти пунктах
-               управление перестаёт помещаться в ящик шириной 720px — это
-               видно на холсте и вынесено в «Вопросы к согласованию». -->
+          <!-- ДЕЛЬТА 1: три новых типа в переключателе. Девять пунктов не
+               помещаются в ящик шириной 720px, поэтому здесь нарисованы текущее
+               состояние и три варианта решения. Сравнение — в «Пояснениях». -->
           <div class="ou-formfield">
             <span class="ou-formfield__lbl">Тип вопроса</span>
-            <div class="wf-annot-wrap wf-annot-wrap--block">
-              <span class="wf-annot">не помещается — вопрос 1</span>
-              <div class="ou-seg" role="group" aria-label="Тип вопроса">
+
+            <!-- ── Как есть: девять пунктов в одной ленте ──────────────────── -->
+            <div class="wf-type active" id="t-asis">
+              <div class="wf-annot-wrap wf-annot-wrap--block">
+                <span class="wf-annot">не помещается</span>
+                <div class="ou-seg" role="group" aria-label="Тип вопроса">
                 <button type="button" class="ou-seg__item" aria-pressed="false">Один ответ</button>
                 <button type="button" class="ou-seg__item" aria-pressed="false">Несколько ответов</button>
                 <button type="button" class="ou-seg__item" aria-pressed="false">Соответствие</button>
@@ -194,8 +232,76 @@
                 <button type="button" class="ou-seg__item is-active" aria-pressed="true">Короткий ответ</button>
                 <button type="button" class="ou-seg__item" aria-pressed="false">Развёрнутый ответ</button>
                 <button type="button" class="ou-seg__item" aria-pressed="false">Пропуски</button>
+                </div>
               </div>
+              <span class="ou-formfield__desc">Лента не переносится и не прокручивается: замерено на этом холсте — ей нужно 1098px при 705px доступной ширины, последний пункт за краем. Так выглядит трек без решения.</span>
             </div>
+
+            <!-- ── Вариант А: Select с пиктограммами ───────────────────────── -->
+            <div class="wf-type" id="t-a">
+              <div class="wf-annot-wrap wf-annot-wrap--block">
+                <span class="wf-annot">вариант А</span>
+                <div class="ou-select ou-field--m ou-field--full is-open">
+                  <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="true">
+                    <span class="ou-select__value"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</span>
+                    <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                  </button>
+                  <ul class="ou-select__menu" role="listbox" aria-label="Тип вопроса">
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-single"/></svg></span>Один ответ</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-multiple"/></svg></span>Несколько ответов</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-matching"/></svg></span>Соответствие</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-ranking"/></svg></span>Ранжирование</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-scale"/></svg></span>Шкала</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-allocation"/></svg></span>Распределение</li>
+                  <li role="option" aria-selected="true" class="ou-select__opt is-selected"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</li>
+                  <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</li>
+                  </ul>
+                </div>
+              </div>
+              <span class="ou-formfield__desc">Пиктограммы — те же, что в дереве содержимого и в таблице «Оценка» (<code>QUESTION_TYPE_ICON</code>): второго набора значков не заводится.</span>
+            </div>
+
+            <!-- ── Вариант Б: та же лента с переносом ──────────────────────── -->
+            <div class="wf-type" id="t-b">
+              <div class="wf-annot-wrap wf-annot-wrap--block">
+                <span class="wf-annot">вариант Б</span>
+                <div class="ou-seg tb-seg-wrap" role="group" aria-label="Тип вопроса">
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-single"/></svg></span>Один ответ</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-multiple"/></svg></span>Несколько ответов</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-matching"/></svg></span>Соответствие</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-ranking"/></svg></span>Ранжирование</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-scale"/></svg></span>Шкала</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-allocation"/></svg></span>Распределение</button>
+                <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</button>
+                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</button>
+                </div>
+              </div>
+              <span class="ou-formfield__desc">Перенос требует правки компонента: у <code>SegmentedControl</code> сегодня нет такого режима, в эскизе он объявлен локально. Замерено на этом холсте: с пиктограммами девять типов укладываются в ТРИ строки (108px), без пиктограмм — в две (74px).</span>
+            </div>
+
+            <!-- ── Вариант В: группа, затем тип внутри группы ──────────────── -->
+            <div class="wf-type" id="t-v">
+              <div class="wf-annot-wrap wf-annot-wrap--block">
+                <span class="wf-annot">вариант В</span>
+                <div class="ou-stack ou-stack--gap-2">
+                  <div class="ou-seg" role="group" aria-label="Группа типов">
+                    <button type="button" class="ou-seg__item" aria-pressed="false">Выбор</button>
+                    <button type="button" class="ou-seg__item" aria-pressed="false">Порядок</button>
+                    <button type="button" class="ou-seg__item" aria-pressed="false">Оценка</button>
+                    <button type="button" class="ou-seg__item is-active" aria-pressed="true">Ввод</button>
+                  </div>
+                  <div class="ou-seg" role="group" aria-label="Тип вопроса">
+                    <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</button>
+                    <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</button>
+                    <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</button>
+                  </div>
+                </div>
+              </div>
+              <span class="ou-formfield__desc">Верхняя лента — группа, нижняя — типы внутри неё. «Выбор»: один ответ, несколько ответов; «Порядок»: соответствие, ранжирование; «Оценка»: шкала, распределение.</span>
+            </div>
+
           </div>
 
           <label class="ou-textarea ou-textarea--full">
@@ -216,7 +322,7 @@
               <span class="ou-switch ou-switch--m is-on"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
               <span class="ou-switch-field__text">
                 <span class="ou-switch-field__label">Проверять ответ автоматически</span>
-                <span class="ou-switch-field__desc">Выключено — задание собирает текст и не приносит баллов</span>
+                <span class="ou-switch-field__desc">Без правила задание собирает короткий текст и не приносит баллов</span>
               </span>
             </label>
             <div class="wf-annot-wrap wf-annot-wrap--block">
@@ -432,7 +538,7 @@
                         </div>
                         <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="наряд" aria-label="Значение условия" /></div></div>
                         <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить условие">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                         <span class="tb-cond__say">засчитывается ответ, начинающийся со слова «наряд»</span>
                       </div>
@@ -447,7 +553,7 @@
                         </div>
                         <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="допуск" aria-label="Значение условия" /></div></div>
                         <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить условие">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                         <span class="tb-cond__say">и содержащий «допуск» с любым окончанием</span>
                       </div>
@@ -462,7 +568,7 @@
                         </div>
                         <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="не " aria-label="Значение условия" /></div></div>
                         <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" aria-label="Удалить условие">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                         <span class="tb-cond__say">и не содержащий отрицания «не»</span>
                       </div>
@@ -920,7 +1026,7 @@
   function markNavButton(btn) {
     document.querySelectorAll('.wf-nav .wf-btn').forEach(function (b) {
       var a = b.getAttribute('onclick') || '';
-      if (a.indexOf('showState') >= 0 || a.indexOf('showRule') >= 0) {
+      if (a.indexOf('showState') >= 0 || a.indexOf('showRule') >= 0 || a.indexOf('showType') >= 0) {
         b.classList.toggle('active', b === btn);
       }
     });
@@ -933,6 +1039,28 @@
     });
     if (btn) markNavButton(btn);
     updateWireframeNavOffset();
+  };
+
+  window.showType = function showType(btn, id) {
+    document.querySelectorAll('.wf-state').forEach(function (el) {
+      el.classList.toggle('active', el.id === 's-drawer');
+    });
+    document.querySelectorAll('.wf-type').forEach(function (el) {
+      el.classList.toggle('active', el.id === id);
+    });
+    if (btn) markNavButton(btn);
+    updateWireframeNavOffset();
+    /* Вариант А показывается с РАСКРЫТЫМ списком: закрытый Select не отвечает
+       на вопрос, ради которого вариант нарисован, — как выглядит перечень из
+       девяти типов. Общий обработчик prd7-shared.js закрывает любой открытый
+       Select по клику в документе, и наш клик по кнопке навбара до него тоже
+       доходит, поэтому раскрытие возвращается следующим тиком. */
+    if (id === 't-a') {
+      setTimeout(function () {
+        var sel = document.querySelector('#t-a .ou-select');
+        if (sel) sel.classList.add('is-open');
+      }, 0);
+    }
   };
 
   window.showRule = function showRule(btn, ruleId, exId) {
@@ -997,6 +1125,40 @@
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="wf-state" id="s-notes">
 <div class="wf-page">
+
+<section class="wf-notes" aria-label="Сравнение вариантов переключателя типа">
+  <h3 class="wf-notes-title">Переключатель типа вопроса — три варианта</h3>
+  <p class="wf-notes-text">Трек добавляет три типа к шести существующим. Девять пунктов
+  <code>SegmentedControl</code> не помещаются в ящик шириной 720px: ленте нужно 1098px при
+  705px доступной ширины, а переноса и прокрутки у неё нет — последние пункты просто за краем.
+  Состояние «Как есть» показывает это на холсте. Ниже — чем отличаются варианты решения;
+  числа в колонке «Против» сняты измерением на этом же холсте, а не оценены на глаз.</p>
+  <table>
+    <thead>
+      <tr><th>Вариант</th><th>Из чего собран</th><th>За</th><th>Против</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>А · Список</strong> (рекомендуется)</td>
+        <td>Существующий <code>Select</code> (<code>ou-select</code>) с пиктограммой типа в строке. Значки — те же, что уже объявлены в <code>question-type-icon.tsx</code>; второго набора не заводится.</td>
+        <td>Единственный вариант, который масштабируется на СЛЕДУЮЩИЙ тип: десятый пункт ничего не ломает. Занимает одну строку независимо от числа типов. Пиктограмма делает список узнаваемым, а не превращает его в девять строк текста. Правок ui-kit не требует вовсе.</td>
+        <td>Выбранный тип виден, остальные — нет: чтобы увидеть перечень, список надо открыть. Для автора, который перебирает типы на новом вопросе, это лишний клик.</td>
+      </tr>
+      <tr>
+        <td><strong>Б · Две строки</strong></td>
+        <td>Тот же <code>SegmentedControl</code> с переносом строк. На холсте показан с пиктограммами.</td>
+        <td>Все типы видны одновременно и без клика. Порядок и привычка автора не меняются — это ровно сегодняшний контрол, ставший выше.</td>
+        <td>Требует правки компонента: режима с переносом у <code>SegmentedControl</code> сегодня нет (в эскизе объявлен локально как <code>tb-seg-wrap</code>). Уже на девяти типах это не две строки, а ТРИ: замер на холсте — 108px из 738px тела ящика с пиктограммами и 74px без них. То есть переключатель типа съедает седьмую часть ящика ещё до первого поля, и каждый следующий тип добавляет строку. Лента в три строки к тому же теряет смысл сегментированного контрола: глазом это уже сетка кнопок.</td>
+      </tr>
+      <tr>
+        <td><strong>В · Группы</strong></td>
+        <td>Две ленты <code>SegmentedControl</code>: группа, затем тип внутри группы. Новых компонентов не требует.</td>
+        <td>Обе ленты короткие и останутся такими при росте числа типов. Группировка сама по себе полезна автору: «Выбор», «Порядок», «Оценка», «Ввод» — это то, как о типах думают.</td>
+        <td>Два действия вместо одного, и первое из них — не то, что автор выбирает: он выбирает ТИП, а не группу. Требует раскладки типов по группам, которой в продукте нет: её придётся придумать, согласовать и потом поддерживать при каждом новом типе. Переключение группы при уже выбранном типе — отдельное поведение, которое надо доопределить.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
 <section class="wf-notes" aria-label="Пояснения к окну">
   <h3 class="wf-notes-title">Пояснения — поведение окна</h3>
@@ -1183,7 +1345,7 @@
       <tr>
         <td><strong>1. Переключатель типа вопроса</strong></td>
         <td>Трек добавляет три типа к шести существующим. Девять пунктов <code>SegmentedControl</code> не помещаются в ящик шириной 720px — это видно на холсте состояния «Ящик вопроса».</td>
-        <td>Эскиз показывает проблему, а не прячет её: решение за согласованием. Варианты — заменить переключатель на <code>Select</code> с пиктограммами типов; разбить на две строки; сгруппировать типы («выбор», «порядок», «ввод») во вложенное меню. Рекомендация — <code>Select</code>: он масштабируется на следующий тип и уже несёт пиктограмму.</td>
+        <td>Все три варианта нарисованы на холсте — переключатель «Тип вопроса» в навбаре: «Как есть», «А · Список», «Б · Две строки», «В · Группы». Сравнение с доводами за и против — в разделе «Переключатель типа вопроса — три варианта». Рекомендация эскиза — вариант А: он единственный масштабируется на следующий тип и не требует правок ui-kit. Решение за владельцем.</td>
       </tr>
       <tr>
         <td>2. Группировка «Что сравниваем»</td>
