@@ -27,12 +27,25 @@ import { OUTCOME } from "./classify.mjs";
  * two have different consequences for the exit code and for what a human does next: a
  * production finding blocks a build, a dev-only one is reported but does not.
  *
+ * The count keys come from {@link OUTCOME} itself, not a hand-written literal, and an outcome
+ * missing from it is a hard error rather than a `NaN`/`undefined` bucket. A caller that passes a
+ * typo'd outcome (a plausible one: "blocked" instead of "block") must not get back a report that
+ * looks clean — a silently zeroed counter and an exit code of 0 is exactly the "finding lost
+ * without a trace" failure this whole tool exists to prevent.
+ *
  * @param {Verdict[]} results
  * @returns {Summary}
+ * @throws {Error} When a result's `outcome` is not one of {@link OUTCOME}'s values.
  */
 export function summarize(results) {
-  const counts = { ok: 0, warn: 0, block: 0, error: 0 };
+  const counts = Object.fromEntries(Object.values(OUTCOME).map((outcome) => [outcome, 0]));
   for (const r of results) {
+    if (!Object.hasOwn(counts, r.outcome)) {
+      throw new Error(
+        `report.summarize: unknown outcome "${r.outcome}" on ${r.id ?? "(no id)"} — it is not one of ` +
+          `${Object.values(OUTCOME).join("/")}. Refusing to report a clean run that may not be one.`,
+      );
+    }
     counts[r.outcome] += 1;
   }
   const blocked = results.filter((r) => r.outcome === OUTCOME.BLOCK);
@@ -90,6 +103,9 @@ function packageLabel(r) {
  */
 function consoleLine(r) {
   const chain = r.requiredBy.length ? ` <- ${r.requiredBy.slice(0, 3).join(", ")}` : "";
+  // MAIN is the unremarkable zone — printing it on nearly every line would just be noise next to
+  // the findings that need a human's attention, so only a non-MAIN (ISOLATED, or unfamiliar) zone
+  // earns a tag.
   const zone = r.zone && r.zone !== "MAIN" ? ` [${r.zone}]` : "";
   const dev = r.dev ? " (dev)" : "";
   return `  ${packageLabel(r)}@${r.version} — ${r.status}${zone}${dev}${chain}`;
@@ -138,14 +154,20 @@ function escapeCell(text) {
  * transitive dependency, and truncating the chain would hide exactly the information that
  * decision needs.
  *
+ * Every cell goes through {@link escapeCell}, not just the free-text ones. `status` and `zone`
+ * come straight from the corporate system, and this module's own contract (an unfamiliar status
+ * is printed verbatim, never swallowed — see `classify.mjs`) means a `|` inside one of them is
+ * only ever one unfamiliar vocabulary entry away.
+ *
  * @param {Verdict[]} rows
  * @returns {string[]}
  */
 function markdownRows(rows) {
   return rows.map((r) => {
-    const chain = r.requiredBy.length ? escapeCell(r.requiredBy.join(", ")) : "—";
-    const note = r.comment ? escapeCell(r.comment) : "—";
-    return `| ${packageLabel(r)} | ${r.version} | ${r.status} | ${r.zone ?? "—"} | ${r.dev ? "dev" : "прод"} | ${chain} | ${note} |`;
+    const chain = r.requiredBy.length ? r.requiredBy.join(", ") : "—";
+    const note = r.comment ? r.comment : "—";
+    const cells = [packageLabel(r), r.version, r.status, r.zone ?? "—", r.dev ? "dev" : "прод", chain, note];
+    return `| ${cells.map((cell) => escapeCell(String(cell))).join(" | ")} |`;
   });
 }
 
@@ -180,7 +202,12 @@ export function renderMarkdown(results, { checkedAt, total }) {
   section("Запрещено или нет в базе — только dev", summary.blockedDev);
   section("Требует внимания", summary.warnings);
   section("Не удалось спросить", summary.errors);
-  if (!summary.counts.block && !summary.counts.warn && !summary.counts.error) {
+  // Built from the same four row groups just rendered above, not from `counts`, so a future
+  // outcome that lands in a new bucket cannot be forgotten here the way three hand-listed
+  // counters could be.
+  const totalFindings =
+    summary.blockedProd.length + summary.blockedDev.length + summary.warnings.length + summary.errors.length;
+  if (totalFindings === 0) {
     out.push("", "Все проверенные пакеты разрешены.");
   }
   out.push("");

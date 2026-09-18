@@ -162,4 +162,42 @@ describe("краевые случаи", () => {
     expect(data.total).toBe(2);
     expect(data.checkedAt).toBe("2026-09-18T10:00:00.000Z");
   });
+
+  it("пакет с ошибкой опроса виден по имени и в консоли, и в Markdown (раздел не пропадает)", () => {
+    const v = result({ id: "netfail@1.0.0", name: "netfail", outcome: OUTCOME.ERROR, status: "ERROR" });
+    const text = renderConsole(summarize([v]));
+    expect(text).toContain("netfail");
+    expect(text).toContain("Не удалось спросить");
+    const md = renderMarkdown([v], { checkedAt: "2026-09-18T10:00:00.000Z", total: 1 });
+    expect(md).toContain("netfail");
+    expect(md).toContain("Не удалось спросить");
+  });
+
+  it("ABSENT в продакшене — тоже находка (спека §7: наравне с RESTRICTED)", () => {
+    const v = result({ outcome: OUTCOME.BLOCK, status: "ABSENT", dev: false });
+    expect(exitCodeFor(summarize([v]), {})).toBe(1);
+    const text = renderConsole(summarize([v]));
+    expect(text).toContain("express");
+    expect(text).toContain("Запрещено или нет в базе — продакшен");
+  });
+
+  it("summarize бросает на незнакомом outcome, а не тихо обнуляет прогон", () => {
+    // @ts-expect-error — умышленно неверное значение, имитирующее опечатку вызывающего
+    expect(() => summarize([result({ outcome: "blocked" })])).toThrow(/unknown outcome/);
+  });
+
+  it("status и zone с символом | в Markdown-таблице экранируются, как chain и comment", () => {
+    const v = result({
+      outcome: OUTCOME.WARN,
+      status: "CUSTOM|STATUS",
+      zone: "WEIRD|ZONE",
+    });
+    const md = renderMarkdown([v], { checkedAt: "2026-09-18T10:00:00.000Z", total: 1 });
+    const dataRow = md.split("\n").find((line) => line.includes("CUSTOM"));
+    expect(dataRow).toBeDefined();
+    expect(dataRow).toContain("CUSTOM\\|STATUS");
+    expect(dataRow).toContain("WEIRD\\|ZONE");
+    // 7 колонок => ровно 8 неэкранированных '|'
+    expect((dataRow ?? "").match(/(?<!\\)\|/g)?.length).toBe(8);
+  });
 });
