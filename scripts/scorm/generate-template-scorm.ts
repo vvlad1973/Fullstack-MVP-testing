@@ -16,7 +16,7 @@
  *   npm run scorm:template -- corporate    # built-in id
  *   npm run scorm:template -- ./path/to/template-folder
  *   npm run scorm:template -- ./path/to/manifest.json
- *   npm run scorm:template -- ./templates/certification --theme dark --theme-colors
+ *   npm run scorm:template -- "C:/Repositories/skill'um/templates/skillum-template-certification/template" --theme dark --theme-colors
  *
  * PRD-23 options:
  *   --theme <light|dark|auto>  pin the palette the package opens in

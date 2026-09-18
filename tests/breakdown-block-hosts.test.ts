@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import type { AttemptResult, TopicResult } from "../shared/schema";
 import { breakdownDisplaySchema } from "../shared/schema";
+import { TEMPLATE_IDS, TEMPLATE_NAMES, templateManifest } from "./helpers/template-roots";
 import {
   buildResultContext,
   buildReportInput,
@@ -265,16 +266,15 @@ describe("пакет SCORM: рантайм передаёт записи обл�
 
 // ─── Шаблоны ─────────────────────────────────────────────────────────────────
 
-describe("оба поставляемых шаблона знают ключ блока", () => {
+describe("все шаблоны знают ключ блока", () => {
   const manifest = (p: string) => JSON.parse(readFileSync(resolve(process.cwd(), p), "utf8")) as {
     resultsBlockOrder: Record<string, string[]>;
     labels: Array<{ key: string; default: string }>;
   };
 
-  for (const [name, path] of [
-    ["Стандартный", "server/scorm/templates/default/manifest.json"],
-    ["Сертификация", "templates/certification/manifest.json"],
-  ]) {
+  for (const [name, path] of TEMPLATE_IDS.map(
+    (id) => [TEMPLATE_NAMES[id], templateManifest(id)] as const,
+  )) {
     it(`«${name}» объявляет breakdown в порядке блоков и надпись его заголовка`, () => {
       const m = manifest(path);
       expect(m.resultsBlockOrder.default).toContain("breakdown");

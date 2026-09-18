@@ -15,11 +15,14 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { compileTemplate } from "../shared/template/dsl";
+import { TEMPLATE_IDS, templateLayouts } from "./helpers/template-roots";
 
-const TEMPLATES: Record<string, string> = {
-  default: path.join(process.cwd(), "server/scorm/templates/default/layouts"),
-  certification: path.join(process.cwd(), "templates/certification/layouts"),
-};
+// Все три шаблона: встроенный и два вынесенных в собственные репозитории. Смысл
+// паритета в том, что они печатают одну разметку, поэтому список берётся из общего
+// реестра — новый шаблон попадает в проверки сам.
+const TEMPLATES: Record<string, string> = Object.fromEntries(
+  TEMPLATE_IDS.map((id) => [id, templateLayouts(id)]),
+);
 
 const LABELS = {
   results: { heading: "Ваш результат", topics: "Результаты по темам", breakdown: "Разрез результата" },

@@ -21,17 +21,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { renderTemplate } from "../dsl";
 import { buildStartState } from "../start-state";
+import { TEMPLATE_IDS, templateFile } from "../../../tests/helpers/template-roots";
 
-/** Both shipped templates, both variants of the start screen. */
-const LAYOUTS = [
-  "server/scorm/templates/default/layouts/start.html",
-  "server/scorm/templates/default/layouts/start.image-right.html",
-  "templates/certification/layouts/start.html",
-  "templates/certification/layouts/start.image-right.html",
-];
+/** Every template, both variants of the start screen. */
+const LAYOUTS = TEMPLATE_IDS.flatMap((id) => [
+  templateFile(id, "layouts/start.html"),
+  templateFile(id, "layouts/start.image-right.html"),
+]);
 
-function layout(rel: string): string {
-  return fs.readFileSync(path.join(process.cwd(), rel), "utf-8");
+function layout(abs: string): string {
+  return fs.readFileSync(abs, "utf-8");
 }
 
 function render(rel: string, info: Parameters<typeof buildStartState>[0]["info"]): string {

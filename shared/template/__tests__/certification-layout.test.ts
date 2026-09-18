@@ -25,25 +25,21 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { compileTemplate } from "../dsl";
+import { templateFile, templateManifest } from "../../../tests/helpers/template-roots";
 
-const LAYOUT = fs.readFileSync(
-  path.join(process.cwd(), "templates/certification/layouts/results.html"),
-  "utf-8",
-);
+const LAYOUT = fs.readFileSync(templateFile("certification", "layouts/results.html"), "utf-8");
 
 const ADAPTIVE_LAYOUT = fs.readFileSync(
-  path.join(process.cwd(), "templates/certification/layouts/results.adaptive.html"),
+  templateFile("certification", "layouts/results.adaptive.html"),
   "utf-8",
 );
 
 const SECTION_LAYOUT = fs.readFileSync(
-  path.join(process.cwd(), "templates/certification/layouts/section-results.html"),
+  templateFile("certification", "layouts/section-results.html"),
   "utf-8",
 );
 
-const MANIFEST = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "templates/certification/manifest.json"), "utf-8"),
-) as {
+const MANIFEST = JSON.parse(fs.readFileSync(templateManifest("certification"), "utf-8")) as {
   labels: Array<{ key: string; default: string }>;
   resultsBlockOrder: Record<string, string[]>;
 };
