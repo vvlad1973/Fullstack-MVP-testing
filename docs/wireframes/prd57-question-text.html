@@ -256,7 +256,7 @@ SELECT COUNT(*)
             </div>
 
             <div class="wf-annot-wrap wf-annot-wrap--block" style="margin-top:var(--ou-space-2)">
-              <span class="wf-annot">одна панель на три механики</span>
+              <span class="wf-annot">одна панель: листинг, формула, пропуск</span>
               <label class="ou-textarea ou-textarea--full">
                 <div class="ou-textarea__box">
                   <div class="ou-textarea__input ou-textarea__rich" contenteditable="true" role="textbox" aria-multiline="true">
@@ -414,8 +414,7 @@ SELECT COUNT(*)
                       Пропуск
                     </button>
                   </span>
-                  <span class="ou-textarea__count">пропусков нет</span>
-                </div>
+                                  </div>
               </div>
             </label>
 
@@ -873,7 +872,7 @@ SELECT COUNT(*)
       <tr>
         <td>Счётчик механик</td>
         <td>всегда</td>
-        <td>«1 листинг · 1 формула · 1 пропуск» вместо счётчика символов: у текста задания нет предела длины, а знать, что механика в тексте есть и она одна, автору нужно — особенно после переключения режима.</td>
+        <td>Называет то, что в тексте есть: «1 листинг · 1 формула · 1 пропуск». Счётчика символов у текста задания нет — у него нет и предела длины. Когда считать нечего, счётчик МОЛЧИТ: строка «ничего нет» — шум, автор и так видит свой текст. Нужен он прежде всего после переключения режима, чтобы убедиться, что вставленное пережило перевод.</td>
       </tr>
       <tr>
         <td>Смена режима</td>
