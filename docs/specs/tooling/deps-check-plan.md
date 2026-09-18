@@ -32,13 +32,15 @@
 | `scripts/deps/check-allowed.mjs` | CLI: аргументы, оркестрация, код возврата |
 | `scripts/deps/report.mjs` | консоль, Markdown, JSON |
 
-Тесты — плоско в `tests/`, как принято в проекте: `tests/deps-lockfile.test.mjs` и далее.
+Тесты — в подкаталоге `tests/deps/`, как уже сделано для инструментов в `tests/editor-conformance/`:
+`tests/deps/lockfile.test.ts` и далее. Шесть файлов россыпью в корне `tests/`, где и так лежит три с
+лишним сотни, ничего бы не прояснили.
 
-Тесты инструмента пишутся на чистом JavaScript (`.mjs`), а не на TypeScript, как остальные тесты
-проекта. Причина: `tsconfig.json` не покрывает ни `scripts/`, ни `tests/`, поэтому `.ts`-тест,
-импортирующий нетипизированный `.mjs`-модуль, светится ошибками в редакторе, тогда как
-`npm run check` остаётся зелёным — шум там, где он ничего не значит, и тишина там, где он был бы
-уместен. Шаблон `tests/**/*.{test,spec}.{js,mjs,ts}` в `vitest.config.ts` уже расширен.
+Тесты — обычные `.ts`, как весь остальной набор. Редактор будет показывать на импорте `.mjs` ошибку
+«не найден модуль»: `tsconfig.json` не покрывает ни `scripts/`, ни `tests/`, так что `tsc` этих
+файлов не видит и `npm run check` остаётся зелёным. Проект уже живёт с этим в
+`tests/editor-conformance/diff.test.ts` и `tests/scorm-debug-player-assets.test.ts`; заводить ради
+инструмента второе соглашение по расширениям не нужно.
 
 ---
 
@@ -47,7 +49,7 @@
 **Файлы:**
 
 - Создать: `scripts/deps/lockfile.mjs`
-- Тест: `tests/deps-lockfile.test.mjs`
+- Тест: `tests/deps/lockfile.test.ts`
 
 - [ ] **Шаг 1: написать падающий тест**
 
@@ -124,7 +126,7 @@ describe("parseLockfile", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-lockfile.test.mjs`
+Выполнить: `npm test -- tests/deps/lockfile.test.ts`
 
 Ожидается: FAIL, `Failed to load ../scripts/deps/lockfile.mjs`.
 
@@ -241,14 +243,14 @@ export function parseLockfile(lock, { rootName = "проект" } = {}) {
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-lockfile.test.mjs`
+Выполнить: `npm test -- tests/deps/lockfile.test.ts`
 
 Ожидается: PASS, 9 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/lockfile.mjs tests/deps-lockfile.test.mjs
+git add scripts/deps/lockfile.mjs tests/deps/lockfile.test.ts
 git commit -m "feat(deps): разбор package-lock.json для проверки допустимости"
 ```
 
@@ -259,7 +261,7 @@ git commit -m "feat(deps): разбор package-lock.json для проверк�
 **Файлы:**
 
 - Создать: `scripts/deps/classify.mjs`
-- Тест: `tests/deps-classify.test.mjs`
+- Тест: `tests/deps/classify.test.ts`
 
 - [ ] **Шаг 1: написать падающий тест**
 
@@ -269,7 +271,7 @@ import { OUTCOME, classify, matchArtifact } from "../scripts/deps/classify.mjs";
 
 const pkg = { id: "zod@4.4.3", name: "zod", scope: "", version: "4.4.3", dev: false, requiredBy: ["проект"] };
 
-function artifact(version, status, extra = {}) {
+function artifact(version: string, status: string, extra: Record<string, unknown> = {}) {
   return {
     npm: { name: "zod", scope: "", version },
     state: { status, zone: "MAIN", comment: "", ...extra },
@@ -333,7 +335,7 @@ describe("classify", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-classify.test.mjs`
+Выполнить: `npm test -- tests/deps/classify.test.ts`
 
 Ожидается: FAIL, модуль не найден.
 
@@ -445,14 +447,14 @@ export function failed(pkg, error) {
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-classify.test.mjs`
+Выполнить: `npm test -- tests/deps/classify.test.ts`
 
 Ожидается: PASS, 14 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/classify.mjs tests/deps-classify.test.mjs
+git add scripts/deps/classify.mjs tests/deps/classify.test.ts
 git commit -m "feat(deps): классификация ответа системы контроля"
 ```
 
@@ -463,7 +465,7 @@ git commit -m "feat(deps): классификация ответа систем�
 **Файлы:**
 
 - Создать: `scripts/deps/pace.mjs`
-- Тест: `tests/deps-pace.test.mjs`
+- Тест: `tests/deps/pace.test.ts`
 
 - [ ] **Шаг 1: написать падающий тест**
 
@@ -511,7 +513,7 @@ describe("longPauseMs", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-pace.test.mjs`
+Выполнить: `npm test -- tests/deps/pace.test.ts`
 
 Ожидается: FAIL, модуль не найден.
 
@@ -581,14 +583,14 @@ export function sleep(ms) {
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-pace.test.mjs`
+Выполнить: `npm test -- tests/deps/pace.test.ts`
 
 Ожидается: PASS, 6 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/pace.mjs tests/deps-pace.test.mjs
+git add scripts/deps/pace.mjs tests/deps/pace.test.ts
 git commit -m "feat(deps): щадящий темп обращений к системе контроля"
 ```
 
@@ -599,7 +601,7 @@ git commit -m "feat(deps): щадящий темп обращений к сис�
 **Файлы:**
 
 - Создать: `scripts/deps/cache.mjs`
-- Тест: `tests/deps-cache.test.mjs`
+- Тест: `tests/deps/cache.test.ts`
 
 - [ ] **Шаг 1: написать падающий тест**
 
@@ -611,7 +613,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cacheFileName, readCached, writeCached } from "../scripts/deps/cache.mjs";
 
 const pkg = { name: "pglite", scope: "@electric-sql", version: "0.4.1" };
-let dir;
+let dir: string;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "deps-cache-test-"));
@@ -657,7 +659,7 @@ describe("readCached", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-cache.test.mjs`
+Выполнить: `npm test -- tests/deps/cache.test.ts`
 
 Ожидается: FAIL, модуль не найден.
 
@@ -714,14 +716,14 @@ export function writeCached(dir, pkg, artifacts, { now }) {
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-cache.test.mjs`
+Выполнить: `npm test -- tests/deps/cache.test.ts`
 
 Ожидается: PASS, 7 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/cache.mjs tests/deps-cache.test.mjs
+git add scripts/deps/cache.mjs tests/deps/cache.test.ts
 git commit -m "feat(deps): кэш ответов системы контроля на диске"
 ```
 
@@ -732,7 +734,7 @@ git commit -m "feat(deps): кэш ответов системы контроля
 **Файлы:**
 
 - Создать: `scripts/deps/repo-client.mjs`
-- Тест: `tests/deps-client.test.mjs`
+- Тест: `tests/deps/client.test.ts`
 
 - [ ] **Шаг 1: написать падающий тест**
 
@@ -742,15 +744,15 @@ import { createClient } from "../scripts/deps/repo-client.mjs";
 
 const pkg = { name: "pglite", scope: "@electric-sql", version: "0.4.1" };
 
-function ok(artifacts) {
+function ok(artifacts: unknown[]) {
   return { ok: true, status: 200, json: async () => ({ artifacts }), headers: new Headers() };
 }
 
-function fail(status, headers = {}) {
+function fail(status: number, headers: Record<string, string> = {}) {
   return { ok: false, status, json: async () => ({}), headers: new Headers(headers), text: async () => "" };
 }
 
-function client(fetchImpl, overrides = {}) {
+function client(fetchImpl: unknown, overrides = {}) {
   return createClient({
     fetchImpl,
     getToken: vi.fn(async () => "T0"),
@@ -823,7 +825,7 @@ describe("createClient.findArtifacts", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-client.test.mjs`
+Выполнить: `npm test -- tests/deps/client.test.ts`
 
 Ожидается: FAIL, модуль не найден.
 
@@ -930,14 +932,14 @@ export function createClient({
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-client.test.mjs`
+Выполнить: `npm test -- tests/deps/client.test.ts`
 
 Ожидается: PASS, 7 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/repo-client.mjs tests/deps-client.test.mjs
+git add scripts/deps/repo-client.mjs tests/deps/client.test.ts
 git commit -m "feat(deps): клиент findArtifacts с повторами и пагинацией"
 ```
 
@@ -948,7 +950,7 @@ git commit -m "feat(deps): клиент findArtifacts с повторами и �
 **Файлы:**
 
 - Создать: `scripts/deps/report.mjs`
-- Тест: `tests/deps-report.test.mjs`
+- Тест: `tests/deps/report.test.ts`
 
 - [ ] **Шаг 1: написать падающий тест**
 
@@ -957,7 +959,7 @@ import { describe, expect, it } from "vitest";
 import { OUTCOME } from "../scripts/deps/classify.mjs";
 import { exitCodeFor, renderConsole, renderMarkdown, summarize } from "../scripts/deps/report.mjs";
 
-function result(over = {}) {
+function result(over: Record<string, unknown> = {}) {
   return {
     id: "express@5.2.1",
     name: "express",
@@ -1046,7 +1048,7 @@ describe("renderConsole", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-report.test.mjs`
+Выполнить: `npm test -- tests/deps/report.test.ts`
 
 Ожидается: FAIL, модуль не найден.
 
@@ -1163,14 +1165,14 @@ export function toJson(results, { checkedAt, total }) {
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-report.test.mjs`
+Выполнить: `npm test -- tests/deps/report.test.ts`
 
 Ожидается: PASS, 11 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/report.mjs tests/deps-report.test.mjs
+git add scripts/deps/report.mjs tests/deps/report.test.ts
 git commit -m "feat(deps): отчёт о допустимости в консоль, Markdown и JSON"
 ```
 
@@ -1181,7 +1183,7 @@ git commit -m "feat(deps): отчёт о допустимости в консо�
 **Файлы:**
 
 - Создать: `scripts/deps/repo-auth.mjs`
-- Тест: `tests/deps-auth.test.mjs`
+- Тест: `tests/deps/auth.test.ts`
 
 Проверяется только чистая часть — разбор срока жизни токена и решение «брать из кэша, обновлять или
 поднимать браузер». Сам вход проверяется живым прогоном в задаче 9: подделка Keycloak повторяла бы
@@ -1199,7 +1201,7 @@ import { describe, expect, it } from "vitest";
 import { decodeExpiry, tokenIsUsable } from "../scripts/deps/repo-auth.mjs";
 
 /** Minimal unsigned JWT with the given `exp`. */
-function jwt(exp) {
+function jwt(exp: number) {
   const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
   return `header.${payload}.signature`;
 }
@@ -1236,7 +1238,7 @@ describe("tokenIsUsable", () => {
 
 - [ ] **Шаг 2: убедиться, что тест падает**
 
-Выполнить: `npm test -- tests/deps-auth.test.mjs`
+Выполнить: `npm test -- tests/deps/auth.test.ts`
 
 Ожидается: FAIL, модуль не найден.
 
@@ -1461,14 +1463,14 @@ export const profileDir = PROFILE_DIR;
 
 - [ ] **Шаг 4: убедиться, что тест проходит**
 
-Выполнить: `npm test -- tests/deps-auth.test.mjs`
+Выполнить: `npm test -- tests/deps/auth.test.ts`
 
 Ожидается: PASS, 6 тестов.
 
 - [ ] **Шаг 5: коммит**
 
 ```bash
-git add scripts/deps/repo-auth.mjs tests/deps-auth.test.mjs
+git add scripts/deps/repo-auth.mjs tests/deps/auth.test.ts
 git commit -m "feat(deps): вход в систему контроля через браузер с постоянным профилем"
 ```
 
@@ -1598,8 +1600,8 @@ node -e "import('./scripts/deps/lockfile.mjs').then(async (m) => {
 Выполнить:
 
 ```bash
-npm test -- tests/deps-lockfile.test.mjs tests/deps-classify.test.mjs tests/deps-pace.test.mjs \
-  tests/deps-cache.test.mjs tests/deps-client.test.mjs tests/deps-report.test.mjs tests/deps-auth.test.mjs
+npm test -- tests/deps/lockfile.test.ts tests/deps/classify.test.ts tests/deps/pace.test.ts \
+  tests/deps/cache.test.ts tests/deps/client.test.ts tests/deps/report.test.ts tests/deps/auth.test.ts
 ```
 
 Ожидается: PASS, все семь файлов. Полный `npm test` не запускать: он идёт около восьми минут и
