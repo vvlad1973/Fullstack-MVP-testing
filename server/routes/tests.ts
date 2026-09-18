@@ -672,6 +672,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
     const {
       title,
       description,
+      descriptionFormat,
       overallPassRuleJson,
       passDecisionPolicy,
       webhookUrl,
@@ -737,6 +738,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       test: {
         title: title!,
         description,
+        descriptionFormat,
         overallPassRuleJson: overallPassRuleJson ?? { type: "percent" as const, value: 70 },
         passDecisionPolicy,
         webhookUrl: webhookUrl || null,
@@ -1129,6 +1131,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       reportBlocks,
       title,
       description,
+      descriptionFormat,
       overallPassRuleJson,
       passDecisionPolicy,
       webhookUrl,
@@ -1199,6 +1202,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       test: {
         title,
         description,
+        descriptionFormat,
         overallPassRuleJson,
         passDecisionPolicy,
         webhookUrl,
