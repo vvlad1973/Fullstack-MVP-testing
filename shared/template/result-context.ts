@@ -32,6 +32,7 @@ import { resolveBlockOrder, DEFAULT_BLOCK_ORDER, type ResultsBlockKey } from "./
 import { labelsTree } from "./labels";
 import { buildMeasureView, type CtxMeasureView, type RenderKind } from "./measure-view";
 import { richTextToHtml, type RichTextFormat } from "./rich-text";
+import { formatMinutesHuman } from "./duration";
 import { buildScalesChart, type ChartKindSettings } from "./scales-chart";
 import { buildScaleBars, type CtxScaleBars } from "./scale-bars";
 import { parseScaleAppearance } from "./scale-appearance";
@@ -1354,16 +1355,6 @@ function pluralQuestions(n: number): string {
   return "вопросов";
 }
 
-/** Russian plural for «минута» (1 минута / 2 минуты / 5 минут). */
-function pluralMinutes(n: number): string {
-  const abs = Math.abs(n) % 100;
-  const d = abs % 10;
-  if (abs > 10 && abs < 20) return "минут";
-  if (d === 1) return "минута";
-  if (d > 1 && d < 5) return "минуты";
-  return "минут";
-}
-
 /** Normalized input for the «Введение раздела» screen (PRD-1 §4.3). */
 export interface SectionIntroInput {
   /** 1-based section index (for the «Раздел N из M» eyebrow + header tag). */
@@ -1411,7 +1402,9 @@ export function buildSectionIntroContext(input: SectionIntroInput): {
     questionCount: count,
     questionCountLabel: count + " " + pluralQuestions(count),
     hasTimeLimit: hasTime,
-    timeLimitLabel: hasTime ? String(input.timeLimitMinutes) + " " + pluralMinutes(input.timeLimitMinutes as number) : "",
+    // Same formatter the start screen prints its limit with: one course must not
+    // say «45 минут» on the section intro and «45 мин» on the cover.
+    timeLimitLabel: formatMinutesHuman(input.timeLimitMinutes),
     hasInstruction: instrText.length > 0,
     illustrationUrl: illo,
     hasIllustration: illo.length > 0,

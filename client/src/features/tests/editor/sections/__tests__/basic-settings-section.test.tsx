@@ -342,6 +342,21 @@ describe("<LimitsPane /> — «Ограничения»", () => {
     expect(runUpdater(updateModel, model).runtime.timeLimitMinutes).toBeNull();
   });
 
+  // Автор, которому нужен СРОК прохождения, набирает его таймером: 14 суток
+  // превращаются в 20160 минут, и ни поле, ни стартовый экран прежде не говорили,
+  // что это за число. Расшифровка под полем показывает цену ввода сразу.
+  it("расшифровывает длинный лимит в подсказке поля", () => {
+    const model = baseModel({ runtime: { ...baseModel().runtime, timeLimitMinutes: 20160 } });
+    render(<LimitsPane model={model} updateModel={vi.fn()} />);
+    expect(screen.getByText(/Сейчас это 14 дней на одну попытку/)).toBeInTheDocument();
+  });
+
+  it("не расшифровывает лимит короче часа — строка повторила бы поле", () => {
+    const model = baseModel({ runtime: { ...baseModel().runtime, timeLimitMinutes: 45 } });
+    render(<LimitsPane model={model} updateModel={vi.fn()} />);
+    expect(screen.queryByText(/Сейчас это/)).toBeNull();
+  });
+
   it("переключает результат для LMS на последнюю попытку", () => {
     const updateModel = vi.fn();
     const model = baseModel();

@@ -138,13 +138,17 @@ function pluralQuestions(n) {
   return "вопросов";
 }
 
-function pluralMinutes(n) {
-  var abs = Math.abs(n) % 100;
-  var d = abs % 10;
-  if (abs > 10 && abs < 20) return "минут";
-  if (d === 1) return "минута";
-  if (d > 1 && d < 5) return "минуты";
-  return "минут";
+/**
+ * A time limit as text, through the SHARED duration formatter in the bundle so
+ * the section intro says what the start screen says («14 дней», «2 ч 30 мин»).
+ * Degrades to a bare minute count when the bundle lacks the export.
+ * @param {number} minutes
+ * @returns {string}
+ */
+function timeLimitText(minutes) {
+  var TB = (typeof window !== "undefined") ? window.TBTemplate : null;
+  if (TB && typeof TB.formatMinutesHuman === "function") return TB.formatMinutesHuman(minutes);
+  return String(minutes) + " мин";
 }
 
 /**
@@ -171,7 +175,7 @@ function buildSectionIntroFallback(inp) {
     questionCount: count,
     questionCountLabel: count + " " + pluralQuestions(count),
     hasTimeLimit: hasTime,
-    timeLimitLabel: hasTime ? String(inp.timeLimitMinutes) + " " + pluralMinutes(inp.timeLimitMinutes) : "",
+    timeLimitLabel: hasTime ? timeLimitText(inp.timeLimitMinutes) : "",
     hasInstruction: instrText.length > 0,
     illustrationUrl: illo,
     hasIllustration: illo.length > 0,

@@ -45,6 +45,17 @@ export interface CtxCourse {
   questionCount?: number;
   passPercent?: number | null;
   timeLimitMinutes?: number | null;
+  /**
+   * The same limit as a learner-readable phrase, decomposed into days / hours /
+   * minutes by {@link module:shared/template/duration} — «14 дней», «2 ч 30 мин»,
+   * «45 мин». Paired with `timeLimitMinutes` rather than replacing it, so a
+   * template that binds the number keeps working.
+   *
+   * The unit belongs HERE and not in the layout: the DSL has no helpers, so a
+   * layout printing `{{ course.timeLimitMinutes }} мин` could only ever say
+   * «20160 мин» for a two-week budget. Empty string when the test has no limit.
+   */
+  timeLimitLabel?: string;
   maxAttempts?: number | null;
   /** Legacy intro text; migrated to a content page, normally empty (PRD-7 S10). */
   startPageContent?: string;
