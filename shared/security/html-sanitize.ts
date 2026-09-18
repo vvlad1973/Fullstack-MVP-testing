@@ -56,7 +56,13 @@ const SVG_TAG = /<svg\b[^>]*>[\s\S]*?<\/svg>/gi;
 const OBJECT_TAG_PAIR = /<(object|embed|link|meta)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const OBJECT_TAG_VOID = /<(object|embed|link|meta)\b[^>]*\/?>/gi;
 const ON_HANDLER_ATTR = /\s+(on\w+)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
-const JAVASCRIPT_URI = /(href|src)\s*=\s*["']?\s*javascript:[^"'\s>]*/gi;
+/**
+ * Ветви разделены по виду кавычек намеренно: общее `["']?` съедало открывающую
+ * кавычку, но не закрывающую, и замена оставляла за собой `href="#""` — лишний
+ * безымянный атрибут и испорченная разметка, которой автор не писал.
+ */
+const JAVASCRIPT_URI =
+  /(href|src)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|\s*javascript:[^\s>]*)/gi;
 const HTTP_SRC_HREF_QUOTED = /\s(src|href)\s*=\s*(["'])https?:\/\/[^"']*\2/gi;
 const HTTP_SRC_HREF_UNQUOTED = /\s(src|href)\s*=\s*https?:\/\/[^\s>]*/gi;
 

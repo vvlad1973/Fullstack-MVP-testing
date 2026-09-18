@@ -63,3 +63,48 @@ describe("sanitizeValuesWithDiagnostics", () => {
     expect(twice.diagnostics.body).toBeUndefined();
   });
 });
+
+/**
+ * Обезвреживание `javascript:` — до этого набора не покрытое ничем, отчего дефект и
+ * прожил незамеченным: замена съедала открывающую кавычку, но не закрывающую, и на
+ * выходе оставалось `href="#""`. Для браузера это лишний безымянный атрибут, а для
+ * автора — испорченная разметка, которую он не писал.
+ */
+describe("sanitizeHtml обезвреживает javascript:", () => {
+  it("не оставляет лишней кавычки у двойных кавычек", () => {
+    expect(sanitizeHtml('<a href="javascript:alert(1)">клик</a>')).toBe(
+      '<a href="#">клик</a>',
+    );
+  });
+
+  it("не оставляет лишней кавычки у одинарных", () => {
+    expect(sanitizeHtml("<a href='javascript:alert(1)'>клик</a>")).toBe(
+      '<a href="#">клик</a>',
+    );
+  });
+
+  it("обезвреживает адрес без кавычек", () => {
+    expect(sanitizeHtml("<a href=javascript:alert(1)>клик</a>")).toBe('<a href="#">клик</a>');
+  });
+
+  it("не путается в регистре и пробелах", () => {
+    expect(sanitizeHtml('<a HREF = " JavaScript:alert(1) ">клик</a>')).toBe(
+      '<a HREF="#">клик</a>',
+    );
+  });
+
+  it("то же у src", () => {
+    expect(sanitizeHtml('<img src="javascript:alert(1)">')).toBe('<img src="#">');
+  });
+
+  it("не трогает обычную ссылку", () => {
+    expect(sanitizeHtml('<a href="/learner/tests">клик</a>')).toBe(
+      '<a href="/learner/tests">клик</a>',
+    );
+  });
+
+  it("сообщает о срабатывании правила одной записью", () => {
+    const { removed } = sanitizeHtmlWithDiagnostics('<a href="javascript:alert(1)">к</a>');
+    expect(removed).toEqual([{ kind: "uri", label: "javascript:", count: 1 }]);
+  });
+});
