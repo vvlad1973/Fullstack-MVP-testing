@@ -101,6 +101,12 @@
        под вердикт. Место правил — `server/scorm/templates/<id>/styles/theme.css`,
        единственный общий источник оформления сцены для обоих хостов.
        Меняются ровно кегль и высота коробки, ничего больше. */
+    /* Числовое поле занимает ПОЛОВИНУ колонки, а не всю её. Ширина выводится
+       из правила (§6.6): под число текстовой строки не нужно, а поле во всю
+       колонку обещает ответ, которого от участника не ждут. Доля, а не
+       фиксированная величина — колонка сама сужается по контейнерным ступеням
+       сцены, и поле сужается вместе с ней. */
+    .tb-answer-field--num { display: flex; width: 50%; }
     .tb-answer-field .ou-field__box { height: auto; min-height: var(--ou-size-control-xl); padding: 0 var(--ou-space-4); }
     .tb-answer-field .ou-field__input { font-size: var(--tb-answer-fs); }
     .tb-answer-field .ou-field__affix { font: var(--ou-text-body-m); }
@@ -277,7 +283,7 @@
           <div class="wf-slot">
             <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-28ac</span>
-              <div class="ou-field ou-field--l ou-field--full tb-answer-field">
+              <div class="ou-field ou-field--l tb-answer-field tb-answer-field--num">
                 <div class="ou-field__box">
                   <input class="ou-field__input" type="text" inputmode="decimal" value="-25" aria-label="Ваш ответ" />
                   <span class="ou-field__affix">°C</span>
@@ -298,7 +304,7 @@
           <div class="wf-slot">
             <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-28z1</span>
-              <div class="ou-field ou-field--l ou-field--full tb-answer-field ou-field--error">
+              <div class="ou-field ou-field--l tb-answer-field tb-answer-field--num ou-field--error">
                 <div class="ou-field__box">
                   <input class="ou-field__input" type="text" inputmode="decimal" value="минус двадцать пять" aria-invalid="true" aria-label="Ваш ответ" />
                   <span class="ou-field__affix">°C</span>
@@ -653,8 +659,13 @@
       </tr>
       <tr>
         <td>Ширина блока ответа</td>
-        <td>всегда</td>
-        <td>Собственной ширины у блока ответа нет: он занимает колонку целиком — как карточка варианта, дорожка шкалы, строка ранжирования и строка распределения (<code>width: 100%</code> в <code>theme.css</code>). Колонка — 75% сцены и 100% ниже контейнерной ступени 900. Длина ожидаемого ответа на ширину НЕ влияет: под длину подстраивается кегль (<code>--tb-answer-fs</code>, от 20px для коротких до 14px для длинных), и это единственная адаптация по содержимому, принятая в оформлении.</td>
+        <td>текстовый ответ</td>
+        <td>Поле занимает колонку целиком — как карточка варианта, дорожка шкалы, строка ранжирования и строка распределения (<code>width: 100%</code> в <code>theme.css</code>). Колонка — 75% сцены и 100% ниже контейнерной ступени 900. Длина ожидаемого ответа на ширину НЕ влияет: под длину подстраивается кегль (<code>--tb-answer-fs</code>), и это единственная адаптация по содержимому, принятая в оформлении.</td>
+      </tr>
+      <tr>
+        <td>Ширина числового поля</td>
+        <td>числовое правило</td>
+        <td>Половина колонки. Ширина и выравнивание поля выводятся ИЗ ПРАВИЛА (§6.6) — под число текстовой строки не нужно, а поле во всю колонку обещает ответ, которого от участника не ждут. Задаётся долей, а не фиксированной величиной: колонка сужается по контейнерным ступеням сцены, и поле сужается вместе с ней. Выравнивание числа в поле — открытый вопрос, в эскизе оставлено по левому краю, как у текста.</td>
       </tr>
       <tr>
         <td>Ширина поля пропуска</td>
