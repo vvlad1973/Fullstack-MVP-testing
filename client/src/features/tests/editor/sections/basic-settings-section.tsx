@@ -37,7 +37,13 @@ import {
   Select,
   Switch,
   Textarea,
+  RichTextEditor,
 } from "@skillum/ui-kit";
+import { richTextToHtml, richTextToPlain } from "@shared/template/rich-text";
+import {
+  sanitizeHtml as sanitizeContentHtml,
+  DESCRIPTION_SCOPE,
+} from "@shared/security/html-sanitize";
 import type { EligibilityPluginRef, Form, IntroBlock, RetakePolicy } from "@shared/schema";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
 // PRD-31: the clamp is shared with the mapper so the field and a value read back
@@ -134,21 +140,35 @@ export function MainPane({
       </div>
 
       <div className="ou-formfield">
-        <Textarea
+        {/* PRD-59 FR-05..FR-09, эскиз `docs/wireframes/prd59-description-field.html`.
+            Значение поля — ИСХОДНИК автора: в простом режиме это настоящий текст с
+            настоящими переводами строк, и именно он уезжает в письмо, в метаданные
+            пакета и в книгу Excel. Разметку строит ядро при выдаче, а не это поле.
+            Подсказка стоит под полем, а не плейсхолдером: у компонента его нет. */}
+        <RichTextEditor
           id="settings-description"
-          size="m"
+          label="Описание"
           fullWidth
           rows={3}
-          label="Описание"
+          maxRows={10}
+          hint="Опишите цели теста и аудиторию"
           value={model.basic.description}
-          placeholder="Опишите цели теста и аудиторию"
-          onChange={(e) => {
-            const value = e.target.value;
+          mode={model.basic.descriptionFormat === "richText" ? "rich" : model.basic.descriptionFormat}
+          modes={["plain", "rich", "html"]}
+          sourceMode={{
+            toMarkup: (text) => richTextToHtml(text, "plain"),
+            toPlain: (html) => richTextToPlain(html, "richText"),
+          }}
+          sanitize={(html) => sanitizeContentHtml(html, { scope: DESCRIPTION_SCOPE })}
+          onChange={(value) =>
+            updateModel((m) => ({ ...m, basic: { ...m.basic, description: value } }))
+          }
+          onModeChange={(next) =>
             updateModel((m) => ({
               ...m,
-              basic: { ...m.basic, description: value },
-            }));
-          }}
+              basic: { ...m.basic, descriptionFormat: next === "rich" ? "richText" : next },
+            }))
+          }
           data-testid="settings-description-input"
         />
       </div>

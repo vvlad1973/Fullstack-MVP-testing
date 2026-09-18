@@ -48,6 +48,15 @@ export interface RichTextEditorProps {
     toPlain: (html: string) => string;
   };
   rows?: number;
+  /**
+   * Cap on the field's height, in lines. Without it the field grows with its content
+   * and the form around it grows too — on a long value the controls below are pushed
+   * off the screen. With it the field stops at `maxRows` and scrolls inside itself.
+   *
+   * The author can still drag the field taller by its corner: a cap is there to keep
+   * the form usable, not to stop anyone from seeing their own text.
+   */
+  maxRows?: number;
   id?: string;
   className?: string;
   'data-testid'?: string;
@@ -147,7 +156,7 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
     {
       label, hint, error, required, size = 'm', fullWidth, disabled,
       value, onChange, modes = ['plain', 'rich', 'html'], mode, onModeChange,
-      sanitize, sourceMode, rows = 4, id, className, ...rest
+      sanitize, sourceMode, rows = 4, maxRows, id, className, ...rest
     },
     ref,
   ) => {
@@ -227,6 +236,12 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
 
     const showSwitch = modes.length > 1;
 
+    // Both fields are measured in LINES, at the 1.6 line-height the DS gives them, so the
+    // cap and the starting height are expressed in the same unit the author perceives.
+    // `resize` is set here for the formatted area only — the textarea already carries it
+    // from the DS stylesheet.
+    const capStyle = maxRows ? { maxHeight: `${maxRows * 1.6}em` } : undefined;
+
     return (
       <div
         ref={ref}
@@ -294,7 +309,7 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
               role="textbox"
               aria-multiline="true"
               suppressContentEditableWarning
-              style={{ minHeight: `${rows * 1.6}em` }}
+              style={{ minHeight: `${rows * 1.6}em`, ...capStyle, resize: 'vertical' }}
               onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
               onBlur={(e) => onChange(clean((e.target as HTMLDivElement).innerHTML))}
               onPaste={handlePaste}
@@ -308,6 +323,7 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
             <textarea
               id={fieldId}
               className={cn('ou-rte__input', current === 'html' && 'ou-rte__input--code')}
+              style={capStyle}
               value={current === 'plain' && !sourceMode ? toPlainText(value) : value}
               rows={rows}
               disabled={disabled}

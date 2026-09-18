@@ -25,7 +25,7 @@ function buildSection(over: Partial<EditorSection> = {}): EditorSection {
 function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
   return {
     id: "test-1", version: 1, mode: "standard", flowMode: "linear_flat", flowSettings: {}, folderId: null,
-    basic: { title: "Sample", description: "", status: "draft", feedback: { format: "plain", text: "" },
+    basic: { title: "Sample", description: "", descriptionFormat: "plain", status: "draft", feedback: { format: "plain", text: "" },
       feedbackLinks: [], feedbackAssets: [], feedbackEvents: [], webhookUrl: "", telemetryEnabled: false },
     runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },

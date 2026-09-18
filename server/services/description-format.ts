@@ -10,14 +10,12 @@
  * ({@link module:shared/security/html-sanitize}), because the source is the same
  * person — the test's author — and one source must not be read two ways.
  */
-import { sanitizeHtml } from "@shared/security/html-sanitize";
+import { sanitizeHtml, DESCRIPTION_SCOPE } from "@shared/security/html-sanitize";
 import type { RichTextFormat } from "@shared/template/rich-text";
 
-/**
- * Region the description renders into. A pasted `<style>` is confined to it, so an
- * author's stray `body { … }` restyles their description instead of the whole player.
- */
-export const DESCRIPTION_SCOPE = ".tb-cover__desc";
+// Re-exported so a server-side caller reaching for the scope lands on the ONE constant
+// the editor and the save path share, rather than spelling the selector again.
+export { DESCRIPTION_SCOPE };
 
 /**
  * @param text Author's description as it arrived.

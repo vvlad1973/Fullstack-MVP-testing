@@ -52,6 +52,7 @@ function baseModel(over: Partial<TestEditorModel> = {}): TestEditorModel {
     basic: {
       title: "Тест",
       description: "",
+      descriptionFormat: "plain",
       status: "draft",
       feedback: { format: "plain", text: "" },
       feedbackLinks: [],

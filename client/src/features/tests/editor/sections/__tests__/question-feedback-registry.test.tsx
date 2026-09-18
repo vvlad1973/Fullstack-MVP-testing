@@ -67,6 +67,7 @@ function baseModel(sections: ReturnType<typeof section>[]): TestEditorModel {
     basic: {
       title: "Тест",
       description: "",
+      descriptionFormat: "plain",
       status: "draft",
       feedback: { format: "plain", text: "" },
       feedbackLinks: [],

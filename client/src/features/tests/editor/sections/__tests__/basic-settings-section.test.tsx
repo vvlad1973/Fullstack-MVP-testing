@@ -58,6 +58,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
     basic: {
       title: "Sample",
       description: "Desc",
+      descriptionFormat: "plain",
       status: "draft",
       feedback: { format: "plain", text: "" },
       feedbackLinks: [],
@@ -165,14 +166,28 @@ describe("<MainPane /> — «Основное»", () => {
     expect(runUpdater(updateModel, model).basic.title).toBe("Свежий тест");
   });
 
+  // PRD-59: поле «Описание» — это RichTextEditor, а не Textarea. `settings-description-input`
+  // теперь обёртка контрола, само поле ввода лежит под `-input`.
   it("updates basic.description on textarea change", () => {
     const updateModel = vi.fn();
     const model = baseModel();
     render(<MainPane model={model} updateModel={updateModel} />);
-    fireEvent.change(screen.getByTestId("settings-description-input"), {
+    fireEvent.change(screen.getByTestId("settings-description-input-input"), {
       target: { value: "Новое описание" },
     });
     expect(runUpdater(updateModel, model).basic.description).toBe("Новое описание");
+  });
+
+  it("сохраняет выбранный режим ввода описания (PRD-59 FR-06)", () => {
+    const updateModel = vi.fn();
+    const model = baseModel();
+    render(<MainPane model={model} updateModel={updateModel} />);
+    fireEvent.click(screen.getByTestId("settings-description-input-mode-rich"));
+    // Смена режима правит модель ДВАЖДЫ: сначала значение переводится в разметку
+    // (FR-08), затем сохраняется сам режим (FR-06). Формат несёт второй вызов.
+    expect(updateModel).toHaveBeenCalledTimes(2);
+    expect(runUpdater(updateModel, model, 0).basic.description).toBe("Desc");
+    expect(runUpdater(updateModel, model, 1).basic.descriptionFormat).toBe("richText");
   });
 
   it("toggles mode to adaptive when segmented button is clicked", () => {
