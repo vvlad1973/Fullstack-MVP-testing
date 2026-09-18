@@ -94,7 +94,13 @@
     }
     .tb-blank .ou-field__box { padding-inline: var(--ou-space-2); }
     .tb-blank .ou-field__input { font-size: var(--tb-answer-fs); text-align: center; }
-    .tb-blank-text { font-size: var(--tb-answer-fs); line-height: 2.1; text-wrap: pretty; margin: 0; }
+    /* Межстрочный интервал — обычный для абзаца и кратный модулю сетки
+       (1.6 от кегля ответов). Разгонять его под высоту поля ввода нельзя:
+       поля стоят только в режиме ответа, а тот же текст печатается ещё
+       и с прочерком, с ответом участника и с эталоном — там полей нет,
+       и разогнанный интервал читается как дефект вёрстки. На строке
+       с полем высоту задаёт само поле. */
+    .tb-blank-text { font-size: var(--tb-answer-fs); line-height: 1.6; text-wrap: pretty; margin: 0; }
   </style>
 </head>
 <body class="ou ou--dark ou--normal">
