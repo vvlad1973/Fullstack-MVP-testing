@@ -10,7 +10,7 @@
     Спека: docs/specs/prd-57/open-response-and-formatting.md
            (§6 FR-24, FR-24a..FR-24j, FR-25, FR-26, FR-28).
     Issue: #40 (PRD-57, Э0) — блокирует Э8.
-    Статус: СОГЛАСОВАНО 2026-09-18, взято в реализацию.
+    Статус: НА СОГЛАСОВАНИИ.
 
     Правила пропуска — ТА ЖЕ конструкция, что согласована для короткого ответа
     (approved/prd57-answer-rule.html): вид ответа, связка, список правил и
@@ -119,20 +119,6 @@
       align-items: center;
     }
     .tb-mono { font-family: var(--ou-font-family-mono); }
-
-    /* ДЕФЕКТ ДС, а не приём эскиза. Правила раскрытой строки записаны через
-       потомка — `.ou-acc__item.is-open .ou-acc__chev` и `… .ou-acc__title`, —
-       поэтому раскрытый пропуск разворачивал галочки и подсвечивал заголовки
-       ВЛОЖЕННЫХ строк правил, будто открыты и они. Лечится в ui-kit заменой
-       потомка на прямого ребёнка (`.ou-acc__item.is-open > .ou-acc__trigger …`);
-       здесь стоит заплатка, чтобы эскиз показывал верное поведение. */
-    .ou-acc__item.is-open .ou-acc__item:not(.is-open) .ou-acc__chev {
-      transform: none;
-      color: var(--ou-fg-muted);
-    }
-    .ou-acc__item.is-open .ou-acc__item:not(.is-open) .ou-acc__title {
-      color: inherit;
-    }
 
     /* Код пропуска в списке и в тексте — машинное имя, поэтому моноширинный:
        автор должен видеть регистр и подчёркивания буквально (FR-24a, FR-24f). */
@@ -244,26 +230,26 @@
               <span class="ou-formfield__lbl">Пропуски</span>
               <div class="ou-acc ou-acc--bordered">
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-60238">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-20117">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{organ}}</span>
                       <span class="ou-acc__subtitle">Текст · любое из трёх правил</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-60238">
+                  <div class="ou-acc__body" role="region" id="b-20117">
                     <!-- поля правила -->
                   </div>
                 </div>
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-67264">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-56685">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{srok}}</span>
                       <span class="ou-acc__subtitle">Число · равно 15</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-67264">
+                  <div class="ou-acc__body" role="region" id="b-56685">
                     <!-- поля правила -->
                   </div>
                 </div>
@@ -275,14 +261,14 @@
               <span class="ou-formfield__lbl">Пропуски</span>
               <div class="ou-acc ou-acc--bordered">
                 <div class="ou-acc__item is-open">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-60238">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-20117">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{organ}}</span>
                       <span class="ou-acc__subtitle">Текст · любое из трёх правил</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-60238">
+                  <div class="ou-acc__body" role="region" id="b-20117">
                     <div class="ou-formgroup ou-formgroup--one">
                       <div class="ou-formfield">
                         <span class="ou-formfield__lbl">Ответ участника — это</span>
@@ -303,40 +289,40 @@
                         <span class="ou-formfield__lbl">Правила</span>
                         <div class="ou-acc ou-acc--bordered">
                           <div class="ou-acc__item">
-                            <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-15426">
+                            <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-16143">
                               <span class="ou-acc__trigger-text">
                                 <span class="ou-acc__title">Ростехнадзор</span>
                                 <span class="ou-acc__subtitle">Обычное сравнение</span>
                               </span>
                               <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                             </button>
-                            <div class="ou-acc__body" role="region" id="b-15426">
+                            <div class="ou-acc__body" role="region" id="b-16143">
                               <!-- поля правила -->
                             </div>
                           </div>
                           <div class="tb-rules__join">или</div>
                           <div class="ou-acc__item">
-                            <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-35680">
+                            <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-71470">
                               <span class="ou-acc__trigger-text">
                                 <span class="ou-acc__title">РТН</span>
                                 <span class="ou-acc__subtitle">Обычное сравнение</span>
                               </span>
                               <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                             </button>
-                            <div class="ou-acc__body" role="region" id="b-35680">
+                            <div class="ou-acc__body" role="region" id="b-71470">
                               <!-- поля правила -->
                             </div>
                           </div>
                           <div class="tb-rules__join">или</div>
                           <div class="ou-acc__item">
-                            <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-10763">
+                            <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-50048">
                               <span class="ou-acc__trigger-text">
                                 <span class="ou-acc__title">Федеральная служба по * надзору</span>
                                 <span class="ou-acc__subtitle">Обычное сравнение</span>
                               </span>
                               <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                             </button>
-                            <div class="ou-acc__body" role="region" id="b-10763">
+                            <div class="ou-acc__body" role="region" id="b-50048">
                               <!-- поля правила -->
                             </div>
                           </div>
@@ -361,14 +347,14 @@
                   </div>
                 </div>
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-67264">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-56685">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{srok}}</span>
                       <span class="ou-acc__subtitle">Число · равно 15</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-67264">
+                  <div class="ou-acc__body" role="region" id="b-56685">
                     <!-- поля правила -->
                   </div>
                 </div>
@@ -380,26 +366,26 @@
               <span class="ou-formfield__lbl">Пропуски</span>
               <div class="ou-acc ou-acc--bordered">
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-60238">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-20117">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{organ}}</span>
                       <span class="ou-acc__subtitle">Текст · любое из трёх правил</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-60238">
+                  <div class="ou-acc__body" role="region" id="b-20117">
                     <!-- поля правила -->
                   </div>
                 </div>
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-67264">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-56685">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{srok}}</span>
                       <span class="ou-acc__subtitle">Число · равно 15</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-67264">
+                  <div class="ou-acc__body" role="region" id="b-56685">
                     <!-- поля правила -->
                   </div>
                 </div>
@@ -411,38 +397,38 @@
               <span class="ou-formfield__lbl">Пропуски</span>
               <div class="ou-acc ou-acc--bordered">
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-60238">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-20117">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{organ}}</span>
                       <span class="ou-acc__subtitle">Текст · любое из трёх правил</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-60238">
+                  <div class="ou-acc__body" role="region" id="b-20117">
                     <!-- поля правила -->
                   </div>
                 </div>
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-67264">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-56685">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{srok}}</span>
                       <span class="ou-acc__subtitle">Число · равно 15</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-67264">
+                  <div class="ou-acc__body" role="region" id="b-56685">
                     <!-- поля правила -->
                   </div>
                 </div>
                 <div class="ou-acc__item is-open">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-42971">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="true" aria-controls="b-39658">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{kto}}</span>
                       <span class="ou-acc__subtitle">Правил нет</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-42971">
+                  <div class="ou-acc__body" role="region" id="b-39658">
                     <div class="ou-formgroup ou-formgroup--one">
                       <div class="ou-formfield">
                         <span class="ou-formfield__lbl">Правила</span>
@@ -467,14 +453,14 @@
               <span class="ou-formfield__lbl">Пропуски</span>
               <div class="ou-acc ou-acc--bordered">
                 <div class="ou-acc__item">
-                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-60238">
+                  <button type="button" class="ou-acc__trigger" aria-expanded="false" aria-controls="b-20117">
                     <span class="ou-acc__trigger-text">
                       <span class="ou-acc__title tb-mono">{{organ}}</span>
                       <span class="ou-acc__subtitle">Текст · любое из трёх правил</span>
                     </span>
                     <span class="ou-acc__chev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
-                  <div class="ou-acc__body" role="region" id="b-60238">
+                  <div class="ou-acc__body" role="region" id="b-20117">
                     <!-- поля правила -->
                   </div>
                 </div>
