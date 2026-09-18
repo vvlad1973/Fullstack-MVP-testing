@@ -109,3 +109,33 @@ export function richTextToPlain(text: unknown, format?: RichTextFormat | null): 
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+/** Default cut for the learner card's subtitle (PRD-59 FR-21). */
+export const ONE_LINE_LIMIT = 120;
+
+/**
+ * Author's text as an INDEX ENTRY: one line, no markup, no line breaks, cut to
+ * length. The learner's test card is the only consumer.
+ *
+ * The card is not a reading surface. Its list is laid out as a grid, and a grid row
+ * takes the height of its tallest card — so one long description lifts the whole row.
+ * Cutting by LENGTH rather than by rendered lines keeps the result independent of the
+ * card's width and of how a browser counts lines inside nested blocks.
+ *
+ * @param text Author's text.
+ * @param format Its format.
+ * @param limit Characters to keep; the ellipsis is added on top of it.
+ * @returns One line, ending in an ellipsis when something was dropped.
+ */
+export function richTextToOneLine(
+  text: unknown,
+  format?: RichTextFormat | null,
+  limit: number = ONE_LINE_LIMIT,
+): string {
+  const flat = richTextToPlain(text, format).replace(/\s+/g, " ").trim();
+  if (flat.length <= limit) return flat;
+  const cut = flat.slice(0, limit);
+  const lastSpace = cut.lastIndexOf(" ");
+  const head = lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
+  return head.replace(/[\s.,;:!?-]+$/u, "") + "…";
+}

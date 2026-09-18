@@ -3,7 +3,7 @@
  * @description PRD-59 FR-18: markup -> plain text with line breaks preserved.
  */
 import { describe, it, expect } from "vitest";
-import { richTextToPlain } from "./rich-text";
+import { richTextToPlain, richTextToOneLine } from "./rich-text";
 
 describe("richTextToPlain", () => {
   it("returns plain source untouched, newlines and all", () => {
@@ -49,5 +49,32 @@ describe("richTextToPlain", () => {
   it("returns an empty string for empty input", () => {
     expect(richTextToPlain("   ", "richText")).toBe("");
     expect(richTextToPlain(null, "html")).toBe("");
+  });
+});
+
+describe("richTextToOneLine", () => {
+  it("collapses line breaks into spaces", () => {
+    expect(richTextToOneLine("<p>Первый</p><p>Второй</p>", "richText")).toBe("Первый Второй");
+  });
+
+  it("keeps a short text whole, without an ellipsis", () => {
+    expect(richTextToOneLine("Короткое описание.", "plain")).toBe("Короткое описание.");
+  });
+
+  it("cuts at a word boundary and marks the cut", () => {
+    const long =
+      "Курс для новых сотрудников компании, перед началом подготовьте паспорт данных и доступ к порталу обучения";
+    const out = richTextToOneLine(long, "plain", 40);
+    expect(out.endsWith("…")).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(41);
+    expect(out).toBe("Курс для новых сотрудников компании…");
+  });
+
+  it("cuts inside a word when there is no space to cut at", () => {
+    expect(richTextToOneLine("Абвгдеёжзийклмн", "plain", 5)).toBe("Абвгд…");
+  });
+
+  it("returns an empty string for empty input", () => {
+    expect(richTextToOneLine("", "richText")).toBe("");
   });
 });
