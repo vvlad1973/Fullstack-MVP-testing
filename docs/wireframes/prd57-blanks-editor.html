@@ -133,14 +133,17 @@
       <div class="ou-drawer__body" tabindex="0">
         <div class="ou-stack ou-stack--gap-5">
 
+          <!-- Тип вопроса выбирается Select с пиктограммами — решение владельца
+               2026-09-18 (вариант А, prd57-answer-rule.html). Девять типов
+               в SegmentedControl не помещались. -->
           <div class="ou-formfield">
             <span class="ou-formfield__lbl">Тип вопроса</span>
-            <div class="ou-seg" role="group" aria-label="Тип вопроса">
-              <button type="button" class="ou-seg__item" aria-pressed="false">Короткий ответ</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Развёрнутый ответ</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Пропуски</button>
+            <div class="ou-select ou-field--m ou-field--full">
+              <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="ou-select__value"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg></span>Пропуски</span>
+                <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
             </div>
-            <span class="ou-formfield__desc">Показаны только типы этого трека — полный переключатель и вопрос о его вместимости см. в prd57-answer-rule.html</span>
           </div>
 
           <!-- Панель редактирования текста — штатный подвал Textarea. Кнопка
