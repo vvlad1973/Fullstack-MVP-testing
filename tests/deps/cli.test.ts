@@ -247,6 +247,7 @@ describe("run — пути без обращения к сети", () => {
       findArtifacts: async (pkg: { name: string; scope: string; version: string }) => [
         { npm: { name: pkg.name, scope: pkg.scope, version: pkg.version }, state: { status: "PERMITTED" } },
       ],
+      sent: () => 0,
     };
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
@@ -393,7 +394,7 @@ describe("run — цикл проверки пакетов, с подставн�
       }),
     );
     const out = join(dir, "report");
-    const fakeClient = { findArtifacts: async (pkg: { name: string; scope: string; version: string }) => permitted(pkg) };
+    const fakeClient = { findArtifacts: async (pkg: { name: string; scope: string; version: string }) => permitted(pkg), sent: () => 0 };
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       const code = await run(["--lock", file, "--out", out, "--cache", join(dir, "cache")], {
@@ -429,7 +430,7 @@ describe("run — цикл проверки пакетов, с подставн�
       }),
     );
     const out = join(dir, "report");
-    const fakeClient = { findArtifacts: async (pkg: { name: string; scope: string; version: string }) => permitted(pkg) };
+    const fakeClient = { findArtifacts: async (pkg: { name: string; scope: string; version: string }) => permitted(pkg), sent: () => 0 };
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       const code = await run(
