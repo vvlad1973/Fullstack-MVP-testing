@@ -16,6 +16,22 @@ const MAX_RECORDS = 200;
 const MAX_REFUSALS = 3;
 
 /**
+ * Builds an Error that means "stop the whole run", not just "this one package failed" — the
+ * three cases below (dead login, repeated refusals, a `Retry-After` longer than a minute) are
+ * exactly the ones spec section 5 says must end the run rather than skip a package and move on.
+ * The `stopRun` flag is how the CLI tells the two apart; it deliberately does NOT rely on
+ * sniffing the message text with a regex, because a reworded message would silently turn a
+ * required stop into a skipped package — the failure mode is invisible until the account it was
+ * meant to protect gets blocked.
+ *
+ * @param {string} message Human-readable reason, already in the language the CLI prints.
+ * @returns {Error & {stopRun: true}}
+ */
+function stopError(message) {
+  return Object.assign(new Error(message), { stopRun: true });
+}
+
+/**
  * @param {object} options
  * @param {typeof fetch} [options.fetchImpl]
  * @param {(opts?: {force?: boolean}) => Promise<string>} options.getToken
@@ -60,7 +76,7 @@ export function createClient({
       if (response.ok) return (await response.json()).artifacts ?? [];
 
       if (response.status === 401) {
-        if (retriedAuth) throw new Error("401 от системы после обновления токена: вход больше не действует");
+        if (retriedAuth) throw stopError("401 от системы после обновления токена: вход больше не действует");
         retriedAuth = true;
         continue;
       }
@@ -68,13 +84,13 @@ export function createClient({
       refusals += 1;
       const plan = retryPlan(refusals - 1, response.headers?.get?.("Retry-After") ?? null);
       if (plan.stop) {
-        throw new Error(
+        throw stopError(
           `Система просит подождать ${Math.round(plan.askedMs / 1000)} секунд — это дольше минуты, ` +
             `прогон остановлен. Проверенное сохранено в кэше, вернитесь позже.`,
         );
       }
       if (refusals >= MAX_REFUSALS) {
-        throw new Error(`${response.status} от системы трижды подряд: прогон остановлен`);
+        throw stopError(`${response.status} от системы трижды подряд: прогон остановлен`);
       }
       await sleep(plan.waitMs);
     }

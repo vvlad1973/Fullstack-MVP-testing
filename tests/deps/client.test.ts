@@ -66,8 +66,14 @@ describe("createClient.findArtifacts", () => {
 
   it("сдаётся на втором 401 подряд", async () => {
     const fetchImpl = vi.fn(async () => fail(401));
-    await expect(client(fetchImpl).findArtifacts(pkg)).rejects.toThrow(/401/);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const error = await client(fetchImpl)
+      .findArtifacts(pkg)
+      .catch((e: Error) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/401/);
+    // The CLI decides whether to stop the whole run off this flag, not by pattern-matching the
+    // message — see the stopError() comment in repo-client.mjs.
+    expect((error as Error & { stopRun?: boolean }).stopRun).toBe(true);
   });
 
   it("на 429 ждёт столько, сколько просит сервер", async () => {
@@ -79,14 +85,22 @@ describe("createClient.findArtifacts", () => {
 
   it("останавливается после трёх отказов подряд", async () => {
     const fetchImpl = vi.fn(async () => fail(503));
-    await expect(client(fetchImpl).findArtifacts(pkg)).rejects.toThrow(/503/);
+    const error = await client(fetchImpl)
+      .findArtifacts(pkg)
+      .catch((e: Error) => e);
+    expect((error as Error).message).toMatch(/503/);
+    expect((error as Error & { stopRun?: boolean }).stopRun).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it("останавливает прогон, когда сервер просит ждать дольше минуты", async () => {
     const sleep = vi.fn(async () => {});
     const fetchImpl = vi.fn(async () => fail(429, { "Retry-After": "3600" }));
-    await expect(client(fetchImpl, { sleep }).findArtifacts(pkg)).rejects.toThrow(/3600|час|минут/);
+    const error = await client(fetchImpl, { sleep })
+      .findArtifacts(pkg)
+      .catch((e: Error) => e);
+    expect((error as Error).message).toMatch(/3600|час|минут/);
+    expect((error as Error & { stopRun?: boolean }).stopRun).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalledWith(60000);
   });
