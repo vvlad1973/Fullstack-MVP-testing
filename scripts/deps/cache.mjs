@@ -24,45 +24,55 @@ export const CACHE = Object.freeze({
 });
 
 /**
+ * Percent-encodes one name/scope/version component for use inside a cache file name.
+ *
+ * `encodeURIComponent` alone is not enough: per its spec, it leaves `! ~ * ' ( )`
+ * untouched (verified directly — `encodeURIComponent("a!b") === "a!b"`) while it does
+ * escape `@`, `/`, `+` and everything else this function needs gone. `!` is exactly the
+ * separator `cacheFileName` inserts between components, so the one character
+ * `encodeURIComponent` refuses to touch is the one that matters most here — hence the
+ * explicit `%21` pass after it.
+ *
+ * @param {string} value
+ * @returns {string} `value` with every `!`, `@`, `/` (and anything else URI-unsafe)
+ *   replaced by a `%XX` escape, so none of them can appear literally in the result.
+ */
+function encodePart(value) {
+  return encodeURIComponent(value).replace(/!/g, "%21");
+}
+
+/**
  * Cache file name for a package.
  *
- * `/` is replaced with `!` because a path separator cannot sit inside a single file name —
- * that is a filesystem constraint, not an npm one. It is the only character among
- * `@scope/name` that needed handling: Windows also forbids `< > : " \ | ? *`, but npm never
- * puts any of those into a name or scope, so none of them can reach here.
+ * Scope, name and version are each percent-encoded on their own (see `encodePart`) before
+ * being joined with literal `!` and `@`. That is what makes the split unambiguous, and it no
+ * longer depends on knowing npm's naming rules — a dependency this project has already got
+ * wrong twice (assuming a name/version charset that does not exist, then assuming
+ * `encodeURIComponent` alone strips `!`). After encoding, NEITHER `!` NOR `@` can occur
+ * inside an encoded scope/name/version — every literal `!` or `@` gets replaced by its
+ * `%XX` escape. So the only `!` and `@` characters anywhere in the final file name are the
+ * ones this function inserts itself: one `!` between an encoded scope and the encoded name
+ * (scoped packages only), and one `@` before the encoded version. A scoped file name always
+ * starts with a literal `@` (scope keeps its own, unencoded, leading `@` as the "this is
+ * scoped" marker); an unscoped one, built purely from encoded parts, can never contain a
+ * literal `@` at all — so the two families can never collide. And because a literal `!`
+ * inside a scope or name is now impossible (it became `%21`), two DIFFERENT scoped packages
+ * can no longer collide either: scope `@a` name `b!c` and scope `@a!b` name `c` used to both
+ * flatten to `@a!b!c` (see the earlier revision of this comment, which only argued the
+ * scoped/unscoped case and left this one open); they now encode to `@a!b%21c@…` and
+ * `@a%21b!c@…`, which are different strings.
  *
- * `!` was NOT picked because npm forbids it in a name — it does not, and an earlier version
- * of this comment claimed a name/version alphabet (lowercase letters, digits, `-`, `_`, `.`)
- * that does not hold. Verified directly: `encodeURIComponent("a!b") === "a!b"`, i.e. npm's
- * own name-validity check (URL-friendliness) does not exclude `!`, nor `~ ' ( ) *`, nor a
- * legacy uppercase name. So no separator drawn from characters npm merely tends not to use
- * is safe by charset alone — a package could, in principle, be named to contain almost any
- * of them.
- *
- * What actually rules out a collision between a SCOPED and an UNSCOPED package is
- * structural, not charset-based: an unscoped package's own name can never contain `@`
- * anywhere (the same URL-friendliness check fails on a bare `@`, and `@scope/name` is the
- * only shape npm carves out an exception for), while a scoped file name built here always
- * starts with its scope's own leading `@`. A string that starts with `@` and a string that
- * cannot contain `@` at all can never be equal — regardless of what `!` or anything else
- * does inside the rest of either name. That is the actual guarantee behind the cache key in
- * spec §4 (`@scope!name@version`). It is also why an earlier version of this function, which
- * joined scope and name with `__` — an ordinary legal name character — let the unscoped
- * package `a__b` collide with the scoped package `@a/b` on one cache file: nothing about
- * `__` carried the leading-`@` distinction. Do not "clean up" the `!` back to `__` or `-`;
- * both reopen that collision.
- *
- * This does not prove two DIFFERENT scoped packages can never collide — e.g. scope `@a` name
- * `b!c` and scope `@a!b` name `c` both flatten to `@a!b!c`. Nothing in this project's
- * lockfiles has ever had a `!` inside a name, and it would take a legacy-style name npm
- * itself steers people away from, but the leading-`@` argument above does not rule it out.
+ * Do not "clean up" this back to raw concatenation (`__`, unencoded `!`, or anything else
+ * that skips `encodePart`): every earlier version of this function that skipped encoding a
+ * component reopened a real collision, found by review rather than by any test that existed
+ * at the time.
  *
  * @param {{name: string, scope: string, version: string}} pkg
  * @returns {string}
  */
 export function cacheFileName(pkg) {
-  const scope = pkg.scope ? `${pkg.scope}!` : "";
-  return `${scope}${pkg.name}@${pkg.version}.json`;
+  const scope = pkg.scope ? `@${encodePart(pkg.scope.slice(1))}!` : "";
+  return `${scope}${encodePart(pkg.name)}@${encodePart(pkg.version)}.json`;
 }
 
 /**

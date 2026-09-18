@@ -133,4 +133,10 @@ describe("cacheFileName — коллизия исключена", () => {
     const flattened = { name: "a__b", scope: "", version: "1.0.0" };
     expect(cacheFileName(scoped)).not.toBe(cacheFileName(flattened));
   });
+
+  it("два РАЗНЫХ scoped-пакета с `!` внутри имени тоже не совпадают", () => {
+    const a = { scope: "@a", name: "b!c", version: "1.0.0" };
+    const b = { scope: "@a!b", name: "c", version: "1.0.0" };
+    expect(cacheFileName(a)).not.toBe(cacheFileName(b));
+  });
 });
