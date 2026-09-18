@@ -7,8 +7,8 @@ function ok(artifacts: unknown[]) {
   return { ok: true, status: 200, json: async () => ({ artifacts }), headers: new Headers() };
 }
 
-function fail(status: number, headers: Record<string, string> = {}) {
-  return { ok: false, status, json: async () => ({}), headers: new Headers(headers), text: async () => "" };
+function fail(status: number, headers: Record<string, string> = {}, body = "") {
+  return { ok: false, status, json: async () => ({}), headers: new Headers(headers), text: async () => body };
 }
 
 function client(fetchImpl: unknown, overrides = {}) {
@@ -19,6 +19,11 @@ function client(fetchImpl: unknown, overrides = {}) {
     random: () => 0,
     ...overrides,
   });
+}
+
+/** A page of 50 records under an unrelated name — noise a substring search on `pkg.name` could return. */
+function noisePage(from: number) {
+  return Array.from({ length: 50 }, (_, i) => ({ npm: { name: "noise", scope: "", version: `9.9.${from + i}` } }));
 }
 
 describe("createClient.findArtifacts", () => {
@@ -55,6 +60,27 @@ describe("createClient.findArtifacts", () => {
     expect(sleep).toHaveBeenCalledWith(500);
   });
 
+  it("пауза наступает ДО fetch, а не после — иначе первый запрос уходит без задержки", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async () => ok([]));
+    await client(fetchImpl, { sleep }).findArtifacts(pkg);
+    expect(sleep.mock.invocationCallOrder[0]).toBeLessThan(fetchImpl.mock.invocationCallOrder[0]);
+  });
+
+  it("темп получает случайную добавку: random: () => 0.5 даёт 600 мс, а не голые 500", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async () => ok([]));
+    await client(fetchImpl, { sleep, random: () => 0.5 }).findArtifacts(pkg);
+    expect(sleep).toHaveBeenCalledWith(600);
+  });
+
+  it("передаёт fetch сигнал с таймаутом, чтобы зависшее соединение не вешало прогон навсегда", async () => {
+    const fetchImpl = vi.fn(async () => ok([]));
+    await client(fetchImpl).findArtifacts(pkg);
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("обновляет токен на 401 и повторяет запрос один раз", async () => {
     const fetchImpl = vi.fn().mockResolvedValueOnce(fail(401)).mockResolvedValueOnce(ok([]));
     const getToken = vi.fn().mockResolvedValueOnce("T0").mockResolvedValueOnce("T1");
@@ -62,6 +88,21 @@ describe("createClient.findArtifacts", () => {
 
     expect(getToken).toHaveBeenLastCalledWith({ force: true });
     expect(fetchImpl.mock.calls[1][1].headers.Authorization).toBe("Bearer T1");
+  });
+
+  it("не форсирует повторное обновление токена после уже прошедшего 401 в том же вызове", async () => {
+    // 401 forces one refresh; the retry that follows gets a 503 (unrelated) and succeeds on the
+    // third attempt — that third getToken() call must NOT carry {force: true} again, or every
+    // retry after a 401 would keep forcing a fresh token for no reason.
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(fail(401))
+      .mockResolvedValueOnce(fail(503))
+      .mockResolvedValueOnce(ok([]));
+    const getToken = vi.fn(async () => "T");
+    const sleep = vi.fn(async () => {});
+    await client(fetchImpl, { getToken, sleep }).findArtifacts(pkg);
+    expect(getToken.mock.calls).toEqual([[undefined], [{ force: true }], [undefined]]);
   });
 
   it("сдаётся на втором 401 подряд", async () => {
@@ -105,23 +146,94 @@ describe("createClient.findArtifacts", () => {
     expect(sleep).not.toHaveBeenCalledWith(60000);
   });
 
+  it("сдаётся сразу на статусе, который бессмысленно повторять (400), без пометки stopRun", async () => {
+    const fetchImpl = vi.fn(async () => fail(400, {}, "scope и name обязательны"));
+    const error = await client(fetchImpl)
+      .findArtifacts(pkg)
+      .catch((e: Error) => e);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect((error as Error).message).toMatch(/400/);
+    // The response body is the only diagnosis a reverse-engineered API gives us — must not be lost.
+    expect((error as Error).message).toContain("scope и name обязательны");
+    expect((error as Error & { stopRun?: boolean }).stopRun).toBeUndefined();
+  });
+
+  it("повторяет сетевое исключение (например обрыв соединения) так же, как 5xx", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn().mockRejectedValueOnce(new Error("ECONNRESET")).mockResolvedValueOnce(ok([]));
+    const artifacts = await client(fetchImpl, { sleep }).findArtifacts(pkg);
+    expect(artifacts).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("останавливает прогон после трёх сетевых сбоев подряд, как и для 5xx", async () => {
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("ECONNRESET");
+    });
+    const error = await client(fetchImpl, { sleep })
+      .findArtifacts(pkg)
+      .catch((e: Error) => e);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect((error as Error & { stopRun?: boolean }).stopRun).toBe(true);
+    expect((error as Error).message).toMatch(/ECONNRESET/);
+  });
+
+  it("после остановки прогона больше не обращается к сети на следующем вызове findArtifacts", async () => {
+    const fetchImpl = vi.fn(async () => fail(503));
+    const sleep = vi.fn(async () => {});
+    const c = client(fetchImpl, { sleep });
+    await expect(c.findArtifacts(pkg)).rejects.toMatchObject({ stopRun: true });
+    const callsAfterStop = fetchImpl.mock.calls.length;
+
+    await expect(c.findArtifacts({ ...pkg, version: "9.9.9" })).rejects.toMatchObject({ stopRun: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(callsAfterStop);
+  });
+
   it("считает ответ без поля artifacts пустой страницей, а не падает", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}), headers: new Headers() }));
     await expect(client(fetchImpl).findArtifacts(pkg)).resolves.toEqual([]);
   });
 
-  it("останавливается на потолке в 200 записей, даже если страницы всё ещё полны", async () => {
-    const full = (from: number) => Array.from({ length: 50 }, (_, i) => ({ npm: { version: `0.4.${from + i}` } }));
+  it("пагинация продолжается дальше прежнего потолка в 200 записей (потолок теперь 1000)", async () => {
+    const match = { npm: { name: pkg.name, scope: pkg.scope, version: pkg.version } };
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(ok(full(0)))
-      .mockResolvedValueOnce(ok(full(50)))
-      .mockResolvedValueOnce(ok(full(100)))
-      .mockResolvedValueOnce(ok(full(150)));
+      .mockResolvedValueOnce(ok(noisePage(0)))
+      .mockResolvedValueOnce(ok(noisePage(50)))
+      .mockResolvedValueOnce(ok(noisePage(100)))
+      .mockResolvedValueOnce(ok(noisePage(150)))
+      .mockResolvedValueOnce(ok(noisePage(200)))
+      .mockResolvedValueOnce(ok([...noisePage(250).slice(0, 9), match]));
     const artifacts = await client(fetchImpl).findArtifacts(pkg);
 
-    expect(artifacts).toHaveLength(200);
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(artifacts).toHaveLength(260);
+  });
+
+  it("на потолке в 1000 записей без точного совпадения бросает обычную (не stopRun) ошибку, не молчит", async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async () => ok(noisePage(call++ * 50)));
+    const error = await client(fetchImpl)
+      .findArtifacts(pkg)
+      .catch((e: Error) => e);
+    expect(fetchImpl).toHaveBeenCalledTimes(20); // 1000 / 50
+    expect((error as Error).message).toMatch(/обрезан/);
+    expect((error as Error).message).toContain("1000");
+    expect((error as Error & { stopRun?: boolean }).stopRun).toBeUndefined();
+  });
+
+  it("не бросает ошибку на потолке, если точное совпадение уже нашлось раньше", async () => {
+    let call = 0;
+    const fetchImpl = vi.fn(async () => {
+      const page = noisePage(call * 50);
+      if (call === 0) page[0] = { npm: { name: pkg.name, scope: pkg.scope, version: pkg.version } };
+      call += 1;
+      return ok(page);
+    });
+    const artifacts = await client(fetchImpl).findArtifacts(pkg);
+    expect(artifacts).toHaveLength(1000);
+    expect(fetchImpl).toHaveBeenCalledTimes(20);
   });
 
   it("удваивает выдержку по умолчанию, когда 503 пришёл без Retry-After", async () => {
