@@ -25,12 +25,16 @@
         подпись «Разметка», а не «Обычный»: у обратной связи «Обычный» значит
         «экранировать и показать разметку текстом», и одно слово не должно
         значить в продукте разное;
-      - механики трека — пропуски и формулы — работают во ВСЕХ режимах.
+      - механики трека — пропуски и формулы — работают во ВСЕХ режимах;
+      - листинг кода идёт С ПОДСВЕТКОЙ СИНТАКСИСА, языки: python, sql,
+        javascript. Это ОТМЕНЯЕТ FR-03 спеки, где подсветка выведена
+        из охвата; §4.1 требует правки.
 
     Состояния (переключатель в навбаре):
       s-md        — режим «Разметка»: панель вставки, огорождённый блок кода
       s-rich      — режим «Форматированный»: панель форматирования + та же вставка
       s-html      — режим «HTML»: сырая разметка, листинг тегами
+      s-lang      — выбор языка при вставке листинга
       s-diag      — режим «HTML»: диагностика вырезанного при сохранении
       s-switch    — предупреждение при переключении режима
       s-preview   — как задание увидит участник (во всех режимах одинаково)
@@ -91,6 +95,20 @@
       border-radius: var(--ou-radius-m); padding: var(--ou-space-3) var(--ou-space-4);
       white-space: pre; tab-size: 4;
     }
+    /* Палитра подсветки. Ролей ПЯТЬ, и это осознанно: подсветка не должна знать
+       язык глубоко, ей достаточно отличить ключевое слово от строки, числа,
+       комментария и имени. Цвета — токены ШАБЛОНА, а не тема библиотеки:
+       иначе светлая и тёмная темы шаблона разойдутся с палитрой библиотеки,
+       и контраст перестанет проходить гейт проекта.
+       Имена классов СВОИ, не библиотечные: пререндер переводит вывод движка
+       в эти пять ролей, поэтому таблица стилей шаблона не зависит от того,
+       какой движок в итоге выбран. */
+    .tb-code__kw  { color: var(--ou-accent-on-soft); font-weight: 600; }
+    .tb-code__str { color: var(--ou-success-on-soft); }
+    .tb-code__num { color: var(--ou-warning-on-soft); }
+    .tb-code__com { color: var(--ou-fg-muted); font-style: italic; }
+    .tb-code__fn  { color: var(--ou-info-on-soft); }
+
     .tb-code-inline {
       font-family: var(--ou-font-family-mono); font-size: var(--ou-text-mono-s-size);
       background: var(--ou-bg-surface-2); border-radius: var(--ou-radius-s);
@@ -110,6 +128,7 @@
   <button class="wf-btn"        type="button" onclick="showState(this,'s-rich')">Форматированный</button>
   <button class="wf-btn"        type="button" onclick="showState(this,'s-html')">HTML</button>
   <div class="wf-nav-sep"></div>
+  <button class="wf-btn" type="button" onclick="showState(this,'s-lang')">Язык листинга</button>
   <button class="wf-btn" type="button" onclick="showState(this,'s-diag')">Вырезано при сохранении</button>
   <button class="wf-btn" type="button" onclick="showState(this,'s-switch')">Смена режима</button>
   <button class="wf-btn" type="button" onclick="showState(this,'s-preview')">Как увидит участник</button>
@@ -192,7 +211,7 @@ SELECT COUNT(*)
                   <span class="ou-textarea__count">1 листинг · 1 формула · 1 пропуск</span>
                 </div>
               </div>
-              <span class="ou-textarea__msg">Жирный и курсив — звёздочками, ссылка — квадратными скобками. Листинг — тремя обратными кавычками с языком, формула — двумя долларами, пропуск — двойными фигурными скобками.</span>
+              <span class="ou-textarea__msg">Жирный и курсив — звёздочками, ссылка — квадратными скобками. Листинг — тремя обратными кавычками с языком: python, sql или javascript. Формула — двумя долларами, пропуск — двойными фигурными скобками.</span>
             </label>
           </div>
 
@@ -349,6 +368,80 @@ SELECT COUNT(*)
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
+     s-lang — выбор языка при вставке листинга
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="wf-state" id="s-lang">
+  <div class="ou-drawer-root" role="dialog" aria-modal="true" aria-labelledby="lang-title">
+    <div class="ou-drawer__backdrop"></div>
+    <aside class="ou-drawer ou-drawer--wide ou-drawer--right">
+      <header class="ou-drawer__head">
+        <div class="ou-drawer__head-text">
+          <h1 id="lang-title" class="ou-drawer__title">Вопрос</h1>
+          <p class="ou-drawer__desc">Тема: Работа с базой данных</p>
+        </div>
+        <button type="button" class="ou-drawer__close" aria-label="Закрыть">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </header>
+      <div class="ou-drawer__body" tabindex="0">
+        <div class="ou-stack ou-stack--gap-5">
+
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Текст вопроса</span>
+            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
+            </div>
+
+            <label class="ou-textarea ou-textarea--full tb-src" style="margin-top:var(--ou-space-2)">
+              <div class="ou-textarea__box">
+                <textarea class="ou-textarea__input" rows="4">Что выведет запрос, если таблица `orders` пуста?</textarea>
+                <div class="ou-textarea__footer">
+                  <span class="ou-textarea__toolbar">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs is-active">
+                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>
+                      Листинг
+                    </button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
+                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>
+                      Формула
+                    </button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs">
+                      <span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>
+                      Пропуск
+                    </button>
+                  </span>
+                  <span class="ou-textarea__count">пропусков нет</span>
+                </div>
+              </div>
+            </label>
+
+            <div class="wf-annot-wrap wf-annot-wrap--block" style="margin-top:var(--ou-space-2)">
+              <span class="wf-annot">язык выбирается, а не набирается</span>
+              <div class="ou-menu" role="menu" aria-label="Язык листинга" style="position:static;width:var(--wf-size-240)">
+                <div class="ou-menu__label">Язык листинга</div>
+                <button type="button" class="ou-menu__item" role="menuitem">Python</button>
+                <button type="button" class="ou-menu__item" role="menuitem">SQL</button>
+                <button type="button" class="ou-menu__item" role="menuitem">JavaScript</button>
+                <div class="ou-menu__divider"></div>
+                <button type="button" class="ou-menu__item" role="menuitem">Без подсветки</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <footer class="ou-drawer__foot">
+        <div style="margin-right:auto"></div>
+        <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Отмена</button>
+        <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+      </footer>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
      s-diag — что вырезано при сохранении
      ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="wf-state" id="s-diag">
@@ -460,9 +553,11 @@ SELECT COUNT(*)
               <span class="wf-annot">FR-04 · FR-07</span>
               <div style="--tb-answer-fs:17px;border:1px solid var(--ou-border-soft);border-radius:var(--ou-radius-l);background:var(--ou-bg-surface-2);padding:var(--ou-space-5);display:flex;flex-direction:column;gap:var(--ou-space-4)">
                 <p style="margin:0;font:var(--ou-text-body-l);color:var(--ou-fg-default)">Что выведет запрос, если таблица <span class="tb-code-inline">orders</span> пуста?</p>
-                <span class="tb-code">SELECT COUNT(*)
-  FROM orders
- WHERE status = 'new';</span>
+                <span class="tb-code"><span class="tb-code__com">-- заказы, ожидающие обработки</span>
+<span class="tb-code__kw">SELECT</span> <span class="tb-code__fn">COUNT</span>(*)
+  <span class="tb-code__kw">FROM</span> orders
+ <span class="tb-code__kw">WHERE</span> status = <span class="tb-code__str">'new'</span>
+   <span class="tb-code__kw">AND</span> amount &gt; <span class="tb-code__num">0</span>;</span>
                 <p style="margin:0;font:var(--ou-text-body-l);color:var(--ou-fg-default)">Долю выполненных заказов считают по формуле <span class="tb-formula"><svg width="52" height="34" viewBox="0 0 52 34" fill="none" role="img" aria-label="дробь: n вып делить на n всего"><text x="26" y="14" text-anchor="middle" font-size="12" fill="currentColor">n вып</text><line x1="6" y1="18" x2="46" y2="18" stroke="currentColor" stroke-width="1"/><text x="26" y="31" text-anchor="middle" font-size="12" fill="currentColor">n всего</text></svg></span>, а порог приёмки —
                   <span class="ou-field ou-field--m" style="width:8ch"><span class="ou-field__box" style="padding-inline:var(--ou-space-2)"><input class="ou-field__input" type="text" value="" aria-label="Пропуск porog" /></span></span>
                   процентов.</p>
@@ -566,6 +661,57 @@ SELECT COUNT(*)
       <tr>
         <td><strong>Панель вставки одна на три кнопки</strong>, в подвале поля.</td>
         <td>Три разные панели означали бы три места, где автор ищет вставку. Кнопка вставки — обязательная часть редактора, а не удобство (FR-24b): без неё автор помнит синтаксис наизусть, и механикой не пользуются.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="wf-notes" aria-label="Подсветка синтаксиса">
+  <h3 class="wf-notes-title">Подсветка синтаксиса — решение и следствия</h3>
+  <p class="wf-notes-text">Решение владельца 2026-09-18: листинг кода показывается с подсветкой;
+  поддерживаются <strong>python, sql, javascript</strong>. Это ОТМЕНЯЕТ FR-03, где подсветка
+  выведена из охвата с обоснованием «требует внешней библиотеки и знания языка», — §4.1 спеки
+  требует правки.</p>
+  <table>
+    <thead>
+      <tr><th>Решение эскиза</th><th>Почему так</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Подсветка считается на СЕРВЕРЕ при сохранении вопроса.</strong> Хранятся исходный код, язык и размеченный результат; в SCORM-пакет уезжает только результат и небольшая таблица стилей темы.</td>
+        <td>Ровно та же развилка, что у формул, и решённая там же (FR-07, §4.2.1): вопрос не в качестве рендера, а в том, где живёт зависимость и что уезжает в чужую LMS. Библиотека подсветки в пакете означала бы её вес в КАЖДОМ ZIP и исполнение в неизвестном парке браузеров корпоративных порталов. На сервере она — обычная зависимость сборки.</td>
+      </tr>
+      <tr>
+        <td><strong>Ролей подсветки пять:</strong> ключевое слово, строка, число, комментарий, имя функции или таблицы. Всё остальное печатается основным цветом.</td>
+        <td>Подсветке не нужно знать язык глубоко — ей достаточно отличить эти пять сущностей, и такой набор одинаково работает на всех трёх языках. Богатая палитра на коде из пяти строк превращается в рябь.</td>
+      </tr>
+      <tr>
+        <td><strong>Цвета — токены ШАБЛОНА, а не тема библиотеки.</strong> Классы в разметке тоже СВОИ (<code>tb-code__kw</code> и родня), пререндер переводит вывод движка в эти пять ролей.</td>
+        <td>Тема библиотеки не знает ни про светлую и тёмную темы шаблона, ни про гейт контраста проекта. Свои имена классов к тому же отвязывают таблицу стилей шаблона от выбора движка: сменить движок можно, не трогая оформление.</td>
+      </tr>
+      <tr>
+        <td><strong>Язык выбирается из списка, а не набирается.</strong> Четвёртый пункт — «Без подсветки».</td>
+        <td>Автор не должен гадать, как пишется язык в огорождённом блоке. Неизвестный или не указанный язык — не ошибка: листинг печатается моноширинным без цвета, как и сегодня.</td>
+      </tr>
+      <tr>
+        <td><strong>Служебная перегенерация обязательна.</strong></td>
+        <td>То же следствие, что у формул: смена темы или палитры не должна требовать ручной правки каждого вопроса.</td>
+      </tr>
+      <tr>
+        <td><strong>Типографика внутри кода по-прежнему не выполняется</strong> (FR-02).</td>
+        <td>Подсветка работает по исходному тексту и ничего в нём не заменяет: она добавляет разметку вокруг символов, а не меняет символы.</td>
+      </tr>
+      <tr>
+        <td><strong>Копирование кода участником не ломается.</strong></td>
+        <td>Подсветка — это вложенные <code>span</code> без собственного текста, поэтому выделение и копирование отдают ровно исходный код. Это преимущество перед формулами, которые уезжают картинкой и не выделяются.</td>
+      </tr>
+      <tr>
+        <td><strong>PDF-отчёт переживает подсветку.</strong></td>
+        <td><code>html2canvas</code> рисует CSS-боксы, а подсвеченный код — это обычный текст с цветом. В отличие от MathML, отвергнутого в §4.2.1 именно потому, что отчёт на нём ломается.</td>
+      </tr>
+      <tr>
+        <td><strong>Палитра обязана пройти гейт контраста проекта</strong> (<code>npm run check:contrast</code>) в обеих темах.</td>
+        <td>Пять цветов на подложке блока кода — ровно тот случай, ради которого гейт заводился. Значения в эскизе взяты из токенов, но проверку надо прогнать на реальной палитре.</td>
       </tr>
     </tbody>
   </table>
@@ -690,7 +836,7 @@ SELECT COUNT(*)
       <tr>
         <td>Листинг на экране участника</td>
         <td>всегда</td>
-        <td>Не переносит длинные строки, а прокручивается в своём контейнере (FR-04): перенос в коде меняет смысл. Подсветки синтаксиса в охвате нет (FR-03), поэтому <code>language-*</code> — задел на будущее и визуально ничего не даёт.</td>
+        <td>Не переносит длинные строки, а прокручивается в своём контейнере (FR-04): перенос в коде меняет смысл. Подсветка синтаксиса ЕСТЬ (решение владельца 2026-09-18), поэтому язык в <code>language-*</code> — рабочее значение, а не задел.</td>
       </tr>
       <tr>
         <td>Типографика внутри кода</td>
@@ -761,6 +907,11 @@ SELECT COUNT(*)
       <tr><th>Место</th><th>Неоднозначность</th><th>Решение в эскизе</th></tr>
     </thead>
     <tbody>
+      <tr>
+        <td><strong>0. Внешняя зависимость на подсветку</strong> — ТРЕБУЕТСЯ САНКЦИЯ</td>
+        <td>Подсветка синтаксиса без библиотеки означает писать разбор трёх языков самостоятельно. Кандидаты: <code>highlight.js</code> 11.12.0, лицензия BSD-3-Clause, распакованный пакет 5,5 МБ и 1569 файлов (ставится целиком, но импортируется ядро плюс три грамматики); <code>prismjs</code> 1.30.0, лицензия MIT, 2,05 МБ и 700 файлов.</td>
+        <td>Рекомендация — <code>highlight.js</code>, ТОЛЬКО как серверная зависимость: в SCORM-пакет она не попадает ни при каких обстоятельствах, поэтому её вес на выдачу не влияет вовсе. Альтернатива «написать самим» рассматривалась: для SQL это полтораста строк и приемлемое качество, для Python сложнее (тройные кавычки, f-строки), для JavaScript плохо — регулярное выражение против деления и шаблонные строки требуют настоящего разбора, и ошибки будут видны участнику. Решение за владельцем: без явного «да» зависимость не ставится.</td>
+      </tr>
       <tr>
         <td><strong>1. Маркер формулы</strong></td>
         <td>Спека называет нотацию (LaTeX, FR-06), но НЕ называет, чем формула отделяется от текста. Без маркера нечего искать ни при сохранении, ни при рендере.</td>
