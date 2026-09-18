@@ -1,53 +1,82 @@
-import { describe, expect, it } from "vitest";
-import { jitteredDelay, longPauseMs, retryDelayMs } from "../../scripts/deps/pace.mjs";
+import { describe, expect, it, vi } from "vitest";
+import { PACE, jitteredDelay, longPauseMs, retryPlan, sleep } from "../../scripts/deps/pace.mjs";
 
-describe("jitteredDelay", () => {
-  it("добавляет к базовой паузе случайную часть разброса", () => {
-    expect(jitteredDelay(500, 200, () => 0)).toBe(500);
-    expect(jitteredDelay(500, 200, () => 0.5)).toBe(600);
-  });
-
-  it("не добавляет разброс, когда он равен нулю", () => {
-    expect(jitteredDelay(500, 0, () => 0.99)).toBe(500);
-  });
-
-  it("округляет случайную добавку вниз до целых миллисекунд", () => {
-    expect(jitteredDelay(500, 200, () => 1 / 3)).toBe(566);
+describe("PACE", () => {
+  it("числа темпа соответствуют разделу 5 спецификации (docs/specs/tooling/deps-check.md)", () => {
+    expect(PACE).toEqual({
+      baseDelayMs: 500,
+      jitterMs: 200,
+      retryBaseMs: 2000,
+      retryMaxMs: 60000,
+      longPauseEvery: 50,
+      longPauseMs: 5000,
+    });
   });
 });
 
-describe("retryDelayMs", () => {
-  it("уважает Retry-After в секундах", () => {
-    expect(retryDelayMs(0, "3")).toBe(3000);
+describe("jitteredDelay", () => {
+  it("добавляет к базовой паузе случайную часть разброса", () => {
+    expect(jitteredDelay(500, () => 0)).toBe(500);
+    expect(jitteredDelay(500, () => 0.5)).toBe(600);
+  });
+
+  it("округляет случайную добавку вниз до целых миллисекунд", () => {
+    expect(jitteredDelay(500, () => 1 / 3)).toBe(566);
+  });
+
+  it("по умолчанию использует базу и разброс из PACE", () => {
+    expect(jitteredDelay(undefined, () => 0)).toBe(500);
+    expect(jitteredDelay(undefined, () => 0.999)).toBe(699);
+  });
+});
+
+describe("retryPlan", () => {
+  it("уважает Retry-After в секундах, если он не больше минуты", () => {
+    expect(retryPlan(0, "3")).toEqual({ waitMs: 3000, stop: false, askedMs: 3000 });
+  });
+
+  it("на границе минуты не останавливает прогон", () => {
+    expect(retryPlan(0, "60")).toEqual({ waitMs: 60000, stop: false, askedMs: 60000 });
+  });
+
+  it("останавливает прогон, если Retry-After просит больше минуты, а не спит минуту", () => {
+    expect(retryPlan(0, "3600")).toEqual({ waitMs: 0, stop: true, askedMs: 3600000 });
   });
 
   it("удваивает выдержку без Retry-After", () => {
-    expect(retryDelayMs(0, null)).toBe(2000);
-    expect(retryDelayMs(1, null)).toBe(4000);
-    expect(retryDelayMs(2, null)).toBe(8000);
+    expect(retryPlan(0, null)).toEqual({ waitMs: 2000, stop: false, askedMs: null });
+    expect(retryPlan(1, null)).toEqual({ waitMs: 4000, stop: false, askedMs: null });
+    expect(retryPlan(2, null)).toEqual({ waitMs: 8000, stop: false, askedMs: null });
   });
 
-  it("не превышает минуту", () => {
-    expect(retryDelayMs(10, null)).toBe(60000);
-    expect(retryDelayMs(0, "3600")).toBe(60000);
+  it("экспоненциальная выдержка не превышает минуту", () => {
+    expect(retryPlan(10, null)).toEqual({ waitMs: 60000, stop: false, askedMs: null });
   });
 
   it("игнорирует нечисловой Retry-After", () => {
-    expect(retryDelayMs(0, "Wed, 21 Oct 2026 07:28:00 GMT")).toBe(2000);
+    expect(retryPlan(0, "Wed, 21 Oct 2026 07:28:00 GMT")).toEqual({
+      waitMs: 2000,
+      stop: false,
+      askedMs: null,
+    });
   });
 
   it("игнорирует Retry-After: 0 и отрицательные значения", () => {
-    expect(retryDelayMs(0, "0")).toBe(2000);
-    expect(retryDelayMs(0, "-5")).toBe(2000);
+    expect(retryPlan(0, "0")).toEqual({ waitMs: 2000, stop: false, askedMs: null });
+    expect(retryPlan(0, "-5")).toEqual({ waitMs: 2000, stop: false, askedMs: null });
   });
 
   it("усекает дробный Retry-After до целых секунд", () => {
-    expect(retryDelayMs(0, "2.9")).toBe(2000);
+    expect(retryPlan(0, "2.9")).toEqual({ waitMs: 2000, stop: false, askedMs: 2000 });
   });
 
   it("игнорирует пустую строку и undefined как отсутствие Retry-After", () => {
-    expect(retryDelayMs(1, "")).toBe(4000);
-    expect(retryDelayMs(1, undefined)).toBe(4000);
+    expect(retryPlan(1, "")).toEqual({ waitMs: 4000, stop: false, askedMs: null });
+    expect(retryPlan(1, undefined)).toEqual({ waitMs: 4000, stop: false, askedMs: null });
+  });
+
+  it("отсекает отрицательный номер попытки, считая его нулевым", () => {
+    expect(retryPlan(-1, null)).toEqual({ waitMs: 2000, stop: false, askedMs: null });
   });
 });
 
@@ -58,9 +87,22 @@ describe("longPauseMs", () => {
     expect(longPauseMs(50)).toBe(5000);
     expect(longPauseMs(100)).toBe(5000);
   });
+});
 
-  it("принимает нестандартные период и длительность передышки", () => {
-    expect(longPauseMs(10, { every: 10, pauseMs: 1000 })).toBe(1000);
-    expect(longPauseMs(9, { every: 10, pauseMs: 1000 })).toBe(0);
+describe("sleep", () => {
+  it("резолвится не раньше, чем пройдёт указанное время", async () => {
+    vi.useFakeTimers();
+    try {
+      const resolved = vi.fn();
+      sleep(1000).then(resolved);
+
+      await vi.advanceTimersByTimeAsync(999);
+      expect(resolved).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(resolved).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
