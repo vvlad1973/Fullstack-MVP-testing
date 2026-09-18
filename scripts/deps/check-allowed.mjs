@@ -217,18 +217,25 @@ export async function run(argv, { deps = {} } = {}) {
   }
   const packages = values.prod ? loaded.packages.filter((p) => !p.dev) : loaded.packages;
 
-  if (values.prod && packages.length === 0 && loaded.packages.length > 0) {
+  if (packages.length === 0) {
     // The exact defect `parseLockfile` was already fixed for (an empty package list reads as
     // "0 checked, all permitted", the one silently-wrong-in-the-safe-direction verdict this whole
-    // tool exists to prevent) reappears one step later when `--prod` is the one that empties the
-    // set: the lockfile was never empty, `loaded.packages.length > 0` proves it, `--prod` just
-    // filtered every last one of them away. A clear refusal beats a green report that checked
-    // nothing.
-    process.stderr.write(
-      `--prod оставил 0 пакетов из ${loaded.packages.length}: в этом lock-файле весь граф — dev-only, ` +
-        `проверять продакшен-граф нечем. Это не «всё разрешено», это отказ — нечего было спросить. ` +
-        `Если это неожиданно, проверьте, тот ли lock-файл выбран флагом --lock.\n`,
-    );
+    // tool exists to prevent) reappears at every OTHER point that can empty the set, not only the
+    // one `parseLockfile` guards: `--prod` filtering every package away, a lock-file with no real
+    // entries at all, or one where every entry is a workspace `link` (`isRealPackage` in
+    // lockfile.mjs excludes those the same way it excludes an unset platform-skipped optional
+    // dependency). "Проверять было нечего" and "мы ничего не проверили" read identically in a
+    // report that says "всё разрешено" — the difference is invisible to whoever reads it, and the
+    // cost of getting it wrong falls entirely on the second case. So ANY empty set refuses, not
+    // just the one `--prod` produces.
+    const reason =
+      values.prod && loaded.packages.length > 0
+        ? `--prod оставил 0 пакетов из ${loaded.packages.length}: в этом lock-файле весь граф — dev-only, ` +
+          `проверять продакшен-граф нечем. Если это неожиданно, проверьте, тот ли lock-файл выбран флагом --lock.`
+        : `В lock-файле не нашлось ни одного пакета для проверки: либо граф пуст, либо все записи в нём — ` +
+          `ссылки на workspace-пакеты монорепозитория (npm их не устанавливает как обычные зависимости, ` +
+          `parseLockfile их не считает).`;
+    process.stderr.write(`${reason} Это не «всё разрешено» — отказ: нечего было спросить.\n`);
     return 2;
   }
 

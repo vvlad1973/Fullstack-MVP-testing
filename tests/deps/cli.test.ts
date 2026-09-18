@@ -181,36 +181,87 @@ describe("run — пути без обращения к сети", () => {
     expect(existsSync(join(out, "report.md"))).toBe(false);
   });
 
-  it("lock-файл без единого пакета (не через --prod): код 0, «всё разрешено» — это законный пустой граф", async () => {
+  it("lock-файл без единого пакета: отказ (код 2), а не «всё разрешено» — граф мог быть пуст, а не проверен", async () => {
+    // Coordinator's own counter-example to my earlier "legitimate empty graph" call: an empty
+    // package list reads to a human as "0 checked, all permitted" whether the cause is a
+    // genuinely empty graph OR a monorepo lock-file where every entry is a workspace `link`
+    // (covered by the next test) — the report cannot tell them apart, so neither gets a green
+    // "всё разрешено".
     const { file, dir } = tempLock(JSON.stringify({ lockfileVersion: 3, packages: { "": {} } }));
     const out = join(dir, "report");
     const cache = join(dir, "cache");
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       const code = await run(["--lock", file, "--out", out, "--cache", cache]);
-      expect(code).toBe(0);
+      expect(code).toBe(2);
+      expect(stderr.mock.calls.map((c) => String(c[0])).join("")).toMatch(/не нашлось ни одного пакета/);
     } finally {
+      stderr.mockRestore();
       stdout.mockRestore();
     }
-    const report = readFileSync(join(out, "report.md"), "utf8");
-    expect(report).toContain("Все проверенные пакеты разрешены.");
-    const json = JSON.parse(readFileSync(join(out, "report.json"), "utf8"));
-    expect(json.total).toBe(0);
-    expect(json.incomplete).toBeUndefined();
+    expect(existsSync(join(out, "report.md"))).toBe(false);
+  });
+
+  it("lock-файл, где все записи — ссылки на workspace-пакеты (монорепо): тоже отказ, не «всё разрешено»", async () => {
+    // `isRealPackage` (lockfile.mjs) excludes `link: true` entries — a workspace package resolves
+    // to its own directory, not to something npm installed. A lock-file built entirely from such
+    // entries produces the exact same `packages.length === 0` as a genuinely empty one, so without
+    // this branch it would have sailed straight past the refusal above and printed "всё разрешено"
+    // having asked the corporate system about nothing at all.
+    const { file, dir } = tempLock(
+      JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          "": {},
+          "node_modules/pkg-a": { resolved: "../packages/pkg-a", link: true },
+          "node_modules/pkg-b": { resolved: "../packages/pkg-b", link: true },
+        },
+      }),
+    );
+    const out = join(dir, "report");
+    const cache = join(dir, "cache");
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      const code = await run(["--lock", file, "--out", out, "--cache", cache]);
+      expect(code).toBe(2);
+      expect(stderr.mock.calls.map((c) => String(c[0])).join("")).toMatch(/не нашлось ни одного пакета/);
+    } finally {
+      stderr.mockRestore();
+      stdout.mockRestore();
+    }
+    expect(existsSync(join(out, "report.md"))).toBe(false);
   });
 
   it("создаёт --out и --cache сами, даже когда ни один каталог ещё не существует", async () => {
-    const { file, dir } = tempLock(JSON.stringify({ lockfileVersion: 3, packages: { "": {} } }));
+    const { file, dir } = tempLock(
+      JSON.stringify({
+        lockfileVersion: 3,
+        packages: { "": {}, "node_modules/left-pad": { version: "1.3.0" } },
+      }),
+    );
     const out = join(dir, "nested", "does", "not", "exist", "yet");
     const cache = join(dir, "another", "missing", "path");
+    const fakeClient = {
+      findArtifacts: async (pkg: { name: string; scope: string; version: string }) => [
+        { npm: { name: pkg.name, scope: pkg.scope, version: pkg.version }, state: { status: "PERMITTED" } },
+      ],
+    };
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
-      const code = await run(["--lock", file, "--out", out, "--cache", cache]);
+      // Real readCached/writeCached (not overridden): this is what proves --cache gets created
+      // too, not only --out. Only the network/token layer is faked.
+      const code = await run(["--lock", file, "--out", out, "--cache", cache], {
+        deps: { createClient: () => fakeClient, createTokenSource: () => async () => "unused" },
+      });
       expect(code).toBe(0);
     } finally {
       stdout.mockRestore();
     }
-    expect(readFileSync(join(out, "report.md"), "utf8")).toContain("Все проверенные пакеты разрешены.");
+    expect(existsSync(out)).toBe(true);
+    expect(existsSync(cache)).toBe(true);
+    expect(readFileSync(join(out, "report.md"), "utf8")).toContain("Разрешено: 1");
   });
 
   it("--help печатает справку и возвращает 0, не читая lock-файл и не трогая сеть", async () => {
