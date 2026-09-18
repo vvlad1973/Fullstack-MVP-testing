@@ -33,6 +33,15 @@ export interface CtxCourse {
    */
   subtitle?: string;
   description?: string;
+  /**
+   * PRD-59 FR-11: the description as MARKUP, built by the core from the text and its
+   * format. Paired with `description` rather than replacing it — a template that
+   * binds the plain string keeps working and simply shows the text unformatted.
+   *
+   * Printed through the controlled-HTML channel (`{{& course.descriptionHtml }}`);
+   * the block is gated on the STRING, so an empty description prints nothing.
+   */
+  descriptionHtml?: string;
   questionCount?: number;
   passPercent?: number | null;
   timeLimitMinutes?: number | null;

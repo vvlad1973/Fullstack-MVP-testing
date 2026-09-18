@@ -48,6 +48,7 @@ async function notifyNewGroupMember(userId: string, groupId: string) {
         testId: assignment.testId,
         testTitle: test.title,
         testDescription: test.description,
+        testDescriptionFormat: test.descriptionFormat,
         dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
         expiresAt,
         revokeExisting: false,

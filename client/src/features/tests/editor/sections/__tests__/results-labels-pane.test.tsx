@@ -273,7 +273,7 @@ function emptyModel(): TestEditorModel {
     flowSettings: {},
     folderId: null,
     basic: {
-      title: "Опросник", description: "", status: "draft",
+      title: "Опросник", description: "", descriptionFormat: "plain", status: "draft",
       feedback: { format: "plain", text: "" },
       feedbackLinks: [], feedbackAssets: [], feedbackEvents: [],
       webhookUrl: "", telemetryEnabled: false,

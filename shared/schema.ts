@@ -518,6 +518,19 @@ export const tests = pgTable("tests", {
   ownerId: varchar("owner_id", { length: 36 }),
   title: text("title").notNull(),
   description: text("description"),
+  /**
+   * PRD-59 FR-02: the format `description` is written in. The column holds the
+   * FORMAT only — the text itself stays the author's source in `description`, so
+   * every plain consumer (the letter's text part, the package's XML metadata, the
+   * Excel workbook) keeps reading what it always read.
+   *
+   * The spelling repeats `feedbackContentSchema.format` deliberately: a second
+   * vocabulary of formats in the product is how two screens start disagreeing about
+   * what «Форматированный» means.
+   */
+  descriptionFormat: text("description_format", {
+    enum: ["plain", "richText", "html"],
+  }).notNull().default("plain"),
   mode: text("mode", { enum: ["standard", "adaptive"] }).notNull().default("standard"),
   showDifficultyLevel: boolean("show_difficulty_level").notNull().default(true),
   overallPassRuleJson: jsonb("overall_pass_rule_json").notNull(),

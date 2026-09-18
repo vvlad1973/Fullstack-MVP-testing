@@ -40,6 +40,7 @@ function cellOf(rows: Record<string, unknown>[], name: string) {
 const ROUND_TRIP_SOURCE = {
   title: "Аттестация",
   description: "Годовая",
+  descriptionFormat: "richText" as const,
   mode: "adaptive" as const,
   questionOrder: "fixed" as const,
   showCorrectAnswers: true,
@@ -93,6 +94,15 @@ const ROUND_TRIP_SOURCE = {
 };
 
 describe("реестр листа «Настройки»", () => {
+  it("возит формат описания рядом с самим описанием (PRD-59 FR-04)", () => {
+    const param = SETTING_PARAMS.find((p) => p.name === "Формат описания");
+    expect(param).toBeDefined();
+    expect(param!.read({ descriptionFormat: "richText" } as SettingsSource)).toBe("Форматированный");
+    const draft = emptySettingsDraft();
+    param!.write("HTML", draft);
+    expect(draft.test.descriptionFormat).toBe("html");
+  });
+
   it("не содержит двух параметров с одним именем", () => {
     const names = SETTING_PARAMS.map((p) => p.name);
     expect(new Set(names).size).toBe(names.length);

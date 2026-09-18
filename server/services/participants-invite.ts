@@ -494,6 +494,7 @@ export async function runParticipantsInvite(
         testId,
         testTitle: test.title,
         testDescription: test.description,
+        testDescriptionFormat: test.descriptionFormat,
         dueDate,
         expiresAt,
         revokeExisting: true,

@@ -514,6 +514,10 @@ export const SETTING_PARAMS: SettingParam[] = [
   // ── Basics ──
   textParam("Название", (s) => s.title, "test", "title"),
   textParam("Описание", (s) => s.description, "test", "description"),
+  // PRD-59 FR-04: формат едет рядом с текстом. Отдельным параметром, а не разметкой
+  // внутри ячейки: ячейка книги — это ИСХОДНИК, и читать его надо тем же способом,
+  // каким его читает продукт.
+  enumParam("Формат описания", FORMAT_LABELS, (s) => s.descriptionFormat, "test", "descriptionFormat"),
   {
     name: "Папка",
     read: (s) => String(s.folderPath ?? ""),

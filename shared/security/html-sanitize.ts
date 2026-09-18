@@ -86,6 +86,16 @@ function extractOnAttrName(match: string): string {
  * page renders as a whole into `.content-page--html` (see
  * {@link module:shared/template/content-page buildFallbackContentHtml}).
  */
+/**
+ * PRD-59 §8: region the TEST DESCRIPTION renders into on the start screen. A pasted
+ * `<style>` is confined to it, so an author's stray `body { … }` restyles their own
+ * description instead of the whole player.
+ *
+ * A constant rather than a function: unlike a placeholder, there is one description per
+ * test and its class is fixed by the template contract.
+ */
+export const DESCRIPTION_SCOPE = ".tb-cover__desc";
+
 export function placeholderScope(key: string): string {
   if (key === "__html") return ".content-page--html";
   return '[data-placeholder="' + key.replace(/["\\]/g, "") + '"]';
