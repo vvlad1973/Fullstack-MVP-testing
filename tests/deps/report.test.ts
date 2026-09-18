@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OUTCOME } from "../../scripts/deps/classify.mjs";
-import { exitCodeFor, renderConsole, renderMarkdown, summarize, toJson } from "../../scripts/deps/report.mjs";
+import { PACE } from "../../scripts/deps/pace.mjs";
+import { exitCodeFor, formatFlags, renderConsole, renderMarkdown, summarize, toJson } from "../../scripts/deps/report.mjs";
 
 function result(over: Record<string, unknown> = {}) {
   return {
@@ -199,5 +200,87 @@ describe("краевые случаи", () => {
     expect(dataRow).toContain("WEIRD\\|ZONE");
     // 7 колонок => ровно 8 неэкранированных '|'
     expect((dataRow ?? "").match(/(?<!\\)\|/g)?.length).toBe(8);
+  });
+
+  it("незнакомый статус (known: false) помечен явно и в консоли, и в Markdown", () => {
+    const v = result({ outcome: OUTCOME.WARN, status: "SOMETHING_NEW", known: false });
+    const text = renderConsole(summarize([v]));
+    expect(text).toContain("незнакомый статус");
+    const md = renderMarkdown([v], { checkedAt: "2026-09-18T10:00:00.000Z", total: 1 });
+    expect(md).toContain("незнакомый статус");
+  });
+
+  it("известный статус не несёт пометку «незнакомый»", () => {
+    const v = result({ outcome: OUTCOME.WARN, status: "REQUESTED", known: true });
+    expect(renderConsole(summarize([v]))).not.toContain("незнакомый");
+    expect(renderMarkdown([v], { checkedAt: "2026-09-18T10:00:00.000Z", total: 1 })).not.toContain("незнакомый");
+  });
+
+  it("консоль печатает comment системы, не только Markdown — обрезанная выдача отличима от сетевого сбоя", () => {
+    const truncated = result({
+      id: "ms@1.0.0",
+      name: "ms",
+      outcome: OUTCOME.ERROR,
+      status: "ERROR",
+      comment: "выдача обрезана на 1000 записях, точного совпадения среди них нет",
+    });
+    const text = renderConsole(summarize([truncated]));
+    expect(text).toContain("выдача обрезана");
+  });
+});
+
+describe("formatFlags", () => {
+  it("без флагов — читаемое описание обычного прогона, а не пустая строка", () => {
+    expect(formatFlags({})).toMatch(/обычный прогон/);
+    expect(formatFlags(undefined)).toMatch(/обычный прогон/);
+  });
+
+  it("называет только флаги, отклоняющиеся от умолчания", () => {
+    const text = formatFlags({ prod: true, strictDev: false, noCache: false, delayMs: PACE.baseDelayMs });
+    expect(text).toContain("--prod");
+    expect(text).not.toContain("--strict-dev");
+    expect(text).not.toContain("--no-cache");
+    expect(text).not.toContain("--delay"); // на полу минимума — не решение, а умолчание
+  });
+
+  it("--delay печатается, только когда он выше пола PACE.baseDelayMs", () => {
+    expect(formatFlags({ delayMs: PACE.baseDelayMs + 1000 })).toContain("--delay");
+    expect(formatFlags({ delayMs: PACE.baseDelayMs })).not.toContain("--delay");
+  });
+
+  it("перечисляет несколько отклоняющихся флагов вместе", () => {
+    const text = formatFlags({ prod: true, strictDev: true, noCache: true });
+    expect(text).toContain("--prod");
+    expect(text).toContain("--strict-dev");
+    expect(text).toContain("--no-cache");
+  });
+});
+
+describe("renderMarkdown/toJson — meta: флаги и свежесть кэша", () => {
+  const meta = {
+    checkedAt: "2026-09-18T10:00:00.000Z",
+    total: 1,
+    flags: { prod: true, strictDev: false, noCache: false, delayMs: PACE.baseDelayMs },
+    fromCache: 1,
+    cacheTtlDays: 7,
+  };
+
+  it("Markdown называет флаги и долю ответов из кэша", () => {
+    const md = renderMarkdown([result()], meta);
+    expect(md).toContain("--prod");
+    expect(md).toContain("Из кэша: 1 из 1");
+    expect(md).toContain("7 дней");
+  });
+
+  it("без fromCache в meta строка про кэш не появляется (старый вызов не ломается)", () => {
+    const md = renderMarkdown([result()], { checkedAt: meta.checkedAt, total: 1 });
+    expect(md).not.toContain("Из кэша");
+  });
+
+  it("toJson переносит flags/fromCache/cacheTtlDays как есть, не пересказывая их", () => {
+    const json = toJson([result()], meta);
+    expect(json.flags).toEqual(meta.flags);
+    expect(json.fromCache).toBe(1);
+    expect(json.cacheTtlDays).toBe(7);
   });
 });

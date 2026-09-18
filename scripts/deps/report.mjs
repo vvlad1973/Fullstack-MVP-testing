@@ -7,6 +7,7 @@
  */
 
 import { OUTCOME } from "./classify.mjs";
+import { PACE } from "./pace.mjs";
 
 /**
  * @typedef {import("./classify.mjs").Verdict} Verdict
@@ -94,9 +95,27 @@ function packageLabel(r) {
 }
 
 /**
+ * Marks a status this module's vocabulary does not recognise (`classify.mjs`'s `known: false`).
+ * Growing that vocabulary is one of the spec's three open questions (section 11) — closing it
+ * needs a human to actually SEE the unfamiliar word, in the report they open, not just in the
+ * JSON's `known` flag nobody reads by hand.
+ *
+ * @param {Verdict} r
+ * @returns {string} "" when the status is recognised.
+ */
+function unknownTag(r) {
+  return r.known === false ? " [незнакомый статус]" : "";
+}
+
+/**
  * One console line about a package: what it is and who pulls it in. The chain is capped at
  * three links on the console (the full chain belongs in the Markdown table) because the
  * terminal summary is meant to be scanned, not read line by line.
+ *
+ * The system's own `comment` is appended when present: without it, a truncated answer ("не
+ * дочитали", classify.mjs / repo-client.mjs `MAX_RECORDS`) and an outright network failure both
+ * just read "ERROR" on the console — the one piece of text that tells them apart never made it
+ * to the terminal, only to the Markdown table.
  *
  * @param {Verdict} r
  * @returns {string}
@@ -108,7 +127,8 @@ function consoleLine(r) {
   // earns a tag.
   const zone = r.zone && r.zone !== "MAIN" ? ` [${r.zone}]` : "";
   const dev = r.dev ? " (dev)" : "";
-  return `  ${packageLabel(r)}@${r.version} — ${r.status}${zone}${dev}${chain}`;
+  const comment = r.comment ? ` :: ${r.comment}` : "";
+  return `  ${packageLabel(r)}@${r.version} — ${r.status}${unknownTag(r)}${zone}${dev}${chain}${comment}`;
 }
 
 /**
@@ -166,9 +186,31 @@ function markdownRows(rows) {
   return rows.map((r) => {
     const chain = r.requiredBy.length ? r.requiredBy.join(", ") : "—";
     const note = r.comment ? r.comment : "—";
-    const cells = [packageLabel(r), r.version, r.status, r.zone ?? "—", r.dev ? "dev" : "прод", chain, note];
+    const status = `${r.status}${unknownTag(r)}`;
+    const cells = [packageLabel(r), r.version, status, r.zone ?? "—", r.dev ? "dev" : "прод", chain, note];
     return `| ${cells.map((cell) => escapeCell(String(cell))).join(" | ")} |`;
   });
+}
+
+/**
+ * Human description of the run's flags, for the report header and the console. Only flags that
+ * move the run away from its default are named — a silent default (base pace, cache on, dev
+ * included) is not a finding, so it stays out of the line the same way `zone: MAIN` stays out of
+ * `consoleLine`. `delayMs` is worth naming only above the documented floor: it can never go
+ * below `PACE.baseDelayMs` (`validateDelay`), so at the floor it is not a decision anyone made.
+ *
+ * @param {{prod?: boolean, strictDev?: boolean, noCache?: boolean, delayMs?: number}} [flags]
+ * @returns {string}
+ */
+export function formatFlags(flags = {}) {
+  const parts = [];
+  if (flags.prod) parts.push("--prod (только продакшен-граф, dev не спрошен)");
+  if (flags.strictDev) parts.push("--strict-dev (находка в dev тоже даёт код 1)");
+  if (flags.noCache) parts.push("--no-cache (кэш не читался)");
+  if (typeof flags.delayMs === "number" && flags.delayMs > PACE.baseDelayMs) {
+    parts.push(`--delay ${flags.delayMs} мс`);
+  }
+  return parts.length ? parts.join(", ") : "обычный прогон (весь граф, кэш разрешён, темп по умолчанию)";
 }
 
 /**
@@ -176,11 +218,18 @@ function markdownRows(rows) {
  * table per non-empty section (production findings, dev-only findings, warnings, errors).
  *
  * @param {Verdict[]} results All verdicts, not just findings — `summarize` does the filtering.
- * @param {{checkedAt: string, total: number}} meta `checkedAt` is an ISO timestamp, `total` is
- *   the count of packages the run covered.
+ * @param {Object} meta
+ * @param {string} meta.checkedAt ISO timestamp of the run.
+ * @param {number} meta.total Count of packages the run covered.
+ * @param {{prod?: boolean, strictDev?: boolean, noCache?: boolean, delayMs?: number}} [meta.flags]
+ *   CLI flags the run was made with — see {@link formatFlags}.
+ * @param {number} [meta.fromCache] How many of `total` were answered from the on-disk cache
+ *   rather than asked live — see the module doc on why `checkedAt` alone is misleading here.
+ * @param {number} [meta.cacheTtlDays] Cache entry lifetime in days (mirrors `CACHE.ttlMs` from
+ *   `cache.mjs`), so a reader can judge how stale a cached answer might be.
  * @returns {string} Markdown text ending in a trailing newline.
  */
-export function renderMarkdown(results, { checkedAt, total }) {
+export function renderMarkdown(results, { checkedAt, total, flags, fromCache, cacheTtlDays }) {
   const summary = summarize(results);
   const head = "| Пакет | Версия | Статус | Зона | Граф | Кто тянет | Комментарий системы |";
   const sep = "| --- | --- | --- | --- | --- | --- | --- |";
@@ -188,10 +237,19 @@ export function renderMarkdown(results, { checkedAt, total }) {
     "# Отчёт о допустимости зависимостей",
     "",
     `Проверено пакетов: ${total}. Дата проверки: ${checkedAt}.`,
+    `Флаги: ${formatFlags(flags)}.`,
+  ];
+  if (typeof fromCache === "number") {
+    // Kept to one short line (MD013, 120 chars): the point that a cached answer can predate
+    // "Дата проверки" above by up to the cache's own TTL, not a full restatement of why.
+    const ttl = typeof cacheTtlDays === "number" ? ` на срок жизни кэша (${cacheTtlDays} дней)` : "";
+    out.push(`Из кэша: ${fromCache} из ${total} — эти ответы могут быть старше «Даты проверки»${ttl}.`);
+  }
+  out.push(
     "",
     `Разрешено: ${summary.counts.ok}. Предупреждений: ${summary.counts.warn}. ` +
       `Запрещено: ${summary.counts.block}. Ошибок: ${summary.counts.error}.`,
-  ];
+  );
   const section = (title, rows) => {
     if (!rows.length) {
       return;
@@ -218,11 +276,22 @@ export function renderMarkdown(results, { checkedAt, total }) {
  * Raw data for a later comparison of two runs: every result, not only findings — the report's
  * "only findings" rule is about what a human reads, not about what gets persisted.
  *
+ * `flags` and `fromCache` are carried through verbatim (not reworded like {@link formatFlags}
+ * does for humans) precisely because this file is the one a script, not a person, reads later —
+ * see the module doc on `checkedAt` alone being misleading when part of the run came from a
+ * week-old cache entry.
+ *
  * @param {Verdict[]} results
- * @param {{checkedAt: string, total: number}} meta
- * @returns {{checkedAt: string, total: number, summary: {ok: number, warn: number, block:
+ * @param {Object} meta
+ * @param {string} meta.checkedAt
+ * @param {number} meta.total
+ * @param {{prod?: boolean, strictDev?: boolean, noCache?: boolean, delayMs?: number}} [meta.flags]
+ * @param {number} [meta.fromCache]
+ * @param {number} [meta.cacheTtlDays]
+ * @returns {{checkedAt: string, total: number, flags: object|undefined, fromCache:
+ *   number|undefined, cacheTtlDays: number|undefined, summary: {ok: number, warn: number, block:
  *   number, error: number}, results: Verdict[]}}
  */
-export function toJson(results, { checkedAt, total }) {
-  return { checkedAt, total, summary: summarize(results).counts, results };
+export function toJson(results, { checkedAt, total, flags, fromCache, cacheTtlDays }) {
+  return { checkedAt, total, flags, fromCache, cacheTtlDays, summary: summarize(results).counts, results };
 }
