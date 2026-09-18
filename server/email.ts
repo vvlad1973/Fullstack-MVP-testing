@@ -1,4 +1,6 @@
-import nodemailer from "nodemailer";
+// nodemailer 10 ships its own types and its default export is a value, not a
+// namespace: the `Transporter` type has to be imported explicitly.
+import nodemailer, { type Transporter } from "nodemailer";
 import { logger } from "./logger";
 import { config, appBaseUrl } from "./config";
 import { EMAIL_COLORS as C } from "./email-theme";
@@ -6,9 +8,9 @@ import { EMAIL_COLORS as C } from "./email-theme";
 // SMTP settings are read from `config` (populated by initConfig) inside the
 // functions below — not at import time (the DI model). Non-secret settings
 // (host/port/secure/from) come from the config file; credentials are secrets.
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
-function getTransporter(): nodemailer.Transporter | null {
+function getTransporter(): Transporter | null {
   const { host, port, secure, auth } = config.email;
   if (!host || !auth.user || !auth.pass) {
     logger.info("SMTP not configured. Email sending disabled.");
