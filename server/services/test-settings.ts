@@ -23,6 +23,8 @@ import {
   templates,
 } from "@shared/schema";
 import type { Test, ContentPage, TemplateManifest, DrawBlueprint, FormSet, BreakdownDisplaySetting, SectionGroup } from "@shared/schema";
+import type { RichTextFormat } from "@shared/template/rich-text";
+import { sanitizeDescription } from "./description-format";
 import {
   planSystemPages,
   SYSTEM_KINDS,
@@ -163,6 +165,11 @@ export interface AdaptiveTopicPayload {
 export interface TestPayload {
   title?: string;
   description?: string | null;
+  /**
+   * PRD-59 FR-02: the format `description` is written in. Absent on save = keep the
+   * stored value; on create the column default (`plain`) applies.
+   */
+  descriptionFormat?: RichTextFormat;
   overallPassRuleJson?: unknown;
   /**
    * «Тест пройден, если» — how the overall rule and the topic gates combine
@@ -320,7 +327,11 @@ export class TestSettingsService {
         // PRD-13: own the test atomically in the INSERT (no fragile post-insert UPDATE).
         ownerId: payload.test.ownerId ?? null,
         title: payload.test.title ?? "",
-        description: payload.test.description ?? null,
+        description:
+          sanitizeDescription(payload.test.description ?? "", payload.test.descriptionFormat) ||
+          null,
+        // PRD-59 FR-03: a test created without a format is a plain-text one.
+        descriptionFormat: payload.test.descriptionFormat ?? "plain",
         overallPassRuleJson: payload.test.overallPassRuleJson ?? { type: "percent", value: 70 },
         // «Тест пройден, если»: новый тест решает итог по общему порогу — правил по
         // темам у него ещё нет (рекомендация §3.4 test-settings-parameter-structure).
@@ -448,6 +459,22 @@ export class TestSettingsService {
       }
 
       const patch: Record<string, unknown> = { ...payload.test, status, published };
+
+      // PRD-59 FR-24: очистка разметки на СЕРВЕРЕ — ящик не единственный писатель
+      // описания (книга Excel, перенос теста). Формат берётся из запроса, а когда его
+      // не прислали — из сохранённого: правка одного текста без переключения режима
+      // иначе чистилась бы по неверной политике и потеряла бы разметку автора.
+      if (typeof payload.test.description === "string") {
+        let format = payload.test.descriptionFormat;
+        if (format === undefined) {
+          const [row] = await tx
+            .select({ descriptionFormat: tests.descriptionFormat })
+            .from(tests)
+            .where(eq(tests.id, testId));
+          format = row?.descriptionFormat;
+        }
+        patch.description = sanitizeDescription(payload.test.description, format) || null;
+      }
 
       const [updated] = await tx
         .update(tests)

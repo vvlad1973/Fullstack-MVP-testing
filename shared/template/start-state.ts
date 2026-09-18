@@ -19,11 +19,19 @@
 
 import type { CtxCourse, CtxState, CtxStartCooldown } from "./context";
 import { buildCourseSubtitle } from "./course-subtitle";
+import { formatMinutesHuman } from "./duration";
+import { richTextToHtml, type RichTextFormat } from "./rich-text";
 
 /** Test info shown on the start screen (maps to `course.*`). */
 export interface StartInfo {
   title: string;
   description?: string;
+  /**
+   * PRD-59: the format `description` is written in. Absent = `plain`, which is how
+   * a host that has not been taught about the field behaves — and how every test
+   * created before the track behaves.
+   */
+  descriptionFormat?: RichTextFormat | null;
   questionCount?: number;
   passPercent?: number | null;
   /**
@@ -170,6 +178,10 @@ export function buildStartState(input: StartStateInput): StartRenderContext {
       maxAttempts: input.maxAttempts,
     }),
     description: i.description || "",
+    // PRD-59 FR-11: разметка едет ПАРНЫМ полем рядом со строкой, а не подменой её.
+    // Шаблон, связывающий только строку, продолжает работать и просто показывает
+    // текст без оформления.
+    descriptionHtml: richTextToHtml(i.description, i.descriptionFormat),
     questionCount: i.questionCount,
     // A measurement test has no pass threshold to speak of — the fact is dropped
     // here rather than in each layout, so every design template (and every future
@@ -177,6 +189,10 @@ export function buildStartState(input: StartStateInput): StartRenderContext {
     // the layouts' `{{#if course.passPercent}}` already gates on.
     passPercent: i.hasGradedContent === false ? null : i.passPercent,
     timeLimitMinutes: i.timeLimitMinutes,
+    // The unit is decided by the ONE formatter both hosts share, not by each
+    // layout: a layout can only print the raw number, which reads «20160 мин»
+    // for a two-week budget.
+    timeLimitLabel: formatMinutesHuman(i.timeLimitMinutes),
     maxAttempts: i.maxAttempts,
     startPageContent: i.startPageContent || "",
   };

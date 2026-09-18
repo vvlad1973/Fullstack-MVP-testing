@@ -263,6 +263,9 @@ export function buildTestJson(data: ExportData): string {
     id: data.test.id,
     title: data.test.title,
     description: data.test.description,
+    // PRD-59 FR-12: формат рядом с текстом. Исходник остаётся исходником — разметку
+    // строит рантайм тем же общим строителем, что и веб.
+    descriptionFormat: data.test.descriptionFormat ?? "plain",
     mode: data.test.mode || "standard",
     // PRD-56 FR-19a: версия публикации, из снимка которой собран пакет. Печатается только
     // когда ассемблер её дал (см. `publicationVersion` в `ExportData`).

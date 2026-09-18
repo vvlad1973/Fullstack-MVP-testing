@@ -453,3 +453,11 @@
 }
 .tb-report .tb-rose__label { fill: #fafafa; font-size: 11px; }
 .tb-report .tb-rose__level { fill: rgba(250, 250, 250, 0.7); font-size: 10px; }
+
+/* AUTHOR LINKS. Declared here for the same reason as the list markers above: the report
+   is drawn inside the APPLICATION document (§6.3), where a link is under no obligation to
+   look like one. The colour is TAKEN from the text rather than assigned: the sheet differs
+   between templates (dark in the reference one, light in «Сертификация»), so the underline
+   is the only dependable mark of a link here. Scoped to the whole report, like the lists:
+   author markup and the feedback material links print in different cards. */
+.tb-report a { color: inherit; text-decoration: underline; }

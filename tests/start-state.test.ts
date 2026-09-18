@@ -109,6 +109,71 @@ describe("buildStartState", () => {
     expect(buildStartState({ info, maxAttempts: null, completedAttempts: 0, hasCompletedResults: false, canStartNew: true }).state.showBack).toBe(false);
   });
 
+  describe("описание и его формат (PRD-59)", () => {
+    const base = {
+      maxAttempts: null,
+      completedAttempts: 0,
+      hasCompletedResults: false,
+      canStartNew: true,
+    };
+
+    it("печатает плоское описание экранированным, с переводами строк", () => {
+      const { course } = buildStartState({
+        info: { title: "Т", description: "Первая\nВторая" },
+        ...base,
+      });
+      expect(course.description).toBe("Первая\nВторая");
+      expect(course.descriptionHtml).toBe("Первая<br>Вторая");
+    });
+
+    it("печатает размеченное описание как есть", () => {
+      const { course } = buildStartState({
+        info: { title: "Т", description: "<p>Курс</p>", descriptionFormat: "richText" },
+        ...base,
+      });
+      expect(course.descriptionHtml).toBe("<p>Курс</p>");
+      expect(course.description).toBe("<p>Курс</p>");
+    });
+
+    it("не даёт разметки, когда описания нет", () => {
+      const { course } = buildStartState({ info: { title: "Т" }, ...base });
+      expect(course.description).toBe("");
+      expect(course.descriptionHtml).toBe("");
+    });
+  });
+
+  describe("лимит времени печатается человеческой строкой", () => {
+    const base = {
+      maxAttempts: null,
+      completedAttempts: 0,
+      hasCompletedResults: false,
+      canStartNew: true,
+    };
+
+    it("раскладывает длинный лимит в дни", () => {
+      const { course } = buildStartState({
+        info: { title: "Т", timeLimitMinutes: 20160 },
+        ...base,
+      });
+      expect(course.timeLimitLabel).toBe("14 дней");
+      // Число остаётся в контексте: шаблон реестра, знающий только его, не ломается.
+      expect(course.timeLimitMinutes).toBe(20160);
+    });
+
+    it("оставляет короткий лимит минутами", () => {
+      const { course } = buildStartState({
+        info: { title: "Т", timeLimitMinutes: 45 },
+        ...base,
+      });
+      expect(course.timeLimitLabel).toBe("45 мин");
+    });
+
+    it("не даёт строки, когда лимита нет", () => {
+      const { course } = buildStartState({ info: { title: "Т" }, ...base });
+      expect(course.timeLimitLabel).toBe("");
+    });
+  });
+
   describe("PRD-29 §6.7 на обложке — порог только у теста, который оценивает", () => {
     it("измерительный тест: «проходной балл» не показывается", () => {
       const { course } = buildStartState({

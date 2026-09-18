@@ -426,6 +426,7 @@ CREATE TABLE "tests" (
 	"owner_id" varchar(36),
 	"title" text NOT NULL,
 	"description" text,
+	"description_format" text DEFAULT 'plain' NOT NULL,
 	"mode" text DEFAULT 'standard' NOT NULL,
 	"show_difficulty_level" boolean DEFAULT true NOT NULL,
 	"overall_pass_rule_json" jsonb NOT NULL,

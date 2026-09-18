@@ -89,6 +89,9 @@ function buildScormStartContext() {
     info: {
       title: TEST_DATA.title,
       description: TEST_DATA.description || '',
+      // PRD-59: absent in every package built before the field existed — the shared
+      // builder reads that as 'plain', which is those packages' current behaviour.
+      descriptionFormat: TEST_DATA.descriptionFormat,
       questionCount: TEST_DATA.totalQuestions,
       passPercent: TEST_DATA.passPercent,
       // Absent in every package built before the flag existed, and in every package

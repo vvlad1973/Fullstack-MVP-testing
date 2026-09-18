@@ -12,6 +12,7 @@ import type { DraftBlock } from "./use-report-document";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
 import type { TestQuestionOrder } from "@shared/draw/assemble-delivery";
+import type { RichTextFormat } from "@shared/template/rich-text";
 import type { QuestionScoringOverride } from "./scoring-api";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 
@@ -536,6 +537,8 @@ export type TestEditorModel = {
   basic: {
     title: string;
     description: string;
+    /** PRD-59 FR-06: режим ввода описания; сохраняется вместе с тестом. */
+    descriptionFormat: RichTextFormat;
     status: TestStatus;
     feedback: FeedbackContent;
     feedbackLinks: FeedbackLink[];
@@ -665,6 +668,8 @@ export type FeedbackPayload = {
 export type TestSettingsPayload = {
   title: string;
   description: string | null;
+  /** PRD-59 FR-02: формат, в котором написано описание. */
+  descriptionFormat: RichTextFormat;
   status: TestStatus;
   mode: TestMode;
   flowMode: FlowMode;

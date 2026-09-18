@@ -22,6 +22,7 @@ import {
   // Срок жизни magic link считается там же, где ссылка выпускается.
   resolveAssignmentTokenExpiry as resolveTokenExpiry,
 } from "../services/assignment-link";
+import type { RichTextFormat } from "@shared/template/rich-text";
 
 const router = Router();
 
@@ -32,6 +33,8 @@ async function notifyUser(opts: {
   testId: string;
   testTitle: string;
   testDescription?: string | null;
+  /** PRD-59: format of `testDescription`; absent = plain. */
+  testDescriptionFormat?: RichTextFormat | null;
   dueDate?: Date | null;
   expiresAt: Date;
 }) {
@@ -61,6 +64,7 @@ async function notifyUser(opts: {
     testId: opts.testId,
     testTitle: opts.testTitle,
     testDescription: opts.testDescription,
+    testDescriptionFormat: opts.testDescriptionFormat,
     dueDate: opts.dueDate,
     expiresAt: opts.expiresAt,
   });
@@ -156,6 +160,7 @@ router.post("/tests/:id/assignments", requirePermission("assignments.manage"), r
         testId: req.params.id,
         testTitle: test.title,
         testDescription: test.description,
+        testDescriptionFormat: test.descriptionFormat,
         dueDate: parsedDueDate,
         expiresAt,
       }).catch(e => logger.error("Assignment email error: " + e.message));
@@ -170,6 +175,7 @@ router.post("/tests/:id/assignments", requirePermission("assignments.manage"), r
           testId: req.params.id,
           testTitle: test.title,
           testDescription: test.description,
+          testDescriptionFormat: test.descriptionFormat,
           dueDate: parsedDueDate,
           expiresAt,
         }).catch(e => logger.error("Assignment email error: " + e.message));
@@ -218,6 +224,7 @@ router.post("/tests/:id/assignments/bulk", requirePermission("assignments.manage
           testId: req.params.id,
           testTitle: test.title,
           testDescription: test.description,
+          testDescriptionFormat: test.descriptionFormat,
           dueDate: parsedDueDate,
           expiresAt,
         }).catch(e => logger.error("Assignment email error: " + e.message));
@@ -243,6 +250,7 @@ router.post("/tests/:id/assignments/bulk", requirePermission("assignments.manage
             testId: req.params.id,
             testTitle: test.title,
             testDescription: test.description,
+            testDescriptionFormat: test.descriptionFormat,
             dueDate: parsedDueDate,
             expiresAt,
           }).catch(e => logger.error("Assignment email error: " + e.message));
@@ -326,6 +334,7 @@ router.post("/assignments/:id/resend", requirePermission("assignments.manage"), 
       testId: token.testId,
       testTitle: test.title,
       testDescription: test.description,
+      testDescriptionFormat: test.descriptionFormat,
       expiresAt: resolveTokenExpiry(null, null), // 30 дней от сейчас
       revokeExisting: false,
     });
@@ -408,6 +417,7 @@ router.post("/assignments/:id/resend-group", requirePermission("assignments.mana
         testId: assignment.testId,
         testTitle: test.title,
         testDescription: test.description,
+        testDescriptionFormat: test.descriptionFormat,
         dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
         expiresAt: resolveTokenExpiry(
           assignment.linkExpiresAt ? new Date(assignment.linkExpiresAt) : null,
@@ -457,6 +467,7 @@ router.post("/assignments/:id/resend-user/:userId", requirePermission("assignmen
       testId: assignment.testId,
       testTitle: test.title,
       testDescription: test.description,
+      testDescriptionFormat: test.descriptionFormat,
       dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
       expiresAt: resolveTokenExpiry(
         assignment.linkExpiresAt ? new Date(assignment.linkExpiresAt) : null,

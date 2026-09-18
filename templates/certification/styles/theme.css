@@ -322,6 +322,15 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-cover__eyebrow:not(:has(*)) { display: none; }
 .tb-cover__title { margin: 0; font-weight: 700; font-size: 44px; line-height: 1.08; letter-spacing: -0.02em; color: var(--ou-fg-default); text-wrap: pretty; }
 .tb-cover__desc { margin: 0; font: var(--ou-text-body-l); color: var(--ou-fg-soft); max-width: 60ch; text-wrap: pretty; }
+/* PRD-59: описание автора может нести абзацы, списки и ссылки. Интервалы заданы явно
+   и по модульной сетке: умолчания браузера дают абзацу отступ в 1em, а он с сеткой
+   обложки не совпадает. Крайние отступы сняты, чтобы блок не раздвигал раскладку. */
+.tb-cover__desc > :first-child { margin-top: 0; }
+.tb-cover__desc > :last-child { margin-bottom: 0; }
+.tb-cover__desc p { margin: 0 0 var(--ou-space-2); }
+.tb-cover__desc ul, .tb-cover__desc ol { margin: 0 0 var(--ou-space-2); padding-inline-start: var(--ou-space-5); }
+.tb-cover__desc li { margin: 0 0 var(--ou-space-1); }
+.tb-cover__desc strong { font-weight: 600; }
 .tb-cover__note { display: flex; flex-direction: column; gap: var(--ou-space-1); }
 /* The illustration is taken OUT OF FLOW (absolute inside the panel) on purpose: the
    cover grid row is `auto`, so a picture left in flow SIZES the row. `height: 100%`
@@ -1671,3 +1680,19 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 }
 .tb-rose__label { fill: var(--ou-fg-default); font: var(--ou-text-body-s); }
 .tb-rose__level { fill: var(--ou-fg-muted); font: var(--ou-text-body-xs); }
+
+/* Author links. The rule lists the regions that carry AUTHOR markup instead of
+   styling `a` outright: the core prints links of its own — the recommendation chips
+   (`.tb-rec`) — and a bare `a[href]` would outweigh `.tb-rec` on specificity and undo
+   their pill look. Colour and underline are the ones the cover description already
+   used, so a link reads the same wherever the author put it. */
+.tb-cover__desc a,
+.tb-content__lead a,
+.tb-content__body a,
+.content-placeholder a,
+.tb-scene__note a,
+.tb-scene__qtitle a,
+.question-text a,
+.tb-intro a,
+.tb-recs-group__text a,
+.tb-topic-card__fb-text a { color: var(--ou-accent-default); text-decoration: underline; }

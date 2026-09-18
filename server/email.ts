@@ -4,6 +4,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 import { logger } from "./logger";
 import { config, appBaseUrl } from "./config";
 import { EMAIL_COLORS as C } from "./email-theme";
+import { richTextToHtml, richTextToPlain, type RichTextFormat } from "@shared/template/rich-text";
 
 // SMTP settings are read from `config` (populated by initConfig) inside the
 // functions below — not at import time (the DI model). Non-secret settings
@@ -207,6 +208,8 @@ export async function sendAssignmentEmail(opts: {
   testId: string;
   testTitle: string;
   testDescription?: string | null;
+  /** PRD-59: format of `testDescription`; absent = plain. */
+  testDescriptionFormat?: RichTextFormat | null;
   dueDate?: Date | null;
   /**
    * The one-time passwordless entry link (`/access/<token>`). Omitted when the
@@ -308,7 +311,7 @@ export async function sendAssignmentEmail(opts: {
       <p>Вам назначено прохождение теста:</p>
       <div class="meta">
         <p><strong>📋 Тест:</strong> ${opts.testTitle}</p>
-        ${opts.testDescription ? `<p><strong>📝 Описание:</strong> ${opts.testDescription}</p>` : ""}
+        ${opts.testDescription ? `<div><strong>📝 Описание:</strong> ${richTextToHtml(opts.testDescription, opts.testDescriptionFormat)}</div>` : ""}
         ${dueDateStr ? `<p><strong>📅 Срок сдачи:</strong> ${dueDateStr}</p>` : ""}
       </div>
       ${ctaHtmlBlock}
@@ -338,7 +341,7 @@ ${ctaHref}
 Здравствуйте${opts.userName ? `, ${opts.userName}` : ""}!
 
 Вам назначено прохождение теста: ${opts.testTitle}
-${opts.testDescription ? `Описание: ${opts.testDescription}\n` : ""}${dueDateStr ? `Срок сдачи: ${dueDateStr}\n` : ""}
+${opts.testDescription ? `Описание: ${richTextToPlain(opts.testDescription, opts.testDescriptionFormat)}\n` : ""}${dueDateStr ? `Срок сдачи: ${dueDateStr}\n` : ""}
 ${ctaTextBlock}
 
 ---

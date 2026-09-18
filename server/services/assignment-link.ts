@@ -24,6 +24,7 @@ import { storage } from "../storage";
 import { sendAssignmentEmail } from "../email";
 import { mayReceiveAssignmentLink } from "./access";
 import type { User } from "@shared/schema";
+import type { RichTextFormat } from "@shared/template/rich-text";
 
 /** Default lifetime of an assignment access token when nothing else says otherwise. */
 const DEFAULT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -55,6 +56,8 @@ export interface DeliverAssignmentLinkOptions {
   testId: string;
   testTitle: string;
   testDescription?: string | null;
+  /** PRD-59: format of `testDescription`; absent = plain. */
+  testDescriptionFormat?: RichTextFormat | null;
   dueDate?: Date | null;
   /** Expiry for a newly-minted token; ignored when the link is withheld. */
   expiresAt: Date;
@@ -110,7 +113,7 @@ export async function deliverAssignmentLink(
   opts: DeliverAssignmentLinkOptions,
 ): Promise<DeliverAssignmentLinkResult> {
   const {
-    user, email, assignmentId, testId, testTitle, testDescription, dueDate, expiresAt,
+    user, email, assignmentId, testId, testTitle, testDescription, testDescriptionFormat, dueDate, expiresAt,
   } = opts;
   const revokeExisting = opts.revokeExisting ?? true;
 
@@ -125,6 +128,7 @@ export async function deliverAssignmentLink(
       testId,
       testTitle,
       testDescription,
+      testDescriptionFormat,
       dueDate,
     });
     logger.info(`Assignment email sent to ${email} for test "${testTitle}"`, "assignments");
@@ -157,6 +161,7 @@ export async function deliverAssignmentLink(
     testId,
     testTitle,
     testDescription,
+    testDescriptionFormat,
     dueDate,
     magicLink,
   });

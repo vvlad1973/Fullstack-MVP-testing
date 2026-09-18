@@ -33,9 +33,29 @@ export interface CtxCourse {
    */
   subtitle?: string;
   description?: string;
+  /**
+   * PRD-59 FR-11: the description as MARKUP, built by the core from the text and its
+   * format. Paired with `description` rather than replacing it — a template that
+   * binds the plain string keeps working and simply shows the text unformatted.
+   *
+   * Printed through the controlled-HTML channel (`{{& course.descriptionHtml }}`);
+   * the block is gated on the STRING, so an empty description prints nothing.
+   */
+  descriptionHtml?: string;
   questionCount?: number;
   passPercent?: number | null;
   timeLimitMinutes?: number | null;
+  /**
+   * The same limit as a learner-readable phrase, decomposed into days / hours /
+   * minutes by {@link module:shared/template/duration} — «14 дней», «2 ч 30 мин»,
+   * «45 мин». Paired with `timeLimitMinutes` rather than replacing it, so a
+   * template that binds the number keeps working.
+   *
+   * The unit belongs HERE and not in the layout: the DSL has no helpers, so a
+   * layout printing `{{ course.timeLimitMinutes }} мин` could only ever say
+   * «20160 мин» for a two-week budget. Empty string when the test has no limit.
+   */
+  timeLimitLabel?: string;
   maxAttempts?: number | null;
   /** Legacy intro text; migrated to a content page, normally empty (PRD-7 S10). */
   startPageContent?: string;

@@ -68,6 +68,10 @@ export {
   START_IMAGE_KEY,
 } from "./start-image";
 export { buildCourseSubtitle } from "./course-subtitle";
+// Время в тексте: и статичный лимит на обложке/во введении раздела, и бегущий
+// отсчёт в шапке считает ОДИН модуль, поэтому пакет и веб не расходятся в том,
+// как выглядит двухнедельный бюджет («14 дней», а не «20160 мин» / «20160:00»).
+export { formatMinutesHuman, formatCountdown } from "./duration";
 export { buildTransitionContext } from "./transition-context";
 export { buildTemplateCssVars, buildTemplateDataAttrs, DEFAULT_PARAM_CSS_VARS } from "./params-css";
 // Ревизия «Стандартный» на ui-kit: мост палитры теста в токены DS — оба хоста

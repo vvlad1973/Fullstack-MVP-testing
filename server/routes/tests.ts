@@ -95,6 +95,10 @@ const sectionBodySchema = z
 const testBodyBaseSchema = z.object({
   title: z.string().min(1, "Title is required").optional(),
   description: z.string().nullable().optional(),
+  // PRD-59 FR-02. MUST be listed here: an unlisted key is stripped by zod and
+  // silently lost — the editor would show the mode switching and the save doing
+  // nothing.
+  descriptionFormat: z.enum(["plain", "richText", "html"]).optional(),
   overallPassRuleJson: passRuleSchema.optional(),
   // «Тест пройден, если» — how the overall rule and the topic gates combine into
   // the verdict (docs/architecture/test-settings-parameter-structure.md §3.4).
@@ -668,6 +672,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
     const {
       title,
       description,
+      descriptionFormat,
       overallPassRuleJson,
       passDecisionPolicy,
       webhookUrl,
@@ -733,6 +738,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       test: {
         title: title!,
         description,
+        descriptionFormat,
         overallPassRuleJson: overallPassRuleJson ?? { type: "percent" as const, value: 70 },
         passDecisionPolicy,
         webhookUrl: webhookUrl || null,
@@ -1125,6 +1131,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       reportBlocks,
       title,
       description,
+      descriptionFormat,
       overallPassRuleJson,
       passDecisionPolicy,
       webhookUrl,
@@ -1195,6 +1202,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       test: {
         title,
         description,
+        descriptionFormat,
         overallPassRuleJson,
         passDecisionPolicy,
         webhookUrl,

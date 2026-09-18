@@ -74,6 +74,7 @@ export type ApiTestResponse = {
   version?: number | null;
   title?: string | null;
   description?: string | null;
+  descriptionFormat?: "plain" | "richText" | "html" | null;
   mode?: string | null;
   status?: string | null;
   published?: boolean | null;
@@ -1127,6 +1128,7 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
     basic: {
       title: "",
       description: "",
+      descriptionFormat: "plain",
       status: "draft",
       feedback: { format: "plain", text: "" },
       feedbackLinks: [],
@@ -1243,6 +1245,11 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
     basic: {
       title: typeof src.title === "string" ? src.title : "",
       description: typeof src.description === "string" ? src.description : "",
+      // PRD-59 FR-03: отсутствие формата (тест старше трека, чужая запись) = «plain».
+      descriptionFormat:
+        src.descriptionFormat === "richText" || src.descriptionFormat === "html"
+          ? src.descriptionFormat
+          : "plain",
       status,
       feedback: feedback.content,
       feedbackLinks: feedback.links,
@@ -1350,6 +1357,7 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
   const payload: TestSettingsPayload = {
     title: model.basic.title,
     description: emptyToNull(model.basic.description),
+    descriptionFormat: model.basic.descriptionFormat,
     status: model.basic.status,
     mode: model.mode,
     flowMode: model.flowMode,
