@@ -18,6 +18,26 @@ export function packageNameFromKey(key) {
 }
 
 /**
+ * The name a package is actually published under. An aliased install
+ * (`npm:real-name@range`) keys the tree by the ALIAS but carries the real name in
+ * `entry.name` — reading the name off the key would ask the corporate API about a package
+ * that never existed under that name and get an empty answer back, which reads exactly like
+ * "forbidden".
+ */
+function effectiveName(key, entry) {
+  return entry.name ?? packageNameFromKey(key);
+}
+
+/**
+ * Whether a lockfile entry is an actual installed package, as opposed to a workspace/local
+ * `link` entry or a placeholder npm left behind for a dependency it did not install on this
+ * platform (present in the lockfile, but with no `version`).
+ */
+function isRealPackage(entry) {
+  return entry.link !== true && typeof entry.version === "string" && entry.version !== "";
+}
+
+/**
  * Splits `@scope/name` into its parts.
  * @param {string} fullName Name as npm writes it.
  * @returns {{scope: string, name: string}} Scope keeps its `@`; it is empty for plain packages.
@@ -51,16 +71,22 @@ export function resolveDependencyKey(packages, parentKey, depName) {
 
 /** Stable identifier of a lockfile entry: `@scope/name@version`. */
 function idOf(key, entry) {
-  return `${packageNameFromKey(key)}@${entry.version}`;
+  return `${effectiveName(key, entry)}@${entry.version}`;
 }
 
-/** Every dependency name an entry declares, across all four kinds. */
+/**
+ * Every dependency name an entry declares that actually becomes an edge in the install tree.
+ *
+ * `peerDependencies` is deliberately left out: it states a compatibility requirement, not
+ * something this entry pulls in. Including it invents an edge to a package the entry does not
+ * actually depend on — and "who pulls this in" is the one part of the report a person acts on,
+ * so pointing at the wrong package there is worse than not pointing at all.
+ */
 function declaredDependencies(entry) {
   return [
     ...Object.keys(entry.dependencies ?? {}),
     ...Object.keys(entry.devDependencies ?? {}),
     ...Object.keys(entry.optionalDependencies ?? {}),
-    ...Object.keys(entry.peerDependencies ?? {}),
   ];
 }
 
@@ -70,29 +96,42 @@ function declaredDependencies(entry) {
  * A package installed both as a dependency and a devDependency counts as production: the
  * stricter reading is the safe one, because that copy does ship.
  *
+ * Both passes below apply the SAME "is this a real package" test. The first pass builds the
+ * package list off it; the second walks the very same entries to build edges, and a phantom
+ * entry (no `version`, not a link — npm left it behind for a platform-skipped optional
+ * dependency) must be excluded there too, or its own dependencies get attributed to a
+ * "parent" whose id is literally `name@undefined`.
+ *
  * @param {object} lock Parsed `package-lock.json`.
  * @param {{rootName?: string}} [options] What to call the project itself in `requiredBy`.
- * @returns {Array<{id: string, key: string, name: string, scope: string, version: string,
- *   dev: boolean, requiredBy: string[]}>}
+ * @returns {Array<{id: string, name: string, scope: string, version: string, dev: boolean,
+ *   requiredBy: string[]}>}
  */
 export function parseLockfile(lock, { rootName = "проект" } = {}) {
-  const packages = lock.packages ?? {};
+  if (lock?.lockfileVersion !== 3) {
+    throw new Error(`Ожидается package-lock.json версии 3, получено: ${lock?.lockfileVersion}`);
+  }
+  const packages = lock.packages;
+  if (!packages || Object.keys(packages).length === 0) {
+    throw new Error("В package-lock.json нет раздела packages — разбирать нечего");
+  }
+
   const byId = new Map();
 
   for (const [key, entry] of Object.entries(packages)) {
-    if (key === "" || entry.link || !entry.version) continue;
-    const { scope, name } = splitScope(packageNameFromKey(key));
+    if (key === "" || !isRealPackage(entry)) continue;
+    const { scope, name } = splitScope(effectiveName(key, entry));
     const id = idOf(key, entry);
     const seen = byId.get(id);
     if (seen) {
       if (entry.dev !== true) seen.dev = false;
       continue;
     }
-    byId.set(id, { id, key, name, scope, version: entry.version, dev: entry.dev === true, requiredBy: [] });
+    byId.set(id, { id, name, scope, version: entry.version, dev: entry.dev === true, requiredBy: [] });
   }
 
   for (const [key, entry] of Object.entries(packages)) {
-    if (entry.link) continue;
+    if (key !== "" && !isRealPackage(entry)) continue;
     const parentId = key === "" ? rootName : idOf(key, entry);
     for (const depName of declaredDependencies(entry)) {
       const depKey = resolveDependencyKey(packages, key, depName);
