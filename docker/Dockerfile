@@ -49,7 +49,9 @@ COPY --chown=nodejs:nodejs drizzle.config.ts ./
 
 # Versioned schema migrations + journal (drizzle-kit generate). The deploy applies
 # them with `drizzle-kit migrate` in a one-off container before the app boots.
-# Required in the image because the DB is external (no psql/tsx available here).
+# Required in the image because the DB is external and the image carries no psql.
+# (tsx IS present — drizzle-kit depends on it — but the .ts sources it would run
+# are not copied here, so it cannot apply migrations either.)
 COPY --chown=nodejs:nodejs drizzle ./drizzle
 
 # Legacy hand-written data/DDL migrations, kept as a historical record and for
