@@ -25,17 +25,17 @@
 
     Переключатель типа вопроса: девять типов не помещались в SegmentedControl
     ящика (замер: ленте нужно 1098px при 705px). Решение владельца 2026-09-18 —
-    ВАРИАНТ А, Select с пиктограммами. Состояния «Как есть», Б и В оставлены
-    в эскизе как обоснование выбора, а не как открытый вопрос.
+    Select с пиктограммами; отвергнутые варианты на холсте НЕ рисуются,
+    разбор решения — в пояснениях.
 
     Состояния (переключатель в навбаре):
       s-drawer      — ящик вопроса «Короткий ответ», свёрнутая строка правила
-      t-a           — ПРИНЯТО: тип вопроса выбирается Select с пиктограммами
-      t-asis / t-b / t-v — отвергнутые варианты, обоснование выбора
       r-list        — ступень 2: перечень допустимых ответов
       r-wild        — ступень 3: подстановочный знак
       r-builder     — ступень 4: конструктор правила из именованных условий
-      r-num         — числовое правило: операторы с расшифровкой словами
+      r-num         — числовое правило: операторы, расшифровка, ОТРИЦАТЕЛЬНОЕ
+                      значение и допуск
+      r-num-frac    — числовое правило: обыкновенная дробь как форма ответа
       r-num-graded  — числовое правило: несколько условий с разными баллами
       r-set         — ответ-список: разделитель, значения, порядок, лишние
       r-raw         — сырое выражение: экспертный режим
@@ -110,22 +110,16 @@
        всех остальных состояниях. Полоса прокрутки поперёк ящика — сама по себе
        дефект, и эскиз не вправе её показывать как норму. Обрез у края говорит
        ровно то же («пункты не поместились»), не ломая остальной холст. */
-    .wf-clip { overflow: hidden; }
+    /* Справка о формах записи числа относится ко всем числовым правилам
+       сразу, поэтому живёт в общей шапке окна и показывается, когда
+       сравнивается число. */
+    .wf-numinfo { display: none; }
+    .wf-numinfo.active { display: block; }
 
-    .wf-rule, .wf-ex, .wf-type { display: none; }
-    .wf-rule.active, .wf-ex.active, .wf-type.active { display: block; }
+    .wf-rule, .wf-ex { display: none; }
+    .wf-rule.active, .wf-ex.active { display: block; }
     /* Спрайт пиктограмм — только источник символов, на экране его нет. */
     .wf-sprite { display: none; }
-
-    /* ─── Предлагаемое дополнение ui-kit: лента с переносом (вариант Б) ─────
-       У SegmentedControl сегодня один ряд без переноса: при девяти пунктах
-       лишние уезжают за край контейнера. Режим меняет ровно перенос строк и
-       посадку пунктов; при согласовании варианта Б переезжает в vendor/ui-kit
-       (проп `wrap` у SegmentedControl + правила в SegmentedControl.css, в ОБЕ
-       копии бандла) и отсюда удаляется. Класс назван `tb-`, а не `ou-`,
-       намеренно: пока правила нет в ДС, эскиз не вправе рисовать его
-       собственным именем дизайн-системы. */
-    .tb-seg-wrap { display: flex; flex-wrap: wrap; }
 
     /* ─── Кандидаты в tb-components.css: строки конструктора и заслона ──────
        Проектные паттерны авторского интерфейса (не сцены прохождения),
@@ -169,18 +163,15 @@
 <nav class="wf-nav" aria-label="Wireframe state switcher">
   <button class="wf-btn active" type="button" onclick="showState(this,'s-drawer')">Ящик вопроса</button>
   <div class="wf-nav-sep"></div>
-  <span class="wf-nav-title">Тип вопроса:</span>
-  <button class="wf-btn" type="button" onclick="showType(this,'t-a')">А · Список (принят)</button>
-  <button class="wf-btn" type="button" onclick="showType(this,'t-asis')">Как есть</button>
-  <button class="wf-btn" type="button" onclick="showType(this,'t-b')">Б · С переносом</button>
-  <button class="wf-btn" type="button" onclick="showType(this,'t-v')">В · Группы</button>
+  <button class="wf-btn" type="button" onclick="showType(this,'type-select')">Список типов</button>
   <div class="wf-nav-sep"></div>
   <span class="wf-nav-title">Правило:</span>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-list','e-list')">Перечень</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-wild','e-wild')">Подстановочный знак</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-builder','e-builder')">Конструктор</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-num','e-num')">Число</button>
-  <button class="wf-btn" type="button" onclick="showRule(this,'r-num-graded','e-num')">Число · ступени</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-num-frac','e-num-frac')">Число · дроби</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-num-graded','e-num-graded')">Число · ступени</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-set','e-set')">Ответ-список</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-raw','e-raw')">Своё выражение</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-raw-reject','e-raw')">Отказ заслона</button>
@@ -233,37 +224,14 @@
           <div class="ou-formfield">
             <span class="ou-formfield__lbl">Тип вопроса</span>
 
-            <!-- ── Как есть: девять пунктов в одной ленте ──────────────────── -->
-            <div class="wf-type" id="t-asis">
-              <div class="wf-annot-wrap wf-annot-wrap--block">
-                <span class="wf-annot">не помещается</span>
-                <div class="wf-clip">
-                  <div class="ou-seg" role="group" aria-label="Тип вопроса">
-                <button type="button" class="ou-seg__item" aria-pressed="false">Один ответ</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Несколько ответов</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Соответствие</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Ранжирование</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Шкала</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Распределение</button>
-                <button type="button" class="ou-seg__item is-active" aria-pressed="true">Короткий ответ</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Развёрнутый ответ</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false">Пропуски</button>
-                  </div>
-                </div>
-              </div>
-              <span class="ou-formfield__desc">Лента не переносится и не прокручивается: замерено на этом холсте — ей нужно 1098px при 705px доступной ширины, последний пункт за краем. Так выглядит трек без решения.</span>
-            </div>
-
-            <!-- ── Вариант А: Select с пиктограммами ───────────────────────── -->
-            <div class="wf-type active" id="t-a">
-              <div class="wf-annot-wrap wf-annot-wrap--block">
-                <span class="wf-annot">вариант А · принят</span>
-                <div class="ou-select ou-field--m ou-field--full">
-                  <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="ou-select__value"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</span>
-                    <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
-                  </button>
-                  <ul class="ou-select__menu" role="listbox" aria-label="Тип вопроса">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
+              <span class="wf-annot">решение 2026-09-18</span>
+              <div class="ou-select ou-field--m ou-field--full" id="type-select">
+                <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="ou-select__value"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</span>
+                  <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <ul class="ou-select__menu" role="listbox" aria-label="Тип вопроса">
                   <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-single"/></svg></span>Один ответ</li>
                   <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-multiple"/></svg></span>Несколько ответов</li>
                   <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-matching"/></svg></span>Соответствие</li>
@@ -273,51 +241,10 @@
                   <li role="option" aria-selected="true" class="ou-select__opt is-selected"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</li>
                   <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</li>
                   <li role="option" aria-selected="false" class="ou-select__opt"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</li>
-                  </ul>
-                </div>
+                </ul>
               </div>
-              <span class="ou-formfield__desc">Решение владельца 2026-09-18. Пиктограммы — те же, что в дереве содержимого и в таблице «Оценка» (<code>QUESTION_TYPE_ICON</code>): второго набора значков не заводится. Кнопка «А · Список» в навбаре раскрывает перечень.</span>
             </div>
-
-            <!-- ── Вариант Б: та же лента с переносом ──────────────────────── -->
-            <div class="wf-type" id="t-b">
-              <div class="wf-annot-wrap wf-annot-wrap--block">
-                <span class="wf-annot">вариант Б</span>
-                <div class="ou-seg tb-seg-wrap" role="group" aria-label="Тип вопроса">
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-single"/></svg></span>Один ответ</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-multiple"/></svg></span>Несколько ответов</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-matching"/></svg></span>Соответствие</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-ranking"/></svg></span>Ранжирование</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-scale"/></svg></span>Шкала</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-allocation"/></svg></span>Распределение</button>
-                <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</button>
-                <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</button>
-                </div>
-              </div>
-              <span class="ou-formfield__desc">Перенос требует правки компонента: у <code>SegmentedControl</code> сегодня нет такого режима, в эскизе он объявлен локально. Замерено на этом холсте: с пиктограммами девять типов укладываются в ТРИ строки (108px), без пиктограмм — в две (74px).</span>
-            </div>
-
-            <!-- ── Вариант В: группа, затем тип внутри группы ──────────────── -->
-            <div class="wf-type" id="t-v">
-              <div class="wf-annot-wrap wf-annot-wrap--block">
-                <span class="wf-annot">вариант В</span>
-                <div class="ou-stack ou-stack--gap-2">
-                  <div class="ou-seg" role="group" aria-label="Группа типов">
-                    <button type="button" class="ou-seg__item" aria-pressed="false">Выбор</button>
-                    <button type="button" class="ou-seg__item" aria-pressed="false">Порядок</button>
-                    <button type="button" class="ou-seg__item" aria-pressed="false">Оценка</button>
-                    <button type="button" class="ou-seg__item is-active" aria-pressed="true">Ввод</button>
-                  </div>
-                  <div class="ou-seg" role="group" aria-label="Тип вопроса">
-                    <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-short"/></svg></span>Короткий ответ</button>
-                    <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-long"/></svg></span>Развёрнутый ответ</button>
-                    <button type="button" class="ou-seg__item" aria-pressed="false"><span class="tb-qscoring__qtype" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-qt-blanks"/></svg></span>Пропуски</button>
-                  </div>
-                </div>
-              </div>
-              <span class="ou-formfield__desc">Верхняя лента — группа, нижняя — типы внутри неё. «Выбор»: один ответ, несколько ответов; «Порядок»: соответствие, ранжирование; «Оценка»: шкала, распределение.</span>
-            </div>
+            <span class="ou-formfield__desc">Решение владельца 2026-09-18. Пиктограммы — те же, что в дереве содержимого и в таблице «Оценка» (<code>QUESTION_TYPE_ICON</code>): второго набора значков не заводится. Кнопка «Список типов» в навбаре раскрывает перечень.</span>
 
           </div>
 
@@ -445,6 +372,22 @@
                 <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showRule(null,'r-set','e-set')">Список значений</button>
               </div>
               <span class="ou-formfield__desc">Число и список значений сравниваются не как текст: у числа есть допуск и нормализация разделителя, у списка — множество значений.</span>
+            </div>
+
+            <!-- Формы записи числа. Как и ступень 1 у текста, это НЕ настройка:
+                 нормализация действует всегда и не отключается. Показана справкой
+                 по той же причине — тумблер, который нельзя выключить, читается
+                 как сломанный. -->
+            <div class="wf-numinfo" id="num-formats">
+              <div class="wf-annot-wrap wf-annot-wrap--block">
+                <span class="wf-annot">формы записи</span>
+                <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="note">
+                  <span class="ou-banner__body">
+                    <span class="ou-banner__title">Что принимается как число — всегда</span>
+                    <span class="ou-banner__desc">Целое и десятичное с точкой или запятой (<code>12.5</code>, <code>12,5</code>); отрицательное, в том числе с типографским минусом и пробелом после знака (<code>-25</code>, <code>−25</code>, <code>- 25</code>); обыкновенная дробь и смешанное число (<code>3/4</code>, <code>1 1/2</code>); научная запись (<code>1,2e3</code>); пробелы внутри числа, включая неразрывные — они приезжают при копировании из таблиц. Ответ участника сохраняется ровно в том виде, как набран, а сравнивается разобранное значение.</span>
+                  </span>
+                </div>
+              </div>
             </div>
 
             <!-- ── r-list: ступень 2, перечень допустимых ответов ────────── -->
@@ -627,13 +570,13 @@
                           <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
                         </button>
                       </div>
-                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="1100" aria-label="Значение" /><span class="ou-field__affix">мм</span></div></div>
+                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="-25" aria-label="Значение" /><span class="ou-field__affix">°C</span></div></div>
                       <span></span>
-                      <span class="tb-cond__say">засчитывается ответ, равный 1100 с отклонением не больше 50</span>
+                      <span class="tb-cond__say">засчитывается ответ, равный минус 25 с отклонением не больше 0,5</span>
                     </div>
                     <div class="tb-cond" style="margin-top:var(--ou-space-2)">
                       <span class="tb-cond__join">±</span>
-                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="50" aria-label="Допуск" /></div></div>
+                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="0,5" aria-label="Допуск" /></div></div>
                       <div class="ou-select ou-field--m ou-field--full">
                         <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
                           <span class="ou-select__value">в единицах</span>
@@ -642,17 +585,54 @@
                       </div>
                       <span></span>
                     </div>
+                    <span class="ou-formfield__desc">Знак — часть значения, а не отдельная настройка: отрицательная граница вводится в то же поле. Расшифровка словами читает минус вслух («равный минус 25»), потому что в строке правила его легко проглядеть.</span>
                   </div>
                 </div>
 
                 <div class="ou-field ou-field--m">
                   <label class="ou-field__lbl" for="rm-unit">Единица измерения</label>
-                  <div class="ou-field__box" style="width:var(--wf-size-160)"><input class="ou-field__input" id="rm-unit" type="text" value="мм" /></div>
+                  <div class="ou-field__box" style="width:var(--wf-size-160)"><input class="ou-field__input" id="rm-unit" type="text" value="°C" /></div>
                   <div class="ou-field__msg">Подпись поля, а не часть ответа: участник вводит только число</div>
                 </div>
 
                 <div>
                   <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showRule(null,'r-num-graded','e-num')">Добавить условие с другим баллом…</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── r-num-frac: обыкновенная дробь как форма ответа ─────────
+                 Дробь и её десятичная запись — ОДНО значение, поэтому правило
+                 одно, а формы засчитываются все. Отдельного «типа с дробями»
+                 не заводится по той же причине, по которой не заводится
+                 числовой тип задания. -->
+            <div class="wf-rule" id="r-num-frac">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="wf-annot-wrap wf-annot-wrap--block">
+                  <span class="wf-annot">дроби</span>
+                  <div class="ou-formfield">
+                    <span class="ou-formfield__lbl">Ответ засчитывается, если</span>
+                    <div class="tb-cond">
+                      <span class="tb-cond__join"></span>
+                      <div class="ou-select ou-field--m ou-field--full">
+                        <button type="button" class="ou-field__box ou-select__trigger" aria-haspopup="listbox" aria-expanded="false">
+                          <span class="ou-select__value">=  равно</span>
+                          <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                      </div>
+                      <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" type="text" value="1/8" aria-label="Значение" /></div></div>
+                      <span></span>
+                      <span class="tb-cond__say">засчитывается ответ, равный одной восьмой — 0,125</span>
+                    </div>
+                    <span class="ou-formfield__desc">Эталон тоже можно записать дробью: она разбирается тем же аппаратом, что и ответ участника. Расшифровка словами показывает разобранное значение, чтобы автор видел, то ли он задал.</span>
+                  </div>
+                </div>
+
+                <div class="ou-banner ou-banner--subtle ou-banner--info" role="note">
+                  <span class="ou-banner__body">
+                    <span class="ou-banner__title">Форма записи ответа правилом не проверяется</span>
+                    <span class="ou-banner__desc">«1/8» и «0,125» — одно значение и разные строки, поэтому засчитываются оба. Если задание проверяет именно УМЕНИЕ записать в десятичном виде, это вопрос про текст, а не про число: такое правило собирается на лестнице сравнения текста.</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -893,6 +873,36 @@
                   <span class="ou-formfield__lbl">Должны засчитываться</span>
                   <div class="ou-tbl ou-tbl--compact">
                     <table><tbody>
+                      <tr><td>-25</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>−25</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>- 25</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>-25,0</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>-24,8</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <span class="ou-formfield__desc">Вторая строка — типографский минус, третья — минус с пробелом: и то и другое приезжает при копировании из документа, и различием не считается.</span>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>25</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>-30</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>минус двадцать пять</td><td><span class="ou-tbl__chip ou-tbl__chip--warn">не число</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <span class="ou-formfield__desc">Потерянный знак — самая частая ошибка в таких заданиях, поэтому «25» стоит в отрицательных примерах: без него правило с допуском выглядело бы проверенным, а знак не проверялся бы вовсе.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-num-graded -->
+            <div class="wf-ex" id="e-num-graded">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
                       <tr><td>1100</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт · 2 балла</span></td></tr>
                       <tr><td>1 100</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт · 2 балла</span></td></tr>
                       <tr><td>1120</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт · 1 балл</span></td></tr>
@@ -908,6 +918,35 @@
                     </tbody></table>
                   </div>
                   <span class="ou-formfield__desc">«Не число» — отдельный исход: участник увидит подсказку формата ещё на вводе, до отправки.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- e-num-frac -->
+            <div class="wf-ex" id="e-num-frac">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>1/8</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>0,125</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>2/16</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                      <tr><td>1 / 8</td><td><span class="ou-tbl__chip ou-tbl__chip--success">зачёт</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <span class="ou-formfield__desc">Дробь сокращается при разборе: «2/16» — то же значение, что «1/8», и спорить об этом на разборе не придётся.</span>
+                </div>
+                <div class="ou-formfield">
+                  <span class="ou-formfield__lbl">Не должны засчитываться</span>
+                  <div class="ou-tbl ou-tbl--compact">
+                    <table><tbody>
+                      <tr><td>12,5</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
+                      <tr><td>1/0</td><td><span class="ou-tbl__chip ou-tbl__chip--warn">не число</span></td></tr>
+                      <tr><td>одна восьмая</td><td><span class="ou-tbl__chip ou-tbl__chip--warn">не число</span></td></tr>
+                    </tbody></table>
+                  </div>
+                  <span class="ou-formfield__desc">«12,5» — это проценты, а не доля: значение другое, и правило честно его не засчитывает. Деление на ноль — не «неверно», а «не число»: участник видит подсказку формата на вводе.</span>
                 </div>
               </div>
             </div>
@@ -1058,26 +1097,19 @@
     updateWireframeNavOffset();
   };
 
+  /* Раскрытие списка типов. Общий обработчик prd7-shared.js закрывает любой
+     открытый Select по клику в документе, и наш клик по кнопке навбара до него
+     тоже доходит, поэтому раскрытие возвращается следующим тиком. */
   window.showType = function showType(btn, id) {
     document.querySelectorAll('.wf-state').forEach(function (el) {
       el.classList.toggle('active', el.id === 's-drawer');
     });
-    document.querySelectorAll('.wf-type').forEach(function (el) {
-      el.classList.toggle('active', el.id === id);
-    });
     if (btn) markNavButton(btn);
     updateWireframeNavOffset();
-    /* Вариант А показывается с РАСКРЫТЫМ списком: закрытый Select не отвечает
-       на вопрос, ради которого вариант нарисован, — как выглядит перечень из
-       девяти типов. Общий обработчик prd7-shared.js закрывает любой открытый
-       Select по клику в документе, и наш клик по кнопке навбара до него тоже
-       доходит, поэтому раскрытие возвращается следующим тиком. */
-    if (id === 't-a') {
-      setTimeout(function () {
-        var sel = document.querySelector('#t-a .ou-select');
-        if (sel) sel.classList.add('is-open');
-      }, 0);
-    }
+    setTimeout(function () {
+      var sel = document.getElementById(id);
+      if (sel) sel.classList.add('is-open');
+    }, 0);
   };
 
   window.showRule = function showRule(btn, ruleId, exId) {
@@ -1095,8 +1127,26 @@
        показывалось бы с отметкой на «Текст», то есть эскиз врал бы о состоянии
        собственного контрола. */
     var subject = 'Текст';
-    if (ruleId === 'r-num' || ruleId === 'r-num-graded') subject = 'Число';
+    var isNum = ruleId.indexOf('r-num') === 0;
+    if (isNum) subject = 'Число';
     if (ruleId === 'r-set') subject = 'Список значений';
+    /* Справка о формах записи относится только к числу. */
+    var info = document.getElementById('num-formats');
+    if (info) info.classList.toggle('active', isNum);
+    /* Шапка окна называет ВОПРОС, к которому настраивается правило. Без этой
+       синхронизации числовое правило показывалось бы под вопросом про надзор:
+       эскиз врал бы о том, что именно настраивается. */
+    var QUESTIONS = {
+      'r-num': 'Вопрос 7 · Укажите наименьшую температуру наружного воздуха, при которой допускаются работы на высоте',
+      'r-num-frac': 'Вопрос 9 · Какую часть смены занимает регламентированный перерыв?',
+      'r-num-graded': 'Вопрос 11 · Какова наименьшая высота защитного ограждения на границе перепада высот?',
+      'r-set': 'Вопрос 12 · Перечислите средства индивидуальной защиты, обязательные при работе на высоте'
+    };
+    var desc = document.querySelector('#s-rule .ou-modal__desc');
+    if (desc) {
+      desc.textContent = QUESTIONS[ruleId]
+        || 'Вопрос 4 · Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?';
+    }
     document.querySelectorAll('#s-rule .ou-seg__item').forEach(function (item) {
       var on = item.textContent.trim() === subject;
       item.classList.toggle('is-active', on);
@@ -1143,39 +1193,19 @@
 <div class="wf-state" id="s-notes">
 <div class="wf-page">
 
-<section class="wf-notes" aria-label="Сравнение вариантов переключателя типа">
-  <h3 class="wf-notes-title">Переключатель типа вопроса — три варианта</h3>
-  <p class="wf-notes-text">Трек добавляет три типа к шести существующим. Девять пунктов
-  <code>SegmentedControl</code> не помещаются в ящик шириной 720px: ленте нужно 1098px при
-  705px доступной ширины, а переноса и прокрутки у неё нет — последние пункты просто за краем.
-  Состояние «Как есть» показывает это на холсте. Владелец выбрал 2026-09-18 вариант А;
-  таблица оставлена как обоснование выбора. Числа в колонке «Против» сняты измерением
-  на этом же холсте, а не оценены на глаз.</p>
-  <table>
-    <thead>
-      <tr><th>Вариант</th><th>Из чего собран</th><th>За</th><th>Против</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>А · Список</strong> — ПРИНЯТ 2026-09-18</td>
-        <td>Существующий <code>Select</code> (<code>ou-select</code>) с пиктограммой типа в строке. Значки — те же, что уже объявлены в <code>question-type-icon.tsx</code>; второго набора не заводится.</td>
-        <td>Единственный вариант, который масштабируется на СЛЕДУЮЩИЙ тип: десятый пункт ничего не ломает. Занимает одну строку независимо от числа типов. Пиктограмма делает список узнаваемым, а не превращает его в девять строк текста. Правок ui-kit не требует вовсе.</td>
-        <td>Выбранный тип виден, остальные — нет: чтобы увидеть перечень, список надо открыть. Для автора, который перебирает типы на новом вопросе, это лишний клик.</td>
-      </tr>
-      <tr>
-        <td><strong>Б · Две строки</strong></td>
-        <td>Тот же <code>SegmentedControl</code> с переносом строк. На холсте показан с пиктограммами.</td>
-        <td>Все типы видны одновременно и без клика. Порядок и привычка автора не меняются — это ровно сегодняшний контрол, ставший выше.</td>
-        <td>Требует правки компонента: режима с переносом у <code>SegmentedControl</code> сегодня нет (в эскизе объявлен локально как <code>tb-seg-wrap</code>). Уже на девяти типах это не две строки, а ТРИ: замер на холсте — 108px из 738px тела ящика с пиктограммами и 74px без них. То есть переключатель типа съедает седьмую часть ящика ещё до первого поля, и каждый следующий тип добавляет строку. Лента в три строки к тому же теряет смысл сегментированного контрола: глазом это уже сетка кнопок.</td>
-      </tr>
-      <tr>
-        <td><strong>В · Группы</strong></td>
-        <td>Две ленты <code>SegmentedControl</code>: группа, затем тип внутри группы. Новых компонентов не требует.</td>
-        <td>Обе ленты короткие и останутся такими при росте числа типов. Группировка сама по себе полезна автору: «Выбор», «Порядок», «Оценка», «Ввод» — это то, как о типах думают.</td>
-        <td>Два действия вместо одного, и первое из них — не то, что автор выбирает: он выбирает ТИП, а не группу. Требует раскладки типов по группам, которой в продукте нет: её придётся придумать, согласовать и потом поддерживать при каждом новом типе. Переключение группы при уже выбранном типе — отдельное поведение, которое надо доопределить.</td>
-      </tr>
-    </tbody>
-  </table>
+<section class="wf-notes" aria-label="Решение по переключателю типа">
+  <h3 class="wf-notes-title">Переключатель типа вопроса — принятое решение</h3>
+  <p class="wf-notes-text">Трек добавляет три типа к шести существующим, и девять пунктов
+  <code>SegmentedControl</code> в ящик шириной 720px не помещались: ленте нужно 1098px при
+  705px доступной ширины, а переноса и прокрутки у неё нет. Решение владельца 2026-09-18 —
+  <strong><code>Select</code> с пиктограммами</strong>: он не растёт от числа типов, занимает
+  одну строку и не требует правок ui-kit. Пиктограммы берутся из
+  <code>question-type-icon.tsx</code> (<code>QUESTION_TYPE_ICON</code>), три новых типа
+  получают значки того же набора lucide.</p>
+  <p class="wf-notes-text">Отвергнуты и на холсте не рисуются: лента с переносом (замер —
+  с пиктограммами это ТРИ строки, 108px из 738px тела ящика, и каждый новый тип добавляет
+  строку) и двухуровневый выбор «группа, затем тип» (два действия вместо одного, причём
+  первое — не то, что автор выбирает). Принятый минус решения: перечень не виден без клика.</p>
 </section>
 
 <section class="wf-notes" aria-label="Пояснения к окну">
@@ -1219,6 +1249,36 @@
         <td>Расшифровка словами</td>
         <td>числовое условие, условие конструктора</td>
         <td>Стоит под условием и читается как продолжение фразы (FR-28aa2). Отдельного признака «включительно» нет: он выражен выбором оператора, <code>≤</code> и <code>&lt;</code> различают границу сами.</td>
+      </tr>
+      <tr>
+        <td>Формы записи числа</td>
+        <td>числовое правило, всегда</td>
+        <td>Принимаются и сравниваются по ЗНАЧЕНИЮ: целое и десятичное с точкой или запятой, отрицательное (включая типографский минус и минус с пробелом), обыкновенная дробь и смешанное число, научная запись, пробелы внутри числа. Это нормализация, а не настройка: она не отключается, как и ступень 1 у текста. Исходный ввод участника сохраняется целиком — при разборе спора важно видеть, что человек написал «1/8», а не «0,125».</td>
+      </tr>
+      <tr>
+        <td>Знак</td>
+        <td>значение, граница, допуск</td>
+        <td>Часть значения, а не отдельная настройка: отрицательная граница вводится в то же поле. Расшифровка словами читает минус вслух («равный минус 25»), потому что в строке правила его легко проглядеть. Потерянный знак — самая частая ошибка в таких заданиях, поэтому положительный двойник эталона стоит в отрицательных примерах.</td>
+      </tr>
+      <tr>
+        <td>Дробь</td>
+        <td>числовое правило</td>
+        <td>«1/8», «2/16» и «0,125» — одно значение, поэтому засчитываются все три: дробь сокращается при разборе. Эталон тоже можно записать дробью. Деление на ноль — не «неверно», а «не число». Форма записи правилом НЕ проверяется: если задание проверяет умение записать в десятичном виде, это вопрос про текст, и правило собирается на лестнице сравнения текста.</td>
+      </tr>
+      <tr>
+        <td>Экранная клавиатура</td>
+        <td>мобильный, поле под числовым правилом</td>
+        <td>Выводится ИЗ ПРАВИЛА, как и остальное у числового задания. Правилу без дробей хватает цифровой раскладки; правилу с дробями её НЕ хватает — косой черты на ней нет, а минус есть не на всех платформах. Поле обязано просить раскладку, на которой введётся то, что правило принимает, иначе участник физически не наберёт верный ответ.</td>
+      </tr>
+      <tr>
+        <td>Выгрузка в LMS</td>
+        <td>завершение попытки</td>
+        <td>Уезжает то, что участник НАБРАЛ (<code>fill-in</code>), а не нормализованное значение: в выгрузке заказчик видит «1/8» и «-25» ровно так, как их видел участник. Тип <code>numeric</code> потребовал бы машинной записи и расхождения с увиденным.</td>
+      </tr>
+      <tr>
+        <td>Аналитика</td>
+        <td>числовое задание</td>
+        <td>Распределение строится по РАЗОБРАННОМУ значению, а не по строке: «1/8» и «0,125» обязаны попасть в один столбец гистограммы, иначе она покажет разброс там, где его нет. Отрицательные значения требуют оси, проходящей через ноль.</td>
       </tr>
       <tr>
         <td>Оператор</td>
@@ -1374,6 +1434,11 @@
         <td>3. Перечень именованных условий</td>
         <td>FR-28g называет семь: «совпадает точно», «начинается с», «заканчивается на», «содержит», «любое из перечисленного», «любое окончание после основы», «не содержит». Нужен ли восьмой — «соответствует формату» (дата, число, идентификатор).</td>
         <td>В эскизе только семь. Восьмой не заводится: форматы закрываются экспертным режимом, а его расширение перечнем размывает границу между конструктором и выражением.</td>
+      </tr>
+      <tr>
+        <td>3a. Форма записи числа</td>
+        <td>Эскиз принимает обыкновенную дробь всегда. Возможен случай, когда автор проверяет именно умение записать ответ в десятичном виде, и «1/8» засчитываться не должно.</td>
+        <td>Тумблер «принимать дроби» НЕ заводится: он превращает нормализацию в настройку, за которой никто не следит, и ломает правило «число сравнивается значением» (FR-28aa). Проверка ФОРМЫ — это вопрос про текст, и она собирается на лестнице сравнения текста. Если владелец сочтёт, что такой сценарий частый, решение пересматривается до реализации Э5.</td>
       </tr>
       <tr>
         <td>4. Бюджет времени при сохранении</td>

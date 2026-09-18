@@ -28,7 +28,6 @@
       s-blanks       — задание с пропусками: короткие поля внутри текста
       s-answers      — разбор ответов: подстановка ответа участника (режим 2)
       s-etalon       — эталон автора / инспектор отладки (режим 3)
-      s-narrow       — узкий экран: поле с единицей и счётчиком
       s-review-dash  — экран обзора: прочерк вместо поля (режим 1)
 
     Решения, зафиксированные до эскиза (из спеки):
@@ -174,7 +173,6 @@
   <button class="wf-btn"        type="button" onclick="showAnswer(this,'s-blanks')">Пропуски</button>
   <button class="wf-btn"        type="button" onclick="showAnswer(this,'s-answers')">Разбор ответов</button>
   <button class="wf-btn"        type="button" onclick="showAnswer(this,'s-etalon')">Эталон</button>
-  <button class="wf-btn"        type="button" onclick="showAnswer(this,'s-narrow')">Узкий экран</button>
   <div class="wf-nav-sep"></div>
   <span class="wf-nav-title">Обзор:</span>
   <button class="wf-btn" type="button" onclick="showState(this,'s-review-dash')">Прочерк</button>
@@ -252,7 +250,7 @@
             </span>
           </div>
           <div class="wf-slot">
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:520px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-28u · FR-28v</span>
               <div class="ou-field ou-field--l ou-field--full tb-answer-field">
                 <div class="ou-field__box">
@@ -267,16 +265,16 @@
         <!-- ─── ЧИСЛОВОЕ ПРАВИЛО НАД ТЕМ ЖЕ ПОЛЕМ (§6.6, FR-28z, FR-28ac) ──── -->
         <div id="s-numeric" class="wf-sub">
           <div style="display:flex;flex-direction:column;gap:var(--ou-space-2)">
-            <h2 style="margin:0;font-weight:600;font-size:30px;line-height:1.25;color:var(--ou-fg-default);letter-spacing:-.015em;text-wrap:pretty">Какова наименьшая высота защитного ограждения на границе перепада высот?</h2>
+            <h2 style="margin:0;font-weight:600;font-size:30px;line-height:1.25;color:var(--ou-fg-default);letter-spacing:-.015em;text-wrap:pretty">Укажите наименьшую температуру наружного воздуха, при которой допускаются работы на высоте.</h2>
             <span style="font:var(--ou-text-body-s);color:var(--ou-fg-muted)">Введите число</span>
           </div>
           <div class="wf-slot">
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:260px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-28ac</span>
               <div class="ou-field ou-field--l ou-field--full tb-answer-field">
                 <div class="ou-field__box">
-                  <input class="ou-field__input" type="text" inputmode="decimal" value="1100" aria-label="Ваш ответ" />
-                  <span class="ou-field__affix">мм</span>
+                  <input class="ou-field__input" type="text" inputmode="decimal" value="-25" aria-label="Ваш ответ" />
+                  <span class="ou-field__affix">°C</span>
                 </div>
               </div>
             </div>
@@ -288,18 +286,18 @@
              сравнивать, и узнать об этом на экране итогов участник не должен. -->
         <div id="s-numeric-nan" class="wf-sub">
           <div style="display:flex;flex-direction:column;gap:var(--ou-space-2)">
-            <h2 style="margin:0;font-weight:600;font-size:30px;line-height:1.25;color:var(--ou-fg-default);letter-spacing:-.015em;text-wrap:pretty">Какова наименьшая высота защитного ограждения на границе перепада высот?</h2>
+            <h2 style="margin:0;font-weight:600;font-size:30px;line-height:1.25;color:var(--ou-fg-default);letter-spacing:-.015em;text-wrap:pretty">Укажите наименьшую температуру наружного воздуха, при которой допускаются работы на высоте.</h2>
             <span style="font:var(--ou-text-body-s);color:var(--ou-fg-muted)">Введите число</span>
           </div>
           <div class="wf-slot">
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:360px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-28z1</span>
               <div class="ou-field ou-field--l ou-field--full tb-answer-field ou-field--error">
                 <div class="ou-field__box">
-                  <input class="ou-field__input" type="text" inputmode="decimal" value="около метра" aria-invalid="true" aria-label="Ваш ответ" />
-                  <span class="ou-field__affix">мм</span>
+                  <input class="ou-field__input" type="text" inputmode="decimal" value="минус двадцать пять" aria-invalid="true" aria-label="Ваш ответ" />
+                  <span class="ou-field__affix">°C</span>
                 </div>
-                <div class="ou-field__msg ou-field__msg--error">Ожидается число. Например: 1100 или 1,1</div>
+                <div class="ou-field__msg ou-field__msg--error">Ожидается число. Например: -25, 12,5 или 3/4</div>
               </div>
             </div>
           </div>
@@ -314,7 +312,7 @@
             <span style="font:var(--ou-text-body-s);color:var(--ou-fg-muted)">Ответьте своими словами</span>
           </div>
           <div class="wf-slot">
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:760px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-11 · FR-12</span>
               <label class="ou-textarea ou-textarea--l ou-textarea--full tb-answer-textarea">
                 <div class="ou-textarea__box">
@@ -333,7 +331,7 @@
             <div style="display:flex;flex-direction:column;gap:var(--ou-space-2)">
               <span style="font:var(--ou-text-body-s);color:var(--ou-fg-muted)">Заполните пропуски</span>
             </div>
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:820px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-24 · FR-28</span>
               <p class="tb-blank-text">
                 Надзор в области промышленной безопасности осуществляет
@@ -362,7 +360,7 @@
                 <span class="ou-banner__desc">Один пропуск из двух заполнен верно. Правильный срок — 15 суток.</span>
               </span>
             </div>
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:820px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-24i · режим 2</span>
               <p class="tb-blank-text">
                 Надзор в области промышленной безопасности осуществляет
@@ -372,7 +370,7 @@
                 суток со дня его выдачи.
               </p>
             </div>
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:820px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-17 · FR-35</span>
               <!-- Карточка сцены `tb-card` из theme.css шаблона. В эскизе её
                    правила воспроизведены инлайном — тем же приёмом, что шапка и
@@ -400,7 +398,7 @@
                 <span class="ou-banner__desc">Накладка «Эталон» включена: в пропуски подставлен правильный ответ из правила.</span>
               </span>
             </div>
-            <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:820px">
+            <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-24i · режим 3</span>
               <p class="tb-blank-text">
                 Надзор в области промышленной безопасности осуществляет
@@ -410,36 +408,6 @@
                 суток со дня его выдачи.
               </p>
             </div>
-          </div>
-        </div>
-
-        <!-- ─── УЗКИЙ ЭКРАН ────────────────────────────────────────────────
-             Поле занимает всю ширину колонки, единица остаётся в коробке,
-             текст с пропусками переносится по строкам вместе с полями. -->
-        <div id="s-narrow" class="wf-sub">
-          <div class="wf-slot">
-          <div class="wf-annot-wrap wf-annot-wrap--block" style="max-width:420px">
-            <span class="wf-annot">до 640px</span>
-            <div style="display:flex;flex-direction:column;gap:var(--ou-space-5)">
-              <div style="display:flex;flex-direction:column;gap:var(--ou-space-2)">
-                <h2 style="margin:0;font-weight:600;font-size:22px;line-height:1.25;color:var(--ou-fg-default);text-wrap:pretty">Какова наименьшая высота защитного ограждения на границе перепада высот?</h2>
-                <span style="font:var(--ou-text-body-s);color:var(--ou-fg-muted)">Введите число</span>
-              </div>
-              <div class="ou-field ou-field--l ou-field--full tb-answer-field">
-                <div class="ou-field__box">
-                  <input class="ou-field__input" type="text" inputmode="decimal" value="1100" aria-label="Ваш ответ" />
-                  <span class="ou-field__affix">мм</span>
-                </div>
-              </div>
-              <p class="tb-blank-text" style="--tb-answer-fs:17px;line-height:2.4">
-                Наряд-допуск действует не более
-                <span class="tb-blank" style="--tb-blank-w:5ch">
-                  <span class="ou-field ou-field--m ou-field--full"><span class="ou-field__box"><input class="ou-field__input" type="text" value="15" aria-label="Пропуск 2" /></span></span>
-                </span>
-                суток со дня его выдачи.
-              </p>
-            </div>
-          </div>
           </div>
         </div>
 
@@ -649,6 +617,16 @@
         <td>Подпись поля, а не часть ответа (FR-28ac): участник вводит только число. Разбор единиц с конверсией («1,5 м» против «150 см») в охват не входит.</td>
       </tr>
       <tr>
+        <td>Формы записи числа</td>
+        <td>числовое правило, всегда</td>
+        <td>Поле принимает целое и десятичное с точкой или запятой, ОТРИЦАТЕЛЬНОЕ (в том числе с типографским минусом и пробелом после знака), обыкновенную дробь и смешанное число, научную запись и пробелы внутри числа. Сравнивается разобранное значение, а хранится ровно то, что набрано (FR-28z): при разборе спора важно видеть, что человек написал «3/4», а не «0,75».</td>
+      </tr>
+      <tr>
+        <td>Экранная клавиатура</td>
+        <td>мобильный</td>
+        <td>Выводится ИЗ ПРАВИЛА, как и остальное у числового задания. Правилу без дробей хватает цифровой раскладки (<code>inputmode="decimal"</code>); правилу с дробями её НЕ хватает — косой черты на ней нет, а минус есть не на всех платформах. Поле обязано просить раскладку, на которой введётся то, что правило принимает, иначе участник физически не наберёт верный ответ.</td>
+      </tr>
+      <tr>
         <td>Подсказка у числового поля</td>
         <td>числовое правило</td>
         <td>«Введите число» — можно; «ожидается от 12 до 15» — нельзя, это подсказка ответа (FR-28aa5). Границы правила на экране участника не показываются никогда.</td>
@@ -674,9 +652,14 @@
         <td>Каждое вхождение — отдельное поле, порядок полей равен порядку вхождений (FR-24). Поле короткое и однострочное: абзац — это тип из §5, а не пропуск (FR-28).</td>
       </tr>
       <tr>
+        <td>Ширина блока ответа</td>
+        <td>всегда</td>
+        <td>Собственной ширины у блока ответа нет: он занимает колонку целиком — как карточка варианта, дорожка шкалы, строка ранжирования и строка распределения (<code>width: 100%</code> в <code>theme.css</code>). Колонка — 75% сцены и 100% ниже контейнерной ступени 900. Длина ожидаемого ответа на ширину НЕ влияет: под длину подстраивается кегль (<code>--tb-answer-fs</code>, от 20px для коротких до 14px для длинных), и это единственная адаптация по содержимому, принятая в оформлении.</td>
+      </tr>
+      <tr>
         <td>Ширина поля пропуска</td>
-        <td>выводится из ожидаемого ответа</td>
-        <td>Поле на две цифры и поле на слово — разные подсказки о том, чего ждут; поэтому ширина не одна на все пропуски. Величина берётся из правила, автор её не задаёт руками.</td>
+        <td>пропуск внутри текста</td>
+        <td>Единственное исключение, и оно вынужденное: пропуск стоит В СТРОКЕ текста, где «на всю колонку» не существует. Ширина берётся из правила — по самому длинному допустимому ответу или по разрядности числа, автор её руками не задаёт.</td>
       </tr>
       <tr>
         <td>Прочерк</td>
@@ -704,9 +687,9 @@
         <td>Периметр обязан ПРОПУСКАТЬ поля ввода (FR-29). Сегодня запрет выделения ставится инлайном на весь слот <code>question-interaction</code> — с появлением текстового поля это сломало бы редактирование собственного ответа. Исключение делается для полей, текст ЗАДАНИЯ остаётся защищённым.</td>
       </tr>
       <tr>
-        <td>Узкий экран</td>
-        <td>ширина колонки ответов меньше ~640px</td>
-        <td>Поле занимает всю ширину колонки, единица остаётся внутри коробки. Текст с пропусками переносится по строкам вместе с полями — отдельного макета нет.</td>
+        <td>Узкая сцена</td>
+        <td>ширина СЦЕНЫ ниже ступени шаблона</td>
+        <td>Отдельного состояния в эскизе НЕТ намеренно. Адаптация шаблона «Стандартный» принята 2026-07-31 и этим треком не меняется: все размерные условия — контейнерные (<code>@container tbscene</code> на <code>.tb-scene</code>), ступени 900 / 700 / 520 по ширине сцены, вьюпортных <code>@media</code> по ширине в <code>theme.css</code> не осталось ни одного. Поле ввода ведёт себя как остальные элементы колонки: занимает её ширину, единица остаётся внутри коробки, текст с пропусками переносится по строкам вместе с полями. Рисовать «узкий экран» сжатием одного блока при широкой сцене нельзя — это не тот механизм и не то, что увидит участник.</td>
       </tr>
     </tbody>
   </table>
