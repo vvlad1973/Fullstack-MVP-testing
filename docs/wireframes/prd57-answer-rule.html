@@ -526,7 +526,8 @@
                  выключить, читается как сломанный. -->
             <div class="wf-annot-wrap wf-annot-wrap--block">
               <span class="wf-annot">FR-28a</span>
-              <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="note">
+              <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="status">
+                <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                 <span class="ou-banner__body">
                   <span class="ou-banner__title">Ступень 1 · Нормализация — действует всегда</span>
                   <span class="ou-banner__desc">Различием не считаются: регистр, лишние и неразрывные пробелы, «ё» и «е», разные виды дефисов и кавычек.</span>
@@ -551,7 +552,8 @@
             <div class="wf-numinfo" id="num-formats">
               <div class="wf-annot-wrap wf-annot-wrap--block">
                 <span class="wf-annot">формы записи</span>
-                <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="note">
+                <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   <span class="ou-banner__body">
                     <span class="ou-banner__title">Что принимается как число — всегда</span>
                     <span class="ou-banner__desc">Целое и десятичное с точкой или запятой (<code>12.5</code>, <code>12,5</code>); отрицательное, в том числе с типографским минусом и пробелом после знака (<code>-25</code>, <code>−25</code>, <code>- 25</code>); обыкновенная дробь и смешанное число (<code>3/4</code>, <code>1 1/2</code>); научная запись (<code>1,2e3</code>); пробелы внутри числа, включая неразрывные.</span>
@@ -797,7 +799,8 @@
                   </div>
                 </div>
 
-                <div class="ou-banner ou-banner--subtle ou-banner--info" role="note">
+                <div class="ou-banner ou-banner--subtle ou-banner--info" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   <span class="ou-banner__body">
                     <span class="ou-banner__title">Форма записи ответа правилом не проверяется</span>
                     <span class="ou-banner__desc">«1/8» и «0,125» — одно значение, поэтому засчитываются оба. Если задание проверяет умение записать ответ в десятичном виде, соберите правило на лестнице сравнения текста.</span>
@@ -884,7 +887,8 @@
             <!-- ── r-raw: сырое выражение, экспертный режим (FR-28i) ─────── -->
             <div class="wf-rule" id="r-raw">
               <div class="ou-stack ou-stack--gap-4">
-                <div class="ou-banner ou-banner--subtle ou-banner--warning" role="note">
+                <div class="ou-banner ou-banner--subtle ou-banner--warning" role="alert">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                   <span class="ou-banner__body">
                     <span class="ou-banner__title">Экспертный режим</span>
                     <span class="ou-banner__desc">Нужен для форматов, которые условиями не собираются: синтаксис команды, маска идентификатора. Для остального конструктор надёжнее — он не даёт написать выражение, на котором проверка зависнет.</span>
@@ -912,6 +916,7 @@
                 <div class="wf-annot-wrap wf-annot-wrap--block">
                   <span class="wf-annot">FR-28o · FR-28p</span>
                   <div class="ou-banner ou-banner--subtle ou-banner--error" role="alert">
+                    <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
                     <span class="ou-banner__body">
                       <span class="ou-banner__title">Выражение не сохранено: проверка не уложилась в отведённое время</span>
                       <span class="ou-banner__desc">Оно зависло на строке <code>слово слово слово слово слово слово слово слово!</code> — 60 символов, счёт не завершился за 5 секунд. Причина: повторение группы <code>(\s*\w+\s*)+</code>, внутри которой есть своё повторение.</span>
@@ -926,7 +931,8 @@
 
                 <!-- Сообщение об отказе ОБЯЗАНО называть замену, иначе запрет
                      читается как каприз (§6.4, «чем заменить запрещённое»). -->
-                <div class="ou-banner ou-banner--subtle ou-banner--info" role="note">
+                <div class="ou-banner ou-banner--subtle ou-banner--info" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   <span class="ou-banner__body">
                     <span class="ou-banner__title">Чем это заменить</span>
                     <span class="ou-banner__desc">Похоже, ожидается несколько значений через разделитель. Для этого есть отдельный вид правила — он сравнивает множества и не может зависнуть.</span>
@@ -1159,7 +1165,8 @@
                     </tbody></table>
                   </div>
                 </div>
-                <div class="ou-banner ou-banner--subtle ou-banner--info" role="note">
+                <div class="ou-banner ou-banner--subtle ou-banner--info" role="status">
+                  <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   <span class="ou-banner__body">
                     <span class="ou-banner__desc">Перед сохранением выражение прогоняется на этих примерах, на автоматических строках-провокациях и на граничных случаях. Превышение бюджета хотя бы на одной строке — выражение не сохраняется.</span>
                   </span>

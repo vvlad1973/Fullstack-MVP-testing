@@ -268,14 +268,35 @@ SELECT COUNT(*)
                   </div>
                   <div class="ou-textarea__footer">
                     <span class="ou-textarea__toolbar">
-                      <button type="button" class="ou-textarea__tool" aria-label="Жирный"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bold"/></svg></button>
-                      <button type="button" class="ou-textarea__tool" aria-label="Курсив"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-italic"/></svg></button>
-                      <button type="button" class="ou-textarea__tool" aria-label="Список"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-list"/></svg></button>
-                      <button type="button" class="ou-textarea__tool" aria-label="Ссылка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></button>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Жирный"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bold"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Жирный</span>
+                      </span>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Курсив"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-italic"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Курсив</span>
+                      </span>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Список"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-list"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Список</span>
+                      </span>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Ссылка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Ссылка</span>
+                      </span>
                       <span class="tb-rte__sep" aria-hidden="true"></span>
-                      <button type="button" class="ou-textarea__tool" aria-label="Листинг"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-code"/></svg></button>
-                      <button type="button" class="ou-textarea__tool" aria-label="Формула"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sigma"/></svg></button>
-                      <button type="button" class="ou-textarea__tool" aria-label="Пропуск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-braces"/></svg></button>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Листинг"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-code"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Листинг кода</span>
+                      </span>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Формула"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sigma"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Формула</span>
+                      </span>
+                      <span class="ou-tip" data-placement="top">
+                        <button type="button" class="ou-textarea__tool" aria-label="Пропуск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-braces"/></svg></button>
+                        <span class="ou-tip__bubble" role="tooltip">Пропуск</span>
+                      </span>
                     </span>
                     <span class="ou-textarea__count">1 листинг · 1 формула · 1 пропуск</span>
                   </div>
@@ -463,7 +484,8 @@ SELECT COUNT(*)
 
           <div class="wf-annot-wrap wf-annot-wrap--block">
             <span class="wf-annot">диагностика санитайзера</span>
-            <div class="ou-banner ou-banner--subtle ou-banner--warning" role="status">
+            <div class="ou-banner ou-banner--subtle ou-banner--warning" role="alert">
+              <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
               <span class="ou-banner__body">
                 <span class="ou-banner__title">Часть разметки удалена при сохранении</span>
                 <span class="ou-banner__desc">Удалено: <code>&lt;script&gt;</code> — 1, обработчик <code>onclick</code> — 2, внешний <code>src</code> — 1. Остальная разметка сохранена без изменений.</span>
@@ -909,6 +931,12 @@ SELECT COUNT(*)
         <td>Что вырезается при сохранении</td>
         <td>«Форматированный», «HTML»</td>
         <td>Тот же санитайзер, что уже применяется к контентным страницам (<code>shared/security/html-sanitize</code>), и та же диагностика по полю: автору называют, что именно удалено и сколько раз. Санитайзер — чёрный список: <code>script</code>, <code>iframe</code>, <code>svg</code>, <code>object</code>, <code>embed</code>, <code>link</code>, <code>meta</code>, обработчики <code>on*</code>, <code>javascript:</code> и внешние <code>src</code>/<code>href</code>; <code>pre</code>, <code>code</code> и <code>class</code> проходят.</td>
+      </tr>
+      <tr>
+        <td>Подсказки у значковых кнопок</td>
+        <td><code>Tooltip</code> (<code>ou-tip</code> + <code>ou-tip__bubble</code>, <code>data-placement</code>)</td>
+        <td><code>--ou-neutral-900</code>, <code>--ou-neutral-0</code></td>
+        <td>Существующий компонент, работает на чистом CSS (<code>:hover</code> и <code>:focus-within</code>), поэтому доступен и с клавиатуры. Нужен именно зрячему автору: <code>aria-label</code> у кнопок есть, но он невидим, а глифы <code>&lt;&gt;</code>, <code>Σ</code> и <code>{}</code> сами по себе не читаются. <strong>Гоча ДС:</strong> модификатор <code>ou-tip__bubble--wrap</code> на узкой кнопке непригоден — абсолютно спозиционированный блок сжимается по ширине содержащего блока, а им служит сама кнопка в два десятка пикселей, и подсказка встаёт вертикальным столбиком по слову в строке. Для значковых кнопок годится только однострочная подсказка.</td>
       </tr>
       <tr>
         <td>Формула</td>
