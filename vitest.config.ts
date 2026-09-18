@@ -36,7 +36,11 @@ export default defineConfig({
       "client/src/**/*.{test,spec}.{js,ts,jsx,tsx}",
       "server/**/*.{test,spec}.{js,ts}",
       "shared/**/*.{test,spec}.{js,ts}",
-      "tests/**/*.{test,spec}.{js,ts}",
+      // `.mjs` is here for the plain-JS tooling tests under scripts/**: a .ts test importing
+      // an untyped .mjs module shows as an error in the editor (tsconfig covers neither
+      // directory, so tsserver falls back to defaults), while `npm run check` stays green —
+      // the worst kind of noise, loud where it does not matter and silent where it would.
+      "tests/**/*.{test,spec}.{js,mjs,ts}",
     ],
     // Integration tests (tests/it/*.it.test.ts) spin up an in-process pglite per
     // file; run them separately via `npm run test:it` (vitest.it.config.ts) so
