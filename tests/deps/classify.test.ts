@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OUTCOME, classify, matchArtifact } from "../../scripts/deps/classify.mjs";
+import { OUTCOME, classify, failed, matchArtifact } from "../../scripts/deps/classify.mjs";
 
 const pkg = { id: "zod@4.4.3", name: "zod", scope: "", version: "4.4.3", dev: false, requiredBy: ["проект"] };
 
@@ -81,5 +81,12 @@ describe("classify", () => {
     const first = artifact("4.4.3", "PERMITTED");
     const second = artifact("4.4.3", "RESTRICTED");
     expect(classify(pkg, [first, second])).toMatchObject({ outcome: OUTCOME.OK, status: "PERMITTED" });
+  });
+});
+
+describe("failed", () => {
+  it("оборачивает ошибку запроса отдельным исходом", () => {
+    const result = failed(pkg, new Error("ECONNRESET"));
+    expect(result).toMatchObject({ outcome: OUTCOME.ERROR, status: "ERROR", comment: "ECONNRESET" });
   });
 });
