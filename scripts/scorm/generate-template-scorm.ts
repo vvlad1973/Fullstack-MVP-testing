@@ -118,7 +118,10 @@ function mockPlaceholderValue(ph: any): unknown {
       return `[${ph.label}] демо-текст`;
     case "textarea":
     case "richText":
-      return `<p><strong>${ph.label}</strong>: демонстрационный контент для приёмки шаблона. <em>Курсив</em>, <a href="#">ссылка</a>.</p><ul><li>Пункт списка 1</li><li>Пункт списка 2</li></ul>`;
+      // The external address is deliberate: `href="#"` was never stripped by the
+      // sanitiser, so the harness could not show whether a REAL link survives it and
+      // whether the template styles one at all.
+      return `<p><strong>${ph.label}</strong>: демонстрационный контент для приёмки шаблона. <em>Курсив</em>, <a href="https://example.com/материалы">внешняя ссылка</a>.</p><ul><li>Пункт списка 1</li><li>Пункт списка 2</li></ul>`;
     case "html":
       return `<div><h3>${ph.label}</h3><p>Произвольный HTML-блок для проверки санитизации и верстки.</p></div>`;
     case "image":
