@@ -13,7 +13,7 @@ beforeEach(() => {
 
 describe("cacheFileName", () => {
   it("не оставляет в имени файла разделителей пути", () => {
-    expect(cacheFileName(pkg)).toBe("electric-sql__pglite@0.4.1.json");
+    expect(cacheFileName(pkg)).toBe("@electric-sql!pglite@0.4.1.json");
   });
 
   it("обходится без области", () => {
@@ -73,10 +73,10 @@ describe("readCached", () => {
   });
 });
 
-describe("cacheFileName — потенциальная коллизия (известное ограничение, не чинится молча)", () => {
-  it("scope+name и name с тем же разделителем внутри дают одно имя файла", () => {
+describe("cacheFileName — коллизия исключена", () => {
+  it("scope+name и name с прежним разделителем внутри дают РАЗНЫЕ имена", () => {
     const scoped = { name: "b", scope: "@a", version: "1.0.0" };
     const flattened = { name: "a__b", scope: "", version: "1.0.0" };
-    expect(cacheFileName(scoped)).toBe(cacheFileName(flattened));
+    expect(cacheFileName(scoped)).not.toBe(cacheFileName(flattened));
   });
 });

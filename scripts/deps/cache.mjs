@@ -13,15 +13,25 @@ import { join } from "node:path";
 /**
  * Cache file name for a package.
  *
- * The scope's leading `@` is stripped (it is not a valid path character on Windows) and a
- * double underscore separates scope from name, so `@electric-sql/pglite@0.4.1` becomes
- * `electric-sql__pglite@0.4.1.json`. An unscoped package has no such prefix.
+ * `/` is the only character in `@scope/name` that cannot sit in a file name, so it is
+ * replaced with `!` and nothing else is touched: `@electric-sql/pglite@0.4.1` becomes
+ * `@electric-sql!pglite@0.4.1.json`. `!` is chosen deliberately, not `_` or `-`: an npm
+ * package name and version may only contain lowercase letters, digits, `-`, `_` and `.`
+ * (scope adds `@` and `/` — see docs/specs/tooling/deps-check.md §2.2), so `!` can never
+ * occur inside a real name or version. That makes the split unambiguous and the mapping
+ * collision-free: no unscoped package's own name can ever equal `<scope>!<name>` for some
+ * other scoped package, because producing that string would require a `!` (or a `/`) in a
+ * name npm itself would refuse to publish. An earlier version joined scope and name with
+ * `__`, which IS a legal name character — `@a/b` and the unscoped package `a__b` collided
+ * on the same cache file, and the cache would silently hand back the wrong package's
+ * verdict. Do not "simplify" this separator back to `__` or `-`: both are legal in an npm
+ * name and reopen that exact collision.
  *
  * @param {{name: string, scope: string, version: string}} pkg
  * @returns {string}
  */
 export function cacheFileName(pkg) {
-  const scope = pkg.scope ? `${pkg.scope.replace("@", "")}__` : "";
+  const scope = pkg.scope ? `${pkg.scope}!` : "";
   return `${scope}${pkg.name}@${pkg.version}.json`;
 }
 
