@@ -176,7 +176,7 @@
   <button class="wf-btn" type="button" onclick="showRule(this,'r-builder','e-builder')">Конструктор</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-num','e-num')">Число</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-num-frac','e-num-frac')">Число · дроби</button>
-  <button class="wf-btn" type="button" onclick="showRule(this,'r-num-graded','e-num-graded')">Число · ступени</button>
+  <button class="wf-btn" type="button" onclick="showRule(this,'r-num-graded','e-num-graded')">Число · по точности</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-set','e-set')">Ответ-список</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-raw','e-raw')">Своё выражение</button>
   <button class="wf-btn" type="button" onclick="showRule(this,'r-raw-reject','e-raw')">Отказ заслона</button>
@@ -518,7 +518,7 @@
               <div class="ou-banner ou-banner--subtle ou-banner--neutral" role="status">
                 <span class="ou-banner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                 <span class="ou-banner__body">
-                  <span class="ou-banner__title">Ступень 1 · Нормализация — действует всегда</span>
+                  <span class="ou-banner__title">Мелкие различия не учитываются</span>
                   <span class="ou-banner__desc">Различием не считаются: регистр, лишние и неразрывные пробелы, «ё» и «е», разные виды дефисов и кавычек.</span>
                 </span>
               </div>
@@ -554,14 +554,14 @@
             <!-- ── r-list: ступень 2, перечень допустимых ответов ────────── -->
             <div class="wf-rule" id="r-list">
               <fieldset class="ou-choice-card-group">
-                <legend class="ou-choice-card-group__legend">Строгость сравнения</legend>
-                <p class="ou-choice-card-group__hint">Каждая следующая ступень дороже предыдущей и нужна реже. Поднимайтесь ровно настолько, насколько требует задание.</p>
+                <legend class="ou-choice-card-group__legend">Как сравнивать ответ</legend>
+                <p class="ou-choice-card-group__hint">Сверху вниз — от простого к сложному. Берите первое, которого хватает вашему заданию.</p>
                 <div class="ou-choice-card-group__items">
                   <label class="ou-choice-card ou-choice-card--radio is-selected">
                     <input type="radio" class="ou-choice-card__input" name="rule-list" value="list" checked />
                     <span class="ou-choice-card__body">
-                      <span class="ou-choice-card__title">Ступень 2 · Перечень допустимых ответов</span>
-                      <span class="ou-choice-card__desc">Ответ засчитывается, если совпал с любым из перечисленных.</span>
+                      <span class="ou-choice-card__title">Совпадает с одним из вариантов</span>
+                      <span class="ou-choice-card__desc">Вы перечисляете допустимые ответы. Этого хватает почти любому заданию.</span>
                       <span class="ou-choice-card__inset">
                         <div class="ou-taginput">
                           <div class="ou-taginput__wrap">
@@ -580,16 +580,16 @@
                   <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-wild','e-wild')">
                     <input type="radio" class="ou-choice-card__input" name="rule-list" value="wild" />
                     <span class="ou-choice-card__body">
-                      <span class="ou-choice-card__title">Ступень 3 · Подстановочный знак</span>
-                      <span class="ou-choice-card__desc">Знак <code>*</code> означает любую последовательность: «электро*» зачтёт и «электробезопасность», и «электробезопасности».</span>
+                      <span class="ou-choice-card__title">Совпадает с любым окончанием</span>
+                      <span class="ou-choice-card__desc">Звёздочка заменяет любое продолжение: «электро<code>*</code>» зачтёт и «электробезопасность», и «электробезопасности».</span>
                     </span>
                     <span class="ou-choice-card__radio" aria-hidden="true"></span>
                   </label>
                   <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-builder','e-builder')">
                     <input type="radio" class="ou-choice-card__input" name="rule-list" value="builder" />
                     <span class="ou-choice-card__body">
-                      <span class="ou-choice-card__title">Ступень 4 · Правило из условий</span>
-                      <span class="ou-choice-card__desc">Для заданий, где ответ — форма, а не знание: синтаксис команды, формат идентификатора, единицы. Правило собирается из условий.</span>
+                      <span class="ou-choice-card__title">Собрать правило из условий</span>
+                      <span class="ou-choice-card__desc">Для заданий, где важна форма ответа: синтаксис команды, формат номера, единицы. Условия выбираются из списка, писать ничего не нужно.</span>
                     </span>
                     <span class="ou-choice-card__radio" aria-hidden="true"></span>
                   </label>
@@ -600,21 +600,21 @@
             <!-- ── r-wild: ступень 3, подстановочный знак ────────────────── -->
             <div class="wf-rule" id="r-wild">
               <fieldset class="ou-choice-card-group">
-                <legend class="ou-choice-card-group__legend">Строгость сравнения</legend>
+                <legend class="ou-choice-card-group__legend">Как сравнивать ответ</legend>
                 <div class="ou-choice-card-group__items">
                   <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-list','e-list')">
                     <input type="radio" class="ou-choice-card__input" name="rule-wild" value="list" />
                     <span class="ou-choice-card__body">
-                      <span class="ou-choice-card__title">Ступень 2 · Перечень допустимых ответов</span>
-                      <span class="ou-choice-card__desc">Ответ засчитывается, если совпал с любым из перечисленных.</span>
+                      <span class="ou-choice-card__title">Совпадает с одним из вариантов</span>
+                      <span class="ou-choice-card__desc">Вы перечисляете допустимые ответы. Этого хватает почти любому заданию.</span>
                     </span>
                     <span class="ou-choice-card__radio" aria-hidden="true"></span>
                   </label>
                   <label class="ou-choice-card ou-choice-card--radio is-selected">
                     <input type="radio" class="ou-choice-card__input" name="rule-wild" value="wild" checked />
                     <span class="ou-choice-card__body">
-                      <span class="ou-choice-card__title">Ступень 3 · Подстановочный знак</span>
-                      <span class="ou-choice-card__desc">Знак <code>*</code> означает любую последовательность символов.</span>
+                      <span class="ou-choice-card__title">Совпадает с любым окончанием</span>
+                      <span class="ou-choice-card__desc">Звёздочка заменяет любое продолжение слова.</span>
                       <span class="ou-choice-card__inset">
                         <div class="ou-taginput">
                           <div class="ou-taginput__wrap">
@@ -631,8 +631,8 @@
                   <label class="ou-choice-card ou-choice-card--radio" onclick="showRule(null,'r-builder','e-builder')">
                     <input type="radio" class="ou-choice-card__input" name="rule-wild" value="builder" />
                     <span class="ou-choice-card__body">
-                      <span class="ou-choice-card__title">Ступень 4 · Правило из условий</span>
-                      <span class="ou-choice-card__desc">Правило собирается из именованных условий.</span>
+                      <span class="ou-choice-card__title">Собрать правило из условий</span>
+                      <span class="ou-choice-card__desc">Условия выбираются из списка, писать ничего не нужно.</span>
                     </span>
                     <span class="ou-choice-card__radio" aria-hidden="true"></span>
                   </label>
@@ -646,7 +646,7 @@
                 <div class="wf-annot-wrap wf-annot-wrap--block">
                   <span class="wf-annot">FR-28g · FR-28h</span>
                   <div class="ou-formfield">
-                    <span class="ou-formfield__lbl">Ступень 4 · Ответ засчитывается, если</span>
+                    <span class="ou-formfield__lbl">Ответ засчитывается, если</span>
                     <div class="ou-stack ou-stack--gap-3">
 
                       <div class="tb-cond">
@@ -996,7 +996,7 @@
                         <tr><td>электричество это опасно</td><td><span class="ou-tbl__chip ou-tbl__chip--neutral">не зачтено</span></td></tr>
                       </tbody></table>
                     </div>
-                    <span class="ou-formfield__msg ou-formfield__msg--error">Правило засчитывает ответ, который не должно: «электро*» подходит и «электрошоку». Уточните основу или поднимитесь на ступень 4.</span>
+                    <span class="ou-formfield__msg ou-formfield__msg--error">Правило засчитывает ответ, который не должно: «электро*» подходит и «электрошоку». Уточните основу или соберите правило из условий.</span>
                   </div>
                 </div>
               </div>
@@ -1364,6 +1364,67 @@
   с пиктограммами это ТРИ строки, 108px из 738px тела ящика, и каждый новый тип добавляет
   строку) и двухуровневый выбор «группа, затем тип» (два действия вместо одного, причём
   первое — не то, что автор выбирает). Принятый минус решения: перечень не виден без клика.</p>
+</section>
+
+<section class="wf-notes" aria-label="Путь автора">
+  <h3 class="wf-notes-title">Путь автора: от вопроса до работающей проверки</h3>
+  <p class="wf-notes-text">Слово «ступень» пришло из спеки (§6.1) и на экран не выносится: автор
+  не выбирает номер уровня, он выбирает, КАК сравнивать ответ. Ниже — путь целиком, каждый шаг
+  соответствует состоянию эскиза.</p>
+  <table>
+    <thead>
+      <tr><th>Шаг</th><th>Что делает автор</th><th>Что показывает продукт</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Создаёт вопрос, выбирает тип «Короткий ответ», пишет формулировку.</td>
+        <td>Ящик вопроса. Проверка ответа включена по умолчанию — задание предполагается оцениваемым.</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Решает, нужна ли проверка вообще.</td>
+        <td>Снял тумблер — задание собирает текст и не приносит баллов, и на этом путь закончен («Проверка выключена»). Оставил — идёт дальше.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Нажимает «Настроить».</td>
+        <td>Окно правила. Слева — что и как сравнивать, справа — проверка на примерах, видимая с первой секунды, а не после сохранения.</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Говорит, ЧТО сравнивается: текст, число или список значений.</td>
+        <td>Три пункта в ленте. Это не про строгость, а про предмет: у числа есть допуск, у списка — сравнение множествами.</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Для текста выбирает, КАК сравнивать, и вводит эталоны.</td>
+        <td>Три карточки сверху вниз, от простого к сложному: «совпадает с одним из вариантов» (перечень), «совпадает с любым окончанием» (звёздочка), «собрать правило из условий». Поля выбранного варианта раскрываются прямо в карточке. Первый вариант закрывает почти все задания — остальные нужны реже.</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Пишет несколько ответов в оба списка примеров и смотрит, что вышло.</td>
+        <td>Справа сразу видно фактическое поведение правила по каждому примеру. Расхождение подсвечивается: «электро*» зачитывает «электрошок», и это видно ДО того, как задание увидят люди.</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Правит правило, пока оба списка не сойдутся.</td>
+        <td>Если по вопросу уже есть прохождения, автор может подставить в проверку реальные ответы участников и править по ним, а не по выдумкам.</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Сохраняет.</td>
+        <td>Правило и примеры сохраняются вместе с вопросом. Примеры — не черновик: при следующей правке сразу видно, не сломалось ли то, что работало.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="wf-notes-text">Нормализация в этот путь не входит: она действует всегда и ничего не
+  требует от автора — регистр, лишние пробелы, «ё» и «е», разные дефисы и кавычки различием
+  не считаются. Поэтому она показана справкой над выбором, а не ещё одним пунктом.</p>
+  <p class="wf-notes-text">Соответствие со спекой, чтобы при реализации не искать: «совпадает
+  с одним из вариантов» — ступень 2 (FR-28b), «совпадает с любым окончанием» — ступень 3
+  (FR-28c), «собрать правило из условий» — ступень 4 (FR-28d, FR-28g), нормализация —
+  ступень 1 (FR-28a).</p>
 </section>
 
 <section class="wf-notes" aria-label="Пояснения к окну">
