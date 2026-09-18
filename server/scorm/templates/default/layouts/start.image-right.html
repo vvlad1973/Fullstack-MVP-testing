@@ -14,7 +14,7 @@
               {{#if state.exhausted}}<span class="ou-tag ou-tag--neutral">Попытки исчерпаны</span>{{/if}}
             </div>
             <h1 class="tb-cover__title" data-path="course.title"></h1>
-            {{#if course.description}}<p class="tb-cover__desc" data-path="course.description"></p>{{/if}}
+            {{#if course.description}}<div class="tb-cover__desc">{{& course.descriptionHtml }}</div>{{/if}}
           </div>
 
           <div class="tb-facts">
