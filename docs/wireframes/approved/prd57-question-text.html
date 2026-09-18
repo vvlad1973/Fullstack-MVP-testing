@@ -6,12 +6,12 @@
   <!--
     Wireframe: поле «Текст вопроса» — режимы ввода и вставка листинга, формулы
     и пропуска.
-    Файл: docs/wireframes/prd57-question-text.html
+    Файл: docs/wireframes/approved/prd57-question-text.html
     Спека: docs/specs/prd-57/open-response-and-formatting.md
            (§4.1 FR-01..FR-05 листинг, §4.2 FR-06..FR-10 формулы,
             §6 FR-24, FR-24b, FR-24f, FR-24j пропуски).
     Issue: #40 (PRD-57, Э0) — дополнение по решению владельца 2026-09-18.
-    Статус: НА СОГЛАСОВАНИИ.
+    Статус: СОГЛАСОВАН 2026-09-18, взят в реализацию.
 
     Один эскиз на одно поле. Поле «Текст вопроса» стоит и в эскизе правила
     (prd57-answer-rule.html), и в эскизе пропусков (prd57-blanks-editor.html);
@@ -136,6 +136,15 @@
     /* Формула — картинка с явными размерами (FR-07): без них html2canvas
        печатает её в PDF-отчёт непредсказуемо. */
     .tb-formula { display: inline-block; vertical-align: middle; }
+    /* Якорь выпадающего меню. Компонент `ou-menu` собственного позиционирования
+       не имеет — место ему задаёт вызывающий код; в эскизе это делает рамка.
+       Якорь обязан быть `inline-flex`: он живёт внутри флекс-строки панели
+       и без этого растягивается, разрывая строку. */
+    .wf-anchor { position: relative; display: inline-flex; }
+    .wf-anchor > .ou-menu {
+      position: absolute; top: calc(100% + var(--ou-space-1)); left: 0; z-index: 50;
+    }
+
   </style>
 </head>
 <body class="ou ou--dark ou--normal">
@@ -383,7 +392,18 @@ SELECT COUNT(*)
                 <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
               </div>
               <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование и вставка">
-                <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                <span class="wf-anchor">
+        <span class="wf-annot">открыто кнопкой «Листинг»</span>
+        <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs is-active"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+        <div class="ou-menu" role="menu" aria-label="Язык листинга">
+          <div class="ou-menu__label">Язык листинга</div>
+          <button type="button" class="ou-menu__item" role="menuitem">Python</button>
+          <button type="button" class="ou-menu__item" role="menuitem">SQL</button>
+          <button type="button" class="ou-menu__item" role="menuitem">JavaScript</button>
+          <div class="ou-menu__divider"></div>
+          <button type="button" class="ou-menu__item" role="menuitem">Без подсветки</button>
+        </div>
+      </span>
                 <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
                 <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
               </div>
@@ -392,6 +412,7 @@ SELECT COUNT(*)
               <textarea id="qt-lang" class="ou-rte__input" rows="9">Что выведет запрос, если таблица `orders` пуста?</textarea>
             </div>
           </div>
+
 
         </div>
       </div>
@@ -944,6 +965,11 @@ SELECT COUNT(*)
         <td>Счётчик механик</td>
         <td>всегда</td>
         <td>Называет то, что в тексте есть: «1 листинг · 1 формула · 1 пропуск». Счётчика символов у текста задания нет — у него нет и предела длины. Когда считать нечего, счётчик МОЛЧИТ: строка «ничего нет» — шум, автор и так видит свой текст. Нужен он прежде всего после переключения режима, чтобы убедиться, что вставленное пережило перевод.</td>
+      </tr>
+      <tr>
+        <td>Выбор языка листинга</td>
+        <td>нажата кнопка «Листинг»</td>
+        <td>Язык выбирается из списка, а не набирается: автор не должен гадать, как он пишется в огорождённом блоке. Список закрытый — python, sql, javascript, — потому что подсветка считается на сервере и умеет ровно те грамматики, которые туда положены. Четвёртый пункт «Без подсветки» — не отказ от листинга, а листинг без цвета: моноширинный шрифт и сохранённые отступы остаются. Тот же исход у неизвестного или не указанного языка: это НЕ ошибка и не повод отказать в сохранении.</td>
       </tr>
       <tr>
         <td>Смена режима</td>
