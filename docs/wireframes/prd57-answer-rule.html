@@ -156,6 +156,9 @@
   <symbol id="i-qt-allocation" viewBox="0 0 24 24"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></symbol>
   <symbol id="i-qt-short" viewBox="0 0 24 24"><path d="M12 20h-1a2 2 0 0 1-2-2 2 2 0 0 1-2 2H6"/><path d="M13 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-7"/><path d="M5 16H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/><path d="M6 4h1a2 2 0 0 1 2 2 2 2 0 0 1 2-2h1"/><path d="M9 6v12"/></symbol>
   <symbol id="i-qt-long" viewBox="0 0 24 24"><path d="M13 4v16"/><path d="M17 4v16"/><path d="M19 4H9.5a4.5 4.5 0 0 0 0 9H13"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></symbol>
+  <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2"/></symbol>
+  <symbol id="i-braces" viewBox="0 0 24 24"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></symbol>
   <symbol id="i-qt-blanks" viewBox="0 0 24 24"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></symbol>
 </svg>
 
@@ -247,13 +250,31 @@
 
           </div>
 
-          <label class="ou-textarea ou-textarea--full">
-            <span class="ou-textarea__lbl">Текст вопроса</span>
-            <div class="ou-textarea__box">
-              <textarea class="ou-textarea__input" rows="2">Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</textarea>
+          <!-- Поле «Текст вопроса» — согласованный вид: переключатель режимов
+               над полем, одна панель вставки в подвале. Все режимы и состояния
+               поля нарисованы в prd57-question-text.html; здесь оно стоит
+               в том же виде, чтобы два эскиза не расходились. -->
+          <div class="ou-formfield">
+            <span class="ou-formfield__lbl">Текст вопроса</span>
+            <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Разметка</button>
+              <button type="button" class="ou-seg__item" aria-pressed="false">Форматированный</button>
+              <button type="button" class="ou-seg__item" aria-pressed="false">HTML</button>
             </div>
-            <span class="ou-textarea__msg">Поддерживается Markdown</span>
-          </label>
+            <label class="ou-textarea ou-textarea--full" style="margin-top:var(--ou-space-2)">
+              <div class="ou-textarea__box">
+                <textarea class="ou-textarea__input" rows="2">Как называется федеральная служба, осуществляющая надзор в области промышленной безопасности?</textarea>
+                <div class="ou-textarea__footer">
+                  <span class="ou-textarea__toolbar">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code"/></svg></span>Листинг</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sigma"/></svg></span>Формула</button>
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--xs"><span class="ou-btn__ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-braces"/></svg></span>Пропуск</button>
+                  </span>
+                  <span class="ou-textarea__count">механик нет</span>
+                </div>
+              </div>
+            </label>
+          </div>
 
           <!-- ДЕЛЬТА 2: блок «Проверка ответа» вместо блока вариантов ─────
                Свёрнутая сводка правила и кнопка «Настроить». Тумблер над ней
