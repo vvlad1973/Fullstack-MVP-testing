@@ -111,6 +111,10 @@ export {
   setAllocationValue,
 } from "../questions/allocation";
 export { renderAllocation } from "./question-interaction";
+// PRD-57 FR-30: the typed-answer field is rendered and wired from the SAME code on both
+// hosts — no separate in-package implementation.
+export { renderShortAnswer, type ShortAnswerOptions } from "./question-interaction";
+export { attachShortAnswer, type ShortAnswerHost, type DetachShortAnswer } from "./short-answer-dom";
 // Живой ввод группы: жест правит DOM на месте, ответ уходит хосту по завершении.
 export { attachAllocation, syncAllocationDom, allocIndexOf } from "./allocation-dom";
 export {

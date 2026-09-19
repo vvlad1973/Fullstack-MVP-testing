@@ -658,3 +658,50 @@ export function renderAllocation(
     `${counter}</div><div class="ou-alloc__rows">${rows}</div></div>`
   );
 }
+
+/** How the host wants a typed-answer field drawn; all three come from its rule set. */
+export interface ShortAnswerOptions {
+  /** The rule set is numeric — narrower field and a decimal keyboard (§6.6). */
+  numeric?: boolean;
+  /** Display unit printed beside the field (`°C`); the learner never types it. */
+  unit?: string;
+  /** Review and preview draw the answer locked. */
+  readonly?: boolean;
+}
+
+/**
+ * The single-line field of a typed answer (PRD-57 FR-28u).
+ *
+ * Markup is ported from the approved wireframe
+ * (`docs/wireframes/approved/prd57-question-input.html`): `ou-field` + `tb-answer-field`,
+ * with `tb-answer-field--num` narrowing the numeric variant to half the column. The
+ * answer font size rides the same `--tb-answer-fs` variable as every other type.
+ *
+ * The value is the learner's RAW text, not its comparison form: what they typed is what
+ * goes to the LMS and to the report, and normalisation belongs to the comparison alone.
+ * The length limit (FR-28v) is deliberately absent — it arrives with Э3, together with
+ * the author's control for it.
+ */
+export function renderShortAnswer(
+  question: InteractionQuestion,
+  answer: unknown,
+  options: ShortAnswerOptions = {},
+): string {
+  const value = typeof answer === "string" ? answer : "";
+  const numeric = options.numeric === true;
+  const wrap = numeric
+    ? "ou-field ou-field--l tb-answer-field tb-answer-field--num"
+    : "ou-field ou-field--l ou-field--full tb-answer-field";
+  const mode = numeric ? ' inputmode="decimal"' : "";
+  const locked = options.readonly ? " disabled" : "";
+  const affix = options.unit ? `<span class="ou-field__affix">${attrText(options.unit)}</span>` : "";
+  return (
+    `<div class="${wrap}">` +
+    `<div class="ou-field__box">` +
+    `<input class="ou-field__input" type="text"${mode} value="${attrText(value)}"` +
+    ` aria-label="Ваш ответ" data-action="short-answer"${locked} />` +
+    affix +
+    `</div>` +
+    `</div>`
+  );
+}
