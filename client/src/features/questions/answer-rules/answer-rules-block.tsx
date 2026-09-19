@@ -60,7 +60,16 @@ export interface AnswerRulesBlockProps {
    * which is why it travels beside the draft rather than inside it.
    */
   maxLength?: number;
-  onMaxLength: (value: number | undefined) => void;
+  onMaxLength?: (value: number | undefined) => void;
+  /**
+   * PRD-57 FR-24c: тот же блок обслуживает и КОРОТКИЙ ОТВЕТ, и каждый ПРОПУСК.
+   *
+   * У пропуска нет ни своего предела длины (он свойство задания), ни тумблера проверки:
+   * пропуск без правил — это не «собираем текст», а несделанная работа, о которой список
+   * говорит отдельной пометкой. Поэтому вариант убирает ровно эти два элемента и ничего
+   * больше: остальное — вид ответа, связка, правила, проба — у них общее до буквы.
+   */
+  variant?: "question" | "blank";
 }
 
 /** Summary line of a collapsed rule — «что правило проверяет» (FR-28b). */
@@ -75,7 +84,14 @@ function ruleSubtitle(rule: TextRule | NumericRule): string {
   return rule.match === "regex" ? "Регулярное выражение" : "Обычное сравнение";
 }
 
-export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: AnswerRulesBlockProps) {
+export function AnswerRulesBlock({
+  draft,
+  onChange,
+  maxLength,
+  onMaxLength,
+  variant = "question",
+}: AnswerRulesBlockProps) {
+  const forBlank = variant === "blank";
   const rules = (draft.answerKind === "number" ? draft.number : draft.text) as Array<TextRule | NumericRule>;
   const saved: AnswerRuleSet = toCorrectJson(draft);
   // PRD-57 FR-28h: проба живёт ЗДЕСЬ, а не в черновике. `toCorrectJson` её не видит,
@@ -93,6 +109,7 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
 
   return (
     <div className="tb-rules" data-testid="answer-rules-block">
+      {forBlank ? null : (
       <div className="ou-formfield">
         <span className="ou-formfield__lbl">Предел длины ответа</span>
         <Input
@@ -101,9 +118,9 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
           onChange={(e) => {
             // Пустое поле — это «системный предел», а не ноль: ноль запретил бы ответ вовсе.
             const raw = e.target.value.trim();
-            if (raw === "") return onMaxLength(undefined);
+            if (raw === "") return onMaxLength?.(undefined);
             const parsed = Number(raw);
-            onMaxLength(Number.isInteger(parsed) && parsed > 0 ? parsed : undefined);
+            onMaxLength?.(Number.isInteger(parsed) && parsed > 0 ? parsed : undefined);
           }}
           data-testid="answer-rules-max-length"
         />
@@ -111,7 +128,9 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
           До скольких символов участник может ответить. Пусто — системный предел.
         </span>
       </div>
+      )}
 
+      {forBlank ? null : (
       <div className="ou-formfield">
         <span className="ou-formfield__lbl">Проверка ответа</span>
         <Switch
@@ -123,8 +142,9 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
           data-testid="answer-rules-autocheck"
         />
       </div>
+      )}
 
-      {draft.autoCheck ? (
+      {draft.autoCheck || forBlank ? (
         <>
           <div className="ou-formfield">
             <span className="ou-formfield__lbl">Ответ участника — это</span>

@@ -20,6 +20,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { isAllocationFeasible } from "@shared/questions/allocation";
 import { isTextEntry } from "@shared/questions/question-type";
 import { AnswerRulesBlock } from "./answer-rules/answer-rules-block";
+import { BlanksBlock } from "./answer-rules/blanks-block";
+import type { BlankRuleSet } from "@shared/questions/blanks-render";
 import {
   createDraft as createAnswerRulesDraft,
   isDirty as answerRulesDirty,
@@ -28,7 +30,7 @@ import {
 } from "./answer-rules/answer-rules-model";
 import type { AnswerRuleSet } from "@shared/answer-check";
 import { useMutation } from "@tanstack/react-query";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Braces, Plus, Trash2, GripVertical } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,6 +74,7 @@ const questionTypes = [
   { value: "scale", label: t.questions.scaleChoice },
   { value: "allocation", label: t.questions.allocation },
   { value: "short", label: t.questions.shortAnswer },
+  { value: "blanks", label: t.questions.blanks },
 ] as const;
 
 type QuestionType = typeof questionTypes[number]["value"];
@@ -124,6 +127,31 @@ export function QuestionEditorDrawer({
   // PRD-57 FR-28v: предел длины — свойство ВОПРОСА, поэтому он рядом с черновиком правил,
   // а не внутри него. `undefined` означает «системный предел».
   const [shortMaxLength, setShortMaxLength] = useState<number | undefined>(undefined);
+  // PRD-57 FR-24: наборы правил ПО ПРОПУСКАМ. Список строится из текста задания, поэтому
+  // здесь лежат только правила — имена приходят из `prompt`.
+  const [blanks, setBlanks] = useState<BlankRuleSet[]>([]);
+  /** Поле текста задания: вставка пропуска идёт В ПОЗИЦИЮ КУРСОРА. */
+  const promptRef = useRef<HTMLTextAreaElement | null>(null);
+
+  /**
+   * Поставить пустой пропуск и оставить курсор ВНУТРИ скобок (FR-24b).
+   *
+   * Курсор ставится следующим тиком: React вернёт значение из формы, и позиция,
+   * выставленная до перерисовки, потерялась бы.
+   */
+  const insertBlank = () => {
+    const field = promptRef.current;
+    const value = form.getValues("prompt") ?? "";
+    const from = field?.selectionStart ?? value.length;
+    const to = field?.selectionEnd ?? from;
+    const next = `${value.slice(0, from)}{{}}${value.slice(to)}`;
+    form.setValue("prompt", next, { shouldDirty: true });
+    const caret = from + 2;
+    window.setTimeout(() => {
+      field?.focus();
+      field?.setSelectionRange(caret, caret);
+    }, 0);
+  };
 
   const [singleOptions, setSingleOptions] = useState<string[]>(["", "", "", ""]);
   const [singleCorrect, setSingleCorrect] = useState<number>(0);
@@ -209,6 +237,7 @@ export function QuestionEditorDrawer({
     setTags([]);
     setMediaFileName("");
     setAnswerRules(createAnswerRulesDraft(null));
+    setBlanks([]);
     setShortMaxLength(undefined);
   };
 
@@ -245,6 +274,9 @@ export function QuestionEditorDrawer({
         setAllocBudget(String(data.budget ?? 7));
         setAllocMin(data.minPerOption === undefined || data.minPerOption === null ? "" : String(data.minPerOption));
         setAllocMax(data.maxPerOption === undefined || data.maxPerOption === null ? "" : String(data.maxPerOption));
+      } else if (question.type === "blanks") {
+        const key = (question.correctJson ?? {}) as { blanks?: BlankRuleSet[] };
+        setBlanks(Array.isArray(key.blanks) ? key.blanks : []);
       } else if (question.type === "short") {
         setAnswerRules(createAnswerRulesDraft(correct as AnswerRuleSet));
         setShortMaxLength(typeof data?.maxLength === "number" ? data.maxLength : undefined);
@@ -361,6 +393,12 @@ export function QuestionEditorDrawer({
         // (FR-28v), а эталон — набор правил сравнения (§6.1).
         dataJson = shortMaxLength === undefined ? {} : { maxLength: shortMaxLength };
         correctJson = answerRulesToCorrectJson(answerRules);
+        break;
+      case "blanks":
+        // Содержимого у задания нет: текст с пропусками ЕСТЬ содержимое, а эталон —
+        // наборы правил по пропускам (FR-24c).
+        dataJson = {};
+        correctJson = { blanks };
         break;
       case "scale":
         dataJson = { options: singleOptions.filter((o) => o.trim()) };
@@ -643,6 +681,27 @@ export function QuestionEditorDrawer({
             )}
           />
 
+          {selectedType === "blanks" && (
+            // FR-24b: кнопка вставки — обязательная часть редактора, а не удобство. Без
+            // неё автор обязан помнить синтаксис, а это ровно тот барьер, из-за которого
+            // механикой не пользуются. Имя за автора НЕ придумывается: придуманное по
+            // соседнему слову всё равно приходится читать и чаще всего менять.
+            <Cluster gap={2} wrap>
+              <Button
+                variant="ghost"
+                size="xs"
+                leadingIcon={<Braces width={16} height={16} aria-hidden="true" />}
+                onClick={() => insertBlank()}
+                data-testid="insert-blank"
+              >
+                Пропуск
+              </Button>
+              <Text variant="body-s" tone="muted">
+                Ставит {"{{}}"} и оставляет курсор внутри — введите имя пропуска.
+              </Text>
+            </Cluster>
+          )}
+
           <Textarea
             label={t.questions.questionText}
             placeholder={t.questions.questionTextPlaceholder}
@@ -652,10 +711,23 @@ export function QuestionEditorDrawer({
             error={form.formState.errors.prompt?.message}
             data-testid="input-question-prompt"
             {...form.register("prompt")}
+            ref={(node: HTMLTextAreaElement | null) => {
+              promptRef.current = node;
+              form.register("prompt").ref(node);
+            }}
             onPaste={(e) =>
               handleMarkdownPaste(e, (v) => form.setValue("prompt", v, { shouldDirty: true }))
             }
           />
+
+          {selectedType === "blanks" && (
+            <BlanksBlock
+              prompt={form.watch("prompt") ?? ""}
+              blanks={blanks}
+              onChange={setBlanks}
+              onRestorePrompt={(value) => form.setValue("prompt", value, { shouldDirty: true })}
+            />
+          )}
 
           {selectedType === "single" && (
             <SingleChoiceBuilder
