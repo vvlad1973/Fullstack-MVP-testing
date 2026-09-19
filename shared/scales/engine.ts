@@ -71,7 +71,14 @@ export interface MeasurementSpec {
  * a question-level contribution, because answering IS the contribution there, and never
  * an option, pair, position or allocation one — those read a shape a string does not have.
  */
-export type Answer = number | number[] | string | Record<string, number> | null | undefined;
+export type Answer =
+  | number
+  | number[]
+  | string
+  | Record<string, number>
+  | Record<string, string>
+  | null
+  | undefined;
 
 export interface ScaleComputation {
   values: Record<string, ScaleResult>;

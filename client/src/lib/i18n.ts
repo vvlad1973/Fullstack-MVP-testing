@@ -519,6 +519,7 @@ export const t = {
     scaleChoice: "Шкала",
     allocation: "Распределение баллов",
     shortAnswer: "Короткий ответ",
+    blanks: "Пропуски",
     allocationStatements: "Утверждения",
     allocationStatementPlaceholder: "Текст утверждения",
     allocationBudget: "Бюджет",

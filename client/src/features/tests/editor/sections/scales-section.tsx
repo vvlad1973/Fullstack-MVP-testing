@@ -1258,6 +1258,7 @@ const UNIT_HEADER: Record<ContributionQuestion["type"], string> = {
   scale: "Градация шкалы",
   allocation: "Утверждение",
   short: "Ответ",
+  blanks: "Пропуски",
 };
 
 const UNIT_HINT: Partial<Record<ContributionQuestion["type"], string>> = {

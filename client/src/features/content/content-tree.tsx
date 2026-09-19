@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
+  Braces,
   CheckSquare,
   ChevronDown,
   ChevronRight,
@@ -140,7 +141,7 @@ function MenuItem({ icon, danger, onClick, children, testId }: {
 
 import type { QuestionType } from "@shared/questions/question-type";
 
-const TYPE_ICON: Record<QuestionType, LucideIcon> = { single: CircleDot, multiple: CheckSquare, matching: Unplug, ranking: ListOrdered, scale: ThermometerSun, allocation: SlidersHorizontal, short: TextCursorInput };
+const TYPE_ICON: Record<QuestionType, LucideIcon> = { single: CircleDot, multiple: CheckSquare, matching: Unplug, ranking: ListOrdered, scale: ThermometerSun, allocation: SlidersHorizontal, short: TextCursorInput, blanks: Braces };
 const TYPE_LABEL: Record<QuestionType, string> = {
   single: t.questions.singleChoice,
   multiple: t.questions.multipleChoice,
@@ -149,6 +150,7 @@ const TYPE_LABEL: Record<QuestionType, string> = {
   scale: t.questions.scaleChoice,
   allocation: t.questions.allocation,
   short: t.questions.shortAnswer,
+  blanks: t.questions.blanks,
 };
 
 const depthClass = (depth: number): string => `ct-d${Math.min(depth, 6)}`;
