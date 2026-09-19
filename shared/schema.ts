@@ -1380,10 +1380,11 @@ export const rankingCorrectSchema = z.object({
  * key column rather than in one of their own: snapshots, the SCORM bake, test transfer
  * and the Excel workbook already carry that column.
  *
- * Two fields are described here but NOT accepted yet, on purpose: `match: "regex"` waits
- * for the runtime budget of Э7 (FR-28q), and every numeric operator but `eq` waits for
- * Э5. The stored SHAPE is final, so those stages lift a restriction in validation
- * instead of migrating questions that are already saved.
+ * One field is described here but NOT accepted yet, on purpose: `match: "regex"` waits for
+ * the runtime budget of Э7 (FR-28q). The stored SHAPE is final, so that stage lifts a
+ * restriction in validation instead of migrating questions that are already saved.
+ *
+ * A RANGE has no operator: it is two rules and the set's join (FR-28aa3).
  */
 export const answerRuleSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -1393,7 +1394,7 @@ export const answerRuleSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("number"),
-    op: z.literal("eq"),
+    op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte"]),
     value: z.number().finite(),
     tolerance: z
       .object({ unit: z.enum(["abs", "pct"]), value: z.number().finite().nonnegative() })

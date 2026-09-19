@@ -30,8 +30,15 @@ describe("answerRuleSetSchema", () => {
     expect(() => answerRuleSetSchema.parse(bad)).toThrow();
   });
 
-  it("не принимает операторов сверх «равно» до Э5", () => {
-    const bad = { answerKind: "number", join: "any", rules: [{ kind: "number", op: "gt", value: 5 }] };
+  it("принимает шесть операторов числового правила", () => {
+    for (const op of ["eq", "ne", "gt", "gte", "lt", "lte"]) {
+      const set = { answerKind: "number", join: "any", rules: [{ kind: "number", op, value: 5 }] };
+      expect(answerRuleSetSchema.parse(set).rules).toHaveLength(1);
+    }
+  });
+
+  it("не принимает оператора вне списка — диапазона отдельной формой нет (FR-28aa3)", () => {
+    const bad = { answerKind: "number", join: "any", rules: [{ kind: "number", op: "between", value: 5 }] };
     expect(() => answerRuleSetSchema.parse(bad)).toThrow();
   });
 
