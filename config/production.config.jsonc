@@ -59,5 +59,5 @@
     }
   },
   // Operational ceilings — see config/config.jsonc for what each one bounds.
-  "limits": { "participantsImportMaxRows": 500, "passwordEmailsPerHour": 3 }
+  "limits": { "participantsImportMaxRows": 500, "passwordEmailsPerHour": 3, "shortAnswerMaxLength": 250 }
 }

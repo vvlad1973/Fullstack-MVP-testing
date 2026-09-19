@@ -104,6 +104,15 @@ export interface AppConfig {
     participantsImportMaxRows: number;
     /** Password-setup letters per person per hour, shared by recovery and invitation. */
     passwordEmailsPerHour: number;
+    /**
+     * PRD-57 FR-28v: how many characters a short answer holds.
+     *
+     * 250 is the SCORM 2004 recommendation for a `fill-in` interaction, and the author's
+     * own limit is set inside it. It lives in configuration rather than in code because
+     * how WebTutor behaves at that boundary is not measured yet (#51): the measurement
+     * must change a NUMBER, not the editor and not questions that are already saved.
+     */
+    shortAnswerMaxLength: number;
   };
 }
 
@@ -243,6 +252,7 @@ export function shape(raw: Record<string, unknown>): AppConfig {
     limits: {
       participantsImportMaxRows: asNumber(limits.participantsImportMaxRows, 500),
       passwordEmailsPerHour: asNumber(limits.passwordEmailsPerHour, 3),
+      shortAnswerMaxLength: asNumber(limits.shortAnswerMaxLength, 250),
     },
   };
 }

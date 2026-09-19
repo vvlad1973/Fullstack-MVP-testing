@@ -157,6 +157,11 @@
     // Password-setup letters per person per hour. ONE budget shared by password
     // recovery and the "set your password" invitation, so the two paths cannot
     // be combined to exceed it.
-    "passwordEmailsPerHour": 3
+    "passwordEmailsPerHour": 3,
+    // Сколько символов вмещает короткий ответ (PRD-57 FR-28v). 250 — рекомендация
+    // SCORM 2004 для взаимодействия `fill-in`; автор задаёт свой предел внутри этого
+    // потолка. Число живёт здесь, а не в коде, потому что поведение WebTutor на этом
+    // пределе ещё не измерено: замер поменяет настройку, не трогая заведённые задания.
+    "shortAnswerMaxLength": 250
   }
 }
