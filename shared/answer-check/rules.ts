@@ -31,6 +31,16 @@ export interface TextRule {
   kind: "text";
   match: "wildcard" | "regex";
   value: string;
+  /**
+   * PRD-57 Э7: the save-time measurement (FR-28o) found this expression slow.
+   *
+   * It is stored WITH the rule because it is the only protection the SCORM package has.
+   * The package grades in the main thread — nothing there can interrupt a running regular
+   * expression — so a rule the editor already timed as catastrophic is not executed at
+   * all: the answer comes out unchecked (FR-28r) instead of freezing the learner's tab.
+   * The web host ignores the flag: it has a real budget in a worker thread.
+   */
+  slow?: boolean;
 }
 
 /** One rule of either kind. */
@@ -97,10 +107,20 @@ function matchOne(rule: AnswerRule, text: string, numeric: number | null, raw: s
  * @param answer The learner's raw input.
  * @returns The verdict and the per-rule outcomes, in the authored order.
  */
+/** How a host without a killable executor wants slow expressions handled. */
+export interface CheckOptions {
+  /**
+   * Do not run an expression the save-time measurement flagged as slow — report it as
+   * unchecked instead. The SCORM package sets this; the server never does.
+   */
+  skipSlow?: boolean;
+}
+
 export function checkRuleSet(
   set: AnswerRuleSet,
   answer: string | null | undefined,
   verdicts?: RuleVerdicts,
+  options?: CheckOptions,
 ): RuleSetOutcome {
   const rules = Array.isArray(set?.rules) ? set.rules : [];
   const text = normalizeForCompare(answer);
@@ -109,7 +129,13 @@ export function checkRuleSet(
     return { passed: false, perRule: rules.map(() => false) };
   }
   const numeric = set.answerKind === "number" ? parseNumericAnswer(answer) : null;
-  const given = (index: number): RuleVerdict | undefined => verdicts?.[index];
+  const skipped = (rule: AnswerRule): boolean =>
+    options?.skipSlow === true && rule.kind === "text" && rule.match === "regex" && rule.slow === true;
+  const given = (index: number): RuleVerdict | undefined => {
+    const ready = verdicts?.[index];
+    if (ready !== undefined) return ready;
+    return skipped(rules[index]) ? "budget" : undefined;
+  };
   const perRule = rules.map((rule, index) => {
     const ready = given(index);
     if (ready === true) return true;

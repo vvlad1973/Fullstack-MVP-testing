@@ -8,6 +8,9 @@
  * Absent / `exact` scoring keeps the legacy 0/1 result (FR-02).
  */
 var ScoringEngine = (function () {
+  /** Пакет считает без бюджета — медленные выражения не запускаются (PRD-57 FR-28q). */
+  var SKIP_SLOW = { skipSlow: true };
+
   function clamp01(v) {
     return Math.max(0, Math.min(1, v));
   }
@@ -32,7 +35,11 @@ var ScoringEngine = (function () {
     if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(type)) {
       if (typeof answer !== 'string') return 0;
       if (typeof TBTemplate === 'undefined' || !TBTemplate.checkRuleSet) return 0;
-      return TBTemplate.checkRuleSet(correct, answer).passed ? 1 : 0;
+      // PRD-57 FR-28q: в пакете сравнение идёт в ОСНОВНОМ потоке, и прервать зависшее
+      // выражение там нечем. Поэтому правило, которое замер при сохранении уже назвал
+      // долгим, здесь не исполняется вовсе: ответ выйдет непроверенным, а не подвесит
+      // вкладку участника. У веб-хоста есть настоящий бюджет, и он этот признак не читает.
+      return TBTemplate.checkRuleSet(correct, answer, undefined, SKIP_SLOW).passed ? 1 : 0;
     }
     if (type === 'multiple') {
       var want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
@@ -106,7 +113,7 @@ var ScoringEngine = (function () {
       var tRules = (correct && Array.isArray(correct.rules)) ? correct.rules : [];
       var tHits = 0;
       if (typeof answer === 'string' && typeof TBTemplate !== 'undefined' && TBTemplate.checkRuleSet) {
-        var perRule = TBTemplate.checkRuleSet(correct, answer).perRule || [];
+        var perRule = TBTemplate.checkRuleSet(correct, answer, undefined, SKIP_SLOW).perRule || [];
         for (var ti = 0; ti < perRule.length; ti++) if (perRule[ti]) tHits += 1;
       }
       var tMiss = (typeof answer === 'string' && answer !== '' && tHits === 0) ? 1 : 0;

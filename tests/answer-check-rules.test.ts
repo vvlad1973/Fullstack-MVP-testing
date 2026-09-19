@@ -131,3 +131,41 @@ describe("checkRuleSet — готовые вердикты выражений (�
     expect(outcome.pending).toBe(true);
   });
 });
+
+describe("checkRuleSet — правило, помеченное медленным (Э7, защита пакета)", () => {
+  const SLOW_SET: AnswerRuleSet = {
+    answerKind: "text",
+    join: "any",
+    rules: [{ kind: "text", match: "regex", value: String.raw`^(\S+\s?)+ надзору$`, slow: true }],
+  };
+
+  it("там, где бюджета нет, медленное правило не исполняется вовсе", () => {
+    // Пакет считает в основном потоке: прервать выражение там нечем, поэтому правило,
+    // которое замер при сохранении уже назвал долгим, не запускается.
+    const outcome = checkRuleSet(SLOW_SET, "федеральная служба по атомному надзору", undefined, {
+      skipSlow: true,
+    });
+    expect(outcome.passed).toBe(false);
+    expect(outcome.pending).toBe(true);
+  });
+
+  it("там, где бюджет есть, правило считается как обычное", () => {
+    const outcome = checkRuleSet(SLOW_SET, "федеральная служба по атомному надзору");
+    expect(outcome.passed).toBe(true);
+    expect(outcome.pending).toBeFalsy();
+  });
+
+  it("другое сработавшее правило важнее пропущенного", () => {
+    const mixed: AnswerRuleSet = {
+      answerKind: "text",
+      join: "any",
+      rules: [
+        { kind: "text", match: "regex", value: String.raw`^(\S+\s?)+ надзору$`, slow: true },
+        { kind: "text", match: "wildcard", value: "Ростехнадзор" },
+      ],
+    };
+    const outcome = checkRuleSet(mixed, "ростехнадзор", undefined, { skipSlow: true });
+    expect(outcome.passed).toBe(true);
+    expect(outcome.pending).toBeFalsy();
+  });
+});

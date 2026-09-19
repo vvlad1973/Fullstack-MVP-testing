@@ -1392,6 +1392,8 @@ export const answerRuleSchema = z.discriminatedUnion("kind", [
     kind: z.literal("text"),
     match: z.enum(["wildcard", "regex"]),
     value: z.string().min(1),
+    /** PRD-57 Э7: замер при сохранении назвал выражение долгим — пакет его не исполняет. */
+    slow: z.boolean().optional(),
   }),
   z.object({
     kind: z.literal("number"),
