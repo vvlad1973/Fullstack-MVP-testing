@@ -1415,6 +1415,24 @@ export const answerRuleSetSchema = z
 
 export type AnswerRuleSetInput = z.infer<typeof answerRuleSetSchema>;
 
+/**
+ * PRD-57 FR-28v: the content of a short answer is its length limit and nothing else.
+ *
+ * The type has no options, so `data_json` carries just this setting. An ABSENT key means
+ * «the system ceiling» (`limits.shortAnswerMaxLength`): storing a copy of the ceiling in
+ * every question would freeze it at the moment the question was written, and the ceiling
+ * is exactly the number the WebTutor measurement (#51) is expected to move.
+ *
+ * The upper bound is NOT checked here: the ceiling belongs to an installation's
+ * configuration, while this schema is shared by all of them. Holding the author to the
+ * ceiling is the editor's job.
+ */
+export const shortAnswerDataSchema = z.object({
+  maxLength: z.number().int().positive().optional(),
+});
+
+export type ShortAnswerData = z.infer<typeof shortAnswerDataSchema>;
+
 export type SingleChoiceData = z.infer<typeof singleChoiceDataSchema>;
 export type MultipleChoiceData = z.infer<typeof multipleChoiceDataSchema>;
 export type MatchingData = z.infer<typeof matchingDataSchema>;

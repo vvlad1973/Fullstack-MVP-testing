@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { answerRuleSetSchema } from "../shared/schema";
+import { answerRuleSetSchema, shortAnswerDataSchema } from "../shared/schema";
 
 describe("answerRuleSetSchema", () => {
   it("принимает текстовый набор", () => {
@@ -38,5 +38,21 @@ describe("answerRuleSetSchema", () => {
   it("не принимает набор, где вид ответа и правило расходятся", () => {
     const bad = { answerKind: "number", join: "any", rules: [{ kind: "text", match: "wildcard", value: "пять" }] };
     expect(() => answerRuleSetSchema.parse(bad)).toThrow();
+  });
+});
+
+describe("shortAnswerDataSchema", () => {
+  it("принимает предел длины", () => {
+    expect(shortAnswerDataSchema.parse({ maxLength: 40 }).maxLength).toBe(40);
+  });
+
+  it("принимает пустой объект — предела нет, действует системный потолок", () => {
+    expect(shortAnswerDataSchema.parse({}).maxLength).toBeUndefined();
+  });
+
+  it("не принимает ноль, отрицательное и дробное", () => {
+    expect(() => shortAnswerDataSchema.parse({ maxLength: 0 })).toThrow();
+    expect(() => shortAnswerDataSchema.parse({ maxLength: -5 })).toThrow();
+    expect(() => shortAnswerDataSchema.parse({ maxLength: 12.5 })).toThrow();
   });
 });
