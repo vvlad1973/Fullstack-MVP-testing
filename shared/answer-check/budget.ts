@@ -59,11 +59,17 @@ export function measure<T>(run: () => T): Measured<T> {
  * string is a run of repeated, separator-joined chunks — many ways to split the same text
  * between repetitions — with a tail that fits nothing.
  *
- * Lengths grow, because the cost grows fourfold every two characters: a set that stops at
- * twenty characters would call `^(\S+\s?)+ надзору$` fast (23 ms) and miss that it needs
- * 27 seconds at thirty.
+ * The lengths are MEASURED, not guessed. On this engine (2026-09-19, Node 24) the pattern
+ * `^(\S+\s?)+ надзору$` takes 0 ms up to 40 characters of such a string, 125 ms at 52,
+ * 904 ms at 70 and 4,2 s at 76 — the curve only lifts off the floor past sixty. A set that
+ * stopped at thirty characters, as the first draft of this function did, would have called
+ * the worst expression in the requirements FAST and told the author so.
+ *
+ * The longest string here is deliberately past the point where a bad expression is already
+ * unbearable: the run is itself budgeted, so a string that never finishes costs the author
+ * one budget, not a frozen tab.
  */
 export function provocations(): string[] {
-  const lengths = [10, 14, 18, 22, 26, 30];
-  return lengths.map((length) => `${"аб ".repeat(Math.ceil(length / 3)).slice(0, length)}!`);
+  const repeats = [8, 14, 20, 24, 28];
+  return repeats.map((times) => `${"аб ".repeat(times)}абв!`);
 }

@@ -113,6 +113,17 @@ export interface AppConfig {
      * must change a NUMBER, not the editor and not questions that are already saved.
      */
     shortAnswerMaxLength: number;
+    /**
+     * PRD-57 FR-28q: how long ONE comparison may block before the answer is left
+     * unchecked. An author's regular expression runs on OUR server, and Node is single
+     * threaded — the budget is what keeps one bad expression from stopping everyone.
+     */
+    answerCheckBudgetMs: number;
+    /**
+     * PRD-57 FR-28o: when the author is told their expression is slow. A warning, never a
+     * refusal — the rule saves either way (FR-28p1).
+     */
+    answerCheckWarnMs: number;
   };
 }
 
@@ -253,6 +264,8 @@ export function shape(raw: Record<string, unknown>): AppConfig {
       participantsImportMaxRows: asNumber(limits.participantsImportMaxRows, 500),
       passwordEmailsPerHour: asNumber(limits.passwordEmailsPerHour, 3),
       shortAnswerMaxLength: asNumber(limits.shortAnswerMaxLength, 250),
+      answerCheckBudgetMs: asNumber(limits.answerCheckBudgetMs, 1000),
+      answerCheckWarnMs: asNumber(limits.answerCheckWarnMs, 200),
     },
   };
 }
