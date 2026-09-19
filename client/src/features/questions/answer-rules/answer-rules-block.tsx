@@ -8,11 +8,10 @@
  *
  * It lives in its own file rather than inside `question-editor-drawer`: that file is
  * already past 1200 lines, and the rule set is the one part of a typed answer that grows
- * with every stage of the track (the probe in Э6, the expression panel in Э7).
+ * with every stage of the track — the numeric operators of Э5, the probe of Э6, the
+ * expression panel and its measurement of Э7 all landed here.
  *
- * Not here yet, on purpose: the answer probe (Э6) and the regular-expression mode
- * (Э7, which cannot ship before its runtime budget). The mode switch IS drawn, disabled,
- * with the reason spelled out — hiding it would tell the author expressions do not exist.
+ * Not here yet, on purpose: the blanks of Э8, which bring their own rule set per blank.
  */
 import { Accordion, AccordionItem, Banner, Button, Input, SegmentedControl, Select, Switch, Tag } from "@skillum/ui-kit";
 import { Plus, Trash2 } from "lucide-react";
@@ -84,7 +83,13 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
   const [probe, setProbe] = useState("");
   // Вердикт считает тот же движок, что и попытка: вторая «как бы проверка» для автора
   // обещала бы одно, а прохождение делало бы другое.
-  const outcome = probe.trim() === "" || saved.rules.length === 0 ? null : checkRuleSet(saved, probe);
+  // `skipSlow` здесь — защита АВТОРА: выражение, которое замер уже назвал долгим, в
+  // ящике не запускается, иначе проба подвесила бы вкладку ровно на то время, о котором
+  // предупреждение и говорит. Такое правило проба честно называет непроверенным.
+  const outcome =
+    probe.trim() === "" || saved.rules.length === 0
+      ? null
+      : checkRuleSet(saved, probe, undefined, { skipSlow: true });
 
   return (
     <div className="tb-rules" data-testid="answer-rules-block">

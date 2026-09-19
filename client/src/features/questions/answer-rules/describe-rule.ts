@@ -102,6 +102,12 @@ export function describeProbe(set: AnswerRuleSet, outcome: RuleSetOutcome): stri
   const unit = typeof set.unit === "string" ? set.unit : "";
   const titleAt = (index: number) => ruleTitleOf(set.rules[index], unit);
 
+  // Правило, которое замер назвал долгим, проба не запускает: иначе она подвесила бы
+  // ящик ровно на то время, о котором предупреждение и говорит (Э7).
+  if (outcome.pending) {
+    return `Выражение считается слишком долго, поэтому проба его не запускала. ${PROBE_DISCLAIMER}`;
+  }
+
   if (outcome.passed) {
     if (set.join === "all") return `Выполнены все правила. ${PROBE_DISCLAIMER}`;
     const fired = outcome.perRule.findIndex(Boolean);
