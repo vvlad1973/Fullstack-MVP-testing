@@ -901,6 +901,9 @@ function mapScormType(q) {
   if (q.type === 'multiple') return 'choice';
   if (q.type === 'matching') return 'matching';
   if (q.type === 'ranking') return 'sequencing';
+  // PRD-57 FR-27: текстовый ввод — `fill-in`. Признак, а не литерал: пропуски (Э8)
+  // войдут сюда же, объявив тот же признак.
+  if (TBQType.isTextEntry(q.type)) return 'fill-in';
   return 'other';
 }
 
@@ -913,6 +916,9 @@ function mapScormType(q) {
 function formatResponse(q, ans) {
   if (ans == null) return '';
 
+  // PRD-57 §6.5: ответ уже строка, и в отчёт LMS он уходит РОВНО таким, каким его набрал
+  // участник. Нормализация живёт в сравнении: разбирая спор, важно видеть написание.
+  if (TBQType.isTextEntry(q.type)) return String(ans);
   if (TBQType.isSingleIndexChoice(q.type)) return String(to1(ans));
   if (q.type === 'multiple') return (Array.isArray(ans) ? ans : []).map(to1).join(',');
   if (q.type === 'ranking') return (Array.isArray(ans) ? ans : []).map(to1).join(',');
@@ -956,6 +962,34 @@ function getCorrectAnswerFor(q) {
     return m;
   }
   return null;
+}
+
+/**
+ * `cmi.interactions.n.correct_responses.0.pattern` для ОДНОГО задания.
+ *
+ * У текстового ввода эталон — набор правил (PRD-57 §6.1), и в `fill-in` он представим
+ * только тогда, когда все правила БУКВАЛЬНЫ: подстановочные знаки `*` и `?` стандартом для
+ * этого взаимодействия не предусмотрены. Как только образец появляется, эталон не пишется
+ * вовсе — промолчать честнее, чем отправить в отчёт LMS шаблон, который прочтут как ответ.
+ *
+ * Несколько допустимых ответов разделяются `[,]` — запись стандарта для `fill-in`.
+ */
+function correctPatternFor(q) {
+  if (TBQType.isTextEntry(q.type)) {
+    var set = q.correct || {};
+    var rules = Array.isArray(set.rules) ? set.rules : [];
+    if (rules.length === 0) return '';
+    var values = [];
+    for (var i = 0; i < rules.length; i++) {
+      var rule = rules[i];
+      if (!rule || rule.kind !== 'text' || rule.match !== 'wildcard') return '';
+      var value = String(rule.value == null ? '' : rule.value);
+      if (value.indexOf('*') !== -1 || value.indexOf('?') !== -1) return '';
+      values.push(value);
+    }
+    return values.join('[,]');
+  }
+  return formatResponse(q, getCorrectAnswerFor(q));
 }
 
 /**
@@ -1157,7 +1191,7 @@ function buildQuestionInteraction(question, answer, fullCorrect) {
     type: mapScormType(question),
     result: interactionResultFor(question, fullCorrect),
     response: formatResponse(question, answer),
-    correct: formatResponse(question, getCorrectAnswerFor(question)),
+    correct: correctPatternFor(question),
     description: authorTextPlain(question.prompt),
     latency: questionLatency(question.id)
   };
