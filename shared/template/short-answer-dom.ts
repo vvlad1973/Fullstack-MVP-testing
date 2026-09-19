@@ -18,11 +18,14 @@
 
 /** Minimal element shape used here — keeps the module free of `lib.dom` assumptions. */
 type El = {
-  querySelector(sel: string): El | null;
   value?: string;
+  matches?(sel: string): boolean;
   addEventListener(type: string, cb: (e: never) => void): void;
   removeEventListener(type: string, cb: (e: never) => void): void;
 };
+
+/** The `input` event as this module reads it. */
+type InputEvent = { target: El | null };
 
 /** What the field needs from the screen that owns the answer. */
 export interface ShortAnswerHost {
@@ -38,22 +41,28 @@ export interface ShortAnswerHost {
 export type DetachShortAnswer = () => void;
 
 /**
- * Subscribe the typed-answer field inside `root`.
+ * Subscribe to the typed-answer field inside `root`.
  *
- * Returns a no-op detach when the screen carries no such field, so a host may call this
- * for every question without first asking what type is on screen.
+ * DELEGATED, not bound to the element: `input` bubbles, and the field is replaced on
+ * every re-render — the package binds its interaction ONCE at start-up, long before any
+ * question exists, so grabbing the element at attach time would leave the learner typing
+ * into a field nobody listens to. That is exactly how it failed on the package host while
+ * the web host, which re-attaches after each render, looked fine.
  *
- * @param root Container that holds the rendered question (shadow root or element).
+ * Attaching twice to the same root is harmless: the second call installs its own listener
+ * and its own detach, and both write the same value.
+ *
+ * @param root Container that holds the rendered question (document, shadow root, element).
  * @param host The screen that owns the answer.
  * @returns The unsubscribe function.
  */
 export function attachShortAnswer(root: El, host: ShortAnswerHost): DetachShortAnswer {
-  const field = root.querySelector('[data-action="short-answer"]');
-  if (!field) return () => {};
-  const onInput = (): void => {
+  const onInput = (event: InputEvent): void => {
+    const field = event?.target;
+    if (!field || !field.matches?.('[data-action="short-answer"]')) return;
     if (host.isLocked?.()) return;
     host.setAnswer(typeof field.value === "string" ? field.value : "");
   };
-  field.addEventListener("input", onInput as (e: never) => void);
-  return () => field.removeEventListener("input", onInput as (e: never) => void);
+  root.addEventListener("input", onInput as (e: never) => void);
+  return () => root.removeEventListener("input", onInput as (e: never) => void);
 }

@@ -35,5 +35,9 @@ function renderQuestionInput(q) {
     }
     return renderAllocationQuestionInput(q, answer, showReview, shuffleMapping);
   }
+  // PRD-57 §6.5: текстовый ввод — ветка по ПРИЗНАКУ, чтобы пропуски (Э8) вошли сюда же.
+  if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(q.type)) {
+    return renderShortQuestionInput(q, answer, showReview);
+  }
   return '<div>Неизвестный тип вопроса</div>';
 }

@@ -237,8 +237,10 @@ var __qInputClicksBound = false;
 function bindQuestionInputClicksOnce() {
   if (__qInputClicksBound) return;
   __qInputClicksBound = true;
-  // Распределение цепляется той же точкой входа: у хоста один момент «интерактив готов».
+  // Распределение и текстовый ввод цепляются той же точкой входа: у хоста один момент
+  // «интерактив готов», и заводить второй значит однажды забыть его позвать.
   bindAllocationInputOnce();
+  bindShortAnswerInputOnce();
   if (typeof document === 'undefined') return;
   document.addEventListener('click', function (e) {
     var el = (e.target && e.target.closest) ? e.target.closest('[data-action]') : null;
@@ -324,6 +326,40 @@ function bindAllocationInputOnce() {
       if (!q) return;
       reopenIfCommitted(state.flatQuestions[state.currentIndex]);
       state.answers[q.id] = next;
+      refreshSubmitEnabled();
+    }
+  });
+}
+
+/**
+ * PRD-57 §6.5: живой ввод текстового ответа. Привязывается ОДИН раз к документу — как и
+ * остальные делегации, потому что узлы заменяются на каждой перерисовке.
+ *
+ * Ответ кладётся в состояние СЫРОЙ строкой: нормализация живёт в сравнении, а в отчёт
+ * LMS уходит ровно то, что набрал участник. Перерисовки здесь нет намеренно — она
+ * заменила бы поле под курсором и сбросила бы каретку на каждом нажатии.
+ */
+var __shortBound = false;
+function bindShortAnswerInputOnce() {
+  if (__shortBound) return;
+  var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
+  if (!TB || !TB.attachShortAnswer || typeof document === 'undefined') return;
+  __shortBound = true;
+
+  TB.attachShortAnswer(document, {
+    getAnswer: function () {
+      var q = __currentQuestionForInput();
+      var value = q ? state.answers[q.id] : '';
+      return typeof value === 'string' ? value : '';
+    },
+    isLocked: function () {
+      return isAnswerLocked(state.flatQuestions[state.currentIndex]);
+    },
+    setAnswer: function (value) {
+      var q = __currentQuestionForInput();
+      if (!q) return;
+      reopenIfCommitted(state.flatQuestions[state.currentIndex]);
+      state.answers[q.id] = value;
       refreshSubmitEnabled();
     }
   });

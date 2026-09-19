@@ -406,6 +406,7 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
   const qRankingJs  = readOneOf(["app/render/questions/ranking.js"]);
   const qScaleJs    = readOneOf(["app/render/questions/scale.js"]);
   const qAllocJs    = readOneOf(["app/render/questions/allocation.js"]);
+  const qShortJs    = readOneOf(["app/render/questions/short.js"]);
   const qIndexJs    = readOneOf(["app/render/questions/index.js"]);
   const viewResultsJs = readOneOf(["app/render/viewResults.js"]);
 
@@ -489,6 +490,7 @@ export async function generateScormPackage(data: ExportData): Promise<Buffer> {
     qRankingJs,
     qScaleJs,
     qAllocJs,
+    qShortJs,
     qIndexJs,
     answerActionsJs,
     matchingDndJs,

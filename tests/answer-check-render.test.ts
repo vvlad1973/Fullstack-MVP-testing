@@ -47,7 +47,7 @@ describe("attachShortAnswer", () => {
 
     const input = root.querySelector("input") as HTMLInputElement;
     input.value = "  Ростехнадзор ";
-    input.dispatchEvent(new Event("input"));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(seen).toEqual(["  Ростехнадзор "]);
     detach();
@@ -62,7 +62,7 @@ describe("attachShortAnswer", () => {
 
     const input = root.querySelector("input") as HTMLInputElement;
     input.value = "поздно";
-    input.dispatchEvent(new Event("input"));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(seen).toEqual([]);
   });
@@ -75,9 +75,25 @@ describe("attachShortAnswer", () => {
 
     const input = root.querySelector("input") as HTMLInputElement;
     input.value = "не считается";
-    input.dispatchEvent(new Event("input"));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(seen).toEqual([]);
+  });
+
+  it("переживает перерисовку: подписка ДО появления поля всё равно ловит ввод", async () => {
+    // Рантайм пакета подписывается ОДИН раз на старте, когда вопроса ещё нет. Привязка
+    // к самому элементу в этот момент молча теряет весь последующий ввод.
+    const { attachShortAnswer } = await import("../shared/template/short-answer-dom");
+    const root = mount("<div></div>");
+    const seen: string[] = [];
+    attachShortAnswer(root, { getAnswer: () => "", setAnswer: (v) => seen.push(v) });
+
+    root.innerHTML = renderShortAnswer({ type: "short", dataJson: {} }, null);
+    const input = root.querySelector("input") as HTMLInputElement;
+    input.value = "РТН";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(seen).toEqual(["РТН"]);
   });
 
   it("не падает, когда поля на экране нет", async () => {
