@@ -1,0 +1,18 @@
+/**
+ * @module shared/answer-check
+ *
+ * Public face of the open-answer comparison engine (PRD-57 §6.1). Hosts import from
+ * here; the SCORM package receives the same functions through
+ * `shared/template/runtime-entry`, so there is no per-host copy (FR-28s).
+ */
+export { normalizeForCompare } from "./normalize";
+export { matchWildcard } from "./wildcard";
+export { parseNumericAnswer, matchNumber, type NumericRule } from "./number";
+export {
+  checkRuleSet,
+  hasRules,
+  type AnswerRule,
+  type AnswerRuleSet,
+  type RuleSetOutcome,
+  type TextRule,
+} from "./rules";
