@@ -14,18 +14,22 @@
  * (Э7, which cannot ship before its runtime budget). The mode switch IS drawn, disabled,
  * with the reason spelled out — hiding it would tell the author expressions do not exist.
  */
-import { Accordion, AccordionItem, Button, Input, SegmentedControl, Select, Switch, Tag } from "@skillum/ui-kit";
+import { Accordion, AccordionItem, Banner, Button, Input, SegmentedControl, Select, Switch, Tag } from "@skillum/ui-kit";
 import { Plus, Trash2 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import {
   checkRuleSet,
+  DEFAULT_WARN_MS,
   parseNumericAnswer,
+  simplifyExpression,
   type AnswerRuleSet,
   type NumericOp,
   type NumericRule,
   type TextRule,
 } from "@shared/answer-check";
+import { measureExpression, type Measurement } from "./measure-expression";
+import { RegexBar } from "./regex-bar";
 import {
   describeNumericRule,
   describeProbe,
@@ -198,6 +202,7 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
                     {rule.kind === "text" ? (
                       <TextRuleFields
                         rule={rule}
+                        index={index}
                         onPatch={(patch) => onChange(updateRule(draft, index, patch))}
                       />
                     ) : (
@@ -263,7 +268,47 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
 }
 
 /** Fields of ONE textual rule (wireframe: «Как сравнивать» + «Ответ»). */
-function TextRuleFields({ rule, onPatch }: { rule: TextRule; onPatch: (patch: Partial<TextRule>) => void }) {
+function TextRuleFields({
+  rule,
+  index,
+  onPatch,
+}: {
+  rule: TextRule;
+  index: number;
+  onPatch: (patch: Partial<TextRule>) => void;
+}) {
+  const fieldRef = useRef<HTMLInputElement | null>(null);
+  const [measured, setMeasured] = useState<Measurement | null>(null);
+  const expression = rule.match === "regex";
+
+  // Замер идёт по выражению, а не по каждой букве: пока автор печатает, мерить нечего,
+  // а поток на каждый символ — это поток на каждый символ.
+  useEffect(() => {
+    if (!expression || rule.value.trim() === "") {
+      setMeasured(null);
+      return;
+    }
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void measureExpression(rule.value).then((result) => {
+        if (!alive) return;
+        setMeasured(result);
+        // Признак едет ВМЕСТЕ с правилом: в пакете он единственная защита участника
+        // (там сравнение идёт в основном потоке и прервать его нечем).
+        const slow = result.killed || result.worstMs >= DEFAULT_WARN_MS;
+        if (slow !== (rule.slow === true)) onPatch({ slow: slow || undefined });
+      });
+    }, 400);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expression, rule.value]);
+
+  const replacement = expression ? simplifyExpression(rule.value) : null;
+  const slow = measured !== null && (measured.killed || measured.worstMs >= DEFAULT_WARN_MS);
+
   return (
     <>
       <div className="ou-formfield">
@@ -274,32 +319,74 @@ function TextRuleFields({ rule, onPatch }: { rule: TextRule; onPatch: (patch: Pa
           aria-label="Как сравнивать"
           items={[
             { value: "wildcard", label: "Обычный" },
-            // Э7: режим появляется вместе с бюджетом времени, без которого выражение
-            // участника способно занять проверку надолго (FR-28q). Кнопка показана
-            // запертой: спрятать её значит сказать автору, что выражений не будет вовсе.
-            { value: "regex", label: "Регулярное выражение", disabled: true },
+            { value: "regex", label: "Регулярное выражение" },
           ]}
           onChange={(value) => onPatch({ match: value })}
         />
-        <span className="ou-formfield__desc">
-          Регулярные выражения появятся позже. Сейчас доступно обычное сравнение.
-        </span>
       </div>
       <div className="ou-formfield">
-        <span className="ou-formfield__lbl">Ответ</span>
+        <span className="ou-formfield__lbl">{expression ? "Выражение" : "Ответ"}</span>
+        {expression ? (
+          <RegexBar field={() => fieldRef.current} onInsert={(value) => onPatch({ value })} />
+        ) : null}
         <Input
+          ref={expression ? fieldRef : undefined}
           size="m"
+          className={expression ? "tb-mono" : undefined}
           value={rule.value}
           onChange={(e) => onPatch({ value: e.target.value })}
           data-testid="answer-rules-text-value"
         />
-        <span className="ou-formfield__desc">
-          Звёздочка заменяет любое продолжение, знак вопроса — один любой символ.
-          Регистр, лишние пробелы, «ё» и вид кавычек значения не имеют.
-        </span>
+        {expression && measured ? (
+          <span
+            className={`ou-formfield__msg${slow ? " ou-formfield__msg--warn" : ""}`}
+            data-testid={`answer-rules-measure-${index}`}
+          >
+            {measured.killed
+              ? "Проверка ответа не уложилась в отведённое время"
+              : `Проверка ответа заняла ${formatDuration(measured.worstMs)}`}
+          </span>
+        ) : null}
+        {!expression ? (
+          <span className="ou-formfield__desc">
+            Звёздочка заменяет любое продолжение, знак вопроса — один любой символ.
+            Регистр, лишние пробелы, «ё» и вид кавычек значения не имеют.
+          </span>
+        ) : null}
       </div>
+      {expression && slow ? (
+        <Banner
+          tone="warning"
+          variant="subtle"
+          title="Выражение считается слишком долго"
+          data-testid={`answer-rules-slow-${index}`}
+          actions={
+            replacement
+              ? [
+                {
+                  label: "Заменить на обычное сравнение",
+                  primary: true,
+                  className: `answer-rules-replace-${index}`,
+                  onClick: () => onPatch({ match: "wildcard", value: replacement, slow: undefined }),
+                },
+              ]
+              : undefined
+          }
+        >
+          {replacement
+            ? `Проверка одного ответа занимает недопустимо долго, и чем длиннее ответ, тем дольше. Участник столько ждать не будет. Тот же ответ поймает обычное сравнение со звёздочкой: «${replacement}».`
+            : "Проверка одного ответа занимает недопустимо долго, и чем длиннее ответ, тем дольше. Участник столько ждать не будет. Замену подобрать не удалось: упростите выражение сами или обойдитесь обычным сравнением — для большинства заданий его хватает."}
+        </Banner>
+      ) : null}
     </>
   );
+}
+
+/** «230 мс» либо «27 секунд» — автору важен порядок величины, а не точность. */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)} мс`;
+  const seconds = Math.round(ms / 100) / 10;
+  return `${String(seconds).replace(".", ",")} с`;
 }
 
 /** Fields of ONE numeric rule (wireframe states `k-number` and `k-frac`). */

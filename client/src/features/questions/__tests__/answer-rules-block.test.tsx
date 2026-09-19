@@ -100,16 +100,46 @@ describe("AnswerRulesBlock", () => {
     cleanup();
   });
 
-  it("режим регулярного выражения показан, но заперт до Э7", () => {
+  it("режим регулярного выражения доступен с Э7", () => {
     render(<Harness initial={TEXT_SET} />);
-    fireEvent.click(screen.getByText("Ростехнадзор"));
     // Аккордеон держит тела всех строк в DOM, поэтому переключателей столько же,
-    // сколько правил: заперт обязан быть каждый.
+    // сколько правил: открытым обязан быть каждый.
     const modes = screen.getAllByText("Регулярное выражение");
     expect(modes.length).toBe(TEXT_SET.rules.length);
     for (const mode of modes) {
-      expect((mode.closest("button") as HTMLButtonElement).disabled).toBe(true);
+      expect((mode.closest("button") as HTMLButtonElement).disabled).toBe(false);
     }
+    cleanup();
+  });
+
+  it("в режиме выражения появляется панель вставки", () => {
+    const regexSet: AnswerRuleSet = {
+      answerKind: "text",
+      join: "any",
+      rules: [{ kind: "text", match: "regex", value: "^рос" }],
+    };
+    render(<Harness initial={regexSet} />);
+    const bar = screen.getByTestId("answer-rules-rxbar");
+    // Тринадцать кусков эскиза: из чего состоит ответ → сколько раз повторяется →
+    // где начинается и кончается.
+    expect(bar.querySelectorAll("button").length).toBe(13);
+    expect(bar.textContent).toContain("\\d");
+    expect(bar.textContent).toContain("{2,4}");
+    cleanup();
+  });
+
+  it("кнопка панели вставляет кусок в позицию курсора, а не в конец", () => {
+    const saved: AnswerRuleSet[] = [];
+    const regexSet: AnswerRuleSet = {
+      answerKind: "text",
+      join: "any",
+      rules: [{ kind: "text", match: "regex", value: "аб" }],
+    };
+    render(<Harness initial={regexSet} onSave={(s) => saved.push(s)} />);
+    const field = screen.getByTestId("answer-rules-text-value") as HTMLInputElement;
+    field.setSelectionRange(1, 1);
+    fireEvent.click(screen.getByTestId("answer-rules-rx-Цифра"));
+    expect((saved.at(-1)?.rules[0] as { value: string }).value).toBe("а\\dб");
     cleanup();
   });
 

@@ -9,6 +9,7 @@ export { normalizeForCompare } from "./normalize";
 export { matchWildcard } from "./wildcard";
 export { compileExpression, matchExpression } from "./regex";
 export { DEFAULT_BUDGET_MS, DEFAULT_WARN_MS, measure, provocations } from "./budget";
+export { simplifyExpression } from "./simplify";
 export { parseNumericAnswer, matchNumber, type NumericOp, type NumericRule } from "./number";
 export {
   checkRuleSet,

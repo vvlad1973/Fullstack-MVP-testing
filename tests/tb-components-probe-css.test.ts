@@ -18,7 +18,7 @@ const COPIES = [
   path.join(ROOT, "docs", "wireframes", "tb-components.css"),
 ];
 
-const CLASSES = [".tb-probe", ".tb-rules__join", ".tb-dirty"];
+const CLASSES = [".tb-probe", ".tb-rules__join", ".tb-dirty", ".tb-rxbar", ".tb-mono"];
 
 describe.each(COPIES)("tb-components.css: %s", (file) => {
   const css = fs.readFileSync(file, "utf8");

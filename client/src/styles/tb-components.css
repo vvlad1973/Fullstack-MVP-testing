@@ -3001,3 +3001,16 @@
   gap: var(--ou-space-4);
 }
 .tb-dirty[hidden] { display: none; }
+
+/* Панель вставки кусков выражения. Кнопки — родственные, шаг между ними
+   наименьший; переносится по ширине поля. */
+.tb-rxbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ou-space-1);
+}
+
+/* Выражение и куски выражения — моноширинными: в них значим каждый знак,
+   а пропорциональный шрифт склеивает точку с запятой и путает I с l. */
+.tb-mono { font-family: var(--ou-font-family-mono); }
