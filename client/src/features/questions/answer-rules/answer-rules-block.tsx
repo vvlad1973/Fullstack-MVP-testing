@@ -35,6 +35,13 @@ export interface AnswerRulesBlockProps {
   /** Current draft; the drawer owns it so a type switch does not reset the editing state. */
   draft: AnswerRulesDraft;
   onChange: (draft: AnswerRulesDraft) => void;
+  /**
+   * PRD-57 FR-28v: how many characters the learner may type. `undefined` means the
+   * installation's ceiling applies — a property of the QUESTION, not of the rule set,
+   * which is why it travels beside the draft rather than inside it.
+   */
+  maxLength?: number;
+  onMaxLength: (value: number | undefined) => void;
 }
 
 /** Summary line of a collapsed rule — «что правило проверяет» (FR-28b). */
@@ -54,12 +61,31 @@ function ruleSubtitle(rule: TextRule | NumericRule): string {
   return rule.match === "regex" ? "Регулярное выражение" : "Обычное сравнение";
 }
 
-export function AnswerRulesBlock({ draft, onChange }: AnswerRulesBlockProps) {
+export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: AnswerRulesBlockProps) {
   const rules = (draft.answerKind === "number" ? draft.number : draft.text) as Array<TextRule | NumericRule>;
   const saved: AnswerRuleSet = toCorrectJson(draft);
 
   return (
     <div className="tb-rules" data-testid="answer-rules-block">
+      <div className="ou-formfield">
+        <span className="ou-formfield__lbl">Предел длины ответа</span>
+        <Input
+          size="m"
+          value={maxLength === undefined ? "" : String(maxLength)}
+          onChange={(e) => {
+            // Пустое поле — это «системный предел», а не ноль: ноль запретил бы ответ вовсе.
+            const raw = e.target.value.trim();
+            if (raw === "") return onMaxLength(undefined);
+            const parsed = Number(raw);
+            onMaxLength(Number.isInteger(parsed) && parsed > 0 ? parsed : undefined);
+          }}
+          data-testid="answer-rules-max-length"
+        />
+        <span className="ou-formfield__desc">
+          До скольких символов участник может ответить. Пусто — системный предел.
+        </span>
+      </div>
+
       <div className="ou-formfield">
         <span className="ou-formfield__lbl">Проверка ответа</span>
         <Switch

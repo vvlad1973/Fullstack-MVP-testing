@@ -15,8 +15,19 @@ import { createDraft, toCorrectJson, type AnswerRulesDraft } from "../answer-rul
 import type { AnswerRuleSet } from "@shared/answer-check";
 
 /** Host that owns the draft, as the drawer does. */
-function Harness({ initial, onSave }: { initial: AnswerRuleSet | null; onSave?: (set: AnswerRuleSet) => void }) {
+function Harness({
+  initial,
+  onSave,
+  maxLength,
+  onMaxLength,
+}: {
+  initial: AnswerRuleSet | null;
+  onSave?: (set: AnswerRuleSet) => void;
+  maxLength?: number;
+  onMaxLength?: (value: number | undefined) => void;
+}) {
   const [draft, setDraft] = useState<AnswerRulesDraft>(() => createDraft(initial));
+  const [limit, setLimit] = useState<number | undefined>(maxLength);
   return (
     <>
       <AnswerRulesBlock
@@ -24,6 +35,11 @@ function Harness({ initial, onSave }: { initial: AnswerRuleSet | null; onSave?: 
         onChange={(next) => {
           setDraft(next);
           onSave?.(toCorrectJson(next));
+        }}
+        maxLength={limit}
+        onMaxLength={(value) => {
+          setLimit(value);
+          onMaxLength?.(value);
         }}
       />
     </>
@@ -94,6 +110,24 @@ describe("AnswerRulesBlock", () => {
     for (const mode of modes) {
       expect((mode.closest("button") as HTMLButtonElement).disabled).toBe(true);
     }
+    cleanup();
+  });
+
+  it("предел длины вводится и отдаётся наверх", () => {
+    const seen: (number | undefined)[] = [];
+    render(<Harness initial={TEXT_SET} maxLength={40} onMaxLength={(n) => seen.push(n)} />);
+    const input = screen.getByTestId("answer-rules-max-length") as HTMLInputElement;
+    expect(input.value).toBe("40");
+    fireEvent.change(input, { target: { value: "25" } });
+    expect(seen.at(-1)).toBe(25);
+    cleanup();
+  });
+
+  it("пустое поле означает системный предел, а не ноль", () => {
+    const seen: (number | undefined)[] = [];
+    render(<Harness initial={TEXT_SET} maxLength={40} onMaxLength={(n) => seen.push(n)} />);
+    fireEvent.change(screen.getByTestId("answer-rules-max-length"), { target: { value: "" } });
+    expect(seen.at(-1)).toBeUndefined();
     cleanup();
   });
 });

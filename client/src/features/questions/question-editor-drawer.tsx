@@ -119,6 +119,9 @@ export function QuestionEditorDrawer({
   // PRD-57 §6.1: черновик набора правил держит ОБА вида ответа, поэтому он живёт
   // здесь, а не внутри блока — иначе переключение вида пересоздавало бы состояние.
   const [answerRules, setAnswerRules] = useState<AnswerRulesDraft>(() => createAnswerRulesDraft(null));
+  // PRD-57 FR-28v: предел длины — свойство ВОПРОСА, поэтому он рядом с черновиком правил,
+  // а не внутри него. `undefined` означает «системный предел».
+  const [shortMaxLength, setShortMaxLength] = useState<number | undefined>(undefined);
 
   const [singleOptions, setSingleOptions] = useState<string[]>(["", "", "", ""]);
   const [singleCorrect, setSingleCorrect] = useState<number>(0);
@@ -204,6 +207,7 @@ export function QuestionEditorDrawer({
     setTags([]);
     setMediaFileName("");
     setAnswerRules(createAnswerRulesDraft(null));
+    setShortMaxLength(undefined);
   };
 
   // Initialize the draft when the Drawer opens: from `question` (edit) or as an
@@ -241,6 +245,7 @@ export function QuestionEditorDrawer({
         setAllocMax(data.maxPerOption === undefined || data.maxPerOption === null ? "" : String(data.maxPerOption));
       } else if (question.type === "short") {
         setAnswerRules(createAnswerRulesDraft(correct as AnswerRuleSet));
+        setShortMaxLength(typeof data?.maxLength === "number" ? data.maxLength : undefined);
       } else if (question.type === "scale") {
         setSingleOptions(data.options || ["", "", "", ""]);
         // Наличие correctIndex И ЕСТЬ положение переключателя (FR-03).
@@ -350,9 +355,9 @@ export function QuestionEditorDrawer({
         break;
       }
       case "short":
-        // У текстового ввода нет вариантов: содержимое задания — это его формулировка,
-        // а эталон — набор правил сравнения (§6.1).
-        dataJson = {};
+        // У текстового ввода нет вариантов: всё содержимое задания — предел длины ответа
+        // (FR-28v), а эталон — набор правил сравнения (§6.1).
+        dataJson = shortMaxLength === undefined ? {} : { maxLength: shortMaxLength };
         correctJson = answerRulesToCorrectJson(answerRules);
         break;
       case "scale":
@@ -698,7 +703,12 @@ export function QuestionEditorDrawer({
              набор правил сравнения. Ветка по ПРИЗНАКУ типа, а не по литералу: пропуски
              (Э8) войдут сюда же, объявив тот же признак. */}
           {isTextEntry(selectedType) && (
-            <AnswerRulesBlock draft={answerRules} onChange={setAnswerRules} />
+            <AnswerRulesBlock
+              draft={answerRules}
+              onChange={setAnswerRules}
+              maxLength={shortMaxLength}
+              onMaxLength={setShortMaxLength}
+            />
           )}
 
           {/* PRD-44: распределение баллов. Список утверждений — тот же редактор, что у
