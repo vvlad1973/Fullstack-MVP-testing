@@ -25,9 +25,21 @@ describe("answerRuleSetSchema", () => {
     expect(answerRuleSetSchema.parse({ answerKind: "text", join: "any", rules: [] }).rules).toEqual([]);
   });
 
-  it("не принимает regex до Э7", () => {
-    const bad = { answerKind: "text", join: "any", rules: [{ kind: "text", match: "regex", value: "^рос" }] };
+  it("принимает regex с Э7 — вместе с бюджетом времени", () => {
+    const set = { answerKind: "text", join: "any", rules: [{ kind: "text", match: "regex", value: "^рос" }] };
+    expect(answerRuleSetSchema.parse(set).rules).toHaveLength(1);
+  });
+
+  it("не принимает третьего режима сравнения", () => {
+    const bad = { answerKind: "text", join: "any", rules: [{ kind: "text", match: "fuzzy", value: "рос" }] };
     expect(() => answerRuleSetSchema.parse(bad)).toThrow();
+  });
+
+  it("невалидное выражение сохраняется: решение остаётся за автором (FR-28p1)", () => {
+    // Редактор меряет и предупреждает, но не запрещает; книга Excel тоже не вправе
+    // молча выбросить правило, которое автор написал.
+    const set = { answerKind: "text", join: "any", rules: [{ kind: "text", match: "regex", value: "([а-я" }] };
+    expect(answerRuleSetSchema.parse(set).rules).toHaveLength(1);
   });
 
   it("принимает шесть операторов числового правила", () => {

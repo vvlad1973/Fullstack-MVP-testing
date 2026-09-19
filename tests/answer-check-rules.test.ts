@@ -30,13 +30,14 @@ describe("checkRuleSet — текст", () => {
     expect(checkRuleSet(set, answer).passed).toBe(true);
   });
 
-  it("режим regex не зачитывается на этом этапе", () => {
+  it("режим regex зачитывается с Э7", () => {
     const set: AnswerRuleSet = {
       answerKind: "text",
       join: "any",
       rules: [{ kind: "text", match: "regex", value: "^рос" }],
     };
-    expect(checkRuleSet(set, "ростехнадзор")).toEqual({ passed: false, perRule: [false] });
+    expect(checkRuleSet(set, "ростехнадзор")).toEqual({ passed: true, perRule: [true] });
+    expect(checkRuleSet(set, "надзор")).toEqual({ passed: false, perRule: [false] });
   });
 });
 
@@ -77,5 +78,56 @@ describe("пустой ответ", () => {
   it("не зачитывается даже образцом из звезды", () => {
     expect(checkRuleSet(textSet("any", ["*"]), "").passed).toBe(false);
     expect(checkRuleSet(textSet("any", ["*"]), "   ").passed).toBe(false);
+  });
+});
+
+describe("checkRuleSet — готовые вердикты выражений (Э7)", () => {
+  const SET: AnswerRuleSet = {
+    answerKind: "text",
+    join: "any",
+    rules: [
+      { kind: "text", match: "regex", value: "^ростехнадзор$" },
+      { kind: "text", match: "wildcard", value: "РТН" },
+    ],
+  };
+
+  it("берёт готовый вердикт вместо того, чтобы исполнять выражение", () => {
+    // Выражение НЕ подходит к ответу, но сервер уже посчитал его в рабочем потоке и
+    // сказал «подошло» — набор обязан верить предпроходу, иначе бюджет ничего не значит.
+    const outcome = checkRuleSet(SET, "совсем другое", [true, false]);
+    expect(outcome.passed).toBe(true);
+    expect(outcome.perRule).toEqual([true, false]);
+  });
+
+  it("без вердиктов считает выражение на месте", () => {
+    expect(checkRuleSet(SET, "Ростехнадзор").passed).toBe(true);
+    expect(checkRuleSet(SET, "Роспотребнадзор").passed).toBe(false);
+  });
+
+  it("превышенный бюджет — это «не проверено», а не «неверно»", () => {
+    const outcome = checkRuleSet(SET, "что-то длинное", ["budget", false]);
+    expect(outcome.passed).toBe(false);
+    expect(outcome.pending).toBe(true);
+  });
+
+  it("другое сработавшее правило снимает неопределённость", () => {
+    // Ответ подошёл обычному сравнению — исход известен, и ждать нечего.
+    const outcome = checkRuleSet(SET, "РТН", ["budget", true]);
+    expect(outcome.passed).toBe(true);
+    expect(outcome.pending).toBeFalsy();
+  });
+
+  it("при связке «все» неудача другого правила тоже снимает неопределённость", () => {
+    const all: AnswerRuleSet = { ...SET, join: "all" };
+    const outcome = checkRuleSet(all, "РТН", ["budget", false]);
+    expect(outcome.passed).toBe(false);
+    expect(outcome.pending).toBeFalsy();
+  });
+
+  it("при связке «все» и остальных выполненных ответ ждёт проверки", () => {
+    const all: AnswerRuleSet = { ...SET, join: "all" };
+    const outcome = checkRuleSet(all, "РТН", ["budget", true]);
+    expect(outcome.passed).toBe(false);
+    expect(outcome.pending).toBe(true);
   });
 });

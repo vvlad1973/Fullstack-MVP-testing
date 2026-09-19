@@ -14,14 +14,15 @@
  * matches nothing, and {@link hasRules} is what callers ask before treating the question
  * as graded at all — the same way a keyless scale is measurement-only.
  *
- * `match: "regex"` is part of the STORED shape but is never satisfied here. The regular
- * expression arrives in Э7 together with the runtime budget it cannot ship without
- * (FR-28q); until then a rule that says `regex` fires for nobody rather than running
- * unbudgeted.
+ * `match: "regex"` runs since Э7, and it never runs UNBUDGETED where a budget is possible:
+ * a host that owns a killable executor (the server's worker thread, the package's web
+ * worker) checks the expressions first and passes the results in as `verdicts`, so this
+ * module stays synchronous and identical on both hosts (FR-28q, FR-28s).
  *
  * Pure and framework-free — safe to bundle into the SCORM runtime.
  */
 import { normalizeForCompare } from "./normalize";
+import { matchExpression } from "./regex";
 import { matchWildcard } from "./wildcard";
 import { matchNumber, parseNumericAnswer, type NumericRule } from "./number";
 
@@ -48,7 +49,23 @@ export interface AnswerRuleSet {
 export interface RuleSetOutcome {
   passed: boolean;
   perRule: boolean[];
+  /**
+   * PRD-57 FR-28r: a rule ran out of its time budget, and no other rule settled the
+   * question. The answer is NOT wrong — nobody checked it — so it travels the same road as
+   * an open answer: neutral outcome, «ждёт проверки», outside both sides of the fraction.
+   */
+  pending?: boolean;
 }
+
+/**
+ * What a host that OWNS a killable executor already knows about each rule (Э7).
+ *
+ * `"budget"` means the rule did not finish in time. The verdicts arrive in the authored
+ * order, one per rule; a host without such an executor passes nothing and the rules run
+ * where they are checked.
+ */
+export type RuleVerdict = boolean | "budget";
+export type RuleVerdicts = readonly RuleVerdict[];
 
 /** Does this set actually check anything? */
 export function hasRules(set: AnswerRuleSet | null | undefined): boolean {
@@ -56,11 +73,13 @@ export function hasRules(set: AnswerRuleSet | null | undefined): boolean {
 }
 
 /** Apply one rule to an answer that has already been prepared for its kind. */
-function matchOne(rule: AnswerRule, text: string, numeric: number | null): boolean {
+function matchOne(rule: AnswerRule, text: string, numeric: number | null, raw: string): boolean {
   if (rule.kind === "number") {
     return numeric === null ? false : matchNumber(rule, numeric);
   }
-  if (rule.match !== "wildcard") return false;
+  // A regular expression works on what the learner WROTE, not on its comparison form: the
+  // author's expression decides what counts as a difference (§6.2).
+  if (rule.match === "regex") return matchExpression(rule.value, raw);
   return matchWildcard(normalizeForCompare(rule.value), text);
 }
 
@@ -74,14 +93,33 @@ function matchOne(rule: AnswerRule, text: string, numeric: number | null): boole
  * @param answer The learner's raw input.
  * @returns The verdict and the per-rule outcomes, in the authored order.
  */
-export function checkRuleSet(set: AnswerRuleSet, answer: string | null | undefined): RuleSetOutcome {
+export function checkRuleSet(
+  set: AnswerRuleSet,
+  answer: string | null | undefined,
+  verdicts?: RuleVerdicts,
+): RuleSetOutcome {
   const rules = Array.isArray(set?.rules) ? set.rules : [];
   const text = normalizeForCompare(answer);
+  const raw = typeof answer === "string" ? answer : "";
   if (rules.length === 0 || text === "") {
     return { passed: false, perRule: rules.map(() => false) };
   }
   const numeric = set.answerKind === "number" ? parseNumericAnswer(answer) : null;
-  const perRule = rules.map((rule) => matchOne(rule, text, numeric));
+  const given = (index: number): RuleVerdict | undefined => verdicts?.[index];
+  const perRule = rules.map((rule, index) => {
+    const ready = given(index);
+    if (ready === true) return true;
+    if (ready === false || ready === "budget") return false;
+    return matchOne(rule, text, numeric, raw);
+  });
   const passed = set.join === "all" ? perRule.every(Boolean) : perRule.some(Boolean);
-  return { passed, perRule };
+  // Неопределённость остаётся только тогда, когда её НЕ снял исход остальных правил: при
+  // «любом» — если не сработало ничего, при «всех» — если всё прочее выполнено. Иначе
+  // ответ известен и без того правила, которое не успело досчитаться.
+  const outOfBudget = rules.some((_, index) => given(index) === "budget");
+  const pending =
+    !passed &&
+    outOfBudget &&
+    rules.every((_, index) => given(index) === "budget" || perRule[index] || set.join === "any");
+  return pending ? { passed, perRule, pending: true } : { passed, perRule };
 }

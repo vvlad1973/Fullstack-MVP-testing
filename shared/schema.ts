@@ -1380,16 +1380,17 @@ export const rankingCorrectSchema = z.object({
  * key column rather than in one of their own: snapshots, the SCORM bake, test transfer
  * and the Excel workbook already carry that column.
  *
- * One field is described here but NOT accepted yet, on purpose: `match: "regex"` waits for
- * the runtime budget of Э7 (FR-28q). The stored SHAPE is final, so that stage lifts a
- * restriction in validation instead of migrating questions that are already saved.
+ * `match: "regex"` is accepted since Э7 — together with the time budget it could not ship
+ * without (FR-28q). Validation does NOT reject an expression that fails to compile: the
+ * editor measures and warns, but the decision stays with the author (FR-28p1), and a rule
+ * saved through the Excel workbook must not be silently dropped either.
  *
  * A RANGE has no operator: it is two rules and the set's join (FR-28aa3).
  */
 export const answerRuleSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("text"),
-    match: z.literal("wildcard"),
+    match: z.enum(["wildcard", "regex"]),
     value: z.string().min(1),
   }),
   z.object({
