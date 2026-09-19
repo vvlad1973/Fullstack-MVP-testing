@@ -62,8 +62,16 @@ export interface MeasurementSpec {
   weight: number;
 }
 
-/** Learner answer shapes by question type (runtime encoding). */
-export type Answer = number | number[] | Record<string, number> | null | undefined;
+/**
+ * Learner answer shapes by question type (runtime encoding).
+ *
+ * The TWIN of `shared/scoring/engine.ts`'s `Answer`, and the two are assigned to each
+ * other (server/routes/attempts.ts) — widen them together or the next typed answer
+ * breaks the adaptive path. The `string` arm is a typed answer (PRD-57 §6.5): it fires
+ * a question-level contribution, because answering IS the contribution there, and never
+ * an option, pair, position or allocation one — those read a shape a string does not have.
+ */
+export type Answer = number | number[] | string | Record<string, number> | null | undefined;
 
 export interface ScaleComputation {
   values: Record<string, ScaleResult>;

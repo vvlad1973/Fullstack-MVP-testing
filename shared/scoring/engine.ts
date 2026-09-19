@@ -22,7 +22,8 @@
  */
 
 import type { QuestionScoring, ScoringPredicate } from "../schema";
-import { isSingleIndexChoice } from "../questions/question-type";
+import { isSingleIndexChoice, isTextEntry } from "../questions/question-type";
+import { checkRuleSet, type AnswerRuleSet } from "../answer-check/rules";
 
 /**
  * Re-exported from the type-trait module so the scoring engine and the rest of the
@@ -32,7 +33,7 @@ export type { QuestionType } from "../questions/question-type";
 import type { QuestionType } from "../questions/question-type";
 
 /** Learner answer shapes by question type (runtime encoding). */
-export type Answer = number | number[] | Record<string, number> | null | undefined;
+export type Answer = number | number[] | string | Record<string, number> | null | undefined;
 
 /** correct_json fields by type (a permissive superset for easy access). */
 export interface CorrectData {
@@ -40,6 +41,13 @@ export interface CorrectData {
   correctIndices?: number[];
   pairs?: Array<{ left: number; right: number }>;
   correctOrder?: number[];
+  /**
+   * PRD-57 §6.1: the comparison rules of a typed answer. Read-only — the engine never
+   * mutates an answer key, and callers pass frozen literals.
+   */
+  answerKind?: "text" | "number";
+  join?: "any" | "all";
+  rules?: readonly unknown[];
 }
 
 export interface ScoreInput {
@@ -109,6 +117,12 @@ function exactCorrect(type: QuestionType, correct: CorrectData, answer: Answer):
   if (isSingleIndexChoice(type)) {
     return answer === correct.correctIndex ? 1 : 0;
   }
+  // PRD-57 §6.5: a typed answer is checked by the rule set, not by an index. An empty
+  // set scores nothing — such a question is not graded at all (isMeasurementOnly).
+  if (isTextEntry(type)) {
+    if (typeof answer !== "string") return 0;
+    return checkRuleSet(correct as unknown as AnswerRuleSet, answer).passed ? 1 : 0;
+  }
   if (type === "multiple") {
     const want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
     const got = Array.isArray(answer) ? answer.slice() : [];
@@ -169,6 +183,10 @@ function countTallies(type: QuestionType, correct: CorrectData, answer: Answer):
       got === want[i] ? (c += 1) : (x += 1);
     }
     return { c, x, total: want.length };
+  }
+  if (isTextEntry(type)) {
+    const hit = exactCorrect(type, correct, answer);
+    return { c: hit, x: typeof answer === "string" && answer !== "" ? 1 - hit : 0, total: 1 };
   }
   // single: one correct option.
   const c = exactCorrect("single", correct, answer);
