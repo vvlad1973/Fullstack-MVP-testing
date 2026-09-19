@@ -271,7 +271,7 @@ export type QuestionScoring = z.infer<typeof questionScoringSchema>;
 export const questions = pgTable("questions", {
   id: varchar("id", { length: 36 }).primaryKey(),
   topicId: varchar("topic_id", { length: 36 }).notNull(),
-  type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short"] }).notNull(),
+  type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"] }).notNull(),
   prompt: text("prompt").notNull(),
   dataJson: jsonb("data_json").notNull(),
   correctJson: jsonb("correct_json").notNull(),
@@ -1420,6 +1420,33 @@ export const answerRuleSetSchema = z
 export type AnswerRuleSetInput = z.infer<typeof answerRuleSetSchema>;
 
 /**
+ * PRD-57 FR-24: эталон задания «Пропуски» — набор правил НА КАЖДЫЙ пропуск.
+ *
+ * Хранится в том же `correct_json`, что и у остальных типов: снимок публикации, выпечка
+ * пакета, перенос теста и книга Excel уже возят эту колонку, и заводить вторую значило бы
+ * учить каждого из них новому месту.
+ *
+ * Пропуск БЕЗ правил схемой принимается: это не ошибка формы, а несделанная работа —
+ * строка списка помечена «Правил нет», и публикация такого задания не пройдёт (FR-24d).
+ * Повтор имени, наоборот, отвергается здесь: два поля с общим правилом делают сборку
+ * балла неоднозначной, а выигрыша не дают (FR-24a).
+ */
+export const blanksCorrectSchema = z.object({
+  blanks: z.array(
+    z
+      .object({
+        id: z.string().regex(/^[A-Za-z0-9_]+$/, "Имя пропуска — латиница, цифры и подчёркивание"),
+      })
+      .and(answerRuleSetSchema),
+  ),
+}).refine(
+  (value) => new Set(value.blanks.map((blank) => blank.id)).size === value.blanks.length,
+  { message: "Имена пропусков в одном задании не повторяются", path: ["blanks"] },
+);
+
+export type BlanksCorrectInput = z.infer<typeof blanksCorrectSchema>;
+
+/**
  * PRD-57 FR-28v: the content of a short answer is its length limit and nothing else.
  *
  * The type has no options, so `data_json` carries just this setting. An ABSENT key means
@@ -1741,7 +1768,7 @@ export type AdaptiveAnswerResponse = z.infer<typeof adaptiveAnswerResponseSchema
 export const detailedAnswerSchema = z.object({
   questionId: z.string(),
   questionPrompt: z.string(),
-  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short"]),
+  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"]),
   topicId: z.string(),
   topicName: z.string(),
   userAnswer: z.unknown(),
@@ -1813,7 +1840,7 @@ export type AdaptiveLevelStats = z.infer<typeof adaptiveLevelStatsSchema>;
 export const questionStatsSchema = z.object({
   questionId: z.string(),
   questionPrompt: z.string(),
-  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short"]),
+  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"]),
   topicId: z.string(),
   topicName: z.string(),
   difficulty: z.number(),
@@ -2149,7 +2176,7 @@ export const scormAnswers = pgTable("scorm_answers", {
   // Данные вопроса
   questionId: varchar("question_id", { length: 36 }).notNull(),
   questionPrompt: text("question_prompt").notNull(),
-  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short"] }).notNull(),
+  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"] }).notNull(),
   topicId: varchar("topic_id", { length: 36 }),
   topicName: text("topic_name"),
   difficulty: integer("difficulty"),

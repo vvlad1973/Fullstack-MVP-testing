@@ -27,6 +27,7 @@ export const QUESTION_TYPES = [
   "scale",
   "allocation",
   "short",
+  "blanks",
 ] as const;
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
@@ -84,6 +85,19 @@ export function isTextEntry(type: string): boolean {
 }
 
 /**
+ * Заполнение пропусков (PRD-57 §6, FR-24): текст задания несёт поля ввода, и у КАЖДОГО
+ * пропуска свой набор правил.
+ *
+ * Отдельный признак, а не расширение {@link isTextEntry}, и причина конкретная: у
+ * короткого ответа один набор правил на задание, у пропусков — по набору на пропуск.
+ * Места, где «текстовый ввод» означает одно поле и один эталон, не перестали бы
+ * компилироваться — они начали бы молча брать первый набор.
+ */
+export function hasBlanks(type: string): boolean {
+  return type === "blanks";
+}
+
+/**
  * The question shape these predicates read — every consumer passes its own object.
  * The answer key travels under two different names: `correctJson` on the server (the
  * DB column) and `correct` in the baked SCORM payload and the aggregate input. Both
@@ -118,6 +132,16 @@ export function isMeasurementOnly(question: TypedQuestion): boolean {
   if (isTextEntry(question.type)) {
     const set = (question.correctJson ?? question.correct) as { rules?: unknown } | null | undefined;
     return !set || !Array.isArray(set.rules) || set.rules.length === 0;
+  }
+  // PRD-57 FR-24c: то же правило у пропусков, только наборов несколько. Хватает ОДНОГО
+  // пропуска с правилами: задание с ним уже что-то проверяет, а пропуск без правил
+  // просто не идёт в знаменатель.
+  if (hasBlanks(question.type)) {
+    const key = (question.correctJson ?? question.correct) as { blanks?: unknown } | null | undefined;
+    const blanks = key && Array.isArray(key.blanks) ? key.blanks : [];
+    return !blanks.some(
+      (set) => set && Array.isArray((set as { rules?: unknown }).rules) && (set as { rules: unknown[] }).rules.length > 0,
+    );
   }
   if (question.type !== "scale") return false;
   const key = (question.correctJson ?? question.correct) as

@@ -48,6 +48,14 @@ var TBQType = (function () {
   }
 
   /**
+   * Заполнение пропусков (PRD-57 FR-24): поля ввода стоят В ТЕКСТЕ задания, и у каждого
+   * пропуска свой набор правил. Зеркало shared/questions/question-type.ts → hasBlanks.
+   */
+  function hasBlanks(type) {
+    return type === 'blanks';
+  }
+
+  /**
    * Measurement-only question: never checked, earns no points, contributes only to
    * the scales (PRD-26 FR-08). Two ways in: a scale with no correct graduation (the
    * author's choice), and an allocation ALWAYS (PRD-44 FR-09 — the method has no
@@ -65,6 +73,15 @@ var TBQType = (function () {
     if (isTextEntry(q.type)) {
       return !key || !Array.isArray(key.rules) || key.rules.length === 0;
     }
+    // PRD-57 FR-24c: у пропусков то же правило, только наборов несколько — хватает
+    // ОДНОГО пропуска с правилами.
+    if (hasBlanks(q.type)) {
+      var blanks = (key && Array.isArray(key.blanks)) ? key.blanks : [];
+      for (var i = 0; i < blanks.length; i++) {
+        if (blanks[i] && Array.isArray(blanks[i].rules) && blanks[i].rules.length > 0) return false;
+      }
+      return true;
+    }
     if (q.type !== 'scale') return false;
     return !key || typeof key.correctIndex !== 'number';
   }
@@ -75,6 +92,7 @@ var TBQType = (function () {
     hasFixedOptionOrder: hasFixedOptionOrder,
     distributesBudget: distributesBudget,
     isTextEntry: isTextEntry,
+    hasBlanks: hasBlanks,
     isMeasurementOnly: isMeasurementOnly,
   };
 }());

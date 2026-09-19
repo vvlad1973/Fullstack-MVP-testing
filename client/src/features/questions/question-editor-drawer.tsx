@@ -80,7 +80,7 @@ type QuestionType = typeof questionTypes[number]["value"];
 // and the graded config are configured per test («Оценка» tab of the editor).
 const baseQuestionSchema = z.object({
   topicId: z.string().min(1, t.questions.topicRequired),
-  type: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short"]),
+  type: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"]),
   prompt: z.string().min(1, t.questions.textRequired),
 });
 

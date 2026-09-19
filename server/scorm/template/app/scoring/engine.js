@@ -11,6 +11,28 @@ var ScoringEngine = (function () {
   /** Пакет считает без бюджета — медленные выражения не запускаются (PRD-57 FR-28q). */
   var SKIP_SLOW = { skipSlow: true };
 
+
+  // PRD-57 FR-24c, FR-26: исходы пропусков. Пропуск БЕЗ правил в счёт не идёт вовсе —
+  // это несделанная работа автора, и участник за неё не отвечает. Незаполненный пропуск
+  // не «лишний»: x считает ошибки, а не пробелы.
+  function blankTallies(correct, answer) {
+    var sets = (correct && Array.isArray(correct.blanks)) ? correct.blanks : [];
+    var written = (answer && typeof answer === 'object' && !Array.isArray(answer)) ? answer : {};
+    var c = 0;
+    var x = 0;
+    var total = 0;
+    for (var i = 0; i < sets.length; i++) {
+      var set = sets[i];
+      if (!set || !Array.isArray(set.rules) || set.rules.length === 0) continue;
+      total += 1;
+      var value = written[set.id];
+      if (typeof value !== 'string' || value.replace(/^\s+|\s+$/g, '') === '') continue;
+      if (typeof TBTemplate === 'undefined' || !TBTemplate.checkRuleSet) continue;
+      if (TBTemplate.checkRuleSet(set, value, undefined, SKIP_SLOW).passed) c += 1; else x += 1;
+    }
+    return { c: c, x: x, total: total };
+  }
+
   function clamp01(v) {
     return Math.max(0, Math.min(1, v));
   }
@@ -40,6 +62,11 @@ var ScoringEngine = (function () {
       // долгим, здесь не исполняется вовсе: ответ выйдет непроверенным, а не подвесит
       // вкладку участника. У веб-хоста есть настоящий бюджет, и он этот признак не читает.
       return TBTemplate.checkRuleSet(correct, answer, undefined, SKIP_SLOW).passed ? 1 : 0;
+    }
+    // PRD-57 FR-24: задание с пропусками верно, когда верны ВСЕ проверяемые пропуски.
+    if (typeof TBQType !== 'undefined' && TBQType.hasBlanks(type)) {
+      var bt = blankTallies(correct, answer);
+      return (bt.total > 0 && bt.c === bt.total) ? 1 : 0;
     }
     if (type === 'multiple') {
       var want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
@@ -109,6 +136,7 @@ var ScoringEngine = (function () {
     // PRD-57 FR-28aa4: единица счёта у написанного ответа — ПРАВИЛО. `c` — сколько
     // правил выполнено, поэтому ступенчатая таблица над `c` платит по точности.
     // Сравнение, как и везде, делегируется общему движку, а не повторяется здесь.
+    if (typeof TBQType !== 'undefined' && TBQType.hasBlanks(type)) return blankTallies(correct, answer);
     if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(type)) {
       var tRules = (correct && Array.isArray(correct.rules)) ? correct.rules : [];
       var tHits = 0;

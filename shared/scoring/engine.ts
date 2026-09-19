@@ -22,7 +22,7 @@
  */
 
 import type { QuestionScoring, ScoringPredicate } from "../schema";
-import { isSingleIndexChoice, isTextEntry } from "../questions/question-type";
+import { hasBlanks, isSingleIndexChoice, isTextEntry } from "../questions/question-type";
 import { checkRuleSet, type AnswerRuleSet, type RuleVerdicts } from "../answer-check/rules";
 
 /**
@@ -32,8 +32,22 @@ import { checkRuleSet, type AnswerRuleSet, type RuleVerdicts } from "../answer-c
 export type { QuestionType } from "../questions/question-type";
 import type { QuestionType } from "../questions/question-type";
 
-/** Learner answer shapes by question type (runtime encoding). */
-export type Answer = number | number[] | string | Record<string, number> | null | undefined;
+/**
+ * Learner answer shapes by question type (runtime encoding).
+ *
+ * The dictionary comes in two flavours and they belong to different types: matching keys a
+ * left item to a right INDEX, blanks key a blank name to what the learner TYPED (PRD-57
+ * FR-24). One union rather than two aliases, because every consumer switches on the
+ * question type anyway.
+ */
+export type Answer =
+  | number
+  | number[]
+  | string
+  | Record<string, number>
+  | Record<string, string>
+  | null
+  | undefined;
 
 /** correct_json fields by type (a permissive superset for easy access). */
 export interface CorrectData {
@@ -48,6 +62,8 @@ export interface CorrectData {
   answerKind?: "text" | "number";
   join?: "any" | "all";
   rules?: readonly unknown[];
+  /** PRD-57 FR-24: наборы правил по пропускам задания «Пропуски». */
+  blanks?: readonly unknown[];
 }
 
 export interface ScoreInput {
@@ -112,6 +128,33 @@ function maxOf(nums: number[]): number {
   return nums.reduce((m, v) => (v > m ? v : m), 0);
 }
 
+
+/**
+ * Исходы пропусков задания «Пропуски» (PRD-57 FR-24c, FR-26).
+ *
+ * Пропуск БЕЗ правил в счёт не идёт вовсе — ни в числитель, ни в знаменатель: это
+ * несделанная работа автора, и участник за неё не отвечает. Незаполненный пропуск не
+ * «лишний»: `x` считает ошибки, а не пробелы.
+ */
+function blankTallies(correct: CorrectData, answer: Answer, verdicts?: RuleVerdicts): Counters {
+  const sets = Array.isArray(correct.blanks) ? (correct.blanks as Array<AnswerRuleSet & { id: string }>) : [];
+  const written = answer && typeof answer === "object" && !Array.isArray(answer)
+    ? (answer as Record<string, unknown>)
+    : {};
+  let c = 0;
+  let x = 0;
+  let total = 0;
+  for (const set of sets) {
+    if (!set || !Array.isArray(set.rules) || set.rules.length === 0) continue;
+    total += 1;
+    const value = written[set.id];
+    if (typeof value !== "string" || value.trim() === "") continue;
+    if (checkRuleSet(set, value, verdicts).passed) c += 1;
+    else x += 1;
+  }
+  return { c, x, total };
+}
+
 /** Exact correctness (0 or 1) — the pre-PRD-10 checkAnswer logic. */
 function exactCorrect(
   type: QuestionType,
@@ -133,6 +176,13 @@ function exactCorrect(
   if (isTextEntry(type)) {
     if (typeof answer !== "string") return 0;
     return checkRuleSet(correct as unknown as AnswerRuleSet, answer, verdicts).passed ? 1 : 0;
+  }
+  // PRD-57 FR-24: задание с пропусками верно, когда верны ВСЕ проверяемые пропуски.
+  // Задание без единого проверяемого пропуска сюда не доходит: оно неоцениваемо
+  // (`isMeasurementOnly`), и агрегат исключает его раньше.
+  if (hasBlanks(type)) {
+    const tallies = blankTallies(correct, answer, verdicts);
+    return tallies.total > 0 && tallies.c === tallies.total ? 1 : 0;
   }
   if (type === "multiple") {
     const want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
@@ -205,6 +255,7 @@ function countTallies(
   // tolerances themselves, ordering the rules from the strict one to the loose one, and
   // an exact hit satisfies both while a near miss satisfies only the loose rule. No new
   // machinery is introduced (FR-28ae): this is the same table the choice types use.
+  if (hasBlanks(type)) return blankTallies(correct, answer, verdicts);
   if (isTextEntry(type)) {
     const set = correct as unknown as AnswerRuleSet;
     const rules = Array.isArray(set?.rules) ? set.rules : [];
