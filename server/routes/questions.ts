@@ -34,6 +34,9 @@ import {
 import { allocationDataSchema } from "@shared/schema";
 import { distributesBudget } from "@shared/questions/question-type";
 import type { Question } from "@shared/schema";
+import { shortAnswerDataSchema } from "@shared/schema";
+import { isTextEntry } from "@shared/questions/question-type";
+import { config } from "../config";
 
 /**
  * PRD-44 FR-46: границы полей и ВЫПОЛНИМОСТЬ распределения проверяются на сервере,
@@ -50,6 +53,32 @@ function allocationConfigError(type: string | undefined, dataJson: unknown): str
   const parsed = allocationDataSchema.safeParse(dataJson);
   if (parsed.success) return null;
   return parsed.error.issues.map((i) => i.message).join("; ");
+}
+
+/**
+ * PRD-57 FR-28v: авторский предел длины короткого ответа — в рамках системного потолка.
+ *
+ * Проверка живёт ЗДЕСЬ, а не в редакторе, потому что настройку инстанса знает только
+ * сервер: канала серверных настроек к браузеру в продукте нет. Без неё автор поставил бы
+ * предел 4000, а участник упёрся бы в 250 и не понял почему.
+ *
+ * Потолок назван в тексте ошибки числом: «слишком большой предел» заставляет автора
+ * подбирать значение наугад.
+ *
+ * Возвращает текст ошибки или `null`.
+ */
+function shortAnswerConfigError(type: string | undefined, dataJson: unknown): string | null {
+  if (!isTextEntry(type ?? "")) return null;
+  const parsed = shortAnswerDataSchema.safeParse(dataJson ?? {});
+  if (!parsed.success) {
+    return "Предел длины ответа — целое число больше нуля";
+  }
+  const ceiling = config.limits.shortAnswerMaxLength;
+  const own = parsed.data.maxLength;
+  if (own !== undefined && own > ceiling) {
+    return `Предел длины ответа не может превышать ${ceiling} символов`;
+  }
+  return null;
 }
 
 // PRD-15 FR-02: fields whose change affects delivery or grading of dependent
@@ -215,6 +244,11 @@ router.post(
         return res.status(422).json({ error: allocationError, field: "dataJson" });
       }
 
+      const shortAnswerError = shortAnswerConfigError(type, dataJson);
+      if (shortAnswerError) {
+        return res.status(422).json({ error: shortAnswerError, field: "dataJson" });
+      }
+
       const questionInput = {
         topicId,
         type,
@@ -312,6 +346,12 @@ router.put(
         const allocationError = allocationConfigError(type ?? existing.type, dataJson);
         if (allocationError) {
           return res.status(422).json({ error: allocationError, field: "dataJson" });
+        }
+        // PRD-57 FR-28v: по той же причине — предел мог быть поднят правкой, а потолок
+        // инстанса мог быть понижен после заведения вопроса.
+        const shortAnswerError = shortAnswerConfigError(type ?? existing.type, dataJson);
+        if (shortAnswerError) {
+          return res.status(422).json({ error: shortAnswerError, field: "dataJson" });
         }
       }
       let feasibilityWarnings: unknown[] = [];
