@@ -17,7 +17,7 @@ import type { Question } from "@shared/schema";
 import { resolveOverallRule, resolveTopicRule, type ResolvedRule } from "@shared/scoring/pass-rule";
 
 import { storage } from "../../storage";
-import { checkAnswer } from "../../utils/check-answer";
+import { outcomeFor } from "./answer-outcome";
 import { loadTestScoringContext } from "../effective-scoring";
 import { loadAnswerFacts, type AnswerFact } from "./answers";
 
@@ -92,20 +92,20 @@ export async function loadTestAnswerFacts(
 
   const facts = await loadAnswerFacts(testId, {
     attempts: attempts as Parameters<typeof loadAnswerFacts>[1]["attempts"],
-    grade: (questionId, answer) => {
+    grade: (questionId, answer, attemptResult) => {
       const question = questionById.get(questionId);
       // Задания в тесте больше нет — оценивать нечем, и придумывать исход не из чего.
       if (!question) return null;
-      // Измерительное задание не оценивается вовсе: у него нет эталона.
-      if (question.type === "scale" || question.type === "allocation") {
-        return { result: "neutral", earnedPoints: null, possiblePoints: null };
-      }
+      // PRD-57 (#43): исход берётся из попытки, а считается только у старых попыток, где
+      // его не сохранили. Неоцениваемость определяется ПРИЗНАКОМ: перечень типов здесь
+      // назвал бы короткий ответ без правил неверным (§5.3).
       const effective = scoring.resolve(question);
-      const ratio = checkAnswer(question, answer, effective.scoring);
+      const outcome = outcomeFor(attemptResult, questionId, question, answer, effective);
+      if (outcome === null) return null;
       return {
-        result: ratio === 1 ? "correct" : "incorrect",
-        earnedPoints: ratio * effective.points,
-        possiblePoints: effective.points,
+        result: outcome.result,
+        earnedPoints: outcome.result === "neutral" ? null : outcome.earned,
+        possiblePoints: outcome.result === "neutral" ? null : outcome.possible,
       };
     },
   });

@@ -4,7 +4,7 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { canReadTestAnalytics } from "../../services/test-access";
-import { checkAnswer } from "../../utils/check-answer";
+import { outcomeFor } from "../../services/analytics/answer-outcome";
 import { loadTestScoringContext } from "../../services/effective-scoring";
 import { loadScoringConfig } from "../../services/scoring-config";
 import { computeAttemptResult, type AttemptResultBase } from "../../services/result-compute";
@@ -126,11 +126,13 @@ router.get("/attempts/:attemptId", requirePermission("analytics.read"), async (r
       if (!question) continue;
 
       const effective = scoring.resolve(question);
-      // PRD-18: use the GRADED ratio (not a binary === 1 collapse) so weighted/tiered
-      // partial answers earn partial points and the per-row totals reconcile with the
-      // stored attempt aggregate. `isCorrect` stays boolean only for the UI verdict label.
-      const ratio = checkAnswer(question, userAnswer, effective.scoring);
-      const isCorrect = ratio === 1;
+      // PRD-18: строки сверяются с сохранённым итогом попытки, поэтому нужна ДОЛЯ, а не
+      // двузначное «верно»: взвешенный и ступенчатый ответы приносят часть цены.
+      // PRD-57 (#43): сама цена берётся из попытки, а считается только у старых попыток,
+      // где её не сохранили, — иначе разбор разошёлся бы с её же итогом.
+      const outcome = outcomeFor(attempt.resultJson, qId, question, userAnswer, effective);
+      const ratio = outcome === null || outcome.possible <= 0 ? 0 : outcome.earned / outcome.possible;
+      const isCorrect = outcome?.result === "correct";
 
       rawAnswers[qId] = userAnswer as Answer;
       questionTypes[qId] = question.type as QuestionType;

@@ -60,12 +60,21 @@ export interface WebGrade {
   possiblePoints: number | null;
 }
 
-/** Как оценён ответ веб-попытки. `null` — вопроса в тесте больше нет, ответ не учитывается. */
-export type GradeWebAnswer = (questionId: string, answer: unknown) => WebGrade | null;
+/**
+ * Как оценён ответ веб-попытки. `null` — вопроса в тесте больше нет, ответ не учитывается.
+ *
+ * Третьим аргументом приходит СОХРАНЁННЫЙ результат попытки: исход ответа записан в нём
+ * (PRD-57, #43), и оценщик обязан прочитать его, а не считать заново по живому вопросу.
+ */
+export type GradeWebAnswer = (
+  questionId: string,
+  answer: unknown,
+  attemptResult: unknown,
+) => WebGrade | null;
 
 /** Веб-часть выборки: попытки с их ответами и правило оценки. */
 export interface WebAnswerInput {
-  attempts: ReadonlyArray<{ id?: string; answersJson?: unknown }>;
+  attempts: ReadonlyArray<{ id?: string; answersJson?: unknown; resultJson?: unknown }>;
   /**
    * Оценка ответа.
    *
@@ -92,7 +101,7 @@ export async function loadAnswerFacts(
   for (const attempt of web.attempts) {
     const answers = (attempt.answersJson ?? {}) as Record<string, unknown>;
     for (const [questionId, answer] of Object.entries(answers)) {
-      const grade = web.grade(questionId, answer);
+      const grade = web.grade(questionId, answer, attempt.resultJson);
       if (grade === null) continue;
       facts.push({
         questionId,

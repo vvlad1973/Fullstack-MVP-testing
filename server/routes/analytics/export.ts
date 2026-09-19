@@ -5,7 +5,6 @@ import { addAoaSheet, workbookToBuffer } from "../../utils/excel";
 import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
-import { checkAnswer } from "../../utils/check-answer";
 import { loadObservations } from "../../services/analytics/observations";
 import { summariseObservations } from "../../services/analytics/test-summary";
 // Analytics reports are read by people, not re-imported: the question text goes in
@@ -32,6 +31,7 @@ import {
   type MeasureCatalogue,
 } from "./helpers";
 import { isMeasurementOnly } from "@shared/questions/question-type";
+import { outcomeFor } from "../../services/analytics/answer-outcome";
 import { loadScoringConfig } from "../../services/scoring-config";
 import { computeAnswerContributions, type Answer, type QuestionType } from "@shared/scales/engine";
 
@@ -238,7 +238,10 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
         if (!question) continue;
 
         const effective = scoring.resolve(question);
-        const isCorrect = checkAnswer(question, userAnswer, effective.scoring) === 1;
+        // PRD-57 (#43): исход берётся из попытки. Пересчёт по ЖИВОМУ вопросу заставлял
+        // выгрузку противоречить вердикту, который засчитала сама попытка.
+        const outcome = outcomeFor(attempt.resultJson, qId, question, userAnswer, effective);
+        const isCorrect = outcome?.result === "correct";
         const dataJson = question.dataJson as any;
         const correctJson = question.correctJson as any;
         // PRD-26 FR-08 / PRD-44 FR-09: never checked, earns no points — «Верно/Неверно»
@@ -298,7 +301,7 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
 
         const stats = questionStatsMap.get(qId) || { total: 0, correct: 0 };
         stats.total++;
-        if (checkAnswer(question, answer, scoring.resolve(question).scoring) === 1) {
+        if (outcomeFor(attempt.resultJson, qId, question, answer, scoring.resolve(question))?.result === "correct") {
           stats.correct++;
         }
         questionStatsMap.set(qId, stats);
@@ -717,7 +720,12 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
           if (!q) continue;
 
           const effective = scoring?.resolve(q);
-          const isCorrect = checkAnswer(q, userAnswer, effective?.scoring) === 1;
+          // PRD-57 (#43): исход берётся из попытки — см. пояснение у выгрузки теста.
+          const outcome = outcomeFor(attempt.resultJson, qId, q, userAnswer, {
+            points: effective?.points ?? 1,
+            scoring: effective?.scoring ?? null,
+          });
+          const isCorrect = outcome?.result === "correct";
           const dataJson = q.dataJson as any;
           const correctJson = q.correctJson as any;
           // PRD-26 FR-08 / PRD-44 FR-09: never checked — see the per-test export.
@@ -810,7 +818,11 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
           const key = `${attempt.testId}:${qId}`;
           const s = stat.get(key) || { total: 0, correct: 0, testId: attempt.testId };
           s.total++;
-          if (!isMeasurementOnly(q) && checkAnswer(q, ans, scoring?.resolve(q).scoring) === 1) s.correct++;
+          const outcome = outcomeFor(attempt.resultJson, qId, q, ans, {
+            points: scoring?.resolve(q).points ?? 1,
+            scoring: scoring?.resolve(q).scoring ?? null,
+          });
+          if (outcome?.result === "correct") s.correct++;
           stat.set(key, s);
         }
       }
