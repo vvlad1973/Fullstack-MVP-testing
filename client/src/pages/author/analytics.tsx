@@ -198,7 +198,11 @@ interface ExportConfig {
 // Утилиты для форматирования ответов
 // ============================================
 
-function formatUserAnswer(answer: DetailedAnswer): string {
+/**
+ * PRD-57 §6.5: написанный ответ печатается ДОСЛОВНО — разбирая спор, важно видеть, что
+ * человек набрал `3,14`, а не то, во что мы это превратили при сравнении.
+ */
+export function formatUserAnswer(answer: DetailedAnswer): string {
   const { questionType, userAnswer } = answer;
 
   // Получаем данные вопроса из questionData
@@ -209,6 +213,8 @@ function formatUserAnswer(answer: DetailedAnswer): string {
   const items = questionData.items || (answer as any).items;
 
   if (userAnswer === undefined || userAnswer === null) return "Нет ответа";
+  // Текстовый ввод: строка и есть ответ, разбирать нечего.
+  if (questionType === "short") return String(userAnswer);
 
   switch (questionType) {
     case "single":
@@ -285,7 +291,43 @@ function formatUserAnswer(answer: DetailedAnswer): string {
   }
 }
 
-function formatCorrectAnswer(answer: DetailedAnswer): string {
+/**
+ * Набор правил сравнения человеческой строкой (PRD-57 §6.1).
+ *
+ * Пустой набор даёт прочерк, а не пустую строку: блок «Правильный ответ» печатается только
+ * при непустом значении, и пустая рамка читалась бы как потеря данных (FR-17).
+ */
+function formatAnswerRules(correctAnswer: unknown): string {
+  const set = (correctAnswer ?? {}) as {
+    unit?: string;
+    rules?: Array<Record<string, unknown>>;
+  };
+  const rules = Array.isArray(set.rules) ? set.rules : [];
+  if (rules.length === 0) return "—";
+
+  const unit = typeof set.unit === "string" && set.unit.trim() !== "" ? ` ${set.unit.trim()}` : "";
+  const parts = rules.map((rule) => {
+    if (rule.kind === "number") {
+      const tolerance = rule.tolerance as { unit?: string; value?: number } | undefined;
+      const spread = tolerance
+        ? ` ±${tolerance.value}${tolerance.unit === "pct" ? " %" : unit}`
+        : unit;
+      return `равно ${rule.value}${spread}`;
+    }
+    return String(rule.value ?? "");
+  });
+  return parts.join(", ");
+}
+
+/**
+ * Эталон задания для АВТОРА.
+ *
+ * У короткого ответа эталон — набор правил (PRD-57 §6.1), и показывается он здесь именно
+ * потому, что адресован автору: ему нужно видеть, что правило ловит. Участнику образец
+ * правила не показывается нигде — `Федеральная служба по * надзору` объясняет ему наш
+ * синтаксис вместо предмета.
+ */
+export function formatCorrectAnswer(answer: DetailedAnswer): string {
   const { questionType, correctAnswer } = answer;
 
   // Получаем данные вопроса из questionData
@@ -295,6 +337,7 @@ function formatCorrectAnswer(answer: DetailedAnswer): string {
   const rightItems = questionData.right || (answer as any).rightItems;
   const items = questionData.items || (answer as any).items;
 
+  if (questionType === "short") return formatAnswerRules(correctAnswer);
   if (!correctAnswer) return "—";
 
   // Если correctAnswer уже отформатирован (массив строк или объекты с текстом)
