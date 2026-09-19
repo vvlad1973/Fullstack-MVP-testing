@@ -904,9 +904,12 @@ function mapScormType(q) {
   if (q.type === 'multiple') return 'choice';
   if (q.type === 'matching') return 'matching';
   if (q.type === 'ranking') return 'sequencing';
-  // PRD-57 FR-27: текстовый ввод — `fill-in`. Признак, а не литерал: пропуски (Э8)
-  // войдут сюда же, объявив тот же признак.
+  // PRD-57 FR-27: текстовый ввод — `fill-in`. Признак, а не литерал.
   if (TBQType.isTextEntry(q.type)) return 'fill-in';
+  // PRD-57 FR-24h: задание с пропусками уезжает ОДНИМ взаимодействием `fill-in`, а не по
+  // одному на пропуск. В выгрузке WebTutor на взаимодействие приходится ровно четыре
+  // подколонки, и задание с шестью пропусками превратило бы отчёт в частокол столбцов.
+  if (TBQType.hasBlanks(q.type)) return 'fill-in';
   return 'other';
 }
 
@@ -922,6 +925,17 @@ function formatResponse(q, ans) {
   // PRD-57 §6.5: ответ уже строка, и в отчёт LMS он уходит РОВНО таким, каким его набрал
   // участник. Нормализация живёт в сравнении: разбирая спор, важно видеть написание.
   if (TBQType.isTextEntry(q.type)) return String(ans);
+  // PRD-57 FR-24h: ответы пропусков идут в порядке набора правил и разделяются `[,]` —
+  // записью стандарта. Порядок берётся из эталона, а не из объекта ответа: у объекта
+  // порядок ключей ничего не гарантирует, а отчёт читают по колонкам.
+  if (TBQType.hasBlanks(q.type)) {
+    var sets = (q.correct && Array.isArray(q.correct.blanks)) ? q.correct.blanks : [];
+    var written = (ans && typeof ans === 'object' && !Array.isArray(ans)) ? ans : {};
+    return sets.map(function (set) {
+      var v = set ? written[set.id] : '';
+      return typeof v === 'string' ? v : '';
+    }).join('[,]');
+  }
   if (TBQType.isSingleIndexChoice(q.type)) return String(to1(ans));
   if (q.type === 'multiple') return (Array.isArray(ans) ? ans : []).map(to1).join(',');
   if (q.type === 'ranking') return (Array.isArray(ans) ? ans : []).map(to1).join(',');
@@ -978,6 +992,22 @@ function getCorrectAnswerFor(q) {
  * Несколько допустимых ответов разделяются `[,]` — запись стандарта для `fill-in`.
  */
 function correctPatternFor(q) {
+  // PRD-57 FR-24h: эталоны пропусков — в том же порядке, тем же разделителем. Пропуск,
+  // у которого эталона одной строкой нет (выражение, допуск, подстановочный знак),
+  // обнуляет весь образец: половина эталона в отчёте хуже, чем его отсутствие.
+  if (TBQType.hasBlanks(q.type)) {
+    var blanks = (q.correct && Array.isArray(q.correct.blanks)) ? q.correct.blanks : [];
+    if (blanks.length === 0) return '';
+    if (typeof TBTemplate === 'undefined' || !TBTemplate.referenceAnswer) return '';
+    var TBb = TBTemplate;
+    var refs = [];
+    for (var bi = 0; bi < blanks.length; bi++) {
+      var ref = TBb.referenceAnswer(blanks[bi]);
+      if (ref === null) return '';
+      refs.push(ref);
+    }
+    return refs.join('[,]');
+  }
   if (TBQType.isTextEntry(q.type)) {
     var set = q.correct || {};
     var rules = Array.isArray(set.rules) ? set.rules : [];

@@ -4,6 +4,7 @@ import { config } from "../../config";
 import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
+import { renderBlanksText } from "@shared/questions/blanks-render";
 import { stripMarkdown } from "@shared/text";
 import { isTextEntry } from "@shared/questions/question-type";
 import { summariseAnswers } from "../../services/analytics/answers";
@@ -190,7 +191,7 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
       questionStatsMap.set(stats.questionId, {
         spread,
         questionId: stats.questionId,
-        questionPrompt: stripMarkdown(question.prompt),
+        questionPrompt: stripMarkdown(renderBlanksText(question.prompt, { mode: "dash" })),
         questionType: question.type,
         topicId: question.topicId,
         topicName: topicMap.get(question.topicId) || "Unknown",

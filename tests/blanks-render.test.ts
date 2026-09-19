@@ -103,3 +103,18 @@ describe("referenceAnswer", () => {
     expect(referenceAnswer({ answerKind: "text", join: "any", rules: [] })).toBeNull();
   });
 });
+
+describe("маркер не утекает туда, где полей нет (FR-24i)", () => {
+  it("renderPlainText подставляет прочерк: обзор и PDF читают текст, а не разметку", async () => {
+    const { renderPlainText } = await import("../shared/text/plain");
+    expect(renderPlainText("Наряд выдаёт {{kto}}")).toContain("______");
+    expect(renderPlainText("Наряд выдаёт {{kto}}")).not.toContain("{{kto}}");
+  });
+
+  it("stripMarkdown маркер СОХРАНЯЕТ: это машинная проекция", async () => {
+    // По ней считается хеш содержимого и идёт круг экспорт-импорт книги Excel: подмена
+    // текста там переписала бы задание и разошлась бы с хешем.
+    const { stripMarkdown } = await import("../shared/text/plain");
+    expect(stripMarkdown("Наряд выдаёт {{kto}}")).toBe("Наряд выдаёт {{kto}}");
+  });
+});

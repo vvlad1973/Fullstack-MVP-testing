@@ -10,6 +10,7 @@ import { loadScoringConfig } from "../../services/scoring-config";
 import { computeAttemptResult, type AttemptResultBase } from "../../services/result-compute";
 import { computeAnswerContributions, type Answer, type QuestionType } from "@shared/scales/engine";
 import { isSingleIndexChoice, distributesBudget } from "@shared/questions/question-type";
+import { renderBlanksText } from "@shared/questions/blanks-render";
 import { stripMarkdown } from "@shared/text";
 import {
   buildIndicatorViews,
@@ -195,7 +196,7 @@ router.get("/attempts/:attemptId", requirePermission("analytics.read"), async (r
 
       detailedAnswers.push({
         questionId: qId,
-        questionPrompt: stripMarkdown(question.prompt),
+        questionPrompt: stripMarkdown(renderBlanksText(question.prompt, { mode: "dash" })),
         questionType: question.type,
         topicId: question.topicId,
         topicName: topicMap.get(question.topicId) || "Unknown",
