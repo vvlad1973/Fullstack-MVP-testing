@@ -24,6 +24,7 @@ import {
 } from "@shared/draw/assemble-delivery";
 import { ipsativeScalesForDelivery } from "../services/scale-composition";
 import { loadScoringConfig } from "../services/scoring-config";
+import { attachRegexVerdicts } from "../services/answer-check-verdicts";
 import { loadTestScoringContext } from "../services/effective-scoring";
 import { computeAttemptResult } from "../services/result-compute";
 import { decideRetake, countAttemptsInAssignment } from "../services/retake-gate";
@@ -1744,6 +1745,14 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
         },
       });
     }
+
+    // PRD-57 FR-28q: авторские выражения считаются ДО оценки, в рабочем потоке с
+    // бюджетом. Node однопоточен: без этого одно плохое выражение останавливает
+    // обслуживание всех, а не одну попытку.
+    await attachRegexVerdicts(
+      aggSections.flatMap((section) => section.questions),
+      config.limits.answerCheckBudgetMs,
+    );
 
     const agg = aggregateStandardResult({
       sections: aggSections,

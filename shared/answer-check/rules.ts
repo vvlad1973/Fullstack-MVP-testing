@@ -65,7 +65,11 @@ export interface RuleSetOutcome {
  * where they are checked.
  */
 export type RuleVerdict = boolean | "budget";
-export type RuleVerdicts = readonly RuleVerdict[];
+/**
+ * `undefined` in a slot means «этот хост его не считал» — a wildcard or numeric rule costs
+ * nothing and is checked in place, so only the expression slots are filled.
+ */
+export type RuleVerdicts = readonly (RuleVerdict | undefined)[];
 
 /** Does this set actually check anything? */
 export function hasRules(set: AnswerRuleSet | null | undefined): boolean {

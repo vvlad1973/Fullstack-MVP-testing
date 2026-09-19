@@ -7,6 +7,8 @@
  */
 export { normalizeForCompare } from "./normalize";
 export { matchWildcard } from "./wildcard";
+export { compileExpression, matchExpression } from "./regex";
+export { DEFAULT_BUDGET_MS, DEFAULT_WARN_MS, measure, provocations } from "./budget";
 export { parseNumericAnswer, matchNumber, type NumericOp, type NumericRule } from "./number";
 export {
   checkRuleSet,
@@ -14,5 +16,7 @@ export {
   type AnswerRule,
   type AnswerRuleSet,
   type RuleSetOutcome,
+  type RuleVerdict,
+  type RuleVerdicts,
   type TextRule,
 } from "./rules";
