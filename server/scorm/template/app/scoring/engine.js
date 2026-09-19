@@ -25,6 +25,15 @@ var ScoringEngine = (function () {
     if (typeof TBQType !== 'undefined' ? TBQType.isSingleIndexChoice(type) : type === 'single') {
       return answer === correct.correctIndex ? 1 : 0;
     }
+    // PRD-57 §6.5. The comparison itself is NOT reimplemented here: it arrives with the
+    // shared runtime bundle (`TBTemplate`), which `server/scorm/index.ts` prepends before
+    // this file, the same way `TBQType` does. A second copy would mean the author saved a
+    // rule the learner was never checked against (FR-28s).
+    if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(type)) {
+      if (typeof answer !== 'string') return 0;
+      if (typeof TBTemplate === 'undefined' || !TBTemplate.checkRuleSet) return 0;
+      return TBTemplate.checkRuleSet(correct, answer).passed ? 1 : 0;
+    }
     if (type === 'multiple') {
       var want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
       var got = Array.isArray(answer) ? answer.slice() : [];
@@ -89,6 +98,10 @@ var ScoringEngine = (function () {
         if (rg === wantO[k]) rc += 1; else rx += 1;
       }
       return { c: rc, x: rx, total: wantO.length };
+    }
+    if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(type)) {
+      var th = exactCorrect(type, correct, answer);
+      return { c: th, x: (typeof answer === 'string' && answer !== '') ? 1 - th : 0, total: 1 };
     }
     // single: one correct option.
     var sc = exactCorrect('single', correct, answer);

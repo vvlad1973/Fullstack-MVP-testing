@@ -55,6 +55,11 @@ export { parseScaleInterpretation, parseIndicatorInterpretation } from "../scale
 export { aggregateStandardResult, aggregateAdaptiveResult, adaptiveResultAsStandard } from "../scoring/aggregate";
 export { resolveOverallRule, resolveTopicRule, checkPassRule } from "../scoring/pass-rule";
 export { lmsScoreFor } from "../scoring/lms-score";
+// PRD-57 FR-28s: the open-answer comparison, shipped to the package instead of copied
+// into it. The ES5 scoring twin (app/scoring/engine.js) calls `TBTemplate.checkRuleSet`
+// rather than carrying its own matcher, so the rule the author saved is the rule the
+// learner is checked against.
+export { checkRuleSet, hasRules, normalizeForCompare } from "../answer-check";
 export { computeBreakdowns, sectionScope, TEST_SCOPE } from "../breakdown/compute";
 export { buildStartState } from "./start-state";
 // PRD-22: the start illustration is a property of the START PAGE, with the branding
