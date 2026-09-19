@@ -687,6 +687,9 @@ function calculateResults() {
       order.push(fq.topicId);
     }
     byTopic[fq.topicId].questions.push({
+      // PRD-57 (#43): исход каждого ответа попадает в результат — пакету он нужен ровно
+      // так же, как вебу: телеметрия отдаёт его аналитике.
+      id: q.id,
       type: q.type,
       correct: q.correct || {},
       scoring: q.scoring,

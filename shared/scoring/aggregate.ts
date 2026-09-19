@@ -52,6 +52,12 @@ import type { BreakdownEntry, BreakdownItem } from "../breakdown/types";
 import { groupSections } from "./section-groups";
 
 export interface AggregateQuestion {
+  /**
+   * PRD-57 (#43): идентификатор вопроса. Нужен, чтобы результат нёс исход КАЖДОГО ответа
+   * — иначе аналитика вынуждена пересчитывать верность заново, по живым вопросам, и
+   * расходится с вердиктом самой попытки.
+   */
+  id?: string;
   type: QuestionType;
   correct: CorrectData;
   scoring?: QuestionScoring | null;
@@ -173,6 +179,28 @@ export interface AggregateResult<E = unknown> {
    * stage must produce the byte-identical result it always did (решение 6).
    */
   sectionGroups?: AggregateSectionGroup[];
+  /**
+   * PRD-57 (#43): исход каждого ответа в порядке выдачи.
+   *
+   * НЕОБЯЗАТЕЛЬНОЕ: у попытки, завершённой до этой работы, списка нет, и читатель обязан
+   * это различать — считать на месте, но по СНИМКУ попытки, а не по живому вопросу.
+   * Отсутствие ключа и пустой список — разные вещи: второй означает «вопросов не было».
+   */
+  questionOutcomes?: QuestionOutcome[];
+}
+
+/**
+ * Исход ОДНОГО ответа — то, что аналитика и выгрузка сегодня пересчитывают заново.
+ *
+ * Состояний три, как у телеметрии (PRD-54): измерительный ответ не может быть ни верным,
+ * ни неверным, и называть его «неверно» значит показать ошибку там, где ошибиться не во
+ * что. Частичная правота живёт не в исходе, а в `earned`: исход двузначен, цена числовая.
+ */
+export interface QuestionOutcome {
+  questionId: string;
+  result: "correct" | "incorrect" | "neutral";
+  earned: number;
+  possible: number;
 }
 
 /**
@@ -217,6 +245,10 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     required: boolean;
   }> = [];
 
+  // PRD-57 (#43): исходы собираются В ТОМ ЖЕ проходе, где считаются баллы. Второй проход
+  // по ответам разошёлся бы с первым на первой же правке правил оценки.
+  const questionOutcomes: QuestionOutcome[] = [];
+
   const topicResults: AggregateTopicResult<E>[] = input.sections.map((sec) => {
     let earned = 0;
     let possible = 0;
@@ -229,7 +261,12 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       // would read as «0 из 22 верно» and drag the percent of a mixed test to zero.
       // Its result is the contribution it makes to the PRD-5 scales, computed
       // elsewhere.
-      if (isMeasurementOnly(q)) continue;
+      if (isMeasurementOnly(q)) {
+        // Нейтральный исход, а не пропуск: «не оценивается» — это факт об ответе, и
+        // аналитике он нужен ровно так же, как «верно» и «неверно».
+        if (q.id) questionOutcomes.push({ questionId: q.id, result: "neutral", earned: 0, possible: 0 });
+        continue;
+      }
       scored++;
       const ratio =
         q.answer === undefined || q.answer === null
@@ -247,6 +284,14 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
         answered,
       });
       if (ratio === 1) correct++;
+      if (q.id) {
+        questionOutcomes.push({
+          questionId: q.id,
+          result: ratio === 1 ? "correct" : "incorrect",
+          earned: questionEarned,
+          possible: q.points,
+        });
+      }
     }
     const total = scored;
     const percent = possible > 0 ? (earned / possible) * 100 : 0;
@@ -358,6 +403,9 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     breakdowns: testEntries,
     // Absent, not empty: a test without groups keeps the result shape it always had.
     ...(sectionGroups.length ? { sectionGroups } : {}),
+    // Тем же правилом: попытка без единого опознанного вопроса хранит прежнюю форму
+    // результата, и читатель отличает «списка нет» от «список пуст».
+    ...(questionOutcomes.length ? { questionOutcomes } : {}),
   };
 }
 

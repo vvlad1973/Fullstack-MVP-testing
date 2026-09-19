@@ -1601,6 +1601,7 @@ router.post("/attempts/:attemptId/section-result", requirePermission("attempts.t
       questions: questions.map((q) => {
         const effective = scoring.resolve(q);
         return {
+          id: q.id,
           type: q.type as QuestionType,
           correct: (q.correctJson ?? {}) as CorrectData,
           scoring: effective.scoring,
@@ -1721,7 +1722,8 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
           questionTypes[q.id] = q.type as QuestionType;
           const effective = scoring.resolve(q);
           return {
-            type: q.type as QuestionType,
+            id: q.id,
+          type: q.type as QuestionType,
             correct: (q.correctJson ?? {}) as CorrectData,
             scoring: effective.scoring,
             points: effective.points,
