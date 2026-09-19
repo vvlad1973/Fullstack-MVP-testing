@@ -16,10 +16,20 @@
  * ({@link module:shared/answer-check/normalize}).
  */
 
+import { parseNumericAnswer } from "../answer-check/number";
+
 /** Minimal element shape used here — keeps the module free of `lib.dom` assumptions. */
 type El = {
   value?: string;
+  className?: string;
+  /** `until-found` is the DOM's own third state; this module only ever writes booleans. */
+  hidden?: boolean | string;
   matches?(sel: string): boolean;
+  closest?(sel: string): El | null;
+  querySelector?(sel: string): El | null;
+  getAttribute?(name: string): string | null;
+  setAttribute?(name: string, value: string): void;
+  removeAttribute?(name: string): void;
   addEventListener(type: string, cb: (e: never) => void): void;
   removeEventListener(type: string, cb: (e: never) => void): void;
 };
@@ -61,8 +71,42 @@ export function attachShortAnswer(root: El, host: ShortAnswerHost): DetachShortA
     const field = event?.target;
     if (!field || !field.matches?.('[data-action="short-answer"]')) return;
     if (host.isLocked?.()) return;
-    host.setAnswer(typeof field.value === "string" ? field.value : "");
+    const value = typeof field.value === "string" ? field.value : "";
+    host.setAnswer(value);
+    markNumberFormat(field, value);
   };
   root.addEventListener("input", onInput as (e: never) => void);
   return () => root.removeEventListener("input", onInput as (e: never) => void);
+}
+
+/** Add a class to a class list that is a plain string — no `classList` assumed. */
+function withClass(className: string, add: boolean): string {
+  const classes = className.split(/\s+/).filter((name) => name !== "" && name !== ERROR_CLASS);
+  if (add) classes.push(ERROR_CLASS);
+  return classes.join(" ");
+}
+
+/** DS marker of a field whose content the form could not accept. */
+const ERROR_CLASS = "ou-field--error";
+
+/**
+ * Say «ожидается число» while the typed text is not one (FR-28z1).
+ *
+ * Called on every keystroke rather than at render time because the package assembles the
+ * question screen ONCE: re-rendering it per character would take the focus away from the
+ * field the learner is typing into. The renderer prints the same state for the answer it
+ * is given, so the two agree after any re-render.
+ *
+ * Silent for a text answer and for an empty field: «не число» is a remark about what was
+ * written, and nothing has been written yet.
+ */
+function markNumberFormat(field: El, value: string): void {
+  if (field.getAttribute?.("data-answer-kind") !== "number") return;
+  const wrap = field.closest?.(".tb-answer-field");
+  const message = wrap?.querySelector?.('[data-role="nan"]');
+  const bad = value.trim() !== "" && parseNumericAnswer(value) === null;
+  if (message) message.hidden = !bad;
+  if (wrap && typeof wrap.className === "string") wrap.className = withClass(wrap.className, bad);
+  if (bad) field.setAttribute?.("aria-invalid", "true");
+  else field.removeAttribute?.("aria-invalid");
 }

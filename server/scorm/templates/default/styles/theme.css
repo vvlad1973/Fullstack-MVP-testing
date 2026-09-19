@@ -559,6 +559,18 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
   line-height: 1.35;
 }
 
+/* Typed answer (PRD-57 §6.5, §6.6). The field fills the column like every other answer
+   block; the NUMERIC flavour takes half of it, because a number is short and a field as
+   wide as the column invites a sentence into a box that compares digits. The input rides
+   the same `--tb-answer-fs` as the option text, so all answers on a run are one size. */
+.tb-scene .tb-answer-field { width: 100%; }
+.tb-scene .tb-answer-field--num { width: 50%; }
+.tb-scene .tb-answer-field .ou-field__input {
+  font-size: var(--tb-answer-fs, 20px);
+  font-weight: 400;
+  line-height: 1.35;
+}
+
 /* Multiple: the tick is class-driven (no native input) — mirror DS :checked. */
 .ou-radio-card.is-on .ou-check__box {
   background: var(--ou-accent-default);
@@ -1359,6 +1371,10 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   .tb-scene--cover .tb-scene__body { padding: var(--ou-space-5) 16px; }
   .tb-scene__col { gap: var(--ou-space-3); }
   .tb-scene__col--doc { gap: var(--ou-space-4); }
+
+  /* Half a column of a 360px screen is a field five digits wide: below this step the
+     numeric answer takes the whole width like every other block. */
+  .tb-scene .tb-answer-field--num { width: 100%; }
 
   /* Header. Measured on a phone the old stack cost 162px of an 844px screen: a brand
      row, then a tier for the timers (the DS digital timer stacks a label OVER a 22px

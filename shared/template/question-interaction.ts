@@ -24,6 +24,7 @@
  * Pure/framework-free — no DOM, no Node — safe to bundle into the SCORM runtime.
  */
 import { normalizePool } from "./dnd/matching-model";
+import { parseNumericAnswer } from "../answer-check/number";
 import { renderInlineMarkdown } from "../text/markdown";
 import {
   allocationRemaining,
@@ -686,8 +687,14 @@ export interface ShortAnswerOptions {
  *
  * The value is the learner's RAW text, not its comparison form: what they typed is what
  * goes to the LMS and to the report, and normalisation belongs to the comparison alone.
- * The length limit (FR-28v) is deliberately absent — it arrives with Э3, together with
- * the author's control for it.
+ *
+ * A NUMERIC field says what it expects and what it could not read (§6.6): «Введите число»
+ * above the box — the FORMAT, never the boundaries, which would hand over the answer
+ * (FR-28aa5) — and «Ожидается число» below it while the typed text does not parse
+ * (FR-28z1). The second message is always emitted and merely hidden: the package does not
+ * re-render the screen on every keystroke (that would steal the focus), so
+ * {@link module:shared/template/short-answer-dom} toggles this very node instead, and a
+ * node that is absent is nothing to toggle.
  */
 export function renderShortAnswer(
   question: InteractionQuestion,
@@ -696,10 +703,14 @@ export function renderShortAnswer(
 ): string {
   const value = typeof answer === "string" ? answer : "";
   const numeric = options.numeric === true;
-  const wrap = numeric
-    ? "ou-field ou-field--l tb-answer-field tb-answer-field--num"
-    : "ou-field ou-field--l ou-field--full tb-answer-field";
-  const mode = numeric ? ' inputmode="decimal"' : "";
+  // Пустой ответ ошибкой не считается: человек ещё не начал, а не ошибся.
+  const notANumber = numeric && value.trim() !== "" && parseNumericAnswer(value) === null;
+  const wrap =
+    (numeric
+      ? "ou-field ou-field--l tb-answer-field tb-answer-field--num"
+      : "ou-field ou-field--l ou-field--full tb-answer-field") + (notANumber ? " ou-field--error" : "");
+  const mode = numeric ? ' inputmode="decimal" data-answer-kind="number"' : "";
+  const invalid = notANumber ? ' aria-invalid="true"' : "";
   const locked = options.readonly ? " disabled" : "";
   const affix = options.unit ? `<span class="ou-field__affix">${attrText(options.unit)}</span>` : "";
   // Предел работает двумя способами сразу: атрибут не даёт набрать лишнего, подпись
@@ -707,14 +718,21 @@ export function renderShortAnswer(
   const limit = typeof options.maxLength === "number" && options.maxLength > 0 ? options.maxLength : null;
   const limitAttr = limit === null ? "" : ` maxlength="${limit}"`;
   const limitMsg = limit === null ? "" : `<div class="ou-field__msg">До ${limit} символов</div>`;
+  const formatHint = numeric ? `<div class="ou-field__msg">Введите число</div>` : "";
+  const nanMsg = numeric
+    ? `<div class="ou-field__msg ou-field__msg--error" data-role="nan"${notANumber ? "" : " hidden"}>` +
+      `Ожидается число. Например: -25, 12,5 или 3/4</div>`
+    : "";
   return (
     `<div class="${wrap}">` +
+    formatHint +
     `<div class="ou-field__box">` +
     `<input class="ou-field__input" type="text"${mode}${limitAttr} value="${attrText(value)}"` +
-    ` aria-label="Ваш ответ" data-action="short-answer"${locked} />` +
+    ` aria-label="Ваш ответ" data-action="short-answer"${invalid}${locked} />` +
     affix +
     `</div>` +
     limitMsg +
+    nanMsg +
     `</div>`
   );
 }

@@ -44,6 +44,51 @@ describe("renderShortAnswer", () => {
   });
 });
 
+describe("renderShortAnswer — числовой ответ (PRD-57 §6.6)", () => {
+  const numeric = (answer: unknown) =>
+    renderShortAnswer({ type: "short", dataJson: {} }, answer, { numeric: true, unit: "°C" });
+
+  it("называет формат, но не границы (FR-28aa5)", () => {
+    const html = numeric(null);
+    expect(html).toContain("Введите число");
+    expect(html).not.toContain("от 12 до 15");
+  });
+
+  it("помечает поле видом ответа, чтобы привязка знала, что проверять", () => {
+    expect(numeric(null)).toContain('data-answer-kind="number"');
+    expect(renderShortAnswer({ type: "short", dataJson: {} }, null)).not.toContain("data-answer-kind");
+  });
+
+  it("на ненабранном числе печатает сообщение и помечает поле ошибкой (FR-28z1)", () => {
+    const html = numeric("минус двадцать пять");
+    expect(html).toContain("Ожидается число");
+    expect(html).toContain("ou-field--error");
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).not.toContain("hidden");
+  });
+
+  it("на разобранном числе сообщение спрятано, а не убрано", () => {
+    // Узел остаётся в разметке: привязка переключает его между перерисовками, и
+    // отсутствующий узел ей нечего было бы показать.
+    const html = numeric("-25");
+    expect(html).toContain("Ожидается число");
+    expect(html).toContain("hidden");
+    expect(html).not.toContain("ou-field--error");
+  });
+
+  it("пустой ответ ошибкой не считается — человек ещё не начал", () => {
+    const html = numeric("");
+    expect(html).not.toContain("ou-field--error");
+    expect(html).toContain("hidden");
+  });
+
+  it("текстовому ответу ничего из этого не печатается", () => {
+    const html = renderShortAnswer({ type: "short", dataJson: {} }, "около трёх");
+    expect(html).not.toContain("Ожидается число");
+    expect(html).not.toContain("Введите число");
+  });
+});
+
 describe("attachShortAnswer", () => {
   const mount = (html: string): HTMLElement => {
     const root = document.createElement("div");
@@ -112,5 +157,46 @@ describe("attachShortAnswer", () => {
     const { attachShortAnswer } = await import("../shared/template/short-answer-dom");
     const detach = attachShortAnswer(mount("<div></div>"), { getAnswer: () => "", setAnswer: () => {} });
     expect(() => detach()).not.toThrow();
+  });
+
+  it("переключает «ожидается число» на вводе, не перерисовывая экран (FR-28z1)", async () => {
+    // Пакет экран на каждый символ не пересобирает: это отняло бы фокус. Значит
+    // сообщение обязано переключаться прямо по DOM.
+    const { attachShortAnswer } = await import("../shared/template/short-answer-dom");
+    const root = mount(renderShortAnswer({ type: "short", dataJson: {} }, null, { numeric: true }));
+    attachShortAnswer(root, { getAnswer: () => "", setAnswer: () => {} });
+
+    const input = root.querySelector("input") as HTMLInputElement;
+    const message = root.querySelector('[data-role="nan"]') as HTMLElement;
+    const wrap = root.querySelector(".tb-answer-field") as HTMLElement;
+
+    input.value = "около трёх";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(message.hidden).toBe(false);
+    expect(wrap.className).toContain("ou-field--error");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+
+    input.value = "-25";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(message.hidden).toBe(true);
+    expect(wrap.className).not.toContain("ou-field--error");
+    expect(input.getAttribute("aria-invalid")).toBeNull();
+
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(message.hidden).toBe(true);
+  });
+
+  it("текстовое поле остаётся без отметок вида", async () => {
+    const { attachShortAnswer } = await import("../shared/template/short-answer-dom");
+    const root = mount(renderShortAnswer({ type: "short", dataJson: {} }, null));
+    attachShortAnswer(root, { getAnswer: () => "", setAnswer: () => {} });
+
+    const input = root.querySelector("input") as HTMLInputElement;
+    input.value = "около трёх";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(root.querySelector('[data-role="nan"]')).toBeNull();
+    expect((root.querySelector(".tb-answer-field") as HTMLElement).className).not.toContain("ou-field--error");
   });
 });

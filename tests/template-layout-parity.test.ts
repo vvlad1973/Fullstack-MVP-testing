@@ -20,10 +20,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { templateLayouts, templateRoot } from "./helpers/template-roots";
+
 const REPO_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_LAYOUTS = path.join(REPO_ROOT, "server", "scorm", "templates", "default", "layouts");
-const CERT_DIR = path.join(REPO_ROOT, "templates", "certification");
-const CERT_LAYOUTS = path.join(CERT_DIR, "layouts");
+// «Сертификация» вынесена в собственный репозиторий: путь к ней знает один модуль, а
+// не каждый тест. Прежний путь внутри дерева продукта умер вместе с выносом, и гард
+// падал на чтении манифеста — то есть не проверял ничего.
+const CERT_DIR = templateRoot("certification");
+const CERT_LAYOUTS = templateLayouts("certification");
 
 /** Indentation of the eyebrow row inside the cover layouts (14 spaces). */
 const EYEBROW_INDENT = " ".repeat(14);
