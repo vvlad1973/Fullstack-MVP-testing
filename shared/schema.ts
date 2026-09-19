@@ -1373,6 +1373,48 @@ export const rankingCorrectSchema = z.object({
   correctOrder: z.array(z.number()),
 });
 
+/**
+ * PRD-57 §6.1: the answer check of an open question, stored in `questions.correct_json`.
+ *
+ * The rules ARE the answer key of a short answer, which is why they live in the existing
+ * key column rather than in one of their own: snapshots, the SCORM bake, test transfer
+ * and the Excel workbook already carry that column.
+ *
+ * Two fields are described here but NOT accepted yet, on purpose: `match: "regex"` waits
+ * for the runtime budget of Э7 (FR-28q), and every numeric operator but `eq` waits for
+ * Э5. The stored SHAPE is final, so those stages lift a restriction in validation
+ * instead of migrating questions that are already saved.
+ */
+export const answerRuleSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("text"),
+    match: z.literal("wildcard"),
+    value: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("number"),
+    op: z.literal("eq"),
+    value: z.number().finite(),
+    tolerance: z
+      .object({ unit: z.enum(["abs", "pct"]), value: z.number().finite().nonnegative() })
+      .optional(),
+  }),
+]);
+
+export const answerRuleSetSchema = z
+  .object({
+    answerKind: z.enum(["text", "number"]),
+    join: z.enum(["any", "all"]),
+    rules: z.array(answerRuleSchema),
+    unit: z.string().max(16).optional(),
+  })
+  .refine(
+    (set) => set.rules.every((rule) => (set.answerKind === "number" ? rule.kind === "number" : rule.kind === "text")),
+    { message: "Вид ответа и правила должны совпадать: текст либо число", path: ["rules"] },
+  );
+
+export type AnswerRuleSetInput = z.infer<typeof answerRuleSetSchema>;
+
 export type SingleChoiceData = z.infer<typeof singleChoiceDataSchema>;
 export type MultipleChoiceData = z.infer<typeof multipleChoiceDataSchema>;
 export type MatchingData = z.infer<typeof matchingDataSchema>;
