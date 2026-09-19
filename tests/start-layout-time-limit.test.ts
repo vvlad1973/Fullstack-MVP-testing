@@ -10,25 +10,20 @@
  * `course.timeLimitLabel`, здесь и обнаружится.
  */
 import { describe, it, expect } from "vitest";
-import path from "node:path";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { buildStartState } from "../shared/template/start-state";
 import { renderScreenInto } from "../shared/template/render-screen";
+import { TEMPLATE_IDS, templateFile } from "./helpers/template-roots";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-/** Поставляемые стартовые макеты обоих шаблонов, включая вариант с картинкой. */
-const LAYOUTS = [
-  "../server/scorm/templates/default/layouts/start.html",
-  "../server/scorm/templates/default/layouts/start.image-right.html",
-  "../templates/certification/layouts/start.html",
-  "../templates/certification/layouts/start.image-right.html",
-];
+/** Стартовые макеты ВСЕХ шаблонов, включая вариант с картинкой. */
+const LAYOUTS = TEMPLATE_IDS.flatMap((id) => [
+  templateFile(id, "layouts/start.html"),
+  templateFile(id, "layouts/start.image-right.html"),
+]);
 
 /** Рендерит стартовый экран с заданным лимитом и возвращает его текст. */
 function renderStart(layoutPath: string, timeLimitMinutes: number | null): string {
-  const layout = readFileSync(path.resolve(__dirname, layoutPath), "utf8");
+  const layout = readFileSync(layoutPath, "utf8");
   const { course, state } = buildStartState({
     info: { title: "Тест", questionCount: 64, timeLimitMinutes },
     maxAttempts: null,

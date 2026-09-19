@@ -1,10 +1,17 @@
 /**
  * @module generate-prd1-template-previews
- * @description Wrapper script that generates preview.html for every template
- * found under server/scorm/templates/ AND the repo-root templates/ dir (external
- * PRD-3 packages, e.g. certification). All HTML, CSS, JS, and data are read
- * from the template directory and the PRD1 runtime; the script itself contains
- * no layout or styling logic.
+ * @description Wrapper script that generates preview.html for every template it can
+ * find: the built-in ones under server/scorm/templates/ and the ones VENDORED OUT into
+ * their own repositories (certification, standard-rt), which live side by side in the
+ * templates directory. All HTML, CSS, JS, and data are read from the template directory
+ * and the PRD1 runtime; the script itself contains no layout or styling logic.
+ *
+ * A vendored-out template keeps its package under `<repo>/template/`, so the scan accepts
+ * both shapes: a manifest directly in the directory and one a `template/` level deeper.
+ * Its preview is written back into ITS OWN repository — that is where the file belongs.
+ *
+ * The directory holding those repositories comes from SKILLUM_TEMPLATES_DIR, falling back
+ * to the agreed location next to the product.
  *
  * Usage: node scripts/docs/generate-prd1-template-previews.mjs
  */
@@ -14,11 +21,17 @@ import path from "node:path";
 import { buildSync } from "esbuild";
 
 const root = process.cwd();
-/** Roots scanned for template packages: the built-in dir and the repo-root
- *  `templates/` dir (external packages validated via the PRD-3 admin lifecycle). */
+
+/** Where the repositories of the vendored-out templates live. */
+const externalTemplatesDir =
+  process.env.SKILLUM_TEMPLATES_DIR && process.env.SKILLUM_TEMPLATES_DIR.trim().length > 0
+    ? process.env.SKILLUM_TEMPLATES_DIR
+    : path.join("C:", "Repositories", "skill'um", "templates");
+
+/** Roots scanned for template packages: the built-in dir and the vendored-out repos. */
 const TEMPLATE_ROOTS = [
   path.join(root, "server", "scorm", "templates"),
-  path.join(root, "templates"),
+  externalTemplatesDir,
 ];
 const runtimeDir    = path.join(root, "server", "scorm", "template", "app");
 
@@ -80,10 +93,24 @@ function discoverTemplateDirs() {
     if (!fs.existsSync(base)) continue;
     for (const e of fs.readdirSync(base, { withFileTypes: true })) {
       if (!e.isDirectory()) continue;
-      if (!fs.existsSync(path.join(base, e.name, "manifest.json"))) continue;
-      if (seen.has(e.name)) continue; // first root wins on id collision
-      seen.add(e.name);
-      out.push({ id: e.name, dir: path.join(base, e.name) });
+      // Built-in: the manifest lies in the directory itself. Vendored out: the package
+      // sits under `template/`, because the repository also carries a README, the build
+      // script and the font/logo sources.
+      const candidates = [path.join(base, e.name), path.join(base, e.name, "template")];
+      const dir = candidates.find((c) => fs.existsSync(path.join(c, "manifest.json")));
+      if (!dir) continue;
+      // The id is the template's own, declared in its manifest — a repository is named
+      // after its package (`skillum-template-certification`), not after the template.
+      let id = e.name;
+      try {
+        const declared = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).id;
+        if (typeof declared === "string" && declared.length > 0) id = declared;
+      } catch {
+        /* unreadable manifest: fall back to the directory name and let the build report it */
+      }
+      if (seen.has(id)) continue; // first root wins on id collision
+      seen.add(id);
+      out.push({ id, dir });
     }
   }
   return out;

@@ -13,16 +13,15 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { TEMPLATE_IDS, templateFile } from "./helpers/template-roots";
 
-const THEMES = [
-  "server/scorm/templates/default/styles/theme.css",
-  "templates/certification/styles/theme.css",
-] as const;
+// Стили ВСЕХ шаблонов — встроенного и двух вынесенных в свои репозитории.
+const THEMES = TEMPLATE_IDS.map((id) => templateFile(id, "styles/theme.css"));
 
 const fitSrc = fs.readFileSync(path.resolve(__dirname, "../shared/template/fit-question.ts"), "utf8");
 
-describe.each(THEMES)("мобильный слой: %s", (rel) => {
-  const css = fs.readFileSync(path.resolve(__dirname, "..", rel), "utf8");
+describe.each(THEMES)("мобильный слой: %s", (themePath) => {
+  const css = fs.readFileSync(themePath, "utf8");
   /** Файл без комментариев: правила ищем в объявлениях, а не в пояснениях к ним. */
   const declarations = css.replace(/\/\*[\s\S]*?\*\//g, "");
 
