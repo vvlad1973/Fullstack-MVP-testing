@@ -87,3 +87,32 @@ describe("блок кода", () => {
     expect(html).not.toContain("<pre");
   });
 });
+
+describe("канонизация текста при сохранении (FR-01)", () => {
+  it("ведущие пробелы ВНУТРИ блока кода сохраняются", async () => {
+    // Это нашла живая приёмка, а не модульный тест: канонизация срезала отступы у
+    // каждой строки, и питоновский листинг приезжал участнику без вложенности —
+    // то есть неверным кодом.
+    const { normalizeAuthorText } = await import("../shared/text/normalize");
+    const source = ["Вопрос:", "", "```python", "def f(x):", "    return x", "```"].join("\n");
+    expect(normalizeAuthorText(source)).toBe(source);
+  });
+
+  it("снаружи блока канонизация работает как прежде", async () => {
+    const { normalizeAuthorText } = await import("../shared/text/normalize");
+    expect(normalizeAuthorText("  Вопрос  \n\n\n\nВторой абзац  ")).toBe("Вопрос\n\nВторой абзац");
+  });
+
+  it("остаётся идемпотентной: путь записи может прогнать её дважды", async () => {
+    const { normalizeAuthorText } = await import("../shared/text/normalize");
+    const source = ["  Вопрос", "", "```sql", "SELECT 1", "  FROM t", "```", ""].join("\n");
+    const once = normalizeAuthorText(source);
+    expect(normalizeAuthorText(once)).toBe(once);
+    expect(once).toContain("  FROM t");
+  });
+
+  it("переводы строк внутри блока всё равно приводятся к LF", async () => {
+    const { normalizeAuthorText } = await import("../shared/text/normalize");
+    expect(normalizeAuthorText("```\r\nA\r\n```")).toBe("```\nA\n```");
+  });
+});
