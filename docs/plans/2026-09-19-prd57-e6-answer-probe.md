@@ -42,19 +42,19 @@
 - Modify: `client/src/features/questions/answer-rules/answer-rules-block.tsx`
 - Test: `client/src/features/questions/__tests__/answer-rules-block.test.tsx`
 
-- [ ] **Step 1: Падающие тесты**
+- [x] **Step 1: Падающие тесты**
 
 Пустая проба не даёт ни вердикта, ни отметок; набранный подходящий ответ даёт «Зачтено» и
 одну отметку «выполнено»; неподходящий — «Не зачтено» и отметки «не выполнено» на всех
 строках; очистка поля убирает и то, и другое; числовая проба разбирает `1/2`.
 
-- [ ] **Step 2: Реализация**
+- [x] **Step 2: Реализация**
 
 Строка `tb-probe`: поле плюс `Tag`. Вердикт и отметки считаются одним вызовом
 `checkRuleSet` по сохраняемому набору (`toCorrectJson`), поэтому проба проверяет ровно то,
 что уедет в задание.
 
-- [ ] **Step 3: Проверка** — `npm test -- client/src/features/questions/__tests__/answer-rules-block.test.tsx`
+- [x] **Step 3: Проверка** — `npm test -- client/src/features/questions/__tests__/answer-rules-block.test.tsx`
 
 ## Task 2: Объяснение вердикта
 
@@ -63,18 +63,18 @@
 - Modify: `client/src/features/questions/answer-rules/describe-rule.ts`
 - Test: `tests/answer-rules-describe.test.ts`
 
-- [ ] **Step 1: Падающие тесты**
+- [x] **Step 1: Падающие тесты**
 
 Сработавшее правило названо по заголовку; при связке «все» и одном невыполненном правиле
 объяснение называет именно его; при «любом» и полном промахе — «Не выполнено ни одно
 правило, а ответ засчитывается, если выполнено любое из них»; строка всегда кончается
 словами про то, что проба не сохраняется.
 
-- [ ] **Step 2: Реализация**
+- [x] **Step 2: Реализация**
 
 Функция `describeProbe(set, outcome)`: берёт набор и исход, возвращает одну строку.
 
-- [ ] **Step 3: Проверка** — `npm test -- tests/answer-rules-describe.test.ts`
+- [x] **Step 3: Проверка** — `npm test -- tests/answer-rules-describe.test.ts`
 
 ## Task 3: Связка между строками
 
@@ -83,14 +83,14 @@
 - Modify: `client/src/features/questions/answer-rules/answer-rules-block.tsx`
 - Test: `client/src/features/questions/__tests__/answer-rules-block.test.tsx`
 
-- [ ] **Step 1: Падающие тесты**
+- [x] **Step 1: Падающие тесты**
 
 Между двумя правилами стоит «или» при связке «любое» и «и» при «все»; у набора из одного
 правила связки нет; тег «Выполнены должны быть все правила» из блока исчез.
 
-- [ ] **Step 2: Реализация** — `tb-rules__join` между строками списка.
+- [x] **Step 2: Реализация** — `tb-rules__join` между строками списка.
 
-- [ ] **Step 3: Проверка** — тот же набор.
+- [x] **Step 3: Проверка** — тот же набор.
 
 ## Task 4: Состояние черновика в подвале
 
@@ -99,15 +99,15 @@
 - Modify: `client/src/features/questions/question-editor-drawer.tsx`
 - Test: `client/src/features/questions/__tests__/answer-rules-drawer.test.tsx`
 
-- [ ] **Step 1: Падающие тесты**
+- [x] **Step 1: Падающие тесты**
 
 Пока правила не тронуты, подвал состояния не показывает; после правки появляется
 «Изменения не сохранены» и «Вернуть изменения»; возврат восстанавливает набор, каким он был
 при открытии ящика, и прячет группу.
 
-- [ ] **Step 2: Реализация** — `isDirty` из модели плюс сброс черновика к `initial`.
+- [x] **Step 2: Реализация** — `isDirty` из модели плюс сброс черновика к `initial`.
 
-- [ ] **Step 3: Проверка** — `npm test -- client/src/features/questions/__tests__/`
+- [x] **Step 3: Проверка** — `npm test -- client/src/features/questions/__tests__/`
 
 ## Task 5: Три класса раскладки
 
@@ -116,11 +116,11 @@
 - Modify: `client/src/styles/tb-components.css`, `docs/wireframes/ds/tb-components.css`
 - Test: `tests/tb-components-mirror.test.ts` (если гарда нет — проверкой в наборе блока)
 
-- [ ] **Step 1:** Перенести `.tb-probe`, `.tb-rules__join`, `.tb-dirty` из эскиза дословно.
-- [ ] **Step 2:** Сверить зеркальную копию — расхождение копий уже случалось.
+- [x] **Step 1:** Перенести `.tb-probe`, `.tb-rules__join`, `.tb-dirty` из эскиза дословно.
+- [x] **Step 2:** Сверить зеркальную копию — расхождение копий уже случалось.
 
 ## Task 6: Приёмка
 
-- [ ] **Step 1:** `npx tsc --noEmit --incremental false` и затронутые наборы.
-- [ ] **Step 2:** живой прогон: три правила, связка «любое», проба зачтена и не зачтена,
+- [x] **Step 1:** `npx tsc --noEmit --incremental false` и затронутые наборы.
+- [x] **Step 2:** живой прогон: три правила, связка «любое», проба зачтена и не зачтена,
       очистка поля, сохранение вопроса и чтение `correct_json` — пробы там нет.
