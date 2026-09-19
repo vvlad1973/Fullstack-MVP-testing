@@ -43,6 +43,12 @@ export interface ShortAnswerHost {
   getAnswer(): string;
   /** Called with the raw field value on every change. */
   setAnswer(value: string): void;
+  /**
+   * PRD-57 FR-24: поле ПРОПУСКА отдаёт пару «имя — значение», а не одну строку. Ответ
+   * задания с пропусками — словарь, и привязка к позиции поля поехала бы вся, стоило бы
+   * автору переставить пропуски в тексте.
+   */
+  setBlank?(id: string, value: string): void;
   /** True while the answer is read-only (feedback shown, section frozen, review). */
   isLocked?(): boolean;
 }
@@ -72,7 +78,9 @@ export function attachShortAnswer(root: El, host: ShortAnswerHost): DetachShortA
     if (!field || !field.matches?.('[data-action="short-answer"]')) return;
     if (host.isLocked?.()) return;
     const value = typeof field.value === "string" ? field.value : "";
-    host.setAnswer(value);
+    const blank = field.getAttribute?.("data-blank");
+    if (blank) host.setBlank?.(blank, value);
+    else host.setAnswer(value);
     markNumberFormat(field, value);
   };
   root.addEventListener("input", onInput as (e: never) => void);

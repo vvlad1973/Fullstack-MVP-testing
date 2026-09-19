@@ -200,3 +200,39 @@ describe("attachShortAnswer", () => {
     expect((root.querySelector(".tb-answer-field") as HTMLElement).className).not.toContain("ou-field--error");
   });
 });
+
+describe("attachShortAnswer — поля пропусков (PRD-57 FR-24)", () => {
+  const mountBlanks = (html: string): HTMLElement => {
+    const root = document.createElement("div");
+    root.innerHTML = html;
+    return root;
+  };
+
+  it("отдаёт пару «имя — значение», а не одну строку", async () => {
+    const { attachShortAnswer } = await import("../shared/template/short-answer-dom");
+    const { renderBlanksPrompt } = await import("../shared/template/question-interaction");
+    const html = renderBlanksPrompt("Надзор: {{organ}}, срок: {{srok}}", {
+      mode: "input",
+      blanks: [
+        { id: "organ", answerKind: "text", join: "any", rules: [{ kind: "text", match: "wildcard", value: "РТН" }] },
+        { id: "srok", answerKind: "number", join: "any", rules: [{ kind: "number", op: "eq", value: 15 }] },
+      ],
+    });
+    const root = mountBlanks(html);
+    const pairs: Array<[string, string]> = [];
+    const plain: string[] = [];
+    attachShortAnswer(root, {
+      getAnswer: () => "",
+      setAnswer: (v) => plain.push(v),
+      setBlank: (id, value) => pairs.push([id, value]),
+    });
+
+    const inputs = [...root.querySelectorAll("input")] as HTMLInputElement[];
+    inputs[1].value = "15";
+    inputs[1].dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(pairs).toEqual([["srok", "15"]]);
+    // Одиночного ответа у задания с пропусками нет: перепутать их нельзя.
+    expect(plain).toEqual([]);
+  });
+});

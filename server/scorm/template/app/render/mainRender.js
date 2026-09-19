@@ -121,6 +121,27 @@ function render() {
     renderStandardQuestion(qData, current, total, progress);
 }
 
+/**
+ * Текст задания для слота `question-text`.
+ *
+ * PRD-57 FR-24: у задания с пропусками поля стоят ВНУТРИ текста, а блок ответа пуст.
+ * Порядок обязателен: сначала разметка (`authorTextHtml`), потом подстановка полей —
+ * иначе поле окажется внутри кода или ссылки.
+ */
+function questionTextHtml(q, answer, review) {
+    var html = authorTextHtml(q.prompt);
+    var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
+    if (!q || typeof TBQType === 'undefined' || !TBQType.hasBlanks(q.type)) return html;
+    if (!TB || !TB.renderBlanksPrompt) return html;
+    var key = q.correct || {};
+    return TB.renderBlanksPrompt(html, {
+        mode: review ? 'answer' : 'input',
+        blanks: Array.isArray(key.blanks) ? key.blanks : [],
+        answer: (answer && typeof answer === 'object' && !Array.isArray(answer)) ? answer : undefined,
+        readonly: !!review
+    });
+}
+
 /** Feedback block HTML shown under a question once the answer is accepted.
  *  Emits the shared DS `.ou-banner` (revision «Стандартный»), so standard and adaptive
  *  answer-check verdicts share one component. */
@@ -627,7 +648,7 @@ function renderStandardQuestion(qData, current, total, progress) {
         };
         if (qProgress) context.state.questionsProgress = qProgress;
         var slots = {
-            'question-text': authorTextHtml(q.prompt),
+            'question-text': questionTextHtml(q, state.answers[q.id], false),
             'question-media': renderQuestionMedia(q),
             'question-interaction': '<div id="question-input">' + renderQuestionInput(q) + '</div>',
             'question-feedback': showFeedback ? buildQuestionFeedbackHtml(q) : ''
@@ -710,7 +731,7 @@ function renderStandardQuestion(qData, current, total, progress) {
     }
     html += '<div class="card">';
     html += '<div style="color:#666;margin-bottom:8px;">Вопрос ' + (current + 1) + ' из ' + total + ' | ' + escapeHtml(qData.topicName) + '</div>';
-    html += '<div class="question-text">' + authorTextHtml(q.prompt) + '</div>';
+    html += '<div class="question-text">' + questionTextHtml(q, state.answers[q.id], true) + '</div>';
     html += renderQuestionMedia(q);
     html += '<div id="question-input">';
     html += renderQuestionInput(q);

@@ -32,13 +32,16 @@ import {
   renderMatching,
   renderScale,
   renderAllocation,
+  renderBlanksPrompt,
   renderShortAnswer,
   questionHint,
   answerTexts,
   type ReviewCorrect,
 } from "@shared/template/question-interaction";
 import { attachAllocation } from "@shared/template/allocation-dom";
+import { hasBlanks } from "@shared/questions/question-type";
 import { attachShortAnswer } from "@shared/template/short-answer-dom";
+import type { BlankRuleSet } from "@shared/questions/blanks-render";
 import { allocationSpec, seedAllocation } from "@shared/questions/allocation";
 import { distributesBudget, isTextEntry } from "@shared/questions/question-type";
 import { questionFont, optionFont } from "@shared/template/fit-font";
@@ -130,6 +133,12 @@ function interactionHtml(
     });
   }
   return renderSingleChoice(question, answer, arr, review);
+}
+
+/** Наборы правил пропусков задания — из того же `correct_json`, что и у прочих типов. */
+function blanksOf(question: { correctJson?: unknown }): BlankRuleSet[] {
+  const key = (question.correctJson ?? {}) as { blanks?: BlankRuleSet[] };
+  return Array.isArray(key.blanks) ? key.blanks : [];
 }
 
 export interface TemplateQuestionScreenProps {
@@ -235,6 +244,14 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
     const detachShortAnswer = attachShortAnswer(shadow as never, {
       getAnswer: () => (typeof answerRef.current === "string" ? answerRef.current : ""),
       setAnswer: (value) => onAnswerRef.current(value),
+      // PRD-57 FR-24: ответ задания с пропусками — словарь «имя пропуска → набранное».
+      setBlank: (id, value) => {
+        const current = answerRef.current;
+        const map = current && typeof current === "object" && !Array.isArray(current)
+          ? (current as Record<string, string>)
+          : {};
+        onAnswerRef.current({ ...map, [id]: value });
+      },
       isLocked: () => lockedRef.current === true,
     });
     return () => {
@@ -259,7 +276,19 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
     // Inline, not block: the prompt renders into the scene's `<h2>` heading, and a
     // paragraph inside it would be invalid. The SCORM twin fills the same slot
     // through the same renderer, so the two hosts show identical markup.
-    "question-text": renderInlineMarkdown(question.prompt),
+    // PRD-57 FR-24: у задания с пропусками поля стоят ВНУТРИ текста, а блок ответа
+    // пуст. Порядок обязателен: сначала разметка, потом подстановка полей — иначе поле
+    // окажется внутри кода или ссылки.
+    "question-text": hasBlanks(question.type)
+      ? renderBlanksPrompt(renderInlineMarkdown(question.prompt), {
+        mode: props.reviewMode ? "answer" : "input",
+        blanks: blanksOf(question),
+        answer: answer && typeof answer === "object" && !Array.isArray(answer)
+          ? (answer as Record<string, string>)
+          : undefined,
+        readonly: props.reviewMode === true,
+      })
+      : renderInlineMarkdown(question.prompt),
     "question-media": renderQuestionMedia(question),
     "question-interaction": interactionHtml(
       question,

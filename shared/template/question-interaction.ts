@@ -24,7 +24,10 @@
  * Pure/framework-free — no DOM, no Node — safe to bundle into the SCORM runtime.
  */
 import { normalizePool } from "./dnd/matching-model";
+import { checkRuleSet } from "../answer-check/rules";
 import { parseNumericAnswer } from "../answer-check/number";
+import { parseBlanks } from "../questions/blanks";
+import { referenceAnswer, type BlankRuleSet } from "../questions/blanks-render";
 import { renderInlineMarkdown } from "../text/markdown";
 import {
   allocationRemaining,
@@ -735,4 +738,95 @@ export function renderShortAnswer(
     nanMsg +
     `</div>`
   );
+}
+
+/** Что делать с маркерами пропусков в уже отрисованном тексте задания. */
+export interface BlanksPromptOptions {
+  /**
+   * `input` — поля участника; `answer` — его ответ с разметкой верности; `reference` —
+   * эталон автора; `dash` — прочерк (PRD-57 FR-24i).
+   */
+  mode: "input" | "answer" | "reference" | "dash";
+  blanks: readonly BlankRuleSet[];
+  answer?: Record<string, string> | null;
+  /** Разбор и предпросмотр рисуют поля запертыми. */
+  readonly?: boolean;
+}
+
+/**
+ * Ширина пропуска — подсказка о том, чего ждут (эскиз `prd57-question-input.html`).
+ *
+ * Считается из эталона: поле на две цифры и поле на слово — разные обещания. Эталона
+ * может не быть (выражение, допуск) — тогда ширина по умолчанию, а не ноль.
+ */
+function blankWidth(set: BlankRuleSet | undefined): number {
+  const reference = referenceAnswer(set);
+  if (!reference) return 12;
+  return Math.max(6, Math.min(24, reference.length));
+}
+
+/**
+ * Поставить поля ввода (или подстановки) на места маркеров `{{id}}`.
+ *
+ * Вход — УЖЕ отрисованный текст задания: разметка обрабатывается раньше подстановки, и
+ * порядок этот важен. Маркер — простой текст, разметку он переживает нетронутым; обратный
+ * порядок вставил бы куски HTML внутрь кода или ссылки и получил бы поле там, где его
+ * никто не ждал.
+ *
+ * @param promptHtml Текст задания после разметки.
+ * @param options    Режим и данные к нему.
+ */
+export function renderBlanksPrompt(promptHtml: string, options: BlanksPromptOptions): string {
+  if (typeof promptHtml !== "string" || promptHtml === "") return "";
+  const found = parseBlanks(promptHtml);
+  const byId = new Map((options.blanks ?? []).map((set) => [set.id, set]));
+  let out = "";
+  let at = 0;
+
+  for (const blank of found) {
+    out += promptHtml.slice(at, blank.start) + blankHtml(blank.id, byId.get(blank.id), options);
+    at = blank.end;
+  }
+  out += promptHtml.slice(at);
+  // Экранирование снимается ПОСЛЕ подстановки: иначе `\{{a}}` превратился бы в `{{a}}` и
+  // следующий проход принял бы его за настоящий пропуск.
+  return out.replace(/\\{\{/g, "{{");
+}
+
+/** Разметка ОДНОГО пропуска в выбранном режиме. */
+function blankHtml(id: string, set: BlankRuleSet | undefined, options: BlanksPromptOptions): string {
+  const width = `--tb-blank-w:${blankWidth(set)}ch`;
+  const written = options.answer?.[id];
+
+  if (options.mode === "input") {
+    const numeric = set?.answerKind === "number";
+    const mode = numeric ? ' inputmode="decimal" data-answer-kind="number"' : "";
+    const locked = options.readonly ? " disabled" : "";
+    return (
+      `<span class="tb-blank" style="${width}">` +
+      `<span class="ou-field ou-field--l ou-field--full"><span class="ou-field__box">` +
+      `<input class="ou-field__input" type="text"${mode} value="${attrText(written ?? "")}"` +
+      ` aria-label="Пропуск ${attrText(id)}" data-action="short-answer" data-blank="${attrText(id)}"${locked} />` +
+      `</span></span></span>`
+    );
+  }
+
+  if (options.mode === "answer") {
+    const text = typeof written === "string" && written.trim() !== "" ? written : "";
+    // Незаполненный пропуск показывается прочерком, а не пустой рамкой: пустая рамка
+    // читается как потеря данных.
+    if (text === "") return `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>`;
+    const passed = set ? checkRuleSet(set, text).passed : false;
+    const tone = passed ? "correct-answer" : "incorrect-answer";
+    return `<span class="tb-blank-sub ${tone}" style="${width}">${attrText(text)}</span>`;
+  }
+
+  if (options.mode === "reference") {
+    const reference = referenceAnswer(set);
+    return reference === null
+      ? `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>`
+      : `<span class="tb-blank-sub tb-blank-sub--etalon" style="${width}">${attrText(reference)}</span>`;
+  }
+
+  return `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>`;
 }

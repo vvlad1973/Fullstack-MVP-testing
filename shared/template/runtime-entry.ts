@@ -114,6 +114,11 @@ export { renderAllocation } from "./question-interaction";
 // PRD-57 FR-30: the typed-answer field is rendered and wired from the SAME code on both
 // hosts — no separate in-package implementation.
 export { renderShortAnswer, type ShortAnswerOptions } from "./question-interaction";
+// PRD-57 FR-24: пропуски — тот же рендер на обоих хостах. В пакет уезжают и разбор
+// разметки, и подстановка: экран участника ставит поля, а итоги печатают ответ и эталон.
+export { renderBlanksPrompt, type BlanksPromptOptions } from "./question-interaction";
+export { parseBlanks, blankIds } from "../questions/blanks";
+export { renderBlanksText, referenceAnswer, BLANK_DASH, type BlankRuleSet } from "../questions/blanks-render";
 export { attachShortAnswer, type ShortAnswerHost, type DetachShortAnswer } from "./short-answer-dom";
 // Живой ввод группы: жест правит DOM на месте, ответ уходит хосту по завершении.
 export { attachAllocation, syncAllocationDom, allocIndexOf } from "./allocation-dom";

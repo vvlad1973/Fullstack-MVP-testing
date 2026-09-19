@@ -110,6 +110,21 @@ function hasAnswer(q, answer) {
     return TBa.isAllocationComplete(TBa.allocationSpec(q.data), answer);
   }
 
+  // PRD-57 FR-24: задание с пропусками отвечено, когда заполнены ВСЕ пропуска, у
+  // которых есть правила. Пропуск без правил ничего не проверяет и держать участника
+  // не вправе.
+  if (typeof TBQType !== 'undefined' && TBQType.hasBlanks(q.type)) {
+    var sets = (q.correct && Array.isArray(q.correct.blanks)) ? q.correct.blanks : [];
+    var written = (answer && typeof answer === 'object' && !Array.isArray(answer)) ? answer : {};
+    for (var bi = 0; bi < sets.length; bi++) {
+      var set = sets[bi];
+      if (!set || !Array.isArray(set.rules) || set.rules.length === 0) continue;
+      var v = written[set.id];
+      if (typeof v !== 'string' || v.replace(/^\s+|\s+$/g, '') === '') return false;
+    }
+    return true;
+  }
+
   return answer !== undefined && answer !== null;
 }
 
@@ -360,6 +375,18 @@ function bindShortAnswerInputOnce() {
       if (!q) return;
       reopenIfCommitted(state.flatQuestions[state.currentIndex]);
       state.answers[q.id] = value;
+      refreshSubmitEnabled();
+    },
+    // PRD-57 FR-24: ответ задания с пропусками — словарь «имя пропуска → набранное».
+    // Привязка к позиции поля поехала бы вся, стоило бы автору переставить пропуски.
+    setBlank: function (id, value) {
+      var q = __currentQuestionForInput();
+      if (!q) return;
+      reopenIfCommitted(state.flatQuestions[state.currentIndex]);
+      var current = state.answers[q.id];
+      var map = (current && typeof current === 'object' && !Array.isArray(current)) ? current : {};
+      map[id] = value;
+      state.answers[q.id] = map;
       refreshSubmitEnabled();
     }
   });

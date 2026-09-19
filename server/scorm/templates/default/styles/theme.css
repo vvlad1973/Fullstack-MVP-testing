@@ -571,6 +571,55 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
   line-height: 1.35;
 }
 
+/* Пропуски в тексте задания (PRD-57 §6, FR-24). Поле стоит В СТРОКЕ, поэтому
+   собственных отступов у него НЕТ намеренно: пробелы вокруг пропуска — это пробелы
+   текста задания, а свой margin выглядел бы лишним пробелом перед запятой, стоящей
+   сразу за полем. Ширина живёт в `--tb-blank-w` и выводится из эталона: поле на две
+   цифры и поле на слово — разные подсказки о том, чего ждут. */
+.tb-scene .tb-blank {
+  display: inline-flex;
+  vertical-align: baseline;
+  /* Ширина ТЕКСТА ответа; поля коробки прибавляются сверху, иначе поле на две цифры
+     съело бы их padding'ом и показало обрезок. */
+  width: calc(var(--tb-blank-w, 12ch) + 2 * var(--ou-space-2));
+}
+.tb-scene .tb-blank .ou-field__box { padding-inline: var(--ou-space-2); }
+.tb-scene .tb-blank .ou-field__input {
+  font-size: var(--tb-answer-fs, 20px);
+  text-align: center;
+}
+
+/* Подстановка вместо поля — три режима одной общей функции (FR-24i): прочерк там, где
+   полей нет вовсе; ответ участника и эталон там, где поле уже отыграно. Вид у всех трёх
+   один, различается источник текста и разметка верности. */
+.tb-scene .tb-blank-sub {
+  display: inline-block;
+  border-bottom: 2px solid var(--ou-border-default);
+  text-align: center;
+  font-weight: 600;
+}
+/* Ширину держит ТОЛЬКО прочерк: подставлять там нечего, и без неё он схлопнулся бы в
+   точку. У ответа и эталона ширина равна ширине текста — фиксированная превратилась бы
+   в лишний пробел перед запятой. */
+.tb-scene .tb-blank-sub--dash {
+  color: transparent;
+  min-width: var(--tb-blank-w, 12ch);
+}
+.tb-scene .tb-blank-sub.correct-answer {
+  border-bottom-color: var(--ou-success-default);
+  color: var(--ou-success-on-soft);
+}
+.tb-scene .tb-blank-sub.incorrect-answer {
+  border-bottom-color: var(--ou-error-default);
+  color: var(--ou-error-on-soft);
+}
+/* Эталон автора — нейтральным тоном. Это не «верно», а «вот что ожидалось»; зелёный
+   здесь читался бы как вердикт по чужому ответу. */
+.tb-scene .tb-blank-sub--etalon {
+  border-bottom-style: dashed;
+  color: var(--ou-accent-on-soft);
+}
+
 /* Multiple: the tick is class-driven (no native input) — mirror DS :checked. */
 .ou-radio-card.is-on .ou-check__box {
   background: var(--ou-accent-default);
