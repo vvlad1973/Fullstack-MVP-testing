@@ -180,6 +180,10 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
           type: spreadType,
           options: ((question.dataJson ?? {}) as { options?: string[] }).options ?? [],
           answers: answersOfQuestion.get(stats.questionId) ?? [],
+          // PRD-57 FR-28ag: у числового задания вместо частотной таблицы написаний —
+          // гистограмма значений. Вид ответа лежит в наборе правил, отдельного признака
+          // у задания нет и заводить его незачем.
+          answerKind: ((question.correctJson ?? {}) as { answerKind?: "text" | "number" }).answerKind,
         })
         : null;
 

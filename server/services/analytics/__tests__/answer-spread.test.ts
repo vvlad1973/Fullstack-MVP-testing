@@ -119,3 +119,56 @@ describe("answerSpread — короткий ответ (PRD-57 FR-28x)", () => {
     expect(spread?.options.map((o) => o.label)).toEqual(["в", "б", "а"]);
   });
 });
+
+describe("answerSpread — числовое задание (PRD-57 FR-28ag)", () => {
+  /** Числовой разброс: тот же вызов, вид ответа приходит из набора правил. */
+  const numeric = (answers: unknown[]) =>
+    answerSpread({ type: "short", options: [], answers, answerKind: "number" });
+
+  it("раскладывает значения по корзинам, а не по написаниям", () => {
+    const spread = numeric(["10", "11", "12", "100"]);
+    // Частотная таблица дала бы четыре строки по 25 % — и ничего не сказала бы о том,
+    // что три ответа рядом, а один далеко.
+    expect(spread?.options.length).toBeLessThan(4);
+    expect(spread?.answered).toBe(4);
+  });
+
+  it("корзин не больше десяти", () => {
+    const answers = Array.from({ length: 200 }, (_, i) => String(i));
+    expect(numeric(answers)?.options.length).toBeLessThanOrEqual(10);
+  });
+
+  it("одинаковые значения дают одну корзину со всей долей", () => {
+    const spread = numeric(["7", "7,0", "7"]);
+    expect(spread?.options.length).toBe(1);
+    expect(spread?.options[0].share).toBe(100);
+  });
+
+  it("дробь и десятичная запись попадают в одну корзину", () => {
+    const spread = numeric(["1/2", "0,5"]);
+    expect(spread?.options.length).toBe(1);
+  });
+
+  it("ненабранные числа образуют свою строку", () => {
+    const spread = numeric(["10", "около десяти", "10"]);
+    const nan = spread?.options.find((o) => o.label === "не число");
+    expect(nan).toBeTruthy();
+    expect(nan?.share).toBeCloseTo(33.3, 0);
+    expect(spread?.answered).toBe(3);
+  });
+
+  it("подпись корзины называет её границы", () => {
+    const spread = numeric(["0", "5", "10"]);
+    expect(spread?.options[0].label).toMatch(/^от .+ до .+$/);
+  });
+
+  it("считать не из чего — null", () => {
+    expect(numeric([])).toBeNull();
+    expect(numeric(["", null])).toBeNull();
+  });
+
+  it("текстовый набор по-прежнему сворачивается по написаниям", () => {
+    const spread = answerSpread({ type: "short", options: [], answers: ["РТН", "ртн"] });
+    expect(spread?.options).toEqual([{ label: "РТН", share: 100 }]);
+  });
+});

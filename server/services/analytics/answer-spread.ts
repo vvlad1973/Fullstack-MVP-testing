@@ -22,7 +22,7 @@
  * Тона у полос нет намеренно (FR-21b): высокая доля градации не «хорошо» и не «плохо» —
  * эталона, относительно которого это оценивать, у опросника не существует.
  */
-import { normalizeForCompare } from "@shared/answer-check";
+import { normalizeForCompare, parseNumericAnswer } from "@shared/answer-check";
 
 /** Доля одного варианта в разбросе. */
 export interface SpreadOption {
@@ -48,6 +48,13 @@ export interface AnswerSpreadInput {
   options: readonly string[];
   /** Сырые ответы участников: индекс градации либо баллы по утверждениям. */
   answers: readonly unknown[];
+  /**
+   * Вид ответа из набора правил (PRD-57 FR-28ag). У числа частотная таблица написаний
+   * бесполезна — «3,14» и «3.14» это один ответ, — поэтому значения раскладываются по
+   * корзинам. Отдельной ручки в API для этого не заводится: вид ответа и так лежит
+   * рядом с заданием, в `correct_json`.
+   */
+  answerKind?: "text" | "number";
 }
 
 /** Баллы распределения: ключ — индекс утверждения строкой, значение — сколько отдано. */
@@ -101,6 +108,86 @@ function textSpread(answers: readonly unknown[]): AnswerSpread | null {
   return { options, answered: counted };
 }
 
+/** Печать значения по-русски: запятая, без хвостовых нулей. */
+function formatValue(value: number): string {
+  return String(Number(value.toFixed(6))).replace(".", ",");
+}
+
+/** Ближайший «круглый» шаг не меньше заданного: 1, 2 или 5 на своём порядке. */
+function niceStep(raw: number): number {
+  if (!(raw > 0)) return 1;
+  const order = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const factor of [1, 2, 5, 10]) {
+    if (order * factor >= raw) return order * factor;
+  }
+  return order * 10;
+}
+
+/** Следующий «круглый» шаг после заданного — когда корзин вышло слишком много. */
+function widerStep(step: number): number {
+  return niceStep(step * 1.0001 + Number.EPSILON);
+}
+
+/**
+ * Гистограмма введённых значений (FR-28ag).
+ *
+ * Частотная таблица написаний числу не годится: «3,14», «3.14» и «1/2» — это значения, а
+ * не написания, и автору важно не то, кто как набрал, а КУДА попали ответы. Массовый
+ * промах ровно в тысячу раз виден корзиной и не виден списком строк.
+ *
+ * Пустые корзины не печатаются: разброс рисуется строками с полосами, и ряд нулевых
+ * строк между двумя населёнными ничего не сообщает, а место занимает. Порядок — по
+ * возрастанию значения, потому что это шкала, а не рейтинг; строка «не число» идёт
+ * последней: это не диапазон, а сообщение о том, что участник не понял, чего от него
+ * ждут.
+ */
+function numericSpread(answers: readonly unknown[]): AnswerSpread | null {
+  const values: number[] = [];
+  let notNumbers = 0;
+
+  for (const answer of answers) {
+    if (typeof answer !== "string" || answer.trim() === "") continue;
+    const parsed = parseNumericAnswer(answer);
+    if (parsed === null) notNumbers += 1;
+    else values.push(parsed);
+  }
+
+  const counted = values.length + notNumbers;
+  if (counted === 0) return null;
+
+  const share = (times: number) => Math.round((times / counted) * 1000) / 10;
+  const nan: SpreadOption[] = notNumbers > 0 ? [{ label: "не число", share: share(notNumbers) }] : [];
+  if (values.length === 0) return { options: nan, answered: counted };
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min === max) {
+    return { options: [{ label: formatValue(min), share: share(values.length) }, ...nan], answered: counted };
+  }
+
+  let step = niceStep((max - min) / 10);
+  let start = Math.floor(min / step) * step;
+  while (Math.floor((max - start) / step) + 1 > 10) {
+    step = widerStep(step);
+    start = Math.floor(min / step) * step;
+  }
+
+  const buckets = new Map<number, number>();
+  for (const value of values) {
+    const index = Math.floor((value - start) / step);
+    buckets.set(index, (buckets.get(index) ?? 0) + 1);
+  }
+
+  const options = [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, times]) => ({
+      label: `от ${formatValue(start + index * step)} до ${formatValue(start + (index + 1) * step)}`,
+      share: share(times),
+    }));
+
+  return { options: [...options, ...nan], answered: counted };
+}
+
 /**
  * Разброс ответов задания.
  *
@@ -109,10 +196,10 @@ function textSpread(answers: readonly unknown[]): AnswerSpread | null {
  *   разные вещи, и `null` говорит именно «считать не из чего».
  */
 export function answerSpread(input: AnswerSpreadInput): AnswerSpread | null {
-  const { type, options, answers } = input;
+  const { type, options, answers, answerKind } = input;
   // Короткий ответ проверяется ПЕРВЫМ: вариантов у него нет по устройству, и общая
   // проверка «нет вариантов — считать не из чего» отбросила бы его целиком.
-  if (type === "short") return textSpread(answers);
+  if (type === "short") return answerKind === "number" ? numericSpread(answers) : textSpread(answers);
   if (options.length === 0 || answers.length === 0) return null;
 
   const weight = new Array<number>(options.length).fill(0);
