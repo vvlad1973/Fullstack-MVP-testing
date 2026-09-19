@@ -37,7 +37,8 @@
  */
 import { scoreAnswer, type Answer, type CorrectData, type QuestionType } from "./engine";
 import type { QuestionScoring } from "../schema";
-import { isMeasurementOnly } from "../questions/question-type";
+import { checkRuleSet, type AnswerRuleSet, type RuleVerdicts } from "../answer-check/rules";
+import { isMeasurementOnly, isTextEntry } from "../questions/question-type";
 import {
   resolveOverallRule,
   resolveTopicRule,
@@ -69,6 +70,12 @@ export interface AggregateQuestion {
    * Absent = the question groups into no breakdown; the verdict is unaffected.
    */
   axisKeys?: Record<string, string[]> | null;
+  /**
+   * PRD-57 Э7 (FR-28q): verdicts of the expression rules, computed by whoever owns a
+   * killable executor. A `"budget"` entry that nothing else settles makes the answer
+   * UNCHECKED, and an unchecked answer is graded like a measurement one — see the loop.
+   */
+  ruleVerdicts?: RuleVerdicts;
 }
 
 export interface AggregateSection<E = unknown> {
@@ -222,6 +229,18 @@ export interface AggregateSectionGroup {
   totalCount: number;
 }
 
+/**
+ * Ответ, который НЕ УДАЛОСЬ проверить: правило-выражение вышло за бюджет, и остальные
+ * правила исход не сняли (PRD-57 FR-28r).
+ *
+ * Считается тем же `checkRuleSet`, что и оценка, — чтобы «непроверено» и «неверно» не
+ * разошлись между этой проверкой и движком.
+ */
+function isUnchecked(q: AggregateQuestion): boolean {
+  if (!q.ruleVerdicts || !isTextEntry(q.type) || typeof q.answer !== "string") return false;
+  return checkRuleSet(q.correct as unknown as AnswerRuleSet, q.answer, q.ruleVerdicts).pending === true;
+}
+
 export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): AggregateResult<E> {
   const overall = resolveOverallRule(input.overallPassRule);
   let tEarned = 0;
@@ -261,7 +280,10 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       // would read as «0 из 22 верно» and drag the percent of a mixed test to zero.
       // Its result is the contribution it makes to the PRD-5 scales, computed
       // elsewhere.
-      if (isMeasurementOnly(q)) {
+      // PRD-57 FR-28r: ответ, который НЕКОМУ было проверить — авторское выражение не
+      // уложилось в бюджет, — идёт той же дорогой, что и неоцениваемый. Он не верный и
+      // не неверный: его не проверяли. Наказывать участника за ошибку автора запрещено.
+      if (isMeasurementOnly(q) || isUnchecked(q)) {
         // Нейтральный исход, а не пропуск: «не оценивается» — это факт об ответе, и
         // аналитике он нужен ровно так же, как «верно» и «неверно».
         if (q.id) questionOutcomes.push({ questionId: q.id, result: "neutral", earned: 0, possible: 0 });
@@ -271,7 +293,13 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       const ratio =
         q.answer === undefined || q.answer === null
           ? 0
-          : scoreAnswer({ type: q.type, correct: q.correct || {}, answer: q.answer, scoring: q.scoring }).ratio;
+          : scoreAnswer({
+            type: q.type,
+            correct: q.correct || {},
+            answer: q.answer,
+            scoring: q.scoring,
+            verdicts: q.ruleVerdicts,
+          }).ratio;
       const questionEarned = q.points * ratio;
       const answered = q.answer !== undefined && q.answer !== null;
       possible += q.points;

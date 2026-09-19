@@ -23,7 +23,7 @@
 
 import type { QuestionScoring, ScoringPredicate } from "../schema";
 import { isSingleIndexChoice, isTextEntry } from "../questions/question-type";
-import { checkRuleSet, type AnswerRuleSet } from "../answer-check/rules";
+import { checkRuleSet, type AnswerRuleSet, type RuleVerdicts } from "../answer-check/rules";
 
 /**
  * Re-exported from the type-trait module so the scoring engine and the rest of the
@@ -55,6 +55,12 @@ export interface ScoreInput {
   correct: CorrectData;
   answer: Answer;
   scoring?: QuestionScoring | null;
+  /**
+   * PRD-57 Э7: verdicts a host with a killable executor has already computed for the
+   * expression rules of THIS answer. Absent everywhere the budget cannot be enforced —
+   * the rules then run where they are checked, exactly as before.
+   */
+  verdicts?: RuleVerdicts;
 }
 
 export interface ScoreResult {
@@ -107,7 +113,12 @@ function maxOf(nums: number[]): number {
 }
 
 /** Exact correctness (0 or 1) — the pre-PRD-10 checkAnswer logic. */
-function exactCorrect(type: QuestionType, correct: CorrectData, answer: Answer): number {
+function exactCorrect(
+  type: QuestionType,
+  correct: CorrectData,
+  answer: Answer,
+  verdicts?: RuleVerdicts,
+): number {
   if (answer === null || answer === undefined) return 0;
 
   // Single choice and a scale are both answered by ONE option index, so correctness
@@ -121,7 +132,7 @@ function exactCorrect(type: QuestionType, correct: CorrectData, answer: Answer):
   // set scores nothing — such a question is not graded at all (isMeasurementOnly).
   if (isTextEntry(type)) {
     if (typeof answer !== "string") return 0;
-    return checkRuleSet(correct as unknown as AnswerRuleSet, answer).passed ? 1 : 0;
+    return checkRuleSet(correct as unknown as AnswerRuleSet, answer, verdicts).passed ? 1 : 0;
   }
   if (type === "multiple") {
     const want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
@@ -151,7 +162,12 @@ function exactCorrect(type: QuestionType, correct: CorrectData, answer: Answer):
 }
 
 /** Compute the (c, x, total) tallies for a tiered question. */
-function countTallies(type: QuestionType, correct: CorrectData, answer: Answer): Counters {
+function countTallies(
+  type: QuestionType,
+  correct: CorrectData,
+  answer: Answer,
+  verdicts?: RuleVerdicts,
+): Counters {
   if (type === "multiple") {
     const want = Array.isArray(correct.correctIndices) ? correct.correctIndices : [];
     const got = Array.isArray(answer) ? answer : [];
@@ -192,7 +208,7 @@ function countTallies(type: QuestionType, correct: CorrectData, answer: Answer):
   if (isTextEntry(type)) {
     const set = correct as unknown as AnswerRuleSet;
     const rules = Array.isArray(set?.rules) ? set.rules : [];
-    const outcome = typeof answer === "string" ? checkRuleSet(set, answer) : null;
+    const outcome = typeof answer === "string" ? checkRuleSet(set, answer, verdicts) : null;
     const c = outcome ? outcome.perRule.filter(Boolean).length : 0;
     // «Лишнего» у написанного ответа не бывает: `x` здесь означает «ответ есть, и он не
     // подошёл ничему» — ровно то, чем эта величина была у короткого ответа до ступени.
@@ -229,10 +245,10 @@ function evalPredicate(pred: ScoringPredicate, t: Counters): boolean {
  * row paid it» can never disagree.
  */
 function firstMatchingTier(input: ScoreInput): number | null {
-  const { type, correct, answer, scoring } = input;
+  const { type, correct, answer, scoring, verdicts } = input;
   if (!scoring || scoring.kind !== "tiered") return null;
   if (answer === null || answer === undefined) return null;
-  const counters = countTallies(type, correct, answer);
+  const counters = countTallies(type, correct, answer, verdicts);
   const index = scoring.tiers.findIndex((tier) => evalPredicate(tier.when, counters));
   return index >= 0 ? index : null;
 }
@@ -266,7 +282,7 @@ export function scoreAnswer(input: ScoreInput): ScoreResult {
   }
 
   // exact / absent.
-  const score = exactCorrect(type, correct, answer);
+  const score = exactCorrect(type, correct, answer, input.verdicts);
   return { score, sMax: 1, ratio: score };
 }
 
@@ -288,7 +304,7 @@ export function explainAnswer(input: ScoreInput): ScoreExplain {
   const { type, correct, answer, scoring } = input;
   const kind = scoring?.kind ?? "exact";
   const res = scoreAnswer(input);
-  const t = countTallies(type, correct, answer);
+  const t = countTallies(type, correct, answer, input.verdicts);
   return {
     ...res,
     kind,
