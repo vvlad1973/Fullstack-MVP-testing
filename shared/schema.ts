@@ -1574,6 +1574,24 @@ export const attemptResultSchema = z.object({
   scaleResults: z.record(z.string(), z.unknown()).optional(),
   resultVariables: z.record(z.string(), z.unknown()).optional(),
   status: z.object({ success: z.boolean().optional(), completion: z.boolean().optional() }).optional(),
+  /**
+   * PRD-57 (#43): исход КАЖДОГО ответа этой попытки.
+   *
+   * `optional()`, а не `.default([])`, по той же причине, что и у разрезов выше:
+   * отсутствие поля означает «попытка завершена до этой работы», и аналитика обязана
+   * отличать это от «вопросов не было» — в первом случае она считает исход на месте, во
+   * втором считать нечего.
+   */
+  questionOutcomes: z
+    .array(
+      z.object({
+        questionId: z.string(),
+        result: z.enum(["correct", "incorrect", "neutral"]),
+        earned: z.number(),
+        possible: z.number(),
+      }),
+    )
+    .optional(),
 });
 
 export type TopicResult = z.infer<typeof topicResultSchema>;

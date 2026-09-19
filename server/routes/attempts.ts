@@ -1840,6 +1840,11 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       // scope goes here — an empty list is not stored at all, so a tag-less test's result
       // does not change by a single byte.
       ...(agg.breakdowns.length ? { breakdowns: agg.breakdowns } : {}),
+      // PRD-57 (#43): исходы ответов сохраняются вместе со сводкой — ради них аналитика
+      // и перестаёт пересчитывать верность по живым вопросам. Поля здесь перечислены
+      // поимённо, поэтому незаявленное срезается молча: ровно так это поле и потерялось
+      // при первой приёмке.
+      ...(agg.questionOutcomes?.length ? { questionOutcomes: agg.questionOutcomes } : {}),
     };
 
     await storage.updateAttempt(attempt.id, {
