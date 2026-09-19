@@ -26,6 +26,18 @@ describe("renderShortAnswer", () => {
     expect(html).toContain('inputmode="decimal"');
   });
 
+  it("ставит предел длины атрибутом и подписью", () => {
+    const html = renderShortAnswer({ type: "short", dataJson: { maxLength: 40 } }, null, { maxLength: 40 });
+    expect(html).toContain('maxlength="40"');
+    expect(html).toContain("До 40 символов");
+  });
+
+  it("без предела не печатает ни атрибута, ни подписи", () => {
+    const html = renderShortAnswer({ type: "short", dataJson: {} }, null);
+    expect(html).not.toContain("maxlength");
+    expect(html).not.toContain("ou-field__msg");
+  });
+
   it("в режиме только для чтения поле заперто", () => {
     const html = renderShortAnswer({ type: "short", dataJson: {} }, "РТН", { readonly: true });
     expect(html).toContain("disabled");

@@ -667,6 +667,13 @@ export interface ShortAnswerOptions {
   unit?: string;
   /** Review and preview draw the answer locked. */
   readonly?: boolean;
+  /**
+   * PRD-57 FR-28v: how many characters the field accepts. The EFFECTIVE limit — the
+   * author's own, or the installation's ceiling — is resolved by the server before the
+   * question reaches either host: this module is pure and ships inside the package,
+   * where no configuration exists at run time.
+   */
+  maxLength?: number;
 }
 
 /**
@@ -695,13 +702,19 @@ export function renderShortAnswer(
   const mode = numeric ? ' inputmode="decimal"' : "";
   const locked = options.readonly ? " disabled" : "";
   const affix = options.unit ? `<span class="ou-field__affix">${attrText(options.unit)}</span>` : "";
+  // Предел работает двумя способами сразу: атрибут не даёт набрать лишнего, подпись
+  // называет границу ДО того, как участник в неё упрётся.
+  const limit = typeof options.maxLength === "number" && options.maxLength > 0 ? options.maxLength : null;
+  const limitAttr = limit === null ? "" : ` maxlength="${limit}"`;
+  const limitMsg = limit === null ? "" : `<div class="ou-field__msg">До ${limit} символов</div>`;
   return (
     `<div class="${wrap}">` +
     `<div class="ou-field__box">` +
-    `<input class="ou-field__input" type="text"${mode} value="${attrText(value)}"` +
+    `<input class="ou-field__input" type="text"${mode}${limitAttr} value="${attrText(value)}"` +
     ` aria-label="Ваш ответ" data-action="short-answer"${locked} />` +
     affix +
     `</div>` +
+    limitMsg +
     `</div>`
   );
 }

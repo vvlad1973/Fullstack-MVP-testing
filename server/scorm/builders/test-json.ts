@@ -4,6 +4,8 @@ import { findEligibilityPlugin, findEligibilityConfig } from "@shared/eligibilit
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
 import { effectiveSectionOrder } from "@shared/draw/assemble-delivery";
 import { computeWeights } from "@shared/draw/exposure";
+import { withEffectiveMaxLength } from "@shared/questions/short-answer";
+import { config } from "../../config";
 import { buildTestScoringContext, type TestScoringContext } from "../../services/effective-scoring";
 import { withResolvedScaleIcons } from "../../services/scale-icons";
 import { parseScaleInterpretation } from "@shared/scales/interpretation";
@@ -467,7 +469,8 @@ export function buildTestJson(data: ExportData): string {
             id: q.id,
             type: q.type,
             prompt: q.prompt,
-            data: q.dataJson,
+            // PRD-57 FR-28v: предел печётся в пакет — конфигурации в рантайме там нет.
+            data: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
             correct: q.correctJson,
             points: baked.points,
             difficulty: baked.difficulty,
@@ -603,7 +606,8 @@ export function buildTestJson(data: ExportData): string {
             id: q.id,
             type: q.type,
             prompt: q.prompt,
-            data: q.dataJson,
+            // PRD-57 FR-28v: предел печётся в пакет — конфигурации в рантайме там нет.
+            data: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
             correct: q.correctJson,
             points: baked.points,
             difficulty: baked.difficulty,

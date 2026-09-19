@@ -5,6 +5,7 @@ import { config } from "../config";
 import { storage } from "../storage";
 import { requirePermission } from "../middleware/auth";
 import { checkAnswer } from "../utils/check-answer";
+import { withEffectiveMaxLength } from "@shared/questions/short-answer";
 import {
   aggregateStandardResult,
   aggregateAdaptiveResult,
@@ -142,13 +143,19 @@ async function questionsForClient(
   test: Test,
   questions: Question[],
 ): Promise<Array<Question & { scoring?: QuestionScoring }>> {
+  // PRD-57 FR-28v: действующий предел длины подставляется ЗДЕСЬ, а не на клиенте:
+  // настройку инстанса знает только сервер, а рендер поля общий с пакетом.
+  const withLimit = (q: Question): Question =>
+    ({ ...q, dataJson: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength) }) as Question;
+
   if (!test.showCorrectAnswers) {
-    return questions.map((q) => ({ ...q, correctJson: undefined })) as Question[];
+    return questions.map((q) => ({ ...withLimit(q), correctJson: undefined })) as Question[];
   }
   const scoring = await loadTestScoringContext(test.id, src);
   return questions.map((q) => {
     const effective = scoring.resolve(q);
-    return effective.source.scoring === "system" ? q : { ...q, scoring: effective.scoring };
+    const base = withLimit(q);
+    return effective.source.scoring === "system" ? base : { ...base, scoring: effective.scoring };
   });
 }
 
