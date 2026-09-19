@@ -15,9 +15,14 @@
  *     доля ОТДАННЫХ ЕМУ баллов от всех розданных. Считать здесь людей нельзя: человек отдал
  *     баллы нескольким утверждениям сразу, и сумма «долей выбравших» превысила бы сотню.
  *
+ *   - КОРОТКИЙ ОТВЕТ (PRD-57 FR-28x): участник ПИШЕТ, поэтому вариантов не существует
+ *     заранее — их образуют сами ответы. Здесь разброс не заменяет долю верных, а дополняет
+ *     её: эталон у задания есть, и автору важно видеть, какие написания правила НЕ ловят.
+ *
  * Тона у полос нет намеренно (FR-21b): высокая доля градации не «хорошо» и не «плохо» —
  * эталона, относительно которого это оценивать, у опросника не существует.
  */
+import { normalizeForCompare } from "@shared/answer-check";
 
 /** Доля одного варианта в разбросе. */
 export interface SpreadOption {
@@ -35,8 +40,11 @@ export interface AnswerSpread {
 }
 
 export interface AnswerSpreadInput {
-  type: "scale" | "allocation";
-  /** Варианты задания: и у шкалы, и у распределения они лежат в `dataJson.options`. */
+  type: "scale" | "allocation" | "short";
+  /**
+   * Варианты задания: и у шкалы, и у распределения они лежат в `dataJson.options`.
+   * У короткого ответа список ПУСТ — варианты образуют сами ответы.
+   */
   options: readonly string[];
   /** Сырые ответы участников: индекс градации либо баллы по утверждениям. */
   answers: readonly unknown[];
@@ -49,6 +57,51 @@ function allocationOf(answer: unknown): Record<string, number> | null {
 }
 
 /**
+ * Свёртка написанных ответов по частоте.
+ *
+ * Ключом служит ФОРМА СРАВНЕНИЯ ответа (`normalizeForCompare`), а подписью строки — самое
+ * частое исходное написание в группе. Иначе «Ростехнадзор» и «ростехнадзор» разошлись бы по
+ * двум строкам, и автор не увидел бы, что это один ответ — ровно того, ради чего таблица и
+ * заводится: понять, почему у задания низкая доля верных.
+ *
+ * Строки идут по убыванию доли: сверху то, что пишут чаще всего.
+ */
+function textSpread(answers: readonly unknown[]): AnswerSpread | null {
+  const groups = new Map<string, { total: number; spellings: Map<string, number> }>();
+  let counted = 0;
+
+  for (const answer of answers) {
+    if (typeof answer !== "string") continue;
+    const key = normalizeForCompare(answer);
+    // Пустой ответ знаменателя не меняет: «не ответил» — не написание.
+    if (key === "") continue;
+    const group = groups.get(key) ?? { total: 0, spellings: new Map<string, number>() };
+    group.total += 1;
+    group.spellings.set(answer, (group.spellings.get(answer) ?? 0) + 1);
+    groups.set(key, group);
+    counted += 1;
+  }
+
+  if (counted === 0) return null;
+
+  const options = [...groups.values()]
+    .map((group) => {
+      let label = "";
+      let best = -1;
+      for (const [spelling, times] of group.spellings) {
+        if (times > best) {
+          best = times;
+          label = spelling;
+        }
+      }
+      return { label, share: Math.round((group.total / counted) * 1000) / 10 };
+    })
+    .sort((a, b) => b.share - a.share);
+
+  return { options, answered: counted };
+}
+
+/**
  * Разброс ответов задания.
  *
  * @returns доли по вариантам либо `null`, когда разбрасывать нечего: заданию не из чего
@@ -57,6 +110,9 @@ function allocationOf(answer: unknown): Record<string, number> | null {
  */
 export function answerSpread(input: AnswerSpreadInput): AnswerSpread | null {
   const { type, options, answers } = input;
+  // Короткий ответ проверяется ПЕРВЫМ: вариантов у него нет по устройству, и общая
+  // проверка «нет вариантов — считать не из чего» отбросила бы его целиком.
+  if (type === "short") return textSpread(answers);
   if (options.length === 0 || answers.length === 0) return null;
 
   const weight = new Array<number>(options.length).fill(0);

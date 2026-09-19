@@ -5,6 +5,7 @@ import { storage } from "../../storage";
 import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { stripMarkdown } from "@shared/text";
+import { isTextEntry } from "@shared/questions/question-type";
 import { summariseAnswers } from "../../services/analytics/answers";
 import { answerSpread, type AnswerSpread } from "../../services/analytics/answer-spread";
 import { loadTestAnswerFacts, variantQuestionIds } from "../../services/analytics/test-answer-facts";
@@ -165,12 +166,18 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
 
       /**
        * FR-22: у измерительного задания эталона нет, и вместо доли верных экран показывает
-       * разброс ответов. Считается только там, где он определён — у шкалы и распределения
-       * баллов: у задания с верным ответом разброс ничего не добавляет к доле верных.
+       * разброс ответов. Считается там, где он определён: у шкалы и распределения баллов —
+       * вместо доли верных, у короткого ответа (PRD-57 FR-28x) — В ДОПОЛНЕНИЕ к ней, потому
+       * что варианты там не заданы заранее, а написания расходятся, и автору нужно видеть,
+       * какие из них правило не ловит.
        */
-      const spread = question.type === "scale" || question.type === "allocation"
+      const spreadType =
+        question.type === "scale" || question.type === "allocation" || isTextEntry(question.type)
+          ? (question.type as "scale" | "allocation" | "short")
+          : null;
+      const spread = spreadType
         ? answerSpread({
-          type: question.type,
+          type: spreadType,
           options: ((question.dataJson ?? {}) as { options?: string[] }).options ?? [],
           answers: answersOfQuestion.get(stats.questionId) ?? [],
         })

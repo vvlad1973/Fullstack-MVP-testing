@@ -79,3 +79,43 @@ describe("answerSpread — когда считать не из чего", () => 
     expect(answerSpread({ type: "allocation", options: STATEMENTS, answers: [null, 7] })).toBeNull();
   });
 });
+
+describe("answerSpread — короткий ответ (PRD-57 FR-28x)", () => {
+  it("сворачивает ответы по частоте, не различая написаний", () => {
+    const spread = answerSpread({
+      type: "short",
+      options: [],
+      answers: ["Ростехнадзор", "ростехнадзор", "  РОСТЕХНАДЗОР ", "РТН"],
+    });
+
+    expect(spread?.answered).toBe(4);
+    expect(spread?.options).toEqual([
+      { label: "Ростехнадзор", share: 75 },
+      { label: "РТН", share: 25 },
+    ]);
+  });
+
+  it("подписью берёт самое частое исходное написание", () => {
+    const spread = answerSpread({ type: "short", options: [], answers: ["ртн", "ртн", "РТН"] });
+    expect(spread?.options[0].label).toBe("ртн");
+  });
+
+  it("пустые ответы в знаменатель не идут", () => {
+    const spread = answerSpread({ type: "short", options: [], answers: ["РТН", "", "   ", null] });
+    expect(spread?.answered).toBe(1);
+  });
+
+  it("считать не из чего — null, а не пустой разброс", () => {
+    expect(answerSpread({ type: "short", options: [], answers: [] })).toBeNull();
+    expect(answerSpread({ type: "short", options: [], answers: ["", null] })).toBeNull();
+  });
+
+  it("строки идут по убыванию доли: автор читает сверху самое частое", () => {
+    const spread = answerSpread({
+      type: "short",
+      options: [],
+      answers: ["а", "б", "б", "в", "в", "в"],
+    });
+    expect(spread?.options.map((o) => o.label)).toEqual(["в", "б", "а"]);
+  });
+});
