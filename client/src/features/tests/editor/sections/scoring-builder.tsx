@@ -46,7 +46,7 @@ export interface TierDraft {
   score: string;
 }
 
-import { isSingleIndexChoice, type QuestionType } from "@shared/questions/question-type";
+import { isSingleIndexChoice, isTextEntry, type QuestionType } from "@shared/questions/question-type";
 
 const OPS: { value: CondOp; label: string }[] = [
   { value: "==", label: "=" },
@@ -60,7 +60,19 @@ const OPS: { value: CondOp; label: string }[] = [
 function totalToken(type: QuestionType): string {
   if (type === "matching") return "P";
   if (type === "ranking") return "N";
+  // PRD-57 FR-28aa4: у написанного ответа единица счёта — ПРАВИЛО, а не вариант.
+  if (isTextEntry(type)) return "R";
   return "T";
+}
+
+/** What ONE unit of this type is, in the words the author sees. */
+function counterWords(type: QuestionType): { c: string; x: string; total: string } {
+  if (isTextEntry(type)) {
+    return { c: "сколько правил выполнено", x: "ни одного не выполнено", total: "всего правил" };
+  }
+  const total =
+    type === "matching" ? "всего пар" : type === "ranking" ? "всего элементов" : "всего верных";
+  return { c: "верных выбрано", x: "лишних", total };
 }
 
 /** Numeric value of a draft (NaN-safe). */
@@ -99,6 +111,7 @@ export function ScoringBuilder({
   setTiers,
 }: ScoringBuilderProps) {
   const token = totalToken(type);
+  const words = counterWords(type);
   const modes: { value: ScoringMode; label: string }[] = [
     { value: "exact", label: "Точное совпадение" },
     ...(isSingleIndexChoice(type)
@@ -208,8 +221,8 @@ export function ScoringBuilder({
       {mode === "tiered" && !isSingleIndexChoice(type) && (
         <Stack gap={3} data-testid="scoring-tiers">
           <Text as="p" variant="body-s" tone="muted">
-            Ступени проверяются сверху вниз, засчитывается первая подходящая. Счётчики: <b>c</b> — верных
-            выбрано, <b>x</b> — лишних; <b>{token}</b> — всего {type === "matching" ? "пар" : type === "ranking" ? "элементов" : "верных"}.
+            Ступени проверяются сверху вниз, засчитывается первая подходящая. Счётчики: <b>c</b> —{" "}
+            {words.c}, <b>x</b> — {words.x}; <b>{token}</b> — {words.total}.
           </Text>
 
           {tiers.map((tier, ti) => (
@@ -222,10 +235,17 @@ export function ScoringBuilder({
                         className="tb-fw-lg"
                         value={cond.lhs}
                         onChange={(v) => setCond(ti, ci, { lhs: v as CondLhs })}
-                        options={[
-                          { value: "c", label: "Верных (c)" },
-                          { value: "x", label: "Лишних (x)" },
-                        ]}
+                        options={
+                          isTextEntry(type)
+                            ? [
+                                { value: "c", label: "Выполнено правил (c)" },
+                                { value: "x", label: "Ни одного (x)" },
+                              ]
+                            : [
+                                { value: "c", label: "Верных (c)" },
+                                { value: "x", label: "Лишних (x)" },
+                              ]
+                        }
                         data-testid={`scoring-cond-lhs-${ti}-${ci}`}
                       />
                       <Select

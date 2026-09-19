@@ -184,9 +184,20 @@ function countTallies(type: QuestionType, correct: CorrectData, answer: Answer):
     }
     return { c, x, total: want.length };
   }
+  // PRD-57 FR-28aa4: the UNIT of a typed answer is a RULE. `c` counts the rules the
+  // answer satisfies, so a step table over `c` pays by accuracy — the author nests the
+  // tolerances themselves, ordering the rules from the strict one to the loose one, and
+  // an exact hit satisfies both while a near miss satisfies only the loose rule. No new
+  // machinery is introduced (FR-28ae): this is the same table the choice types use.
   if (isTextEntry(type)) {
-    const hit = exactCorrect(type, correct, answer);
-    return { c: hit, x: typeof answer === "string" && answer !== "" ? 1 - hit : 0, total: 1 };
+    const set = correct as unknown as AnswerRuleSet;
+    const rules = Array.isArray(set?.rules) ? set.rules : [];
+    const outcome = typeof answer === "string" ? checkRuleSet(set, answer) : null;
+    const c = outcome ? outcome.perRule.filter(Boolean).length : 0;
+    // «Лишнего» у написанного ответа не бывает: `x` здесь означает «ответ есть, и он не
+    // подошёл ничему» — ровно то, чем эта величина была у короткого ответа до ступени.
+    const x = typeof answer === "string" && answer !== "" && c === 0 ? 1 : 0;
+    return { c, x, total: rules.length || 1 };
   }
   // single: one correct option.
   const c = exactCorrect("single", correct, answer);

@@ -99,9 +99,18 @@ var ScoringEngine = (function () {
       }
       return { c: rc, x: rx, total: wantO.length };
     }
+    // PRD-57 FR-28aa4: единица счёта у написанного ответа — ПРАВИЛО. `c` — сколько
+    // правил выполнено, поэтому ступенчатая таблица над `c` платит по точности.
+    // Сравнение, как и везде, делегируется общему движку, а не повторяется здесь.
     if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(type)) {
-      var th = exactCorrect(type, correct, answer);
-      return { c: th, x: (typeof answer === 'string' && answer !== '') ? 1 - th : 0, total: 1 };
+      var tRules = (correct && Array.isArray(correct.rules)) ? correct.rules : [];
+      var tHits = 0;
+      if (typeof answer === 'string' && typeof TBTemplate !== 'undefined' && TBTemplate.checkRuleSet) {
+        var perRule = TBTemplate.checkRuleSet(correct, answer).perRule || [];
+        for (var ti = 0; ti < perRule.length; ti++) if (perRule[ti]) tHits += 1;
+      }
+      var tMiss = (typeof answer === 'string' && answer !== '' && tHits === 0) ? 1 : 0;
+      return { c: tHits, x: tMiss, total: tRules.length || 1 };
     }
     // single: one correct option.
     var sc = exactCorrect('single', correct, answer);
