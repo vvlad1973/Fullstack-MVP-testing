@@ -32,13 +32,15 @@ import {
   renderMatching,
   renderScale,
   renderAllocation,
+  renderShortAnswer,
   questionHint,
   answerTexts,
   type ReviewCorrect,
 } from "@shared/template/question-interaction";
 import { attachAllocation } from "@shared/template/allocation-dom";
+import { attachShortAnswer } from "@shared/template/short-answer-dom";
 import { allocationSpec, seedAllocation } from "@shared/questions/allocation";
-import { distributesBudget } from "@shared/questions/question-type";
+import { distributesBudget, isTextEntry } from "@shared/questions/question-type";
 import { questionFont, optionFont } from "@shared/template/fit-font";
 import { buildQuestionNav, QUESTION_NAV_ACTIONS, type QuestionNavState } from "@shared/template/question-nav";
 import type { SceneTimersState } from "@shared/template/scene-timers";
@@ -117,6 +119,16 @@ function interactionHtml(
   // PRD-44: у распределения нет разметки верности — `review` здесь означает «только
   // чтение», а не «показать правильный ответ», которого у типа не существует.
   if (distributesBudget(question.type)) return renderAllocation(question, answer, review !== undefined, arr);
+  // PRD-57 §6.5: у текстового ввода нет ни вариантов, ни разметки верности — эталон
+  // участнику не показывается, а `review` означает «только чтение».
+  if (isTextEntry(question.type)) {
+    const rules = (question.correctJson ?? {}) as { answerKind?: string; unit?: string };
+    return renderShortAnswer(question, answer, {
+      numeric: rules.answerKind === "number",
+      unit: rules.unit,
+      readonly: review !== undefined,
+    });
+  }
   return renderSingleChoice(question, answer, arr, review);
 }
 
@@ -208,19 +220,28 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
   const onAnswerRef = useRef(onAnswer);
   onAnswerRef.current = onAnswer;
 
-  const attachHostInputs = useCallback(
-    (shadow: ShadowRoot) =>
-      attachAllocation(shadow as never, {
-        getSpec: () =>
-          distributesBudget(questionRef.current.type)
-            ? allocationSpec(questionRef.current.dataJson)
-            : null,
-        getAnswer: () => answerRef.current,
-        onCommit: (next) => onAnswerRef.current(next),
-        isLocked: () => lockedRef.current === true,
-      }),
-    [],
-  );
+  const attachHostInputs = useCallback((shadow: ShadowRoot) => {
+    const detachAllocation = attachAllocation(shadow as never, {
+      getSpec: () =>
+        distributesBudget(questionRef.current.type)
+          ? allocationSpec(questionRef.current.dataJson)
+          : null,
+      getAnswer: () => answerRef.current,
+      onCommit: (next) => onAnswerRef.current(next),
+      isLocked: () => lockedRef.current === true,
+    });
+    // PRD-57 §6.5: поле ответа меняется на каждом нажатии, поэтому подписка своя, а не
+    // через делегат щелчка. Ответ уходит СЫРОЙ строкой — нормализация живёт в сравнении.
+    const detachShortAnswer = attachShortAnswer(shadow as never, {
+      getAnswer: () => (typeof answerRef.current === "string" ? answerRef.current : ""),
+      setAnswer: (value) => onAnswerRef.current(value),
+      isLocked: () => lockedRef.current === true,
+    });
+    return () => {
+      detachAllocation();
+      detachShortAnswer();
+    };
+  }, []);
 
   // Предзаполнение минимумом (FR-30): вопрос с ненулевым минимумом стартует со
   // значениями, а не с нулями, иначе учащийся распределит весь бюджет и застрянет с
