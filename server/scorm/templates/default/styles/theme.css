@@ -620,6 +620,39 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
   color: var(--ou-accent-on-soft);
 }
 
+/* Листинг кода в тексте задания (PRD-57 §4.1). Блок прокручивается САМ: перенос в
+   коде меняет смысл, а прокрутка страницы поперёк — дефект вёрстки (FR-04). Шрифт —
+   из шаблона, поэтому PDF-отчёт одинаков на разных машинах (FR-05). */
+.tb-scene .tb-code {
+  margin: var(--ou-space-3) 0;
+  padding: var(--ou-space-3) var(--ou-space-4);
+  border-radius: var(--ou-radius-m);
+  background: var(--ou-bg-subtle);
+  border: 1px solid var(--ou-border-soft);
+  font-family: var(--ou-font-family-mono);
+  font-size: calc(var(--tb-answer-fs, 20px) * 0.8);
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
+}
+.tb-scene .tb-code code { font-family: var(--ou-font-family-mono); }
+.tb-scene .tb-code-inline {
+  font-family: var(--ou-font-family-mono);
+  font-size: 0.92em;
+  padding: 0 var(--ou-space-1);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-subtle);
+}
+
+/* Пять ролей подсветки (FR-03c). Цвета — токены ТЕМЫ, а не палитра библиотеки: замена
+   движка подсветки меняет один переводчик на сервере, а не оформление каждого шаблона. */
+.tb-scene .tb-code__kw { color: var(--ou-accent-on-soft); font-weight: 600; }
+.tb-scene .tb-code__str { color: var(--ou-success-on-soft); }
+.tb-scene .tb-code__num { color: var(--ou-warning-on-soft); }
+.tb-scene .tb-code__com { color: var(--ou-fg-muted); font-style: italic; }
+.tb-scene .tb-code__fn { color: var(--ou-info-on-soft, var(--ou-accent-default)); }
+
 /* Multiple: the tick is class-driven (no native input) — mirror DS :checked. */
 .ou-radio-card.is-on .ou-check__box {
   background: var(--ou-accent-default);

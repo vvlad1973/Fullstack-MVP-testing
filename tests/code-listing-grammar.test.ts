@@ -1,0 +1,89 @@
+/**
+ * @module tests/code-listing-grammar
+ * @description Листинг кода в авторском тексте (PRD-57 §4.1, FR-01, FR-02).
+ *
+ * Главное препятствие PRD-33 §3.1 — типографика: она подменяет кавычки и дефисы, а в коде
+ * это меняет смысл. Решается в ГРАММАТИКЕ, а не в стилях: к моменту показа подмена уже
+ * произошла бы.
+ */
+import { describe, it, expect } from "vitest";
+
+import { renderBlockMarkdown, renderInlineMarkdown } from "../shared/text/markdown";
+
+describe("инлайн-код", () => {
+  it("превращается в code и экранируется", () => {
+    const html = renderInlineMarkdown("Вызовите `os.path.join()` из модуля");
+    expect(html).toContain('<code class="tb-code-inline">os.path.join()</code>');
+  });
+
+  it("внутри кода типографика НЕ работает (FR-02)", () => {
+    const html = renderInlineMarkdown('Строка `print("a" - "b")` и снаружи "цитата" - тире');
+    expect(html).toContain('print(&quot;a&quot; - &quot;b&quot;)');
+    // Снаружи кода типографика осталась: кавычки стали ёлочками, дефис — тире.
+    expect(html).toContain("«цитата»");
+    expect(html).toContain("—");
+  });
+
+  it("разметка внутри кода остаётся текстом", () => {
+    const html = renderInlineMarkdown("`**не жирный**`");
+    expect(html).toContain("**не жирный**");
+    expect(html).not.toContain("<strong>");
+  });
+
+  it("незакрытый апостроф кодом не считается", () => {
+    const html = renderInlineMarkdown("Осталось `незакрытым");
+    expect(html).not.toContain("tb-code-inline");
+    expect(html).toContain("`незакрытым");
+  });
+});
+
+describe("блок кода", () => {
+  const SOURCE = ["```python", "def f(x):", '    return "a" - x  # тест', "```"].join("\n");
+
+  it("превращается в pre с языком", () => {
+    const html = renderBlockMarkdown(SOURCE);
+    expect(html).toContain('<pre class="tb-code" data-lang="python">');
+    expect(html).toContain("<code>");
+  });
+
+  it("сохраняет ведущие пробелы и переносы дословно (FR-01)", () => {
+    const html = renderBlockMarkdown(SOURCE);
+    expect(html).toContain("def f(x):\n    return");
+    // Переносы НЕ превращаются в <br>: внутри pre это лишние узлы.
+    expect(html.slice(html.indexOf("<pre"), html.indexOf("</pre>"))).not.toContain("<br>");
+  });
+
+  it("типографика внутри блока не работает", () => {
+    const html = renderBlockMarkdown(SOURCE);
+    expect(html).toContain("&quot;a&quot; - x");
+    expect(html).not.toContain("«a»");
+  });
+
+  it("без имени языка блок остаётся блоком", () => {
+    const html = renderBlockMarkdown("```\nSELECT 1\n```");
+    expect(html).toContain('<pre class="tb-code"');
+    expect(html).not.toContain("data-lang");
+  });
+
+  it("неизвестный язык разбор не ломает", () => {
+    const html = renderBlockMarkdown("```брейнфак\n+++\n```");
+    expect(html).toContain('<pre class="tb-code"');
+  });
+
+  it("текст вокруг блока остаётся абзацами", () => {
+    const html = renderBlockMarkdown(`До блока\n\n${SOURCE}\n\nПосле блока`);
+    // Пробел после короткого слова типографика делает НЕРАЗРЫВНЫМ, поэтому сверяется
+    // структура: абзац, блок, абзац — а не буквальная строка.
+    expect(html.startsWith("<p>")).toBe(true);
+    expect(html.endsWith("</p>")).toBe(true);
+    expect(html.indexOf("<pre")).toBeGreaterThan(0);
+    expect(html.lastIndexOf("<p>")).toBeGreaterThan(html.indexOf("</pre>"));
+  });
+
+  it("блок в ИНЛАЙНОВОМ тексте блоком не становится", () => {
+    // Инлайновый рендер печатает в заголовок и в вариант ответа: блочный узел там
+    // невалиден. Ограждение остаётся видимым текстом — автор увидит, что ошибся местом.
+    const html = renderInlineMarkdown(SOURCE);
+    expect(html).not.toContain("<pre");
+  });
+});

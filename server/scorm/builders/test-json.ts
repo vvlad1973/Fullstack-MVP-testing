@@ -6,6 +6,7 @@ import { effectiveSectionOrder } from "@shared/draw/assemble-delivery";
 import { computeWeights } from "@shared/draw/exposure";
 import { withEffectiveMaxLength } from "@shared/questions/short-answer";
 import { config } from "../../config";
+import { promptHtmlOf } from "../../services/prompt-html";
 import { buildTestScoringContext, type TestScoringContext } from "../../services/effective-scoring";
 import { withResolvedScaleIcons } from "../../services/scale-icons";
 import { parseScaleInterpretation } from "@shared/scales/interpretation";
@@ -469,6 +470,9 @@ export function buildTestJson(data: ExportData): string {
             id: q.id,
             type: q.type,
             prompt: q.prompt,
+            // PRD-57 FR-03a: подсветка листинга печётся в пакет готовой разметкой —
+            // библиотека подсветки в ZIP не едет.
+            ...promptHtmlOf(q),
             // PRD-57 FR-28v: предел печётся в пакет — конфигурации в рантайме там нет.
             data: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
             correct: q.correctJson,
@@ -606,6 +610,9 @@ export function buildTestJson(data: ExportData): string {
             id: q.id,
             type: q.type,
             prompt: q.prompt,
+            // PRD-57 FR-03a: подсветка листинга печётся в пакет готовой разметкой —
+            // библиотека подсветки в ZIP не едет.
+            ...promptHtmlOf(q),
             // PRD-57 FR-28v: предел печётся в пакет — конфигурации в рантайме там нет.
             data: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
             correct: q.correctJson,

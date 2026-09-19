@@ -129,7 +129,11 @@ function render() {
  * иначе поле окажется внутри кода или ссылки.
  */
 function questionTextHtml(q, answer, review) {
-    var html = authorTextHtml(q.prompt);
+    // PRD-57 FR-03a: листинг приезжает ГОТОВОЙ разметкой — подсветка посчитана на
+    // сервере при выпечке, и библиотеки подсветки в пакете нет.
+    var html = (typeof q.promptHtml === 'string' && q.promptHtml !== '')
+        ? q.promptHtml
+        : authorTextHtml(q.prompt);
     var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
     if (!q || typeof TBQType === 'undefined' || !TBQType.hasBlanks(q.type)) return html;
     if (!TB || !TB.renderBlanksPrompt) return html;

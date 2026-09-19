@@ -25,6 +25,7 @@ import {
 import { ipsativeScalesForDelivery } from "../services/scale-composition";
 import { loadScoringConfig } from "../services/scoring-config";
 import { attachRegexVerdicts } from "../services/answer-check-verdicts";
+import { promptHtmlOf } from "../services/prompt-html";
 import { loadTestScoringContext } from "../services/effective-scoring";
 import { computeAttemptResult } from "../services/result-compute";
 import { decideRetake, countAttemptsInAssignment } from "../services/retake-gate";
@@ -147,7 +148,13 @@ async function questionsForClient(
   // PRD-57 FR-28v: действующий предел длины подставляется ЗДЕСЬ, а не на клиенте:
   // настройку инстанса знает только сервер, а рендер поля общий с пакетом.
   const withLimit = (q: Question): Question =>
-    ({ ...q, dataJson: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength) }) as Question;
+    ({
+      ...q,
+      dataJson: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
+      // PRD-57 FR-03a: подсветка листинга печётся ЗДЕСЬ. Библиотека серверная, и ни в
+      // клиентский бандл, ни в пакет она не попадает — хост получает готовую разметку.
+      ...promptHtmlOf(q),
+    }) as Question;
 
   if (!test.showCorrectAnswers) {
     return questions.map((q) => ({ ...withLimit(q), correctJson: undefined })) as Question[];

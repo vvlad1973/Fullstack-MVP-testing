@@ -135,6 +135,19 @@ function interactionHtml(
   return renderSingleChoice(question, answer, arr, review);
 }
 
+/**
+ * Разметка текста задания.
+ *
+ * PRD-57 FR-03a: когда в тексте есть листинг, сервер присылает ГОТОВУЮ разметку с
+ * подсветкой — библиотека подсветки серверная и в браузер не едет. Во всех остальных
+ * случаях текст рисуется здесь, как и раньше.
+ */
+function promptHtml(question: { prompt: string; promptHtml?: string }): string {
+  return typeof question.promptHtml === "string" && question.promptHtml !== ""
+    ? question.promptHtml
+    : renderInlineMarkdown(question.prompt);
+}
+
 /** Наборы правил пропусков задания — из того же `correct_json`, что и у прочих типов. */
 function blanksOf(question: { correctJson?: unknown }): BlankRuleSet[] {
   const key = (question.correctJson ?? {}) as { blanks?: BlankRuleSet[] };
@@ -280,7 +293,7 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
     // пуст. Порядок обязателен: сначала разметка, потом подстановка полей — иначе поле
     // окажется внутри кода или ссылки.
     "question-text": hasBlanks(question.type)
-      ? renderBlanksPrompt(renderInlineMarkdown(question.prompt), {
+      ? renderBlanksPrompt(promptHtml(question), {
         mode: props.reviewMode ? "answer" : "input",
         blanks: blanksOf(question),
         answer: answer && typeof answer === "object" && !Array.isArray(answer)
@@ -288,7 +301,7 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
           : undefined,
         readonly: props.reviewMode === true,
       })
-      : renderInlineMarkdown(question.prompt),
+      : promptHtml(question),
     "question-media": renderQuestionMedia(question),
     "question-interaction": interactionHtml(
       question,
