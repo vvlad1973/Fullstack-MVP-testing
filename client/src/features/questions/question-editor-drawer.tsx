@@ -18,6 +18,14 @@
  */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { isAllocationFeasible } from "@shared/questions/allocation";
+import { isTextEntry } from "@shared/questions/question-type";
+import { AnswerRulesBlock } from "./answer-rules/answer-rules-block";
+import {
+  createDraft as createAnswerRulesDraft,
+  toCorrectJson as answerRulesToCorrectJson,
+  type AnswerRulesDraft,
+} from "./answer-rules/answer-rules-model";
+import type { AnswerRuleSet } from "@shared/answer-check";
 import { useMutation } from "@tanstack/react-query";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
@@ -61,6 +69,7 @@ const questionTypes = [
   { value: "ranking", label: t.questions.ranking },
   { value: "scale", label: t.questions.scaleChoice },
   { value: "allocation", label: t.questions.allocation },
+  { value: "short", label: t.questions.shortAnswer },
 ] as const;
 
 type QuestionType = typeof questionTypes[number]["value"];
@@ -69,7 +78,7 @@ type QuestionType = typeof questionTypes[number]["value"];
 // and the graded config are configured per test («Оценка» tab of the editor).
 const baseQuestionSchema = z.object({
   topicId: z.string().min(1, t.questions.topicRequired),
-  type: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation"]),
+  type: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short"]),
   prompt: z.string().min(1, t.questions.textRequired),
 });
 
@@ -107,6 +116,9 @@ export function QuestionEditorDrawer({
   const contentGuard = useContentGuard();
 
   const [selectedType, setSelectedType] = useState<QuestionType>("single");
+  // PRD-57 §6.1: черновик набора правил держит ОБА вида ответа, поэтому он живёт
+  // здесь, а не внутри блока — иначе переключение вида пересоздавало бы состояние.
+  const [answerRules, setAnswerRules] = useState<AnswerRulesDraft>(() => createAnswerRulesDraft(null));
 
   const [singleOptions, setSingleOptions] = useState<string[]>(["", "", "", ""]);
   const [singleCorrect, setSingleCorrect] = useState<number>(0);
@@ -191,6 +203,7 @@ export function QuestionEditorDrawer({
     setFeedbackIncorrect("");
     setTags([]);
     setMediaFileName("");
+    setAnswerRules(createAnswerRulesDraft(null));
   };
 
   // Initialize the draft when the Drawer opens: from `question` (edit) or as an
@@ -226,6 +239,8 @@ export function QuestionEditorDrawer({
         setAllocBudget(String(data.budget ?? 7));
         setAllocMin(data.minPerOption === undefined || data.minPerOption === null ? "" : String(data.minPerOption));
         setAllocMax(data.maxPerOption === undefined || data.maxPerOption === null ? "" : String(data.maxPerOption));
+      } else if (question.type === "short") {
+        setAnswerRules(createAnswerRulesDraft(correct as AnswerRuleSet));
       } else if (question.type === "scale") {
         setSingleOptions(data.options || ["", "", "", ""]);
         // Наличие correctIndex И ЕСТЬ положение переключателя (FR-03).
@@ -334,6 +349,12 @@ export function QuestionEditorDrawer({
         correctJson = {};
         break;
       }
+      case "short":
+        // У текстового ввода нет вариантов: содержимое задания — это его формулировка,
+        // а эталон — набор правил сравнения (§6.1).
+        dataJson = {};
+        correctJson = answerRulesToCorrectJson(answerRules);
+        break;
       case "scale":
         dataJson = { options: singleOptions.filter((o) => o.trim()) };
         // Переключатель выключен — измерительный режим: ПУСТОЙ объект, а не null
@@ -671,6 +692,13 @@ export function QuestionEditorDrawer({
                 showCorrect={scaleHasCorrect}
               />
             </Stack>
+          )}
+
+          {/* PRD-57 §6.5: у текстового ввода вариантов нет — вместо их списка стоит
+             набор правил сравнения. Ветка по ПРИЗНАКУ типа, а не по литералу: пропуски
+             (Э8) войдут сюда же, объявив тот же признак. */}
+          {isTextEntry(selectedType) && (
+            <AnswerRulesBlock draft={answerRules} onChange={setAnswerRules} />
           )}
 
           {/* PRD-44: распределение баллов. Список утверждений — тот же редактор, что у

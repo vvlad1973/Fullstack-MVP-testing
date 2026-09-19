@@ -48,8 +48,8 @@ describe("AnswerRulesBlock", () => {
     cleanup();
   });
 
-  it("без правил показывает выключенную автопроверку и не показывает список", () => {
-    render(<Harness initial={null} />);
+  it("у сохранённого без правил вопроса автопроверка выключена и список скрыт", () => {
+    render(<Harness initial={{ answerKind: "text", join: "any", rules: [] }} />);
     const auto = screen.getByTestId("answer-rules-autocheck") as HTMLInputElement;
     expect(auto.checked).toBe(false);
     expect(screen.queryByTestId("answer-rules-add")).toBeNull();

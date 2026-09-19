@@ -45,12 +45,16 @@ function blankRule(kind: AnswerKind): AnswerRule {
 
 /** Read a stored set defensively — `correct_json` reaches the editor as `unknown`. */
 export function createDraft(stored: AnswerRuleSet | null | undefined): AnswerRulesDraft {
-  const set: AnswerRuleSet = stored && Array.isArray(stored.rules) ? stored : EMPTY;
+  const isNew = !stored || !Array.isArray(stored.rules);
+  const set: AnswerRuleSet = isNew ? EMPTY : (stored as AnswerRuleSet);
   const rules = set.rules ?? [];
   return {
-    // No rules means the author has not written the check yet — the switch starts off,
-    // exactly as the question behaves (§5.3).
-    autoCheck: rules.length > 0,
+    // A BRAND-NEW question starts with checking on: automatic checking is what the type
+    // is for, and making the author flip a switch before writing the first rule is a step
+    // that buys nothing. A question that was SAVED with no rules is the other case — the
+    // author turned checking off on purpose (§5.3), and reopening it must not turn it
+    // back on behind their back.
+    autoCheck: isNew || rules.length > 0,
     answerKind: set.answerKind === "number" ? "number" : "text",
     join: set.join === "all" ? "all" : "any",
     unit: typeof set.unit === "string" ? set.unit : "",
