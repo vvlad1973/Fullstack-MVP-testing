@@ -41,6 +41,7 @@ const TYPE_LABEL: Record<QuestionType, string> = {
   ranking: "Ранжирование",
   scale: "Шкала",
   allocation: "Распределение баллов",
+  short: "Короткий ответ",
 };
 
 const METHOD_LABEL: Record<"exact" | "weighted" | "tiered", string> = {

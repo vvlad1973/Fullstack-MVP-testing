@@ -40,6 +40,14 @@ var TBQType = (function () {
   }
 
   /**
+   * Answered by TYPING — the answer is a string, not an index (PRD-57 §6.5). Mirror of
+   * shared/questions/question-type.ts → isTextEntry.
+   */
+  function isTextEntry(type) {
+    return type === 'short';
+  }
+
+  /**
    * Measurement-only question: never checked, earns no points, contributes only to
    * the scales (PRD-26 FR-08). Two ways in: a scale with no correct graduation (the
    * author's choice), and an allocation ALWAYS (PRD-44 FR-09 — the method has no
@@ -49,10 +57,15 @@ var TBQType = (function () {
   function isMeasurementOnly(q) {
     if (!q) return false;
     if (distributesBudget(q.type)) return true;
-    if (q.type !== 'scale') return false;
     // The key travels as `correctJson` on the server and as `correct` in the baked
     // payload; accept both so no caller has to reshape its question first.
     var key = (q.correctJson !== undefined && q.correctJson !== null) ? q.correctJson : q.correct;
+    // PRD-57 §5.3: a typed answer with NO rules collects text and earns nothing — the
+    // absence of rules IS the switch, as the absence of `correctIndex` is for a scale.
+    if (isTextEntry(q.type)) {
+      return !key || !Array.isArray(key.rules) || key.rules.length === 0;
+    }
+    if (q.type !== 'scale') return false;
     return !key || typeof key.correctIndex !== 'number';
   }
 
@@ -61,6 +74,7 @@ var TBQType = (function () {
     hasOptionList: hasOptionList,
     hasFixedOptionOrder: hasFixedOptionOrder,
     distributesBudget: distributesBudget,
+    isTextEntry: isTextEntry,
     isMeasurementOnly: isMeasurementOnly,
   };
 }());

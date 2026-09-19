@@ -271,7 +271,7 @@ export type QuestionScoring = z.infer<typeof questionScoringSchema>;
 export const questions = pgTable("questions", {
   id: varchar("id", { length: 36 }).primaryKey(),
   topicId: varchar("topic_id", { length: 36 }).notNull(),
-  type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation"] }).notNull(),
+  type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short"] }).notNull(),
   prompt: text("prompt").notNull(),
   dataJson: jsonb("data_json").notNull(),
   correctJson: jsonb("correct_json").notNull(),
@@ -1701,7 +1701,7 @@ export type AdaptiveAnswerResponse = z.infer<typeof adaptiveAnswerResponseSchema
 export const detailedAnswerSchema = z.object({
   questionId: z.string(),
   questionPrompt: z.string(),
-  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation"]),
+  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short"]),
   topicId: z.string(),
   topicName: z.string(),
   userAnswer: z.unknown(),
@@ -1773,7 +1773,7 @@ export type AdaptiveLevelStats = z.infer<typeof adaptiveLevelStatsSchema>;
 export const questionStatsSchema = z.object({
   questionId: z.string(),
   questionPrompt: z.string(),
-  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation"]),
+  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short"]),
   topicId: z.string(),
   topicName: z.string(),
   difficulty: z.number(),
@@ -2109,7 +2109,7 @@ export const scormAnswers = pgTable("scorm_answers", {
   // Данные вопроса
   questionId: varchar("question_id", { length: 36 }).notNull(),
   questionPrompt: text("question_prompt").notNull(),
-  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation"] }).notNull(),
+  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short"] }).notNull(),
   topicId: varchar("topic_id", { length: 36 }),
   topicName: text("topic_name"),
   difficulty: integer("difficulty"),

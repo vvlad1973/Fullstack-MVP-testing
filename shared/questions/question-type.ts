@@ -19,7 +19,15 @@
  */
 
 /** Every question type the product supports. Mirrors the `questions.type` enum. */
-export const QUESTION_TYPES = ["single", "multiple", "matching", "ranking", "scale", "allocation"] as const;
+export const QUESTION_TYPES = [
+  "single",
+  "multiple",
+  "matching",
+  "ranking",
+  "scale",
+  "allocation",
+  "short",
+] as const;
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -65,6 +73,17 @@ export function hasFixedOptionOrder(type: string): boolean {
 }
 
 /**
+ * Answered by TYPING — the learner's answer is a string, not an index (PRD-57 §6.5).
+ *
+ * This is the trait behind every «is there an answer key to compare against?» branch the
+ * open answer adds. Consumers ask it instead of `type === "short"`, so the blanks type
+ * of Э8 joins by declaring the trait here and nothing downstream changes.
+ */
+export function isTextEntry(type: string): boolean {
+  return type === "short";
+}
+
+/**
  * The question shape these predicates read — every consumer passes its own object.
  * The answer key travels under two different names: `correctJson` on the server (the
  * DB column) and `correct` in the baked SCORM payload and the aggregate input. Both
@@ -92,6 +111,14 @@ export interface TypedQuestion {
  */
 export function isMeasurementOnly(question: TypedQuestion): boolean {
   if (distributesBudget(question.type)) return true;
+  // PRD-57 §5.3: a typed answer with NO rules collects text and earns nothing. The
+  // absence of rules IS the switch, exactly as the absence of `correctIndex` is for a
+  // scale — so an author who has not written the check yet cannot silently drag the
+  // percent down.
+  if (isTextEntry(question.type)) {
+    const set = (question.correctJson ?? question.correct) as { rules?: unknown } | null | undefined;
+    return !set || !Array.isArray(set.rules) || set.rules.length === 0;
+  }
   if (question.type !== "scale") return false;
   const key = (question.correctJson ?? question.correct) as
     | { correctIndex?: unknown }

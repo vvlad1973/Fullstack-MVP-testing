@@ -1257,6 +1257,7 @@ const UNIT_HEADER: Record<ContributionQuestion["type"], string> = {
   ranking: "Размещение (элемент @ позиция)",
   scale: "Градация шкалы",
   allocation: "Утверждение",
+  short: "Ответ",
 };
 
 const UNIT_HINT: Partial<Record<ContributionQuestion["type"], string>> = {

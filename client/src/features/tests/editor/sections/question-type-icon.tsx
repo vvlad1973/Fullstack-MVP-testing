@@ -12,6 +12,7 @@ import {
   CircleDot,
   ListOrdered,
   SlidersHorizontal,
+  TextCursorInput,
   ThermometerSun,
   Unplug,
   type LucideIcon,
@@ -28,6 +29,7 @@ export const QUESTION_TYPE_ICON: Record<QuestionType, LucideIcon> = {
   ranking: ListOrdered,
   scale: ThermometerSun,
   allocation: SlidersHorizontal,
+  short: TextCursorInput,
 };
 
 export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
@@ -37,6 +39,7 @@ export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   ranking: t.questions.ranking,
   scale: t.questions.scaleChoice,
   allocation: t.questions.allocation,
+  short: t.questions.shortAnswer,
 };
 
 /**
