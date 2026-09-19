@@ -10,7 +10,13 @@
  * SCORM package — text that nobody in the package reads has no business travelling there.
  * The probe of Э6 and the blanks of Э8 read the same wording from here.
  */
-import type { NumericOp, NumericRule } from "@shared/answer-check";
+import type {
+  AnswerRule,
+  AnswerRuleSet,
+  NumericOp,
+  NumericRule,
+  RuleSetOutcome,
+} from "@shared/answer-check";
 
 /** The operator list of the approved wireframe, in its order. */
 export const NUMERIC_OPERATORS: Array<{ value: NumericOp; label: string }> = [
@@ -70,6 +76,49 @@ export function numericRuleTitle(rule: NumericRule, unit: string): string {
   if (!rule.tolerance || !hasTolerance(rule.op)) return head;
   const measure = rule.tolerance.unit === "pct" ? " %" : "";
   return `${head} ±${formatRuleNumber(rule.tolerance.value)}${measure}`;
+}
+
+/** Title of a rule of EITHER kind — what the collapsed row shows (FR-28b). */
+export function ruleTitleOf(rule: AnswerRule, unit: string): string {
+  if (rule.kind === "number") return numericRuleTitle(rule, unit);
+  return rule.value.trim() === "" ? "Правило не заполнено" : rule.value;
+}
+
+/** Always the last sentence of a probe explanation — the promise of FR-28h. */
+const PROBE_DISCLAIMER = "Проба не сохраняется и на статистику не влияет.";
+
+/**
+ * The probe's verdict in plain words (FR-28g).
+ *
+ * The sentence names a RULE rather than repeating the verdict tag beside the field: the
+ * tag already says whether the answer counts, and what the author is checking is WHICH
+ * rule did the counting — two similar rules that both fire look identical until one of
+ * them is the only one firing.
+ *
+ * @param set     The rules as they will be saved.
+ * @param outcome Result of {@link checkRuleSet} for the probed answer.
+ */
+export function describeProbe(set: AnswerRuleSet, outcome: RuleSetOutcome): string {
+  const unit = typeof set.unit === "string" ? set.unit : "";
+  const titleAt = (index: number) => ruleTitleOf(set.rules[index], unit);
+
+  if (outcome.passed) {
+    if (set.join === "all") return `Выполнены все правила. ${PROBE_DISCLAIMER}`;
+    const fired = outcome.perRule.findIndex(Boolean);
+    return fired < 0
+      ? `Ответ засчитан. ${PROBE_DISCLAIMER}`
+      : `Выполнено правило «${titleAt(fired)}». ${PROBE_DISCLAIMER}`;
+  }
+
+  if (set.join === "all") {
+    const missed = outcome.perRule.findIndex((hit) => !hit);
+    return missed < 0
+      ? `Ответ не засчитан. ${PROBE_DISCLAIMER}`
+      : `Не выполнено правило «${titleAt(missed)}», а ответ засчитывается, если выполнены все. ${PROBE_DISCLAIMER}`;
+  }
+  return (
+    `Не выполнено ни одно правило, а ответ засчитывается, если выполнено любое из них. ${PROBE_DISCLAIMER}`
+  );
 }
 
 /**

@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 
+import type { AnswerRuleSet } from "../shared/answer-check";
 import {
   describeNumericRule,
+  describeProbe,
   formatRuleNumber,
   numericRuleTitle,
 } from "../client/src/features/questions/answer-rules/describe-rule";
@@ -75,6 +77,59 @@ describe("describeNumericRule — расшифровка словами (FR-28aa
   it("без единицы хвоста не остаётся", () => {
     expect(describeNumericRule({ kind: "number", op: "eq", value: 7 }, "  ")).toBe(
       "Засчитывается ответ ровно 7",
+    );
+  });
+});
+
+describe("describeProbe — объяснение вердикта пробы (FR-28g, FR-28h)", () => {
+  const TEXT_SET: AnswerRuleSet = {
+    answerKind: "text",
+    join: "any",
+    rules: [
+      { kind: "text", match: "wildcard", value: "Ростехнадзор" },
+      { kind: "text", match: "wildcard", value: "Федеральная служба по * надзору" },
+    ],
+  };
+
+  it("называет сработавшее правило", () => {
+    const text = describeProbe(TEXT_SET, { passed: true, perRule: [false, true] });
+    expect(text).toBe(
+      "Выполнено правило «Федеральная служба по * надзору». Проба не сохраняется и на статистику не влияет.",
+    );
+  });
+
+  it("при связке «любое» и полном промахе объясняет, чего не хватило", () => {
+    const text = describeProbe(TEXT_SET, { passed: false, perRule: [false, false] });
+    expect(text).toBe(
+      "Не выполнено ни одно правило, а ответ засчитывается, если выполнено любое из них. " +
+        "Проба не сохраняется и на статистику не влияет.",
+    );
+  });
+
+  it("при связке «все» называет первое невыполненное", () => {
+    const all: AnswerRuleSet = { ...TEXT_SET, join: "all" };
+    const text = describeProbe(all, { passed: false, perRule: [true, false] });
+    expect(text).toBe(
+      "Не выполнено правило «Федеральная служба по * надзору», а ответ засчитывается, " +
+        "если выполнены все. Проба не сохраняется и на статистику не влияет.",
+    );
+  });
+
+  it("при связке «все» и полном попадании говорит об этом", () => {
+    const all: AnswerRuleSet = { ...TEXT_SET, join: "all" };
+    const text = describeProbe(all, { passed: true, perRule: [true, true] });
+    expect(text).toBe("Выполнены все правила. Проба не сохраняется и на статистику не влияет.");
+  });
+
+  it("числовое правило называется так же, как в свёрнутой строке", () => {
+    const set: AnswerRuleSet = {
+      answerKind: "number",
+      join: "any",
+      unit: "°C",
+      rules: [{ kind: "number", op: "eq", value: -25, tolerance: { unit: "abs", value: 2 } }],
+    };
+    expect(describeProbe(set, { passed: true, perRule: [true] })).toBe(
+      "Выполнено правило «равно -25 °C ±2». Проба не сохраняется и на статистику не влияет.",
     );
   });
 });

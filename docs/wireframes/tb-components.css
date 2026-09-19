@@ -812,3 +812,35 @@
 
 /* Пиктограмма типа вопроса — копия правила из client/src/styles/tb-components.css. */
 .tb-qscoring__qtype { display: inline-flex; vertical-align: -0.15em; margin-right: var(--ou-space-2); color: var(--ou-fg-muted); }
+
+/* ── Набор правил проверки ответа (PRD-57 §6.1, §6.3) ─────────────────────────
+   Три класса раскладки, согласованные эскизом `prd57-answer-rule.html`; они
+   добавляют только раскладку, вид берут у примитивов ДС. */
+
+/* Связка между правилами. Стоит отдельной строкой внутри списка, чтобы
+   набор читался сверху вниз как одна фраза, а не как набор карточек.
+   Отступ по горизонтали — как у строки правила, по вертикали — шаг
+   родственных элементов: связка принадлежит обеим соседним строкам. */
+.tb-rules__join {
+  padding: var(--ou-space-1) var(--ou-space-5);
+  font: var(--ou-text-body-s);
+  color: var(--ou-fg-muted);
+}
+
+/* Строка пробы: поле ответа тянется, вердикт занимает ровно свою ширину. */
+.tb-probe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ou-space-4);
+  align-items: center;
+}
+
+/* Состояние вопроса и возврат правок — одной группой в подвале ящика.
+   Правило для `hidden` обязательно: собственный `display` сильнее
+   браузерного правила для атрибута, и скрытая группа осталась бы видимой. */
+.tb-dirty {
+  display: flex;
+  align-items: center;
+  gap: var(--ou-space-4);
+}
+.tb-dirty[hidden] { display: none; }

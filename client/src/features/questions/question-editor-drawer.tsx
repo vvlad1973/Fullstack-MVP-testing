@@ -22,6 +22,7 @@ import { isTextEntry } from "@shared/questions/question-type";
 import { AnswerRulesBlock } from "./answer-rules/answer-rules-block";
 import {
   createDraft as createAnswerRulesDraft,
+  isDirty as answerRulesDirty,
   toCorrectJson as answerRulesToCorrectJson,
   type AnswerRulesDraft,
 } from "./answer-rules/answer-rules-model";
@@ -50,6 +51,7 @@ import {
   Slider,
   Stack,
   Switch,
+  Tag,
   Text,
   Textarea,
 } from "@skillum/ui-kit";
@@ -571,6 +573,22 @@ export function QuestionEditorDrawer({
         title={question ? t.questions.editQuestion : t.questions.createQuestion}
         footer={
           <Cluster justify="end" gap={2} wrap={false}>
+            {/* PRD-57 FR-28d: обещание «переключение вида не теряет работу» автору нечем
+                проверить, пока ящик молчит. Группа показывает, что набранное цело и
+                отличается от сохранённого, и даёт вернуть его одним действием. */}
+            {isTextEntry(selectedType) && answerRulesDirty(answerRules) ? (
+              <div className="tb-dirty" data-testid="answer-rules-dirty">
+                <Tag tone="warning" size="s">Изменения не сохранены</Tag>
+                <Button
+                  variant="ghost"
+                  size="s"
+                  onClick={() => setAnswerRules(createAnswerRulesDraft(answerRules.initial))}
+                  data-testid="answer-rules-revert"
+                >
+                  Вернуть изменения
+                </Button>
+              </div>
+            ) : null}
             <Button variant="secondary" onClick={onClose}>{t.common.cancel}</Button>
             <Button
               onClick={form.handleSubmit(onSubmit)}

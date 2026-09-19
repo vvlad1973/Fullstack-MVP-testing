@@ -131,3 +131,26 @@ describe("<QuestionEditorDrawer /> — короткий ответ (PRD-57)", ()
   });
 
 });
+
+describe("<QuestionEditorDrawer /> — состояние черновика правил (FR-28d)", () => {
+  it("нетронутые правила состояния не показывают", () => {
+    renderDrawer({ question: shortQuestion });
+    expect(screen.queryByTestId("answer-rules-dirty")).toBeNull();
+  });
+
+  it("после правки подвал говорит, что изменения не сохранены", () => {
+    renderDrawer({ question: shortQuestion });
+    fireEvent.click(screen.getByText("Все правила"));
+    const dirty = screen.getByTestId("answer-rules-dirty");
+    expect(dirty.textContent).toContain("Изменения не сохранены");
+  });
+
+  it("«Вернуть изменения» возвращает набор, каким он был при открытии", () => {
+    renderDrawer({ question: shortQuestion });
+    fireEvent.click(screen.getByText("Число"));
+    fireEvent.click(screen.getByTestId("answer-rules-revert"));
+    expect(screen.queryByTestId("answer-rules-dirty")).toBeNull();
+    // Вернулся текстовый набор с исходным правилом.
+    expect(screen.getByText("Ростехнадзор")).toBeTruthy();
+  });
+});

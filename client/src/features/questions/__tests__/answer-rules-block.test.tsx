@@ -203,3 +203,96 @@ describe("AnswerRulesBlock — числовое правило (PRD-57 §6.6)", 
     cleanup();
   });
 });
+
+// ─── Проба ответа (PRD-57 §6.3) ─────────────────────────────────────────────
+
+describe("AnswerRulesBlock — проба ответа", () => {
+  const probe = () => screen.getByTestId("answer-rules-probe") as HTMLInputElement;
+
+  it("пустая проба не даёт ни вердикта, ни отметок", () => {
+    render(<Harness initial={TEXT_SET} />);
+    expect(screen.queryByTestId("answer-rules-verdict")).toBeNull();
+    expect(screen.queryByText("не выполнено")).toBeNull();
+    expect(screen.queryByText("выполнено")).toBeNull();
+    cleanup();
+  });
+
+  it("подходящий ответ даёт «Зачтено» и одну отметку «выполнено»", () => {
+    render(<Harness initial={TEXT_SET} />);
+    fireEvent.change(probe(), { target: { value: "ростехнадзор" } });
+    expect(screen.getByTestId("answer-rules-verdict").textContent).toBe("Зачтено");
+    expect(screen.getAllByText("выполнено").length).toBe(1);
+    expect(screen.getAllByText("не выполнено").length).toBe(1);
+    cleanup();
+  });
+
+  it("неподходящий ответ даёт «Не зачтено» и отметки на всех строках", () => {
+    render(<Harness initial={TEXT_SET} />);
+    fireEvent.change(probe(), { target: { value: "Роспотребнадзор" } });
+    expect(screen.getByTestId("answer-rules-verdict").textContent).toBe("Не зачтено");
+    expect(screen.getAllByText("не выполнено").length).toBe(TEXT_SET.rules.length);
+    cleanup();
+  });
+
+  it("очистка поля убирает и вердикт, и отметки", () => {
+    render(<Harness initial={TEXT_SET} />);
+    fireEvent.change(probe(), { target: { value: "РТН" } });
+    expect(screen.getByTestId("answer-rules-verdict")).toBeTruthy();
+    fireEvent.change(probe(), { target: { value: "" } });
+    expect(screen.queryByTestId("answer-rules-verdict")).toBeNull();
+    expect(screen.queryByText("выполнено")).toBeNull();
+    cleanup();
+  });
+
+  it("под полем стоит объяснение вердикта", () => {
+    render(<Harness initial={TEXT_SET} />);
+    fireEvent.change(probe(), { target: { value: "ртн" } });
+    expect(screen.getByText(/Выполнено правило «РТН»/)).toBeTruthy();
+    expect(screen.getByText(/Проба не сохраняется и на статистику не влияет/)).toBeTruthy();
+    cleanup();
+  });
+
+  it("проба ничего не сохраняет (FR-28h)", () => {
+    const saved: AnswerRuleSet[] = [];
+    render(<Harness initial={TEXT_SET} onSave={(s) => saved.push(s)} />);
+    fireEvent.change(probe(), { target: { value: "РТН" } });
+    // Проба живёт мимо черновика: запись в задание она вызвать не может, а если бы
+    // и вызвала — в сохраняемом наборе её текста нет.
+    expect(JSON.stringify(saved)).not.toContain("РТН\"");
+    expect(saved.every((set) => !("probe" in set))).toBe(true);
+    cleanup();
+  });
+
+  it("числовая проба разбирает дробь", () => {
+    render(<Harness initial={NUMBER_SET} />);
+    fireEvent.change(probe(), { target: { value: "-24 1/2" } });
+    expect(screen.getByTestId("answer-rules-verdict").textContent).toBe("Зачтено");
+    cleanup();
+  });
+});
+
+// ─── Связка между строками (эскиз k-list) ───────────────────────────────────
+
+describe("AnswerRulesBlock — связка", () => {
+  it("стоит отдельной строкой между правилами", () => {
+    render(<Harness initial={TEXT_SET} />);
+    const joins = screen.getAllByTestId("answer-rules-join");
+    expect(joins.length).toBe(TEXT_SET.rules.length - 1);
+    expect(joins[0].textContent).toBe("или");
+    cleanup();
+  });
+
+  it("при связке «все» читается «и»", () => {
+    render(<Harness initial={{ ...TEXT_SET, join: "all" }} />);
+    expect(screen.getAllByTestId("answer-rules-join")[0].textContent).toBe("и");
+    cleanup();
+  });
+
+  it("у набора из одного правила связки нет", () => {
+    render(<Harness initial={{ ...TEXT_SET, rules: [TEXT_SET.rules[0]] }} />);
+    expect(screen.queryByTestId("answer-rules-join")).toBeNull();
+    // Подпись под списком тоже не нужна: связка видна между строками.
+    expect(screen.queryByText("Выполнены должны быть все правила")).toBeNull();
+    cleanup();
+  });
+});

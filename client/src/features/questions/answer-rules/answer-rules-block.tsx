@@ -16,11 +16,19 @@
  */
 import { Accordion, AccordionItem, Button, Input, SegmentedControl, Select, Switch, Tag } from "@skillum/ui-kit";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
-import { parseNumericAnswer, type AnswerRuleSet, type NumericOp, type NumericRule, type TextRule } from "@shared/answer-check";
+import {
+  checkRuleSet,
+  parseNumericAnswer,
+  type AnswerRuleSet,
+  type NumericOp,
+  type NumericRule,
+  type TextRule,
+} from "@shared/answer-check";
 import {
   describeNumericRule,
+  describeProbe,
   formatRuleNumber,
   hasTolerance,
   numericRuleTitle,
@@ -67,6 +75,12 @@ function ruleSubtitle(rule: TextRule | NumericRule): string {
 export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: AnswerRulesBlockProps) {
   const rules = (draft.answerKind === "number" ? draft.number : draft.text) as Array<TextRule | NumericRule>;
   const saved: AnswerRuleSet = toCorrectJson(draft);
+  // PRD-57 FR-28h: проба живёт ЗДЕСЬ, а не в черновике. `toCorrectJson` её не видит,
+  // поэтому попасть в задание она не может ни при какой правке.
+  const [probe, setProbe] = useState("");
+  // Вердикт считает тот же движок, что и попытка: вторая «как бы проверка» для автора
+  // обещала бы одно, а прохождение делало бы другое.
+  const outcome = probe.trim() === "" || saved.rules.length === 0 ? null : checkRuleSet(saved, probe);
 
   return (
     <div className="tb-rules" data-testid="answer-rules-block">
@@ -160,11 +174,26 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
             ) : (
               <Accordion variant="bordered" type="multiple">
                 {rules.map((rule, index) => (
+                  <Fragment key={index}>
+                    {index > 0 ? (
+                      // Связка стоит МЕЖДУ строками, чтобы набор читался сверху вниз
+                      // одной фразой; подписью под списком при пяти правилах она
+                      // оказывалась за пределами взгляда.
+                      <div className="tb-rules__join" data-testid="answer-rules-join">
+                        {draft.join === "all" ? "и" : "или"}
+                      </div>
+                    ) : null}
                   <AccordionItem
-                    key={index}
                     value={`rule-${index}`}
                     title={ruleTitle(rule, draft.unit)}
                     subtitle={ruleSubtitle(rule)}
+                    trailing={
+                      outcome ? (
+                        <Tag tone={outcome.perRule[index] ? "success" : "neutral"} size="s">
+                          {outcome.perRule[index] ? "выполнено" : "не выполнено"}
+                        </Tag>
+                      ) : undefined
+                    }
                   >
                     {rule.kind === "text" ? (
                       <TextRuleFields
@@ -189,6 +218,7 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
                       Удалить правило
                     </Button>
                   </AccordionItem>
+                  </Fragment>
                 ))}
               </Accordion>
             )}
@@ -203,10 +233,28 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
             </Button>
           </div>
 
-          {saved.rules.length > 1 ? (
-            <Tag tone="neutral" size="s">
-              {draft.join === "all" ? "Выполнены должны быть все правила" : "Достаточно одного правила"}
-            </Tag>
+          {saved.rules.length > 0 ? (
+            <div className="ou-formfield">
+              <span className="ou-formfield__lbl">Проверить ответ</span>
+              <div className="tb-probe">
+                <Input
+                  size="m"
+                  value={probe}
+                  onChange={(e) => setProbe(e.target.value)}
+                  data-testid="answer-rules-probe"
+                />
+                {outcome ? (
+                  <Tag tone={outcome.passed ? "success" : "error"} data-testid="answer-rules-verdict">
+                    {outcome.passed ? "Зачтено" : "Не зачтено"}
+                  </Tag>
+                ) : null}
+              </div>
+              <span className="ou-formfield__desc">
+                {outcome
+                  ? describeProbe(saved, outcome)
+                  : "Наберите вариант ответа — рядом появится вердикт, а в списке будет видно, какие правила выполнены. Проба не сохраняется и на статистику не влияет."}
+              </span>
+            </div>
           ) : null}
         </>
       ) : null}
