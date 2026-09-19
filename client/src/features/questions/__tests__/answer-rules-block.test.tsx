@@ -131,3 +131,75 @@ describe("AnswerRulesBlock", () => {
     cleanup();
   });
 });
+
+const NUMBER_SET: AnswerRuleSet = {
+  answerKind: "number",
+  join: "any",
+  unit: "°C",
+  rules: [{ kind: "number", op: "eq", value: -25, tolerance: { unit: "abs", value: 2 } }],
+};
+
+/** Раскрыть список оператора первого правила и вернуть его пункты. */
+function openOperatorMenu(): HTMLElement[] {
+  const trigger = screen.getByTestId("answer-rules-operator-0").querySelector("button");
+  fireEvent.click(trigger as HTMLButtonElement);
+  return screen.getAllByRole("option");
+}
+
+describe("AnswerRulesBlock — числовое правило (PRD-57 §6.6)", () => {
+  it("свёрнутая строка называет оператор, значение, единицу и допуск", () => {
+    render(<Harness initial={NUMBER_SET} />);
+    expect(screen.getByText("равно -25 °C ±2")).toBeTruthy();
+    cleanup();
+  });
+
+  it("список сравнений открыт и содержит шесть операторов в порядке эскиза", () => {
+    render(<Harness initial={NUMBER_SET} />);
+    const labels = openOperatorMenu().map((option) => option.textContent);
+    expect(labels).toEqual([
+      "равно",
+      "не равно",
+      "больше",
+      "больше или равно",
+      "меньше",
+      "меньше или равно",
+    ]);
+    cleanup();
+  });
+
+  it("у границы поля допуска нет — там он ничего не значит", () => {
+    const saved: AnswerRuleSet[] = [];
+    render(<Harness initial={NUMBER_SET} onSave={(s) => saved.push(s)} />);
+    expect(screen.getByTestId("answer-rules-tolerance-value")).toBeTruthy();
+    fireEvent.click(openOperatorMenu()[3]);
+    expect((saved.at(-1)?.rules[0] as { op: string }).op).toBe("gte");
+    expect(screen.queryByTestId("answer-rules-tolerance-value")).toBeNull();
+    cleanup();
+  });
+
+  it("значение принимает обыкновенную дробь", () => {
+    const saved: AnswerRuleSet[] = [];
+    render(<Harness initial={NUMBER_SET} onSave={(s) => saved.push(s)} />);
+    fireEvent.change(screen.getByTestId("answer-rules-number-value"), { target: { value: "1/3" } });
+    expect((saved.at(-1)?.rules[0] as { value: number }).value).toBeCloseTo(1 / 3, 12);
+    cleanup();
+  });
+
+  it("недобранное значение не обнуляет правило", () => {
+    // «1/» посреди набора — это ещё не число; правило обязано сохранить прежнее
+    // значение, а поле — то, что автор печатает.
+    const saved: AnswerRuleSet[] = [];
+    render(<Harness initial={NUMBER_SET} onSave={(s) => saved.push(s)} />);
+    const input = screen.getByTestId("answer-rules-number-value") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "1/" } });
+    expect(input.value).toBe("1/");
+    expect((saved.at(-1)?.rules[0] as { value: number } | undefined)?.value ?? -25).toBe(-25);
+    cleanup();
+  });
+
+  it("под условием стоит расшифровка словами (FR-28aa2)", () => {
+    render(<Harness initial={NUMBER_SET} />);
+    expect(screen.getByText("Засчитывается ответ от -27 до -23 °C")).toBeTruthy();
+    cleanup();
+  });
+});

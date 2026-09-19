@@ -16,8 +16,16 @@
  */
 import { Accordion, AccordionItem, Button, Input, SegmentedControl, Select, Switch, Tag } from "@skillum/ui-kit";
 import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 
-import type { AnswerRuleSet, NumericRule, TextRule } from "@shared/answer-check";
+import { parseNumericAnswer, type AnswerRuleSet, type NumericOp, type NumericRule, type TextRule } from "@shared/answer-check";
+import {
+  describeNumericRule,
+  formatRuleNumber,
+  hasTolerance,
+  numericRuleTitle,
+  NUMERIC_OPERATORS,
+} from "./describe-rule";
 import {
   addRule,
   createDraft,
@@ -45,19 +53,14 @@ export interface AnswerRulesBlockProps {
 }
 
 /** Summary line of a collapsed rule — «что правило проверяет» (FR-28b). */
-function ruleTitle(rule: TextRule | NumericRule): string {
-  if (rule.kind === "number") {
-    const tolerance = rule.tolerance
-      ? ` ±${rule.tolerance.value}${rule.tolerance.unit === "pct" ? " %" : ""}`
-      : "";
-    return `равно ${rule.value}${tolerance}`;
-  }
+function ruleTitle(rule: TextRule | NumericRule, unit: string): string {
+  if (rule.kind === "number") return numericRuleTitle(rule, unit);
   return rule.value.trim() === "" ? "Правило не заполнено" : rule.value;
 }
 
 /** Subtitle of a collapsed rule — HOW it compares. */
 function ruleSubtitle(rule: TextRule | NumericRule): string {
-  if (rule.kind === "number") return "Число с допуском";
+  if (rule.kind === "number") return "Сравнение числа";
   return rule.match === "regex" ? "Регулярное выражение" : "Обычное сравнение";
 }
 
@@ -160,7 +163,7 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
                   <AccordionItem
                     key={index}
                     value={`rule-${index}`}
-                    title={ruleTitle(rule)}
+                    title={ruleTitle(rule, draft.unit)}
                     subtitle={ruleSubtitle(rule)}
                   >
                     {rule.kind === "text" ? (
@@ -171,6 +174,8 @@ export function AnswerRulesBlock({ draft, onChange, maxLength, onMaxLength }: An
                     ) : (
                       <NumberRuleFields
                         rule={rule}
+                        index={index}
+                        unit={draft.unit}
                         onPatch={(patch) => onChange(updateRule(draft, index, patch))}
                       />
                     )}
@@ -249,59 +254,97 @@ function TextRuleFields({ rule, onPatch }: { rule: TextRule; onPatch: (patch: Pa
   );
 }
 
-/** Fields of ONE numeric rule (wireframe: «Условие» + «Допуск»). */
-function NumberRuleFields({ rule, onPatch }: { rule: NumericRule; onPatch: (patch: Partial<NumericRule>) => void }) {
+/** Fields of ONE numeric rule (wireframe states `k-number` and `k-frac`). */
+function NumberRuleFields({
+  rule,
+  index,
+  unit,
+  onPatch,
+}: {
+  rule: NumericRule;
+  index: number;
+  unit: string;
+  onPatch: (patch: Partial<NumericRule>) => void;
+}) {
   const tolerance = rule.tolerance ?? { unit: "abs" as const, value: 0 };
   return (
     <>
       <div className="ou-formfield">
         <span className="ou-formfield__lbl">Условие</span>
-        <div className="ou-formgroup ou-formgroup--two">
-          <Select
+        <div className="ou-formgroup ou-formgroup--two" data-testid={`answer-rules-operator-${index}`}>
+          <Select<NumericOp>
             size="m"
-            value="eq"
+            value={rule.op}
             aria-label="Как сравнивать"
-            // Прочие операторы — Э5. Один пункт показан, чтобы поле не выглядело
-            // сломанным, и подписан, чтобы автор не искал остальные.
-            options={[{ value: "eq", label: "равно" }]}
-            onChange={() => {}}
-            disabled
+            options={NUMERIC_OPERATORS}
+            onChange={(op) => onPatch({ op })}
           />
-          <Input
-            size="m"
-            value={String(rule.value)}
-            onChange={(e) => onPatch({ value: Number(e.target.value.replace(",", ".")) })}
-            data-testid="answer-rules-number-value"
+          <NumberValueInput
+            value={rule.value}
+            onValue={(value) => onPatch({ value })}
+            testId="answer-rules-number-value"
           />
         </div>
         <span className="ou-formfield__desc">
-          Можно вводить отрицательные значения и десятичные дроби: -25, 0,75.
+          Можно вводить отрицательные значения, десятичные и обыкновенные дроби: -25, 0,75, 1/3, 2 1/2.
         </span>
       </div>
-      <div className="ou-formfield">
-        <span className="ou-formfield__lbl">Допуск</span>
-        <div className="ou-formgroup ou-formgroup--two">
-          <Input
-            size="m"
-            value={String(tolerance.value)}
-            onChange={(e) =>
-              onPatch({ tolerance: { ...tolerance, value: Number(e.target.value.replace(",", ".")) } })
-            }
-            data-testid="answer-rules-tolerance-value"
-          />
-          <Select<"abs" | "pct">
-            size="m"
-            value={tolerance.unit}
-            aria-label="Мера допуска"
-            options={[
-              { value: "abs", label: "в единицах" },
-              { value: "pct", label: "в процентах" },
-            ]}
-            onChange={(unit) => onPatch({ tolerance: { ...tolerance, unit } })}
-          />
+      {hasTolerance(rule.op) ? (
+        <div className="ou-formfield">
+          <span className="ou-formfield__lbl">Допуск</span>
+          <div className="ou-formgroup ou-formgroup--two">
+            <NumberValueInput
+              value={tolerance.value}
+              onValue={(value) => onPatch({ tolerance: { ...tolerance, value } })}
+              testId="answer-rules-tolerance-value"
+            />
+            <Select<"abs" | "pct">
+              size="m"
+              value={tolerance.unit}
+              aria-label="Мера допуска"
+              options={[
+                { value: "abs", label: "в единицах" },
+                { value: "pct", label: "в процентах" },
+              ]}
+              onChange={(measure) => onPatch({ tolerance: { ...tolerance, unit: measure } })}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
+      <span className="ou-formfield__desc">{describeNumericRule(rule, unit)}</span>
     </>
+  );
+}
+
+/**
+ * A number field that lets the author FINISH typing.
+ *
+ * The typed text is state of its own, and the rule is patched only when that text reads
+ * as a number: `1/` on the way to `1/3` is not one, and writing it through as `NaN` (or,
+ * worse, as zero) would wipe a rule the author is in the middle of correcting.
+ */
+function NumberValueInput({
+  value,
+  onValue,
+  testId,
+}: {
+  value: number;
+  onValue: (value: number) => void;
+  testId: string;
+}) {
+  const [text, setText] = useState(() => formatRuleNumber(value));
+  return (
+    <Input
+      size="m"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        const parsed = parseNumericAnswer(raw);
+        if (parsed !== null) onValue(parsed);
+      }}
+      data-testid={testId}
+    />
   );
 }
 

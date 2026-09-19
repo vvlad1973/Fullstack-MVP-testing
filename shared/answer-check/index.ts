@@ -7,7 +7,7 @@
  */
 export { normalizeForCompare } from "./normalize";
 export { matchWildcard } from "./wildcard";
-export { parseNumericAnswer, matchNumber, type NumericRule } from "./number";
+export { parseNumericAnswer, matchNumber, type NumericOp, type NumericRule } from "./number";
 export {
   checkRuleSet,
   hasRules,
