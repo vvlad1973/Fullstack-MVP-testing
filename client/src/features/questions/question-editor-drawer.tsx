@@ -65,6 +65,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
 import { handleMarkdownPaste } from "./paste-markdown";
 import { insertMarkup, CODE_LANGUAGES, type MarkupKind } from "./insert-markup";
+import { QuestionPreviewModal } from "./question-preview-modal";
 import { ContentImpactDialog } from "@/features/content-protection/content-impact-dialog";
 import { useContentGuard } from "@/features/content-protection/use-content-guard";
 import type { Question, Topic } from "@shared/schema";
@@ -141,6 +142,8 @@ export function QuestionEditorDrawer({
   const [longRequired, setLongRequired] = useState<boolean>(false);
   /** Поле текста задания: вставка разметки идёт В ПОЗИЦИЮ КУРСОРА. */
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
+  /** FR-24g: предпросмотр — окно по кнопке подвала, а не постоянный блок в ящике. */
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   /**
    * Вставить разметку кнопкой панели — листинг, формулу или пропуск (FR-09a, FR-24b).
@@ -655,6 +658,18 @@ export function QuestionEditorDrawer({
                 </Button>
               </div>
             ) : null}
+            {/*
+              FR-24g: предпросмотр смотрят в момент проверки, а не всё время правки,
+              поэтому он окно по кнопке. Кнопка стоит слева от «Отмены» — тем же приёмом,
+              что у предпросмотра страницы: действие над содержимым, а не над формой.
+            */}
+            <Button
+              variant="ghost"
+              onClick={() => setPreviewOpen(true)}
+              data-testid="button-preview-question"
+            >
+              Предпросмотр
+            </Button>
             <Button variant="secondary" onClick={onClose}>{t.common.cancel}</Button>
             <Button
               onClick={form.handleSubmit(onSubmit)}
@@ -1135,6 +1150,23 @@ export function QuestionEditorDrawer({
           </Box>
         </Stack>
       </Drawer>
+
+      {/*
+        FR-24g: предпросмотр собирается из ТЕКУЩЕГО черновика, а не из сохранённого
+        вопроса — смотреть на вчерашнее состояние незачем. Содержимое и эталон берутся
+        тем же сборщиком, что и сохранение, поэтому окно показывает ровно то, что уедет.
+      */}
+      <QuestionPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        topicName={topics.find((topic) => topic.id === form.watch("topicId"))?.name}
+        question={{
+          ...(question ?? {}),
+          type: selectedType,
+          prompt: form.watch("prompt") ?? "",
+          ...buildQuestionData(),
+        }}
+      />
 
       {/* PRD-15 T-12: content-impact dialog for edits affecting other tests */}
       <ContentImpactDialog {...contentGuard.dialogProps} />

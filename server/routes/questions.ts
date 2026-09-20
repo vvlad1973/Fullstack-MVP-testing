@@ -14,9 +14,9 @@ import { requirePermission } from "../middleware/auth";
 import { rejectBase64MediaUrl, respondWorkbookReadError, workbookUploadSingle } from "../middleware/upload";
 import { syncEntityUsages, canonicalizeEntityMedia, clearCascadedUsages } from "../services/media/usage-index";
 import { normalizeTags } from "@shared/tags";
-import { normalizeAuthorText } from "@shared/text";
+import { normalizeAuthorText, renderInlineMarkdown } from "@shared/text";
 import { normalizeOptionalText, normalizeQuestionData } from "../services/question-text";
-import { formulasFor } from "../services/prompt-html";
+import { formulasFor, promptHtmlOf } from "../services/prompt-html";
 import { importQuestionRows } from "../services/questions-import";
 import { serializeQuestionRow, QUESTION_HEADERS, QUESTION_WIDTHS } from "../services/questions-export";
 import { assessQuestionsRemoval, assessQuestionChange } from "../services/draw-feasibility";
@@ -208,6 +208,36 @@ router.get("/", requirePermission("questions.read"), async (req: Request, res: R
   } catch (error) {
     logger.error("Get questions error: " + (error as Error).message);
     res.status(500).json({ error: "Failed to get questions" });
+  }
+});
+
+// ============================================
+// POST /api/questions/preview - Разметка задания для предпросмотра (PRD-57 FR-24g)
+// ============================================
+//
+// Предпросмотр обязан показать то, что увидит участник, а увидит он подсвеченный листинг и
+// формулу картинкой. И подсветка (`highlight.js`), и MathJax живут ТОЛЬКО на сервере,
+// поэтому разметку для окна считает он же — тем самым `promptHtmlOf`, которым разметка
+// уходит на выдаче. Второй путь означал бы, что однажды предпросмотр покажет не то.
+//
+// Задание приходит НЕСОХРАНЁННЫМ: предпросмотр нужен до сохранения, ради этого он и есть.
+// Маршрут ничего не пишет и ничего не читает — чистое преобразование текста.
+router.post("/preview", requirePermission("questions.read"), async (req: Request, res: Response) => {
+  try {
+    const { prompt, dataJson } = req.body ?? {};
+    if (prompt !== undefined && typeof prompt !== "string") {
+      return res.status(400).json({ error: "Текст задания должен быть строкой" });
+    }
+    const text = typeof prompt === "string" ? prompt : "";
+    // Формулы считаются на месте: у несохранённого задания запаса картинок ещё нет, а
+    // показать формулу автору важнее, чем сэкономить на рендере одного окна.
+    const rendered = promptHtmlOf({ prompt: text, dataJson });
+    // Разметки нет — текст печатается тем же инлайновым рендером, каким его печатает
+    // хост, когда сервер не считал разметку заранее (см. `template-question-screen`).
+    res.json({ promptHtml: rendered.promptHtml ?? (text === "" ? "" : renderInlineMarkdown(text)) });
+  } catch (error) {
+    logger.error("Question preview error: " + (error as Error).message);
+    res.status(500).json({ error: "Не удалось собрать предпросмотр" });
   }
 });
 
