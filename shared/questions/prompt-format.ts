@@ -17,6 +17,8 @@
  *
  * Pure and framework-free — safe to bundle into the SCORM runtime.
  */
+import { htmlToMarkdown } from "../text/html-to-markdown";
+import { renderPlainText, stripMarkdown } from "../text/plain";
 
 /** Режимы ввода текста задания, в порядке переключателя. */
 export const PROMPT_FORMATS = ["markdown", "richText", "html"] as const;
@@ -53,4 +55,42 @@ export function promptFormatOf(question: FormattedPrompt | null | undefined): Pr
  */
 export function isMarkupFormat(format: PromptFormat): boolean {
   return format === "richText" || format === "html";
+}
+
+/**
+ * Текст задания СЛОВАМИ — для машин (PRD-57 §4.3).
+ *
+ * Плоскую проекцию читают выгрузка, подбор кегля и аналитика. У разметки она была и раньше;
+ * у текста, написанного разметкой, сначала снимаются теги — иначе читатель увидит `<p>Что
+ * выведет`, а подбор кегля посчитает длину вместе с тегами и выберет не тот размер.
+ *
+ * Разметка сводится к подмножеству markdown тем же переводчиком, каким пользуются импорт
+ * книги и вставка из буфера (`htmlToMarkdown`): второй перевод HTML в текст разошёлся бы с
+ * первым, и один и тот же вопрос читался бы по-разному в выгрузке и в предпросмотре.
+ *
+ * @param question Задание с текстом и форматом.
+ * @returns Текст без разметки.
+ */
+export function plainPromptOf(question: FormattedPrompt & { prompt?: unknown }): string {
+  const source = typeof question?.prompt === "string" ? question.prompt : "";
+  if (source === "") return "";
+  const text = isMarkupFormat(promptFormatOf(question)) ? htmlToMarkdown(source) : source;
+  return stripMarkdown(text);
+}
+
+/**
+ * Текст задания СЛОВАМИ — для читателя: обзор, PDF, комментарий рецензента.
+ *
+ * Отличается от {@link plainPromptOf} ровно тем же, чем `renderPlainText` отличается от
+ * `stripMarkdown`: здесь есть типографика, потому что текст показывают человеку рядом с
+ * остальными экранами продукта, а там — нет, потому что его сравнивают и считают.
+ *
+ * @param question Задание с текстом и форматом.
+ * @returns Текст без разметки, с кавычками и тире.
+ */
+export function readablePromptOf(question: FormattedPrompt & { prompt?: unknown }): string {
+  const source = typeof question?.prompt === "string" ? question.prompt : "";
+  if (source === "") return "";
+  const text = isMarkupFormat(promptFormatOf(question)) ? htmlToMarkdown(source) : source;
+  return renderPlainText(text);
 }

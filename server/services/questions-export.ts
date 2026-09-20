@@ -20,7 +20,7 @@ import {
   hasBlanks,
   isOpenText,
 } from "@shared/questions/question-type";
-import { printRulesCell, printAnswerKind, printJoin } from "./workbook-answer-rules";
+import { printRulesCell, printAnswerKind, printJoin, printPromptFormat } from "./workbook-answer-rules";
 
 /** Маппинг типов: внутренний -> Excel. */
 const typeToExcel: Record<string, string> = {
@@ -43,6 +43,9 @@ export const QUESTION_HEADERS = [
   "Тема",
   "Тип вопроса",
   "Текст вопроса",
+  // PRD-57 §4.3: в каком режиме автор набрал текст. Пусто = разметка, то есть так, как
+  // написаны все задания, заведённые до появления режимов.
+  "Формат текста",
   "Сложность",
   // PRD-30 FR-15: author's position of the question inside its topic.
   "Индекс в теме",
@@ -73,7 +76,7 @@ export const QUESTION_HEADERS = [
 // ответов» — колонки бюджета распределения (PRD-44), следующие шесть — колонки
 // текстового ответа (PRD-57).
 export const QUESTION_WIDTHS = [
-  36, 25, 18, 50, 12, 14, 60, 25, 20, 20, 20, 14, 14, 18, 14, 30, 16, 15, 40, 25, 12, 30, 30,
+  36, 25, 18, 50, 18, 12, 14, 60, 25, 20, 20, 20, 14, 14, 18, 14, 30, 16, 15, 40, 25, 12, 30, 30,
 ];
 
 // ─── canonical cell values of the enumerated «Вопросы» columns ───────────────
@@ -132,6 +135,7 @@ export function serializeQuestionRow(q: Question, topicName: string): Record<str
     "Тема": topicName,
     "Тип вопроса": typeToExcel[q.type] || q.type,
     "Текст вопроса": q.prompt,
+    "Формат текста": printPromptFormat(String((q as { promptFormat?: string }).promptFormat ?? "markdown")),
     "Сложность": q.difficulty ?? 50,
     // PRD-30 FR-01: an empty cell means «не задано». The fallback is the EMPTY
     // STRING, not a number: 0 is a real index, and a default like the one above

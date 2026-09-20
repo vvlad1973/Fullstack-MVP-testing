@@ -372,7 +372,7 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
         themeCss={tpl.themeCss}
         dataTheme={tpl.dataTheme}
         themed={tpl.themed}
-        context={{ course: { title: testTitle, subtitle: props.subtitle }, state: { questionCounterLabel: counterLabel, sectionName: props.sectionName, questionHint: questionHint(question.type, question), questionFont: questionFont(question.prompt), optionFont: optionFont(answerTexts(question)), questionsProgress: props.questionsProgress, nav: buildQuestionNav(props.nav) }, design: tpl.design }}
+        context={{ course: { title: testTitle, subtitle: props.subtitle }, state: { questionCounterLabel: counterLabel, sectionName: props.sectionName, questionHint: questionHint(question.type, question), questionFont: questionFont(question.prompt, (question as { promptFormat?: unknown }).promptFormat), optionFont: optionFont(answerTexts(question)), questionsProgress: props.questionsProgress, nav: buildQuestionNav(props.nav) }, design: tpl.design }}
         slots={slots}
         timers={props.timers}
         onShadowReady={attachHostInputs}

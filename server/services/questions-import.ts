@@ -19,9 +19,10 @@ import { syncEntityUsages } from "./media/usage-index";
 import { normalizeTags } from "@shared/tags";
 import { hasOptionList, hasFixedOptionOrder, isMeasurementOnly, distributesBudget } from "@shared/questions/question-type";
 import { isAllocationFeasible } from "@shared/questions/allocation";
-import { normalizeIncomingText, normalizeQuestionData } from "./question-text";
+import { normalizeIncomingText, normalizeQuestionData, normalizePromptByFormat } from "./question-text";
 import { blankIds } from "@shared/questions/blanks";
-import { parseRulesCell } from "./workbook-answer-rules";
+import { parseRulesCell, parsePromptFormatCell } from "./workbook-answer-rules";
+import { isMarkupFormat } from "@shared/questions/prompt-format";
 import type { Question } from "@shared/schema";
 import type { Role } from "@shared/access";
 import {
@@ -220,7 +221,13 @@ export async function importQuestionRows(
       // системы или из ручной правки, а храниться должна так же, как из редактора.
       // Разметку в ячейке переводим в markdown: автор её не набирал, а хранить
       // теги как видимые символы — значит показать ученику «<b>».
-      const prompt = cellText(row["Текст вопроса"] || row["Вопрос"]);
+      // PRD-57 §4.3: текст читается ПО СВОЕМУ ФОРМАТУ. У разметки прежний проход; у
+      // размеченного текста перевод в markdown НЕ делается — он и должен остаться
+      // разметкой, — но санитайзер и типографика по узлам обязательны.
+      const promptFormat = parsePromptFormatCell(row["Формат текста"]);
+      const prompt = isMarkupFormat(promptFormat)
+        ? normalizePromptByFormat(String(row["Текст вопроса"] || row["Вопрос"] || ""), promptFormat).prompt
+        : cellText(row["Текст вопроса"] || row["Вопрос"]);
       if (!prompt) {
         result.errors.push(`Строка ${rowNum}: пустой вопрос`);
         continue;
@@ -617,6 +624,9 @@ export async function importQuestionRows(
             topicId: topic.id,
             type,
             prompt,
+            // PRD-57 §4.3: формат едет вместе с текстом. Без него задание, набранное
+            // разметкой, прочиталось бы как markdown, и участник увидел бы теги.
+            promptFormat,
             dataJson,
             correctJson,
             contentHash,
@@ -686,6 +696,7 @@ export async function importQuestionRows(
           topicId: topic.id,
           type,
           prompt,
+          promptFormat,
           dataJson,
           correctJson,
           difficulty,

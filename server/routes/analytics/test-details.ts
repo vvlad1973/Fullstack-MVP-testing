@@ -17,6 +17,7 @@ import { reviewFlags } from "../../services/analytics/question-review";
 import { summariseTopics } from "../../services/analytics/topic-stats";
 import { summariseObservations } from "../../services/analytics/test-summary";
 import { declaresPassThreshold, thresholdPercentOfTest } from "./helpers";
+import { plainPromptOf } from "@shared/questions/prompt-format";
 
 const router = Router();
 
@@ -211,7 +212,10 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
         volume,
         spread,
         questionId: stats.questionId,
-        questionPrompt: stripMarkdown(renderBlanksText(question.prompt, { mode: "dash" })),
+        questionPrompt: plainPromptOf({
+          ...question,
+          prompt: renderBlanksText(question.prompt, { mode: "dash" }),
+        }),
         questionType: question.type,
         topicId: question.topicId,
         topicName: topicMap.get(question.topicId) || "Unknown",

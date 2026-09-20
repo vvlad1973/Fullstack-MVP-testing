@@ -34,6 +34,7 @@ import { isMeasurementOnly } from "@shared/questions/question-type";
 import { outcomeFor } from "../../services/analytics/answer-outcome";
 import { loadScoringConfig } from "../../services/scoring-config";
 import { computeAnswerContributions, type Answer, type QuestionType } from "@shared/scales/engine";
+import { plainPromptOf } from "@shared/questions/prompt-format";
 
 /** Scale key -> label, for the per-answer contribution cell. */
 const scaleLabelsOf = (measures: MeasureCatalogue) =>
@@ -264,7 +265,7 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
           attempt.id,
           username,
           startDateStr,
-          stripMarkdown(question.prompt),
+          plainPromptOf(question),
           topicMap.get(question.topicId) || "Unknown",
           formatQuestionType(question.type),
           scoring.difficultyOf(question) || 50,
@@ -321,7 +322,7 @@ router.get("/tests/:testId/export/excel", requirePermission("analytics.export"),
       const measurementOnly = isMeasurementOnly(question);
 
       questionStatsData.push([
-        stripMarkdown(question.prompt),
+        plainPromptOf(question),
         topicMap.get(question.topicId) || "Unknown",
         formatQuestionType(question.type),
         scoring.difficultyOf(question) || 50,
@@ -736,7 +737,7 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
             attempt.id,
             username,
             startStr,
-            stripMarkdown(q.prompt),
+            plainPromptOf(q),
             topicMap.get(q.topicId) || "Unknown",
             formatQuestionType(q.type),
             (scoring ? scoring.difficultyOf(q) : q.difficulty) || 50,
@@ -836,7 +837,7 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
 
         rows.push([
           testTitleMap.get(s.testId) || s.testId,
-          stripMarkdown(q.prompt),
+          plainPromptOf(q),
           topicMap.get(q.topicId) || "Unknown",
           formatQuestionType(q.type),
           (scoring ? scoring.difficultyOf(q) : q.difficulty) || 50,
@@ -1142,7 +1143,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
             attempt.lmsUserName || "—",
             attempt.lmsUserEmail || "—",
             startStr,
-            stripMarkdown(ans.questionPrompt || q?.prompt || "—"),
+            plainPromptOf({ prompt: ans.questionPrompt || q?.prompt || "—", promptFormat: q?.promptFormat }),
             ans.topicName || topicMap.get(ans.topicId || "") || "—",
             formatQuestionType(ans.questionType || q?.type || "unknown"),
             ans.difficulty || q?.difficulty || 50,
@@ -1173,7 +1174,7 @@ router.post("/export/excel-lms", requirePermission("analytics.export"), async (r
           const testId = pkg.testId || "";
           const key = `${testId}:${ans.questionId}`;
           const s = stat.get(key) || {
-            prompt: stripMarkdown(ans.questionPrompt || q?.prompt || "—"),
+            prompt: plainPromptOf({ prompt: ans.questionPrompt || q?.prompt || "—", promptFormat: q?.promptFormat }),
             testId,
             total: 0,
             correct: 0,

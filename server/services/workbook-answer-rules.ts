@@ -26,6 +26,7 @@
  */
 
 import { parseNumericAnswer, type AnswerRule, type NumericOp } from "@shared/answer-check";
+import type { PromptFormat } from "@shared/questions/prompt-format";
 
 /** Enumerated cell values of the columns that describe a typed answer. */
 const ANSWER_KIND_CELL: Record<string, "text" | "number"> = {
@@ -378,4 +379,46 @@ export function printJoin(type: string, correct: unknown): string {
   if (type !== "short") return "";
   const join = (correct as { join?: string } | null)?.join;
   return join === "all" ? "все" : join === "any" ? "любое" : "";
+}
+
+/**
+ * Написания формата текста задания в книге (PRD-57 §4.3).
+ *
+ * Русские слова, а не `markdown`/`richText`: колонку читает и заполняет автор, и «разметка»
+ * он поймёт без словаря. Английские тоже принимаются — книгу дописывают и выгрузкой из
+ * чужой системы.
+ */
+const PROMPT_FORMAT_CELL: Record<string, PromptFormat> = {
+  "разметка": "markdown",
+  "markdown": "markdown",
+  "форматированный": "richText",
+  "richtext": "richText",
+  "html": "html",
+};
+
+/** Канонические написания колонки «Формат текста» для выпадающего списка шаблона. */
+export const PROMPT_FORMAT_CHOICES = ["разметка", "форматированный", "html"];
+
+/**
+ * Прочитать ячейку «Формат текста».
+ *
+ * @param raw значение ячейки
+ * @returns формат; пустая и незнакомая ячейка — разметка, потому что так написаны все
+ *   задания, заведённые до появления режимов, и книга не вправе менять им формат молча
+ */
+export function parsePromptFormatCell(raw: unknown): PromptFormat {
+  return PROMPT_FORMAT_CELL[String(raw ?? "").trim().toLowerCase()] ?? "markdown";
+}
+
+/**
+ * Напечатать формат в ячейку.
+ *
+ * @param format формат задания
+ * @returns каноническое написание; у разметки — ПУСТО: пустая ячейка и значит «как было»,
+ *   и книга существующего банка от появления колонки не меняется ни в одной строке
+ */
+export function printPromptFormat(format: string): string {
+  if (format === "html") return "html";
+  if (format === "richText") return "форматированный";
+  return "";
 }

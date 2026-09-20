@@ -20,6 +20,7 @@ import {
   type MeasureCatalogue,
 } from "./helpers";
 import { isMeasurementOnly } from "@shared/questions/question-type";
+import { plainPromptOf } from "@shared/questions/prompt-format";
 
 /**
  * The measurements of ONE run, as they were STORED at finish.
@@ -196,7 +197,10 @@ router.get("/attempts/:attemptId", requirePermission("analytics.read"), async (r
 
       detailedAnswers.push({
         questionId: qId,
-        questionPrompt: stripMarkdown(renderBlanksText(question.prompt, { mode: "dash" })),
+        questionPrompt: plainPromptOf({
+          ...question,
+          prompt: renderBlanksText(question.prompt, { mode: "dash" }),
+        }),
         questionType: question.type,
         topicId: question.topicId,
         topicName: topicMap.get(question.topicId) || "Unknown",
