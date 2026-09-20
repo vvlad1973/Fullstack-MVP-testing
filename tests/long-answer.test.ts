@@ -117,3 +117,23 @@ describe("исход и результат попытки (FR-35 — FR-37)", ()
     expect(out.gradingComplete).toBe(true);
   });
 });
+
+describe("второй контракт результата (грабля Э3, Э9)", () => {
+  it("схема хранения принимает четвёртое состояние и признак завершённости", async () => {
+    const { attemptResultSchema } = await import("../shared/schema");
+    const parsed = attemptResultSchema.parse({
+      totalCorrect: 1,
+      totalQuestions: 2,
+      overallPercent: 100,
+      totalEarnedPoints: 1,
+      totalPossiblePoints: 1,
+      overallPassed: true,
+      topicResults: [],
+      questionOutcomes: [{ questionId: "q1", result: "pending", earned: 0, possible: 0 }],
+      gradingComplete: false,
+    });
+    // Поле, не объявленное в СХЕМЕ хранения, срезается молча — как это уже случалось.
+    expect(parsed.gradingComplete).toBe(false);
+    expect(parsed.questionOutcomes?.[0].result).toBe("pending");
+  });
+});
