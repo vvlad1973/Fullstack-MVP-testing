@@ -30,7 +30,7 @@ import {
 } from "./answer-rules/answer-rules-model";
 import type { AnswerRuleSet } from "@shared/answer-check";
 import { useMutation } from "@tanstack/react-query";
-import { Braces, Plus, Trash2, GripVertical } from "lucide-react";
+import { Braces, Code, Plus, Sigma, Trash2, GripVertical } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,6 +46,9 @@ import {
   IconButton,
   Input,
   Label,
+  Menu,
+  MenuItem,
+  MenuTrigger,
   NumberInput,
   Radio,
   SegmentedControl,
@@ -61,6 +64,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
 import { handleMarkdownPaste } from "./paste-markdown";
+import { insertMarkup, CODE_LANGUAGES, type MarkupKind } from "./insert-markup";
 import { ContentImpactDialog } from "@/features/content-protection/content-impact-dialog";
 import { useContentGuard } from "@/features/content-protection/use-content-guard";
 import type { Question, Topic } from "@shared/schema";
@@ -135,26 +139,27 @@ export function QuestionEditorDrawer({
   const [longPlaceholder, setLongPlaceholder] = useState<string>("");
   const [longMaxLength, setLongMaxLength] = useState<number | undefined>(undefined);
   const [longRequired, setLongRequired] = useState<boolean>(false);
-  /** Поле текста задания: вставка пропуска идёт В ПОЗИЦИЮ КУРСОРА. */
+  /** Поле текста задания: вставка разметки идёт В ПОЗИЦИЮ КУРСОРА. */
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
 
   /**
-   * Поставить пустой пропуск и оставить курсор ВНУТРИ скобок (FR-24b).
+   * Вставить разметку кнопкой панели — листинг, формулу или пропуск (FR-09a, FR-24b).
    *
-   * Курсор ставится следующим тиком: React вернёт значение из формы, и позиция,
-   * выставленная до перерисовки, потерялась бы.
+   * Что именно вставляется и где остаётся курсор, решает {@link insertMarkup}: здесь
+   * только чтение положения курсора и запись результата в форму. Курсор ставится
+   * СЛЕДУЮЩИМ тиком: React вернёт значение из формы, и позиция, выставленная до
+   * перерисовки, потерялась бы.
    */
-  const insertBlank = () => {
+  const insertAt = (kind: MarkupKind, language?: string) => {
     const field = promptRef.current;
     const value = form.getValues("prompt") ?? "";
     const from = field?.selectionStart ?? value.length;
     const to = field?.selectionEnd ?? from;
-    const next = `${value.slice(0, from)}{{}}${value.slice(to)}`;
-    form.setValue("prompt", next, { shouldDirty: true });
-    const caret = from + 2;
+    const result = insertMarkup({ kind, language, value, from, to });
+    form.setValue("prompt", result.value, { shouldDirty: true });
     window.setTimeout(() => {
       field?.focus();
-      field?.setSelectionRange(caret, caret);
+      field?.setSelectionRange(result.caret, result.caret);
     }, 0);
   };
 
@@ -704,26 +709,72 @@ export function QuestionEditorDrawer({
             )}
           />
 
-          {selectedType === "blanks" && (
-            // FR-24b: кнопка вставки — обязательная часть редактора, а не удобство. Без
-            // неё автор обязан помнить синтаксис, а это ровно тот барьер, из-за которого
-            // механикой не пользуются. Имя за автора НЕ придумывается: придуманное по
-            // соседнему слову всё равно приходится читать и чаще всего менять.
-            <Cluster gap={2} wrap>
+          {/*
+            FR-09a: панель вставки — обязательная часть редактора, а не удобство. Без неё
+            автор обязан помнить три обратные кавычки с языком и два доллара, а это ровно
+            тот барьер, из-за которого механикой не пользуются. Состав и порядок кнопок —
+            согласованный эскиз `prd57-question-text.html`.
+          */}
+          <Cluster gap={2} wrap data-testid="prompt-insert-bar">
+            <MenuTrigger
+              placement="bottom-start"
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  leadingIcon={<Code width={16} height={16} aria-hidden="true" />}
+                  data-testid="insert-code"
+                >
+                  Листинг
+                </Button>
+              }
+            >
+              {/* Язык спрашивается ПРИ вставке: он часть открывающей строки, и дописывать
+                  его потом руками — тот же барьер, ради снятия которого кнопка заведена. */}
+              <Menu size="sm">
+                {CODE_LANGUAGES.map((language) => (
+                  <MenuItem
+                    key={language.value || "plain"}
+                    onClick={() => insertAt("code", language.value)}
+                    data-testid={`insert-code-${language.value || "plain"}`}
+                  >
+                    {language.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </MenuTrigger>
+            <Button
+              variant="ghost"
+              size="xs"
+              leadingIcon={<Sigma width={16} height={16} aria-hidden="true" />}
+              onClick={() => insertAt("formula")}
+              data-testid="insert-formula"
+            >
+              Формула
+            </Button>
+            {/*
+              Пропуск предлагается ТОЛЬКО своему типу: в остальных двойные скобки полем не
+              станут, и кнопка обещала бы механику, которой там нет. Имя за автора НЕ
+              придумывается: придуманное по соседнему слову всё равно приходится читать и
+              чаще всего менять (FR-24b).
+            */}
+            {selectedType === "blanks" && (
               <Button
                 variant="ghost"
                 size="xs"
                 leadingIcon={<Braces width={16} height={16} aria-hidden="true" />}
-                onClick={() => insertBlank()}
+                onClick={() => insertAt("blank")}
                 data-testid="insert-blank"
               >
                 Пропуск
               </Button>
-              <Text variant="body-s" tone="muted">
-                Ставит {"{{}}"} и оставляет курсор внутри — введите имя пропуска.
-              </Text>
-            </Cluster>
-          )}
+            )}
+            <Text variant="body-s" tone="muted">
+              {selectedType === "blanks"
+                ? "Ставится в позицию курсора; у пропуска курсор остаётся внутри скобок — введите имя пропуска."
+                : "Ставится в позицию курсора; выделенный текст оборачивается."}
+            </Text>
+          </Cluster>
 
           <Textarea
             label={t.questions.questionText}
