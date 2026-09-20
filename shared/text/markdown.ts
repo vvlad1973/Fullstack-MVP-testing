@@ -58,6 +58,13 @@ const INLINE_CODE = /`([^`\n]+)`/g;
  */
 const CODE_BLOCK = /```([A-Za-zА-Яа-я0-9_+-]*)\n([\s\S]*?)```/g;
 
+/**
+ * Формула: `$$…$$` (PRD-57 FR-07a). Написание отраслевое — так формулу отгораживают
+ * Jupyter, Obsidian и GitHub. Одиночный `$` ограждением НЕ является: он встречается в
+ * обычных текстах («цена $100») и срабатывал бы там, где его не звали.
+ */
+const FORMULA = /\$\$([^$]+)\$\$/g;
+
 /** Имя языка — только то, что мы умеем подсвечивать; прочее остаётся блоком без языка. */
 const KNOWN_LANGS = ["python", "sql", "javascript", "js", "ts", "typescript", "json", "bash"];
 
@@ -121,7 +128,7 @@ export function renderInlineMarkdown(text: string): string {
   const links: string[] = [];
   // Код маскируется ПЕРВЫМ и тем же приёмом, что ссылки: типографика к моменту показа
   // уже подменила бы кавычки и дефисы, а в коде это меняет смысл (FR-02, PRD-33 §3.1).
-  const source = maskInlineCode(normaliseNewlines(text), links);
+  const source = maskFormulas(maskInlineCode(normaliseNewlines(text), links), links);
   LINK_TOKEN_RE.lastIndex = 0;
   const masked = source.replace(LINK_TOKEN_RE, (...args) => {
     const match = args.slice(0, -2) as unknown as RegExpExecArray;
@@ -131,6 +138,25 @@ export function renderInlineMarkdown(text: string): string {
 
   const body = renderLineBreaks(applyEmphasis(escapeHtml(applyTypography(masked))));
   return body.replace(new RegExp(`${MASK}(\\d+)${MASK}`, "g"), (_, i: string) => links[Number(i)]);
+}
+
+/**
+ * Спрятать формулу за маской и положить её ЗАГОТОВКУ в общий список подстановок.
+ *
+ * Здесь печатается только оболочка с исходной записью: сам SVG рисует СЕРВЕР (FR-07),
+ * а этот модуль общий с пакетом, куда движок рендера не едет ни при каких
+ * обстоятельствах. Пока подстановка не случилась, участник видит исходную запись — это
+ * же поведение требует FR-10 для неразобранной формулы.
+ */
+function maskFormulas(text: string, slots: string[]): string {
+  FORMULA.lastIndex = 0;
+  return text.replace(FORMULA, (_match, body: string) => {
+    const latex = body.trim();
+    slots.push(
+      `<span class="tb-formula" data-latex="${escapeHtml(latex)}">${escapeHtml(latex)}</span>`,
+    );
+    return `${MASK}${slots.length - 1}${MASK}`;
+  });
 }
 
 /**
