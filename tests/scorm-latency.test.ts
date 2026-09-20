@@ -28,7 +28,11 @@ function extractTopLevel(src: string, name: string): string {
   return m[0];
 }
 
-const SHARED = ["to1", "mapScormType", "formatResponse", "getCorrectAnswerFor", "interactionResultFor", "questionLatency", "buildQuestionInteraction"];
+// Функции, из которых собирается взаимодействие. Список приходится держать вручную: тест
+// выдёргивает их из файла рантайма, который в модуль не разложен. С Э3 PRD-57 сюда переехал
+// `correctPatternFor` (эталон `fill-in`), и пока его здесь не было, три теста этого набора
+// падали на `ReferenceError` — а набор никто не гонял.
+const SHARED = ["to1", "mapScormType", "formatResponse", "correctPatternFor", "getCorrectAnswerFor", "interactionResultFor", "questionLatency", "buildQuestionInteraction"];
 
 /** The interaction builder over the REAL question-time tracker and a clock we drive. */
 function makeBuilder() {
@@ -135,5 +139,53 @@ describe("засечки в цикле показа вопроса", () => {
 
   it("сборщик взаимодействия спрашивает накопитель ровно в одном месте", () => {
     expect((resultsSrc.match(/TBQuestionTime\.totalMsFor\(/g) || []).length).toBe(1);
+  });
+});
+
+/**
+ * PRD-57 FR-33: время на задании собирается у новых типов так же, как у прочих.
+ *
+ * Замер ведётся по ПОКАЗУ задания, а не по виду ответа, поэтому «должно работать само
+ * собой» — и именно поэтому проверяется: у открытого ответа время единственная объективная
+ * метрика вовлечённости, и молчаливая потеря замера не проявилась бы ничем.
+ */
+describe("время на задании у текстовых типов (PRD-57 FR-33)", () => {
+  const CASES: Array<{ type: string; answer: unknown; correct?: unknown }> = [
+    { type: "short", answer: "Ростехнадзор", correct: { answerKind: "text", join: "any", rules: [{ kind: "text", match: "wildcard", value: "Ростехнадзор" }] } },
+    { type: "long", answer: "Сначала обесточить.", correct: {} },
+    {
+      type: "blanks",
+      answer: { city: "Москва" },
+      correct: { blanks: [{ id: "city", answerKind: "text", join: "any", rules: [] }] },
+    },
+  ];
+
+  it.each(CASES)("$type: взаимодействие несёт замер", ({ type, answer, correct }) => {
+    const b = makeBuilder();
+    b.time.show("q-1");
+    b.clock.t += 62_000;
+    b.time.leave();
+    const interaction = b.build({ id: "q-1", type, prompt: "Вопрос", correct }, answer, true);
+    expect(interaction.latency).toBe("PT1M2S");
+  });
+
+  it("замер суммирует заходы: участник возвращается к открытому заданию дописать", () => {
+    const b = makeBuilder();
+    b.time.show("q-1");
+    b.clock.t += 30_000;
+    b.time.leave();
+    b.time.show("q-1");
+    b.clock.t += 45_000;
+    b.time.leave();
+    expect(b.build({ id: "q-1", type: "long", prompt: "Вопрос", correct: {} }, "текст", true).latency)
+      .toBe("PT1M15S");
+  });
+
+  it("событие телеметрии шлёт замер независимо от типа задания", () => {
+    // Ветки по типу в отправке события нет вовсе: `latencyMs` берётся у накопителя один раз
+    // на весь путь фиксации ответа — значит новые типы попадают в него вместе со старыми.
+    const feedbackSrc = readFileSync(resolve(process.cwd(), `${RUNTIME}/feedback/feedback.js`), "utf8");
+    expect(feedbackSrc).toContain("TBQuestionTime.totalMsFor(q.id)");
+    expect((feedbackSrc.match(/latencyMs:/g) || []).length).toBe(1);
   });
 });
