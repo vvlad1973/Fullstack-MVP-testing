@@ -469,6 +469,8 @@ export default function TakeTestPage() {
   const [afterZonePlayed, setAfterZonePlayed] = useState(false);
   /** Submit deferred while that zone plays; fired when the queue drains. */
   const [pendingSubmit, setPendingSubmit] = useState(false);
+  /** Очередь «После теста» доигрывается после отправки — дальше выход из прохождения. */
+  const [pendingExit, setPendingExit] = useState(false);
   /**
    * Pages owed to the learner on ARRIVAL at a question — the entered section's
    * «перед темой» zone. Held until `currentIndex` actually reaches that question,
@@ -511,10 +513,10 @@ export default function TakeTestPage() {
     // `pendingSubmit` is excluded: the queue is empty on purpose while the attempt
     // is being sent, and bouncing to the question phase would flash that screen
     // between the last content page and the results.
-    if (phase === "content" && !pendingSubmit && (!contentTpl || pageQueue.length === 0)) {
+    if (phase === "content" && !pendingSubmit && !pendingExit && (!contentTpl || pageQueue.length === 0)) {
       setPhase("question");
     }
-  }, [phase, contentTpl, pageQueue.length, pendingSubmit]);
+  }, [phase, contentTpl, pageQueue.length, pendingSubmit, pendingExit]);
   const [testMetadata, setTestMetadata] = useState<TestMetadata | null>(null);
   // PRD-12 web-host: start screen template assets (null -> legacy React markup).
   const [startTpl, setStartTpl] = useState<{
@@ -855,7 +857,7 @@ export default function TakeTestPage() {
             });
 
             if (!res.ok) throw new Error("Failed to submit");
-            navigate(resultsScreenHidden ? "/learner" : `/learner/result/${attempt.id}`);
+            finishRun();
           } catch (err) {
             toast({
               variant: "destructive",
@@ -1750,7 +1752,7 @@ export default function TakeTestPage() {
    * sequence the SCORM package walks. Used to find which author pages fall
    * between two questions.
    */
-  const pageSequence = useMemo(
+  const builtSequence = useMemo(
     () =>
       buildPageSequence({
         flowMode: flowStructure.flowMode,
@@ -1758,9 +1760,17 @@ export default function TakeTestPage() {
         sections,
         contentPages: flowStructure.contentPages,
         flatQuestions,
-      }).sequence,
+      }),
     [flowStructure, sections, flatQuestions],
   );
+  const pageSequence = builtSequence.sequence;
+  /**
+   * Страницы «После теста», стоящие ЗА границей «Итоги»: пакет играет их после экрана
+   * итогов, и веб обязан вести себя так же (PRD-12 FR-6). Пока экран итогов живёт
+   * отдельным маршрутом `/learner/result/:id`, веб успевает отыграть их только когда
+   * итоги СКРЫТЫ, — тогда порядок совпадает с пакетом ровно.
+   */
+  const postResultsPages = builtSequence.postResultsPages as RenderableContentPage[];
 
   // Deliver the entered section's «перед темой» zone once the learner has actually
   // arrived at its first question — i.e. after the previous section's обзор /
@@ -2157,6 +2167,30 @@ export default function TakeTestPage() {
     await submitAttempt(fresh);
   };
 
+  /**
+   * Куда ученик попадает, когда попытка отправлена. ОДНА точка на все пути завершения
+   * (обычная отправка, истёкшее время, добивка последнего раздела) — иначе конец
+   * прохождения расходится сам с собой.
+   *
+   * Порядок повторяет пакет (PRD-12 FR-6): экран итогов → страницы «После теста» →
+   * выход. Скрытый экран итогов выпадает из этой цепочки, а не уводит ученика сразу:
+   * авторские страницы за ним автор писал для того, чтобы их прочли.
+   */
+  const finishRun = () => {
+    if (!attempt) return;
+    if (!resultsScreenHidden) {
+      navigate(`/learner/result/${attempt.id}`);
+      return;
+    }
+    if (contentTpl && postResultsPages.length > 0) {
+      setPendingExit(true);
+      setPageQueue(postResultsPages);
+      setPhase("content");
+      return;
+    }
+    navigate("/learner");
+  };
+
   /** Sends the attempt and moves to the results page. `fresh` — see {@link handleSubmit}. */
   const submitAttempt = async (fresh?: GradedSnapshot) => {
     if (!attempt) return;
@@ -2177,7 +2211,7 @@ export default function TakeTestPage() {
 
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
-      navigate(resultsScreenHidden ? "/learner" : `/learner/result/${attempt.id}`);
+      finishRun();
     } catch (err) {
       toast({
         variant: "destructive",
@@ -2204,7 +2238,7 @@ export default function TakeTestPage() {
       });
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
-      navigate(resultsScreenHidden ? "/learner" : `/learner/result/${attempt.id}`);
+      finishRun();
     } catch (err) {
       toast({
         variant: "destructive",
@@ -2722,6 +2756,13 @@ export default function TakeTestPage() {
           const rest = pageQueue.slice(1);
           setPageQueue(rest);
           if (rest.length > 0) return;
+          // Страницы «После теста» доиграны — прохождение закончено (зеркало пакета:
+          // там за ними идёт «Завершить»).
+          if (pendingExit) {
+            setPendingExit(false);
+            navigate("/learner");
+            return;
+          }
           // The zone played before submitting — finish now, without flashing the
           // question screen on the way out.
           if (pendingSubmit) {
