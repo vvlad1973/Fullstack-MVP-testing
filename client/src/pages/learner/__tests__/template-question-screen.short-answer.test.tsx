@@ -91,6 +91,48 @@ describe("TemplateQuestionScreen — короткий ответ", () => {
     cleanup();
   });
 
+  it("набор не выбивает поле из-под курсора", () => {
+    // Приёмка 2026-09-20 (AC-04b). Экран управляемый: набранное уходит наверх и
+    // возвращается пропсом. Пока значение поля участвовало в разметке слотов, каждый
+    // символ пересобирал сцену — поле подменялось новым узлом, фокус пропадал, и
+    // участник набирал по одному символу на щелчок. Проверяется не разметка, а
+    // ЖИВУЧЕСТЬ узла: тот же элемент и тот же фокус после возврата ответа.
+    const { container, rerender } = render(
+      <TemplateQuestionScreen {...baseProps} answer="" onAnswer={() => {}} />,
+    );
+    const shadow = shadowOf(container);
+    const before = shadow.querySelector('[data-action="short-answer"]') as HTMLInputElement;
+    before.focus();
+
+    before.value = "Р";
+    before.dispatchEvent(new Event("input", { bubbles: true }));
+    rerender(<TemplateQuestionScreen {...baseProps} answer="Р" onAnswer={() => {}} />);
+
+    const after = shadow.querySelector('[data-action="short-answer"]') as HTMLInputElement;
+    expect(after).toBe(before);
+    expect(shadow.activeElement).toBe(after);
+    expect(after.value).toBe("Р");
+    cleanup();
+  });
+
+  it("смена вопроса поле всё-таки пересоздаёт: это другой ответ", () => {
+    const { container, rerender } = render(
+      <TemplateQuestionScreen {...baseProps} answer="РТН" onAnswer={() => {}} />,
+    );
+    const shadow = shadowOf(container);
+    const before = shadow.querySelector('[data-action="short-answer"]') as HTMLInputElement;
+
+    const other = { ...question, id: "q2", prompt: "Второй вопрос" } as unknown as Question;
+    rerender(
+      <TemplateQuestionScreen {...baseProps} question={other} answer="" onAnswer={() => {}} />,
+    );
+
+    const after = shadow.querySelector('[data-action="short-answer"]') as HTMLInputElement;
+    expect(after).not.toBe(before);
+    expect(after.getAttribute("value")).toBe("");
+    cleanup();
+  });
+
   it("не принимает ввод, пока ответ заперт", () => {
     const onAnswer = vi.fn();
     const { container } = render(<TemplateQuestionScreen {...baseProps} locked onAnswer={onAnswer} />);

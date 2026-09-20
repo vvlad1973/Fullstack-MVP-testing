@@ -289,6 +289,31 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.id]);
 
+  /**
+   * PRD-57 §6.5 / §5 / FR-24: ответ, которым рисуется ТЕКСТОВОЕ поле.
+   *
+   * Экран управляемый: набранное уходит наверх и возвращается пропсом. У вариантов
+   * выбора это безобидно, а у поля ввода — нет: значение стоит в разметке слота,
+   * поэтому каждое нажатие пересобирало сцену, поле подменялось новым узлом, и фокус
+   * пропадал. Приёмка 2026-09-20 показала итог: участник набирал по одному символу на
+   * щелчок. Значение поля дальше ведёт САМ БРАУЗЕР — сцена узнаёт о нём подпиской
+   * (`attachShortAnswer`), а в разметку оно попадает только при смене вопроса, в
+   * разборе и когда ответ заперт: там поле не набирают, а читают.
+   *
+   * Это та же причина, по которой пакет собирает экран вопроса ОДИН раз, а признак
+   * «ожидается число» ставится на месте, а не перерисовкой (см. `short-answer-dom`).
+   */
+  const typedField = isTextEntry(question.type) || isOpenText(question.type) || hasBlanks(question.type);
+  const readOnlyNow = props.reviewMode === true || props.locked === true;
+  const renderAnswerRef = useRef<{ questionId: string; answer: unknown }>({
+    questionId: question.id,
+    answer,
+  });
+  if (!typedField || readOnlyNow || renderAnswerRef.current.questionId !== question.id) {
+    renderAnswerRef.current = { questionId: question.id, answer };
+  }
+  const renderAnswer = renderAnswerRef.current.answer;
+
   const css = `${tpl.css}\n#q-progress-fill{width:${Math.round(progressPercent)}%}`;
   const slots = {
     // Inline, not block: the prompt renders into the scene's `<h2>` heading, and a
@@ -301,8 +326,8 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
       ? renderBlanksPrompt(promptHtml(question), {
         mode: props.reviewMode ? "answer" : "input",
         blanks: blanksOf(question),
-        answer: answer && typeof answer === "object" && !Array.isArray(answer)
-          ? (answer as Record<string, string>)
+        answer: renderAnswer && typeof renderAnswer === "object" && !Array.isArray(renderAnswer)
+          ? (renderAnswer as Record<string, string>)
           : undefined,
         readonly: props.reviewMode === true,
       })
@@ -310,7 +335,7 @@ export function TemplateQuestionScreen(props: TemplateQuestionScreenProps) {
     "question-media": renderQuestionMedia(question),
     "question-interaction": interactionHtml(
       question,
-      answer,
+      renderAnswer,
       shuffleMapping,
       poolOrder,
       props.reviewMode ? props.correctAnswer : undefined,

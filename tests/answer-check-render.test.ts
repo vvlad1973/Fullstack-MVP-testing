@@ -32,6 +32,23 @@ describe("renderShortAnswer", () => {
     expect(html).toContain("До 40 символов");
   });
 
+  it("берёт предел ИЗ ЗАДАНИЯ, даже когда хост о нём не сказал", () => {
+    // Приёмка 2026-09-20 (AC-04b): сервер кладёт действующий предел в `data_json`
+    // (`withEffectiveMaxLength`), но ни веб-хост, ни пакет не пересказывали его
+    // отрисовке — поле участника уезжало без `maxlength` и без подписи, и ответ
+    // набирался любой длины. Предел — свойство ЗАДАНИЯ, поэтому читается у него, а
+    // `options.maxLength` остаётся перекрытием для тех, кто знает лучше.
+    const html = renderShortAnswer({ type: "short", dataJson: { maxLength: 40 } }, null);
+    expect(html).toContain('maxlength="40"');
+    expect(html).toContain("До 40 символов");
+  });
+
+  it("предел от хоста перекрывает записанный в задании", () => {
+    const html = renderShortAnswer({ type: "short", dataJson: { maxLength: 250 } }, null, { maxLength: 40 });
+    expect(html).toContain('maxlength="40"');
+    expect(html).not.toContain("До 250 символов");
+  });
+
   it("без предела не печатает ни атрибута, ни подписи", () => {
     const html = renderShortAnswer({ type: "short", dataJson: {} }, null);
     expect(html).not.toContain("maxlength");

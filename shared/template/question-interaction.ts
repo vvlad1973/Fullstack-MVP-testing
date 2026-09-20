@@ -718,7 +718,18 @@ export function renderShortAnswer(
   const affix = options.unit ? `<span class="ou-field__affix">${attrText(options.unit)}</span>` : "";
   // Предел работает двумя способами сразу: атрибут не даёт набрать лишнего, подпись
   // называет границу ДО того, как участник в неё упрётся.
-  const limit = typeof options.maxLength === "number" && options.maxLength > 0 ? options.maxLength : null;
+  //
+  // Читается У ЗАДАНИЯ — тем же приёмом, что у развёрнутого ответа. Сервер кладёт
+  // действующий предел в `data_json` (`withEffectiveMaxLength`) для обоих хостов, и
+  // пока он брался только из `options`, ни веб, ни пакет его не пересказывали:
+  // приёмка 2026-09-20 набрала 64 символа в поле с пределом 40 (AC-04b). `options`
+  // остаются перекрытием — для вызывающего, который знает предел лучше задания.
+  const own = (question.dataJson ?? {}) as { maxLength?: unknown };
+  const limit = typeof options.maxLength === "number" && options.maxLength > 0
+    ? options.maxLength
+    : typeof own.maxLength === "number" && own.maxLength > 0
+      ? own.maxLength
+      : null;
   const limitAttr = limit === null ? "" : ` maxlength="${limit}"`;
   const limitMsg = limit === null ? "" : `<div class="ou-field__msg">До ${limit} символов</div>`;
   const formatHint = numeric ? `<div class="ou-field__msg">Введите число</div>` : "";
