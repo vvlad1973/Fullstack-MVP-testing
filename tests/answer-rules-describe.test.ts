@@ -6,7 +6,7 @@ import {
   describeProbe,
   formatRuleNumber,
   numericRuleTitle,
-} from "../client/src/features/questions/answer-rules/describe-rule";
+} from "../shared/answer-check/describe";
 
 describe("formatRuleNumber", () => {
   it("печатает по-русски: запятая, без хвостовых нулей", () => {

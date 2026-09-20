@@ -33,6 +33,7 @@ import {
   renderScale,
   renderAllocation,
   renderBlanksPrompt,
+  renderLongAnswer,
   renderShortAnswer,
   questionHint,
   answerTexts,
@@ -43,7 +44,7 @@ import { hasBlanks } from "@shared/questions/question-type";
 import { attachShortAnswer } from "@shared/template/short-answer-dom";
 import type { BlankRuleSet } from "@shared/questions/blanks-render";
 import { allocationSpec, seedAllocation } from "@shared/questions/allocation";
-import { distributesBudget, isTextEntry } from "@shared/questions/question-type";
+import { distributesBudget, isOpenText, isTextEntry } from "@shared/questions/question-type";
 import { questionFont, optionFont } from "@shared/template/fit-font";
 import { buildQuestionNav, QUESTION_NAV_ACTIONS, type QuestionNavState } from "@shared/template/question-nav";
 import type { SceneTimersState } from "@shared/template/scene-timers";
@@ -124,6 +125,10 @@ function interactionHtml(
   if (distributesBudget(question.type)) return renderAllocation(question, answer, review !== undefined, arr);
   // PRD-57 §6.5: у текстового ввода нет ни вариантов, ни разметки верности — эталон
   // участнику не показывается, а `review` означает «только чтение».
+  // PRD-57 §5: развёрнутый ответ — многострочное поле без эталона и без разметки верности.
+  if (isOpenText(question.type)) {
+    return renderLongAnswer(question, answer, { readonly: review !== undefined });
+  }
   if (isTextEntry(question.type)) {
     const rules = (question.correctJson ?? {}) as { answerKind?: string; unit?: string };
     return renderShortAnswer(question, answer, {

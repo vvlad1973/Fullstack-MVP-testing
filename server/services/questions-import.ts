@@ -20,6 +20,8 @@ import { normalizeTags } from "@shared/tags";
 import { hasOptionList, hasFixedOptionOrder, isMeasurementOnly, distributesBudget } from "@shared/questions/question-type";
 import { isAllocationFeasible } from "@shared/questions/allocation";
 import { normalizeIncomingText, normalizeQuestionData } from "./question-text";
+import { blankIds } from "@shared/questions/blanks";
+import { parseRulesCell } from "./workbook-answer-rules";
 import type { Question } from "@shared/schema";
 import type { Role } from "@shared/access";
 import {
@@ -44,9 +46,23 @@ const typeFromExcel: Record<string, string> = {
   // budget and the per-option domain come in three columns of their own.
   allocation: "allocation",
   распределение: "allocation",
+  // PRD-57 FR-31: текстовые типы. Каноническое написание пишет экспорт, короткое и
+  // русское принимает импорт — книгу дописывают руками.
+  short_answer: "short",
+  short: "short",
+  "короткий ответ": "short",
+  fill_in_blanks: "blanks",
+  blanks: "blanks",
+  "пропуски": "blanks",
+  long_answer: "long",
+  long: "long",
+  "развёрнутый ответ": "long",
+  "развернутый ответ": "long",
 };
 
-type QuestionType = "single" | "multiple" | "matching" | "ranking" | "scale" | "allocation";
+type QuestionType =
+  | "single" | "multiple" | "matching" | "ranking" | "scale" | "allocation"
+  | "short" | "blanks" | "long";
 
 /** SHA-256 от type + prompt + нормализованные варианты ответов. */
 export function computeQuestionHash(type: string, prompt: string, dataJson: unknown): string {
@@ -395,6 +411,48 @@ export async function importQuestionRows(
 
         dataJson = { left, right };
         correctJson = { pairs };
+      } else if (type === "short" || type === "blanks" || type === "long") {
+        // PRD-57 FR-31. У текстовых типов вариантов нет: содержимое задания — его текст,
+        // а эталон — набор правил сравнения, который живёт в той же колонке эталона.
+        const ids = type === "blanks" ? blankIds(prompt) : [];
+        if (type === "blanks" && ids.length === 0) {
+          result.errors.push(
+            `Строка ${rowNum}: в тексте задания с пропусками нет ни одного пропуска — ` +
+              `пропуск записывается двойными фигурными скобками, например {{city}}`,
+          );
+          continue;
+        }
+        const parsed = parseRulesCell(correctStr, {
+          type,
+          answerKind: String(row["Вид ответа"] ?? ""),
+          join: String(row["Связка правил"] ?? ""),
+          unit: String(row["Единица измерения"] ?? ""),
+          blankIds: ids,
+        });
+        if (parsed.errors.length > 0) {
+          for (const error of parsed.errors) result.errors.push(`Строка ${rowNum}: ${error}`);
+          continue;
+        }
+        correctJson = type === "blanks" ? { blanks: parsed.blanks ?? [] } : (parsed.set ?? {});
+
+        const maxLengthRaw = String(row["Предел длины"] ?? "").trim();
+        const maxLength = maxLengthRaw === "" ? undefined : parseInt(maxLengthRaw, 10);
+        if (maxLengthRaw !== "" && (!Number.isFinite(maxLength) || (maxLength as number) < 1)) {
+          result.errors.push(`Строка ${rowNum}: «Предел длины» — целое число больше нуля, получено "${maxLengthRaw}"`);
+          continue;
+        }
+        const placeholder = cellText(row["Подсказка в поле"]).trim();
+        const requiredRaw = String(row["Ответ обязателен"] ?? "").trim().toLowerCase();
+        const required = requiredRaw === "да" || requiredRaw === "yes" || requiredRaw === "true";
+
+        // Пустые свойства НЕ пишутся ключами со значением `undefined`: содержимое
+        // сравнивается по хешу, и `{}` против `{maxLength: undefined}` дали бы разные
+        // хеши одному и тому же заданию.
+        dataJson = {
+          ...(type !== "blanks" && maxLength !== undefined ? { maxLength } : {}),
+          ...(type === "long" && placeholder !== "" ? { placeholder } : {}),
+          ...(type === "long" && required ? { required: true } : {}),
+        };
       } else if (type === "ranking") {
         const separator = optionsStr.includes("#") ? "#" : "|";
         const items = optionsStr.split(separator).map((s) => s.trim()).filter(Boolean);

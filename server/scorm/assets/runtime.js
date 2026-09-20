@@ -173,6 +173,12 @@ var SCORM = (function() {
      * passes by construction. This is the same rule `setObjective` already follows one level
      * down, for the objective of a measurement topic.
      */
+    /**
+     * @param {boolean|null} passed `null` — оценка ещё не выставлена (PRD-57 FR-40):
+     *   в попытке есть ответ, который никто не проверял. SCORM 2004 предусматривает
+     *   `unknown` ровно для этого случая, и писать туда `failed` нельзя: «не сдал» в
+     *   отчёте LMS по непроверенной работе — это претензия участника, а не неточность.
+     */
     finish: function(earnedPoints, possiblePoints, passed, objectives, interactions) {
       // Report earned points as raw score, possible points as max, scaled as ratio
       if (earnedPoints !== null && earnedPoints !== undefined) {
@@ -180,7 +186,7 @@ var SCORM = (function() {
         this.setScore(earnedPoints, 0, possiblePoints, scaled);
       }
       this.setCompletion('completed');
-      this.setSuccess(passed ? 'passed' : 'failed');
+      this.setSuccess(passed === null ? 'unknown' : (passed ? 'passed' : 'failed'));
       if (passed) this.setValue('cmi.progress_measure', '1');
       this.setValue('cmi.exit', 'normal');
       this.setValue('cmi.location', '');

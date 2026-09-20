@@ -171,7 +171,7 @@ describe("type-trait parity: the ES5 mirror matches the shared module", () => {
   it("прочие типы измерительными не становятся", () => {
     // Типы, у которых «неоцениваемость» — это СОСТОЯНИЕ содержимого: шкала без верной
     // градации, распределение всегда, короткий ответ и пропуски без правил.
-    const measurementKinds = ["scale", "allocation", "short", "blanks"];
+    const measurementKinds = ["scale", "allocation", "short", "blanks", "long"];
     for (const type of QUESTION_TYPES.filter((t) => !measurementKinds.includes(t))) {
       expect(isMeasurementOnly({ type, correctJson: {} })).toBe(false);
       expect(mirror.isMeasurementOnly({ type, correct: {} })).toBe(false);

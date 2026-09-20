@@ -12,8 +12,22 @@
 import { createHash, randomUUID } from "node:crypto";
 import { participantKey } from "../utils/crypto";
 import { decodeLearnerResponse } from "@shared/lms-export/response-codec";
+import { hasBlanks } from "@shared/questions/question-type";
 import type { LmsExportBook } from "@shared/lms-export/parse";
 import type { IStorage } from "../storage";
+
+/**
+ * Имена пропусков задания в порядке НАБОРА ПРАВИЛ — в том, в каком пакет их кодировал.
+ *
+ * Порядок берётся из эталона, а не из текста задания: кодирует пакет по `correct.blanks`,
+ * и расхождение развалило бы раскладку значений по полям (PRD-57 FR-24h).
+ */
+function blankIdsOf(question: { type: string; correctJson?: unknown }): string[] | null {
+  if (!hasBlanks(question.type)) return null;
+  const key = (question.correctJson ?? {}) as { blanks?: Array<{ id?: unknown }> };
+  if (!Array.isArray(key.blanks)) return null;
+  return key.blanks.map((blank) => String(blank?.id ?? ""));
+}
 
 /** Режимы одной загрузки. Обезличивание и связывание независимы — см. раздел 8.5 спеки. */
 export interface ImportOptions {
@@ -297,7 +311,9 @@ export async function runImport(
           topicId: q.topicId,
           // Версия формата берётся у САМОГО прохождения: индексы распределения баллов
           // выравнены с версии 2, а выданные до неё пакеты шлют старый формат вечно.
-          userAnswerJson: decodeLearnerResponse(q.type, a.raw, row.responseFormat),
+          // PRD-57 FR-34: у пропусков строка несёт одни значения, а имена — в эталоне
+          // задания; без них разложить ответ по полям нечем.
+          userAnswerJson: decodeLearnerResponse(q.type, a.raw, row.responseFormat, blankIdsOf(q)),
           // Три состояния вместо булева: измерительный ответ не может быть неверным
           // (PRD-54 раздел 5.3). Всё, что не «верно» и не «неверно», — `neutral`.
           result: a.result === "correct" || a.result === "incorrect" ? a.result : "neutral",

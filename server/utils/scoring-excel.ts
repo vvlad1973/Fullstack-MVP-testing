@@ -26,10 +26,14 @@
  */
 
 import { questionScoringSchema, type QuestionScoring } from "@shared/schema";
-import { distributesBudget, isSingleIndexChoice } from "@shared/questions/question-type";
+import { distributesBudget, isSingleIndexChoice, isOpenText } from "@shared/questions/question-type";
 
 /** Question types accepted by the scoring grammar. */
-export type ScoringQuestionType = "single" | "multiple" | "matching" | "ranking" | "scale" | "allocation";
+export type ScoringQuestionType =
+  | "single" | "multiple" | "matching" | "ranking" | "scale" | "allocation"
+  // PRD-57: текстовые типы тоже оцениваются ступенями — счётчиком выполненных правил
+  // (FR-28aa4) и числом верных пропусков. Весов у них нет: весить нечего, вариантов нет.
+  | "short" | "blanks" | "long";
 
 /** Parse outcome: a validated scoring config (or null = exact), or an error. */
 export type ParseScoringResult =
@@ -138,6 +142,12 @@ export function parseScoringCell(
   // это прямо лучше, чем позволить формуле разобраться и молча ничего не посчитать.
   if (distributesBudget(type)) {
     return { ok: false, error: "распределение баллов не проверяется, «Цена ответа» к нему неприменима" };
+  }
+
+  // PRD-57 §5.3: у развёрнутого ответа автопроверки нет вовсе, поэтому ступеням не на чём
+  // сработать — сказать это прямо лучше, чем сохранить таблицу, которая никогда не сыграет.
+  if (isOpenText(type)) {
+    return { ok: false, error: "развёрнутый ответ не проверяется автоматически, «Цена ответа» к нему неприменима" };
   }
 
   const lower = text.toLowerCase();

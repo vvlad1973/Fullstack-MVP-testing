@@ -13,10 +13,27 @@
  * выгрузке означает «собран до выравнивания». Выданные пакеты шлют версию 1 вечно, поэтому обе
  * ветки разбора остаются рабочими и обе покрыты тестом на парность.
  */
-import { distributesBudget, isSingleIndexChoice } from "../questions/question-type";
+import {
+  distributesBudget,
+  hasBlanks,
+  isOpenText,
+  isSingleIndexChoice,
+  isTextEntry,
+} from "../questions/question-type";
 
-/** Ответ в той же форме, в какой его держат хосты: индекс, список индексов или карта. */
-export type LearnerAnswer = number | number[] | Record<number, number>;
+/**
+ * Ответ в той же форме, в какой его держат хосты: индекс, список индексов, карта или —
+ * с PRD-57 — набранный текст, а у пропусков карта «имя пропуска → написанное».
+ */
+export type LearnerAnswer = number | number[] | Record<number, number> | string | Record<string, string>;
+
+/**
+ * Разделитель значений пропусков внутри одной строки ответа (PRD-57 FR-24h).
+ *
+ * Запись стандарта SCORM 2004 для перечня внутри `learner_response`; пакет кодирует
+ * пропуски ею же (`formatResponse`), и обе половины обязаны остаться парными.
+ */
+const BLANK_SEPARATOR = "[,]";
 
 /**
  * Версия формата, которую пишет пакет СЕГОДНЯ: индексы 1-based у всех типов вопросов.
@@ -71,9 +88,28 @@ export function decodeLearnerResponse(
   type: string,
   raw: string,
   formatVersion?: number | null,
+  blankIds?: readonly string[] | null,
 ): LearnerAnswer | null {
   const s = String(raw ?? "").trim();
   if (s === "") return null;
+
+  // PRD-57 FR-34: набранный ответ приходит из отчёта ровно таким, каким его набрали, и
+  // таким же остаётся. Нормализация живёт в СРАВНЕНИИ: разбирая спор, важно видеть
+  // написание участника, а не его приведённую форму.
+  if (isTextEntry(type) || isOpenText(type)) return s;
+
+  if (hasBlanks(type)) {
+    // Имена приходят из эталона задания: строка несёт только значения, в порядке набора
+    // правил, и без имён разложить её нечем. Отвечать «не знаю» честнее, чем придумать
+    // ключи вида «0», «1» — их потом никто не сопоставит с пропусками.
+    if (!blankIds || blankIds.length === 0) return null;
+    const values = s.split(BLANK_SEPARATOR);
+    const out: Record<string, string> = {};
+    blankIds.forEach((id, index) => {
+      out[id] = (values[index] ?? "").trim();
+    });
+    return out;
+  }
 
   if (isSingleIndexChoice(type)) {
     const n = toInt(s);
@@ -124,8 +160,19 @@ export function encodeLearnerResponse(
   type: string,
   answer: LearnerAnswer,
   formatVersion: number = RESPONSE_FORMAT_VERSION,
+  blankIds?: readonly string[] | null,
 ): string {
   if (answer === null || answer === undefined) return "";
+
+  if (isTextEntry(type) || isOpenText(type)) return String(answer);
+
+  if (hasBlanks(type)) {
+    const written = (answer ?? {}) as Record<string, unknown>;
+    return (blankIds ?? []).map((id) => {
+      const value = written[id];
+      return typeof value === "string" ? value : "";
+    }).join(BLANK_SEPARATOR);
+  }
 
   if (isSingleIndexChoice(type)) return String((answer as number) + 1);
 

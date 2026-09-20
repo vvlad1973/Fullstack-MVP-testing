@@ -290,3 +290,51 @@ describe("runImport — версия публикации и варианты (P
     expect(res.warnings.join()).toContain("form-zzz");
   });
 });
+
+/**
+ * PRD-57 FR-34: новые взаимодействия отчёта. Пакет кодирует текстовые ответы с Э3, Э8 и
+ * Э9; до этого разбор их не знал, и ответ участника при импорте терялся целиком.
+ */
+describe("runImport — текстовые взаимодействия (PRD-57 FR-34)", () => {
+  /** Та же книга, но вопрос текстовый: заглушка отдаёт его тип и эталон. */
+  function textBook(raw: string, result: string) {
+    return { ...book, rows: [{ ...book.rows[0], answers: { q1: raw }, results: { q1: result } }] };
+  }
+
+  function typedStorage(question: Record<string, unknown>) {
+    const s = storageStub();
+    s.getQuestionsByIds = async (ids: string[]) =>
+      [{ id: "q1", prompt: "Вопрос", topicId: "t1", ...question }].filter((q) => ids.includes(q.id)) as never;
+    return s;
+  }
+
+  it("короткий ответ приезжает текстом как набран", async () => {
+    const s = typedStorage({ type: "short", correctJson: { answerKind: "text", join: "any", rules: [] } });
+    await runImport(textBook("3,14", "neutral") as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({ userAnswerJson: "3,14" });
+  });
+
+  it("развёрнутый ответ не считается неверным: у него нечего проверять", async () => {
+    const s = typedStorage({ type: "long", correctJson: {} });
+    await runImport(textBook("Сначала обесточить.", "neutral") as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({
+      userAnswerJson: "Сначала обесточить.",
+      result: "neutral",
+      isCorrect: null,
+    });
+  });
+
+  it("пропуски раскладываются по именам эталона", async () => {
+    const s = typedStorage({
+      type: "blanks",
+      correctJson: {
+        blanks: [
+          { id: "city", answerKind: "text", join: "any", rules: [] },
+          { id: "year", answerKind: "number", join: "any", rules: [] },
+        ],
+      },
+    });
+    await runImport(textBook("Москва[,]1703", "correct") as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({ userAnswerJson: { city: "Москва", year: "1703" } });
+  });
+});

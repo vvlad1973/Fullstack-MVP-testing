@@ -28,6 +28,7 @@ export const QUESTION_TYPES = [
   "allocation",
   "short",
   "blanks",
+  "long",
 ] as const;
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
@@ -98,6 +99,17 @@ export function hasBlanks(type: string): boolean {
 }
 
 /**
+ * Развёрнутый ответ (PRD-57 §5): многострочный текст БЕЗ эталона и без автопроверки.
+ *
+ * Отдельный признак, а не расширение {@link isTextEntry}, и различие принципиальное: у
+ * короткого ответа есть правила и он оценивается, у развёрнутого правил нет и он ЖДЁТ
+ * оценки. Тип не «неоцениваемый навсегда», а «неоценённый пока» (FR-13, FR-14).
+ */
+export function isOpenText(type: string): boolean {
+  return type === "long";
+}
+
+/**
  * The question shape these predicates read — every consumer passes its own object.
  * The answer key travels under two different names: `correctJson` on the server (the
  * DB column) and `correct` in the baked SCORM payload and the aggregate input. Both
@@ -125,6 +137,10 @@ export interface TypedQuestion {
  */
 export function isMeasurementOnly(question: TypedQuestion): boolean {
   if (distributesBudget(question.type)) return true;
+  // PRD-57 §5.3: развёрнутый ответ не приносит баллов, пока его никто не проверил. В
+  // ЗНАМЕНАТЕЛЬ он не идёт по той же причине; отличается он исходом — «ждёт проверки»
+  // вместо «не требует оценки» (FR-35), и это различие живёт в агрегате.
+  if (isOpenText(question.type)) return true;
   // PRD-57 §5.3: a typed answer with NO rules collects text and earns nothing. The
   // absence of rules IS the switch, exactly as the absence of `correctIndex` is for a
   // scale — so an author who has not written the check yet cannot silently drag the

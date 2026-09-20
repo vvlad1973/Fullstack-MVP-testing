@@ -56,6 +56,14 @@ var TBQType = (function () {
   }
 
   /**
+   * Развёрнутый ответ (PRD-57 §5): многострочный текст без эталона и без автопроверки.
+   * Зеркало shared/questions/question-type.ts → isOpenText.
+   */
+  function isOpenText(type) {
+    return type === 'long';
+  }
+
+  /**
    * Measurement-only question: never checked, earns no points, contributes only to
    * the scales (PRD-26 FR-08). Two ways in: a scale with no correct graduation (the
    * author's choice), and an allocation ALWAYS (PRD-44 FR-09 — the method has no
@@ -75,6 +83,8 @@ var TBQType = (function () {
     }
     // PRD-57 FR-24c: у пропусков то же правило, только наборов несколько — хватает
     // ОДНОГО пропуска с правилами.
+    // PRD-57 §5.3: развёрнутый ответ не приносит баллов, пока его никто не проверил.
+    if (isOpenText(q.type)) return true;
     if (hasBlanks(q.type)) {
       var blanks = (key && Array.isArray(key.blanks)) ? key.blanks : [];
       for (var i = 0; i < blanks.length; i++) {
@@ -93,6 +103,7 @@ var TBQType = (function () {
     distributesBudget: distributesBudget,
     isTextEntry: isTextEntry,
     hasBlanks: hasBlanks,
+    isOpenText: isOpenText,
     isMeasurementOnly: isMeasurementOnly,
   };
 }());

@@ -142,6 +142,8 @@ interface TestAnalytics {
         excludedFromDelivery?: boolean;
         /** PRD-56 FR-22: разброс ответов измерительного задания вместо доли верных. */
         spread?: { options: Array<{ label: string; share: number }>; answered: number } | null;
+        /** PRD-57 FR-32: сводка свободного текста — объём и длина вместо частот. */
+        volume?: { answered: number; medianLength: number; minLength: number; maxLength: number } | null;
         // PRD-55 (FR-31/FR-31a/FR-32). Необязательные: ответ старой сборки сервера этих полей
         // не несёт, и карточка тогда показывает прочерки вместо выдуманных нулей.
         exposureCount?: number;

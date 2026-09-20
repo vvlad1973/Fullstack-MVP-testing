@@ -285,3 +285,54 @@ describe("QuestionTable — измерительный тест", () => {
     expect(screen.queryByText("Разброс ответов")).toBeNull();
   });
 });
+
+/**
+ * PRD-57 FR-28x, FR-32: задания, на которые ПИШУТ. Сервер считал их разброс с Э3, но
+ * колонка показывалась только у теста, целиком собранного из измерительных заданий, — то
+ * есть в обычном тесте автор не видел ничего из посчитанного.
+ */
+describe("QuestionTable — написанные ответы (PRD-57)", () => {
+  const WRITTEN = [
+    {
+      ...QUESTIONS[0],
+      questionId: "w1", questionPrompt: "Как называется служба?",
+      questionType: "short", totalAnswers: 40, correctPercent: 62,
+      spread: { answered: 40, options: [{ label: "Ростехнадзор", share: 55 }, { label: "РТН", share: 30 }] },
+    },
+    {
+      ...QUESTIONS[0],
+      questionId: "w2", questionPrompt: "Опишите порядок действий при аварии",
+      questionType: "long", totalAnswers: 12, correctPercent: null,
+      volume: { answered: 12, medianLength: 340, minLength: 42, maxLength: 3000 },
+    },
+  ];
+
+  it("колонка появляется и в обычном тесте, а доля верных остаётся", () => {
+    render(<QuestionTable questions={WRITTEN} minObservations={10} />);
+    expect(screen.getByText("Что отвечали")).toBeTruthy();
+    expect(screen.getByText("Доля верных")).toBeTruthy();
+    expect(screen.getByText("Ростехнадзор 55 % · РТН 30 %")).toBeTruthy();
+  });
+
+  it("у свободного текста вместо долей — объём и длина", () => {
+    render(<QuestionTable questions={WRITTEN} minObservations={10} />);
+    expect(screen.getByText(/12 ответов · медиана 340 знаков \(от 42 до 3000\)/)).toBeTruthy();
+  });
+
+  it("сами работы открываются списком и отдаются выгрузкой", async () => {
+    const rows = [{
+      attemptId: "a1", source: "web", participant: "Иванов",
+      at: "2026-09-19T10:00:00.000Z", answer: "Сначала обесточить.", length: 19,
+      result: "neutral", latencyMs: 62_000,
+    }];
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ rows }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<QuestionTable questions={WRITTEN} testId="t1" minObservations={10} />);
+    await userEvent.click(screen.getByRole("button", { name: /Прочитать ответы/ }));
+
+    expect(await screen.findByText("Сначала обесточить.")).toBeTruthy();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/analytics/tests/t1/questions/w2/answers");
+    expect(screen.getByRole("button", { name: "Выгрузить в Excel" })).toBeTruthy();
+  });
+});

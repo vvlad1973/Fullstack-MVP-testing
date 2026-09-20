@@ -53,7 +53,7 @@ describe("превышение бюджета в оценке (FR-28r)", () => {
     expect(result.ratio).toBe(0);
   });
 
-  it("в итоге попытки такой ответ нейтрален и вне знаменателя", () => {
+  it("в итоге попытки такой ответ ЖДЁТ проверки и вне знаменателя", () => {
     const result = aggregateStandardResult({
       sections: [
         {
@@ -70,7 +70,9 @@ describe("превышение бюджета в оценке (FR-28r)", () => {
     });
 
     const outcomes = result.questionOutcomes ?? [];
-    expect(outcomes.find((o) => o.questionId === "q1")?.result).toBe("neutral");
+    // Э9 дал этому состоянию имя: «не уложился в бюджет» всегда означало «никто не
+    // проверял», и теперь оно не путается с «не требует оценки» (FR-35).
+    expect(outcomes.find((o) => o.questionId === "q1")?.result).toBe("pending");
     expect(outcomes.find((o) => o.questionId === "q2")?.result).toBe("correct");
     // Непроверенный ответ не отнимает балла и не раздувает знаменатель: в зачёт идёт
     // только второй вопрос.

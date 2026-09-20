@@ -36,7 +36,7 @@ import {
   hasTolerance,
   numericRuleTitle,
   NUMERIC_OPERATORS,
-} from "./describe-rule";
+} from "@shared/answer-check/describe";
 import {
   addRule,
   createDraft,
