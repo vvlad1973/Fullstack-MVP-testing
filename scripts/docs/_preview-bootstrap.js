@@ -141,6 +141,35 @@
     return out;
   }
 
+  /**
+   * PRD-49: надписи экрана итогов, разрешённые из ОБЪЯВЛЕНИЙ шаблона (`manifest.labels[]`).
+   *
+   * Предпросмотр показывает шаблон таким, каким его получит автор, ещё НЕ трогавший
+   * надписи, — значит берутся умолчания манифеста, и только они: своих значений у
+   * предпросмотра нет, тест сюда не участвует. Дерево, а не плоская карта: DSL режет путь
+   * по точкам, и `{{ labels.topic.correct }}` до ключа `"topic.correct"` иначе не дойдёт.
+   *
+   * Без этого слоты карточки темы, которые с PRD-49 гейтятся своей надписью, в
+   * предпросмотре просто исчезали бы — надписи нет, значит и слота нет.
+   *
+   * @returns {Object} Дерево надписей для контекста DSL.
+   */
+  function buildLabelsTree() {
+    var tree = {};
+    (manifest.labels || []).forEach(function (decl) {
+      if (!decl || !decl.key) return;
+      var text = (decl.defaults && decl.defaults.results) || decl.default || "";
+      var parts = String(decl.key).split(".");
+      var node = tree;
+      for (var i = 0; i < parts.length - 1; i++) {
+        if (typeof node[parts[i]] !== "object" || node[parts[i]] === null) node[parts[i]] = {};
+        node = node[parts[i]];
+      }
+      node[parts[parts.length - 1]] = text;
+    });
+    return tree;
+  }
+
   /** Builds the data object for DSL rendering (merges course + runtime + params). */
   function buildDslData() {
     var course  = demoData.course  || {};
@@ -162,6 +191,7 @@
       progress: runtime.progress || {},
       state:    state,
       params:   expandParams(demoData.params || paramDefaults()),
+      labels:   buildLabelsTree(),
       sections: sections,
       nav: {
         submitAnswerLabel: "Принять ответ",

@@ -208,16 +208,20 @@
           {{#if label}}<h4 class="tb-topic-group__title">{{label}}</h4>{{/if}}
           {{#if counterLabel}}<span class="tb-topic-group__counter">{{counterLabel}}</span>{{/if}}
         </div>
+          <!-- PRD-49: слот карточки темы гейтится СВОЕЙ надписью. Выключенная надпись —
+               это пустая строка, и она убирает не подпись, а ВЕСЬ слот: вердикт уходит
+               вместе с цветной пилюлей, «Правильно»/«Баллов» — вместе с числом. Без этого
+               выключенный тумблер оставлял пустой цветной чип и осиротевшее «4 / 5». -->
         <div class="tb-topics-grid">
           {{#each topics}}
           <div class="ou-card tb-topic-card">
             <div class="ou-card__body">
               <span class="tb-topic-card__name">{{topicName}}</span>
-              <span class="ou-tag ou-tag--s {{passClass}}">{{statusLabel}}</span>
+              {{#if statusLabel}}<span class="ou-tag ou-tag--s {{passClass}}">{{statusLabel}}</span>{{/if}}
               {{#if total}}<div class="ou-progress ou-progress--s tb-topic-card__bar {{passClass}}"><div class="ou-progress__track"><div class="ou-progress__fill" style="width: {{percent}}%"></div></div></div>{{/if}}
               <div class="tb-stat-rows">
-                {{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}
-                {{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}
+                {{#if @root.labels.topic.correct}}{{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}{{/if}}
+                {{#if @root.labels.topic.points}}{{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}{{/if}}
               </div>
               {{#if breakdown}}
               <div class="tb-topic__breakdown">
@@ -249,11 +253,11 @@
         <div class="ou-card tb-topic-card">
           <div class="ou-card__body">
             <span class="tb-topic-card__name">{{topicName}}</span>
-            <span class="ou-tag ou-tag--s {{passClass}}">{{statusLabel}}</span>
+            {{#if statusLabel}}<span class="ou-tag ou-tag--s {{passClass}}">{{statusLabel}}</span>{{/if}}
             {{#if total}}<div class="ou-progress ou-progress--s tb-topic-card__bar {{passClass}}"><div class="ou-progress__track"><div class="ou-progress__fill" style="width: {{percent}}%"></div></div></div>{{/if}}
             <div class="tb-stat-rows">
-              {{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}
-              {{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}
+              {{#if @root.labels.topic.correct}}{{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}{{/if}}
+              {{#if @root.labels.topic.points}}{{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}{{/if}}
             </div>
             {{#if breakdown}}
             <div class="tb-topic__breakdown">
@@ -284,11 +288,11 @@
         <div class="ou-card tb-topic-card">
           <div class="ou-card__body">
             <span class="tb-topic-card__name">{{topicName}}</span>
-            <span class="ou-tag ou-tag--s {{passClass}}">{{statusLabel}}</span>
+            {{#if statusLabel}}<span class="ou-tag ou-tag--s {{passClass}}">{{statusLabel}}</span>{{/if}}
             {{#if total}}<div class="ou-progress ou-progress--s tb-topic-card__bar {{passClass}}"><div class="ou-progress__track"><div class="ou-progress__fill" style="width: {{percent}}%"></div></div></div>{{/if}}
             <div class="tb-stat-rows">
-              {{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}
-              {{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}
+              {{#if @root.labels.topic.correct}}{{#if total}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.correct }}</div></div><span class="tb-stat-val">{{correct}} / {{total}}</span></div>{{/if}}{{/if}}
+              {{#if @root.labels.topic.points}}{{#if pointsLabel}}<div class="ou-stat-row ou-stat-row--compact"><div class="ou-stat-row__body"><div class="ou-stat-row__title">{{ @root.labels.topic.points }}</div></div><span class="tb-stat-val">{{pointsLabel}}</span></div>{{/if}}{{/if}}
             </div>
             {{#if breakdown}}
             <div class="tb-topic__breakdown">
