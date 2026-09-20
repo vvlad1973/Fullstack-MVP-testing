@@ -55,7 +55,7 @@ function count(html: string, re: RegExp): number {
  * соответствий, всё прочее сводится к словам. Поэтому и отчёт перечисляет то же самое —
  * иначе он обещал бы автору не то, что произойдёт.
  */
-function markupLosses(html: string): ModeSwitchLoss[] {
+function markupLosses(html: string, to: PromptFormat): ModeSwitchLoss[] {
   const body = withoutCode(html);
   const found: ModeSwitchLoss[] = [];
 
@@ -68,8 +68,18 @@ function markupLosses(html: string): ModeSwitchLoss[] {
   const classes = count(body, /\sclass\s*=/gi);
   if (classes > 0) found.push({ what: "Атрибут class", count: classes, becomes: "будет снят" });
 
+  // Картинку теряет только перевод в разметку: `htmlToMarkdown` оставляет от неё подпись.
+  // В «Форматированном» данные те же самые теги, и картинка остаётся на месте — так и
+  // обещает согласованный эскиз (`prd57-question-text.html`, состояние `s-switch-html`).
+  // Общая формулировка на оба перехода пугала автора потерей, которой не происходит.
   const images = count(body, /<img\b/gi);
-  if (images > 0) found.push({ what: "Изображение", count: images, becomes: "станет подписью" });
+  if (images > 0) {
+    found.push({
+      what: "Изображение",
+      count: images,
+      becomes: to === "markdown" ? "станет подписью" : "сохранится",
+    });
+  }
 
   return found;
 }
@@ -96,7 +106,7 @@ export function describeModeSwitch(
     if (to === "richText") {
       return {
         canConvert: true,
-        losses: markupLosses(source),
+        losses: markupLosses(source, to),
         notes: [
           "Листинг, формула и пропуск не пострадают: в режиме «Форматированный» они ведут себя как единые объекты — правятся целиком и не разрываются при наборе.",
         ],
@@ -126,7 +136,7 @@ export function describeModeSwitch(
   // HTML → разметка: пять соответствий, всё прочее становится словами.
   return {
     canConvert: true,
-    losses: markupLosses(source),
+    losses: markupLosses(source, to),
     notes: [
       "Жирный, курсив, списки, ссылки и листинг переведутся в разметку; остальное станет словами.",
       "Формулы и пропуски сохранятся как есть — они пишутся одинаково во всех режимах.",
