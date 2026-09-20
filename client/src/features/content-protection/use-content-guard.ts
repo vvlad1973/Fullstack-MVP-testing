@@ -48,8 +48,15 @@ export interface GuardedOperation {
    * confirm). Returning false aborts. Omit to execute directly.
    */
   confirmClean?: () => boolean;
-  /** Called after the real operation succeeds. */
-  onDone: () => void;
+  /**
+   * Called after the real operation succeeds.
+   *
+   * Тело успешного ответа передаётся вызывающему: правка вопроса возвращает не только
+   * сохранённую строку, но и то, что санитайзер вырезал из текста (PRD-57, эскиз
+   * `prd57-question-text.html`), а иначе этот отчёт пропадал бы вместе с ответом.
+   * `undefined` — когда тела нет или оно не JSON (например, у DELETE).
+   */
+  onDone: (result?: unknown) => void;
 }
 
 interface DialogState {
@@ -135,8 +142,11 @@ export function useContentGuard(): UseContentGuardResult {
           return;
         }
         if (!res.ok) throw new Error(`${res.status}`);
+        // Разбор тела намеренно необязателен: у DELETE его может не быть вовсе, и
+        // упавший разбор не должен превращать состоявшуюся операцию в ошибку.
+        const payload = await res.json().catch(() => undefined);
         close();
-        operation.onDone();
+        operation.onDone(payload);
       } catch (e) {
         setState((s) => ({ ...s, pending: false }));
         toast({ variant: "destructive", title: "Ошибка", description: "Операция не выполнена" });

@@ -69,6 +69,8 @@ import { insertMarkup, CODE_LANGUAGES, type MarkupKind } from "./insert-markup";
 import { promptFormatOf, type PromptFormat } from "@shared/questions/prompt-format";
 import { describeModeSwitch, convertPrompt, type ModeSwitchReport } from "@shared/text/mode-switch";
 import { QuestionPreviewModal } from "./question-preview-modal";
+import { removalPhrases } from "./sanitize-report";
+import type { SanitizeRemoval } from "@shared/security/html-sanitize";
 import { RichPromptEditor } from "./rich-prompt-editor";
 import { ContentImpactDialog } from "@/features/content-protection/content-impact-dialog";
 import { useContentGuard } from "@/features/content-protection/use-content-guard";
@@ -157,6 +159,35 @@ export function QuestionEditorDrawer({
   const [promptSyncKey, setPromptSyncKey] = useState(0);
   /** Переход, о котором спрашивают автора: отчёт считается ДО перевода (FR-09c). */
   const [modeSwitch, setModeSwitch] = useState<{ to: PromptFormat; report: ModeSwitchReport } | null>(null);
+  /**
+   * PRD-57, согласованный эскиз `prd57-question-text.html` (состояние `s-diag`): что
+   * санитайзер вырезал из текста при последнем сохранении, и каким текст после этого стал.
+   *
+   * Пока находки есть, ящик НЕ закрывается: сохранение уже состоялось, но закрытие
+   * оставило бы автора с единственным наблюдением — «текст изменился сам». Текст держится
+   * рядом, чтобы баннер погас, как только автор начнёт править: он говорит о ТОМ
+   * сохранении, а не о том, что в поле сейчас.
+   */
+  const [sanitizeReport, setSanitizeReport] = useState<{ removed: SanitizeRemoval[]; prompt: string } | null>(null);
+  /**
+   * Вопрос, СОЗДАННЫЙ этим ящиком и оставленный открытым ради диагностики. Следующее
+   * сохранение обязано быть правкой его: иначе одно нажатие «Создать» завело бы в банке
+   * два задания с одним текстом.
+   */
+  const [createdQuestion, setCreatedQuestion] = useState<Question | null>(null);
+  /**
+   * Сохранение состоялось, а список ещё не обновляли: ящик задержан баннером. Два из трёх
+   * мест монтирования закрывают ящик прямо в `onSaved`, поэтому обновление откладывается
+   * до закрытия, а не зовётся сразу.
+   */
+  const [savedPending, setSavedPending] = useState(false);
+  /**
+   * Баннер диагностики стоит первым в теле ящика, а тело к моменту сохранения прокручено
+   * туда, где автор работал: в приёмке 2026-09-20 находки оказались на 145 пикселей выше
+   * видимого. Ссылка нужна, чтобы подвести их к глазам, — иначе показ ничем не отличается
+   * от молчания, ради снятия которого всё и делалось.
+   */
+  const sanitizeBannerRef = useRef<HTMLDivElement | null>(null);
 
   /**
    * Вставить разметку кнопкой панели — листинг, формулу или пропуск (FR-09a, FR-24b).
@@ -228,14 +259,53 @@ export function QuestionEditorDrawer({
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/questions", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
-      toast({ title: t.questions.questionCreated, description: t.questions.questionCreatedDescription });
+  /**
+   * Разобрать ответ состоявшегося сохранения (PRD-57, эскиз `prd57-question-text.html`).
+   *
+   * Обычный исход прежний: обновить списки, сказать об успехе и закрыть ящик. Но если
+   * санитайзер что-то вырезал, ящик ОСТАЁТСЯ открытым с баннером и сохранённым текстом в
+   * поле — только так автор увидит, что именно исчезло и что его текст теперь другой.
+   * Обновление списка при этом откладывается до закрытия: часть хозяев ящика закрывает его
+   * прямо в `onSaved`, и вызвать его здесь значило бы погасить баннер, не показав.
+   *
+   * @param payload Тело успешного ответа маршрута.
+   * @param created Сохранение было созданием, а не правкой.
+   */
+  const settleSave = (payload: unknown, created: boolean) => {
+    const saved = (payload ?? {}) as Question & { promptSanitizeRemoved?: SanitizeRemoval[] };
+    const removed = Array.isArray(saved.promptSanitizeRemoved) ? saved.promptSanitizeRemoved : [];
+    queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
+    toast(
+      created
+        ? { title: t.questions.questionCreated, description: t.questions.questionCreatedDescription }
+        : { title: t.questions.questionUpdated, description: t.questions.questionUpdatedDescription },
+    );
+    if (removed.length === 0) {
       onSaved?.();
       onClose();
+      return;
+    }
+    const storedPrompt = typeof saved.prompt === "string" ? saved.prompt : (form.getValues("prompt") ?? "");
+    form.setValue("prompt", storedPrompt);
+    setPromptSyncKey((key) => key + 1);
+    setSanitizeReport({ removed, prompt: storedPrompt });
+    if (created && saved.id) setCreatedQuestion(saved);
+    setSavedPending(true);
+  };
+
+  /**
+   * Закрыть ящик, не потеряв обновление списка, отложенное баннером диагностики.
+   */
+  const closeDrawer = () => {
+    if (savedPending) onSaved?.();
+    onClose();
+  };
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/questions", data),
+    onSuccess: async (res: Response) => {
+      settleSave(await res.json().catch(() => undefined), true);
     },
     onError: () => {
       toast({ variant: "destructive", title: t.common.error, description: t.questions.failedToCreate });
@@ -271,11 +341,24 @@ export function QuestionEditorDrawer({
     setShortMaxLength(undefined);
   };
 
+  // Находки показываются там, где автор смотрит: тело ящика подводится к баннеру.
+  // `scrollIntoView` вызывается через `?.` — в jsdom метода нет, и прямой вызов уронил бы
+  // набор, ничего не проверив.
+  useEffect(() => {
+    if (!sanitizeReport) return;
+    sanitizeBannerRef.current?.scrollIntoView?.({ block: "start" });
+  }, [sanitizeReport]);
+
   // Initialize the draft when the Drawer opens: from `question` (edit) or as an
   // empty draft seeded with `defaultTopicId` (create). Mirrors the old
   // handleOpenCreate / handleOpenEdit handlers exactly.
   useEffect(() => {
     if (!open) return;
+    // Диагностика прошлого сохранения принадлежит прошлому заданию: открытие ящика
+    // начинает всё заново, иначе баннер пережил бы вопрос, о котором говорил.
+    setSanitizeReport(null);
+    setCreatedQuestion(null);
+    setSavedPending(false);
     if (question) {
       form.reset({
         topicId: question.topicId,
@@ -524,12 +607,15 @@ export function QuestionEditorDrawer({
       tags,
     };
 
-    if (question) {
+    // Вопрос, созданный этим же ящиком и оставленный открытым ради диагностики, дальше
+    // ПРАВИТСЯ: второе «Создать» завело бы в банке дубль с тем же текстом.
+    const target = question ?? createdQuestion;
+    if (target) {
       // PRD-15 T-12: edits that affect delivery/grading of published tests are
       // gated by the content guard (dry-run first). A clean edit saves directly;
       // a warning-only edit asks for confirmation; a blocking one shows the 409.
       contentGuard.guard({
-        url: `/api/questions/${question.id}`,
+        url: `/api/questions/${target.id}`,
         method: "PUT",
         body: data,
         blockTitle: "Вопрос нельзя изменить: правка ломает опубликованные тесты",
@@ -539,16 +625,7 @@ export function QuestionEditorDrawer({
         warnDescription: "Опубликованные тесты не пострадают, но есть последствия, о которых стоит знать.",
         confirmLabel: "Сохранить изменения",
         confirmVariant: "primary",
-        onDone: () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
-          toast({
-            title: t.questions.questionUpdated,
-            description: t.questions.questionUpdatedDescription,
-          });
-          onSaved?.();
-          onClose();
-        },
+        onDone: (result) => settleSave(result, false),
       });
     } else {
       createMutation.mutate(data);
@@ -682,10 +759,10 @@ export function QuestionEditorDrawer({
           (Controller on the Selects, register on the prompt Textarea). */}
       <Drawer
         open={open}
-        onClose={onClose}
+        onClose={closeDrawer}
         side="right"
         size="xl"
-        title={question ? t.questions.editQuestion : t.questions.createQuestion}
+        title={question || createdQuestion ? t.questions.editQuestion : t.questions.createQuestion}
         footer={
           <Cluster justify="end" gap={2} wrap={false}>
             {/* PRD-57 FR-28d: обещание «переключение вида не теряет работу» автору нечем
@@ -716,19 +793,47 @@ export function QuestionEditorDrawer({
             >
               Предпросмотр
             </Button>
-            <Button variant="secondary" onClick={onClose}>{t.common.cancel}</Button>
+            <Button variant="secondary" onClick={closeDrawer}>{t.common.cancel}</Button>
             <Button
               onClick={form.handleSubmit(onSubmit)}
               disabled={isUploadingMedia || validationErrors.length > 0}
               loading={createMutation.isPending}
               data-testid="button-submit-question"
             >
-              {question ? t.common.update : t.common.create}
+              {question || createdQuestion ? t.common.update : t.common.create}
             </Button>
           </Cluster>
         }
       >
         <Stack gap={6}>
+          {/*
+            PRD-57, согласованный эскиз `prd57-question-text.html` (`s-diag`): что санитайзер
+            вырезал из текста при сохранении. Баннер стоит первым в теле ящика — он говорит
+            о тексте, который автор сейчас увидит в поле изменившимся, и объясняет, почему.
+            Гаснет сам, как только текст правят: находки принадлежат ТОМУ сохранению.
+          */}
+          {sanitizeReport && sanitizeReport.prompt === watchedPrompt && (
+            <Banner
+              ref={sanitizeBannerRef}
+              tone="warning"
+              variant="subtle"
+              title="Часть разметки удалена при сохранении"
+              data-testid="banner-prompt-sanitized"
+              description={
+                <>
+                  Удалено:{" "}
+                  {removalPhrases(sanitizeReport.removed).map((phrase, i) => (
+                    <span key={`${phrase.prefix}-${phrase.code}`}>
+                      {i > 0 ? ", " : ""}
+                      {phrase.prefix ? `${phrase.prefix} ` : ""}
+                      <code>{phrase.code}</code> — {phrase.count}
+                    </span>
+                  ))}
+                  . Остальная разметка сохранена без изменений.
+                </>
+              }
+            />
+          )}
           {validationErrors.length > 0 && (
             <Banner tone="error" variant="subtle" title="Проверьте форму" data-testid="banner-question-validation">
               {validationErrors.map((e, i) => (

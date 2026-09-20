@@ -17,6 +17,7 @@ import { normalizeTags } from "@shared/tags";
 import { normalizeAuthorText, renderInlineMarkdown } from "@shared/text";
 import { normalizeOptionalText, normalizeQuestionData, normalizePromptByFormat } from "../services/question-text";
 import { promptFormatOf } from "@shared/questions/prompt-format";
+import type { SanitizeRemoval } from "@shared/security/html-sanitize";
 import { formulasFor, promptHtmlOf } from "../services/prompt-html";
 import { importQuestionRows } from "../services/questions-import";
 import { serializeQuestionRow, QUESTION_HEADERS, QUESTION_WIDTHS } from "../services/questions-export";
@@ -61,6 +62,20 @@ function withFormulas(dataJson: unknown, prompt: string): unknown {
   if (Object.keys(formulas).length === 0) return dataJson;
   const base = (dataJson ?? {}) as Record<string, unknown>;
   return { ...base, formulas };
+}
+
+/**
+ * Приложить к ответу то, что санитайзер вырезал из текста задания (согласованный эскиз
+ * `prd57-question-text.html`, состояние `s-diag`).
+ *
+ * Поле-спутник, а не колонка: оно описывает ЭТО сохранение, а не сам вопрос, и живёт ровно
+ * до следующей правки — тем же приёмом, каким страница содержимого отдаёт свою диагностику
+ * (`sanitizeDiagnostics` в `content-pages`). Пустой список не кладётся: ящик решает по
+ * НАЛИЧИЮ поля, и «вырезано ничего» не должно выглядеть как находка.
+ */
+function withSanitizeReport<T extends object>(question: T, removed: SanitizeRemoval[]): T {
+  if (removed.length === 0) return question;
+  return { ...question, promptSanitizeRemoved: removed };
 }
 
 function allocationConfigError(type: string | undefined, dataJson: unknown): string | null {
@@ -280,7 +295,8 @@ router.post(
       // у разметки — проход по строке, у размеченного текста — санитайзер и типографика
       // по текстовым узлам.
       const format = promptFormatOf({ promptFormat });
-      const canonicalPrompt = normalizePromptByFormat(prompt ?? "", format).prompt;
+      const canonical = normalizePromptByFormat(prompt ?? "", format);
+      const canonicalPrompt = canonical.prompt;
 
       if (!topicId || !type || !canonicalPrompt) {
         return res.status(400).json({ error: "TopicId, type and prompt required" });
@@ -342,7 +358,7 @@ router.post(
         logger.error(`Media usage sync failed for question ${question.id}: ${(error as Error).message}`);
       }
 
-      res.status(201).json(question);
+      res.status(201).json(withSanitizeReport(question, canonical.removed));
     } catch (error) {
       logger.error("Create question error: " + (error as Error).message);
       res.status(500).json({ error: "Failed to create question" });
@@ -438,9 +454,10 @@ router.put(
       // берётся у самого задания — иначе текст, набранный разметкой, прошёл бы очистку по
       // правилам HTML (или наоборот), и автор получил бы чужую канонизацию своего текста.
       const editFormat = promptFormatOf({ promptFormat: promptFormat ?? existing.promptFormat });
-      const canonicalEdit = typeof prompt === "string"
-        ? normalizePromptByFormat(prompt, editFormat).prompt
-        : undefined;
+      const canonical = typeof prompt === "string"
+        ? normalizePromptByFormat(prompt, editFormat)
+        : null;
+      const canonicalEdit = canonical?.prompt;
 
       const questionUpdate = {
         topicId,
@@ -492,7 +509,10 @@ router.put(
       }
 
       res.json(
-        feasibilityWarnings.length > 0 ? { ...updated, warnings: feasibilityWarnings } : updated,
+        withSanitizeReport(
+          feasibilityWarnings.length > 0 ? { ...updated, warnings: feasibilityWarnings } : updated,
+          canonical?.removed ?? [],
+        ),
       );
     } catch (error) {
       logger.error("Update question error: " + (error as Error).message);
