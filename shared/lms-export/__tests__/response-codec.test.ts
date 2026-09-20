@@ -76,6 +76,50 @@ describe("версия формата строки ответа", () => {
   });
 });
 
+/**
+ * PRD-57 FR-34. Пакет кодирует текстовые ответы с Э3, Э8 и Э9, а разбор их не знал —
+ * то есть ответ участника при импорте выгрузки терялся целиком.
+ */
+describe("текстовые взаимодействия (PRD-57 FR-34)", () => {
+  it("короткий и развёрнутый ответ приходят текстом как есть", () => {
+    expect(decodeLearnerResponse("short", "  Ростехнадзор  ")).toBe("Ростехнадзор");
+    expect(decodeLearnerResponse("long", "Первое. Второе.")).toBe("Первое. Второе.");
+  });
+
+  it("написание НЕ нормализуется: разбирая спор, важно видеть набранное", () => {
+    expect(decodeLearnerResponse("short", "3,14")).toBe("3,14");
+  });
+
+  it("пропуски раскладываются по именам в порядке эталона", () => {
+    expect(decodeLearnerResponse("blanks", "Москва[,]1703", null, ["city", "year"])).toEqual({
+      city: "Москва",
+      year: "1703",
+    });
+  });
+
+  it("незаполненный пропуск остаётся пустой строкой, а не пропадает", () => {
+    expect(decodeLearnerResponse("blanks", "[,]1703", null, ["city", "year"])).toEqual({
+      city: "",
+      year: "1703",
+    });
+  });
+
+  it("без имён пропусков разбор честно отвечает «не знаю»", () => {
+    expect(decodeLearnerResponse("blanks", "Москва[,]1703")).toBeNull();
+  });
+
+  it("лишние значения отбрасываются, недостающие остаются пустыми", () => {
+    expect(decodeLearnerResponse("blanks", "Москва[,]1703[,]лишнее", null, ["city", "year"])).toEqual({
+      city: "Москва",
+      year: "1703",
+    });
+    expect(decodeLearnerResponse("blanks", "Москва", null, ["city", "year"])).toEqual({
+      city: "Москва",
+      year: "",
+    });
+  });
+});
+
 describe("парность кодирования и разбора", () => {
   const cases: Array<[string, unknown]> = [
     ["single", 2],
@@ -84,12 +128,21 @@ describe("парность кодирования и разбора", () => {
     ["ranking", [1, 0, 3, 2]],
     ["matching", { 0: 1, 1: 0 }],
     ["allocation", { 0: 1, 1: 5, 2: 1, 3: 0 }],
+    ["short", "Ростехнадзор"],
+    ["long", "Сначала обесточить, затем доложить."],
   ];
 
   it.each(cases)("%s: decode(encode(x)) === x — текущий формат", (type, answer) => {
     expect(
       decodeLearnerResponse(type, encodeLearnerResponse(type, answer as never), RESPONSE_FORMAT_VERSION),
     ).toEqual(answer);
+  });
+
+  it("пропуски: круг через имена эталона", () => {
+    const answer = { city: "Москва", year: "1703" };
+    const raw = encodeLearnerResponse("blanks", answer, RESPONSE_FORMAT_VERSION, ["city", "year"]);
+    expect(raw).toBe("Москва[,]1703");
+    expect(decodeLearnerResponse("blanks", raw, RESPONSE_FORMAT_VERSION, ["city", "year"])).toEqual(answer);
   });
 
   it.each(cases)("%s: decode(encode(x)) === x — исходный формат", (type, answer) => {
