@@ -12,7 +12,7 @@
  *   - «Сменить макет» on system rows (enabled when >1 variant, replace-variant)
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StructureSection, reorderByDrop, insertIndexFor } from "../start-pages-section";
 import type { TestEditorModel, EditorSection } from "../../test-editor.types";
@@ -247,11 +247,22 @@ function installApi(initialPages: RawPage[]) {
   return spies;
 }
 
-function renderSection(model: TestEditorModel, opts?: { readOnly?: boolean }) {
+function renderSection(
+  model: TestEditorModel,
+  opts?: {
+    readOnly?: boolean;
+    updateModel?: (updater: (model: TestEditorModel) => TestEditorModel) => void;
+  },
+) {
   const client = makeQueryClient();
   return render(
     <QueryClientProvider client={client}>
-      <StructureSection model={model} testId={TEST_ID} readOnly={opts?.readOnly} />
+      <StructureSection
+        model={model}
+        testId={TEST_ID}
+        readOnly={opts?.readOnly}
+        updateModel={opts?.updateModel}
+      />
     </QueryClientProvider>,
   );
 }
@@ -384,7 +395,7 @@ describe("<StructureSection /> — kind-aware layout", () => {
     expect(screen.queryByTestId("structure-system-summary-t1")).toBeNull();
   });
 
-  it("PRD-19 FR-05a: showSectionResults OFF hides the «Итоги раздела» node; «Обзор раздела» stays", async () => {
+  it("PRD-19 FR-05a: showSectionResults OFF marks the «Итоги раздела» node hidden instead of dropping it", async () => {
     installApi([
       buildPage({ id: "pg-rv", kind: "review", position: "after", topicId: null, templateKey: "review.standard", valuesJson: { values: {} } }),
       buildPage({ id: "pg-sr", kind: "section-results", position: "after", topicId: null, templateKey: "section-results.result", valuesJson: { values: {} } }),
@@ -396,9 +407,35 @@ describe("<StructureSection /> — kind-aware layout", () => {
       runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: false, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     }));
     await waitFor(() => expect(screen.getByTestId("structure-zone-topic-t1")).toBeInTheDocument());
-    // The section-results node is gated out (FR-05a), but «Обзор раздела» stays.
+    // Решение владельца 2026-09-20: выключенный экран НЕ исчезает из полотна — он
+    // гаснет и несёт пометку. Исчезнувшая строка не давала автору понять ни что экран
+    // в тесте есть, ни где он включается.
     expect(screen.getByTestId("structure-review-slot-t1")).toBeInTheDocument();
-    expect(screen.queryByTestId("structure-system-section-results-t1")).toBeNull();
+    const row = screen.getByTestId("structure-system-section-results-t1");
+    expect(row).toBeInTheDocument();
+    expect(row).toHaveAttribute("data-hidden", "true");
+    expect(within(row).getByText("Скрыт от ученика")).toBeInTheDocument();
+  });
+
+  it("скрытие «Итогов раздела» из меню строки выключает настройку теста", async () => {
+    installApi([
+      buildPage({ id: "pg-sr", kind: "section-results", position: "after", topicId: null, templateKey: "section-results.result", valuesJson: { values: {} } }),
+      buildPage({ id: "pg-qt1", kind: "questions", position: "before_topic", topicId: "t1", templateKey: "question.standard", valuesJson: { values: {} } }),
+    ]);
+    const updateModel = vi.fn();
+    const model = baseModel({
+      flowMode: "linear_by_topics",
+      sections: [buildSection({ topicId: "t1", topicName: "Тема А" })],
+    });
+    renderSection(model, { updateModel });
+    await waitFor(() => expect(screen.getByTestId("structure-system-section-results-t1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("structure-system-section-results-t1-actions"));
+    fireEvent.click(await screen.findByTestId("structure-system-section-results-t1-visibility"));
+    // Второй правды нет: пункт полотна пишет в ту же настройку, что и переключатель
+    // «Показывать итоги раздела» на «Обратной связи и итогах».
+    expect(updateModel).toHaveBeenCalled();
+    const updater = updateModel.mock.calls[0][0] as (m: typeof model) => typeof model;
+    expect(updater(model).runtime.showSectionResults).toBe(false);
   });
 });
 
