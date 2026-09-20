@@ -56,6 +56,23 @@ export interface QuestionRow {
    * верных. `null` — задание оценивается либо разбрасывать нечего.
    */
   spread?: { options: Array<{ label: string; share: number }>; answered: number } | null;
+  /**
+   * PRD-57 FR-32: сводка свободного текста — сколько написали и как длинно. Частотная
+   * таблица развёрнутому ответу не годится: двух одинаковых ответов не бывает.
+   */
+  volume?: { answered: number; medianLength: number; minLength: number; maxLength: number } | null;
+}
+
+/** Строка списка ответов — то, что отдаёт `GET .../questions/:id/answers` (FR-32). */
+interface AnswerRow {
+  attemptId: string;
+  source: string;
+  participant: string;
+  at: string | null;
+  answer: string;
+  length: number;
+  result: string;
+  latencyMs: number | null;
 }
 
 export interface QuestionTableProps {
@@ -194,6 +211,9 @@ export function QuestionTable({
   /** Задание, для которого открыто окно подтверждения исключения. */
   const [pending, setPending] = useState<QuestionRow | null>(null);
   const [impact, setImpact] = useState<DeliveryImpact | null>(null);
+  /** Задание, ответы которого открыты списком (FR-32). */
+  const [reading, setReading] = useState<QuestionRow | null>(null);
+  const [answers, setAnswers] = useState<AnswerRow[] | null>(null);
 
   const flagged = useMemo(
     () => questions.filter(question => question.reviewFlags.length > 0),
@@ -201,6 +221,18 @@ export function QuestionTable({
   );
   const excludedRows = useMemo(
     () => questions.filter(question => question.excludedFromDelivery),
+    [questions],
+  );
+  /**
+   * Есть ли в тесте задания, на которые ПИШУТ (PRD-57 FR-28x, FR-32).
+   *
+   * У них своя колонка, и в ОБЫЧНОМ тесте тоже: у короткого ответа разброс написаний
+   * дополняет долю верных (варианты там не заданы заранее), а у свободного текста заменяет
+   * её объёмом и длиной. До этого колонка показывалась только у теста, целиком собранного
+   * из измерительных заданий, — и всё, что считал сервер с Э3, автор не видел.
+   */
+  const hasWrittenAnswers = useMemo(
+    () => questions.some(question => question.volume || (question.spread && question.correctPercent !== null)),
     [questions],
   );
 
@@ -229,6 +261,30 @@ export function QuestionTable({
     })();
     return () => { alive = false; };
   }, [pending, testId]);
+
+  // FR-32: сами ответы приходят отдельным запросом и только по открытию окна — свободный
+  // текст участника не грузится вместе с таблицей, где его никто не просил.
+  useEffect(() => {
+    if (!reading) {
+      setAnswers(null);
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/analytics/tests/${testId}/questions/${reading.questionId}/answers`,
+          { credentials: "include" },
+        );
+        if (!response.ok) throw new Error(String(response.status));
+        const data = await response.json() as { rows: AnswerRow[] };
+        if (alive) setAnswers(data.rows);
+      } catch {
+        if (alive) setAnswers([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, [reading, testId]);
 
   const rows = useMemo(() => {
     const shown = view === "review" ? flagged : view === "excluded" ? excludedRows : questions;
@@ -280,13 +336,37 @@ export function QuestionTable({
     // с долей лидирующего варианта и полным перечнем долей подписью. Полоса АКЦЕНТНАЯ, без
     // тонов «успех / предупреждение»: высокая доля градации не хороша и не плоха, оценивать
     // её не относительно чего (FR-21b).
-    ...(measurement ? [{
+    ...(measurement || hasWrittenAnswers ? [{
       key: "spread",
-      header: "Разброс ответов",
+      header: measurement ? "Разброс ответов" : "Что отвечали",
       // Ширина задана, иначе перечень долей растягивает колонку и выталкивает за край
       // экрана те, что стоят правее: у распределения баллов подпись варианта — утверждение.
       width: "34%",
       render: (row: QuestionRow) => {
+        // PRD-57 FR-32: у свободного текста вместо долей — объём и длина, а сами работы
+        // открываются списком: частот у написанного не бывает, и читать их незачем.
+        if (row.volume) {
+          if (row.totalAnswers < minObservations) {
+            return <Text variant="body-s" tone="muted">мало данных</Text>;
+          }
+          return (
+            <Stack gap={1} className="ou-grid__cell-wrap">
+              <Text variant="body-xs" tone="muted">
+                {row.volume.answered} {pluralize(row.volume.answered, "ответ", "ответа", "ответов")}
+                {" · медиана "}{row.volume.medianLength} {pluralize(row.volume.medianLength, "знак", "знака", "знаков")}
+                {" (от "}{row.volume.minLength}{" до "}{row.volume.maxLength}{")"}
+              </Text>
+              <Button
+                variant="ghost"
+                size="s"
+                aria-label={`Прочитать ответы: ${row.questionPrompt}`}
+                onClick={() => setReading(row)}
+              >
+                Прочитать ответы
+              </Button>
+            </Stack>
+          );
+        }
         if (!row.spread || row.totalAnswers < minObservations) {
           return <Text variant="body-s" tone="muted">мало данных</Text>;
         }
@@ -485,6 +565,57 @@ export function QuestionTable({
             Опубликованная версия не меняется: пока тест не опубликован заново, и веб, и
             выгруженный пакет SCORM продолжают выдавать это задание по снимку.
           </Text>
+        </Stack>
+      </ModalDialog>
+
+      {/*
+        PRD-57 FR-32: сами работы — списком, с выгрузкой. Отдельного экрана трек не заводит:
+        список читают оттуда же, где увидели сводку, и тем же окном, каким таблица уже
+        пользуется для подтверждения исключения.
+      */}
+      <ModalDialog
+        open={reading !== null}
+        onClose={() => setReading(null)}
+        size="l"
+        title="Ответы на задание"
+        description={reading?.questionPrompt}
+        footer={
+          <>
+            <Button variant="ghost" size="m" onClick={() => setReading(null)}>Закрыть</Button>
+            {reading && (
+              <Button
+                variant="primary"
+                size="m"
+                // Ссылкой, а не запросом: файл отдаёт сервер, и браузер сохраняет его сам.
+                onClick={() => {
+                  window.location.href =
+                    `/api/analytics/tests/${testId}/questions/${reading.questionId}/answers/export/excel`;
+                }}
+              >
+                Выгрузить в Excel
+              </Button>
+            )}
+          </>
+        }
+      >
+        <Stack gap={3}>
+          {answers === null ? (
+            <Text tone="muted">Читаем ответы…</Text>
+          ) : answers.length === 0 ? (
+            <Text tone="muted">На это задание пока никто не ответил</Text>
+          ) : (
+            answers.map(row => (
+              <Stack key={`${row.attemptId}-${row.length}`} gap={1} className="ou-grid__cell-wrap">
+                <Text variant="body-xs" tone="muted">
+                  {row.participant}
+                  {row.at ? ` · ${new Date(row.at).toLocaleString("ru-RU")}` : ""}
+                  {` · ${row.length} ${pluralize(row.length, "знак", "знака", "знаков")}`}
+                  {row.latencyMs === null ? "" : ` · ${duration(row.latencyMs)}`}
+                </Text>
+                <Text>{row.answer}</Text>
+              </Stack>
+            ))
+          )}
         </Stack>
       </ModalDialog>
     </Card>
