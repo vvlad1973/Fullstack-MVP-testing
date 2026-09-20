@@ -37,7 +37,6 @@ import {
   AlertCircle,
   AlertTriangle,
   ChevronRight,
-  Eye,
   EyeOff,
   GripVertical,
   Image as ImageIcon,
@@ -1369,17 +1368,9 @@ function SystemPageRow(props: {
       <span className="page-variant-badge">{badge}</span>
       <span className="page-title">{props.title}</span>
       <div className="page-actions">
-        {/* Предпросмотр — прямой кнопкой перед меню: смотреть страницу приходится
-            чаще, чем менять её вариант, и прятать это за меню незачем. */}
-        <button
-          type="button"
-          className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-          aria-label="Предпросмотр страницы"
-          onClick={() => handlers.onPreview(page)}
-          data-testid={`${props.testId}-preview-inline`}
-        >
-          <Eye size={14} aria-hidden="true" />
-        </button>
+        {/* Кнопки-глазка в строке нет (решение владельца 2026-09-20): рядом со знаком
+            «скрыт» второй глаз читался как часть того же сообщения. Предпросмотр —
+            команда меню. */}
         <MenuTrigger
           placement="bottom-end"
           trigger={
@@ -1726,20 +1717,9 @@ function AuthorPageRow(props: {
         <span className="page-variant-badge">{badge}</span>
         <span className="page-title">{title}</span>
         <div className="page-actions">
-          {/* Предпросмотр — прямой кнопкой перед меню. Показывается и в
-              опубликованном тесте: смотреть страницу можно всегда, это ничего не
-              меняет, а меню действий там скрыто целиком. */}
-          {!confirming && (
-            <button
-              type="button"
-              className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-              aria-label={`Предпросмотр страницы ${title}`}
-              onClick={() => props.onPreview(page)}
-              data-testid={`structure-page-preview-inline-${page.id}`}
-            >
-              <Eye size={14} aria-hidden="true" />
-            </button>
-          )}
+          {/* Кнопки-глазка в строке нет (решение владельца 2026-09-20): у скрытой
+              карточки рядом стояли два глаза — знак «скрыт» и команда «посмотреть», —
+              и строка читалась двусмысленно. Предпросмотр живёт командой меню. */}
           {props.readOnly ? null : !confirming ? (
             <MenuTrigger
               placement="bottom-end"

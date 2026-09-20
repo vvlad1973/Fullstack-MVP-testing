@@ -617,8 +617,11 @@ describe("<StructureSection /> — delete flow", () => {
   });
 });
 
-describe("<StructureSection /> — inline preview command", () => {
-  it("puts a preview button BEFORE the actions menu on author and system rows", async () => {
+describe("<StructureSection /> — preview command", () => {
+  // Решение владельца 2026-09-20: кнопки-глазка в строке больше нет. У скрытой карточки
+  // рядом оказывались два глаза — знак «скрыт» и команда «посмотреть», — и строка
+  // читалась двусмысленно. Предпросмотр остался командой меню.
+  it("leaves no inline eye button on author and system rows", async () => {
     installApi([
       buildPage({ id: "pg-start", kind: "start", position: "before", topicId: null, templateKey: "start.standard", valuesJson: { values: {} } }),
       buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Страница" } } }),
@@ -626,41 +629,34 @@ describe("<StructureSection /> — inline preview command", () => {
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
 
-    for (const [preview, actions] of [
-      ["structure-page-preview-inline-pg-1", "structure-page-actions-pg-1"],
-      ["structure-system-start-preview-inline", "structure-system-start-actions"],
-    ]) {
-      const eye = screen.getByTestId(preview);
-      const menu = screen.getByTestId(actions);
-      expect(eye).toBeInTheDocument();
-      // DOCUMENT_POSITION_FOLLOWING: the menu comes after the eye.
-      expect(eye.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    }
+    expect(screen.queryByTestId("structure-page-preview-inline-pg-1")).toBeNull();
+    expect(screen.queryByTestId("structure-system-start-preview-inline")).toBeNull();
+    expect(screen.getByTestId("structure-page-actions-pg-1")).toBeInTheDocument();
   });
 
-  it("opens the page preview without going through the menu", async () => {
+  it("opens the page preview from the row menu", async () => {
     installApi([
       buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Страница" } } }),
     ]);
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId("structure-page-preview-inline-pg-1"));
+    fireEvent.click(screen.getByTestId("structure-page-actions-pg-1"));
+    fireEvent.click(await screen.findByTestId("structure-page-preview-pg-1"));
 
     expect(await screen.findByTestId("page-preview-modal")).toBeInTheDocument();
   });
 
-  // A published test hides the whole actions menu, so before this the author had no
-  // way to look at a page at all. Preview changes nothing, so it stays available.
-  it("keeps the preview available on a published (read-only) test", async () => {
+  // PRD-7 G19: в режиме без авторских контролов строка не предлагает действий вовсе.
+  it("renders no row actions in the read-only mode (PRD-7 G19)", async () => {
     installApi([
       buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Страница" } } }),
     ]);
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }), { readOnly: true });
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
 
-    expect(screen.getByTestId("structure-page-preview-inline-pg-1")).toBeInTheDocument();
     expect(screen.queryByTestId("structure-page-actions-pg-1")).toBeNull();
+    expect(screen.queryByTestId("structure-page-preview-inline-pg-1")).toBeNull();
   });
 });
 
