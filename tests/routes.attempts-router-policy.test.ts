@@ -112,11 +112,14 @@ beforeEach(() => {
 
 describe("start attempt — router gating reaches the web host", () => {
   it("delivers the unlock rules and the completion policy of a router test", async () => {
+    // The shape the EDITOR stores: the router's settings nested under `router`.
     storageMock.getTest.mockResolvedValue(
       testRow({
         mode: "router_by_topics",
-        routerCompletionPolicy: "all_required_passed",
-        sectionUnlockRules: UNLOCK_RULES,
+        router: {
+          completionPolicy: "all_required_passed",
+          sectionUnlockRules: UNLOCK_RULES,
+        },
       }),
     );
     storageMock.getTestSections.mockResolvedValue([
@@ -135,7 +138,13 @@ describe("start attempt — router gating reaches the web host", () => {
   });
 
   it("defaults a router test without authored gating to the softer policy and no rules", async () => {
-    storageMock.getTest.mockResolvedValue(testRow({ mode: "router_by_topics" }));
+    // What the editor saves for a router test the author never gated.
+    storageMock.getTest.mockResolvedValue(
+      testRow({
+        mode: "router_by_topics",
+        router: { completionPolicy: "all_required_completed", sectionUnlockRules: {} },
+      }),
+    );
     storageMock.getTestSections.mockResolvedValue([{ topicId: "t1", drawCount: 1 }]);
 
     const res = await asLearner(request(app).post("/api/tests/test1/attempts/start"));
@@ -149,7 +158,10 @@ describe("start attempt — router gating reaches the web host", () => {
   // Outside router mode the fields describe a screen the run never reaches.
   it("omits routerPolicy entirely for a non-router test", async () => {
     storageMock.getTest.mockResolvedValue(
-      testRow({ mode: "linear_by_topics", routerCompletionPolicy: "all_required_passed" }),
+      testRow({
+        mode: "linear_by_topics",
+        router: { completionPolicy: "all_required_passed", sectionUnlockRules: UNLOCK_RULES },
+      }),
     );
     storageMock.getTestSections.mockResolvedValue([{ topicId: "t1", drawCount: 1 }]);
 

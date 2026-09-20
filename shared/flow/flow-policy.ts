@@ -39,9 +39,21 @@ export interface ResolvedFlowPolicy {
   sectionUnlockRules?: Record<string, SectionUnlockRule>;
 }
 
-/** The authored shape, as far as this module cares about it. */
+/**
+ * The authored shape, as far as this module cares about it.
+ *
+ * The router's settings live in the NESTED `router` object — that is what the editor
+ * writes (`buildFlowPolicyForPayload`) and what the workbook import writes. The flat
+ * `routerCompletionPolicy` / `sectionUnlockRules` are read as a fallback because the
+ * SCORM bake used to look for them there and only there: nothing ever wrote them, so
+ * from the day the setting shipped until this module the author's unlock rules and
+ * completion policy reached NEITHER runtime — the package baked the defaults and the
+ * web payload carried nothing at all. Reading both shapes costs nothing and keeps a
+ * hand-written or migrated row working.
+ */
 interface RawFlowPolicy {
   mode?: unknown;
+  router?: unknown;
   routerCompletionPolicy?: unknown;
   sectionUnlockRules?: unknown;
 }
@@ -68,15 +80,18 @@ export function resolveFlowPolicy(raw: unknown): ResolvedFlowPolicy {
     src.mode === "linear_by_topics" || src.mode === "router_by_topics" ? src.mode : "linear_flat";
   if (mode !== "router_by_topics") return { mode };
 
+  // The authored object first, the flat keys as the fallback — see {@link RawFlowPolicy}.
+  const router = (src.router ?? {}) as { completionPolicy?: unknown; sectionUnlockRules?: unknown };
+  const completionPolicy = router.completionPolicy ?? src.routerCompletionPolicy;
+  const unlockRules = router.sectionUnlockRules ?? src.sectionUnlockRules;
+
   const resolved: ResolvedFlowPolicy = {
     mode,
     routerCompletionPolicy:
-      src.routerCompletionPolicy === "all_required_passed"
-        ? "all_required_passed"
-        : "all_required_completed",
+      completionPolicy === "all_required_passed" ? "all_required_passed" : "all_required_completed",
   };
-  if (src.sectionUnlockRules && typeof src.sectionUnlockRules === "object") {
-    resolved.sectionUnlockRules = src.sectionUnlockRules as Record<string, SectionUnlockRule>;
+  if (unlockRules && typeof unlockRules === "object" && Object.keys(unlockRules).length > 0) {
+    resolved.sectionUnlockRules = unlockRules as Record<string, SectionUnlockRule>;
   }
   return resolved;
 }

@@ -33,7 +33,13 @@ export interface RouterSectionResult {
 }
 
 export interface SectionUnlockRule {
-  mode?: "always" | "after_sections_completed" | "after_sections_passed" | string;
+  /** `always_available` is the wording the editor stores; `always` is its synonym. */
+  mode?:
+    | "always_available"
+    | "always"
+    | "after_sections_completed"
+    | "after_sections_passed"
+    | string;
   sectionIds?: string[];
 }
 
@@ -70,7 +76,9 @@ export function pluralQuestions(n: number): string {
  */
 export function isSectionUnlocked(section: RouterSection, state: RouterHubState): boolean {
   const rule = (state.unlockRules || {})[section.topicId];
-  if (!rule || !rule.mode || rule.mode === "always") return true;
+  if (!rule || !rule.mode || rule.mode === "always" || rule.mode === "always_available") {
+    return true;
+  }
   const ids = rule.sectionIds || [];
   if (rule.mode === "after_sections_completed") {
     return ids.every((id) => state.topicStates[id] === "completed");

@@ -24,6 +24,8 @@ describe("flow-policy — mode", () => {
   });
 });
 
+const RULES = { t2: { mode: "after_sections_completed", sectionIds: ["t1"] } };
+
 describe("flow-policy — router gating", () => {
   it("defaults the completion policy to the softer rule in router mode", () => {
     expect(resolveFlowPolicy({ mode: "router_by_topics" })).toEqual({
@@ -32,17 +34,34 @@ describe("flow-policy — router gating", () => {
     });
   });
 
-  it("keeps the strict rule when authored", () => {
+  // THE shape the editor writes (`buildFlowPolicyForPayload`) and the workbook import
+  // writes. It is the reason this test exists: the bake read the flat keys, nothing
+  // ever wrote them, and the author's gating reached no runtime at all.
+  it("reads the AUTHORED nested `router` object", () => {
     expect(
-      resolveFlowPolicy({ mode: "router_by_topics", routerCompletionPolicy: "all_required_passed" })
-        .routerCompletionPolicy,
-    ).toBe("all_required_passed");
+      resolveFlowPolicy({
+        mode: "router_by_topics",
+        router: { completionPolicy: "all_required_passed", sectionUnlockRules: RULES },
+      }),
+    ).toEqual({
+      mode: "router_by_topics",
+      routerCompletionPolicy: "all_required_passed",
+      sectionUnlockRules: RULES,
+    });
   });
 
-  it("carries the unlock rules when authored", () => {
-    const rules = { t2: { mode: "after_sections_completed", sectionIds: ["t1"] } };
-    expect(resolveFlowPolicy({ mode: "router_by_topics", sectionUnlockRules: rules })
-      .sectionUnlockRules).toEqual(rules);
+  it("still reads the flat keys a hand-written or migrated row may carry", () => {
+    expect(
+      resolveFlowPolicy({
+        mode: "router_by_topics",
+        routerCompletionPolicy: "all_required_passed",
+        sectionUnlockRules: RULES,
+      }),
+    ).toEqual({
+      mode: "router_by_topics",
+      routerCompletionPolicy: "all_required_passed",
+      sectionUnlockRules: RULES,
+    });
   });
 
   // The package ships this object verbatim as TEST_DATA.flowPolicy, so a key that
@@ -50,15 +69,20 @@ describe("flow-policy — router gating", () => {
   it("omits the router fields entirely outside router mode", () => {
     const resolved = resolveFlowPolicy({
       mode: "linear_by_topics",
-      routerCompletionPolicy: "all_required_passed",
-      sectionUnlockRules: { t2: { mode: "after_sections_completed", sectionIds: ["t1"] } },
+      router: { completionPolicy: "all_required_passed", sectionUnlockRules: RULES },
     });
     expect(resolved).toEqual({ mode: "linear_by_topics" });
     expect("routerCompletionPolicy" in resolved).toBe(false);
     expect("sectionUnlockRules" in resolved).toBe(false);
   });
 
+  // The editor saves an EMPTY map for every router test; emitting it would rewrite the
+  // bytes of every router package that has no rules at all.
   it("omits sectionUnlockRules when the author set none", () => {
     expect("sectionUnlockRules" in resolveFlowPolicy({ mode: "router_by_topics" })).toBe(false);
+    expect(
+      "sectionUnlockRules" in
+        resolveFlowPolicy({ mode: "router_by_topics", router: { sectionUnlockRules: {} } }),
+    ).toBe(false);
   });
 });
