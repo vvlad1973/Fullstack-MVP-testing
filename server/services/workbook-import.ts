@@ -111,7 +111,14 @@ import {
 } from "./content-pages-lifecycle";
 import { FlowPolicyValidationError, validateFlowPolicy } from "./flow-policy-validator";
 import { parseScoringCell } from "../utils/scoring-excel";
-import { hasOptionList, isMeasurementOnly, distributesBudget } from "@shared/questions/question-type";
+import {
+  hasOptionList,
+  isMeasurementOnly,
+  distributesBudget,
+  isTextEntry,
+  hasBlanks,
+  isOpenText,
+} from "@shared/questions/question-type";
 // Тот же нормализатор, которым читают список блоков оба хоста: книга обязана понимать
 // хранимое значение ровно так же, как экран итогов.
 import { normalizeSectionGroups } from "@shared/scoring/section-groups";
@@ -1768,12 +1775,18 @@ export async function importWorkbook(
         // Причина у двух измерительных типов разная, и называть её надо точно: у шкалы
         // это ОТСУТСТВИЕ правильной градации (появится — цена оживёт), у распределения
         // сам тип (PRD-44 FR-10) — оживать нечему.
+        // PRD-57: у текстовых типов причина третья — ПРАВИЛ нет (у короткого ответа и у
+        // пропусков появятся — цена оживёт), а у развёрнутого их не бывает вовсе.
+        const why = distributesBudget(q.type)
+          ? `распределение баллов, оно не проверяется и не приносит баллов`
+          : isOpenText(q.type)
+            ? `развёрнутый ответ, он не проверяется автоматически`
+            : isTextEntry(q.type) || hasBlanks(q.type)
+              ? `текстовый ответ без правил сравнения`
+              : `измерительная шкала без правильной градации`;
         result.warnings.push(
-          distributesBudget(q.type)
-            ? `${input.where}: вопрос "${input.ref}" — распределение баллов, оно не проверяется ` +
-              `и не приносит баллов, поэтому «Балл»/«Цена ответа» на результат не влияют (значения сохранены)`
-            : `${input.where}: вопрос "${input.ref}" — измерительная шкала без правильной ` +
-              `градации, поэтому «Балл»/«Цена ответа» на результат не влияют (значения сохранены)`,
+          `${input.where}: вопрос "${input.ref}" — ${why}, поэтому «Балл»/«Цена ответа» ` +
+            `на результат не влияют (значения сохранены)`,
         );
       }
 
