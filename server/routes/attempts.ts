@@ -1861,6 +1861,10 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       // поимённо, поэтому незаявленное срезается молча: ровно так это поле и потерялось
       // при первой приёмке.
       ...(agg.questionOutcomes?.length ? { questionOutcomes: agg.questionOutcomes } : {}),
+      // PRD-57 FR-36: признак завершённости оценки хранится ВМЕСТЕ с результатом. Поле,
+      // посчитанное агрегатом, но не перенесённое сюда, срезается без единой ошибки —
+      // `AttemptResult` перечисляет поля поимённо, и это уже подводило на Э3.
+      gradingComplete: agg.gradingComplete,
     };
 
     await storage.updateAttempt(attempt.id, {
