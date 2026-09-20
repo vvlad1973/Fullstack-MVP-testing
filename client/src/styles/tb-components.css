@@ -3027,3 +3027,35 @@
 /* Выражение и куски выражения — моноширинными: в них значим каждый знак,
    а пропорциональный шрифт склеивает точку с запятой и путает I с l. */
 .tb-mono { font-family: var(--ou-font-family-mono); }
+
+/* ─── PRD-57 §4.3: визуальный ввод текста задания ─────────────────────────────
+   Поле повторяет вид обычного поля ДС — рамка, фон и отступы взяты у него же, —
+   чтобы режим отличался способом набора, а не оформлением формы. Атом виден как
+   единый объект: своя подложка и запрет выделения внутри, потому что правится он
+   целиком (FR-09b). */
+.tb-rich-area {
+  min-height: 120px;
+  padding: var(--ou-space-3) var(--ou-space-4);
+  border: 1px solid var(--ou-border-default);
+  border-radius: var(--ou-radius-m);
+  background: var(--ou-bg-surface);
+  color: var(--ou-fg-default);
+  font: var(--ou-text-body-m);
+  overflow-wrap: anywhere;
+}
+.tb-rich-area:focus-visible {
+  outline: 2px solid var(--ou-accent-default);
+  outline-offset: 1px;
+}
+.tb-atom {
+  display: inline-block;
+  padding: 0 var(--ou-space-1);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-surface-2);
+  border: 1px dashed var(--ou-border-soft);
+  user-select: none;
+}
+.tb-atom--code { display: block; margin: var(--ou-space-2) 0; padding: var(--ou-space-2); }
+.tb-atom--code pre { margin: 0; }
+.tb-atom--formula,
+.tb-atom--blank { font-family: var(--ou-font-mono, monospace); font-size: 0.95em; }

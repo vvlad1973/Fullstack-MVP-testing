@@ -172,3 +172,67 @@ describe("сохранение", () => {
     expect(savedBody().promptFormat).toBe("markdown");
   });
 });
+
+/**
+ * PRD-57 FR-09b: визуальный режим. Проверяется не «редактор нарисовался», а то, ради чего
+ * требование написано: механики в поле живут едиными объектами и переживают правку.
+ */
+describe("режим «Форматированный»", () => {
+  it("предлагается третьим в переключателе", () => {
+    renderDrawer();
+    expect(screen.getByRole("button", { name: "Форматированный" })).toBeTruthy();
+  });
+
+  it("открывает поле визуального ввода с панелью форматирования", async () => {
+    renderDrawer();
+    fireEvent.change(screen.getByTestId("input-question-prompt"), { target: { value: "Текст" } });
+    fireEvent.click(screen.getByRole("button", { name: "Форматированный" }));
+    fireEvent.click(await screen.findByTestId("confirm-mode-switch"));
+
+    expect(await screen.findByTestId("input-question-prompt-rich")).toBeTruthy();
+    expect(screen.getByTestId("rich-bold")).toBeTruthy();
+    expect(screen.getByTestId("rich-link")).toBeTruthy();
+  });
+
+  it("механики показаны атомарными узлами (FR-09b)", async () => {
+    const richQuestion = {
+      id: "q1", topicId: "t1", type: "single",
+      prompt: "<p>Столица — {{city}}, доля $$E = mc^2$$.</p>",
+      promptFormat: "richText",
+      dataJson: { options: ["А", "Б"] }, correctJson: { correctIndex: 0 },
+      tags: [], feedbackMode: "general",
+    } as unknown as Question;
+    renderDrawer({ question: richQuestion });
+
+    const area = await screen.findByTestId("input-question-prompt-rich");
+    const atoms = area.querySelectorAll("[data-atom]");
+    expect(atoms.length).toBe(2);
+    for (const atom of Array.from(atoms)) {
+      expect(atom.getAttribute("contenteditable")).toBe("false");
+    }
+  });
+
+  it("сохраняет текст без служебных узлов: в базу уезжает разметка", async () => {
+    const richQuestion = {
+      id: "q1", topicId: "t1", type: "single",
+      prompt: "<p>Столица — {{city}}.</p>",
+      promptFormat: "richText",
+      dataJson: { options: ["А", "Б"] }, correctJson: { correctIndex: 0 },
+      tags: [], feedbackMode: "general",
+    } as unknown as Question;
+    renderDrawer({ question: richQuestion });
+
+    const area = await screen.findByTestId("input-question-prompt-rich");
+    fireEvent.blur(area);
+
+    const submit = screen.getByTestId("button-submit-question");
+    await waitFor(() => expect(submit).not.toBeDisabled());
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(guardMock).toHaveBeenCalled());
+    const body = guardMock.mock.calls.at(-1)![0].body as { prompt: string; promptFormat: string };
+    expect(body.promptFormat).toBe("richText");
+    expect(body.prompt).toContain("{{city}}");
+    expect(body.prompt).not.toContain("data-atom");
+  });
+});

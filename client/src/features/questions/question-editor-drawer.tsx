@@ -69,6 +69,7 @@ import { insertMarkup, CODE_LANGUAGES, type MarkupKind } from "./insert-markup";
 import { promptFormatOf, type PromptFormat } from "@shared/questions/prompt-format";
 import { describeModeSwitch, convertPrompt, type ModeSwitchReport } from "@shared/text/mode-switch";
 import { QuestionPreviewModal } from "./question-preview-modal";
+import { RichPromptEditor } from "./rich-prompt-editor";
 import { ContentImpactDialog } from "@/features/content-protection/content-impact-dialog";
 import { useContentGuard } from "@/features/content-protection/use-content-guard";
 import type { Question, Topic } from "@shared/schema";
@@ -149,6 +150,11 @@ export function QuestionEditorDrawer({
   const [previewOpen, setPreviewOpen] = useState(false);
   /** PRD-57 §4.3: режим, в котором автор набирает текст задания. */
   const [promptFormat, setPromptFormat] = useState<PromptFormat>("markdown");
+  /**
+   * Ключ перепривязки визуального поля: растёт, когда текст заменили НЕ набором —
+   * переключением режима, вставкой кнопкой или открытием другого задания.
+   */
+  const [promptSyncKey, setPromptSyncKey] = useState(0);
   /** Переход, о котором спрашивают автора: отчёт считается ДО перевода (FR-09c). */
   const [modeSwitch, setModeSwitch] = useState<{ to: PromptFormat; report: ModeSwitchReport } | null>(null);
 
@@ -167,6 +173,7 @@ export function QuestionEditorDrawer({
     const to = field?.selectionEnd ?? from;
     const result = insertMarkup({ kind, language, value, from, to });
     form.setValue("prompt", result.value, { shouldDirty: true });
+    setPromptSyncKey((key) => key + 1);
     window.setTimeout(() => {
       field?.focus();
       field?.setSelectionRange(result.caret, result.caret);
@@ -277,6 +284,7 @@ export function QuestionEditorDrawer({
       });
       setSelectedType(question.type as QuestionType);
       setPromptFormat(promptFormatOf(question as { promptFormat?: unknown }));
+      setPromptSyncKey((key) => key + 1);
 
       const data = question.dataJson as any;
       const correct = question.correctJson as any;
@@ -330,6 +338,7 @@ export function QuestionEditorDrawer({
       form.reset({ topicId: defaultTopicId ?? "", type: "single", prompt: "" });
       setSelectedType("single");
       setPromptFormat("markdown");
+      setPromptSyncKey((key) => key + 1);
       resetQuestionData();
     }
     // Re-init only when (re)opening or switching the target question.
@@ -471,6 +480,7 @@ export function QuestionEditorDrawer({
   const applyModeSwitch = (next: PromptFormat) => {
     const converted = convertPrompt(promptFormat, next, form.getValues("prompt") ?? "");
     form.setValue("prompt", converted, { shouldDirty: true });
+    setPromptSyncKey((key) => key + 1);
     setPromptFormat(next);
     setModeSwitch(null);
   };
@@ -777,6 +787,7 @@ export function QuestionEditorDrawer({
               onChange={(next) => requestModeSwitch(next)}
               items={[
                 { value: "markdown", label: "Разметка" },
+                { value: "richText", label: "Форматированный" },
                 { value: "html", label: "HTML" },
               ]}
               data-testid="seg-prompt-format"
@@ -849,6 +860,16 @@ export function QuestionEditorDrawer({
             </Text>
           </Cluster>
 
+          {promptFormat === "richText" ? (
+            <RichPromptEditor
+              label={t.questions.questionText}
+              value={form.watch("prompt") ?? ""}
+              onChange={(next) => form.setValue("prompt", next, { shouldDirty: true })}
+              // Перепривязка только на внешнюю замену текста: набор в поле её не трогает,
+              // иначе курсор уезжал бы в начало на каждом символе.
+              syncKey={promptSyncKey}
+            />
+          ) : (
           <Textarea
             label={t.questions.questionText}
             placeholder={t.questions.questionTextPlaceholder}
@@ -868,6 +889,7 @@ export function QuestionEditorDrawer({
               handleMarkdownPaste(e, (v) => form.setValue("prompt", v, { shouldDirty: true }))
             }
           />
+          )}
 
           {selectedType === "long" && (
             <Stack gap={4} data-testid="long-answer-block">
