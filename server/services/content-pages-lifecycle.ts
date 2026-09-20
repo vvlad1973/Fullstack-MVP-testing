@@ -37,6 +37,7 @@
  * the computed `section-results` node. Existing `summary` rows are removed by migration.
  */
 import type { VariantKind, TemplateManifest } from "@shared/schema";
+import { resolveFlowPolicy } from "@shared/flow/flow-policy";
 import { bindSystemVariant } from "./variant-binding";
 
 export type FlowMode = "linear_flat" | "linear_by_topics" | "router_by_topics";
@@ -105,11 +106,10 @@ export const DEFAULT_TEMPLATE_ID = "default";
  * copy of the default is how the preview would start promising a different plan.
  */
 export function extractFlowMode(flowPolicyJson: unknown): FlowMode {
-  if (typeof flowPolicyJson === "object" && flowPolicyJson !== null) {
-    const mode = (flowPolicyJson as { mode?: unknown }).mode;
-    if (mode === "linear_by_topics" || mode === "router_by_topics") return mode;
-  }
-  return "linear_flat";
+  // Delegated to the SHARED normaliser both runtimes read the column with: the
+  // authoring side must plan the structure for the mode the run will actually take,
+  // and a third copy of «what an unreadable mode means» is a third chance to disagree.
+  return resolveFlowPolicy(flowPolicyJson).mode;
 }
 
 /** Extracts `templateId` from `tests.design_settings_json`, defaulting per NFR-01. */

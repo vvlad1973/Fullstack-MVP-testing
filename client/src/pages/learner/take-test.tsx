@@ -38,7 +38,20 @@ import {
   buildRouterHubHtml,
   isRouterReadyToFinish,
   type RouterTopicStatus,
+  type SectionUnlockRule,
 } from "@shared/flow/router-hub";
+
+/**
+ * PRD-4 v1.1 §4.7 — the router's gating as the attempt payload delivers it
+ * (`flowPayload` in `server/routes/attempts.ts`), already resolved server-side by
+ * `shared/flow/flow-policy`. Present only for a `router_by_topics` run; the hub
+ * hands both fields straight to the shared rules, so a section open in the LMS is
+ * open here and «Завершить» unlocks at the same moment on both hosts.
+ */
+type RouterPolicyPayload = {
+  completionPolicy?: string | null;
+  sectionUnlockRules?: Record<string, SectionUnlockRule | undefined>;
+};
 import type { RenderableContentPage } from "@shared/template/content-page";
 import {
   useSectionTimer,
@@ -441,11 +454,13 @@ export default function TakeTestPage() {
   const [flowStructure, setFlowStructure] = useState<{
     flowMode: string;
     contentPages: FlowContentPage[];
-  }>({ flowMode: "linear_flat", contentPages: [] });
+    /** PRD-4 v1.1 §4.7 router gating; `null` outside router mode. */
+    routerPolicy: RouterPolicyPayload | null;
+  }>({ flowMode: "linear_flat", contentPages: [], routerPolicy: null });
   const [contentTpl, setContentTpl] = useState<ContentScreenTemplate | null>(null);
   const [pageQueue, setPageQueue] = useState<RenderableContentPage[]>([]);
   /** Section order from the variant — the anchor for the per-topic zones. */
-  const [sections, setSections] = useState<{ topicId: string }[]>([]);
+  const [sections, setSections] = useState<{ topicId: string; required?: boolean }[]>([]);
   /**
    * The question advance deferred while a content zone plays. Applied verbatim
    * once the queue drains, so the boundary logic (section обзор / итоги раздела)
@@ -1248,8 +1263,15 @@ export default function TakeTestPage() {
       setFlowStructure({
         flowMode: (data.attempt.flowMode as string) ?? "linear_flat",
         contentPages: (data.attempt.contentPages as FlowContentPage[]) ?? [],
+        routerPolicy: (data.attempt.routerPolicy as RouterPolicyPayload | undefined) ?? null,
       });
-      setSections((variant.sections || []).map((s: any) => ({ topicId: s.topicId })));
+      setSections(
+        (variant.sections || []).map((s: any) => ({
+          topicId: s.topicId,
+          // Absent on an attempt started before obligation was carried ⇒ required.
+          required: s.required !== false,
+        })),
+      );
       setPhase("question");
 
       toast({
@@ -1419,9 +1441,15 @@ export default function TakeTestPage() {
     const structure = {
       flowMode: (data.flowMode as string) ?? "linear_flat",
       contentPages: (data.contentPages as FlowContentPage[]) ?? [],
+      routerPolicy: (data.routerPolicy as RouterPolicyPayload | undefined) ?? null,
     };
     setFlowStructure(structure);
-    const variantSections = (variant.sections || []).map((s: any) => ({ topicId: s.topicId }));
+    const variantSections = (variant.sections || []).map((s: any) => ({
+      topicId: s.topicId,
+      // PRD-4 v1.1 §4.7: obligation rides on the delivered section, as it does in
+      // TEST_DATA.sections. Absent on an attempt started before it shipped ⇒ required.
+      required: s.required !== false,
+    }));
     setSections(variantSections);
     const built = buildPageSequence({
       flowMode: structure.flowMode,
@@ -1771,6 +1799,9 @@ export default function TakeTestPage() {
           topicName: q?.topicName || s.topicId,
           drawCount: flatQuestions.filter((fq) => fq.topicId === s.topicId).length,
           timeLimitMinutes: q?.sectionTimeLimitMinutes ?? null,
+          // PRD-4 v1.1 §4.7: an OPTIONAL section never blocks «Завершить» — the same
+          // rule the package applies, from the same field.
+          required: s.required !== false,
         };
       }),
     [sections, flatQuestions],
@@ -2604,8 +2635,11 @@ export default function TakeTestPage() {
     const hubHubState = {
       topicStates: routerTopicStates,
       sectionResults: routerSectionResults,
-      unlockRules: {},
-      completionPolicy: null,
+      // PRD-4 v1.1 §4.7: the SAME gating the package runs — resolved server-side by
+      // `shared/flow/flow-policy` and delivered with the attempt. A hub built with
+      // empty rules is a hub that opens sections the LMS keeps locked.
+      unlockRules: flowStructure.routerPolicy?.sectionUnlockRules ?? {},
+      completionPolicy: flowStructure.routerPolicy?.completionPolicy ?? null,
     };
     const hubReady = isRouterReadyToFinish(hubSections, hubHubState);
     return (

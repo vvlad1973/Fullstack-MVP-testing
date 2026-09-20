@@ -2,6 +2,7 @@ import type { Test, TestSection, Topic, Question, TopicCourse, TopicEvent, PassR
 import { sanitizeHtml, placeholderScope } from "../../utils/html-sanitizer";
 import { findEligibilityPlugin, findEligibilityConfig } from "@shared/eligibility/registry";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
+import { resolveFlowPolicy } from "@shared/flow/flow-policy";
 import { effectiveSectionOrder } from "@shared/draw/assemble-delivery";
 import { computeWeights } from "@shared/draw/exposure";
 import { withEffectiveMaxLength } from "@shared/questions/short-answer";
@@ -233,34 +234,12 @@ export function buildTestJson(data: ExportData): string {
   // router-specific gating (routerCompletionPolicy, sectionUnlockRules).
   // Missing flowPolicyJson defaults to `{ mode: "linear_flat" }` per FR-40
   // to keep legacy SCORMs identical to pre-v1.1 behaviour.
-  const flowPolicyJson = data.test.flowPolicyJson as {
-    mode?: string;
-    routerCompletionPolicy?: string;
-    sectionUnlockRules?: Record<string, unknown>;
-  } | null;
-  const exportedFlowPolicy: {
-    mode: "linear_flat" | "linear_by_topics" | "router_by_topics";
-    routerCompletionPolicy?: "all_required_completed" | "all_required_passed";
-    sectionUnlockRules?: Record<string, unknown>;
-  } = {
-    mode:
-      flowPolicyJson?.mode === "linear_by_topics" ||
-      flowPolicyJson?.mode === "router_by_topics"
-        ? flowPolicyJson.mode
-        : "linear_flat",
-  };
-  // PRD-4 v1.1 §4.7: router-specific fields are only meaningful in router
-  // mode. Default routerCompletionPolicy to all_required_completed (the
-  // softer rule — counts any achievedLevel as «pass» for navigation).
-  if (exportedFlowPolicy.mode === "router_by_topics") {
-    exportedFlowPolicy.routerCompletionPolicy =
-      flowPolicyJson?.routerCompletionPolicy === "all_required_passed"
-        ? "all_required_passed"
-        : "all_required_completed";
-    if (flowPolicyJson?.sectionUnlockRules) {
-      exportedFlowPolicy.sectionUnlockRules = flowPolicyJson.sectionUnlockRules;
-    }
-  }
+  //
+  // Resolved by the SHARED normaliser, which the web attempt payload also runs:
+  // the two hosts used to clamp the mode and carry the router gating by their own
+  // rules, and that is exactly how the web run ended up with no unlock rules and no
+  // completion policy at all.
+  const exportedFlowPolicy = resolveFlowPolicy(data.test.flowPolicyJson);
 
   const test: any = {
     id: data.test.id,
