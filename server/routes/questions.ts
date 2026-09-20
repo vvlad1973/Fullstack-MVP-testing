@@ -16,6 +16,7 @@ import { syncEntityUsages, canonicalizeEntityMedia, clearCascadedUsages } from "
 import { normalizeTags } from "@shared/tags";
 import { normalizeAuthorText } from "@shared/text";
 import { normalizeOptionalText, normalizeQuestionData } from "../services/question-text";
+import { formulasFor } from "../services/prompt-html";
 import { importQuestionRows } from "../services/questions-import";
 import { serializeQuestionRow, QUESTION_HEADERS, QUESTION_WIDTHS } from "../services/questions-export";
 import { assessQuestionsRemoval, assessQuestionChange } from "../services/draw-feasibility";
@@ -48,6 +49,19 @@ import { config } from "../config";
  * невыполнимой, и вводить общую проверку «на всякий случай» значит менять поведение,
  * о котором PRD-44 не просил.
  */
+/**
+ * Положить в содержимое задания готовые формулы (PRD-57 FR-07).
+ *
+ * Пустой словарь НЕ кладётся: задание без формул обязано остаться байт в байт таким же,
+ * каким было, иначе хеш содержимого дрогнет у каждого вопроса в базе.
+ */
+function withFormulas(dataJson: unknown, prompt: string): unknown {
+  const formulas = formulasFor(prompt);
+  if (Object.keys(formulas).length === 0) return dataJson;
+  const base = (dataJson ?? {}) as Record<string, unknown>;
+  return { ...base, formulas };
+}
+
 function allocationConfigError(type: string | undefined, dataJson: unknown): string | null {
   if (!distributesBudget(type ?? "")) return null;
   const parsed = allocationDataSchema.safeParse(dataJson);
@@ -253,7 +267,10 @@ router.post(
         topicId,
         type,
         prompt: canonicalPrompt,
-        dataJson: normalizeQuestionData(dataJson),
+        // PRD-57 FR-07: готовые SVG формул кладутся В ЗАДАНИЕ. Требование прямое: при
+        // переносе теста между установками картинка едет вместе с вопросом, а не
+        // пересчитывается на приёмнике — иначе её вид зависит от версии библиотеки там.
+        dataJson: withFormulas(normalizeQuestionData(dataJson), canonicalPrompt),
         correctJson,
         difficulty: difficulty || 50,
         mediaUrl: mediaUrl || null,
@@ -383,7 +400,10 @@ router.put(
         // reads that as «leave unchanged», so normalisation must not turn it
         // into an empty string.
         prompt: normalizeOptionalText(prompt),
-        dataJson: normalizeQuestionData(dataJson),
+        // PRD-57 FR-07: готовые SVG формул кладутся В ЗАДАНИЕ. Требование прямое: при
+        // переносе теста между установками картинка едет вместе с вопросом, а не
+        // пересчитывается на приёмнике — иначе её вид зависит от версии библиотеки там.
+        dataJson: withFormulas(normalizeQuestionData(dataJson), normalizeOptionalText(prompt) ?? ""),
         correctJson,
         difficulty,
         mediaUrl,

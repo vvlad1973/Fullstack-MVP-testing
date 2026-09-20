@@ -1,22 +1,20 @@
 /**
- * @module features/questions/answer-rules/describe-rule
+ * @module shared/answer-check/describe
  *
- * A numeric rule said in words (PRD-57 FR-28aa2): the operator gives the constructor its
+ * A rule said in words (PRD-57 FR-28aa2): the operator gives the constructor its
  * compactness, the sentence below it gives the author something to proof-read — «от -27
  * до -23 °C» is checkable at a glance, `= -25 ± 2` has to be converted in the head first.
  *
- * It lives on the CLIENT rather than in `shared/answer-check/`: the wording is written for
- * the AUTHOR, the learner never sees it, and the comparison modules are bundled into every
- * SCORM package — text that nobody in the package reads has no business travelling there.
- * The probe of Э6 and the blanks of Э8 read the same wording from here.
+ * Shared, but deliberately NOT re-exported from `shared/answer-check/index`: the wording is
+ * written for the AUTHOR (the editor's rule list and probe, the analytics column and the
+ * Excel report), the learner never sees it, and the index is what the SCORM runtime bundle
+ * pulls in — text nobody in the package reads has no business travelling there.
+ *
+ * It lived in the editor until Э10, when the analytics export needed the same sentences: a
+ * second edition of the same wording on the server would drift from this one silently.
  */
-import type {
-  AnswerRule,
-  AnswerRuleSet,
-  NumericOp,
-  NumericRule,
-  RuleSetOutcome,
-} from "@shared/answer-check";
+import type { AnswerRule, AnswerRuleSet, RuleSetOutcome } from "./rules";
+import type { NumericOp, NumericRule } from "./number";
 
 /** The operator list of the approved wireframe, in its order. */
 export const NUMERIC_OPERATORS: Array<{ value: NumericOp; label: string }> = [
@@ -162,4 +160,28 @@ export function describeNumericRule(rule: NumericRule, unit: string): string {
         ? `Засчитывается ответ ровно ${value}${tail}`
         : `Засчитывается ответ от ${low} до ${high}${tail}`;
   }
+}
+
+/**
+ * Один набор правил ОДНОЙ строкой — для колонки отчёта и для карточки аналитики.
+ *
+ * Читается теми же словами, какими автор видит правило в ящике: выгрузка, которая
+ * пересказала бы эталон по-своему, рано или поздно разошлась бы с экраном, и спорить
+ * пришлось бы уже о том, какая формулировка верна.
+ *
+ * @param set Набор правил задания или пропуска.
+ * @returns Правила, соединённые связкой набора; пустая строка, если правил нет вовсе.
+ */
+export function describeRuleSet(set: AnswerRuleSet | null | undefined): string {
+  const rules = Array.isArray(set?.rules) ? set.rules : [];
+  if (rules.length === 0) return "";
+  const unit = typeof set?.unit === "string" ? set.unit : "";
+  const words = rules.map((rule) => {
+    if (rule.kind === "number") return describeNumericRule(rule, unit);
+    if (rule.match === "regex") return `Засчитывается ответ по выражению «${rule.value}»`;
+    return `Засчитывается ответ «${rule.value}»`;
+  });
+  // Связка называется словом, а не знаком: «и» против «либо» — это и есть разница между
+  // «нужно выполнить всё» и «достаточно одного», и читатель отчёта не обязан её помнить.
+  return words.join(set?.join === "all" ? "; и " : "; либо ");
 }

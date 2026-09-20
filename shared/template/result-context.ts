@@ -223,6 +223,12 @@ export function buildTopicRecommendationsView(t: TopicFeedbackInput): {
 /** Normalized standard result input. */
 export interface ResultInput {
   passed: boolean;
+  /**
+   * PRD-57 FR-36: оценка завершена. `false` — в попытке есть ответ, который ждёт
+   * проверки, и экран итогов обязан уметь это сказать (FR-41). Отсутствие поля означает
+   * «попытка собрана до этой работы», и экран ведёт себя как раньше.
+   */
+  gradingComplete?: boolean;
   percent: number;
   totalQuestions: number;
   correct: number;
@@ -1162,6 +1168,9 @@ export function buildResultContext(
     correct: input.correct,
     earnedPoints: round1(input.earnedPoints),
     possiblePoints: round1(input.possiblePoints),
+    // PRD-57 FR-41: поле появляется, только когда есть что сказать, — контекст теста без
+    // открытых ответов остаётся байт в байт прежним.
+    ...(input.gradingComplete === false ? { pendingReview: true } : {}),
     topicResults: topicCards.map((c) => c.view),
   };
   // PRD-50 FR-24 - FR-27. Counting over the FILTERED cards gives the same numbers as

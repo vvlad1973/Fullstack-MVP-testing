@@ -520,6 +520,7 @@ export const t = {
     allocation: "Распределение баллов",
     shortAnswer: "Короткий ответ",
     blanks: "Пропуски",
+    longAnswer: "Развёрнутый ответ",
     allocationStatements: "Утверждения",
     allocationStatementPlaceholder: "Текст утверждения",
     allocationBudget: "Бюджет",

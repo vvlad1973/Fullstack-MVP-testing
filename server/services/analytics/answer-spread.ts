@@ -188,6 +188,56 @@ function numericSpread(answers: readonly unknown[]): AnswerSpread | null {
   return { options: [...options, ...nan], answered: counted };
 }
 
+/** Сводка свободного текста: сколько написали и как длинно (PRD-57 FR-32). */
+export interface TextVolume {
+  /** Сколько ответов оказалось непустыми: знаменатель всего остального. */
+  answered: number;
+  /** Медиана длины в символах — типичная работа. */
+  medianLength: number;
+  minLength: number;
+  maxLength: number;
+}
+
+/**
+ * Сводка свободного текста (PRD-57 FR-32).
+ *
+ * Частотная таблица развёрнутому ответу не годится по устройству: двух одинаковых ответов
+ * не бывает, и список из сотни строк с долей «1 %» каждая не сообщает ничего. Объективного
+ * о таком задании ровно две вещи — СКОЛЬКО написали и КАК ДЛИННО, и обе здесь.
+ *
+ * Медиана, а не среднее: одна работа на три тысячи знаков сдвигает среднее и врёт о
+ * типичном ответе, тогда как медиана остаётся на месте. Границы печатаются рядом — именно
+ * они показывают, что такая работа была.
+ *
+ * Длина меряется по видимому тексту: краевые пробелы — свойство поля ввода, а не ответа.
+ *
+ * @param answers сырые ответы участников
+ * @returns сводка либо `null`, когда никто не написал ни слова
+ */
+export function textVolume(answers: readonly unknown[]): TextVolume | null {
+  const lengths: number[] = [];
+  for (const answer of answers) {
+    if (typeof answer !== "string") continue;
+    const text = answer.trim();
+    if (text === "") continue;
+    lengths.push(text.length);
+  }
+  if (lengths.length === 0) return null;
+
+  lengths.sort((a, b) => a - b);
+  const middle = Math.floor(lengths.length / 2);
+  // Чётное число ответов: берётся НИЖНЯЯ из двух середин, а не их среднее — длина это
+  // целое число символов, и «6,5 символа» читается как ошибка счёта.
+  const median = lengths.length % 2 === 1 ? lengths[middle] : lengths[middle - 1];
+
+  return {
+    answered: lengths.length,
+    medianLength: median,
+    minLength: lengths[0],
+    maxLength: lengths[lengths.length - 1],
+  };
+}
+
 /**
  * Разброс ответов задания.
  *

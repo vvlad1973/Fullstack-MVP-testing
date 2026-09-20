@@ -4,6 +4,7 @@ import attemptsRouter from "./attempts";
 import scormRouter from "./scorm";
 import summaryRouter from "./summary";
 import questionDeliveryRouter from "./question-delivery";
+import questionAnswersRouter from "./question-answers";
 import deliveryRouter from "./delivery";
 import scalesRouter from "./scales";
 import registryRouter from "./registry";
@@ -36,6 +37,9 @@ router.use("/", summaryRouter);
 
 // PRD-56 FR-17a: исключение задания из выдачи теста и возврат в неё
 router.use("/", questionDeliveryRouter);
+
+// PRD-57 FR-32: ответы одного задания списком и выгрузкой
+router.use("/", questionAnswersRouter);
 
 // PRD-56 FR-18 - FR-20: вкладка «Выдача» — GET /api/analytics/tests/:testId/delivery
 router.use("/", deliveryRouter);

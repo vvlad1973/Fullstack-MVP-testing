@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { answerSpread } from "../answer-spread";
+import { answerSpread, textVolume } from "../answer-spread";
 
 const GRADES = ["Никогда", "Иногда", "Часто", "Всегда"];
 const STATEMENTS = ["Командный", "Вдохновляющий", "Целеустремлённый", "Процессный"];
@@ -170,5 +170,37 @@ describe("answerSpread — числовое задание (PRD-57 FR-28ag)", ()
   it("текстовый набор по-прежнему сворачивается по написаниям", () => {
     const spread = answerSpread({ type: "short", options: [], answers: ["РТН", "ртн"] });
     expect(spread?.options).toEqual([{ label: "РТН", share: 100 }]);
+  });
+});
+
+/**
+ * PRD-57 FR-32: свободный текст не описывается частотами вариантов — двух одинаковых
+ * развёрнутых ответов не бывает. Объективного о таком задании ровно две вещи: сколько
+ * написали и как длинно.
+ */
+describe("сводка свободного текста (FR-32)", () => {
+  it("считает ответы и длину: медиану и границы", () => {
+    const summary = textVolume(["раз", "двадцать символов!!!", "семь!!"]);
+    expect(summary).toEqual({ answered: 3, medianLength: 6, minLength: 3, maxLength: 20 });
+  });
+
+  it("медиана, а не среднее: один ответ на страницу не сдвигает типичную работу", () => {
+    const summary = textVolume(["ответ", "ответ", "ответ", "x".repeat(3000)]);
+    expect(summary?.medianLength).toBe(5);
+    expect(summary?.maxLength).toBe(3000);
+  });
+
+  it("пустые ответы не считаются написанными", () => {
+    const summary = textVolume(["", "   ", null, "есть"]);
+    expect(summary).toEqual({ answered: 1, medianLength: 4, minLength: 4, maxLength: 4 });
+  });
+
+  it("считать не из чего — null", () => {
+    expect(textVolume([])).toBeNull();
+    expect(textVolume(["", null])).toBeNull();
+  });
+
+  it("длина меряется по видимому тексту, без краевых пробелов", () => {
+    expect(textVolume(["  пять  "])?.medianLength).toBe(4);
   });
 });

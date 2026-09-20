@@ -43,6 +43,7 @@ const TYPE_LABEL: Record<QuestionType, string> = {
   allocation: "Распределение баллов",
   short: "Короткий ответ",
   blanks: "Пропуски",
+  long: "Развёрнутый ответ",
 };
 
 const METHOD_LABEL: Record<"exact" | "weighted" | "tiered", string> = {

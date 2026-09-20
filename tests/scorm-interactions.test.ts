@@ -130,3 +130,19 @@ describe("взаимодействие задания с пропусками (P
     expect(runtime.correctPatternFor(wild)).toBe("");
   });
 });
+
+describe("развёрнутый ответ в отчёте LMS (PRD-57 FR-19)", () => {
+  const q = { id: "q-long", type: "long", correct: {} };
+
+  it("уезжает взаимодействием long-fill-in", () => {
+    expect(runtime.mapScormType(q)).toBe("long-fill-in");
+  });
+
+  it("ответ уходит текстом как есть", () => {
+    expect(runtime.formatResponse(q, "Развёрнутый ответ участника")).toBe("Развёрнутый ответ участника");
+  });
+
+  it("эталон не пишется вовсе: его не существует", () => {
+    expect(runtime.correctPatternFor(q)).toBe("");
+  });
+});

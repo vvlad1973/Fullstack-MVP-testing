@@ -830,3 +830,45 @@ function blankHtml(id: string, set: BlankRuleSet | undefined, options: BlanksPro
 
   return `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>`;
 }
+
+/** Что нужно многострочному полю развёрнутого ответа. */
+export interface LongAnswerOptions {
+  /** Разбор и предпросмотр рисуют поле запертым. */
+  readonly?: boolean;
+}
+
+/**
+ * Поле развёрнутого ответа (PRD-57 FR-11, FR-12).
+ *
+ * Многострочное и только многострочное: однострочное поле обещает участнику ответ в одну
+ * фразу, а тип заводился ровно для обратного. Блока «правильный ответ» рядом нет и быть
+ * не может — эталона у типа не существует (FR-13, FR-17).
+ *
+ * Подсказка-заполнитель и предел длины приходят из содержимого задания; предел — это
+ * ограничение LMS (`long-fill-in`, около 4000 символов), подставленное сервером, потому
+ * что конфигурации в рантайме пакета нет.
+ */
+export function renderLongAnswer(
+  question: InteractionQuestion,
+  answer: unknown,
+  options: LongAnswerOptions = {},
+): string {
+  const value = typeof answer === "string" ? answer : "";
+  const data = (question.dataJson ?? {}) as { placeholder?: unknown; maxLength?: unknown };
+  const placeholder = typeof data.placeholder === "string" && data.placeholder.trim() !== ""
+    ? ` placeholder="${attrText(data.placeholder)}"`
+    : "";
+  const limit = typeof data.maxLength === "number" && data.maxLength > 0 ? data.maxLength : null;
+  const limitAttr = limit === null ? "" : ` maxlength="${limit}"`;
+  const limitMsg = limit === null ? "" : `<div class="ou-field__msg">До ${limit} символов</div>`;
+  const locked = options.readonly ? " disabled" : "";
+  return (
+    `<div class="ou-field ou-field--l ou-field--full tb-answer-field tb-answer-field--long">` +
+    `<div class="ou-field__box">` +
+    `<textarea class="ou-field__input" rows="6"${placeholder}${limitAttr}` +
+    ` aria-label="Ваш ответ" data-action="short-answer"${locked}>${attrText(value)}</textarea>` +
+    `</div>` +
+    limitMsg +
+    `</div>`
+  );
+}

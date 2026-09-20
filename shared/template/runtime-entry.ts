@@ -114,6 +114,8 @@ export { renderAllocation } from "./question-interaction";
 // PRD-57 FR-30: the typed-answer field is rendered and wired from the SAME code on both
 // hosts — no separate in-package implementation.
 export { renderShortAnswer, type ShortAnswerOptions } from "./question-interaction";
+// PRD-57 §5: поле развёрнутого ответа — тот же рендер на обоих хостах.
+export { renderLongAnswer, type LongAnswerOptions } from "./question-interaction";
 // PRD-57 FR-24: пропуски — тот же рендер на обоих хостах. В пакет уезжают и разбор
 // разметки, и подстановка: экран участника ставит поля, а итоги печатают ответ и эталон.
 export { renderBlanksPrompt, type BlanksPromptOptions } from "./question-interaction";

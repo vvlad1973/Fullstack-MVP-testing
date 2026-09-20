@@ -38,7 +38,7 @@
 import { scoreAnswer, type Answer, type CorrectData, type QuestionType } from "./engine";
 import type { QuestionScoring } from "../schema";
 import { checkRuleSet, type AnswerRuleSet, type RuleVerdicts } from "../answer-check/rules";
-import { isMeasurementOnly, isTextEntry } from "../questions/question-type";
+import { isMeasurementOnly, isOpenText, isTextEntry } from "../questions/question-type";
 import {
   resolveOverallRule,
   resolveTopicRule,
@@ -194,6 +194,15 @@ export interface AggregateResult<E = unknown> {
    * Отсутствие ключа и пустой список — разные вещи: второй означает «вопросов не было».
    */
   questionOutcomes?: QuestionOutcome[];
+  /**
+   * PRD-57 FR-36: оценка завершена — или результат ПРЕДВАРИТЕЛЬНЫЙ.
+   *
+   * Предварительна попытка, где хотя бы один ответ ждёт проверки (развёрнутый ответ;
+   * ответ, чьё выражение не уложилось в бюджет). Сегодня, пока проверки нет, признак
+   * только вычисляется — но существовать он обязан с первого дня: добавить его позже
+   * значит пересчитать уже собранные результаты и перевыпустить пакеты.
+   */
+  gradingComplete: boolean;
 }
 
 /**
@@ -205,7 +214,13 @@ export interface AggregateResult<E = unknown> {
  */
 export interface QuestionOutcome {
   questionId: string;
-  result: "correct" | "incorrect" | "neutral";
+  /**
+   * PRD-57 FR-35: состояний ЧЕТЫРЕ, и третье с четвёртым различаются по существу.
+   * `neutral` — «не требует оценки» (измерительный ответ, задание без правил);
+   * `pending` — «ждёт проверки» (развёрнутый ответ; ответ, чьё выражение не уложилось в
+   * бюджет). Булево «оценено или нет» этого различия не несёт, а на нём стоит аналитика.
+   */
+  result: "correct" | "incorrect" | "neutral" | "pending";
   earned: number;
   possible: number;
 }
@@ -286,7 +301,18 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
       if (isMeasurementOnly(q) || isUnchecked(q)) {
         // Нейтральный исход, а не пропуск: «не оценивается» — это факт об ответе, и
         // аналитике он нужен ровно так же, как «верно» и «неверно».
-        if (q.id) questionOutcomes.push({ questionId: q.id, result: "neutral", earned: 0, possible: 0 });
+        //
+        // PRD-57 FR-35: «ждёт проверки» и «не требует оценки» — РАЗНЫЕ состояния, и
+        // различие не косметическое: на нём стоит вся аналитика открытых ответов.
+        const waiting = isOpenText(q.type) || isUnchecked(q);
+        if (q.id) {
+          questionOutcomes.push({
+            questionId: q.id,
+            result: waiting ? "pending" : "neutral",
+            earned: 0,
+            possible: 0,
+          });
+        }
         continue;
       }
       scored++;
@@ -434,6 +460,8 @@ export function aggregateStandardResult<E = unknown>(input: AggregateInput<E>): 
     // Тем же правилом: попытка без единого опознанного вопроса хранит прежнюю форму
     // результата, и читатель отличает «списка нет» от «список пуст».
     ...(questionOutcomes.length ? { questionOutcomes } : {}),
+    // PRD-57 FR-36: попытка предварительна, пока хоть один ответ ждёт проверки.
+    gradingComplete: !questionOutcomes.some((outcome) => outcome.result === "pending"),
   };
 }
 

@@ -116,3 +116,30 @@ describe("канонизация текста при сохранении (FR-01
     expect(normalizeAuthorText("```\r\nA\r\n```")).toBe("```\nA\n```");
   });
 });
+
+describe("формула (PRD-57 FR-07a)", () => {
+  it("$$…$$ становится оболочкой с исходной записью", () => {
+    const html = renderInlineMarkdown("Площадь круга $$S = \pi r^2$$ известна");
+    expect(html).toContain('<span class="tb-formula" data-latex="S = \pi r^2">');
+    // Пока сервер не подставил картинку, участник видит саму запись, а не пустое место.
+    expect(html).toContain("S = \pi r^2</span>");
+  });
+
+  it("одиночный доллар ограждением не считается", () => {
+    const html = renderInlineMarkdown("Цена $100 и ещё $200");
+    expect(html).not.toContain("tb-formula");
+  });
+
+  it("типографика внутри формулы не работает", () => {
+    const html = renderInlineMarkdown('$$a - "b"$$');
+    expect(html).toContain("&quot;b&quot;");
+    expect(html).not.toContain("«b»");
+  });
+
+  it("формула не мешает соседям: код и пропуск остаются собой", () => {
+    const html = renderInlineMarkdown("Код `x` формула $$y$$ пропуск {{z}}");
+    expect(html).toContain("tb-code-inline");
+    expect(html).toContain("tb-formula");
+    expect(html).toContain("{{z}}");
+  });
+});

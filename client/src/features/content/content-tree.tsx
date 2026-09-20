@@ -55,6 +55,7 @@ import {
   Trash2,
   Unplug,
   type LucideIcon,
+  Pilcrow,
 } from "lucide-react";
 import { Button, Checkbox, Chip, Cluster, Input, Label, ModalDialog, Select, Stack, Text } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
@@ -141,7 +142,7 @@ function MenuItem({ icon, danger, onClick, children, testId }: {
 
 import type { QuestionType } from "@shared/questions/question-type";
 
-const TYPE_ICON: Record<QuestionType, LucideIcon> = { single: CircleDot, multiple: CheckSquare, matching: Unplug, ranking: ListOrdered, scale: ThermometerSun, allocation: SlidersHorizontal, short: TextCursorInput, blanks: Braces };
+const TYPE_ICON: Record<QuestionType, LucideIcon> = { single: CircleDot, multiple: CheckSquare, matching: Unplug, ranking: ListOrdered, scale: ThermometerSun, allocation: SlidersHorizontal, short: TextCursorInput, blanks: Braces, long: Pilcrow };
 const TYPE_LABEL: Record<QuestionType, string> = {
   single: t.questions.singleChoice,
   multiple: t.questions.multipleChoice,
@@ -151,6 +152,7 @@ const TYPE_LABEL: Record<QuestionType, string> = {
   allocation: t.questions.allocation,
   short: t.questions.shortAnswer,
   blanks: t.questions.blanks,
+  long: t.questions.longAnswer,
 };
 
 const depthClass = (depth: number): string => `ct-d${Math.min(depth, 6)}`;

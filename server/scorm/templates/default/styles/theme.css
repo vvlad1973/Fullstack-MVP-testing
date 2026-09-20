@@ -653,6 +653,22 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
 .tb-scene .tb-code__com { color: var(--ou-fg-muted); font-style: italic; }
 .tb-scene .tb-code__fn { color: var(--ou-info-on-soft, var(--ou-accent-default)); }
 
+/* Формула (PRD-57 §4.2). Картинка приезжает готовой: SVG считает сервер, в пакет
+   едет только он. Выравнивание по базовой линии — формула стоит В СТРОКЕ текста и не
+   должна подпрыгивать над ней. */
+.tb-scene .tb-formula {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+}
+.tb-scene .tb-formula svg {
+  /* Цвет наследуется от текста: у SVG MathJax заливка задана `currentColor`, поэтому
+     формула живёт в теме шаблона, а не в палитре библиотеки. */
+  fill: currentColor;
+  max-width: 100%;
+  height: auto;
+}
+
 /* Multiple: the tick is class-driven (no native input) — mirror DS :checked. */
 .ou-radio-card.is-on .ou-check__box {
   background: var(--ou-accent-default);

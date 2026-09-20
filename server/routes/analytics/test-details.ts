@@ -6,9 +6,9 @@ import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { renderBlanksText } from "@shared/questions/blanks-render";
 import { stripMarkdown } from "@shared/text";
-import { isTextEntry } from "@shared/questions/question-type";
+import { isTextEntry, isOpenText, hasBlanks } from "@shared/questions/question-type";
 import { summariseAnswers } from "../../services/analytics/answers";
-import { answerSpread, type AnswerSpread } from "../../services/analytics/answer-spread";
+import { answerSpread, textVolume, type AnswerSpread, type TextVolume } from "../../services/analytics/answer-spread";
 import { loadTestAnswerFacts, variantQuestionIds } from "../../services/analytics/test-answer-facts";
 import { scoreBuckets } from "../../services/analytics/score-buckets";
 import { loadObservations } from "../../services/analytics/observations";
@@ -149,6 +149,11 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
        * `null` — задание оценивается либо разбрасывать нечего.
        */
       spread: AnswerSpread | null;
+      /**
+       * PRD-57 FR-32: сводка свободного текста — объём и длина. Частотная таблица
+       * развёрнутому ответу не годится: двух одинаковых ответов не бывает.
+       */
+      volume: TextVolume | null;
     }
 
     const questionStatsMap = new Map<string, QuestionStatsEntry>();
@@ -188,7 +193,22 @@ router.get("/:testId", requirePermission("analytics.read"), requireTestScope("an
         })
         : null;
 
+      // PRD-57 FR-32: у свободного текста вместо частот — объём и длина. Считается и у
+      // задания с пропусками: написанное там тоже текст, просто разложенный по полям.
+      const volume = isOpenText(question.type) || hasBlanks(question.type)
+        ? textVolume(
+          (answersOfQuestion.get(stats.questionId) ?? []).map((answer) =>
+            typeof answer === "string"
+              ? answer
+              : answer && typeof answer === "object"
+                ? Object.values(answer as Record<string, unknown>).filter((v) => typeof v === "string").join(" ")
+                : null,
+          ),
+        )
+        : null;
+
       questionStatsMap.set(stats.questionId, {
+        volume,
         spread,
         questionId: stats.questionId,
         questionPrompt: stripMarkdown(renderBlanksText(question.prompt, { mode: "dash" })),

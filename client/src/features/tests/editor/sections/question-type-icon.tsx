@@ -17,6 +17,7 @@ import {
   Unplug,
   type LucideIcon,
   Braces,
+  Pilcrow,
 } from "lucide-react";
 
 import type { QuestionType } from "@shared/questions/question-type";
@@ -32,6 +33,7 @@ export const QUESTION_TYPE_ICON: Record<QuestionType, LucideIcon> = {
   allocation: SlidersHorizontal,
   short: TextCursorInput,
   blanks: Braces,
+  long: Pilcrow,
 };
 
 export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
@@ -43,6 +45,7 @@ export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   allocation: t.questions.allocation,
   short: t.questions.shortAnswer,
   blanks: t.questions.blanks,
+  long: t.questions.longAnswer,
 };
 
 /**
