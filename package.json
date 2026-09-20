@@ -33,6 +33,7 @@
     "check:editor-ui": "node scripts/check/check-editor-conformance.mjs",
     "scorm:sample": "tsx scripts/scorm/generate-sample-scorm.ts",
     "scorm:template": "tsx scripts/scorm/generate-template-scorm.ts",
+    "scorm:probe": "tsx scripts/scorm/generate-probe-scorm.ts",
     "scorm:player": "node scripts/scorm/scorm-player.mjs",
     "scorm:previews": "node scripts/docs/generate-prd1-template-previews.mjs",
     "icons:gen": "tsx scripts/build/gen-lucide-icons.ts",
