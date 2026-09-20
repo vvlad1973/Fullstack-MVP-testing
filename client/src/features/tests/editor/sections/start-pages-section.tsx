@@ -615,6 +615,12 @@ type ZoneHandlers = {
   onPreview: (page: ContentPage) => void;
   /** When true, the tab is rendered without authoring controls (PRD-7 G19). */
   readOnly: boolean;
+  /**
+   * Видимость карточки: показывается ли экран ученику и можно ли это менять
+   * (см. {@link RowVisibility}). Живёт в handlers, потому что строки лежат на трёх
+   * уровнях вложенности зон — тащить один и тот же проп через каждый было бы шумом.
+   */
+  visibilityFor?: (page: ContentPage) => RowVisibility;
 };
 
 function ZonesBlock(props: {
@@ -623,8 +629,43 @@ function ZonesBlock(props: {
   onGoToComposition?: () => void;
   updateModel?: (updater: (model: TestEditorModel) => TestEditorModel) => void;
 }) {
-  const { model, handlers, onGoToComposition, updateModel } = props;
-  const pages = handlers.cp.pages;
+  const { model, handlers: baseHandlers, onGoToComposition, updateModel } = props;
+  const pages = baseHandlers.cp.pages;
+
+  // Видимость «Итогов раздела»: пункт меню строки и переключатель «Показывать итоги
+  // раздела» («Обратная связь и итоги» → «Во время теста») правят ОДНУ настройку —
+  // у автора не должно быть двух выключателей одного экрана.
+  const sectionResultsVisibility: RowVisibility = {
+    kind: "toggle",
+    hidden: !model.runtime.showSectionResults,
+    onToggle:
+      updateModel && !baseHandlers.readOnly
+        ? () =>
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, showSectionResults: !m.runtime.showSectionResults },
+            }))
+        : undefined,
+  };
+
+  // Видимость ЛЮБОЙ карточки полотна (решение владельца 2026-09-20). Скрывать можно
+  // всё, кроме блока вопросов и маршрутизатора; «Итоги раздела» ходят через настройку
+  // теста (см. выше), остальные — через признак самой страницы.
+  const visibilityFor = (page: ContentPage): RowVisibility => {
+    const locked = NON_HIDEABLE_REASON[page.kind];
+    if (locked) return { kind: "locked", reason: locked };
+    if (page.kind === "section-results") return sectionResultsVisibility;
+    return {
+      kind: "toggle",
+      hidden: page.hidden === true,
+      onToggle: baseHandlers.readOnly
+        ? undefined
+        : () => {
+            void baseHandlers.cp.update(page.id, { hidden: !(page.hidden === true) });
+          },
+    };
+  };
+  const handlers: ZoneHandlers = { ...baseHandlers, visibilityFor };
   // Distinct id namespace so the shared DndContext routes topic drags to the
   // topic-level SortableContext and page drags stay on the existing path.
   const TOPIC_ID_PREFIX = "topic:";
@@ -835,21 +876,6 @@ function ZonesBlock(props: {
         ? "enabled"
         : "disabled";
 
-  // Видимость «Итогов раздела»: пункт меню строки и переключатель «Показывать итоги
-  // раздела» («Обратная связь и итоги» → «Во время теста») правят ОДНУ настройку —
-  // у автора не должно быть двух выключателей одного экрана.
-  const sectionResultsVisibility: RowVisibility = {
-    kind: "toggle",
-    hidden: !model.runtime.showSectionResults,
-    onToggle:
-      updateModel && !handlers.readOnly
-        ? () =>
-            updateModel((m) => ({
-              ...m,
-              runtime: { ...m.runtime, showSectionResults: !m.runtime.showSectionResults },
-            }))
-        : undefined,
-  };
 
   return (
     <DndContext
@@ -905,7 +931,6 @@ function ZonesBlock(props: {
             introForTopic={introForTopic}
             reviewPage={reviewPage}
             sectionResultsPage={sectionResultsPage}
-            sectionResultsVisibility={sectionResultsVisibility}
             reviewSlot={reviewSlot}
             dragEnabled={Boolean(updateModel) && !handlers.readOnly}
             dimGrip={handlers.readOnly}
@@ -965,8 +990,6 @@ function TopicBlock(props: {
   /** PRD-19: test-level «Итоги раздела» (kind: section-results) design binding,
    *  shown last. Строка стоит в полотне всегда; выключенная — гаснет с пометкой. */
   sectionResultsPage: ContentPage | null;
-  /** Видимость «Итогов раздела» (см. {@link RowVisibility}). */
-  sectionResultsVisibility?: RowVisibility;
   before: ContentPage[];
   after: ContentPage[];
   questions: ContentPage | null;
@@ -1066,7 +1089,6 @@ function TopicBlock(props: {
             page={props.sectionResultsPage}
             title="Итоги раздела"
             handlers={props.handlers}
-            visibility={props.sectionResultsVisibility}
             testId={`structure-system-section-results-${section.topicId}`}
           />
         )}
@@ -1169,15 +1191,13 @@ function InsideTestZone(props: {
   reviewPage: ContentPage | null;
   /** PRD-19: test-level «Итоги раздела» design binding. */
   sectionResultsPage: ContentPage | null;
-  /** Видимость «Итогов раздела» (см. {@link RowVisibility}). */
-  sectionResultsVisibility?: RowVisibility;
   /** PRD-19 FR-08a: «Обзор раздела» slot state (`null` = hidden, e.g. adaptive). */
   reviewSlot: "enabled" | "disabled" | null;
   dragEnabled: boolean;
   /** PRD-7 G19 read-only: dim topic grips without removing them. */
   dimGrip?: boolean;
 }) {
-  const { router, handlers, sections, infoIn, questionsForTopic, introForTopic, reviewPage, sectionResultsPage, sectionResultsVisibility, reviewSlot, dragEnabled, dimGrip } = props;
+  const { router, handlers, sections, infoIn, questionsForTopic, introForTopic, reviewPage, sectionResultsPage, reviewSlot, dragEnabled, dimGrip } = props;
   return (
     <section className="inside-test" data-testid="structure-inside-test">
       {/* Только надпись: шеврон обещал бы свёртку зоны, которой нет (та же правка, что
@@ -1201,7 +1221,6 @@ function InsideTestZone(props: {
                 intro={introForTopic(section.topicId)}
                 reviewPage={reviewPage}
                 sectionResultsPage={sectionResultsPage}
-                sectionResultsVisibility={sectionResultsVisibility}
                 before={infoIn("before_topic", section.topicId)}
                 after={infoIn("after_topic", section.topicId)}
                 questions={questionsForTopic(section.topicId)}
@@ -1269,11 +1288,15 @@ type RowVisibility =
   | { kind: "toggle"; hidden: boolean; onToggle?: () => void }
   | { kind: "locked"; reason: string };
 
-/** Экраны, без которых прохождение не состоится, — их скрыть нельзя. */
+/**
+ * Что скрыть нельзя (решение владельца 2026-09-20): блок вопросов — это сам тест, а
+ * маршрутизатор — способ навигации по нему, и без хаба сценарий перестаёт быть
+ * маршрутизаторным. Всё остальное, включая «Старт» и «Итоги теста», автор скрывает
+ * сам. Тот же запрет проверяет сервер: сломанный тест не должен собираться никаким
+ * клиентом.
+ */
 const NON_HIDEABLE_REASON: Partial<Record<string, string>> = {
-  start: "С этого экрана начинается прохождение",
   questions: "Вопросы — суть теста, их скрыть нельзя",
-  results: "Без экрана итогов ученик не узнает результат",
   router: "На маршрутизаторе ученик выбирает раздел",
 };
 
@@ -1317,6 +1340,7 @@ function SystemPageRow(props: {
     Object.values(values).every((v) => v === null || v === undefined || v === "");
   const visibility: RowVisibility | undefined =
     props.visibility ??
+    handlers.visibilityFor?.(page) ??
     (NON_HIDEABLE_REASON[page.kind]
       ? { kind: "locked", reason: NON_HIDEABLE_REASON[page.kind] as string }
       : undefined);
@@ -1600,6 +1624,7 @@ function SortablePageItem(props: { page: ContentPage; handlers: ZoneHandlers }) 
         readOnly={handlers.readOnly}
         onReplaceVariant={handlers.onReplaceVariant}
         onPreview={handlers.onPreview}
+        visibilityFor={handlers.visibilityFor}
       />
     </div>
   );
@@ -1656,6 +1681,8 @@ function AuthorPageRow(props: {
   onReplaceVariant: (page: ContentPage) => void;
   /** PRD-7 G17 / FR-44: opens PagePreviewModal for this page. */
   onPreview: (page: ContentPage) => void;
+  /** Видимость строки (см. {@link RowVisibility}); не задана — скрывать нельзя. */
+  visibilityFor?: (page: ContentPage) => RowVisibility;
 }) {
   const { page, cp } = props;
   const [confirming, setConfirming] = useState(false);
@@ -1683,6 +1710,10 @@ function AuthorPageRow(props: {
 
   const title = pageTitle(page);
   const badge = variant?.label ?? KIND_LABEL[page.kind] ?? page.kind;
+  // Авторскую страницу автор и раньше мог убрать — но только УДАЛИВ вместе с текстом.
+  // Скрытие обратимо: страница остаётся в полотне и в тесте, ученику не выдаётся.
+  const visibility = props.visibilityFor?.(page);
+  const isHidden = visibility?.kind === "toggle" && visibility.hidden;
 
   return (
     <>
@@ -1690,11 +1721,13 @@ function AuthorPageRow(props: {
         className={
           "page-row" +
           (hasErr ? " page-row--error" : hasWarn ? " page-row--warn" : "") +
+          (isHidden ? " page-row--hidden" : "") +
           (props.expanded ? " is-expanded" : "") +
           (props.isDragging ? " dragging" : "") +
           (props.readOnly ? " page-row--readonly" : "")
         }
         data-testid={`structure-page-row-${page.id}`}
+        data-hidden={isHidden ? "true" : undefined}
       >
         <span
           className="drag-handle"
@@ -1714,6 +1747,17 @@ function AuthorPageRow(props: {
         >
           <ChevronRight size={14} aria-hidden="true" />
         </button>
+        {isHidden && (
+          <span
+            className="page-hidden-ico"
+            role="img"
+            aria-label="Скрыт от ученика"
+            title="Скрыт от ученика"
+            data-testid={`structure-page-hidden-ico-${page.id}`}
+          >
+            <EyeOff size={14} aria-hidden="true" />
+          </span>
+        )}
         <span className="page-variant-badge">{badge}</span>
         <span className="page-title">{title}</span>
         <div className="page-actions">
@@ -1749,6 +1793,19 @@ function AuthorPageRow(props: {
                 >
                   Предпросмотр
                 </MenuItem>
+                {visibility && (
+                  <MenuItem
+                    disabled={visibility.kind === "locked" || !visibility.onToggle}
+                    onClick={
+                      visibility.kind === "toggle" && visibility.onToggle
+                        ? visibility.onToggle
+                        : undefined
+                    }
+                    data-testid={`structure-page-visibility-${page.id}`}
+                  >
+                    {visibility.kind === "toggle" && visibility.hidden ? "Показать" : "Скрыть"}
+                  </MenuItem>
+                )}
                 <MenuItem
                   danger
                   onClick={() => setConfirming(true)}

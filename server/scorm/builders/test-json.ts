@@ -720,6 +720,10 @@ export function buildTestJson(data: ExportData): string {
         settings: packedSettings,
         autoAdvance: page.autoAdvance,
         autoAdvanceDelayMs: page.autoAdvanceDelayMs,
+        // Скрытая страница едет в пакет ВМЕСТЕ с признаком, а не вырезается сборщиком:
+        // системные экраны (старт, итоги, обзор) — ещё и привязка макета, и без строки
+        // рантайм потерял бы оформление. Что не показывать, решает общий фильтр потока.
+        hidden: page.hidden ?? false,
       };
     });
   }

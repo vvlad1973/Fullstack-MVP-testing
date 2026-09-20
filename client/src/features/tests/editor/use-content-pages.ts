@@ -53,6 +53,8 @@ export type ContentPage = {
   settingsJson?: Record<string, unknown>;
   autoAdvance: boolean;
   autoAdvanceDelayMs: number | null;
+  /** Экран есть в тесте, но ученику не выдаётся (решение владельца 2026-09-20). */
+  hidden?: boolean;
   createdAt: string;
   updatedAt: string;
   /** Server-side flag: true when the saved templateKey no longer exists in the active template. */
@@ -136,6 +138,8 @@ export type ContentPageInput = {
   autoAdvance?: boolean;
   autoAdvanceDelayMs?: number | null;
   sortOrder?: number;
+  /** Скрыть экран от ученика; сервер отказывает для вопросов и маршрутизатора. */
+  hidden?: boolean;
 };
 
 // ─── Network helpers ──────────────────────────────────────────────────────────
