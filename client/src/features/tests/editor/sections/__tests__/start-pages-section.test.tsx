@@ -414,7 +414,10 @@ describe("<StructureSection /> — kind-aware layout", () => {
     const row = screen.getByTestId("structure-system-section-results-t1");
     expect(row).toBeInTheDocument();
     expect(row).toHaveAttribute("data-hidden", "true");
-    expect(within(row).getByText("Скрыт от ученика")).toBeInTheDocument();
+    // Статус несёт пиктограмма в заголовке строки, а не чип в подписях.
+    expect(
+      within(row).getByTestId("structure-system-section-results-t1-hidden-ico"),
+    ).toBeInTheDocument();
   });
 
   it("скрытие «Итогов раздела» из меню строки выключает настройку теста", async () => {

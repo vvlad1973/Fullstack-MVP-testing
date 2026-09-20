@@ -1554,14 +1554,18 @@
 }
 .page-row--disabled .page-title { color: var(--ou-fg-muted); }
 
-/* Скрытая автором карточка (решение владельца 2026-09-20): гаснет так же, как
-   недоступный «Обзор», но акцент и действия сохраняет — это обратимое решение о
-   выдаче, а не системная недоступность. Пометка «Скрыт от ученика» в `.page-row__meta`
-   гашение не наследует: иначе то единственное, ради чего строка осталась в полотне,
-   читалось бы хуже всего. */
-.page-row--hidden { opacity: 0.55; }
+/* Скрытая автором карточка (решение владельца 2026-09-20): заголовок и бейдж
+   приглушаются, а статус несёт ПИКТОГРАММА перед бейджем. Гасить строку целиком
+   (opacity, как у недоступного «Обзора») нельзя: погас бы и сам знак — единственное,
+   ради чего строка осталась в полотне. */
 .page-row--hidden .page-title { color: var(--ou-fg-muted); }
-.page-row--hidden .page-row__meta { opacity: 1; }
+.page-row--hidden .page-variant-badge { opacity: 0.6; }
+.page-hidden-ico {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--ou-fg-muted);
+}
 .page-comment {
   display: flex;
   align-items: flex-start;

@@ -47,12 +47,13 @@
       .wf-notes code { font: var(--ou-text-code-s, var(--ou-text-body-s)); }
 
       /* ── ПРЕДЛАГАЕМЫЕ ПРАВИЛА (кандидаты в client/src/styles/tb-components.css) ──
-         Скрытая автором карточка НЕ исчезает: она гасится, как погашенный «Обзор»
-         (.page-row--disabled), но акцент слева сохраняет, потому что это обратимое
-         авторское решение, а не системная недоступность. */
-      .page-row--hidden { opacity: 0.55; }
+         Скрытая автором карточка НЕ исчезает: заголовок и бейдж приглушаются, а статус
+         несёт ПИКТОГРАММА перед бейджем. Гашение строки целиком (opacity, как у
+         недоступного «Обзора») не годится: погас бы и сам знак — единственное, ради чего
+         строка осталась в полотне. */
       .page-row--hidden .page-title { color: var(--ou-fg-muted); }
-      .page-row--hidden .page-row__meta { opacity: 1; }
+      .page-row--hidden .page-variant-badge { opacity: 0.6; }
+      .page-hidden-ico { display: inline-flex; align-items: center; flex-shrink: 0; color: var(--ou-fg-muted); }
 
       /* Меню строки в эскизе раскрыто статически. В интерфейсе его рисует MenuTrigger
          поверх ящика, поэтому здесь снимается обрезка у карточки темы — иначе поповер
@@ -197,9 +198,9 @@
     <div id="s-hidden" class="wf-state">
       <aside class="wf-notes">
         <h3>Скрыта автором</h3>
-        <p>Скрытая карточка НЕ исчезает: остаётся на месте, гасится и несёт тег
-          «Скрыт от ученика». Автор видит, что экран в тесте есть, и одним движением
-          возвращает его.</p>
+        <p>Скрытая карточка НЕ исчезает: остаётся на месте, приглушается и несёт
+          пиктограмму перед бейджем. Автор видит, что экран в тесте есть, и одним
+          движением возвращает его.</p>
         <p>Скрывать можно и системный экран («Итоги раздела»), и авторскую страницу
           («Памятка») — сегодня страницу можно только удалить вместе с текстом.</p>
       </aside>
@@ -255,14 +256,12 @@
                         </div>
                         <div class="page-row page-row--hidden">
                           <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                          <span class="page-hidden-ico" role="img" aria-label="Скрыт от ученика" title="Скрыт от ученика"><svg width="14" height="14" aria-hidden="true"><use href="#i-eye-off" /></svg></span>
                           <span class="page-variant-badge">Страница</span>
                           <span class="page-title">Памятка перед вопросами</span>
                           <div class="page-actions">
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Предпросмотр страницы"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-eye" /></svg></span></button>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для страницы"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
-                          </div>
-                          <div class="page-row__meta">
-                            <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s"><svg width="12" height="12" aria-hidden="true"><use href="#i-eye-off" /></svg> Скрыт от ученика</span>
                           </div>
                         </div>
                         <div class="page-row page-row--system page-row--questions">
@@ -282,14 +281,12 @@
                           </div>
                         </div>
                         <div class="page-row page-row--system page-row--hidden">
+                          <span class="page-hidden-ico" role="img" aria-label="Скрыт от ученика" title="Скрыт от ученика"><svg width="14" height="14" aria-hidden="true"><use href="#i-eye-off" /></svg></span>
                           <span class="page-variant-badge">Итоги</span>
                           <span class="page-title">Итоги раздела</span>
                           <div class="page-actions">
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Предпросмотр страницы"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-eye" /></svg></span></button>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для страницы"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
-                          </div>
-                          <div class="page-row__meta">
-                            <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s"><svg width="12" height="12" aria-hidden="true"><use href="#i-eye-off" /></svg> Скрыт от ученика</span>
                           </div>
                         </div>
                       </div>
@@ -309,8 +306,8 @@
         <h3>Меню: скрыть</h3>
         <p>Действие живёт в меню строки, третьим пунктом после «Сменить макет» и
           «Предпросмотра», за разделителем: это решение о выдаче, а не об оформлении.</p>
-        <p>Слово «скрыть» названо полностью — «Скрыть от ученика», — чтобы его не
-          прочитали как «свернуть строку в полотне».</p>
+        <p>Команда называется коротко — «Скрыть»; у скрытой строки она же становится
+          «Показать».</p>
       </aside>
       <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
@@ -380,7 +377,7 @@
                               </button>
                               <div class="ou-menu__divider" role="separator"></div>
                               <button type="button" role="menuitem" class="ou-menu__item">
-                                <span class="ou-menu__item-text"><span class="ou-menu__item-title">Скрыть от ученика</span><span class="ou-menu__item-meta">Экран останется в тесте, но не будет выдаваться</span></span>
+                                <span class="ou-menu__item-text"><span class="ou-menu__item-title">Скрыть</span></span>
                               </button>
                             </div>
                           </div>
@@ -458,14 +455,12 @@
                           </div>
                         </div>
                         <div class="page-row page-row--system page-row--hidden">
+                          <span class="page-hidden-ico" role="img" aria-label="Скрыт от ученика" title="Скрыт от ученика"><svg width="14" height="14" aria-hidden="true"><use href="#i-eye-off" /></svg></span>
                           <span class="page-variant-badge">Итоги</span>
                           <span class="page-title">Итоги раздела</span>
                           <div class="page-actions">
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Предпросмотр страницы"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-eye" /></svg></span></button>
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для страницы" aria-expanded="true"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
-                          </div>
-                          <div class="page-row__meta">
-                            <span class="ou-tag ou-tag--neutral ou-tag--outline ou-tag--s"><svg width="12" height="12" aria-hidden="true"><use href="#i-eye-off" /></svg> Скрыт от ученика</span>
                           </div>
                         </div>
                         <div class="wf-portal-menu">
@@ -478,7 +473,7 @@
                             </button>
                             <div class="ou-menu__divider" role="separator"></div>
                             <button type="button" role="menuitem" class="ou-menu__item">
-                              <span class="ou-menu__item-text"><span class="ou-menu__item-title">Показать ученику</span></span>
+                              <span class="ou-menu__item-text"><span class="ou-menu__item-title">Показать</span></span>
                             </button>
                           </div>
                         </div>
@@ -501,9 +496,9 @@
           иначе.</p>
         <p><b>Недоступен по настройке</b> — «Обзор раздела» при выключенном возврате к
           неотвеченным: строка гаснет, теряет акцент и несёт комментарий с адресом
-          настройки. Пункт меню «Скрыть от ученика» там погашен: скрывать нечего.</p>
+          настройки. Пункт меню «Скрыть» там погашен: скрывать нечего.</p>
         <p><b>Скрыть нельзя</b> — «Вопросы» и «Итоги теста»: пункт остаётся видимым, но
-          погашен, и объясняет причину. Отсутствующий пункт автор искал бы снова.</p>
+          погашен. Отсутствующий пункт автор искал бы снова.</p>
       </aside>
       <div class="ou-drawer-root" role="dialog" aria-modal="true">
         <div class="ou-drawer__backdrop"></div>
@@ -554,7 +549,7 @@
                               </button>
                               <div class="ou-menu__divider" role="separator"></div>
                               <button type="button" role="menuitem" class="ou-menu__item is-disabled" aria-disabled="true" disabled>
-                                <span class="ou-menu__item-text"><span class="ou-menu__item-title">Скрыть от ученика</span><span class="ou-menu__item-meta">Вопросы — суть теста, их скрыть нельзя</span></span>
+                                <span class="ou-menu__item-text"><span class="ou-menu__item-title">Скрыть</span></span>
                               </button>
                             </div>
                           </div>

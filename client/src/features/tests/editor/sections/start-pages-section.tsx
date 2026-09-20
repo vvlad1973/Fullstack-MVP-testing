@@ -1351,9 +1351,21 @@ function SystemPageRow(props: {
           <ChevronRight size={14} aria-hidden="true" />
         </button>
       )}
-      {/* Ни пиктограммы вида, ни маркера «шаблон»: вид узла назван бейджем рядом, а
-          «страница ещё вся из шаблона» — не состояние, с которым автор что-то делает.
-          Классификация осталась классом строки, она красит её приглушённее. */}
+      {/* Единственная пиктограмма в заголовке строки — статус выдачи: скрытый экран
+          виден сразу, без чтения подписей (решение владельца 2026-09-20). Вид узла
+          по-прежнему называет бейдж, а «страница ещё вся из шаблона» пиктограммы не
+          получает: это не состояние, с которым автор что-то делает. */}
+      {isHidden && (
+        <span
+          className="page-hidden-ico"
+          role="img"
+          aria-label="Скрыт от ученика"
+          title="Скрыт от ученика"
+          data-testid={`${props.testId}-hidden-ico`}
+        >
+          <EyeOff size={14} aria-hidden="true" />
+        </span>
+      )}
       <span className="page-variant-badge">{badge}</span>
       <span className="page-title">{props.title}</span>
       <div className="page-actions">
@@ -1405,35 +1417,19 @@ function SystemPageRow(props: {
                     ? visibility.onToggle
                     : undefined
                 }
-                // Причина живёт подписью, а не в самой команде: «Скрыть от ученика —
-                // Вопросы — суть теста…» читается как одно предложение с двумя тире.
-                meta={
-                  visibility.kind === "locked"
-                    ? visibility.reason
-                    : visibility.hidden
-                      ? undefined
-                      : "Экран останется в тесте, но не будет выдаваться"
-                }
+                // Пояснений в меню нет (решение владельца 2026-09-20): команда называет
+                // себя сама, а у неснимаемого экрана пункт просто погашен. Причина
+                // запрета описана в руководстве автора, а не строкой под пунктом.
                 data-testid={`${props.testId}-visibility`}
               >
-                {visibility.kind === "toggle" && visibility.hidden
-                  ? "Показать ученику"
-                  : "Скрыть от ученика"}
+                {visibility.kind === "toggle" && visibility.hidden ? "Показать" : "Скрыть"}
               </MenuItem>
             )}
           </Menu>
         </MenuTrigger>
       </div>
-      {(canSwitch || usingFallback || hasErr || page.templateKeyMissing || isHidden) && (
+      {(canSwitch || usingFallback || hasErr || page.templateKeyMissing) && (
         <div className="page-row__meta">
-          {/* Пометка идёт ПЕРВОЙ: она отвечает на вопрос «увидит ли это ученик», а он
-              важнее того, каким макетом экран нарисован. */}
-          {isHidden && (
-            <Tag size="s" data-testid={`${props.testId}-hidden-tag`}>
-              <EyeOff size={12} aria-hidden="true" />
-              Скрыт от ученика
-            </Tag>
-          )}
           {hasErr && (
             <Tag tone="error" size="s" data-testid={`${props.testId}-required-tag`}>
               <AlertCircle size={12} aria-hidden="true" />
