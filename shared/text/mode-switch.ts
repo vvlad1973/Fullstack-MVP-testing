@@ -153,6 +153,25 @@ function unwrapFormulas(html: string): string {
   });
 }
 
+
+/**
+ * Привести блок кода к АВТОРСКОЙ записи — `<pre><code class="language-sql">`.
+ *
+ * Грамматика разметки печатает его во внутренней форме (`class="tb-code" data-lang="…"`),
+ * которую понимает выдача. Автору в режиме HTML нужна не она, а стандартная запись: её он
+ * узнаёт, её же обещает эскиз («листинг станет `<pre><code>`»), и именно её понимает всякий
+ * внешний редактор. Обратно во внутреннюю форму блок приводит выдача.
+ */
+const INTERNAL_CODE = /<pre class="tb-code"(?: data-lang="([^"]*)")?><code>([\s\S]*?)<\/code><\/pre>/g;
+
+function authorCodeBlocks(html: string): string {
+  INTERNAL_CODE.lastIndex = 0;
+  return html.replace(INTERNAL_CODE, (_whole, lang: string | undefined, body: string) => {
+    const attr = lang ? ` class="language-${lang}"` : "";
+    return `<pre><code${attr}>${body}</code></pre>`;
+  });
+}
+
 /**
  * Перевести текст задания из одного режима в другой (PRD-57 FR-09c).
  *
@@ -175,6 +194,6 @@ export function convertPrompt(from: PromptFormat, to: PromptFormat, text: string
   // `richText` и `html` — один и тот же текст: меняется редактор, а не данные.
   if (from !== "markdown" && to !== "markdown") return source;
 
-  if (from === "markdown") return unwrapFormulas(renderBlockMarkdown(source));
+  if (from === "markdown") return authorCodeBlocks(unwrapFormulas(renderBlockMarkdown(source)));
   return htmlToMarkdown(source);
 }

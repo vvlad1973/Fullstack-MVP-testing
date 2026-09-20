@@ -16,11 +16,17 @@
  * дальше поле живёт само и сообщает наружу результат. Перепривязка на каждый ввод уводила
  * бы курсор в начало строки — тем же способом, которым это уже было починено в редакторе
  * обратной связи.
+ *
+ * ВИД механик — как у участника: подсвеченный листинг и картинка формулы. И то и другое
+ * считается только на сервере, поэтому вид приходит оттуда (`POST /api/questions/preview` —
+ * тот же маршрут, которым живёт предпросмотр). Стоит это ровно столько запросов, сколько
+ * раз текст заменили НЕ набором: атом неразрывен, внутри него не печатают. Пока ответ не
+ * пришёл, поле показывает записи — так автор видит содержимое сразу, а не пустоту.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bold, Italic, Link as LinkIcon, List } from "lucide-react";
 import { Cluster, IconButton, Label, Stack } from "@skillum/ui-kit";
-import { toAtoms, fromAtoms } from "@shared/text/rich-atoms";
+import { toAtoms, fromAtoms, atomsFromRendered } from "@shared/text/rich-atoms";
 
 export interface RichPromptEditorProps {
   label: string;
@@ -40,19 +46,70 @@ export interface RichPromptEditorProps {
  */
 export function RichPromptEditor(props: RichPromptEditorProps) {
   const areaRef = useRef<HTMLDivElement | null>(null);
+  /** Текст на момент последней перепривязки — по нему запрашивается вид. */
+  const [pinned, setPinned] = useState("");
+  /**
+   * Печатал ли автор с момента перепривязки.
+   *
+   * Флаг, а не сравнение разметки поля со строкой: браузер нормализует `innerHTML` по-своему
+   * (порядок атрибутов, пробелы), и сравнение строк отвечало бы «текст изменился» там, где
+   * никто ничего не трогал — вид с сервера не подставлялся бы никогда.
+   */
+  const typedRef = useRef(false);
 
   // Разметка ставится ОДИН раз на открытие и на внешнюю замену текста: иначе каждый
   // набранный символ перерисовывал бы поле и уводил курсор в начало.
   useEffect(() => {
     const area = areaRef.current;
     if (!area) return;
-    area.innerHTML = toAtoms(props.value ?? "");
+    const text = props.value ?? "";
+    area.innerHTML = toAtoms(text);
+    typedRef.current = false;
+    setPinned(text);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.syncKey]);
+
+  // Вид механик приходит с сервера и ЗАМЕНЯЕТ записи на месте. Замена идёт только пока
+  // автор не начал печатать: подменять разметку под курсором значит терять и курсор, и
+  // набранное.
+  useEffect(() => {
+    if (pinned.trim() === "") return;
+    let alive = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/questions/preview", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: pinned, promptFormat: "richText" }),
+        });
+        if (!response.ok) throw new Error(String(response.status));
+        const data = await response.json() as { promptHtml?: string };
+        const area = areaRef.current;
+        // Поле могло измениться, пока ответ шёл: тогда вид уже не про этот текст.
+        const view = data.promptHtml ?? "";
+        // Пустой ответ полем не считается: затереть им поле значило бы стереть текст,
+        // который автор видит перед собой. Печатающего автора тоже не трогаем: подмена
+        // разметки под курсором теряет и курсор, и набранное.
+        if (!alive || !area || view === "" || typedRef.current) return;
+        area.innerHTML = atomsFromRendered(view);
+      } catch {
+        // Сервер не ответил — поле остаётся с записями. Это рабочее состояние: править
+        // текст можно, а картинку автор увидит в предпросмотре.
+      }
+    })();
+    return () => { alive = false; };
+  }, [pinned]);
 
   const emit = () => {
     const area = areaRef.current;
     if (area) props.onChange(fromAtoms(area.innerHTML));
+  };
+
+  /** Набор в поле: с этого мгновения вид с сервера уже не подставляется. */
+  const onType = () => {
+    typedRef.current = true;
+    emit();
   };
 
   /** Выполнить команду форматирования над выделением. */
@@ -115,7 +172,7 @@ export function RichPromptEditor(props: RichPromptEditorProps) {
         role="textbox"
         aria-multiline="true"
         aria-label={props.label}
-        onInput={emit}
+        onInput={onType}
         onBlur={emit}
         data-testid={props["data-testid"] ?? "input-question-prompt-rich"}
       />

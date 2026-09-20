@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { toAtoms, fromAtoms } from "../shared/text/rich-atoms";
+import { toAtoms, fromAtoms, atomsFromRendered } from "../shared/text/rich-atoms";
 
 describe("заворачивание", () => {
   it("листинг становится неразрывным узлом", () => {
@@ -75,5 +75,58 @@ describe("разворачивание", () => {
   it("пустая строка не роняет ни одну сторону", () => {
     expect(toAtoms("")).toBe("");
     expect(fromAtoms("")).toBe("");
+  });
+});
+
+/**
+ * Вид атома «как у участника» (PRD-57 §4.3, согласованный эскиз).
+ *
+ * Подсветка листинга и картинка формулы считаются только на сервере, поэтому вид приходит
+ * оттуда — готовой разметкой задания. Узел показывает ЕГО, а исходник несёт в себе: правка
+ * оформления вокруг не должна превращать подсвеченный код обратно в текст со span-ами.
+ */
+describe("вид атома приходит с сервера", () => {
+  const renderedCode = '<p>Код:</p><pre class="tb-code" data-lang="sql"><code>'
+    + '<span class="tb-code__kw">SELECT</span> 1;</code></pre>';
+  const renderedFormula = '<p>Доля <span class="tb-formula" data-latex="E = mc^2"><svg>…</svg></span>.</p>';
+
+  it("листинг показан подсвеченным, а исходник лежит в узле", () => {
+    const out = atomsFromRendered(renderedCode);
+    expect(out).toContain("tb-code__kw");
+    expect(out).toContain('data-atom="code"');
+    expect(out).toContain("data-source=");
+  });
+
+  it("формула показана картинкой, а исходник — записью", () => {
+    const out = atomsFromRendered(renderedFormula);
+    expect(out).toContain("<svg>");
+    expect(out).toContain('data-atom="formula"');
+    // Исходник лежит в атрибуте КОДИРОВАННЫМ: сериализация атрибутов не экранирует
+    // угловые скобки, и хранить разметку в нём как есть нельзя.
+    expect(fromAtoms(out)).toContain("$$E = mc^2$$");
+  });
+
+  it("разворачивание возвращает ИСХОДНИК, а не показанный вид", () => {
+    expect(fromAtoms(atomsFromRendered(renderedCode)))
+      .toBe('<p>Код:</p><pre><code class="language-sql">SELECT 1;</code></pre>');
+    expect(fromAtoms(atomsFromRendered(renderedFormula)))
+      .toBe("<p>Доля $$E = mc^2$$.</p>");
+  });
+
+  it("пропуск остаётся собой: сервер его не меняет", () => {
+    const out = atomsFromRendered("<p>Столица — {{city}}.</p>");
+    expect(out).toContain('data-atom="blank"');
+    expect(fromAtoms(out)).toBe("<p>Столица — {{city}}.</p>");
+  });
+
+  it("экранированное внутри кода переживает круг", () => {
+    const rendered = '<pre class="tb-code" data-lang="javascript"><code>if (a &lt; b) {}</code></pre>';
+    expect(fromAtoms(atomsFromRendered(rendered)))
+      .toBe('<pre><code class="language-javascript">if (a &lt; b) {}</code></pre>');
+  });
+
+  it("блок без языка возвращается без класса языка", () => {
+    const rendered = '<pre class="tb-code"><code>просто текст</code></pre>';
+    expect(fromAtoms(atomsFromRendered(rendered))).toBe("<pre><code>просто текст</code></pre>");
   });
 });

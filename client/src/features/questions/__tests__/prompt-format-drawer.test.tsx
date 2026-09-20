@@ -236,3 +236,77 @@ describe("режим «Форматированный»", () => {
     expect(body.prompt).not.toContain("data-atom");
   });
 });
+
+/**
+ * Вид механик в визуальном поле — как у участника (согласованный эскиз).
+ *
+ * Подсветка и картинка формулы считаются только на сервере, поэтому поле берёт их оттуда.
+ * Проверяется и то, что при этом НЕ ломается: сохранение возвращает исходник, а не
+ * показанный вид.
+ */
+describe("вид механик в визуальном поле", () => {
+  const richQuestion = {
+    id: "q1", topicId: "t1", type: "single",
+    prompt: '<p>Код:</p><pre><code class="language-sql">SELECT 1;</code></pre>',
+    promptFormat: "richText",
+    dataJson: { options: ["А", "Б"] }, correctJson: { correctIndex: 0 },
+    tags: [], feedbackMode: "general",
+  } as unknown as Question;
+
+  /** Ответ выдачи: тот самый подсвеченный листинг. */
+  const rendered = '<p>Код:</p><pre class="tb-code" data-lang="sql"><code>'
+    + '<span class="tb-code__kw">SELECT</span> 1;</code></pre>';
+
+  beforeEach(() => {
+    fetchMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => (String(url).includes("/api/questions/preview")
+        ? { promptHtml: rendered }
+        : { id: "new-id" }),
+      text: async (): Promise<string> => JSON.stringify({ id: "new-id" }),
+    }));
+  });
+
+  it("поле спрашивает вид у сервера", async () => {
+    renderDrawer({ question: richQuestion });
+    await screen.findByTestId("input-question-prompt-rich");
+    await waitFor(() => expect(
+      fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/questions/preview")),
+    ).toBe(true));
+  });
+
+  it("листинг показан подсвеченным", async () => {
+    renderDrawer({ question: richQuestion });
+    const area = await screen.findByTestId("input-question-prompt-rich");
+    await waitFor(() => expect(area.querySelector(".tb-code__kw")).toBeTruthy());
+  });
+
+  it("сохраняется ИСХОДНИК, а не показанный вид", async () => {
+    renderDrawer({ question: richQuestion });
+    const area = await screen.findByTestId("input-question-prompt-rich");
+    await waitFor(() => expect(area.querySelector(".tb-code__kw")).toBeTruthy());
+
+    fireEvent.blur(area);
+    const submit = screen.getByTestId("button-submit-question");
+    await waitFor(() => expect(submit).not.toBeDisabled());
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(guardMock).toHaveBeenCalled());
+    const body = guardMock.mock.calls.at(-1)![0].body as { prompt: string };
+    expect(body.prompt).toBe('<p>Код:</p><pre><code class="language-sql">SELECT 1;</code></pre>');
+    expect(body.prompt).not.toContain("tb-code__kw");
+  });
+
+  it("сервер не ответил — поле остаётся рабочим с записями", async () => {
+    fetchMock.mockImplementation(async (url: string) => (
+      String(url).includes("/api/questions/preview")
+        ? { ok: false, status: 500, json: async () => ({}), text: async (): Promise<string> => "{}" }
+        : { ok: true, status: 200, json: async () => ({ id: "new-id" }), text: async (): Promise<string> => "{}" }
+    ));
+    renderDrawer({ question: richQuestion });
+    const area = await screen.findByTestId("input-question-prompt-rich");
+    expect(area.querySelector("[data-atom]")).toBeTruthy();
+    expect(area.textContent).toContain("SELECT 1;");
+  });
+});
