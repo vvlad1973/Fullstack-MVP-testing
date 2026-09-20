@@ -95,6 +95,9 @@ export class QuestionsRepository {
         topicId: question.topicId,
         type: question.type,
         prompt: question.prompt,
+        // PRD-57 §4.3: формат текста задания. Перечень колонок здесь ЯВНЫЙ, и поле, не
+        // названное в нём, молча не сохраняется — этой граблей трек уже ловил себя трижды.
+        promptFormat: question.promptFormat ?? "markdown",
         dataJson: question.dataJson,
         correctJson: question.correctJson,
         difficulty: question.difficulty ?? 50,
@@ -129,6 +132,7 @@ export class QuestionsRepository {
         topicId: original.topicId,
         type: original.type,
         prompt: original.prompt + " (копия)",
+        promptFormat: original.promptFormat,
         dataJson: original.dataJson,
         correctJson: original.correctJson,
         difficulty: original.difficulty,

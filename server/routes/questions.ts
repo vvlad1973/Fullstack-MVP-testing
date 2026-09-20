@@ -15,7 +15,8 @@ import { rejectBase64MediaUrl, respondWorkbookReadError, workbookUploadSingle } 
 import { syncEntityUsages, canonicalizeEntityMedia, clearCascadedUsages } from "../services/media/usage-index";
 import { normalizeTags } from "@shared/tags";
 import { normalizeAuthorText, renderInlineMarkdown } from "@shared/text";
-import { normalizeOptionalText, normalizeQuestionData } from "../services/question-text";
+import { normalizeOptionalText, normalizeQuestionData, normalizePromptByFormat } from "../services/question-text";
+import { promptFormatOf } from "@shared/questions/prompt-format";
 import { formulasFor, promptHtmlOf } from "../services/prompt-html";
 import { importQuestionRows } from "../services/questions-import";
 import { serializeQuestionRow, QUESTION_HEADERS, QUESTION_WIDTHS } from "../services/questions-export";
@@ -151,6 +152,8 @@ interface CreateQuestionBody {
   topicId: string;
   type: "single" | "multiple" | "matching" | "ranking";
   prompt: string;
+  /** PRD-57 §4.3: в каком режиме автор набрал текст. Отсутствие = разметка. */
+  promptFormat?: "markdown" | "richText" | "html";
   dataJson: unknown;
   correctJson: unknown;
   difficulty?: number;
@@ -253,6 +256,7 @@ router.post(
         topicId,
         type,
         prompt,
+        promptFormat,
         dataJson,
         correctJson,
         difficulty,
@@ -270,8 +274,11 @@ router.post(
       if (rejectBase64MediaUrl(mediaUrl, res)) return;
 
       // Canonical form BEFORE the required-field check: a prompt of nothing but
-      // spaces is an empty prompt, not a filled one.
-      const canonicalPrompt = normalizeAuthorText(prompt);
+      // spaces is an empty prompt, not a filled one. Приводится ПО ФОРМАТУ (PRD-57 §4.3):
+      // у разметки — проход по строке, у размеченного текста — санитайзер и типографика
+      // по текстовым узлам.
+      const format = promptFormatOf({ promptFormat });
+      const canonicalPrompt = normalizePromptByFormat(prompt ?? "", format).prompt;
 
       if (!topicId || !type || !canonicalPrompt) {
         return res.status(400).json({ error: "TopicId, type and prompt required" });
@@ -297,6 +304,7 @@ router.post(
         topicId,
         type,
         prompt: canonicalPrompt,
+        promptFormat: format,
         // PRD-57 FR-07: готовые SVG формул кладутся В ЗАДАНИЕ. Требование прямое: при
         // переносе теста между установками картинка едет вместе с вопросом, а не
         // пересчитывается на приёмнике — иначе её вид зависит от версии библиотеки там.
@@ -352,6 +360,7 @@ router.put(
         topicId,
         type,
         prompt,
+        promptFormat,
         dataJson,
         correctJson,
         difficulty,
@@ -423,17 +432,28 @@ router.put(
         return respondDryRun(req, res, { blocking: [], warnings: [] });
       }
 
+      // PRD-57 §4.3: правка приходит В СВОЁМ формате. Формат, которого клиент не прислал,
+      // берётся у самого задания — иначе текст, набранный разметкой, прошёл бы очистку по
+      // правилам HTML (или наоборот), и автор получил бы чужую канонизацию своего текста.
+      const editFormat = promptFormatOf({ promptFormat: promptFormat ?? existing.promptFormat });
+      const canonicalEdit = typeof prompt === "string"
+        ? normalizePromptByFormat(prompt, editFormat).prompt
+        : undefined;
+
       const questionUpdate = {
         topicId,
         type,
         // A field the client did not send stays `undefined` — the storage layer
         // reads that as «leave unchanged», so normalisation must not turn it
         // into an empty string.
-        prompt: normalizeOptionalText(prompt),
+        prompt: canonicalEdit,
+        // Формат сохраняется только вместе с присланным текстом: переключение режима без
+        // перевода текста означало бы, что то же содержимое читается по другим правилам.
+        promptFormat: typeof prompt === "string" ? editFormat : undefined,
         // PRD-57 FR-07: готовые SVG формул кладутся В ЗАДАНИЕ. Требование прямое: при
         // переносе теста между установками картинка едет вместе с вопросом, а не
         // пересчитывается на приёмнике — иначе её вид зависит от версии библиотеки там.
-        dataJson: withFormulas(normalizeQuestionData(dataJson), normalizeOptionalText(prompt) ?? ""),
+        dataJson: withFormulas(normalizeQuestionData(dataJson), canonicalEdit ?? ""),
         correctJson,
         difficulty,
         mediaUrl,

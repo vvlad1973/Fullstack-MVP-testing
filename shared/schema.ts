@@ -273,6 +273,21 @@ export const questions = pgTable("questions", {
   topicId: varchar("topic_id", { length: 36 }).notNull(),
   type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks", "long"] }).notNull(),
   prompt: text("prompt").notNull(),
+  /**
+   * PRD-57 §4.3: формат, в котором АВТОР написал текст задания.
+   *
+   * Аддитивно и без миграции текста: у всех существующих заданий формат `markdown`, и это
+   * ровно их сегодняшнее поведение — текст читается как подмножество разметки. Колонка
+   * `prompt` остаётся исходником в любом формате.
+   *
+   * `richText` и `html` хранят одно и то же — разметку; помнить их по отдельности нужно,
+   * чтобы автор возвращался в тот редактор, которым набирал. Написание повторяет
+   * `feedbackContentSchema.format` и `tests.description_format` намеренно: второй словарь
+   * форматов в продукте — это способ завести два разных «Форматированных».
+   */
+  promptFormat: text("prompt_format", {
+    enum: ["markdown", "richText", "html"],
+  }).notNull().default("markdown"),
   dataJson: jsonb("data_json").notNull(),
   correctJson: jsonb("correct_json").notNull(),
   // PRD-15 block D, T-40: `points` and `scoring_json` were dropped here (migration
