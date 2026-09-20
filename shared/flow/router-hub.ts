@@ -43,13 +43,6 @@ export interface RouterHubState {
   unlockRules?: Record<string, SectionUnlockRule | undefined>;
   /** `all_required_completed` (default) | `all_required_passed`. */
   completionPolicy?: string | null;
-  /**
-   * Whether the test reveals section outcomes (PRD-19 `show_section_results`).
-   * When off, a completed section's card stays a NEUTRAL «Завершена» — the hub must
-   * not leak pass/fail the author chose to hide. When on, the card reflects the
-   * frozen result (see {@link sectionResults}).
-   */
-  showSectionResults?: boolean;
 }
 
 function escHtml(s: unknown): string {
@@ -114,22 +107,22 @@ export function isRouterReadyToFinish(
   });
 }
 
+/**
+ * The card's own wording. A closed section reads «Завершена», never «Пройдена»: the hub
+ * states THAT the learner closed the section, not HOW — see {@link buildRouterHubHtml}.
+ */
 export function statusLabel(status: RouterTopicStatus): string {
-  if (status === "completed") return "Пройдена";
+  if (status === "completed") return "Завершена";
   if (status === "inProgress") return "В процессе";
   return "Не начата";
 }
 
-/** Status marks for a completed card — a check (done / passed) or a cross (failed);
- *  colour comes from the card's state class in the scene layer, not the markup. */
+/** The mark a completed card carries — «closed», not «passed»; colour comes from the
+ *  card's state class in the scene layer, not the markup. */
 const CARD_CHECK =
   '<svg class="router-topic-card__ico" viewBox="0 0 24 24" width="15" height="15" fill="none" ' +
   'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
   '<path d="M20 6 9 17l-5-5"></path></svg>';
-const CARD_CROSS =
-  '<svg class="router-topic-card__ico" viewBox="0 0 24 24" width="15" height="15" fill="none" ' +
-  'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M18 6 6 18M6 6l12 12"></path></svg>';
 
 /**
  * Builds the hub body: optional deadline stats, the required-sections progress
@@ -139,6 +132,16 @@ const CARD_CROSS =
  * host binds them by delegation. «Завершить» is NOT part of this body: it lives in
  * the layout's standard footer (nav slot), gated by `page.nextDisabled` until the
  * completion policy is met — see {@link isRouterReadyToFinish} and the hosts' wiring.
+ *
+ * A card states WHETHER the learner closed the section, never HOW: a completed one is
+ * always a neutral «Завершена» with a ✓, whatever {@link RouterSectionResult} the run
+ * froze for it. The hub is the section MENU — it is shown while the run is still going,
+ * beside sections the learner has not opened yet, and a green/red card there announces
+ * the outcome of a section to everyone looking at the screen long before the test has a
+ * verdict of its own. Where the outcome of a section IS to be told, the test tells it on
+ * the section-results screen it gates with `showSectionResults` (PRD-19 FR-05a) and on the
+ * results screen, whose wording the author controls through the PRD-49 label dictionary —
+ * two surfaces that the hub, which reads no dictionary, could only contradict.
  */
 export function buildRouterHubHtml(
   sections: RouterSection[] | null | undefined,
@@ -184,19 +187,6 @@ export function buildRouterHubHtml(
     const status: RouterTopicStatus = state.topicStates[section.topicId] || "notStarted";
     const unlocked = isSectionUnlocked(section, state);
     const locked = !unlocked && status !== "completed";
-    // A completed card reflects its OUTCOME (green «Пройдена» / red «Не пройдена»)
-    // only when the test reveals section results AND the section carries a verdict.
-    // Otherwise — results hidden, or a section with no pass rule (`passed == null`,
-    // which cannot fail) — it reads as a neutral «Завершена», never coloured, so the
-    // hub can't imply a pass the author didn't grade or chose not to show.
-    let outcome: "passed" | "failed" | null = null;
-    if (status === "completed" && state.showSectionResults) {
-      const result = (state.sectionResults || {})[section.topicId];
-      if (result && result.passed === true) outcome = "passed";
-      else if (result && result.passed === false) outcome = "failed";
-    }
-    const completedLabel =
-      outcome === "passed" ? "Пройдена" : outcome === "failed" ? "Не пройдена" : "Завершена";
     // Completed cards stay disabled to prevent re-entry; locked ones because their
     // prerequisites are not met yet.
     const disabled = status === "completed" || !unlocked;
@@ -223,7 +213,6 @@ export function buildRouterHubHtml(
     cards +=
       '<button type="button" role="listitem"' +
       ' class="router-topic-card router-topic-card--' + status +
-      (outcome ? " router-topic-card--" + outcome : "") +
       (locked ? " router-topic-card--locked" : "") + '"' +
       ' data-topic-id="' + escHtml(section.topicId) + '"' +
       ' data-router-status="' + status + '"' +
@@ -242,10 +231,10 @@ export function buildRouterHubHtml(
       metaHtml +
       '<span class="router-topic-card__foot">' +
       '<span class="router-topic-card__status">' +
-      // A completed card carries a mark (✓ done/passed, ✗ failed) so it reads as
-      // clearly finished, distinct from a fresh «Не начата» card at a glance.
-      (status === "completed" ? (outcome === "failed" ? CARD_CROSS : CARD_CHECK) : "") +
-      escHtml(unlocked ? (status === "completed" ? completedLabel : statusLabel(status)) : "Недоступна") +
+      // A completed card carries a ✓ so it reads as clearly finished, distinct from a
+      // fresh «Не начата» card at a glance. The mark says «closed», not «passed».
+      (status === "completed" ? CARD_CHECK : "") +
+      escHtml(unlocked ? statusLabel(status) : "Недоступна") +
       "</span>" +
       goHtml +
       "</span>" +

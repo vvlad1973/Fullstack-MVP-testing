@@ -2606,9 +2606,6 @@ export default function TakeTestPage() {
       sectionResults: routerSectionResults,
       unlockRules: {},
       completionPolicy: null,
-      // Same gate as SCORM: only reveal a section's pass/fail on the card when the
-      // test shows section results; otherwise the card stays a neutral «Завершена».
-      showSectionResults: navSettings.showSectionResults,
     };
     const hubReady = isRouterReadyToFinish(hubSections, hubHubState);
     return (
