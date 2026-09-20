@@ -228,9 +228,6 @@ export function MainPane({
  * на вопрос «как он идёт», а не «что это за тест» (Э3.3).
  */
 export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProps) {
-  // PRD-19: экран итогов раздела осмыслен только у секционного теста, где разделы есть.
-  const showSectionResultsApplicable =
-    model.flowMode !== "linear_flat" && model.sections.length > 0;
   return (
     <FormSection title="Сценарий" stacked>
       <div className="ou-formfield">
@@ -267,24 +264,6 @@ export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProp
           />
         )}
       </div>
-
-
-      {showSectionResultsApplicable && (
-        <div className="ou-formfield">
-          <Switch
-            label="Показывать итоги раздела"
-            checked={model.runtime.showSectionResults}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              updateModel((m) => ({
-                ...m,
-                runtime: { ...m.runtime, showSectionResults: checked },
-              }));
-            }}
-            data-testid="settings-show-section-results-checkbox"
-          />
-        </div>
-      )}
     </FormSection>
   );
 }
@@ -292,34 +271,70 @@ export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProp
 // ─── Панель «Во время теста» (вкладка «Обратная связь и итоги») ───────────────
 
 /**
- * Что участник видит ПО ХОДУ: показывать ли правильные ответы. Настройка живёт рядом с
- * текстами обратной связи, потому что говорит о том же — что человек узнаёт о своём
- * ответе и когда (Э3.6).
+ * Что участник видит ПО ХОДУ: показывать ли правильные ответы и подводить ли итог
+ * каждого раздела. Настройки живут рядом с текстами обратной связи, потому что говорят
+ * о том же — что человек узнаёт о своём результате и когда (Э3.6).
  */
 export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
+  // PRD-19: экран итогов раздела осмыслен только у секционного теста, где разделы есть.
+  const showSectionResultsApplicable =
+    model.flowMode !== "linear_flat" && model.sections.length > 0;
   return (
-    <FormSection title="Показ правильных ответов" stacked>
-      <div className="ou-formfield">
-        <Switch
-          label="Показывать правильные ответы после прохождения"
-          checked={model.runtime.showCorrectAnswers}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            updateModel((m) => ({
-              ...m,
-              runtime: {
-                ...m.runtime,
-                showCorrectAnswers: checked,
-                // PRD-19 FR-04b: взаимоисключение — при показе правильных ответов
-                // изменение ответа недоступно.
-                allowAnswerChange: checked ? false : m.runtime.allowAnswerChange,
-              },
-            }));
-          }}
-          data-testid="settings-show-correct-checkbox"
-        />
-      </div>
-    </FormSection>
+    <>
+      <FormSection title="Показ правильных ответов" stacked>
+        <div className="ou-formfield">
+          <Switch
+            label="Показывать правильные ответы после прохождения"
+            checked={model.runtime.showCorrectAnswers}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              updateModel((m) => ({
+                ...m,
+                runtime: {
+                  ...m.runtime,
+                  showCorrectAnswers: checked,
+                  // PRD-19 FR-04b: взаимоисключение — при показе правильных ответов
+                  // изменение ответа недоступно.
+                  allowAnswerChange: checked ? false : m.runtime.allowAnswerChange,
+                },
+              }));
+            }}
+            data-testid="settings-show-correct-checkbox"
+          />
+        </div>
+      </FormSection>
+      {/* PRD-19 FR-05a: экран с результатом раздела выдаётся ПО ХОДУ теста — на границе
+          разделов, — поэтому переключатель стоит здесь, среди того, что участник узнаёт о
+          своём результате, а не в «Сценарии», где он читался как настройка потока
+          (решение владельца 2026-09-20). У плоского теста разделов нет — подводить нечего,
+          и секция не показывается вовсе. */}
+      {showSectionResultsApplicable && (
+        <FormSection title="Итоги раздела" stacked>
+          <div className="ou-formfield">
+            <Switch
+              label="Показывать итоги раздела"
+              checked={model.runtime.showSectionResults}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                updateModel((m) => ({
+                  ...m,
+                  runtime: { ...m.runtime, showSectionResults: checked },
+                }));
+              }}
+              data-testid="settings-show-section-results-checkbox"
+            />
+            {/* Без иконки тона: подпись подчинена переключателю над ней и объясняет, КОГДА
+                участник увидит этот экран, а не тревожит о состоянии формы. */}
+            <Banner
+              tone="info"
+              size="sm"
+              icon={false}
+              description="Экран с баллом и вердиктом раздела показывается после завершения каждого раздела, кроме последнего: за ним сразу идут итоги теста."
+            />
+          </div>
+        </FormSection>
+      )}
+    </>
   );
 }
 

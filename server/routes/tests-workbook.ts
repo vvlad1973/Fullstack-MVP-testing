@@ -130,6 +130,7 @@ function pagesForSheet(
       mode: page.mode,
       autoAdvance: page.autoAdvance,
       autoAdvanceDelayMs: page.autoAdvanceDelayMs,
+      hidden: page.hidden,
       valuesJson: page.valuesJson,
       settingsJson: page.settingsJson,
     }));

@@ -14,6 +14,7 @@ import {
   buildTopicChunk,
   contentPagesFor,
   isFlowContentPage,
+  isSystemScreenHidden,
   type FlowContentPage,
   type FlowItem,
 } from "../shared/flow/page-sequence";
@@ -263,5 +264,66 @@ describe("page-sequence — ordering and defaults", () => {
     const pages = [page({ id: "b", sortOrder: 2 }), page({ id: "a", sortOrder: 1 })];
     buildBeforeZone(pages, "linear_flat");
     expect(pages.map((p) => p.id)).toEqual(["b", "a"]);
+  });
+});
+
+// ─── Скрытые экраны (решение владельца 2026-09-20) ────────────────────────────
+//
+// Скрыть можно любую карточку полотна, кроме блока вопросов и маршрутизатора.
+// Фильтр живёт ЗДЕСЬ, в единственном источнике правды о порядке: разойдись хосты —
+// пакет начал бы показывать экран, которого нет в вебе.
+
+describe("page-sequence — скрытые страницы", () => {
+  it("не выдаёт скрытую авторскую страницу ни в одной зоне", () => {
+    const pages = [
+      page({ id: "before-shown", position: "before", sortOrder: 0 }),
+      page({ id: "before-hidden", position: "before", sortOrder: 1, hidden: true }),
+      page({ id: "t1-pre-hidden", position: "before_topic", topicId: "t1", hidden: true }),
+      page({ id: "t1-post", position: "after_topic", topicId: "t1", sortOrder: 0 }),
+    ];
+    const { sequence } = buildPageSequence({
+      flowMode: "linear_by_topics",
+      sections: [{ topicId: "t1" }],
+      contentPages: pages,
+      flatQuestions: [{ topicId: "t1" }],
+    });
+    expect(ids(sequence)).toEqual(["before-shown", "q0", "t1-post"]);
+  });
+
+  it("«Введение раздела» скрывается тем же признаком, что и авторская страница", () => {
+    const pages = [
+      page({
+        id: "intro",
+        kind: "intro",
+        type: "intro",
+        position: "before_topic",
+        topicId: "t1",
+        hidden: true,
+      }),
+    ];
+    const { sequence } = buildPageSequence({
+      flowMode: "linear_by_topics",
+      sections: [{ topicId: "t1" }],
+      contentPages: pages,
+      flatQuestions: [{ topicId: "t1" }],
+    });
+    expect(ids(sequence)).toEqual(["q0"]);
+  });
+
+  it("не считает страницу скрытой, пока признак не выставлен", () => {
+    const pages = [page({ id: "plain" }), page({ id: "explicit", sortOrder: 1, hidden: false })];
+    expect(ids(buildBeforeZone(pages, "linear_flat"))).toEqual(["plain", "explicit"]);
+  });
+
+  it("сообщает о скрытом системном экране по его виду", () => {
+    const pages = [
+      page({ id: "start", kind: "start", position: "before", hidden: true }),
+      page({ id: "results", kind: "results", position: "after" }),
+    ];
+    expect(isSystemScreenHidden(pages, "start")).toBe(true);
+    expect(isSystemScreenHidden(pages, "results")).toBe(false);
+    // Экрана нет в тесте вовсе — значит и скрывать нечего.
+    expect(isSystemScreenHidden(pages, "review")).toBe(false);
+    expect(isSystemScreenHidden(null, "start")).toBe(false);
   });
 });

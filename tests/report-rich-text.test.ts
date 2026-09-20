@@ -13,6 +13,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { templateRoot } from "./helpers/template-roots";
 import { richTextToHtml } from "../shared/template/rich-text";
 import { buildResultContext } from "../shared/template/result-context";
 import { buildReportContext } from "../shared/report/report-context";
@@ -108,8 +109,8 @@ describe("контекст несёт разметку рядом с текст�
 
 describe("макеты печатают разметку, а не её исходник", () => {
   const layouts: Array<[string, string]> = [
-    ["default", path.resolve(process.cwd(), "server", "scorm", "templates", "default")],
-    ["certification", path.resolve(process.cwd(), "templates", "certification")],
+    ["default", templateRoot("default")],
+    ["certification", templateRoot("certification")],
   ];
 
   for (const [templateId, dir] of layouts) {

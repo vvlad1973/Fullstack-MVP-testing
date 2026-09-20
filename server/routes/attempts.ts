@@ -59,6 +59,7 @@ import {
 } from "../services/test-snapshot";
 import type { QuestionType } from "@shared/scales/engine";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
+import { resolveFlowPolicy } from "@shared/flow/flow-policy";
 import { isMeasurementOnly } from "@shared/questions/question-type";
 // PRD-50 FR-17: элементы разреза адаптивного прогона собирает хост — движок их вывести не может.
 import type { BreakdownItem } from "@shared/breakdown/types";
@@ -114,9 +115,13 @@ function prd19RuntimeSettings(test: Test) {
     copyProtection: test.copyProtection ?? true,
     protectionWatermark: test.protectionWatermark ?? false,
     protectionHideOnBlur: test.protectionHideOnBlur ?? false,
+    // The flow mode goes in RESOLVED, exactly as the bake feeds it
+    // (`builders/test-json.ts`): a mode this build does not know reads as
+    // `linear_flat` in the package, and the web host must not scope answers by a
+    // mode the package never saw.
     answerCommitScope: resolveAnswerCommitScope({
       mode: test.mode,
-      flowMode: (test.flowPolicyJson as { mode?: string } | null)?.mode,
+      flowMode: resolveFlowPolicy(test.flowPolicyJson).mode,
     }),
   };
 }
@@ -180,8 +185,23 @@ async function questionsForClient(
  */
 async function flowPayload(src: TestDataSource, test: Test) {
   const contentPages = await src.getContentPages(test.id);
+  // PRD-4 v1.1 §4.7: the router's gating travels with the structure, resolved by the
+  // SAME shared normaliser the package bake runs. Before this the payload carried the
+  // raw `mode` and nothing else, so the web hub was built with no unlock rules and no
+  // completion policy: a section locked behind a prerequisite in the LMS was open on
+  // the web, and «Завершить» under `all_required_passed` unlocked as soon as the
+  // required sections were merely finished. The fields are absent outside router mode.
+  const flowPolicy = resolveFlowPolicy(test.flowPolicyJson);
   return {
-    flowMode: (test.flowPolicyJson as { mode?: string } | null)?.mode ?? "linear_flat",
+    flowMode: flowPolicy.mode,
+    ...(flowPolicy.mode === "router_by_topics"
+      ? {
+          routerPolicy: {
+            completionPolicy: flowPolicy.routerCompletionPolicy ?? null,
+            sectionUnlockRules: flowPolicy.sectionUnlockRules ?? {},
+          },
+        }
+      : {}),
     contentPages: contentPages.map((p) => ({
       id: p.id,
       kind: p.kind,
@@ -486,6 +506,12 @@ router.get("/learner/tests", requirePermission("attempts.self.read"), async (req
               }
             : null;
 
+        // Скрытый стартовый экран (решение владельца 2026-09-20): ученику не показывают
+        // страницу с кнопкой «Начать» — попытка начинается сразу. Знать об этом надо ДО
+        // старта, а страницы теста приезжают только вместе с попыткой, поэтому признак
+        // резолвится здесь, на том же экране, где живут остальные факты о запуске.
+        const startPage = (await storage.getContentPages(test.id)).find((p) => p.kind === "start");
+
         return {
           ...test,
           sections: sectionsWithNames,
@@ -496,6 +522,7 @@ router.get("/learner/tests", requirePermission("attempts.self.read"), async (req
           lastCompletedAttemptId: lastCompleted?.id || null,
           retakeGate,
           priorResult,
+          startHidden: startPage?.hidden === true,
         };
       })
     );
@@ -745,6 +772,12 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
         // PRD-4 v1.1 §3.2: carry the per-topic time budget so the web runtime
         // can run a per-topic timer (parity with the SCORM package).
         timeLimitMinutes: section.timeLimitMinutes ?? null,
+        // PRD-4 v1.1 §4.7: and the obligation, for the same reason. It is what the
+        // router's «all_required_*» policy counts, and the package has always baked
+        // it (`builders/test-json.ts`); without it here an OPTIONAL section blocked
+        // «Завершить» on the web while the LMS let the learner through. Absent in an
+        // attempt started before this reads as `true` — the old behaviour.
+        required: section.required ?? true,
       });
 
       allQuestionIds.push(...qIds);
@@ -758,7 +791,9 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
     const assembled = assembleDelivery(
       drawnSections,
       test.questionOrder,
-      (test.flowPolicyJson as { mode?: string } | null)?.mode,
+      // Resolved, like every other read of the column: «полное перемешивание» is a
+      // property of the FLAT flow, and an unrecognised mode is a flat flow.
+      resolveFlowPolicy(test.flowPolicyJson).mode,
       shuffleInPlace,
     );
     assembled.sections.forEach((questions, i) => {

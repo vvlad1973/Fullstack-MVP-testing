@@ -12,7 +12,7 @@
  *   - «Сменить макет» on system rows (enabled when >1 variant, replace-variant)
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StructureSection, reorderByDrop, insertIndexFor } from "../start-pages-section";
 import type { TestEditorModel, EditorSection } from "../../test-editor.types";
@@ -247,11 +247,22 @@ function installApi(initialPages: RawPage[]) {
   return spies;
 }
 
-function renderSection(model: TestEditorModel, opts?: { readOnly?: boolean }) {
+function renderSection(
+  model: TestEditorModel,
+  opts?: {
+    readOnly?: boolean;
+    updateModel?: (updater: (model: TestEditorModel) => TestEditorModel) => void;
+  },
+) {
   const client = makeQueryClient();
   return render(
     <QueryClientProvider client={client}>
-      <StructureSection model={model} testId={TEST_ID} readOnly={opts?.readOnly} />
+      <StructureSection
+        model={model}
+        testId={TEST_ID}
+        readOnly={opts?.readOnly}
+        updateModel={opts?.updateModel}
+      />
     </QueryClientProvider>,
   );
 }
@@ -384,7 +395,7 @@ describe("<StructureSection /> — kind-aware layout", () => {
     expect(screen.queryByTestId("structure-system-summary-t1")).toBeNull();
   });
 
-  it("PRD-19 FR-05a: showSectionResults OFF hides the «Итоги раздела» node; «Обзор раздела» stays", async () => {
+  it("PRD-19 FR-05a: showSectionResults OFF marks the «Итоги раздела» node hidden instead of dropping it", async () => {
     installApi([
       buildPage({ id: "pg-rv", kind: "review", position: "after", topicId: null, templateKey: "review.standard", valuesJson: { values: {} } }),
       buildPage({ id: "pg-sr", kind: "section-results", position: "after", topicId: null, templateKey: "section-results.result", valuesJson: { values: {} } }),
@@ -396,9 +407,38 @@ describe("<StructureSection /> — kind-aware layout", () => {
       runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: false, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     }));
     await waitFor(() => expect(screen.getByTestId("structure-zone-topic-t1")).toBeInTheDocument());
-    // The section-results node is gated out (FR-05a), but «Обзор раздела» stays.
+    // Решение владельца 2026-09-20: выключенный экран НЕ исчезает из полотна — он
+    // гаснет и несёт пометку. Исчезнувшая строка не давала автору понять ни что экран
+    // в тесте есть, ни где он включается.
     expect(screen.getByTestId("structure-review-slot-t1")).toBeInTheDocument();
-    expect(screen.queryByTestId("structure-system-section-results-t1")).toBeNull();
+    const row = screen.getByTestId("structure-system-section-results-t1");
+    expect(row).toBeInTheDocument();
+    expect(row).toHaveAttribute("data-hidden", "true");
+    // Статус несёт пиктограмма в заголовке строки, а не чип в подписях.
+    expect(
+      within(row).getByTestId("structure-system-section-results-t1-hidden-ico"),
+    ).toBeInTheDocument();
+  });
+
+  it("скрытие «Итогов раздела» из меню строки выключает настройку теста", async () => {
+    installApi([
+      buildPage({ id: "pg-sr", kind: "section-results", position: "after", topicId: null, templateKey: "section-results.result", valuesJson: { values: {} } }),
+      buildPage({ id: "pg-qt1", kind: "questions", position: "before_topic", topicId: "t1", templateKey: "question.standard", valuesJson: { values: {} } }),
+    ]);
+    const updateModel = vi.fn();
+    const model = baseModel({
+      flowMode: "linear_by_topics",
+      sections: [buildSection({ topicId: "t1", topicName: "Тема А" })],
+    });
+    renderSection(model, { updateModel });
+    await waitFor(() => expect(screen.getByTestId("structure-system-section-results-t1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("structure-system-section-results-t1-actions"));
+    fireEvent.click(await screen.findByTestId("structure-system-section-results-t1-visibility"));
+    // Второй правды нет: пункт полотна пишет в ту же настройку, что и переключатель
+    // «Показывать итоги раздела» на «Обратной связи и итогах».
+    expect(updateModel).toHaveBeenCalled();
+    const updater = updateModel.mock.calls[0][0] as (m: typeof model) => typeof model;
+    expect(updater(model).runtime.showSectionResults).toBe(false);
   });
 });
 
@@ -577,8 +617,11 @@ describe("<StructureSection /> — delete flow", () => {
   });
 });
 
-describe("<StructureSection /> — inline preview command", () => {
-  it("puts a preview button BEFORE the actions menu on author and system rows", async () => {
+describe("<StructureSection /> — preview command", () => {
+  // Решение владельца 2026-09-20: кнопки-глазка в строке больше нет. У скрытой карточки
+  // рядом оказывались два глаза — знак «скрыт» и команда «посмотреть», — и строка
+  // читалась двусмысленно. Предпросмотр остался командой меню.
+  it("leaves no inline eye button on author and system rows", async () => {
     installApi([
       buildPage({ id: "pg-start", kind: "start", position: "before", topicId: null, templateKey: "start.standard", valuesJson: { values: {} } }),
       buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Страница" } } }),
@@ -586,41 +629,66 @@ describe("<StructureSection /> — inline preview command", () => {
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
 
-    for (const [preview, actions] of [
-      ["structure-page-preview-inline-pg-1", "structure-page-actions-pg-1"],
-      ["structure-system-start-preview-inline", "structure-system-start-actions"],
-    ]) {
-      const eye = screen.getByTestId(preview);
-      const menu = screen.getByTestId(actions);
-      expect(eye).toBeInTheDocument();
-      // DOCUMENT_POSITION_FOLLOWING: the menu comes after the eye.
-      expect(eye.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    }
+    expect(screen.queryByTestId("structure-page-preview-inline-pg-1")).toBeNull();
+    expect(screen.queryByTestId("structure-system-start-preview-inline")).toBeNull();
+    expect(screen.getByTestId("structure-page-actions-pg-1")).toBeInTheDocument();
   });
 
-  it("opens the page preview without going through the menu", async () => {
+  it("opens the page preview from the row menu", async () => {
     installApi([
       buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Страница" } } }),
     ]);
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId("structure-page-preview-inline-pg-1"));
+    fireEvent.click(screen.getByTestId("structure-page-actions-pg-1"));
+    fireEvent.click(await screen.findByTestId("structure-page-preview-pg-1"));
 
     expect(await screen.findByTestId("page-preview-modal")).toBeInTheDocument();
   });
 
-  // A published test hides the whole actions menu, so before this the author had no
-  // way to look at a page at all. Preview changes nothing, so it stays available.
-  it("keeps the preview available on a published (read-only) test", async () => {
+  // Решение владельца 2026-09-20: скрыть можно ЛЮБУЮ карточку, кроме блока вопросов и
+  // маршрутизатора. Авторская страница хранит это признаком самой страницы — в отличие
+  // от «Итогов раздела», у которых настройка теста появилась раньше.
+  it("скрывает авторскую страницу из её меню", async () => {
+    installApi([
+      buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Памятка" } } }),
+    ]);
+    renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
+    await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("structure-page-actions-pg-1"));
+    fireEvent.click(await screen.findByTestId("structure-page-visibility-pg-1"));
+
+    // Правка ложится в черновик, как и любая другая: на сервер её уносит общая
+    // «Сохранить» ящика. Строка при этом сразу читается как скрытая.
+    await waitFor(() =>
+      expect(screen.getByTestId("structure-page-row-pg-1")).toHaveAttribute("data-hidden", "true"),
+    );
+    expect(screen.getByTestId("structure-page-hidden-ico-pg-1")).toBeInTheDocument();
+  });
+
+  it("у блока вопросов пункт скрытия погашен", async () => {
+    installApi([
+      buildPage({ id: "pg-q", kind: "questions", position: "before_topic", topicId: "t1", templateKey: "question.standard", valuesJson: { values: {} } }),
+    ]);
+    renderSection(baseModel({ flowMode: "linear_by_topics", sections: [buildSection({ topicId: "t1" })] }));
+    await waitFor(() => expect(screen.getByTestId("structure-questions-row-t1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("structure-questions-row-t1-actions"));
+    expect(await screen.findByTestId("structure-questions-row-t1-visibility")).toBeDisabled();
+  });
+
+  // PRD-7 G19: в режиме без авторских контролов строка не предлагает действий вовсе.
+  it("renders no row actions in the read-only mode (PRD-7 G19)", async () => {
     installApi([
       buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Страница" } } }),
     ]);
     renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }), { readOnly: true });
     await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
 
-    expect(screen.getByTestId("structure-page-preview-inline-pg-1")).toBeInTheDocument();
     expect(screen.queryByTestId("structure-page-actions-pg-1")).toBeNull();
+    expect(screen.queryByTestId("structure-page-preview-inline-pg-1")).toBeNull();
   });
 });
 

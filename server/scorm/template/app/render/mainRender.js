@@ -197,6 +197,9 @@ function hasUnansweredInScope(topicId) {
 // (return to a skipped question, or revise an answer). Otherwise the flow goes
 // straight to the section results.
 function reviewIsWorthShowing(topicId) {
+    // Автор мог скрыть экран обзора целиком (решение владельца 2026-09-20) — тогда
+    // спрашивать, есть ли там что делать, уже не о чем.
+    if (typeof screenHidden === 'function' && screenHidden('review')) return false;
     var TB = typeof TBTemplate !== 'undefined' ? TBTemplate : null;
     var input = {
         allowReturnToUnanswered: TEST_DATA.allowReturnToUnanswered,

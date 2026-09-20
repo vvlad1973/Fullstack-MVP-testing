@@ -64,4 +64,38 @@ describe("реестр корней шаблонов", () => {
       expect(fs.existsSync(templateLayouts(id)), `макеты шаблона «${id}» не найдены`).toBe(true);
     }
   });
+
+  /**
+   * Никто, кроме реестра, не адресует вынесенный шаблон вручную.
+   *
+   * Так уже случилось: вынос «Сертификации» в свой репозиторий (`391996fa`) удалил
+   * `templates/certification/` из дерева продукта, а десять наборов продолжили читать
+   * шаблон по этому пути. Они падали на ИМПОРТЕ — то есть 183 проверки макетов отчёта
+   * и экрана итогов просто перестали исполняться, и увидеть это можно было лишь в
+   * полном прогоне. Дешевле поймать возврат здесь, чем ещё раз обнаружить пропажу
+   * покрытия задним числом.
+   */
+  it("ни один тест не адресует вынесенный шаблон мимо реестра", () => {
+    const externalIds = TEMPLATE_IDS.filter((id) => id !== "default");
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name) || full === __filename) continue;
+        const text = fs.readFileSync(full, "utf8");
+        for (const id of externalIds) {
+          // Ровно та форма, в какой путь и собирали: `path.join(..., "templates", "<id>", ...)`.
+          if (new RegExp(`["']templates["'],\\s*["']${id}["']`).test(text)) {
+            offenders.push(`${path.relative(process.cwd(), full)} → ${id}`);
+          }
+        }
+      }
+    };
+    walk(path.join(process.cwd(), "tests"));
+    expect(offenders, "адресуйте шаблон через templateRoot/templateFile").toEqual([]);
+  });
 });

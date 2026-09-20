@@ -224,6 +224,7 @@ export {
   contentPagesFor,
   questionIndicesByTopic,
   isFlowContentPage,
+  isSystemScreenHidden,
 } from "../flow/page-sequence";
 // The attempt REPORT (PDF): one markup source and one export pipeline for both hosts.
 // The package reaches them through this bundle; the web host imports them directly.

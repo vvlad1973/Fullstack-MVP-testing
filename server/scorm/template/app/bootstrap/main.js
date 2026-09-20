@@ -177,6 +177,14 @@
           generateVariant();
           state.phase = 'start';
         }
+        // Скрытый «Старт» (решение владельца 2026-09-20): экрана с кнопкой «Начать»
+        // нет — попытка начинается сразу. Проверка ПОСЛЕ generateVariant: startTest
+        // работает с уже собранным вариантом. Адаптивная авто-инициализация своего
+        // стартового экрана и так не показывает.
+        if (!_adaptiveAutoInit_b && startScreenHidden() && typeof startTest === 'function') {
+          startTest();
+          return;
+        }
         render();
       }
 

@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
-import path from "node:path";
+import { templateManifest } from "./helpers/template-roots";
 import {
   DEFAULT_REPORT_FIELD_SCOPE,
   fieldsOfScope,
@@ -53,8 +53,8 @@ describe("назначение поля", () => {
 
 describe("поставляемые шаблоны", () => {
   const manifests: Array<[string, string]> = [
-    ["default", path.resolve(process.cwd(), "server", "scorm", "templates", "default", "manifest.json")],
-    ["certification", path.resolve(process.cwd(), "templates", "certification", "manifest.json")],
+    ["default", templateManifest("default")],
+    ["certification", templateManifest("certification")],
   ];
 
   for (const [name, file] of manifests) {

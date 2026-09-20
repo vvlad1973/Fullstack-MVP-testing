@@ -13,22 +13,20 @@
  * не защищая. Манифесты читаются С ДИСКА — предмет проверки именно поставляемые файлы.
  */
 import fs from "node:fs";
-import path from "node:path";
+import { templateManifest } from "./helpers/template-roots";
 import { describe, expect, it } from "vitest";
 import { resolveReportBundle, resolveReportDocument } from "@shared/report/report-document";
 import { REPORT_KINDS } from "@shared/report/report-variants";
-
-const REPO_ROOT = path.resolve(__dirname, "..");
 
 /** Поставляемые шаблоны: встроенный «Стандартный» и внешний «Сертификация». */
 const TEMPLATES: Array<{ name: string; manifestPath: string }> = [
   {
     name: "default",
-    manifestPath: path.join(REPO_ROOT, "server", "scorm", "templates", "default", "manifest.json"),
+    manifestPath: templateManifest("default"),
   },
   {
     name: "certification",
-    manifestPath: path.join(REPO_ROOT, "templates", "certification", "manifest.json"),
+    manifestPath: templateManifest("certification"),
   },
 ];
 
@@ -61,7 +59,7 @@ describe("поставляемые шаблоны: отчёт всегда ес�
 
 describe("«Сертификация» кладёт документ в сборку", () => {
   const manifest = JSON.parse(
-    fs.readFileSync(path.join(process.cwd(), "templates", "certification", "manifest.json"), "utf8"),
+    fs.readFileSync(templateManifest("certification"), "utf8"),
   );
 
   for (const kind of ["report", "report.adaptive"] as const) {

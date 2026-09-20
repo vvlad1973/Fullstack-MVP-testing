@@ -33,6 +33,12 @@ export interface FlowContentPage {
   topicId?: string | null;
   position?: string | null;
   sortOrder?: number | null;
+  /**
+   * Экран есть в тесте, но ученику не выдаётся (решение владельца 2026-09-20).
+   * Фильтруется ЗДЕСЬ, в единственном источнике правды о порядке, — иначе хосты
+   * разойдутся: веб покажет страницу, которой нет в пакете, или наоборот.
+   */
+  hidden?: boolean | null;
 }
 
 /** A test section (topic) in author-defined structure order. */
@@ -100,6 +106,26 @@ export function isFlowContentPage(page: FlowContentPage | null | undefined): boo
 }
 
 /**
+ * Скрыт ли СИСТЕМНЫЙ экран этого вида (`start`, `results`, `review`).
+ *
+ * Системные экраны не текут в последовательность — каждый рисует своя фаза хоста, — но
+ * решение «показывать ли» у них общее с авторскими страницами и живёт на той же строке
+ * `content_pages`. Хелпер здесь, а не в хостах, по той же причине, по какой здесь лежит
+ * порядок: два прочтения одного признака разойдутся, и пакет начнёт показывать экран,
+ * которого нет в вебе.
+ *
+ * Блок вопросов и маршрутизатор скрыть нельзя (проверяется в редакторе и на сервере),
+ * поэтому спрашивать про них бессмысленно — ответ всегда «не скрыт».
+ */
+export function isSystemScreenHidden(
+  contentPages: FlowContentPage[] | null | undefined,
+  kind: "start" | "results" | "review",
+): boolean {
+  const page = (contentPages || []).find((p) => p && p.kind === kind);
+  return page?.hidden === true;
+}
+
+/**
  * Author content pages for one (topic, placement) slot, in author order.
  * `topicId` is `null` for the test-scope zones. The hub is included so the
  * caller can position it; every other system kind is filtered out.
@@ -113,6 +139,7 @@ export function contentPagesFor(
     .filter(
       (p) =>
         !isSystemKind(p.kind) &&
+        p.hidden !== true &&
         (p.topicId ?? null) === topicId &&
         p.position === position,
     )

@@ -1494,6 +1494,14 @@ export const testVariantSchema = z.object({
      * package). Absent on legacy in-progress attempts — treat missing as null.
      */
     timeLimitMinutes: z.number().int().positive().nullable().optional(),
+    /**
+     * PRD-4 v1.1 §4.7 — is the section OBLIGATORY? Carried beside the time budget
+     * and for the same reason: it is what the router's «all_required_*» completion
+     * policy counts, and the SCORM package bakes it into `TEST_DATA.sections[]`.
+     * Absent on attempts started before it shipped — treat missing as `true`, which
+     * is both the column's default and the behaviour those attempts already had.
+     */
+    required: z.boolean().optional(),
   })),
   /**
    * PRD-30 FR-19: the delivery stream as question ids, when it does NOT follow
@@ -2305,6 +2313,14 @@ export const contentPages = pgTable("content_pages", {
   settingsJson: jsonb("settings_json").notNull().default({}),
   autoAdvance: boolean("auto_advance").notNull().default(false),
   autoAdvanceDelayMs: integer("auto_advance_delay_ms"),
+  /** Экран есть в тесте, но ученику не выдаётся (решение владельца 2026-09-20).
+   *  Скрыть можно любую карточку полотна, КРОМЕ блока вопросов и маршрутизатора:
+   *  первый — сам тест, второй — способ навигации, без него сценарий перестаёт быть
+   *  маршрутизаторным. Скрытие обратимо и, в отличие от удаления, сохраняет тексты и
+   *  оформление страницы. Экран «Итоги раздела» хранит своё состояние не здесь, а в
+   *  `tests.show_section_results` — та настройка появилась раньше (PRD-19 FR-05a), и
+   *  второй источник правды для одного экрана заводить нельзя. */
+  hidden: boolean("hidden").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

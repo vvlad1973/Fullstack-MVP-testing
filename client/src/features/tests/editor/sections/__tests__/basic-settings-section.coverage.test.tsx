@@ -16,6 +16,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   AdaptivePane,
+  DuringTestPane,
   FeedbackTextsPane,
   LimitsPane,
   NavigationPane,
@@ -204,19 +205,31 @@ describe("<NavigationPane /> — навигация прохождения (PRD-
     expect(screen.getByText(/иначе ученик увидит правильный ответ/i)).toBeInTheDocument();
   });
 
+  // Решение владельца 2026-09-20: экран итогов раздела — это ПОКАЗ РЕЗУЛЬТАТА, поэтому
+  // переключатель живёт на «Обратная связь и итоги» → «Во время теста», а не в «Сценарии»,
+  // где автор искал его среди настроек потока и не находил.
   it("shows and toggles «итоги раздела» for a sectioned (non-flat) test", () => {
     const updateModel = vi.fn();
     const model = baseModel({
       flowMode: "linear_by_topics",
       sections: [buildSection({ topicId: "t1" })],
     });
-    renderSettings(model, updateModel, { pane: ScenarioSettingsPane });
+    renderSettings(model, updateModel, { pane: DuringTestPane });
     fireEvent.click(screen.getByTestId("settings-show-section-results-checkbox"));
     expect(runUpdater(updateModel, model).runtime.showSectionResults).toBe(false);
   });
 
   it("hides «итоги раздела» for a flat test", () => {
     const model = baseModel({ flowMode: "linear_flat", sections: [buildSection({ topicId: "t1" })] });
+    renderSettings(model, undefined, { pane: DuringTestPane });
+    expect(screen.queryByTestId("settings-show-section-results-checkbox")).toBeNull();
+  });
+
+  it("no longer offers «итоги раздела» in the «Сценарий» pane", () => {
+    const model = baseModel({
+      flowMode: "linear_by_topics",
+      sections: [buildSection({ topicId: "t1" })],
+    });
     renderSettings(model, undefined, { pane: ScenarioSettingsPane });
     expect(screen.queryByTestId("settings-show-section-results-checkbox")).toBeNull();
   });

@@ -34,11 +34,25 @@ import {
 import { TemplateContentScreen, type ContentScreenTemplate } from "./template-content-screen";
 import { buildPageSequence, contentPagesFor, type FlowContentPage } from "@shared/flow/page-sequence";
 import { shouldShowReview } from "@shared/flow/review-gate";
+import { isSystemScreenHidden } from "@shared/flow/page-sequence";
 import {
   buildRouterHubHtml,
   isRouterReadyToFinish,
   type RouterTopicStatus,
+  type SectionUnlockRule,
 } from "@shared/flow/router-hub";
+
+/**
+ * PRD-4 v1.1 §4.7 — the router's gating as the attempt payload delivers it
+ * (`flowPayload` in `server/routes/attempts.ts`), already resolved server-side by
+ * `shared/flow/flow-policy`. Present only for a `router_by_topics` run; the hub
+ * hands both fields straight to the shared rules, so a section open in the LMS is
+ * open here and «Завершить» unlocks at the same moment on both hosts.
+ */
+type RouterPolicyPayload = {
+  completionPolicy?: string | null;
+  sectionUnlockRules?: Record<string, SectionUnlockRule | undefined>;
+};
 import type { RenderableContentPage } from "@shared/template/content-page";
 import {
   useSectionTimer,
@@ -318,6 +332,8 @@ type TestMetadata = {
   retakeGate: RetakeGateState | null;
   // PRD-19 Block F (FR-19/20): prior-attempt summary («повтор: можно» + cooldown).
   priorResult: { percent: number; passed: boolean | null; attemptNumber: number | null; maxAttempts: number | null } | null;
+  /** Стартовый экран скрыт автором — попытка начинается без него (2026-09-20). */
+  startHidden: boolean;
 };
 
 /**
@@ -359,6 +375,8 @@ function buildTestMetadataFromListEntry(test: any): TestMetadata {
         }
       : null,
     priorResult: test.priorResult ?? null,
+    // Сервер до этой правки поля не присылает — читается как «экран показывается».
+    startHidden: test.startHidden === true,
   };
 }
 
@@ -441,11 +459,13 @@ export default function TakeTestPage() {
   const [flowStructure, setFlowStructure] = useState<{
     flowMode: string;
     contentPages: FlowContentPage[];
-  }>({ flowMode: "linear_flat", contentPages: [] });
+    /** PRD-4 v1.1 §4.7 router gating; `null` outside router mode. */
+    routerPolicy: RouterPolicyPayload | null;
+  }>({ flowMode: "linear_flat", contentPages: [], routerPolicy: null });
   const [contentTpl, setContentTpl] = useState<ContentScreenTemplate | null>(null);
   const [pageQueue, setPageQueue] = useState<RenderableContentPage[]>([]);
   /** Section order from the variant — the anchor for the per-topic zones. */
-  const [sections, setSections] = useState<{ topicId: string }[]>([]);
+  const [sections, setSections] = useState<{ topicId: string; required?: boolean }[]>([]);
   /**
    * The question advance deferred while a content zone plays. Applied verbatim
    * once the queue drains, so the boundary logic (section обзор / итоги раздела)
@@ -464,6 +484,8 @@ export default function TakeTestPage() {
   const [afterZonePlayed, setAfterZonePlayed] = useState(false);
   /** Submit deferred while that zone plays; fired when the queue drains. */
   const [pendingSubmit, setPendingSubmit] = useState(false);
+  /** Очередь «После теста» доигрывается после отправки — дальше выход из прохождения. */
+  const [pendingExit, setPendingExit] = useState(false);
   /**
    * Pages owed to the learner on ARRIVAL at a question — the entered section's
    * «перед темой» zone. Held until `currentIndex` actually reaches that question,
@@ -506,10 +528,10 @@ export default function TakeTestPage() {
     // `pendingSubmit` is excluded: the queue is empty on purpose while the attempt
     // is being sent, and bouncing to the question phase would flash that screen
     // between the last content page and the results.
-    if (phase === "content" && !pendingSubmit && (!contentTpl || pageQueue.length === 0)) {
+    if (phase === "content" && !pendingSubmit && !pendingExit && (!contentTpl || pageQueue.length === 0)) {
       setPhase("question");
     }
-  }, [phase, contentTpl, pageQueue.length, pendingSubmit]);
+  }, [phase, contentTpl, pageQueue.length, pendingSubmit, pendingExit]);
   const [testMetadata, setTestMetadata] = useState<TestMetadata | null>(null);
   // PRD-12 web-host: start screen template assets (null -> legacy React markup).
   const [startTpl, setStartTpl] = useState<{
@@ -850,7 +872,7 @@ export default function TakeTestPage() {
             });
 
             if (!res.ok) throw new Error("Failed to submit");
-            navigate(`/learner/result/${attempt.id}`);
+            finishRun();
           } catch (err) {
             toast({
               variant: "destructive",
@@ -1096,6 +1118,20 @@ export default function TakeTestPage() {
     }
   };
 
+  // Скрытый стартовый экран (решение владельца 2026-09-20): экрана с кнопкой «Начать»
+  // ученик не видит — попытка запускается сама, как только известны факты о тесте.
+  // Отдельным эффектом, а не прямо в инициализации: `handleStartTest` работает с уже
+  // применённым `testInfo`, которого в момент загрузки ещё нет. Незавершённая попытка
+  // важнее: её продолжают со стартового экрана, иначе автозапуск отнял бы у ученика
+  // выбор «продолжить или начать заново».
+  useEffect(() => {
+    if (phase !== "start") return;
+    if (!testMetadata?.startHidden || !testInfo) return;
+    if (isStarting || attempt || testMetadata.hasInProgress) return;
+    if (testMetadata.retakeGate) return; // cooldown рисуется НА стартовой — её и показываем
+    void handleStartTest();
+  }, [phase, testMetadata, testInfo, isStarting, attempt]);
+
   // Функция продолжения незавершённого теста
   const handleResumeTest = async () => {
     if (!testInfo) return;
@@ -1248,8 +1284,15 @@ export default function TakeTestPage() {
       setFlowStructure({
         flowMode: (data.attempt.flowMode as string) ?? "linear_flat",
         contentPages: (data.attempt.contentPages as FlowContentPage[]) ?? [],
+        routerPolicy: (data.attempt.routerPolicy as RouterPolicyPayload | undefined) ?? null,
       });
-      setSections((variant.sections || []).map((s: any) => ({ topicId: s.topicId })));
+      setSections(
+        (variant.sections || []).map((s: any) => ({
+          topicId: s.topicId,
+          // Absent on an attempt started before obligation was carried ⇒ required.
+          required: s.required !== false,
+        })),
+      );
       setPhase("question");
 
       toast({
@@ -1419,9 +1462,15 @@ export default function TakeTestPage() {
     const structure = {
       flowMode: (data.flowMode as string) ?? "linear_flat",
       contentPages: (data.contentPages as FlowContentPage[]) ?? [],
+      routerPolicy: (data.routerPolicy as RouterPolicyPayload | undefined) ?? null,
     };
     setFlowStructure(structure);
-    const variantSections = (variant.sections || []).map((s: any) => ({ topicId: s.topicId }));
+    const variantSections = (variant.sections || []).map((s: any) => ({
+      topicId: s.topicId,
+      // PRD-4 v1.1 §4.7: obligation rides on the delivered section, as it does in
+      // TEST_DATA.sections. Absent on an attempt started before it shipped ⇒ required.
+      required: s.required !== false,
+    }));
     setSections(variantSections);
     const built = buildPageSequence({
       flowMode: structure.flowMode,
@@ -1731,7 +1780,7 @@ export default function TakeTestPage() {
    * sequence the SCORM package walks. Used to find which author pages fall
    * between two questions.
    */
-  const pageSequence = useMemo(
+  const builtSequence = useMemo(
     () =>
       buildPageSequence({
         flowMode: flowStructure.flowMode,
@@ -1739,9 +1788,17 @@ export default function TakeTestPage() {
         sections,
         contentPages: flowStructure.contentPages,
         flatQuestions,
-      }).sequence,
+      }),
     [flowStructure, sections, flatQuestions],
   );
+  const pageSequence = builtSequence.sequence;
+  /**
+   * Страницы «После теста», стоящие ЗА границей «Итоги»: пакет играет их после экрана
+   * итогов, и веб обязан вести себя так же (PRD-12 FR-6). Пока экран итогов живёт
+   * отдельным маршрутом `/learner/result/:id`, веб успевает отыграть их только когда
+   * итоги СКРЫТЫ, — тогда порядок совпадает с пакетом ровно.
+   */
+  const postResultsPages = builtSequence.postResultsPages as RenderableContentPage[];
 
   // Deliver the entered section's «перед темой» zone once the learner has actually
   // arrived at its first question — i.e. after the previous section's обзор /
@@ -1753,6 +1810,21 @@ export default function TakeTestPage() {
     setArrivalZone(null);
     setPhase("content");
   }, [phase, contentTpl, arrivalZone, currentIndex, showReview, sectionResultView]);
+
+  // Автор мог скрыть системный экран целиком (решение владельца 2026-09-20). Признак
+  // читается ТЕМ ЖЕ общим хелпером, которым пользуется пакет: иначе хосты разойдутся в
+  // том, что ученику показано.
+  const reviewScreenHidden = useMemo(
+    () => isSystemScreenHidden(flowStructure.contentPages, "review"),
+    [flowStructure.contentPages],
+  );
+  const resultsScreenHidden = useMemo(
+    () => isSystemScreenHidden(flowStructure.contentPages, "results"),
+    [flowStructure.contentPages],
+  );
+  /** Обзор: сперва спрашиваем, не скрыт ли экран, и лишь потом — есть ли там что делать. */
+  const wantsReview = (input: Parameters<typeof shouldShowReview>[0]) =>
+    !reviewScreenHidden && shouldShowReview(input);
 
   const isRouterMode = flowStructure.flowMode === "router_by_topics";
   /** The hub page itself (the `router` content page the author placed). */
@@ -1771,6 +1843,9 @@ export default function TakeTestPage() {
           topicName: q?.topicName || s.topicId,
           drawCount: flatQuestions.filter((fq) => fq.topicId === s.topicId).length,
           timeLimitMinutes: q?.sectionTimeLimitMinutes ?? null,
+          // PRD-4 v1.1 §4.7: an OPTIONAL section never blocks «Завершить» — the same
+          // rule the package applies, from the same field.
+          required: s.required !== false,
         };
       }),
     [sections, flatQuestions],
@@ -1858,7 +1933,7 @@ export default function TakeTestPage() {
         // passed with questions the learner had deliberately skipped.
         if (!sectionCommitted[currentRouterTopic]) {
           if (
-            shouldShowReview({
+            wantsReview({
               allowReturnToUnanswered: navSettings.allowReturnToUnanswered,
               allowAnswerChange: navSettings.allowAnswerChange,
               hasUnanswered: hasUnansweredIn(nextStatus, currentRouterTopic),
@@ -1946,7 +2021,7 @@ export default function TakeTestPage() {
       const crossing = !!curTopic && (nextIdx === null || flatQuestions[nextIdx].topicId !== curTopic);
       if (crossing && !sectionCommitted[curTopic!]) {
         if (
-          shouldShowReview({
+          wantsReview({
             allowReturnToUnanswered: navSettings.allowReturnToUnanswered,
             allowAnswerChange: navSettings.allowAnswerChange,
             hasUnanswered: hasUnansweredIn(nextStatus, curTopic!),
@@ -1966,7 +2041,7 @@ export default function TakeTestPage() {
       }
     } else if (
       nextIdx === null &&
-      shouldShowReview({
+      wantsReview({
         allowReturnToUnanswered: navSettings.allowReturnToUnanswered,
         allowAnswerChange: navSettings.allowAnswerChange,
         hasUnanswered: hasUnansweredIn(nextStatus, null),
@@ -2123,6 +2198,30 @@ export default function TakeTestPage() {
     await submitAttempt(fresh);
   };
 
+  /**
+   * Куда ученик попадает, когда попытка отправлена. ОДНА точка на все пути завершения
+   * (обычная отправка, истёкшее время, добивка последнего раздела) — иначе конец
+   * прохождения расходится сам с собой.
+   *
+   * Порядок повторяет пакет (PRD-12 FR-6): экран итогов → страницы «После теста» →
+   * выход. Скрытый экран итогов выпадает из этой цепочки, а не уводит ученика сразу:
+   * авторские страницы за ним автор писал для того, чтобы их прочли.
+   */
+  const finishRun = () => {
+    if (!attempt) return;
+    if (!resultsScreenHidden) {
+      navigate(`/learner/result/${attempt.id}`);
+      return;
+    }
+    if (contentTpl && postResultsPages.length > 0) {
+      setPendingExit(true);
+      setPageQueue(postResultsPages);
+      setPhase("content");
+      return;
+    }
+    navigate("/learner");
+  };
+
   /** Sends the attempt and moves to the results page. `fresh` — see {@link handleSubmit}. */
   const submitAttempt = async (fresh?: GradedSnapshot) => {
     if (!attempt) return;
@@ -2143,7 +2242,7 @@ export default function TakeTestPage() {
 
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
-      navigate(`/learner/result/${attempt.id}`);
+      finishRun();
     } catch (err) {
       toast({
         variant: "destructive",
@@ -2170,7 +2269,7 @@ export default function TakeTestPage() {
       });
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
-      navigate(`/learner/result/${attempt.id}`);
+      finishRun();
     } catch (err) {
       toast({
         variant: "destructive",
@@ -2604,11 +2703,11 @@ export default function TakeTestPage() {
     const hubHubState = {
       topicStates: routerTopicStates,
       sectionResults: routerSectionResults,
-      unlockRules: {},
-      completionPolicy: null,
-      // Same gate as SCORM: only reveal a section's pass/fail on the card when the
-      // test shows section results; otherwise the card stays a neutral «Завершена».
-      showSectionResults: navSettings.showSectionResults,
+      // PRD-4 v1.1 §4.7: the SAME gating the package runs — resolved server-side by
+      // `shared/flow/flow-policy` and delivered with the attempt. A hub built with
+      // empty rules is a hub that opens sections the LMS keeps locked.
+      unlockRules: flowStructure.routerPolicy?.sectionUnlockRules ?? {},
+      completionPolicy: flowStructure.routerPolicy?.completionPolicy ?? null,
     };
     const hubReady = isRouterReadyToFinish(hubSections, hubHubState);
     return (
@@ -2688,6 +2787,13 @@ export default function TakeTestPage() {
           const rest = pageQueue.slice(1);
           setPageQueue(rest);
           if (rest.length > 0) return;
+          // Страницы «После теста» доиграны — прохождение закончено (зеркало пакета:
+          // там за ними идёт «Завершить»).
+          if (pendingExit) {
+            setPendingExit(false);
+            navigate("/learner");
+            return;
+          }
           // The zone played before submitting — finish now, without flashing the
           // question screen on the way out.
           if (pendingSubmit) {

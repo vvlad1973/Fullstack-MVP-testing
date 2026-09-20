@@ -37,7 +37,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ChevronRight,
-  Eye,
+  EyeOff,
   GripVertical,
   Image as ImageIcon,
   Info,
@@ -615,6 +615,12 @@ type ZoneHandlers = {
   onPreview: (page: ContentPage) => void;
   /** When true, the tab is rendered without authoring controls (PRD-7 G19). */
   readOnly: boolean;
+  /**
+   * Видимость карточки: показывается ли экран ученику и можно ли это менять
+   * (см. {@link RowVisibility}). Живёт в handlers, потому что строки лежат на трёх
+   * уровнях вложенности зон — тащить один и тот же проп через каждый было бы шумом.
+   */
+  visibilityFor?: (page: ContentPage) => RowVisibility;
 };
 
 function ZonesBlock(props: {
@@ -623,8 +629,43 @@ function ZonesBlock(props: {
   onGoToComposition?: () => void;
   updateModel?: (updater: (model: TestEditorModel) => TestEditorModel) => void;
 }) {
-  const { model, handlers, onGoToComposition, updateModel } = props;
-  const pages = handlers.cp.pages;
+  const { model, handlers: baseHandlers, onGoToComposition, updateModel } = props;
+  const pages = baseHandlers.cp.pages;
+
+  // Видимость «Итогов раздела»: пункт меню строки и переключатель «Показывать итоги
+  // раздела» («Обратная связь и итоги» → «Во время теста») правят ОДНУ настройку —
+  // у автора не должно быть двух выключателей одного экрана.
+  const sectionResultsVisibility: RowVisibility = {
+    kind: "toggle",
+    hidden: !model.runtime.showSectionResults,
+    onToggle:
+      updateModel && !baseHandlers.readOnly
+        ? () =>
+            updateModel((m) => ({
+              ...m,
+              runtime: { ...m.runtime, showSectionResults: !m.runtime.showSectionResults },
+            }))
+        : undefined,
+  };
+
+  // Видимость ЛЮБОЙ карточки полотна (решение владельца 2026-09-20). Скрывать можно
+  // всё, кроме блока вопросов и маршрутизатора; «Итоги раздела» ходят через настройку
+  // теста (см. выше), остальные — через признак самой страницы.
+  const visibilityFor = (page: ContentPage): RowVisibility => {
+    const locked = NON_HIDEABLE_REASON[page.kind];
+    if (locked) return { kind: "locked", reason: locked };
+    if (page.kind === "section-results") return sectionResultsVisibility;
+    return {
+      kind: "toggle",
+      hidden: page.hidden === true,
+      onToggle: baseHandlers.readOnly
+        ? undefined
+        : () => {
+            void baseHandlers.cp.update(page.id, { hidden: !(page.hidden === true) });
+          },
+    };
+  };
+  const handlers: ZoneHandlers = { ...baseHandlers, visibilityFor };
   // Distinct id namespace so the shared DndContext routes topic drags to the
   // topic-level SortableContext and page drags stay on the existing path.
   const TOPIC_ID_PREFIX = "topic:";
@@ -659,13 +700,14 @@ function ZonesBlock(props: {
   //   - review: design is always bindable; its DISPLAY is gated by «возврат к
   //     неотвеченным» (reviewSlot below) and hidden for adaptive (FR-08a / FR-22).
   //   - section-results: OPTIONAL, gated by the `showSectionResults` setting
-  //     (FR-05a). When OFF the runtime goes straight to the next section, so the
-  //     row is hidden.
+  //     (FR-05a). When OFF the runtime goes straight to the next section — but the
+  //     row STAYS in the canvas, dimmed and marked «Скрыт от ученика» (решение
+  //     владельца 2026-09-20), and its menu toggles that very setting.
   const reviewPage =
     systemSingleton("review") ?? synthSystemNode("review", handlers.cp.contentTemplates);
-  const sectionResultsPage = model.runtime.showSectionResults
-    ? (systemSingleton("section-results") ?? synthSystemNode("section-results", handlers.cp.contentTemplates))
-    : null;
+  const sectionResultsPage =
+    systemSingleton("section-results") ??
+    synthSystemNode("section-results", handlers.cp.contentTemplates);
 
   // «После теста» order list = author after-pages + «Итоги теста» (results), by
   // sortOrder. Reordering/adding here renumbers this combined list so «Итоги
@@ -834,6 +876,7 @@ function ZonesBlock(props: {
         ? "enabled"
         : "disabled";
 
+
   return (
     <DndContext
       sensors={sensors}
@@ -945,7 +988,7 @@ function TopicBlock(props: {
    *  after the questions/after-zone. `null` only if the singleton is missing. */
   reviewPage: ContentPage | null;
   /** PRD-19: test-level «Итоги раздела» (kind: section-results) design binding,
-   *  shown last. `null` when `showSectionResults` is OFF (node hidden). */
+   *  shown last. Строка стоит в полотне всегда; выключенная — гаснет с пометкой. */
   sectionResultsPage: ContentPage | null;
   before: ContentPage[];
   after: ContentPage[];
@@ -1038,8 +1081,9 @@ function TopicBlock(props: {
           handlers={props.handlers}
           testId={`structure-review-slot-${section.topicId}`}
         />
-        {/* PRD-19 FR-05a: section-level «Итоги раздела» (section-results node) —
-            shown only when `showSectionResults` is ON; design via template. */}
+        {/* PRD-19 FR-05a: section-level «Итоги раздела» (section-results node) — строка
+            стоит всегда, а выключенный экран гаснет с пометкой «Скрыт от ученика» и
+            возвращается из её же меню; оформление — через шаблон. */}
         {props.sectionResultsPage && (
           <SystemPageRow
             page={props.sectionResultsPage}
@@ -1145,7 +1189,7 @@ function InsideTestZone(props: {
   introForTopic: (topicId: string) => ContentPage | null;
   /** PRD-19: test-level «Обзор раздела» design binding (singleton). */
   reviewPage: ContentPage | null;
-  /** PRD-19: test-level «Итоги раздела» design binding (null when hidden). */
+  /** PRD-19: test-level «Итоги раздела» design binding. */
   sectionResultsPage: ContentPage | null;
   /** PRD-19 FR-08a: «Обзор раздела» slot state (`null` = hidden, e.g. adaptive). */
   reviewSlot: "enabled" | "disabled" | null;
@@ -1229,11 +1273,40 @@ function QuestionsRow(props: {
 
 // ─── System page row (read-only + variant switch) ───────────────────────────────
 
+/**
+ * Видимость карточки полотна (решение владельца 2026-09-20): выдачей экрана управляют
+ * ПРЯМО в полотне, как «скрыть слайд», а скрытая карточка не исчезает, а гаснет с
+ * пометкой. Исчезнувшая строка не говорила автору ни что экран в тесте есть, ни где
+ * его включают.
+ *   - `toggle` — автор решает сам; `onToggle` пишет в ТУ ЖЕ настройку теста, которой
+ *     этот экран управлялся и раньше, поэтому второй правды не заводится. Без
+ *     `onToggle` (просмотр, read-only) пометка видна, а действия нет;
+ *   - `locked` — экран скрыть нельзя, и меню называет причину. Погашенный пункт лучше
+ *     отсутствующего: пропавший автор искал бы снова.
+ */
+type RowVisibility =
+  | { kind: "toggle"; hidden: boolean; onToggle?: () => void }
+  | { kind: "locked"; reason: string };
+
+/**
+ * Что скрыть нельзя (решение владельца 2026-09-20): блок вопросов — это сам тест, а
+ * маршрутизатор — способ навигации по нему, и без хаба сценарий перестаёт быть
+ * маршрутизаторным. Всё остальное, включая «Старт» и «Итоги теста», автор скрывает
+ * сам. Тот же запрет проверяет сервер: сломанный тест не должен собираться никаким
+ * клиентом.
+ */
+const NON_HIDEABLE_REASON: Partial<Record<string, string>> = {
+  questions: "Вопросы — суть теста, их скрыть нельзя",
+  router: "На маршрутизаторе ученик выбирает раздел",
+};
+
 function SystemPageRow(props: {
   page: ContentPage;
   title: string;
   handlers: ZoneHandlers;
   testId: string;
+  /** Не задана — вид берётся из {@link NON_HIDEABLE_REASON} по виду страницы. */
+  visibility?: RowVisibility;
 }) {
   const { page, handlers } = props;
   const { cp, expandedId, setExpandedId, readOnly } = handlers;
@@ -1265,6 +1338,13 @@ function SystemPageRow(props: {
   const isFromTemplate =
     (page.kind === "intro" || page.kind === "summary") &&
     Object.values(values).every((v) => v === null || v === undefined || v === "");
+  const visibility: RowVisibility | undefined =
+    props.visibility ??
+    handlers.visibilityFor?.(page) ??
+    (NON_HIDEABLE_REASON[page.kind]
+      ? { kind: "locked", reason: NON_HIDEABLE_REASON[page.kind] as string }
+      : undefined);
+  const isHidden = visibility?.kind === "toggle" && visibility.hidden;
 
   return (
     <>
@@ -1274,10 +1354,12 @@ function SystemPageRow(props: {
         (isFromTemplate ? "page-row--template" : "page-row--system") +
         (page.kind === "questions" ? " page-row--questions" : "") +
         (hasErr ? " page-row--error" : "") +
+        (isHidden ? " page-row--hidden" : "") +
         (expanded ? " is-expanded" : "")
       }
       data-testid={props.testId}
       data-kind={page.kind}
+      data-hidden={isHidden ? "true" : undefined}
       data-from-template={isFromTemplate ? "true" : undefined}
     >
       {isExpandable && (
@@ -1292,23 +1374,27 @@ function SystemPageRow(props: {
           <ChevronRight size={14} aria-hidden="true" />
         </button>
       )}
-      {/* Ни пиктограммы вида, ни маркера «шаблон»: вид узла назван бейджем рядом, а
-          «страница ещё вся из шаблона» — не состояние, с которым автор что-то делает.
-          Классификация осталась классом строки, она красит её приглушённее. */}
+      {/* Единственная пиктограмма в заголовке строки — статус выдачи: скрытый экран
+          виден сразу, без чтения подписей (решение владельца 2026-09-20). Вид узла
+          по-прежнему называет бейдж, а «страница ещё вся из шаблона» пиктограммы не
+          получает: это не состояние, с которым автор что-то делает. */}
+      {isHidden && (
+        <span
+          className="page-hidden-ico"
+          role="img"
+          aria-label="Скрыт от ученика"
+          title="Скрыт от ученика"
+          data-testid={`${props.testId}-hidden-ico`}
+        >
+          <EyeOff size={14} aria-hidden="true" />
+        </span>
+      )}
       <span className="page-variant-badge">{badge}</span>
       <span className="page-title">{props.title}</span>
       <div className="page-actions">
-        {/* Предпросмотр — прямой кнопкой перед меню: смотреть страницу приходится
-            чаще, чем менять её вариант, и прятать это за меню незачем. */}
-        <button
-          type="button"
-          className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-          aria-label="Предпросмотр страницы"
-          onClick={() => handlers.onPreview(page)}
-          data-testid={`${props.testId}-preview-inline`}
-        >
-          <Eye size={14} aria-hidden="true" />
-        </button>
+        {/* Кнопки-глазка в строке нет (решение владельца 2026-09-20): рядом со знаком
+            «скрыт» второй глаз читался как часть того же сообщения. Предпросмотр —
+            команда меню. */}
         <MenuTrigger
           placement="bottom-end"
           trigger={
@@ -1336,6 +1422,24 @@ function SystemPageRow(props: {
             >
               Предпросмотр
             </MenuItem>
+            {/* Решение о ВЫДАЧЕ экрана, а не о его оформлении, поэтому последним
+                пунктом. Погашенный пункт у неснимаемого экрана объясняет причину. */}
+            {visibility && (
+              <MenuItem
+                disabled={visibility.kind === "locked" || !visibility.onToggle}
+                onClick={
+                  visibility.kind === "toggle" && visibility.onToggle
+                    ? visibility.onToggle
+                    : undefined
+                }
+                // Пояснений в меню нет (решение владельца 2026-09-20): команда называет
+                // себя сама, а у неснимаемого экрана пункт просто погашен. Причина
+                // запрета описана в руководстве автора, а не строкой под пунктом.
+                data-testid={`${props.testId}-visibility`}
+              >
+                {visibility.kind === "toggle" && visibility.hidden ? "Показать" : "Скрыть"}
+              </MenuItem>
+            )}
           </Menu>
         </MenuTrigger>
       </div>
@@ -1520,6 +1624,7 @@ function SortablePageItem(props: { page: ContentPage; handlers: ZoneHandlers }) 
         readOnly={handlers.readOnly}
         onReplaceVariant={handlers.onReplaceVariant}
         onPreview={handlers.onPreview}
+        visibilityFor={handlers.visibilityFor}
       />
     </div>
   );
@@ -1576,6 +1681,8 @@ function AuthorPageRow(props: {
   onReplaceVariant: (page: ContentPage) => void;
   /** PRD-7 G17 / FR-44: opens PagePreviewModal for this page. */
   onPreview: (page: ContentPage) => void;
+  /** Видимость строки (см. {@link RowVisibility}); не задана — скрывать нельзя. */
+  visibilityFor?: (page: ContentPage) => RowVisibility;
 }) {
   const { page, cp } = props;
   const [confirming, setConfirming] = useState(false);
@@ -1603,6 +1710,10 @@ function AuthorPageRow(props: {
 
   const title = pageTitle(page);
   const badge = variant?.label ?? KIND_LABEL[page.kind] ?? page.kind;
+  // Авторскую страницу автор и раньше мог убрать — но только УДАЛИВ вместе с текстом.
+  // Скрытие обратимо: страница остаётся в полотне и в тесте, ученику не выдаётся.
+  const visibility = props.visibilityFor?.(page);
+  const isHidden = visibility?.kind === "toggle" && visibility.hidden;
 
   return (
     <>
@@ -1610,11 +1721,13 @@ function AuthorPageRow(props: {
         className={
           "page-row" +
           (hasErr ? " page-row--error" : hasWarn ? " page-row--warn" : "") +
+          (isHidden ? " page-row--hidden" : "") +
           (props.expanded ? " is-expanded" : "") +
           (props.isDragging ? " dragging" : "") +
           (props.readOnly ? " page-row--readonly" : "")
         }
         data-testid={`structure-page-row-${page.id}`}
+        data-hidden={isHidden ? "true" : undefined}
       >
         <span
           className="drag-handle"
@@ -1634,23 +1747,23 @@ function AuthorPageRow(props: {
         >
           <ChevronRight size={14} aria-hidden="true" />
         </button>
+        {isHidden && (
+          <span
+            className="page-hidden-ico"
+            role="img"
+            aria-label="Скрыт от ученика"
+            title="Скрыт от ученика"
+            data-testid={`structure-page-hidden-ico-${page.id}`}
+          >
+            <EyeOff size={14} aria-hidden="true" />
+          </span>
+        )}
         <span className="page-variant-badge">{badge}</span>
         <span className="page-title">{title}</span>
         <div className="page-actions">
-          {/* Предпросмотр — прямой кнопкой перед меню. Показывается и в
-              опубликованном тесте: смотреть страницу можно всегда, это ничего не
-              меняет, а меню действий там скрыто целиком. */}
-          {!confirming && (
-            <button
-              type="button"
-              className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-              aria-label={`Предпросмотр страницы ${title}`}
-              onClick={() => props.onPreview(page)}
-              data-testid={`structure-page-preview-inline-${page.id}`}
-            >
-              <Eye size={14} aria-hidden="true" />
-            </button>
-          )}
+          {/* Кнопки-глазка в строке нет (решение владельца 2026-09-20): у скрытой
+              карточки рядом стояли два глаза — знак «скрыт» и команда «посмотреть», —
+              и строка читалась двусмысленно. Предпросмотр живёт командой меню. */}
           {props.readOnly ? null : !confirming ? (
             <MenuTrigger
               placement="bottom-end"
@@ -1680,6 +1793,19 @@ function AuthorPageRow(props: {
                 >
                   Предпросмотр
                 </MenuItem>
+                {visibility && (
+                  <MenuItem
+                    disabled={visibility.kind === "locked" || !visibility.onToggle}
+                    onClick={
+                      visibility.kind === "toggle" && visibility.onToggle
+                        ? visibility.onToggle
+                        : undefined
+                    }
+                    data-testid={`structure-page-visibility-${page.id}`}
+                  >
+                    {visibility.kind === "toggle" && visibility.hidden ? "Показать" : "Скрыть"}
+                  </MenuItem>
+                )}
                 <MenuItem
                   danger
                   onClick={() => setConfirming(true)}

@@ -16,6 +16,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { templateRoot } from "./helpers/template-roots";
 import { renderScreenInto } from "../shared/template/render-screen";
 import {
   buildReportContext as buildReportContextRaw,
@@ -25,8 +26,8 @@ import {
 import { LEVEL_SCHEMES } from "../shared/template/level-ramp";
 import type { ReportInput, AdaptiveReportInput } from "../shared/report/report-html";
 
-const DEFAULT_DIR = path.resolve(process.cwd(), "server", "scorm", "templates", "default");
-const CERT_DIR = path.resolve(process.cwd(), "templates", "certification");
+const DEFAULT_DIR = templateRoot("default");
+const CERT_DIR = templateRoot("certification");
 const layout = (name: string) => fs.readFileSync(path.join(DEFAULT_DIR, "layouts", name), "utf8");
 const REPORT = layout("report.html");
 const REPORT_ADAPTIVE = layout("report.adaptive.html");
