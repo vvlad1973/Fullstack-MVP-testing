@@ -647,6 +647,38 @@ describe("<StructureSection /> — preview command", () => {
     expect(await screen.findByTestId("page-preview-modal")).toBeInTheDocument();
   });
 
+  // Решение владельца 2026-09-20: скрыть можно ЛЮБУЮ карточку, кроме блока вопросов и
+  // маршрутизатора. Авторская страница хранит это признаком самой страницы — в отличие
+  // от «Итогов раздела», у которых настройка теста появилась раньше.
+  it("скрывает авторскую страницу из её меню", async () => {
+    installApi([
+      buildPage({ id: "pg-1", kind: "info", position: "before", topicId: null, valuesJson: { values: { title: "Памятка" } } }),
+    ]);
+    renderSection(baseModel({ flowMode: "linear_flat", sections: [buildSection()] }));
+    await waitFor(() => expect(screen.getByTestId("structure-page-row-pg-1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("structure-page-actions-pg-1"));
+    fireEvent.click(await screen.findByTestId("structure-page-visibility-pg-1"));
+
+    // Правка ложится в черновик, как и любая другая: на сервер её уносит общая
+    // «Сохранить» ящика. Строка при этом сразу читается как скрытая.
+    await waitFor(() =>
+      expect(screen.getByTestId("structure-page-row-pg-1")).toHaveAttribute("data-hidden", "true"),
+    );
+    expect(screen.getByTestId("structure-page-hidden-ico-pg-1")).toBeInTheDocument();
+  });
+
+  it("у блока вопросов пункт скрытия погашен", async () => {
+    installApi([
+      buildPage({ id: "pg-q", kind: "questions", position: "before_topic", topicId: "t1", templateKey: "question.standard", valuesJson: { values: {} } }),
+    ]);
+    renderSection(baseModel({ flowMode: "linear_by_topics", sections: [buildSection({ topicId: "t1" })] }));
+    await waitFor(() => expect(screen.getByTestId("structure-questions-row-t1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("structure-questions-row-t1-actions"));
+    expect(await screen.findByTestId("structure-questions-row-t1-visibility")).toBeDisabled();
+  });
+
   // PRD-7 G19: в режиме без авторских контролов строка не предлагает действий вовсе.
   it("renders no row actions in the read-only mode (PRD-7 G19)", async () => {
     installApi([

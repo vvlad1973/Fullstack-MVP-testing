@@ -34,6 +34,7 @@ import {
 import { TemplateContentScreen, type ContentScreenTemplate } from "./template-content-screen";
 import { buildPageSequence, contentPagesFor, type FlowContentPage } from "@shared/flow/page-sequence";
 import { shouldShowReview } from "@shared/flow/review-gate";
+import { isSystemScreenHidden } from "@shared/flow/page-sequence";
 import {
   buildRouterHubHtml,
   isRouterReadyToFinish,
@@ -318,6 +319,8 @@ type TestMetadata = {
   retakeGate: RetakeGateState | null;
   // PRD-19 Block F (FR-19/20): prior-attempt summary («повтор: можно» + cooldown).
   priorResult: { percent: number; passed: boolean | null; attemptNumber: number | null; maxAttempts: number | null } | null;
+  /** Стартовый экран скрыт автором — попытка начинается без него (2026-09-20). */
+  startHidden: boolean;
 };
 
 /**
@@ -359,6 +362,8 @@ function buildTestMetadataFromListEntry(test: any): TestMetadata {
         }
       : null,
     priorResult: test.priorResult ?? null,
+    // Сервер до этой правки поля не присылает — читается как «экран показывается».
+    startHidden: test.startHidden === true,
   };
 }
 
@@ -850,7 +855,7 @@ export default function TakeTestPage() {
             });
 
             if (!res.ok) throw new Error("Failed to submit");
-            navigate(`/learner/result/${attempt.id}`);
+            navigate(resultsScreenHidden ? "/learner" : `/learner/result/${attempt.id}`);
           } catch (err) {
             toast({
               variant: "destructive",
@@ -1095,6 +1100,20 @@ export default function TakeTestPage() {
       setIsStarting(false);
     }
   };
+
+  // Скрытый стартовый экран (решение владельца 2026-09-20): экрана с кнопкой «Начать»
+  // ученик не видит — попытка запускается сама, как только известны факты о тесте.
+  // Отдельным эффектом, а не прямо в инициализации: `handleStartTest` работает с уже
+  // применённым `testInfo`, которого в момент загрузки ещё нет. Незавершённая попытка
+  // важнее: её продолжают со стартового экрана, иначе автозапуск отнял бы у ученика
+  // выбор «продолжить или начать заново».
+  useEffect(() => {
+    if (phase !== "start") return;
+    if (!testMetadata?.startHidden || !testInfo) return;
+    if (isStarting || attempt || testMetadata.hasInProgress) return;
+    if (testMetadata.retakeGate) return; // cooldown рисуется НА стартовой — её и показываем
+    void handleStartTest();
+  }, [phase, testMetadata, testInfo, isStarting, attempt]);
 
   // Функция продолжения незавершённого теста
   const handleResumeTest = async () => {
@@ -1754,6 +1773,21 @@ export default function TakeTestPage() {
     setPhase("content");
   }, [phase, contentTpl, arrivalZone, currentIndex, showReview, sectionResultView]);
 
+  // Автор мог скрыть системный экран целиком (решение владельца 2026-09-20). Признак
+  // читается ТЕМ ЖЕ общим хелпером, которым пользуется пакет: иначе хосты разойдутся в
+  // том, что ученику показано.
+  const reviewScreenHidden = useMemo(
+    () => isSystemScreenHidden(flowStructure.contentPages, "review"),
+    [flowStructure.contentPages],
+  );
+  const resultsScreenHidden = useMemo(
+    () => isSystemScreenHidden(flowStructure.contentPages, "results"),
+    [flowStructure.contentPages],
+  );
+  /** Обзор: сперва спрашиваем, не скрыт ли экран, и лишь потом — есть ли там что делать. */
+  const wantsReview = (input: Parameters<typeof shouldShowReview>[0]) =>
+    !reviewScreenHidden && shouldShowReview(input);
+
   const isRouterMode = flowStructure.flowMode === "router_by_topics";
   /** The hub page itself (the `router` content page the author placed). */
   const hubPage = useMemo(
@@ -1858,7 +1892,7 @@ export default function TakeTestPage() {
         // passed with questions the learner had deliberately skipped.
         if (!sectionCommitted[currentRouterTopic]) {
           if (
-            shouldShowReview({
+            wantsReview({
               allowReturnToUnanswered: navSettings.allowReturnToUnanswered,
               allowAnswerChange: navSettings.allowAnswerChange,
               hasUnanswered: hasUnansweredIn(nextStatus, currentRouterTopic),
@@ -1946,7 +1980,7 @@ export default function TakeTestPage() {
       const crossing = !!curTopic && (nextIdx === null || flatQuestions[nextIdx].topicId !== curTopic);
       if (crossing && !sectionCommitted[curTopic!]) {
         if (
-          shouldShowReview({
+          wantsReview({
             allowReturnToUnanswered: navSettings.allowReturnToUnanswered,
             allowAnswerChange: navSettings.allowAnswerChange,
             hasUnanswered: hasUnansweredIn(nextStatus, curTopic!),
@@ -1966,7 +2000,7 @@ export default function TakeTestPage() {
       }
     } else if (
       nextIdx === null &&
-      shouldShowReview({
+      wantsReview({
         allowReturnToUnanswered: navSettings.allowReturnToUnanswered,
         allowAnswerChange: navSettings.allowAnswerChange,
         hasUnanswered: hasUnansweredIn(nextStatus, null),
@@ -2143,7 +2177,7 @@ export default function TakeTestPage() {
 
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
-      navigate(`/learner/result/${attempt.id}`);
+      navigate(resultsScreenHidden ? "/learner" : `/learner/result/${attempt.id}`);
     } catch (err) {
       toast({
         variant: "destructive",
@@ -2170,7 +2204,7 @@ export default function TakeTestPage() {
       });
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
-      navigate(`/learner/result/${attempt.id}`);
+      navigate(resultsScreenHidden ? "/learner" : `/learner/result/${attempt.id}`);
     } catch (err) {
       toast({
         variant: "destructive",

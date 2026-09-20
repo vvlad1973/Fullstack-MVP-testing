@@ -412,6 +412,21 @@ function renderResults() {
     console.log('💾 renderResults: результат попытки сохранён', Math.round(results.percent) + '%');
   }
 
+  // Автор скрыл экран итогов (решение владельца 2026-09-20). Считать и СОХРАНИТЬ
+  // результат всё равно надо — он уходит в LMS и в отчёт; ученику не показывают только
+  // сам экран. Поэтому проверка стоит ПОСЛЕ сохранения: дальше идут авторские страницы
+  // «После теста», а если их нет — прохождение завершается.
+  if (typeof screenHidden === 'function' && screenHidden('results')) {
+    if (typeof enterPostResults === 'function' && (state.postResultsPages || []).length > 0) {
+      enterPostResults();
+      return;
+    }
+    if (typeof finishAndClose === 'function') {
+      finishAndClose();
+      return;
+    }
+  }
+
   var app = document.getElementById('app');
   var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
   var resultsLayout = (typeof systemLayout === 'function')

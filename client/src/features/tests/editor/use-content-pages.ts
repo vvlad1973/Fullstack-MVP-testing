@@ -272,6 +272,7 @@ function pageToInput(page: ContentPage): ContentPageInput {
     autoAdvance: page.autoAdvance,
     autoAdvanceDelayMs: page.autoAdvanceDelayMs,
     sortOrder: page.sortOrder,
+    hidden: page.hidden === true,
   };
 }
 
@@ -352,6 +353,9 @@ function pageChanged(a: ContentPage, b: ContentPage): boolean {
     a.type !== b.type ||
     a.autoAdvance !== b.autoAdvance ||
     a.autoAdvanceDelayMs !== b.autoAdvanceDelayMs ||
+    // Скрытие — такая же правка страницы, как остальные: без этой строки «Сохранить»
+    // оставался бы неактивным и решение автора терялось бы при закрытии ящика.
+    (a.hidden === true) !== (b.hidden === true) ||
     canonicalValues(a.valuesJson) !== canonicalValues(b.valuesJson) ||
     // PRD-22: settings are a separate field with their own rules, so an edit that
     // touches only a page property (e.g. the sequence identifier) must still count
@@ -667,6 +671,7 @@ export function useContentPages(
             ...(input.autoAdvanceDelayMs !== undefined
               ? { autoAdvanceDelayMs: input.autoAdvanceDelayMs }
               : {}),
+            ...(input.hidden !== undefined ? { hidden: input.hidden } : {}),
           };
           return updated;
         }),

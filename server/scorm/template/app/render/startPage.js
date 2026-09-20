@@ -26,6 +26,30 @@ function renderStartPage() {
 }
 
 /**
+ * Скрыт ли экран этого вида автором (решение владельца 2026-09-20).
+ *
+ * Спрашивает ОБЩИЙ хелпер — тот же, которым пользуется веб-хост: разойдясь здесь,
+ * пакет показал бы экран, которого в вебе нет. Локальная проверка остаётся запасной —
+ * пакет, собранный старой сборкой без этой функции в бандле, не должен падать.
+ */
+function screenHidden(kind) {
+  var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
+  var pages = TEST_DATA.contentPages || [];
+  if (TB && typeof TB.isSystemScreenHidden === 'function') {
+    return TB.isSystemScreenHidden(pages, kind);
+  }
+  for (var i = 0; i < pages.length; i++) {
+    if (pages[i] && pages[i].kind === kind) return pages[i].hidden === true;
+  }
+  return false;
+}
+
+/** Скрыт ли стартовый экран — прохождение тогда начинается сразу. */
+function startScreenHidden() {
+  return screenHidden('start');
+}
+
+/**
  * Resolve the start screen's layout HTML, honouring the author's chosen start
  * VARIANT (PRD-1 §4.3). The `start` content page's `templateKey` selects a
  * contentTemplate whose own `layoutFile` (e.g. `start.image-right`) is preferred
