@@ -334,3 +334,75 @@ describe("Analytics test-details route", () => {
     expect(res.body.questionStats[0].correctPercent).toBe(0);
   });
 });
+
+/**
+ * PRD-57 FR-32, Э10. До этого новые типы доезжали до колонок аналитики сырым JSON: тип
+ * печатался как `short`, содержимое и эталон — как `{"answerKind":"text",…}`, а ответ на
+ * задание с пропусками — как `[object Object]`.
+ */
+describe("текстовые типы в колонках аналитики (PRD-57 FR-32)", () => {
+  const rules = {
+    answerKind: "text",
+    join: "any",
+    rules: [
+      { kind: "text", match: "wildcard", value: "Федеральная служба по * надзору" },
+      { kind: "text", match: "regex", value: "^РТН$" },
+    ],
+  };
+  const numericRules = {
+    answerKind: "number",
+    join: "all",
+    unit: "°C",
+    rules: [{ kind: "number", op: "eq", value: -25, tolerance: { unit: "abs", value: 2 } }],
+  };
+  const blanks = {
+    blanks: [
+      { id: "city", answerKind: "text", join: "any", rules: [{ kind: "text", match: "wildcard", value: "Москва" }] },
+      { id: "year", answerKind: "number", join: "any", rules: [{ kind: "number", op: "eq", value: 1703 }] },
+    ],
+  };
+
+  it("тип называется словами", () => {
+    expect(formatQuestionType("short")).toBe("Короткий ответ");
+    expect(formatQuestionType("blanks")).toBe("Пропуски");
+    expect(formatQuestionType("long")).toBe("Развёрнутый ответ");
+  });
+
+  it("содержимое: предел и единица у короткого, перечень пропусков, прочерк у развёрнутого", () => {
+    expect(formatAllOptions("short", { maxLength: 120 })).toContain("120");
+    expect(formatAllOptions("blanks", {}, blanks)).toBe("Пропуски: city, year");
+    expect(formatAllOptions("long", { placeholder: "Своими словами" })).toBe("—");
+  });
+
+  it("эталон — правила словами, а не JSON", () => {
+    const text = formatCorrectAnswerText("short", {}, rules);
+    expect(text).toContain("Федеральная служба по * надзору");
+    expect(text).not.toContain("wildcard");
+    const numeric = formatCorrectAnswerText("short", {}, numericRules);
+    expect(numeric).toContain("от -27 до -23 °C");
+  });
+
+  it("эталон пропусков называет каждое поле", () => {
+    const text = formatCorrectAnswerText("blanks", {}, blanks);
+    expect(text).toContain("city");
+    expect(text).toContain("Москва");
+    expect(text).toContain("1703");
+  });
+
+  it("у задания без правил и у развёрнутого ответа эталона нет — прочерк", () => {
+    expect(formatCorrectAnswerText("short", {}, { answerKind: "text", join: "any", rules: [] })).toBe("—");
+    expect(formatCorrectAnswerText("long", {}, {})).toBe("—");
+  });
+
+  it("ответ участника печатается как набран, а пропуски — по именам", () => {
+    expect(formatUserAnswerText("short", {}, "Ростехнадзор")).toBe("Ростехнадзор");
+    expect(formatUserAnswerText("long", {}, "Сначала обесточить.")).toBe("Сначала обесточить.");
+    expect(formatUserAnswerText("blanks", {}, { city: "Москва", year: "1703" }))
+      .toBe("city: Москва, year: 1703");
+  });
+
+  it("незаполненный пропуск виден пустым, а не пропадает", () => {
+    expect(formatUserAnswerText("blanks", {}, { city: "Москва", year: "" }))
+      .toBe("city: Москва, year: (нет ответа)");
+  });
+});

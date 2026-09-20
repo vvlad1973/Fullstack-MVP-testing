@@ -2,7 +2,9 @@ import type { Request } from "express";
 import { readableTestScope } from "../../services/test-access";
 import { storage } from "../../storage";
 import { resolveOverallRule, nothingToGrade, hasPronouncedVerdict } from "@shared/scoring/pass-rule";
-import { isMeasurementOnly } from "@shared/questions/question-type";
+import { isMeasurementOnly, isTextEntry, hasBlanks, isOpenText } from "@shared/questions/question-type";
+import { describeRuleSet } from "@shared/answer-check/describe";
+import type { AnswerRuleSet } from "@shared/answer-check";
 import {
   parseScaleInterpretation,
   parseIndicatorInterpretation,
@@ -312,14 +314,36 @@ export function formatQuestionType(type: string): string {
     ranking: "Ранжирование",
     scale: "Шкала",
     allocation: "Распределение баллов",
+    // PRD-57: текстовые типы. Сырое `short` в отчёте — это техническое имя там, где
+    // читатель ждёт названия метода.
+    short: "Короткий ответ",
+    blanks: "Пропуски",
+    long: "Развёрнутый ответ",
   };
   return types[type] || type;
 }
 
 /**
- * Форматирует все варианты ответа
+ * Форматирует все варианты ответа.
+ *
+ * @param correctJson эталон задания — нужен ТОЛЬКО текстовым типам: у пропусков перечень
+ *   полей живёт в наборах правил, а не в содержимом (PRD-57 FR-24c).
  */
-export function formatAllOptions(type: string, dataJson: any): string {
+export function formatAllOptions(type: string, dataJson: any, correctJson?: unknown): string {
+  // PRD-57: у текстовых типов вариантов не существует, и печатать здесь нечего, кроме
+  // того, чем ограничено поле. Прочерк, а не пустая ячейка: пусто читается как «не
+  // заполнено», прочерк — как «неприменимо».
+  if (isTextEntry(type) || isOpenText(type) || hasBlanks(type)) {
+    if (hasBlanks(type)) {
+      const sets = ((correctJson ?? {}) as { blanks?: Array<{ id?: string }> }).blanks ?? [];
+      return sets.length === 0 ? NOT_APPLICABLE : `Пропуски: ${sets.map((set) => set.id).join(", ")}`;
+    }
+    const limits: string[] = [];
+    const unit = (correctJson as { unit?: string } | null)?.unit;
+    if (typeof dataJson?.maxLength === "number") limits.push(`до ${dataJson.maxLength} символов`);
+    if (isTextEntry(type) && typeof unit === "string" && unit.trim() !== "") limits.push(`единица: ${unit.trim()}`);
+    return limits.length === 0 ? NOT_APPLICABLE : limits.join("; ");
+  }
   if (!dataJson) return "";
 
   switch (type) {
@@ -369,6 +393,17 @@ export function formatCorrectAnswerText(type: string, dataJson: any, correctJson
   // Прочерк — это ответ «эталона нет», а пустая ячейка читалась бы как «не заполнено».
   if (isMeasurementOnly({ type, correctJson })) return NOT_APPLICABLE;
 
+  // PRD-57 FR-32: эталон текстового задания — НАБОР ПРАВИЛ, и читается он теми же
+  // словами, какими автор видит его в ящике. Второй редакции формулировок на сервере не
+  // заводится: она разошлась бы с первой молча.
+  if (isTextEntry(type)) return describeRuleSet(correctJson as AnswerRuleSet);
+  if (hasBlanks(type)) {
+    const sets = ((correctJson ?? {}) as { blanks?: Array<AnswerRuleSet & { id: string }> }).blanks ?? [];
+    return sets
+      .map((set) => `${set.id}: ${describeRuleSet(set)}`)
+      .join("; ");
+  }
+
   switch (type) {
     case "single":
     // У измерительной шкалы correctIndex отсутствует — вернётся пустая строка.
@@ -408,6 +443,23 @@ export function formatCorrectAnswerText(type: string, dataJson: any, correctJson
  */
 export function formatUserAnswerText(type: string, dataJson: any, userAnswer: unknown): string {
   if (userAnswer === null || userAnswer === undefined) return "(нет ответа)";
+
+  // PRD-57: написанный ответ печатается ровно так, как его набрали. У задания с
+  // пропусками ответ — карта «поле → написанное»: без имён это был бы `[object Object]`,
+  // а пустое поле должно быть видно, а не выпадать из строки.
+  if (isTextEntry(type) || isOpenText(type)) return String(userAnswer);
+  if (hasBlanks(type)) {
+    const written = (userAnswer ?? {}) as Record<string, unknown>;
+    const entries = Object.keys(written);
+    if (entries.length === 0) return "(нет ответа)";
+    return entries
+      .map((id) => {
+        const value = written[id];
+        const text = typeof value === "string" ? value.trim() : "";
+        return `${id}: ${text === "" ? "(нет ответа)" : text}`;
+      })
+      .join(", ");
+  }
 
   switch (type) {
     case "single":
