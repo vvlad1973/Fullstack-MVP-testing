@@ -239,6 +239,14 @@ export interface CtxResult {
   correct?: number;
   earnedPoints?: number;
   possiblePoints?: number;
+  /**
+   * PRD-57 FR-41: часть ответов ждёт проверки, и результат на экране — ПРЕДВАРИТЕЛЬНЫЙ.
+   *
+   * Поле заводится сейчас, хотя проверки ещё нет: добавить его в контракт позже значит
+   * поднять версию и обновить внешние шаблоны из реестра PRD-3. Контракт несёт ФАКТ;
+   * текст и место — за шаблоном.
+   */
+  pendingReview?: boolean;
   topicResults?: Array<CtxTopicResultView | CtxAdaptiveTopicView>;
   /**
    * PRD-50 FR-24 - FR-27: the topic cards grouped into the author's named blocks, each with

@@ -75,6 +75,7 @@ const questionTypes = [
   { value: "allocation", label: t.questions.allocation },
   { value: "short", label: t.questions.shortAnswer },
   { value: "blanks", label: t.questions.blanks },
+  { value: "long", label: t.questions.longAnswer },
 ] as const;
 
 type QuestionType = typeof questionTypes[number]["value"];
@@ -83,7 +84,7 @@ type QuestionType = typeof questionTypes[number]["value"];
 // and the graded config are configured per test («Оценка» tab of the editor).
 const baseQuestionSchema = z.object({
   topicId: z.string().min(1, t.questions.topicRequired),
-  type: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"]),
+  type: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks", "long"]),
   prompt: z.string().min(1, t.questions.textRequired),
 });
 
@@ -130,6 +131,10 @@ export function QuestionEditorDrawer({
   // PRD-57 FR-24: наборы правил ПО ПРОПУСКАМ. Список строится из текста задания, поэтому
   // здесь лежат только правила — имена приходят из `prompt`.
   const [blanks, setBlanks] = useState<BlankRuleSet[]>([]);
+  // PRD-57 FR-12: автор задаёт подсказку-заполнитель, предел длины и обязательность.
+  const [longPlaceholder, setLongPlaceholder] = useState<string>("");
+  const [longMaxLength, setLongMaxLength] = useState<number | undefined>(undefined);
+  const [longRequired, setLongRequired] = useState<boolean>(false);
   /** Поле текста задания: вставка пропуска идёт В ПОЗИЦИЮ КУРСОРА. */
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -238,6 +243,9 @@ export function QuestionEditorDrawer({
     setMediaFileName("");
     setAnswerRules(createAnswerRulesDraft(null));
     setBlanks([]);
+    setLongPlaceholder("");
+    setLongMaxLength(undefined);
+    setLongRequired(false);
     setShortMaxLength(undefined);
   };
 
@@ -274,6 +282,11 @@ export function QuestionEditorDrawer({
         setAllocBudget(String(data.budget ?? 7));
         setAllocMin(data.minPerOption === undefined || data.minPerOption === null ? "" : String(data.minPerOption));
         setAllocMax(data.maxPerOption === undefined || data.maxPerOption === null ? "" : String(data.maxPerOption));
+      } else if (question.type === "long") {
+        const data = (question.dataJson ?? {}) as { placeholder?: string; maxLength?: number; required?: boolean };
+        setLongPlaceholder(typeof data.placeholder === "string" ? data.placeholder : "");
+        setLongMaxLength(typeof data.maxLength === "number" ? data.maxLength : undefined);
+        setLongRequired(data.required === true);
       } else if (question.type === "blanks") {
         const key = (question.correctJson ?? {}) as { blanks?: BlankRuleSet[] };
         setBlanks(Array.isArray(key.blanks) ? key.blanks : []);
@@ -393,6 +406,16 @@ export function QuestionEditorDrawer({
         // (FR-28v), а эталон — набор правил сравнения (§6.1).
         dataJson = shortMaxLength === undefined ? {} : { maxLength: shortMaxLength };
         correctJson = answerRulesToCorrectJson(answerRules);
+        break;
+      case "long":
+        // PRD-57 §5: содержимое — подсказка, предел длины и обязательность; эталона у
+        // типа нет ВООБЩЕ, поэтому `correct_json` пуст (FR-13).
+        dataJson = {
+          ...(longPlaceholder.trim() ? { placeholder: longPlaceholder.trim() } : {}),
+          ...(longMaxLength === undefined ? {} : { maxLength: longMaxLength }),
+          ...(longRequired ? { required: true } : {}),
+        };
+        correctJson = {};
         break;
       case "blanks":
         // Содержимого у задания нет: текст с пропусками ЕСТЬ содержимое, а эталон —
@@ -719,6 +742,42 @@ export function QuestionEditorDrawer({
               handleMarkdownPaste(e, (v) => form.setValue("prompt", v, { shouldDirty: true }))
             }
           />
+
+          {selectedType === "long" && (
+            <Stack gap={4} data-testid="long-answer-block">
+              <Input
+                label="Подсказка в поле"
+                value={longPlaceholder}
+                onChange={(e) => setLongPlaceholder(e.target.value)}
+                fullWidth
+                hint="Что участник увидит в пустом поле. Например: «Ответьте своими словами»."
+                data-testid="input-long-placeholder"
+              />
+              <Input
+                label="Предел длины ответа"
+                value={longMaxLength === undefined ? "" : String(longMaxLength)}
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  if (raw === "") return setLongMaxLength(undefined);
+                  const parsed = Number(raw);
+                  setLongMaxLength(Number.isInteger(parsed) && parsed > 0 ? parsed : undefined);
+                }}
+                hint="До скольких символов участник может ответить. Пусто — системный предел."
+                data-testid="input-long-maxlength"
+              />
+              <Switch
+                checked={longRequired}
+                onChange={(e) => setLongRequired(e.target.checked)}
+                label="Ответ обязателен"
+                description="Без ответа участник не сможет пойти дальше"
+                data-testid="switch-long-required"
+              />
+              <Text variant="body-s" tone="muted">
+                Автоматической проверки у этого типа нет: ответ собирается и уезжает в отчёт,
+                баллов не приносит и на вердикт не влияет.
+              </Text>
+            </Stack>
+          )}
 
           {selectedType === "blanks" && (
             <BlanksBlock

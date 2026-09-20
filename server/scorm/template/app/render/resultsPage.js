@@ -523,7 +523,10 @@ function finishScormAdaptive(results, passedForLms, resultComputation, scaleComp
   SCORM.finish(
     lmsScore ? lmsScore.raw : null,
     lmsScore ? lmsScore.max : null,
-    passedForLms,
+    // PRD-57 FR-40: попытка, в которой есть непроверенный ответ, отправляет `unknown`,
+    // а не `failed`. «Не сдал» по работе, которую никто не смотрел, — претензия
+    // участника, а не неточность данных.
+    results.gradingComplete === false ? null : passedForLms,
     objectives,
     interactions
   );
@@ -910,6 +913,8 @@ function mapScormType(q) {
   // одному на пропуск. В выгрузке WebTutor на взаимодействие приходится ровно четыре
   // подколонки, и задание с шестью пропусками превратило бы отчёт в частокол столбцов.
   if (TBQType.hasBlanks(q.type)) return 'fill-in';
+  // PRD-57 FR-19: развёрнутый ответ — `long-fill-in`; эталона у него нет вовсе.
+  if (TBQType.isOpenText(q.type)) return 'long-fill-in';
   return 'other';
 }
 
@@ -925,6 +930,8 @@ function formatResponse(q, ans) {
   // PRD-57 §6.5: ответ уже строка, и в отчёт LMS он уходит РОВНО таким, каким его набрал
   // участник. Нормализация живёт в сравнении: разбирая спор, важно видеть написание.
   if (TBQType.isTextEntry(q.type)) return String(ans);
+  // PRD-57 §5: развёрнутый ответ уходит в отчёт LMS ровно таким, каким его набрали.
+  if (TBQType.isOpenText(q.type)) return String(ans);
   // PRD-57 FR-24h: ответы пропусков идут в порядке набора правил и разделяются `[,]` —
   // записью стандарта. Порядок берётся из эталона, а не из объекта ответа: у объекта
   // порядок ключей ничего не гарантирует, а отчёт читают по колонкам.
@@ -992,6 +999,9 @@ function getCorrectAnswerFor(q) {
  * Несколько допустимых ответов разделяются `[,]` — запись стандарта для `fill-in`.
  */
 function correctPatternFor(q) {
+  // PRD-57 FR-19: у развёрнутого ответа эталона НЕТ — `correct_responses` не пишется
+  // вовсе. Пустая рамка в отчёте читалась бы как потерянные данные.
+  if (TBQType.isOpenText(q.type)) return '';
   // PRD-57 FR-24h: эталоны пропусков — в том же порядке, тем же разделителем. Пропуск,
   // у которого эталона одной строкой нет (выражение, допуск, подстановочный знак),
   // обнуляет весь образец: половина эталона в отчёте хуже, чем его отсутствие.
@@ -1290,7 +1300,10 @@ function finishScormLmsOnly(results, passedForLms, resultComputation, scaleCompu
   SCORM.finish(
     lmsScore ? lmsScore.raw : null,
     lmsScore ? lmsScore.max : null,
-    passedForLms,
+    // PRD-57 FR-40: попытка, в которой есть непроверенный ответ, отправляет `unknown`,
+    // а не `failed`. «Не сдал» по работе, которую никто не смотрел, — претензия
+    // участника, а не неточность данных.
+    results.gradingComplete === false ? null : passedForLms,
     objectives,
     interactions
   );

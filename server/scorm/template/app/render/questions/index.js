@@ -39,5 +39,12 @@ function renderQuestionInput(q) {
   if (typeof TBQType !== 'undefined' && TBQType.isTextEntry(q.type)) {
     return renderShortQuestionInput(q, answer, showReview);
   }
+  // PRD-57 §5: развёрнутый ответ. Своя ветка, а не общая с коротким: у пакета СВОЙ
+  // распределитель, и тип, забытый здесь, уезжает в LMS «неизвестным» при живом вебе.
+  if (typeof TBQType !== 'undefined' && TBQType.isOpenText(q.type)) {
+    var TBl = (typeof window !== 'undefined') ? window.TBTemplate : null;
+    if (!TBl || !TBl.renderLongAnswer) return '';
+    return TBl.renderLongAnswer({ type: q.type, dataJson: q.data }, answer, { readonly: !!showReview });
+  }
   return '<div>Неизвестный тип вопроса</div>';
 }

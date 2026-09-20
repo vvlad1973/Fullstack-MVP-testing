@@ -271,7 +271,7 @@ export type QuestionScoring = z.infer<typeof questionScoringSchema>;
 export const questions = pgTable("questions", {
   id: varchar("id", { length: 36 }).primaryKey(),
   topicId: varchar("topic_id", { length: 36 }).notNull(),
-  type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"] }).notNull(),
+  type: text("type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks", "long"] }).notNull(),
   prompt: text("prompt").notNull(),
   dataJson: jsonb("data_json").notNull(),
   correctJson: jsonb("correct_json").notNull(),
@@ -1617,12 +1617,23 @@ export const attemptResultSchema = z.object({
     .array(
       z.object({
         questionId: z.string(),
-        result: z.enum(["correct", "incorrect", "neutral"]),
+        // PRD-57 FR-35: четвёртое состояние — «ждёт проверки». Оно ОБЯЗАНО быть здесь,
+        // а не только в агрегате: `attemptResultSchema` — второй контракт результата, и
+        // поле, не объявленное в нём, срезается на записи без единой ошибки.
+        result: z.enum(["correct", "incorrect", "neutral", "pending"]),
         earned: z.number(),
         possible: z.number(),
       }),
     )
     .optional(),
+  /**
+   * PRD-57 FR-36: оценка завершена — или результат предварительный.
+   *
+   * `optional()`: у попытки, завершённой до этой работы, признака нет, и читатель обязан
+   * отличать это от «оценка не завершена». Отсутствие означает «вопрос не задавался»,
+   * а не «предварительно».
+   */
+  gradingComplete: z.boolean().optional(),
 });
 
 export type TopicResult = z.infer<typeof topicResultSchema>;
@@ -1768,7 +1779,7 @@ export type AdaptiveAnswerResponse = z.infer<typeof adaptiveAnswerResponseSchema
 export const detailedAnswerSchema = z.object({
   questionId: z.string(),
   questionPrompt: z.string(),
-  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"]),
+  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks", "long"]),
   topicId: z.string(),
   topicName: z.string(),
   userAnswer: z.unknown(),
@@ -1840,7 +1851,7 @@ export type AdaptiveLevelStats = z.infer<typeof adaptiveLevelStatsSchema>;
 export const questionStatsSchema = z.object({
   questionId: z.string(),
   questionPrompt: z.string(),
-  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"]),
+  questionType: z.enum(["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks", "long"]),
   topicId: z.string(),
   topicName: z.string(),
   difficulty: z.number(),
@@ -2176,7 +2187,7 @@ export const scormAnswers = pgTable("scorm_answers", {
   // Данные вопроса
   questionId: varchar("question_id", { length: 36 }).notNull(),
   questionPrompt: text("question_prompt").notNull(),
-  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks"] }).notNull(),
+  questionType: text("question_type", { enum: ["single", "multiple", "matching", "ranking", "scale", "allocation", "short", "blanks", "long"] }).notNull(),
   topicId: varchar("topic_id", { length: 36 }),
   topicName: text("topic_name"),
   difficulty: integer("difficulty"),

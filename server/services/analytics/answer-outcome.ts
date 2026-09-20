@@ -26,7 +26,15 @@ import type { Question, QuestionScoring } from "@shared/schema";
 
 /** Исход ответа и то, откуда он взялся. */
 export interface AnswerOutcome {
-  result: QuestionOutcome["result"];
+  /**
+   * Исход в терминах ТЕЛЕМЕТРИИ — три состояния, как в колонке `scorm_answers.result`.
+   *
+   * Четвёртое состояние результата попытки, «ждёт проверки» (PRD-57 FR-35), сюда
+   * приходит нейтральным: у аналитики обоих источников состояний три, и заводить
+   * четвёртое значило бы миграцию колонки ради того, что она всё равно считает «не
+   * оценивалось». Различие живёт там, где оно нужно, — в результате попытки.
+   */
+  result: "correct" | "incorrect" | "neutral";
   earned: number;
   possible: number;
   /** `true` — посчитан сейчас, потому что у попытки сохранённого исхода нет. */
@@ -65,7 +73,12 @@ export function outcomeFor(
 ): AnswerOutcome | null {
   const stored = storedOutcomes(attemptResult)?.find((o) => o.questionId === questionId);
   if (stored) {
-    return { result: stored.result, earned: stored.earned, possible: stored.possible, computed: false };
+    return {
+      result: stored.result === "pending" ? "neutral" : stored.result,
+      earned: stored.earned,
+      possible: stored.possible,
+      computed: false,
+    };
   }
 
   if (!question) return null;
