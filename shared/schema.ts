@@ -2313,6 +2313,14 @@ export const contentPages = pgTable("content_pages", {
   settingsJson: jsonb("settings_json").notNull().default({}),
   autoAdvance: boolean("auto_advance").notNull().default(false),
   autoAdvanceDelayMs: integer("auto_advance_delay_ms"),
+  /** Экран есть в тесте, но ученику не выдаётся (решение владельца 2026-09-20).
+   *  Скрыть можно любую карточку полотна, КРОМЕ блока вопросов и маршрутизатора:
+   *  первый — сам тест, второй — способ навигации, без него сценарий перестаёт быть
+   *  маршрутизаторным. Скрытие обратимо и, в отличие от удаления, сохраняет тексты и
+   *  оформление страницы. Экран «Итоги раздела» хранит своё состояние не здесь, а в
+   *  `tests.show_section_results` — та настройка появилась раньше (PRD-19 FR-05a), и
+   *  второй источник правды для одного экрана заводить нельзя. */
+  hidden: boolean("hidden").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

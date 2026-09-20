@@ -506,6 +506,12 @@ router.get("/learner/tests", requirePermission("attempts.self.read"), async (req
               }
             : null;
 
+        // Скрытый стартовый экран (решение владельца 2026-09-20): ученику не показывают
+        // страницу с кнопкой «Начать» — попытка начинается сразу. Знать об этом надо ДО
+        // старта, а страницы теста приезжают только вместе с попыткой, поэтому признак
+        // резолвится здесь, на том же экране, где живут остальные факты о запуске.
+        const startPage = (await storage.getContentPages(test.id)).find((p) => p.kind === "start");
+
         return {
           ...test,
           sections: sectionsWithNames,
@@ -516,6 +522,7 @@ router.get("/learner/tests", requirePermission("attempts.self.read"), async (req
           lastCompletedAttemptId: lastCompleted?.id || null,
           retakeGate,
           priorResult,
+          startHidden: startPage?.hidden === true,
         };
       })
     );

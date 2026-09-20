@@ -939,6 +939,9 @@ async function applyPageSheets(
       if (page.mode !== undefined) patch.mode = page.mode;
       if (page.autoAdvance !== undefined) patch.autoAdvance = page.autoAdvance;
       if (page.autoAdvanceDelayMs !== undefined) patch.autoAdvanceDelayMs = page.autoAdvanceDelayMs;
+      // Скрытие экрана — такое же свойство страницы, как остальные: без него перенос
+      // теста выдал бы ученику экран, который автор убрал (2026-09-20).
+      if (page.hidden !== undefined) patch.hidden = page.hidden;
       if (built.fields.valuesJson) patch.valuesJson = built.fields.valuesJson;
       if (built.fields.settingsJson) patch.settingsJson = built.fields.settingsJson;
       if (Object.keys(patch).length > 0) updates.push({ id: existing.id, patch });
@@ -1021,6 +1024,7 @@ async function applyPageSheets(
       settingsJson: item.fields.settingsJson ?? {},
       autoAdvance: item.page.autoAdvance ?? false,
       autoAdvanceDelayMs: item.page.autoAdvanceDelayMs ?? null,
+      hidden: item.page.hidden ?? false,
     });
     await syncPageUsages(created.id, created);
   }
