@@ -227,14 +227,16 @@ router.get("/", requirePermission("questions.read"), async (req: Request, res: R
 // Маршрут ничего не пишет и ничего не читает — чистое преобразование текста.
 router.post("/preview", requirePermission("questions.read"), async (req: Request, res: Response) => {
   try {
-    const { prompt, dataJson } = req.body ?? {};
+    const { prompt, dataJson, promptFormat } = req.body ?? {};
     if (prompt !== undefined && typeof prompt !== "string") {
       return res.status(400).json({ error: "Текст задания должен быть строкой" });
     }
     const text = typeof prompt === "string" ? prompt : "";
     // Формулы считаются на месте: у несохранённого задания запаса картинок ещё нет, а
     // показать формулу автору важнее, чем сэкономить на рендере одного окна.
-    const rendered = promptHtmlOf({ prompt: text, dataJson });
+    // PRD-57 §4.3: предпросмотр обязан считать текст по ТОМУ ЖЕ формату, в каком автор его
+    // сейчас набирает, — иначе окно покажет HTML сырыми тегами, а разметку тегами не покажет.
+    const rendered = promptHtmlOf({ prompt: text, dataJson, promptFormat });
     // Разметки нет — текст печатается тем же инлайновым рендером, каким его печатает
     // хост, когда сервер не считал разметку заранее (см. `template-question-screen`).
     res.json({ promptHtml: rendered.promptHtml ?? (text === "" ? "" : renderInlineMarkdown(text)) });
