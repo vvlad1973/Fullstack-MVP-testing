@@ -49,6 +49,7 @@ import {
   Menu,
   MenuItem,
   MenuTrigger,
+  ModalDialog,
   NumberInput,
   Radio,
   SegmentedControl,
@@ -65,6 +66,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
 import { handleMarkdownPaste } from "./paste-markdown";
 import { insertMarkup, CODE_LANGUAGES, type MarkupKind } from "./insert-markup";
+import { promptFormatOf, type PromptFormat } from "@shared/questions/prompt-format";
+import { describeModeSwitch, convertPrompt, type ModeSwitchReport } from "@shared/text/mode-switch";
 import { QuestionPreviewModal } from "./question-preview-modal";
 import { ContentImpactDialog } from "@/features/content-protection/content-impact-dialog";
 import { useContentGuard } from "@/features/content-protection/use-content-guard";
@@ -144,6 +147,10 @@ export function QuestionEditorDrawer({
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
   /** FR-24g: предпросмотр — окно по кнопке подвала, а не постоянный блок в ящике. */
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** PRD-57 §4.3: режим, в котором автор набирает текст задания. */
+  const [promptFormat, setPromptFormat] = useState<PromptFormat>("markdown");
+  /** Переход, о котором спрашивают автора: отчёт считается ДО перевода (FR-09c). */
+  const [modeSwitch, setModeSwitch] = useState<{ to: PromptFormat; report: ModeSwitchReport } | null>(null);
 
   /**
    * Вставить разметку кнопкой панели — листинг, формулу или пропуск (FR-09a, FR-24b).
@@ -269,6 +276,7 @@ export function QuestionEditorDrawer({
         prompt: question.prompt,
       });
       setSelectedType(question.type as QuestionType);
+      setPromptFormat(promptFormatOf(question as { promptFormat?: unknown }));
 
       const data = question.dataJson as any;
       const correct = question.correctJson as any;
@@ -321,6 +329,7 @@ export function QuestionEditorDrawer({
     } else {
       form.reset({ topicId: defaultTopicId ?? "", type: "single", prompt: "" });
       setSelectedType("single");
+      setPromptFormat("markdown");
       resetQuestionData();
     }
     // Re-init only when (re)opening or switching the target question.
@@ -442,6 +451,30 @@ export function QuestionEditorDrawer({
     return { dataJson, correctJson };
   };
 
+  /**
+   * Сменить режим ввода (FR-09c).
+   *
+   * Молча не переводит: сначала считается отчёт, и если ему есть что сказать — автор
+   * решает сам. Перевод и отчёт делает ОДИН модуль, поэтому обещанное и случившееся
+   * совпадают по построению.
+   */
+  const requestModeSwitch = (next: PromptFormat) => {
+    if (next === promptFormat) return;
+    const report = describeModeSwitch(promptFormat, next, form.getValues("prompt") ?? "");
+    if (report.losses.length === 0 && report.notes.length === 0) {
+      applyModeSwitch(next);
+      return;
+    }
+    setModeSwitch({ to: next, report });
+  };
+
+  const applyModeSwitch = (next: PromptFormat) => {
+    const converted = convertPrompt(promptFormat, next, form.getValues("prompt") ?? "");
+    form.setValue("prompt", converted, { shouldDirty: true });
+    setPromptFormat(next);
+    setModeSwitch(null);
+  };
+
   const onSubmit = (formData: any) => {
     const { dataJson, correctJson } = buildQuestionData();
     if (isUploadingMedia) {
@@ -463,6 +496,9 @@ export function QuestionEditorDrawer({
     }
     const data = {
       ...formData,
+      // PRD-57 §4.3: формат едет вместе с текстом — иначе набранное тегами прочитается
+      // как разметка, и участник увидит теги.
+      promptFormat,
       dataJson,
       correctJson,
       mediaUrl: mediaUrl.trim() || null,
@@ -730,6 +766,28 @@ export function QuestionEditorDrawer({
             тот барьер, из-за которого механикой не пользуются. Состав и порядок кнопок —
             согласованный эскиз `prd57-question-text.html`.
           */}
+          {/*
+            PRD-57 §4.3: режим ввода переключается НАД полем — согласованный эскиз
+            `prd57-question-text.html`. Режим меняет способ набора, а не набор
+            возможностей: листинг, формула и пропуск работают во всех (FR-09a).
+          */}
+          <Cluster gap={3} wrap align="center">
+            <SegmentedControl<PromptFormat>
+              value={promptFormat}
+              onChange={(next) => requestModeSwitch(next)}
+              items={[
+                { value: "markdown", label: "Разметка" },
+                { value: "html", label: "HTML" },
+              ]}
+              data-testid="seg-prompt-format"
+            />
+            {promptFormat === "html" && (
+              <Text variant="body-s" tone="muted">
+                Текст сохраняется тегами. Небезопасное снимается при сохранении.
+              </Text>
+            )}
+          </Cluster>
+
           <Cluster gap={2} wrap data-testid="prompt-insert-bar">
             <MenuTrigger
               placement="bottom-start"
@@ -794,8 +852,10 @@ export function QuestionEditorDrawer({
           <Textarea
             label={t.questions.questionText}
             placeholder={t.questions.questionTextPlaceholder}
-            hint={t.questions.markdownHint}
-            rows={2}
+            hint={promptFormat === "html"
+              ? "Теги пишутся как есть. Листинг — <pre><code class=\"language-sql\">, формула — двумя долларами, пропуск — двойными фигурными скобками."
+              : t.questions.markdownHint}
+            rows={promptFormat === "html" ? 8 : 2}
             fullWidth
             error={form.formState.errors.prompt?.message}
             data-testid="input-question-prompt"
@@ -1152,6 +1212,47 @@ export function QuestionEditorDrawer({
       </Drawer>
 
       {/*
+        FR-09c: переключение режима не переводит текст молча. Окно называет находки
+        числами и отдаёт решение автору: соглашаться ли терять таблицу — не наш выбор.
+      */}
+      <ModalDialog
+        open={modeSwitch !== null}
+        onClose={() => setModeSwitch(null)}
+        size="m"
+        title={modeSwitch?.to === "html" ? "Перевести текст в HTML?" : "Перевести текст в разметку?"}
+        description="Перевод меняет сам текст задания. Отменить его можно только вручную."
+        footer={
+          <>
+            <Button variant="ghost" size="m" onClick={() => setModeSwitch(null)}>Отмена</Button>
+            <Button
+              variant="primary"
+              size="m"
+              onClick={() => modeSwitch && applyModeSwitch(modeSwitch.to)}
+              data-testid="confirm-mode-switch"
+            >
+              Перевести
+            </Button>
+          </>
+        }
+      >
+        <Stack gap={3}>
+          {(modeSwitch?.report.losses.length ?? 0) > 0 && (
+            <Stack gap={1} data-testid="mode-switch-losses">
+              <Text variant="body-s" weight="medium">Найдено в тексте</Text>
+              {modeSwitch?.report.losses.map((loss) => (
+                <Text key={loss.what} variant="body-s">
+                  {loss.what} — {loss.count} — {loss.becomes}
+                </Text>
+              ))}
+            </Stack>
+          )}
+          {modeSwitch?.report.notes.map((note) => (
+            <Text key={note} variant="body-s" tone="muted">{note}</Text>
+          ))}
+        </Stack>
+      </ModalDialog>
+
+      {/*
         FR-24g: предпросмотр собирается из ТЕКУЩЕГО черновика, а не из сохранённого
         вопроса — смотреть на вчерашнее состояние незачем. Содержимое и эталон берутся
         тем же сборщиком, что и сохранение, поэтому окно показывает ровно то, что уедет.
@@ -1164,6 +1265,7 @@ export function QuestionEditorDrawer({
           ...(question ?? {}),
           type: selectedType,
           prompt: form.watch("prompt") ?? "",
+          promptFormat,
           ...buildQuestionData(),
         }}
       />

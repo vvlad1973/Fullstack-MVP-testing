@@ -61,7 +61,12 @@ export function QuestionPreviewModal({ open, onClose, question, topicName }: Que
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: question.prompt, dataJson: question.dataJson }),
+          body: JSON.stringify({
+            prompt: question.prompt,
+            dataJson: question.dataJson,
+            // PRD-57 §4.3: предпросмотр считает текст по ТОМУ ЖЕ формату, в каком он набран.
+            promptFormat: (question as { promptFormat?: unknown }).promptFormat,
+          }),
         });
         if (!response.ok) throw new Error(String(response.status));
         const data = await response.json() as { promptHtml?: string };
@@ -72,7 +77,7 @@ export function QuestionPreviewModal({ open, onClose, question, topicName }: Que
       }
     })();
     return () => { alive = false; };
-  }, [open, question.prompt, question.dataJson]);
+  }, [open, question.prompt, question.dataJson, (question as { promptFormat?: unknown }).promptFormat]);
 
   const tpl = useMemo(() => {
     const layouts = bundle.data?.layouts ?? {};
