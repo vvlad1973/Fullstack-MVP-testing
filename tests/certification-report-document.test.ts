@@ -11,8 +11,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { templateRoot } from "./helpers/template-roots";
 
-const CERT = path.join(process.cwd(), "templates", "certification");
+const CERT = templateRoot("certification");
 const css = fs.readFileSync(path.join(CERT, "styles", "report.css"), "utf8");
 
 describe("лист документа «Сертификации» светлый", () => {

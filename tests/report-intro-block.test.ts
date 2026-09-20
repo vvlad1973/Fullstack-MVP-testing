@@ -13,6 +13,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { templateRoot } from "./helpers/template-roots";
 import { buildResultContext, buildAdaptiveResultContext } from "../shared/template/result-context";
 import { buildReportContext, buildAdaptiveReportContext } from "../shared/report/report-context";
 import { renderScreenInto } from "../shared/template/render-screen";
@@ -86,8 +87,8 @@ describe("контекст несёт разметку вводного блок
 
 describe("макеты печатают блок ПЕРВЫМ", () => {
   const dirs: Array<[string, string]> = [
-    ["default", path.resolve(process.cwd(), "server", "scorm", "templates", "default")],
-    ["certification", path.resolve(process.cwd(), "templates", "certification")],
+    ["default", templateRoot("default")],
+    ["certification", templateRoot("certification")],
   ];
 
   const render = (layout: string, context: unknown): HTMLElement => {

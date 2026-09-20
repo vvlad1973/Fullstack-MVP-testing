@@ -6,7 +6,7 @@
  * `default` built-in passes its own validator (export-as-starter round trip).
  */
 import { describe, it, expect } from "vitest";
-import path from "node:path";
+import { templateRoot } from "./helpers/template-roots";
 import {
   validateTemplatePackage,
   MAX_TEMPLATE_ZIP_BYTES,
@@ -344,7 +344,7 @@ describe("validateTemplatePackage — theme declaration (PRD-23)", () => {
 
 describe("the shipping `default` built-in passes its own validator", () => {
   it("validates with no blocking issues (export-as-starter contract)", async () => {
-    const dir = path.resolve(process.cwd(), "server", "scorm", "templates", "default");
+    const dir = templateRoot("default");
     const entries = await readDirEntries(dir);
     const r = validateTemplatePackage(entries, { mode: "create" });
     if (!r.ok) {
@@ -357,7 +357,7 @@ describe("the shipping `default` built-in passes its own validator", () => {
 
 describe("the in-repo `certification` template passes the validator", () => {
   it("validates with no blocking issues", async () => {
-    const dir = path.resolve(process.cwd(), "templates", "certification");
+    const dir = templateRoot("certification");
     const entries = await readDirEntries(dir);
     const r = validateTemplatePackage(entries, { mode: "create" });
     if (!r.ok) {
@@ -370,7 +370,7 @@ describe("the in-repo `certification` template passes the validator", () => {
   // can pick a theme and colour each one. The advisory that fired before Э7 (a
   // dark palette nobody declared) must be gone.
   it("declares both palettes and draws no theme advisory", async () => {
-    const dir = path.resolve(process.cwd(), "templates", "certification");
+    const dir = templateRoot("certification");
     const entries = await readDirEntries(dir);
     const r = validateTemplatePackage(entries, { mode: "create" });
     expect(r.warnings.map((w) => w.code)).not.toContain("THEME_ADVISORY");
