@@ -76,6 +76,7 @@ import {
   type DesignSource,
   type ReportSource,
   type FeedbackSource,
+  type InterpretationSource,
   type FeedbackLevelSource,
   type PageSource,
   type AdaptiveTopicSource,
@@ -348,6 +349,12 @@ router.get(
         // без них строк подтем не даёт, и книга такого теста прежняя.
         keyFeedback:
           ((s.breakdownFeedbackJson as { keys?: Record<string, FeedbackSource | null> } | null)
+            ?.keys ?? null),
+        // Толкования: переопределение раздела и тексты подтем. Толкование самой ТЕМЫ книга
+        // не возит — тема общая для многих тестов, а книга описывает тест.
+        interpretation: (s.interpretationJson ?? null) as InterpretationSource | null,
+        keyInterpretation:
+          ((s.breakdownInterpretationJson as { keys?: Record<string, InterpretationSource | null> } | null)
             ?.keys ?? null),
       }));
       const testFeedback = (test.feedbackJson ?? null) as FeedbackSource | null;

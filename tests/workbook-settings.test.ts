@@ -85,6 +85,7 @@ const ROUND_TRIP_SOURCE = {
     visibility: "bar_and_value" as const,
     basis: "points" as const,
     placement: "both" as const,
+    showInterpretation: true,
   },
   sectionGroupsJson: [
     { key: "block-1", label: "Теория", order: 0 },
@@ -354,6 +355,7 @@ describe("реестр листа «Настройки»", () => {
       breakdownGateEnabled: true,
     });
     expect(draft.breakdown).toEqual({
+      showInterpretation: true,
       visibility: "bar_and_value",
       basis: "points",
       placement: "both",

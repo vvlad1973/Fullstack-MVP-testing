@@ -734,6 +734,8 @@ export {
   parseFeedbackSheets,
   type FeedbackPayload,
   type FeedbackSource,
+  type InterpretationPayload,
+  type InterpretationSource,
   type FeedbackSectionSource,
   type FeedbackLevelSource,
   type ParsedLevelRecommendations,

@@ -618,6 +618,9 @@ export const SETTING_PARAMS: SettingParam[] = [
   enumParam("Подытоги по подтемам (тегам)", BREAKDOWN_VISIBILITY_LABELS, (s) => branch(s.breakdownDisplayJson).visibility, "breakdown", "visibility"),
   enumParam("База подытогов", BREAKDOWN_BASIS_LABELS, (s) => branch(s.breakdownDisplayJson).basis, "breakdown", "basis"),
   enumParam("Где показывать подытоги", BREAKDOWN_PLACEMENT_LABELS, (s) => branch(s.breakdownDisplayJson).placement, "breakdown", "placement"),
+  // Показ ТОЛКОВАНИЙ подтем. Живёт в той же настройке, что и сами подытоги: без полосы
+  // толкованию не под чем печататься. Тексты при этом задаются на листе «Обратная связь».
+  boolParam("Показывать толкование подтем", (s) => branch(s.breakdownDisplayJson).showInterpretation, "breakdown", "showInterpretation"),
   SECTION_GROUPS_PARAM,
 ];
 

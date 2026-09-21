@@ -28,7 +28,10 @@ describe("листы «Обратная связь» и «Рекомендаци
     // Адрес владельца — это КОЛОНКИ, а не одна общая ячейка: тема с названием «Тест»
     // существует, и в общей колонке её обратная связь молча ушла бы на уровень теста.
     // «Подтема» стоит сразу за «Разделом»: вместе они один адрес (PRD-50 FR-50).
-    expect(FEEDBACK_HEADERS).toEqual(["Кому", "Раздел", "Подтема", "Формат", "Текст"]);
+    // Толкование — две ПОСЛЕДНИЕ колонки: тот же владелец, но другая сущность.
+    expect(FEEDBACK_HEADERS).toEqual([
+      "Кому", "Раздел", "Подтема", "Формат", "Текст", "Формат толкования", "Толкование",
+    ]);
     expect(RECOMMENDATION_HEADERS).toEqual([
       "Кому", "Раздел", "Подтема", "Номер уровня", "Тип", "Заголовок", "Ссылка",
     ]);
@@ -194,5 +197,104 @@ describe("«Рекомендации»: материалы адаптивног�
     );
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("Адаптивные уровни");
+  });
+});
+
+describe("толкование на листе «Обратная связь»", () => {
+  /** Раздел с двумя текстами и подтемой, у которой есть только толкование. */
+  const SECTION = {
+    topicName: "Финансы",
+    feedback: { format: "plain" as const, text: "Повторите бюджетный цикл." },
+    interpretation: { format: "plain" as const, text: "Читает управленческую отчётность." },
+    keyInterpretation: { "отчётность": { format: "plain" as const, text: "Состав форм и сроки." } },
+  };
+
+  it("выгружается двумя колонками рядом с обратной связью", () => {
+    const [row] = serializeFeedbackRows(null, [SECTION]);
+    expect(row["Текст"]).toBe("Повторите бюджетный цикл.");
+    expect(row["Толкование"]).toBe("Читает управленческую отчётность.");
+    expect(row["Формат толкования"]).toBe("Простой");
+  });
+
+  it("владелец с ОДНИМ толкованием тоже получает строку", () => {
+    // Раньше условием строки была только обратная связь: раздел, у которого автор написал
+    // одно толкование, в книгу не попадал вовсе — выгрузил, загрузил, и текста нет.
+    const rows = serializeFeedbackRows(null, [
+      { topicName: "Финансы", interpretation: { format: "plain", text: "Только толкование." } },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]["Текст"]).toBe("");
+    expect(rows[0]["Толкование"]).toBe("Только толкование.");
+  });
+
+  it("подтема с одним толкованием получает свою строку", () => {
+    const rows = serializeFeedbackRows(null, [SECTION]);
+    const tagRow = rows.find((r) => r["Кому"] === "Подтема");
+    expect(tagRow?.["Подтема"]).toBe("отчётность");
+    expect(tagRow?.["Толкование"]).toBe("Состав форм и сроки.");
+    expect(tagRow?.["Текст"]).toBe("");
+  });
+
+  it("пустой формат толкования не печатается: иначе строка без текста читалась бы как «написано пусто»", () => {
+    const [row] = serializeFeedbackRows(null, [
+      { topicName: "Финансы", feedback: { format: "plain", text: "Только совет." } },
+    ]);
+    expect(row["Формат толкования"]).toBe("");
+    expect(row["Толкование"]).toBe("");
+  });
+
+  it("круг «выгрузил — загрузил» сохраняет оба текста", () => {
+    const parsed = parseFeedbackSheets(serializeFeedbackRows(null, [SECTION]));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.interpretationByTopic.get("финансы")).toEqual({
+      format: "plain",
+      text: "Читает управленческую отчётность.",
+    });
+    expect(parsed.interpretationByKey.get("финансы")?.get("отчётность")).toEqual({
+      format: "plain",
+      text: "Состав форм и сроки.",
+    });
+    expect(parsed.byTopic.get("финансы")?.text).toBe("Повторите бюджетный цикл.");
+  });
+
+  it("пустое толкование снимает переопределение, а не молчит", () => {
+    const parsed = parseFeedbackSheets([
+      { "Кому": "Раздел", "Раздел": "Финансы", "Подтема": "", "Формат": "Простой", "Текст": "Совет.", "Формат толкования": "", "Толкование": "" },
+    ]);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.interpretationByTopic.get("финансы")).toBeNull();
+  });
+
+  it("раздел, которого книга не назвала, в карте отсутствует — его толкование не трогают", () => {
+    const parsed = parseFeedbackSheets([]);
+    expect(parsed.interpretationByTopic.size).toBe(0);
+    expect(parsed.interpretationByKey.size).toBe(0);
+  });
+
+  it("у ТЕСТА толкования нет: заполненная ячейка — ошибка строки", () => {
+    const parsed = parseFeedbackSheets([
+      { "Кому": "Тест", "Раздел": "", "Подтема": "", "Формат": "Простой", "Текст": "Спасибо.", "Формат толкования": "Простой", "Толкование": "Толкование теста" },
+    ]);
+    expect(parsed.errors).toHaveLength(1);
+    expect(parsed.errors[0]).toContain("Толкование");
+    expect(parsed.test).toBeUndefined();
+  });
+
+  it("книга, выгруженная до появления колонок, читается без ошибок", () => {
+    // Старая книга колонок не несёт вовсе — ячейки пусты, и толкование просто не названо.
+    const parsed = parseFeedbackSheets([
+      { "Кому": "Раздел", "Раздел": "Финансы", "Подтема": "", "Формат": "Простой", "Текст": "Совет." },
+    ]);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.byTopic.get("финансы")?.text).toBe("Совет.");
+    expect(parsed.interpretationByTopic.get("финансы")).toBeNull();
+  });
+
+  it("недопустимый формат толкования называет СВОЮ колонку", () => {
+    const parsed = parseFeedbackSheets([
+      { "Кому": "Раздел", "Раздел": "Финансы", "Подтема": "", "Формат": "Простой", "Текст": "Совет.", "Формат толкования": "Кривой", "Толкование": "Текст" },
+    ]);
+    expect(parsed.errors).toHaveLength(1);
+    expect(parsed.errors[0]).toContain("Формат толкования");
   });
 });

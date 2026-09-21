@@ -66,8 +66,13 @@ export const RECOMMENDATION_SHEET_NAME = "Рекомендации";
 
 // «Подтема» стоит сразу за «Разделом»: вместе они ОДИН адрес, а колонки адреса
 // принадлежат друг другу — то же правило, что у «Номера уровня» на «Рекомендациях».
-export const FEEDBACK_HEADERS = ["Кому", "Раздел", "Подтема", "Формат", "Текст"];
-export const FEEDBACK_WIDTHS = [12, 28, 24, 20, 80];
+// Толкование — ДВЕ последние колонки: оно принадлежит тому же владельцу, что и текст в
+// строке, но это другая сущность — оно объясняет результат, а не советует. Свой формат у
+// него потому же, почему у обратной связи: автор пишет его тем же редактором.
+export const FEEDBACK_HEADERS = [
+  "Кому", "Раздел", "Подтема", "Формат", "Текст", "Формат толкования", "Толкование",
+];
+export const FEEDBACK_WIDTHS = [12, 28, 24, 20, 80, 20, 80];
 
 export const RECOMMENDATION_HEADERS = [
   // «Номер уровня» stands next to «Раздел» because the two of them are ONE address: a level
@@ -77,7 +82,7 @@ export const RECOMMENDATION_HEADERS = [
 export const RECOMMENDATION_WIDTHS = [12, 28, 24, 14, 16, 34, 46];
 
 /** Column keys, taken from the headers so a rename lands in one place. */
-const [FB_OWNER, FB_TOPIC, FB_KEY, FB_FORMAT, FB_TEXT] = FEEDBACK_HEADERS;
+const [FB_OWNER, FB_TOPIC, FB_KEY, FB_FORMAT, FB_TEXT, FB_INT_FORMAT, FB_INT_TEXT] = FEEDBACK_HEADERS;
 const [RC_OWNER, RC_TOPIC, RC_KEY, RC_LEVEL, RC_TYPE, RC_TITLE, RC_URL] = RECOMMENDATION_HEADERS;
 
 /** «Тема» is the legacy spelling of the «Раздел» column, accepted by every sheet here. */
@@ -132,6 +137,12 @@ export const FEEDBACK_FORMAT_CHOICES = Object.values(FORMAT_LABELS);
 /** What the sheets produce for an owner: a feedback structure, or `null` for "none". */
 export type FeedbackPayload = FeedbackContent;
 
+/** Толкование, прочитанное из книги: текст и его формат. */
+export interface InterpretationPayload {
+  format: FeedbackFormat;
+  text: string;
+}
+
 /** One recommendation as it is stored: everything below has a title and an optional URL. */
 interface RecommendationSource {
   title?: string | null;
@@ -160,6 +171,27 @@ export interface FeedbackSectionSource {
    * писали, и строк у них не будет.
    */
   keyFeedback?: Readonly<Record<string, FeedbackSource | null>> | null;
+  /**
+   * Толкование раздела — то, которым ЭТОТ ТЕСТ переопределил текст темы
+   * (`test_sections.interpretation_json`). Толкование самой ТЕМЫ книга не возит: тема общая
+   * для многих тестов, и книга описывает тест, а не чужое содержание (решение владельца
+   * 2026-09-21).
+   */
+  interpretation?: InterpretationSource | null;
+  /** Толкования подтем раздела (`test_sections.breakdown_interpretation_json.keys`). */
+  keyInterpretation?: Readonly<Record<string, InterpretationSource | null>> | null;
+}
+
+/**
+ * Толкование в том виде, в каком его видит книга: текст и его формат, и больше ничего.
+ *
+ * Отдельный тип от {@link FeedbackSource} не ради строгости, а ради смысла: у толкования нет
+ * ни курсов, ни материалов, ни мероприятий — оно ничего не советует, и лист «Рекомендации»
+ * его не касается.
+ */
+export interface InterpretationSource {
+  format?: string | null;
+  text?: string | null;
 }
 
 /**
@@ -210,6 +242,17 @@ export interface ParsedFeedbackSheets {
    * которой в книге нет, остаётся как была.
    */
   byKey: Map<string, Map<string, FeedbackPayload | null>>;
+  /**
+   * Толкования РАЗДЕЛОВ: ключ раздела -> текст с форматом, либо `null` («стёрто»).
+   *
+   * Только переопределение теста: толкование самой ТЕМЫ книга не возит, потому что тема
+   * общая для многих тестов (решение владельца 2026-09-21). Раздел, чью строку книга не
+   * несёт, в карте отсутствует — и это значит «не трогать», то же правило, что у обратной
+   * связи.
+   */
+  interpretationByTopic: Map<string, InterpretationPayload | null>;
+  /** Толкования ПОДТЕМ: ключ раздела -> подтема -> текст с форматом. */
+  interpretationByKey: Map<string, Map<string, InterpretationPayload | null>>;
   errors: string[];
 }
 
@@ -253,12 +296,32 @@ function hasFeedback(fb?: FeedbackSource | null): fb is FeedbackSource {
   return text !== "" || recommendationsOf(fb).length > 0;
 }
 
-/** Owners in sheet order: the test first, then the sections as «Структура» lists them. */
+/** Есть ли что писать в колонке толкования. Пустой текст = толкования нет. */
+function hasInterpretation(value?: InterpretationSource | null): value is InterpretationSource {
+  return !!value && String(value.text ?? "").trim() !== "";
+}
+
+/** Строка листа: владелец, его обратная связь и его толкование — любое из двух может пустовать. */
+interface OwnerRow {
+  level: string;
+  topicName: string;
+  tag: string;
+  feedback?: FeedbackSource | null;
+  interpretation?: InterpretationSource | null;
+}
+
+/**
+ * Owners in sheet order: the test first, then the sections as «Структура» lists them.
+ *
+ * Строка заводится владельцу, у которого есть ХОТЬ ЧТО-ТО — обратная связь либо толкование.
+ * Раньше условием была только обратная связь, и раздел, у которого автор написал одно
+ * толкование, не попадал в книгу вовсе: выгрузил, загрузил — и текста нет.
+ */
 function ownersOf(
   testFeedback: FeedbackSource | null | undefined,
   sections: readonly FeedbackSectionSource[],
-): { level: string; topicName: string; tag: string; feedback: FeedbackSource }[] {
-  const owners: { level: string; topicName: string; tag: string; feedback: FeedbackSource }[] = [];
+): OwnerRow[] {
+  const owners: OwnerRow[] = [];
   if (hasFeedback(testFeedback)) {
     owners.push({ level: OWNER_TEST, topicName: "", tag: "", feedback: testFeedback });
   }
@@ -267,19 +330,28 @@ function ownersOf(
     // no other key for it — so it is skipped instead of producing an unloadable row.
     const topicName = String(section.topicName ?? "").trim();
     if (!topicName) continue;
-    if (hasFeedback(section.feedback)) {
+    if (hasFeedback(section.feedback) || hasInterpretation(section.interpretation)) {
       owners.push({
         level: OWNER_SECTION,
         topicName,
         tag: "",
-        feedback: section.feedback as FeedbackSource,
+        feedback: section.feedback ?? null,
+        interpretation: section.interpretation ?? null,
       });
     }
     // Подтемы — сразу за своим разделом: адрес подтемы начинается с него, и читать книгу
-    // проще сверху вниз, а не прыжками между листами.
-    for (const [tag, feedback] of Object.entries(section.keyFeedback ?? {})) {
-      if (!tag.trim() || !hasFeedback(feedback)) continue;
-      owners.push({ level: OWNER_KEY, topicName, tag, feedback });
+    // проще сверху вниз, а не прыжками между листами. Набор подтем — объединение двух
+    // карт: у подтемы может быть только толкование, только рекомендация или и то, и другое.
+    const tags = new Set([
+      ...Object.keys(section.keyFeedback ?? {}),
+      ...Object.keys(section.keyInterpretation ?? {}),
+    ]);
+    for (const tag of tags) {
+      if (!tag.trim()) continue;
+      const feedback = section.keyFeedback?.[tag] ?? null;
+      const interpretation = section.keyInterpretation?.[tag] ?? null;
+      if (!hasFeedback(feedback) && !hasInterpretation(interpretation)) continue;
+      owners.push({ level: OWNER_KEY, topicName, tag, feedback, interpretation });
     }
   }
   return owners;
@@ -294,8 +366,14 @@ export function serializeFeedbackRows(
     [FB_OWNER]: owner.level,
     [FB_TOPIC]: owner.topicName,
     [FB_KEY]: owner.tag,
-    [FB_FORMAT]: formatLabel(owner.feedback.format),
-    [FB_TEXT]: String(owner.feedback.text ?? ""),
+    [FB_FORMAT]: formatLabel(owner.feedback?.format),
+    [FB_TEXT]: String(owner.feedback?.text ?? ""),
+    // Формат толкования пишется, только когда есть сам текст: иначе автор видел бы
+    // «Обычный» в строке, где толкования нет вовсе, и читал бы это как «написано пусто».
+    [FB_INT_FORMAT]: hasInterpretation(owner.interpretation)
+      ? formatLabel(owner.interpretation.format)
+      : "",
+    [FB_INT_TEXT]: String(owner.interpretation?.text ?? ""),
   }));
 }
 
@@ -314,10 +392,12 @@ export function serializeRecommendationRows(
 ): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = [];
   for (const owner of ownersOf(testFeedback, sections)) {
+    // Владелец, у которого есть только толкование, рекомендаций не даёт: у толкования их
+    // нет по определению, и ветви ниже у него пустые.
     const branches: [RecommendationKind, readonly RecommendationSource[]][] = [
-      ["link", owner.feedback.links ?? []],
-      ["asset", owner.feedback.assets ?? []],
-      ["event", owner.feedback.events ?? []],
+      ["link", owner.feedback?.links ?? []],
+      ["asset", owner.feedback?.assets ?? []],
+      ["event", owner.feedback?.events ?? []],
     ];
     for (const [kind, items] of branches) {
       for (const item of items) {
@@ -556,6 +636,9 @@ export function parseFeedbackSheets(
   const byLevel = new Map<string, ParsedLevelRecommendations>();
   /** Накопители подтем: ключ раздела -> подтема -> черновик. */
   const keyDrafts = new Map<string, Map<string, OwnerDraft>>();
+  /** Толкования: те же адреса, что у черновиков выше, но своё значение. */
+  const interpretationByTopic = new Map<string, InterpretationPayload | null>();
+  const interpretationByKey = new Map<string, Map<string, InterpretationPayload | null>>();
   let testDraft: OwnerDraft | undefined;
 
   const newDraft = (format: FeedbackFormat, text: string): OwnerDraft =>
@@ -580,7 +663,30 @@ export function parseFeedbackSheets(
     const raw = String(row[FB_TEXT] ?? "");
     const text = raw.trim() === "" ? "" : raw;
 
+    // ТОЛКОВАНИЕ. Формат разбирается тем же правилом и теми же подписями, что у обратной
+    // связи: автор пишет оба текста одним редактором, и две таблицы подписей разошлись бы.
+    const intFormat = parseFormat(String(row[FB_INT_FORMAT] ?? ""));
+    if (!intFormat.ok) {
+      errors.push(`${where}: ${intFormat.error.replace(FB_FORMAT, FB_INT_FORMAT)}`);
+      return;
+    }
+    const intRaw = String(row[FB_INT_TEXT] ?? "");
+    const intText = intRaw.trim() === "" ? "" : intRaw;
+    // Пустой текст = «толкования нет»: `null` снимает переопределение, и участник снова
+    // читает толкование самой темы. Это тот же способ сказать «нет», что у обратной связи.
+    const interpretation: InterpretationPayload | null =
+      intText === "" ? null : { format: intFormat.value, text: intText };
+
     if (owner.value.kind === "test") {
+      // У ТЕСТА толкования нет как сущности: толкуется тема, а не тест. Заполненная
+      // ячейка — не мелочь, которую можно промолчать: автор ждёт, что текст доедет.
+      if (intText !== "") {
+        errors.push(
+          `${where}: для «${FB_OWNER}» = «${OWNER_TEST}» колонка «${FB_INT_TEXT}» должна быть `
+          + `пустой: толкование принадлежит разделу или подтеме`,
+        );
+        return;
+      }
       // Last occurrence wins; recommendations already collected for the owner survive,
       // because they are keyed by owner rather than by row.
       testDraft = testDraft
@@ -594,6 +700,9 @@ export function parseFeedbackSheets(
       const prev = forTopic.get(tag);
       forTopic.set(tag, prev ? { ...prev, format: format.value, text } : newDraft(format.value, text));
       keyDrafts.set(key, forTopic);
+      const forTopicInt = interpretationByKey.get(key) ?? new Map<string, InterpretationPayload | null>();
+      forTopicInt.set(tag, interpretation);
+      interpretationByKey.set(key, forTopicInt);
       // Имя раздела нужно и подтеме: ошибку «такого раздела нет в «Структуре»» автор ищет
       // по тому написанию, которое сам набрал.
       topicNames.set(key, name);
@@ -602,6 +711,7 @@ export function parseFeedbackSheets(
     const { key, name } = owner.value;
     const existing = topicDrafts.get(key);
     topicDrafts.set(key, existing ? { ...existing, format: format.value, text } : newDraft(format.value, text));
+    interpretationByTopic.set(key, interpretation);
     topicNames.set(key, name);
   });
 
@@ -714,6 +824,8 @@ export function parseFeedbackSheets(
     topicNames,
     byLevel,
     byKey,
+    interpretationByTopic,
+    interpretationByKey,
     errors,
   };
 }

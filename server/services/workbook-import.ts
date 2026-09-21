@@ -140,6 +140,7 @@ import {
   parseScoringOverrideRow,
   variantsColumnOf,
   parseFeedbackSheets,
+  type InterpretationPayload,
   FEEDBACK_SHEET_NAME,
   RECOMMENDATION_SHEET_NAME,
   parsePageSheets,
@@ -237,6 +238,18 @@ function breakdownFeedbackOf(
   byTag: Map<string, FeedbackPayload | null>,
 ): { axis: "tag"; keys: Record<string, FeedbackPayload> } | null {
   const keys: Record<string, FeedbackPayload> = {};
+  for (const [tag, payload] of byTag) if (payload) keys[tag] = payload;
+  return Object.keys(keys).length > 0 ? { axis: "tag", keys } : null;
+}
+
+/**
+ * Толкования подтем раздела в форму колонки. То же правило, что у текстов подтем выше:
+ * подтема со стёртым текстом уходит из набора, пустой набор — `null`.
+ */
+function breakdownInterpretationOf(
+  byTag: Map<string, InterpretationPayload | null>,
+): { axis: "tag"; keys: Record<string, InterpretationPayload> } | null {
+  const keys: Record<string, InterpretationPayload> = {};
   for (const [tag, payload] of byTag) if (payload) keys[tag] = payload;
   return Object.keys(keys).length > 0 ? { axis: "tag", keys } : null;
 }
@@ -1991,6 +2004,14 @@ export async function importWorkbook(
         // Подтема со стёртым текстом уходит из набора — так автор её и снимает.
         ...(feedback?.byKey.has(key)
           ? { breakdownFeedbackJson: breakdownFeedbackOf(feedback.byKey.get(key)!) }
+          : {}),
+        // Толкования: то же правило адресации, что у текстов выше. Книга пишет ТОЛЬКО
+        // переопределение теста — толкование самой темы остаётся при теме.
+        ...(feedback?.interpretationByTopic.has(key)
+          ? { interpretationJson: feedback.interpretationByTopic.get(key) }
+          : {}),
+        ...(feedback?.interpretationByKey.has(key)
+          ? { breakdownInterpretationJson: breakdownInterpretationOf(feedback.interpretationByKey.get(key)!) }
           : {}),
       };
       // PRD-50 FR-11: имя блока запоминается, ключ подставится, когда станет известен
