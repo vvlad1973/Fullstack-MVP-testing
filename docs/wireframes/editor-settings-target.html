@@ -639,7 +639,12 @@
                     </button>
                   </div>
                   <div class="tb-fold-toolbar">
-                    <button type="button" class="ou-btn ou-btn--secondary ou-btn--s tb-fold-toolbar__lead"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-plus" /></svg></span><span>Добавить тему</span></button>
+                    <!-- Согласовано 2026-09-21 (approved/prd-rtk-editor-cards.html, состояние
+                         «Состав · группы тем»): когда группы есть, «Добавить тему» уходит внутрь
+                         карточек — там видно, КУДА тема попадёт. -->
+                    <span class="ou-stack ou-stack--row ou-stack--gap-3 ou-stack--ai-center tb-fold-toolbar__lead">
+                      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-plus" /></svg></span><span>Добавить группу</span></button>
+                    </span>
                     <span class="tb-fold-actions">
                       <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-up-down" /></svg></span><span>Развернуть все</span></button>
                       <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevrons-down-up" /></svg></span><span>Свернуть все</span></button>
@@ -648,6 +653,21 @@
                 </div>
               </div>
               <!-- По умолчанию все темы СВЁРНУТЫ; здесь первая раскрыта автором. -->
+              <section class="ou-card ou-card--outlined ou-card--sm tb-level-card tb-group-card">
+                <header class="ou-card__header tb-level-card__head">
+                  <span class="drag-handle" aria-label="Переместить группу «Управленческие компетенции»"><svg width="14" height="14" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                  <div class="ou-card__heading tb-level-card__heading">
+                    <div class="ou-field ou-field--s ou-field--default ou-field--full">
+                      <div class="ou-field__box"><input class="ou-field__input" type="text" value="Управленческие компетенции" aria-label="Название группы" /></div>
+                    </div>
+                  </div>
+                  <div class="ou-card__trail tb-level-card__trail">
+                    <span class="ou-tag ou-tag--neutral ou-tag--s">1 тема</span>
+                    <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Удалить группу «Управленческие компетенции»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-trash" /></svg></span></button>
+                    <button type="button" class="tb-level-card__chev" aria-label="Свернуть группу" aria-expanded="true"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></button>
+                  </div>
+                </header>
+                <div class="ou-card__body">
               <div class="ou-acc ou-acc--separated">
                 <div class="ou-acc__item is-open">
                   <div class="tb-acc-head">
@@ -849,6 +869,24 @@
                     </div>
                   </div>
                 </div>
+              </div>
+                  <div class="tb-fold-toolbar tb-group-card__foot">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-plus" /></svg></span><span>Добавить тему в группу</span></button>
+                  </div>
+                </div>
+              </section>
+              <section class="ou-card ou-card--outlined ou-card--sm tb-level-card tb-group-card">
+                <header class="ou-card__header tb-level-card__head">
+                  <div class="ou-card__heading tb-level-card__heading">
+                    <h5 class="ou-card__title tb-level-card__title">Темы вне групп</h5>
+                  </div>
+                  <div class="ou-card__trail tb-level-card__trail">
+                    <span class="ou-tag ou-tag--neutral ou-tag--s">2 темы</span>
+                    <button type="button" class="tb-level-card__chev" aria-label="Свернуть группу" aria-expanded="true"><svg width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg></button>
+                  </div>
+                </header>
+                <div class="ou-card__body">
+              <div class="ou-acc ou-acc--separated">
                 <div class="ou-acc__item">
                   <div class="tb-acc-head">
                     <button type="button" class="ou-acc__trigger" aria-expanded="false">
@@ -876,6 +914,11 @@
                   <div class="ou-acc__body" role="region"></div>
                 </div>
               </div>
+                  <div class="tb-fold-toolbar tb-group-card__foot">
+                    <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-plus" /></svg></span><span>Добавить тему</span></button>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
           </div>

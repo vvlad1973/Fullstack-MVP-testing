@@ -21,13 +21,40 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, Info, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  GripVertical,
+  Info,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { DrawBlueprint, FormSet, SectionGroup, Topic } from "@shared/schema";
 import { normalizeTag, tagKey, TAG_MAX_LENGTH } from "@shared/tags";
 import { expectedExposure } from "@shared/draw/expected-exposure";
 import {
   Banner,
   Button,
+  Cluster,
   EmptyState,
   FormSection,
   Grid,
@@ -106,6 +133,15 @@ const INHERIT = "inherit";
 const NO_GROUP = "none";
 
 /**
+ * Адрес зоны «вне групп» для перетаскивания. Не `null` и не пустая строка: идентификатор
+ * зоны едет в `@dnd-kit` строкой, и «нет группы» нужно чем-то назвать.
+ */
+const UNGROUPED = "__ungrouped__";
+
+/** Префиксы адресов перетаскивания: по ним обработчик отличает тему от группы и от зоны. */
+const DRAG = { topic: "topic:", group: "group:", zone: "zone:" } as const;
+
+/**
  * PRD-50 FR-11: the block's `key` is a housekeeping id the author never types —
  * generate it from the ordinal position, skipping any key already in use (an
  * earlier block may have been deleted and its number freed, or the model may
@@ -116,6 +152,80 @@ function nextGroupKey(existing: SectionGroup[]): string {
   let n = existing.length + 1;
   while (used.has(`group-${n}`)) n += 1;
   return `group-${n}`;
+}
+
+/**
+ * Ключ группы раздела, очищенный от ссылок на несуществующие группы.
+ *
+ * PRD-50 FR-12: что значит ключ, которого тест не объявлял, решает ОДНО место — общий
+ * построитель итогов читает такой раздел как «вне групп». Редактор обязан показывать то же
+ * самое, иначе автор видит тему в группе, а участник — под списком.
+ */
+function resolvedGroupKey(section: EditorSection, groupKeys: ReadonlySet<string>): string | null {
+  return section.groupKey && groupKeys.has(section.groupKey) ? section.groupKey : null;
+}
+
+/**
+ * Переставить группы местами. `order` переписывается местом в списке: две записи о порядке
+ * разошлись бы при первой же правке, а ведущей должна быть одна.
+ *
+ * @public Экспортируется ради тестов: перетаскивание мышью в jsdom не воспроизводится, а
+ * правило перестановки проверять надо.
+ */
+export function reorderGroups(model: TestEditorModel, fromKey: string, toKey: string): TestEditorModel {
+  const list = model.sectionGroups ?? [];
+  const i = list.findIndex((g) => g.key === fromKey);
+  const j = list.findIndex((g) => g.key === toKey);
+  if (i < 0 || j < 0 || i === j) return model;
+  return {
+    ...model,
+    sectionGroups: arrayMove(list, i, j).map((g, index) => ({ ...g, order: index })),
+  };
+}
+
+/**
+ * Перенести тему в группу, не трогая её места в списке.
+ *
+ * Так работает бросок на ЗОНУ (карточку группы): целиться там не во что — группа может быть
+ * пустой, — поэтому меняется только членство. Порядок выдачи при этом сохраняется.
+ *
+ * @public Экспортируется ради тестов, см. {@link reorderGroups}.
+ */
+export function moveTopicToGroup(
+  model: TestEditorModel,
+  topicId: string,
+  groupKey: string | null,
+): TestEditorModel {
+  return {
+    ...model,
+    sections: model.sections.map((s) => (s.topicId === topicId ? { ...s, groupKey } : s)),
+  };
+}
+
+/**
+ * Поставить тему на место другой темы: она берёт и позицию, и группу цели.
+ *
+ * Плоский порядок разделов — это порядок ВЫДАЧИ, и бросок на конкретную тему меняет его
+ * осознанно: номера тем перенумеровываются на глазах, ничего не происходит молча.
+ *
+ * @public Экспортируется ради тестов, см. {@link reorderGroups}.
+ */
+export function moveTopicOnto(
+  model: TestEditorModel,
+  topicId: string,
+  overTopicId: string,
+): TestEditorModel {
+  const i = model.sections.findIndex((s) => s.topicId === topicId);
+  const j = model.sections.findIndex((s) => s.topicId === overTopicId);
+  if (i < 0 || j < 0 || i === j) return model;
+  const groupKeys = new Set((model.sectionGroups ?? []).map((g) => g.key));
+  const nextGroup = resolvedGroupKey(model.sections[j], groupKeys);
+  return {
+    ...model,
+    sections: arrayMove(model.sections, i, j).map((s) =>
+      s.topicId === topicId ? { ...s, groupKey: nextGroup } : s,
+    ),
+  };
 }
 
 const TOPIC_ORDER_OPTIONS = [
@@ -160,6 +270,12 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
     return map;
   }, [allQuestions]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /**
+   * Группа, в которую попадёт выбранная в модалке тема. `undefined` = модалку открыли не
+   * из карточки, `null` = из карточки «вне групп». Хранится отдельно от `pickerOpen`,
+   * потому что кнопок «Добавить тему» теперь несколько, и каждая отвечает за своё место.
+   */
+  const [pickerGroup, setPickerGroup] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const overrideByQuestion = useMemo(
@@ -255,24 +371,159 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           feedbackEvents: [],
           drawBlueprint: null,
           defaultPoints: null,
-          groupKey: null,
+          // Тема заводится в ту группу, из карточки которой её позвали: кнопка «Добавить
+          // тему» стоит ВНУТРИ группы именно затем, чтобы не спрашивать об этом отдельно.
+          groupKey: pickerGroup,
         },
       ],
     }));
     setPickerOpen(false);
   };
 
+  /** Открыть выбор темы, запомнив, куда её положить. */
+  const openPickerFor = (groupKey: string | null) => {
+    setPickerGroup(groupKey);
+    setPickerOpen(true);
+  };
+
   /*
-   * Блоки итогов (`sectionGroups`) редактор больше НЕ предлагает: группировку тем взяла
-   * на себя подтема-тег — те же вопросы уже размечены, выдача по ним квотируется, итог
-   * считается (решение владельца 2026-09-02). Данные уже собранных тестов сохраняются и
-   * печатаются: модель и снимок публикации их по-прежнему возят, ушёл только элемент
-   * интерфейса.
+   * ГРУППЫ ТЕМ (`tests.section_groups_json` + `test_sections.group_key`).
+   *
+   * Управление ими вернулось в интерфейс (решение владельца 2026-09-21, отменяющее решение
+   * 2026-09-02 о снятии): настройка, которую можно задать только книгой Excel, — дефект.
+   *
+   * Группа — сворачиваемая карточка со своим именем и счётчиком тем, как карточка темы.
+   * Членство задаётся ПЕРЕТАСКИВАНИЕМ, а не выбором из списка: список не показывает, где
+   * тема стоит сейчас и что рядом. Тема вне групп законна (PRD-50 FR-25) и живёт в своей
+   * карточке под группами.
    */
+  const groups = model.sectionGroups ?? [];
+  const groupFold = useSectionFold(groups.map((g) => g.key));
+  /** Ключи существующих групп — по ним раздел с чужим ключом считается «вне групп» (FR-12). */
+  const groupKeys = useMemo(() => new Set(groups.map((g) => g.key)), [groups]);
+  const groupOf = useCallback(
+    (section: EditorSection) => resolvedGroupKey(section, groupKeys),
+    [groupKeys],
+  );
+  /** Разделы по группам, в порядке модели: номер темы остаётся её местом в выдаче. */
+  const inGroup = useCallback(
+    (key: string | null) => visibleSections.filter(({ section }) => groupOf(section) === key),
+    [visibleSections, groupOf],
+  );
+
+  const addGroup = () =>
+    updateModel((m) => {
+      const existing = m.sectionGroups ?? [];
+      return {
+        ...m,
+        sectionGroups: [...existing, { key: nextGroupKey(existing), label: "Новая группа" }],
+      };
+    });
+
+  const renameGroup = (key: string, label: string) =>
+    updateModel((m) => ({
+      ...m,
+      sectionGroups: (m.sectionGroups ?? []).map((g) => (g.key === key ? { ...g, label } : g)),
+    }));
+
+  /**
+   * Удаление группы. Темы НЕ удаляются — они уезжают «вне групп» (решение владельца
+   * 2026-09-21): группа описывает подачу итога, а не состав теста, и снимать вместе с ней
+   * четыре темы значило бы стереть работу, о которой автор не просил.
+   */
+  const removeGroup = (key: string) =>
+    updateModel((m) => ({
+      ...m,
+      sectionGroups: (m.sectionGroups ?? []).filter((g) => g.key !== key),
+      sections: m.sections.map((s) => (s.groupKey === key ? { ...s, groupKey: null } : s)),
+    }));
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  /**
+   * Перетаскивание: тема между группами и внутри списка, группа — между группами.
+   *
+   * Тема, брошенная НА ТЕМУ, встаёт на её место в плоском списке и берёт её группу; тема,
+   * брошенная на пустую зону, только меняет группу. Плоский порядок — это порядок выдачи, и
+   * он остаётся виден номерами: ничего не меняется молча.
+   */
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = String(active.id);
+    const to = String(over.id);
+
+    if (from.startsWith(DRAG.group) && to.startsWith(DRAG.group)) {
+      const fromKey = from.slice(DRAG.group.length);
+      const toKey = to.slice(DRAG.group.length);
+      updateModel((m) => reorderGroups(m, fromKey, toKey));
+      return;
+    }
+
+    if (!from.startsWith(DRAG.topic)) return;
+    const topicId = from.slice(DRAG.topic.length);
+
+    // Тема, брошенная на КАРТОЧКУ: у настоящей группы приёмник назван `group:<ключ>` (это
+    // её сортируемый узел), у карточки «вне групп» — `zone:__ungrouped__`.
+    if (to.startsWith(DRAG.zone) || to.startsWith(DRAG.group)) {
+      const raw = to.startsWith(DRAG.zone)
+        ? to.slice(DRAG.zone.length)
+        : to.slice(DRAG.group.length);
+      updateModel((m) => moveTopicToGroup(m, topicId, raw === UNGROUPED ? null : raw));
+      return;
+    }
+
+    if (!to.startsWith(DRAG.topic)) return;
+    const overTopicId = to.slice(DRAG.topic.length);
+    updateModel((m) => moveTopicOnto(m, topicId, overTopicId));
+  };
 
   // PRD-30 FR-16: absent = «перемешивание», today's behaviour of every test.
   const testOrder: TestQuestionOrder = model.questionOrder ?? "random";
   const flatFlow = model.flowMode === "linear_flat";
+
+  /** Одна строка темы — и в плоском списке, и внутри карточки группы. */
+  const renderTopic = ({ section, index }: { section: EditorSection; index: number }) => (
+    <TopicRow
+      key={section.topicId}
+      index={index}
+      section={section}
+      open={fold.isOpen(section.topicId)}
+      onToggleOpen={() => fold.toggle(section.topicId)}
+      unavailable={topicsLoaded && !visibleTopicIds.has(section.topicId)}
+      adaptive={model.mode === "adaptive"}
+      drawCountError={fieldErrors.get(`sections[${index}].drawCount`)}
+      blueprintError={fieldErrors.get(`sections[${index}].drawBlueprintJson`)}
+      variantsError={fieldErrors.get(`sections[${index}].formSetJson`)}
+      topicTags={tagsByTopic.get(section.topicId)?.tags ?? []}
+      availByKey={tagsByTopic.get(section.topicId)?.availByKey ?? {}}
+      tagsByQuestion={tagsByQuestion}
+      onChangeDrawCount={(n) => updateSection(section.topicId, { drawCount: n })}
+      onToggleDrawAll={(drawAll) =>
+        updateSection(section.topicId, {
+          drawAll,
+          // Turning "all" on snapshots the current max into drawCount so the
+          // (disabled) number field reads sensibly and the persisted value is
+          // valid; the real "all" is resolved dynamically at export time.
+          ...(drawAll ? { drawCount: Math.max(section.maxQuestions, 1) } : {}),
+        })
+      }
+      onChangeQuestionOrder={(order) => updateSection(section.topicId, { questionOrder: order })}
+      testOrder={testOrder}
+      onToggleRequired={(required) => updateSection(section.topicId, { required })}
+      onChangeBlueprint={(bp) => updateSection(section.topicId, { drawBlueprint: bp })}
+      // PRD-24: changing the variant set also re-syncs the topic's per-variant
+      // pass rule (seed added / drop removed / normalise when mode goes off).
+      onChangeFormSet={(formSet) =>
+        updateModel((m) => applyFormSetChange(m, section.topicId, formSet))
+      }
+      pointsOf={(questionId) => pointsOf(questionId, section.defaultPoints)}
+      onRemove={() => removeSection(section.topicId)}
+    />
+  );
 
   return (
     <>
@@ -320,18 +571,34 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
             data-testid="test-question-order"
           />
         </div>
+        {/* Кнопки добавления стоят РЯДОМ, но стилями различаются: они заводят разные
+            сущности, и одинаковые кнопки в ряд читались бы как одно действие с выбором.
+            Когда группы есть, «Добавить тему» уходит внутрь карточек — там видно, КУДА
+            тема попадёт, а здесь было бы не видно. */}
         <div className="tb-fold-toolbar">
-          <Button
-            className="tb-fold-toolbar__lead"
-            variant="secondary"
-            size="s"
-            leadingIcon={<Plus size={16} aria-hidden="true" />}
-            onClick={() => setPickerOpen(true)}
-            data-testid="composition-add-topic"
-            data-field="sections"
-          >
-            Добавить тему
-          </Button>
+          <Cluster gap={3} align="center" className="tb-fold-toolbar__lead">
+            {groups.length === 0 && (
+              <Button
+                variant="secondary"
+                size="s"
+                leadingIcon={<Plus size={16} aria-hidden="true" />}
+                onClick={() => setPickerOpen(true)}
+                data-testid="composition-add-topic"
+                data-field="sections"
+              >
+                Добавить тему
+              </Button>
+            )}
+            <Button
+              variant={groups.length === 0 ? "ghost" : "secondary"}
+              size="s"
+              leadingIcon={<Plus size={16} aria-hidden="true" />}
+              onClick={addGroup}
+              data-testid="composition-add-group"
+            >
+              Добавить группу
+            </Button>
+          </Cluster>
           <FoldAllButtons fold={fold} testIdPrefix="composition-topics" />
         </div>
       </FormSection>
@@ -356,48 +623,41 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
         </>
       )}
 
-      <div className="ou-acc ou-acc--separated" data-testid="composition-topics">
-      {visibleSections.map(({ section, index }) => (
-        <TopicRow
-          key={section.topicId}
-          index={index}
-          section={section}
-          open={fold.isOpen(section.topicId)}
-          onToggleOpen={() => fold.toggle(section.topicId)}
-          unavailable={topicsLoaded && !visibleTopicIds.has(section.topicId)}
-          adaptive={model.mode === "adaptive"}
-          drawCountError={fieldErrors.get(`sections[${index}].drawCount`)}
-          blueprintError={fieldErrors.get(`sections[${index}].drawBlueprintJson`)}
-          variantsError={fieldErrors.get(`sections[${index}].formSetJson`)}
-          topicTags={tagsByTopic.get(section.topicId)?.tags ?? []}
-          availByKey={tagsByTopic.get(section.topicId)?.availByKey ?? {}}
-          tagsByQuestion={tagsByQuestion}
-          onChangeDrawCount={(n) => updateSection(section.topicId, { drawCount: n })}
-          onToggleDrawAll={(drawAll) =>
-            updateSection(section.topicId, {
-              drawAll,
-              // Turning "all" on snapshots the current max into drawCount so the
-              // (disabled) number field reads sensibly and the persisted value is
-              // valid; the real "all" is resolved dynamically at export time.
-              ...(drawAll ? { drawCount: Math.max(section.maxQuestions, 1) } : {}),
-            })
-          }
-          onChangeQuestionOrder={(order) => updateSection(section.topicId, { questionOrder: order })}
-          testOrder={testOrder}
-          onToggleRequired={(required) =>
-            updateSection(section.topicId, { required })
-          }
-          onChangeBlueprint={(bp) => updateSection(section.topicId, { drawBlueprint: bp })}
-          // PRD-24: changing the variant set also re-syncs the topic's per-variant
-          // pass rule (seed added / drop removed / normalise when mode goes off).
-          onChangeFormSet={(formSet) =>
-            updateModel((m) => applyFormSetChange(m, section.topicId, formSet))
-          }
-          pointsOf={(questionId) => pointsOf(questionId, section.defaultPoints)}
-          onRemove={() => removeSection(section.topicId)}
-        />
-      ))}
-      </div>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        {groups.length === 0 ? (
+          <TopicList testId="composition-topics" sections={visibleSections} renderTopic={renderTopic} />
+        ) : (
+          <SortableContext
+            items={groups.map((g) => DRAG.group + g.key)}
+            strategy={verticalListSortingStrategy}
+          >
+            {groups.map((group) => (
+              <GroupCard
+                key={group.key}
+                group={group}
+                sections={inGroup(group.key)}
+                open={groupFold.isOpen(group.key)}
+                onToggleOpen={() => groupFold.toggle(group.key)}
+                onRename={(label) => renameGroup(group.key, label)}
+                onRemove={() => removeGroup(group.key)}
+                onAddTopic={() => openPickerFor(group.key)}
+                renderTopic={renderTopic}
+              />
+            ))}
+            {/* Карточка «вне групп» стоит ВСЕГДА, пока есть хоть одна группа: это
+                единственное место, куда можно завести тему без группы, и единственная
+                мишень, чтобы вытащить тему из группы перетаскиванием. */}
+            <GroupCard
+              group={null}
+              sections={inGroup(null)}
+              open={groupFold.isOpen(UNGROUPED)}
+              onToggleOpen={() => groupFold.toggle(UNGROUPED)}
+              onAddTopic={() => openPickerFor(null)}
+              renderTopic={renderTopic}
+            />
+          </SortableContext>
+        )}
+      </DndContext>
 
       <TopicPickerModal
         open={pickerOpen}
@@ -413,6 +673,169 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
 export const TopicsStructureSection = CompositionSection;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+/**
+ * Карточка группы тем — и настоящей, и служебной «Темы вне групп» (`group === null`).
+ *
+ * Собрана как карточка ТЕМЫ (`tb-level-card` + аккордеон внутри): группа и тема — вещи
+ * одного порядка в этом списке, и разная механика свёртки у них читалась бы как разное
+ * назначение.
+ *
+ * У служебной карточки нет ни имени под правку, ни ручки, ни удаления: «вне групп» — это
+ * не группа, а остаток, его нельзя переименовать, переставить или убрать.
+ */
+function GroupCard(props: {
+  group: SectionGroup | null;
+  sections: { section: EditorSection; index: number }[];
+  open: boolean;
+  onToggleOpen: () => void;
+  onRename?: (label: string) => void;
+  onRemove?: () => void;
+  onAddTopic: () => void;
+  renderTopic: (entry: { section: EditorSection; index: number }) => React.ReactNode;
+}) {
+  const key = props.group?.key ?? UNGROUPED;
+  /**
+   * Зона приёма у настоящей группы — её же сортируемый узел (`group:<ключ>`), а НЕ второй
+   * `useDroppable` на том же элементе: два приёмника на одном узле дают одинаковый
+   * прямоугольник, столкновение выбирает из них произвольный, и половина бросков уходила в
+   * адрес, которого обработчик не ждёт. У карточки «вне групп» сортировки нет — там
+   * приёмник свой.
+   */
+  const sortable = useSortable({ id: DRAG.group + key, disabled: !props.group });
+  const droppable = useDroppable({ id: DRAG.zone + key, disabled: !!props.group });
+  const isOver = props.group ? sortable.isOver : droppable.isOver;
+  const count = props.sections.length;
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(sortable.transform),
+    transition: sortable.transition,
+    opacity: sortable.isDragging ? 0.5 : undefined,
+  };
+  return (
+    <section
+      ref={(node) => {
+        sortable.setNodeRef(node);
+        droppable.setNodeRef(node);
+      }}
+      style={dragStyle}
+      className={`ou-card ou-card--outlined ou-card--sm tb-level-card tb-group-card${
+        props.open ? "" : " is-collapsed"
+      }${isOver ? " is-drop-target" : ""}`}
+      data-testid={`composition-group-${key}`}
+    >
+      <header className="ou-card__header tb-level-card__head">
+        {props.group && (
+          <span
+            className="drag-handle"
+            aria-label={`Переместить группу «${props.group.label}»`}
+            data-testid={`composition-group-grip-${key}`}
+            {...sortable.attributes}
+            {...sortable.listeners}
+          >
+            <GripVertical size={14} aria-hidden="true" />
+          </span>
+        )}
+        <div className="ou-card__heading tb-level-card__heading">
+          {props.group ? (
+            <Input
+              size="s"
+              fullWidth
+              aria-label="Название группы"
+              value={props.group.label}
+              onChange={(e) => props.onRename?.(e.target.value)}
+              data-testid={`composition-group-name-${key}`}
+            />
+          ) : (
+            <h5 className="ou-card__title tb-level-card__title">Темы вне групп</h5>
+          )}
+        </div>
+        <div className="ou-card__trail tb-level-card__trail">
+          <Tag tone="neutral" size="s" data-testid={`composition-group-count-${key}`}>
+            {`${count} ${topicWord(count)}`}
+          </Tag>
+          {props.group && (
+            <IconButton
+              icon={<Trash2 size={14} aria-hidden="true" />}
+              aria-label={`Удалить группу «${props.group.label}»`}
+              variant="ghost"
+              size="s"
+              onClick={props.onRemove}
+              data-testid={`composition-group-remove-${key}`}
+            />
+          )}
+          <button
+            type="button"
+            className="tb-level-card__chev"
+            aria-label={props.open ? "Свернуть группу" : "Развернуть группу"}
+            aria-expanded={props.open}
+            onClick={props.onToggleOpen}
+            data-testid={`composition-group-toggle-${key}`}
+          >
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+      {props.open && (
+        <div className="ou-card__body">
+          {count === 0 ? (
+            // Не `EmptyState`: у пустой группы нет ошибки и нет действия, кроме кнопки
+            // ниже, — есть только объяснение, что с ней делать.
+            <p className="tb-card-desc" data-testid={`composition-group-empty-${key}`}>
+              {props.group
+                ? "Перетащите сюда тему или добавьте новую."
+                : "Все темы разложены по группам."}
+            </p>
+          ) : (
+            <TopicList
+              testId={`composition-group-topics-${key}`}
+              sections={props.sections}
+              renderTopic={props.renderTopic}
+            />
+          )}
+          <div className="tb-fold-toolbar tb-group-card__foot">
+            <Button
+              variant="ghost"
+              size="s"
+              leadingIcon={<Plus size={14} aria-hidden="true" />}
+              onClick={props.onAddTopic}
+              data-testid={`composition-group-add-topic-${key}`}
+            >
+              {props.group ? "Добавить тему в группу" : "Добавить тему"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** «1 тема» / «3 темы» / «5 тем» — счётчик в теге группы. */
+function topicWord(count: number): string {
+  const tail = count % 100;
+  const last = count % 10;
+  if (tail >= 11 && tail <= 14) return "тем";
+  if (last === 1) return "тема";
+  if (last >= 2 && last <= 4) return "темы";
+  return "тем";
+}
+
+/** Список тем одной области — плоский список теста либо содержимое группы. */
+function TopicList(props: {
+  testId: string;
+  sections: { section: EditorSection; index: number }[];
+  renderTopic: (entry: { section: EditorSection; index: number }) => React.ReactNode;
+}) {
+  return (
+    <SortableContext
+      items={props.sections.map(({ section }) => DRAG.topic + section.topicId)}
+      strategy={verticalListSortingStrategy}
+    >
+      <div className="ou-acc ou-acc--separated" data-testid={props.testId}>
+        {props.sections.map(props.renderTopic)}
+      </div>
+    </SortableContext>
+  );
+}
 
 function TopicRow(props: {
   /** Position in `model.sections`; feeds the `sections[i]` FR-20c anchor. */
@@ -491,9 +914,21 @@ function TopicRow(props: {
   // the order it then delivers in comes from the test.
   const effectiveOrder = effectiveSectionOrder(props.testOrder, section.questionOrder);
 
+  // Перетаскивание темы: между группами и внутри списка. Ручка — единственная мишень
+  // захвата: повесь его на всю строку, и обычный клик по заголовку перестал бы её
+  // разворачивать.
+  const sortable = useSortable({ id: DRAG.topic + section.topicId });
+  const dragStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(sortable.transform),
+    transition: sortable.transition,
+    opacity: sortable.isDragging ? 0.5 : undefined,
+  };
+
   return (
     <>
       <div
+        ref={sortable.setNodeRef}
+        style={dragStyle}
         className={`ou-acc__item${props.open ? " is-open" : ""}`}
         data-testid={`topic-row-${section.topicId}`}
       >
@@ -501,6 +936,16 @@ function TopicRow(props: {
             нельзя вкладывать в кнопку раскрытия — это и невалидная разметка, и клик по
             удалению заодно сворачивал бы тему. Так же устроена шапка в эскизе. */}
         <div className="tb-acc-head">
+          {/* Ручка стоит и когда групп нет: порядок тем меняется и в плоском списке. */}
+          <span
+            className="drag-handle"
+            aria-label={`Переместить тему «${section.topicName}»`}
+            data-testid={`topic-grip-${section.topicId}`}
+            {...sortable.attributes}
+            {...sortable.listeners}
+          >
+            <GripVertical size={14} aria-hidden="true" />
+          </span>
           <button
             type="button"
             className="ou-acc__trigger"
