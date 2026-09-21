@@ -104,6 +104,29 @@ function vrTopicBreakdownFeedback(tr) {
 }
 
 /**
+ * Толкования этого раздела, выпеченные тремя полями: `interpretation` — текст самой ТЕМЫ,
+ * `sectionInterpretation` — текст, которым его заменил ЭТОТ тест, `breakdownInterpretation`
+ * — текст каждой подтемы.
+ *
+ * Читаются из TEST_DATA по той же причине, что и тексты подтем: это содержание пакета, а не
+ * сохранённого прогона, поэтому толкование доходит и до прогона, сохранённого пакетом
+ * постарше. Возвращаются ТРЕМЯ полями, а не одним разрешённым: какое из них напечатается,
+ * решает общий построитель — он же решает это и на вебе.
+ *
+ * Поле, которого нет, НЕ приписывается: раздел без толкований оставляет вход темы прежним
+ * до ключа, и контекст такого теста не меняется. Дописывает в готовую строку, а не
+ * возвращает объект для разлива, — рантайм остаётся ES5, как и весь пакет.
+ */
+function vrWithInterpretations(row, tr) {
+  var section = TEST_DATA.sections.find(function (s) { return s.topicId === tr.topicId; });
+  if (!section) return row;
+  if (section.interpretation) row.interpretation = section.interpretation;
+  if (section.sectionInterpretation) row.sectionInterpretation = section.sectionInterpretation;
+  if (section.breakdownInterpretation) row.breakdownInterpretation = section.breakdownInterpretation;
+  return row;
+}
+
+/**
  * PRD-50: this topic's breakdown records, from whichever of the two places has them.
  *
  * A SAVED attempt carries them ON the topic: `saveAttemptResult` persists `topicResults`
@@ -549,7 +572,8 @@ function renderViewResultsTemplated(app, results) {
     earnedPoints: results.earnedPoints,
     possiblePoints: results.possiblePoints,
     topicResults: (results.topicResults || []).map(function (tr) {
-      return {
+      // Толкования дописываются в готовую строку: см. `vrWithInterpretations`.
+      return vrWithInterpretations({
         topicId: tr.topicId,
         topicName: tr.topicName,
         correct: tr.correct,
@@ -573,7 +597,7 @@ function renderViewResultsTemplated(app, results) {
         breakdown: vrTopicBreakdown(tr, results.breakdowns),
         // PRD-50 FR-11: the group this section was delivered in. See `vrTopicGroupKey`.
         groupKey: vrTopicGroupKey(tr)
-      };
+      }, tr);
     })
   };
   // PRD-50 FR-11/FR-27: the test's declared groups, baked ONLY when the author made any
@@ -667,7 +691,8 @@ function renderResultsTemplated(app, results) {
     earnedPoints: results.earnedPoints,
     possiblePoints: results.possiblePoints,
     topicResults: (results.topicResults || []).map(function (tr) {
-      return {
+      // Толкования дописываются в готовую строку: см. `vrWithInterpretations`.
+      return vrWithInterpretations({
         topicId: tr.topicId,
         topicName: tr.topicName,
         correct: tr.correct,
@@ -692,7 +717,7 @@ function renderResultsTemplated(app, results) {
         breakdown: vrTopicBreakdown(tr, results.breakdowns),
         // PRD-50 FR-11: the group this section was delivered in. See `vrTopicGroupKey`.
         groupKey: vrTopicGroupKey(tr)
-      };
+      }, tr);
     })
   };
   // PRD-50 FR-11/FR-27: same groups as «Мой результат» — one screen, one layout, one

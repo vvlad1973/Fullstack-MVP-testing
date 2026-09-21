@@ -173,6 +173,35 @@ function bakeBreakdownFeedback(raw: unknown): Record<string, unknown> | null {
   return Object.keys(out).length > 0 ? out : null;
 }
 
+/**
+ * Толкование для пакета: запись с непустым текстом либо `null`.
+ *
+ * Тот же гейт на ТЕКСТЕ, что и в общем разрешителе: запись с пустой строкой (автор написал
+ * и стёр) не должна ни ехать в пакет, ни печатать пустой блок.
+ */
+function bakeInterpretation(raw: unknown): { format: string; text: string } | null {
+  const value = raw as { format?: string; text?: string | null } | null | undefined;
+  const text = typeof value?.text === "string" ? value.text : "";
+  return text.trim().length > 0 ? { format: value?.format ?? "plain", text } : null;
+}
+
+/**
+ * Толкования подтем раздела для пакета — `{ ключ: запись }` либо `null`.
+ *
+ * `null` по той же причине, что и у {@link bakeBreakdownFeedback}: раздел без толкований не
+ * добавляет ключа в `TEST_DATA`, и пакет теста, их не заводившего, остаётся прежним до байта.
+ */
+function bakeBreakdownInterpretation(raw: unknown): Record<string, unknown> | null {
+  const keys = (raw as { keys?: Record<string, unknown> } | null | undefined)?.keys;
+  if (!keys) return null;
+  const out: Record<string, unknown> = {};
+  for (const [key, content] of Object.entries(keys)) {
+    const value = bakeInterpretation(content);
+    if (value) out[key] = value;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export function buildTestJson(data: ExportData): string {
   const testMode = data.test.mode || "standard";
   // PRD-15 block D (FR-32): one resolution context for the whole bake. With no
@@ -358,6 +387,11 @@ export function buildTestJson(data: ExportData): string {
       // вложений становятся `/api/media/<id>`, а упаковщик медиа переписывает их в
       // внутрипакетные пути вместе со всем деревом.
       const sectionBreakdownFeedback = bakeBreakdownFeedback(s.breakdownFeedbackJson);
+      // Толкования: своё у темы, своё у этого теста и по подтемам. Разрешение (что кого
+      // заменяет) здесь НЕ делается — см. комментарий у самих полей ниже.
+      const sectionTopicInterpretation = bakeInterpretation(s.topic.interpretationJson);
+      const sectionOwnInterpretation = bakeInterpretation(s.interpretationJson);
+      const sectionBreakdownInterpretation = bakeBreakdownInterpretation(s.breakdownInterpretationJson);
       return {
         topicId: s.topic.id,
         topicName: s.topic.name,
@@ -421,6 +455,17 @@ export function buildTestJson(data: ExportData): string {
         // пакет теста без них байт-в-байт прежний; кого из них прочитает человек, решает
         // ОБЩИЙ построитель по порогу теста — рантайм только отдаёт написанное.
         ...(sectionBreakdownFeedback ? { breakdownFeedback: sectionBreakdownFeedback } : {}),
+        // Толкования: текст самой ТЕМЫ и текст, которым его заменил ЭТОТ тест, — обоими
+        // полями, не разрешённым значением. Правило замены применяет общий построитель
+        // (`shared/interpretation/resolve`), и применяет его в ОДНОЙ точке для обоих хостов:
+        // разреши сборка — правило жило бы в двух местах и разошлось бы первой же правкой.
+        // Имена полей — имена входа темы у построителя, рантайм отдаёт их как есть.
+        ...(sectionTopicInterpretation ? { interpretation: sectionTopicInterpretation } : {}),
+        ...(sectionOwnInterpretation ? { sectionInterpretation: sectionOwnInterpretation } : {}),
+        // Толкования подтем — того же раздела и по тем же ключам, что и их тексты выше.
+        ...(sectionBreakdownInterpretation
+          ? { breakdownInterpretation: sectionBreakdownInterpretation }
+          : {}),
         recommendedCourses: s.courses.map((c) => ({ title: c.title, url: c.url })),
         recommendedEvents: s.events.map((e) => ({ title: e.title })),
         // PRD-32: PDF attachments of the TOPIC (`topics.feedback_json`) and of THIS test's

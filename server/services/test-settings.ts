@@ -130,6 +130,15 @@ export interface SectionPayload {
    */
   breakdownFeedbackJson?: unknown;
   /**
+   * Толкование темы, заданное ЭТИМ тестом: заменяет текст самой темы целиком.
+   *
+   * `null`/отсутствие = тест не переопределял, и печатается текст темы. Замена, а не
+   * сложение, — то же правило, что у обратной связи темы (PRD-29 §7.1a).
+   */
+  interpretationJson?: unknown;
+  /** Толкования подтем этого раздела — `{ ключ: текст }`; `null`/отсутствие = не написаны. */
+  breakdownInterpretationJson?: unknown;
+  /**
    * PRD-50 FR-11: `key` of the test's group this section belongs to; `null`/absent = no
    * group, and the section prints after all groups in its own order (FR-25).
    */
@@ -842,6 +851,8 @@ export class TestSettingsService {
         drawBlueprintJson: s.drawBlueprintJson ?? null,
         formSetJson: s.formSetJson ?? null,
         breakdownFeedbackJson: (s.breakdownFeedbackJson ?? null) as never,
+        interpretationJson: (s.interpretationJson ?? null) as never,
+        breakdownInterpretationJson: (s.breakdownInterpretationJson ?? null) as never,
         groupKey: s.groupKey ?? null,
         defaultPoints: s.defaultPoints ?? null,
         // FR-18: `null` = тема наследует правило теста.

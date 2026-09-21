@@ -25,7 +25,12 @@ import {
   duplicateNameGroups,
 } from "../services/topic-access";
 import { normalizeTopicName } from "@shared/topics/naming";
-import { feedbackContentSchema, type FeedbackContent } from "@shared/schema";
+import {
+  feedbackContentSchema,
+  interpretationSchema,
+  type FeedbackContent,
+  type InterpretationText,
+} from "@shared/schema";
 import { syncEntityUsages, clearCascadedUsages } from "../services/media/usage-index";
 
 const router = Router();
@@ -38,6 +43,21 @@ const router = Router();
 function parseFeedbackJson(raw: unknown): { ok: true; value: FeedbackContent | undefined } | { ok: false } {
   if (raw === undefined || raw === null) return { ok: true, value: undefined };
   const parsed = feedbackContentSchema.safeParse(raw);
+  return parsed.success ? { ok: true, value: parsed.data } : { ok: false };
+}
+
+/**
+ * То же для ТОЛКОВАНИЯ темы (`topics.interpretation_json`) — текста, который объясняет
+ * результат по этой теме и печатается при любом вердикте.
+ *
+ * Своя проверка, а не общая с обратной связью: у толкования нет ни курсов, ни мероприятий,
+ * ни вложений, и принять их значило бы завести вторую, молчаливую точку хранения материалов.
+ */
+function parseInterpretationJson(
+  raw: unknown,
+): { ok: true; value: InterpretationText | undefined } | { ok: false } {
+  if (raw === undefined || raw === null) return { ok: true, value: undefined };
+  const parsed = interpretationSchema.safeParse(raw);
   return parsed.success ? { ok: true, value: parsed.data } : { ok: false };
 }
 
@@ -133,7 +153,7 @@ const INVALID_TOPIC_CODE = {
 // POST /api/topics - Создать тему
 router.post("/", requirePermission("topics.manage"), async (req, res) => {
   try {
-    const { name, description, feedback, folderId, feedbackJson, code } = req.body;
+    const { name, description, feedback, folderId, feedbackJson, interpretationJson, code } = req.body;
     if (!name) {
       return res.status(400).json({ error: "Name required" });
     }
@@ -144,6 +164,10 @@ router.post("/", requirePermission("topics.manage"), async (req, res) => {
     const fb = parseFeedbackJson(feedbackJson);
     if (!fb.ok) {
       return res.status(400).json({ error: "invalid_feedback_json" });
+    }
+    const interpretation = parseInterpretationJson(interpretationJson);
+    if (!interpretation.ok) {
+      return res.status(400).json({ error: "invalid_interpretation_json" });
     }
     const ownerId = req.currentUser?.id ?? null;
     // FR-27 hard uniqueness within one owner.
@@ -161,6 +185,7 @@ router.post("/", requirePermission("topics.manage"), async (req, res) => {
       description,
       feedback,
       feedbackJson: fb.value,
+      interpretationJson: interpretation.value,
       folderId,
       createdBy: ownerId,
     });
@@ -197,7 +222,7 @@ router.put("/:id", requirePermission("topics.manage"), async (req, res) => {
       respondForbiddenContent(res);
       return;
     }
-    const { name, description, feedback, folderId, feedbackJson, code } = req.body;
+    const { name, description, feedback, folderId, feedbackJson, interpretationJson, code } = req.body;
     const topicCode = normalizeTopicCode(code);
     if (topicCode === false) {
       return res.status(400).json(INVALID_TOPIC_CODE);
@@ -205,6 +230,10 @@ router.put("/:id", requirePermission("topics.manage"), async (req, res) => {
     const fb = parseFeedbackJson(feedbackJson);
     if (!fb.ok) {
       return res.status(400).json({ error: "invalid_feedback_json" });
+    }
+    const interpretation = parseInterpretationJson(interpretationJson);
+    if (!interpretation.ok) {
+      return res.status(400).json({ error: "invalid_interpretation_json" });
     }
     // FR-27: a rename to a name already used by ANOTHER of the owner's topics is
     // a hard conflict; a clash with a different owner's visible topic only warns.
@@ -230,6 +259,9 @@ router.put("/:id", requirePermission("topics.manage"), async (req, res) => {
       // Only overwrite feedbackJson when the client sent it; undefined is skipped
       // by Drizzle's .set(), so omitting it preserves the stored value.
       ...(fb.value !== undefined ? { feedbackJson: fb.value } : {}),
+      // То же правило для толкования: тело без ключа НЕ стирает написанное. Иначе любой
+      // клиент, не знающий о поле (в том числе импорт книги), обнулял бы его молча.
+      ...(interpretation.value !== undefined ? { interpretationJson: interpretation.value } : {}),
     });
     if (!updated) {
       return res.status(404).json({ error: "Topic not found" });

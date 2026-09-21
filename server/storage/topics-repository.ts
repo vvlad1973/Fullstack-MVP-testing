@@ -63,6 +63,9 @@ export class TopicsRepository {
       description: topic.description || null,
       feedback: topic.feedback || null,
       feedbackJson: topic.feedbackJson ?? null,
+      // Толкование темы: своя колонка, потому что это другая сущность, а не раздел
+      // обратной связи (см. `shared/interpretation/resolve`).
+      interpretationJson: topic.interpretationJson ?? null,
       folderId: topic.folderId || null,
       createdBy: topic.createdBy || null,
       // PRD-15 block C: a new topic is owned by its creator and private by
@@ -239,6 +242,9 @@ export class TopicsRepository {
           feedback: originalTopic.feedback ?? undefined,
           // TD-02 r.3: rich feedback (courses/events) travels with the copy.
           feedbackJson: originalTopic.feedbackJson ?? undefined,
+          // По тому же правилу — толкование: копия темы обязана объяснять результат так же,
+          // иначе автор получает молча опустевшее поле.
+          interpretationJson: originalTopic.interpretationJson ?? undefined,
           folderId: originalTopic.folderId ?? undefined,
           createdBy,
         } as InsertTopic))

@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { storage } from "../storage";
 import { db } from "../db";
-import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownFeedbackSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
+import { templates, feedbackContentSchema, passRuleSchema, drawBlueprintSchema, formSetSchema, retakePolicySchema, reportSettingsSchema, testIntroSchema, breakdownDisplaySchema, breakdownFeedbackSchema, breakdownInterpretationSchema, interpretationSchema, sectionGroupsSchema, questionScoringSchema, designSettingsSchema } from "@shared/schema";
 import { listActiveEligibilityPlugins } from "@shared/eligibility/registry";
 import { readScreenTemplate, readManifestContentTemplates, readVariantLayouts } from "../services/template-render";
 import { withTemplateAssetBase } from "@shared/template/asset-base";
@@ -64,6 +64,11 @@ const sectionBodySchema = z
     // проверяет её ЗАПИСЬ — здесь. Без строки Zod срезал бы ключ, и автор получил бы
     // бодрое 200 без сохранённого текста, ровно как было бы с `formSetJson`.
     breakdownFeedbackJson: breakdownFeedbackSchema.nullish(),
+    // Толкования: переопределение текста ТЕМЫ этим тестом и текст каждой подтемы. Должны
+    // стоять здесь по той же причине, что и строка выше: неперечисленный ключ Zod срезает,
+    // и автор получил бы 200 без сохранённого текста.
+    interpretationJson: interpretationSchema.nullish(),
+    breakdownInterpretationJson: breakdownInterpretationSchema.nullish(),
     // PRD-50 FR-11: the group this section belongs to. MUST be listed here for the same
     // reason as formSetJson above — an unlisted key is stripped, and the author's choice
     // of block would never reach the column. null = no group (FR-25).

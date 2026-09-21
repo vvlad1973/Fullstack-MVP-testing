@@ -42,6 +42,7 @@ import {
   buildMeasuresInput,
   resolveScreenLabels,
   type MeasuresSource,
+  type TopicInterpretations,
 } from "../services/result-context";
 import type { MeasuresInput } from "@shared/template/result-context";
 import type { ResultsBlockSettings } from "@shared/template/results-blocks";
@@ -309,6 +310,44 @@ function breakdownFeedbackByTopic(
   return out;
 }
 
+/**
+ * Толкования по разделам ВЫДАННОЙ версии — `topicId` -> текст темы, текст этого теста и
+ * тексты подтем.
+ *
+ * Тема читается своим запросом на раздел, а не общим `getTopics()`: живое хранилище отдало
+ * бы им ВСЕ темы инстанса ради двух-трёх нужных, а снимок и так держит их списком.
+ *
+ * Раздел без единого написанного текста в карту не попадает: отсутствие ключа и означает
+ * «толкований нет», и тест, не пользовавшийся ими, идёт прежним путём до поля.
+ */
+async function readInterpretations(
+  src: TestDataSource,
+  testId: string,
+): Promise<Record<string, TopicInterpretations>> {
+  try {
+    const sections = await src.getTestSections(testId);
+    const topics = await Promise.all(sections.map((section) => src.getTopic(section.topicId)));
+    const out: Record<string, TopicInterpretations> = {};
+    sections.forEach((section, i) => {
+      const topic = topics[i];
+      const texts: TopicInterpretations = {
+        ...(topic?.interpretationJson ? { topic: topic.interpretationJson } : {}),
+        ...(section.interpretationJson ? { section: section.interpretationJson } : {}),
+        ...(section.breakdownInterpretationJson?.keys
+          ? { breakdown: section.breakdownInterpretationJson.keys }
+          : {}),
+      };
+      if (Object.keys(texts).length > 0) out[section.topicId] = texts;
+    });
+    return out;
+  } catch (error) {
+    // Своим `try`, как и у текстов подтем: не прочитались толкования — нет только их,
+    // а балл, темы и обратная связь обязаны дойти до экрана.
+    logger.warn("Толкования не прочитаны — " + (error as Error).message);
+    return {};
+  }
+}
+
 async function resultsMaterialForAttempt(
   attempt: { testId: string; snapshotId: string | null },
   liveTest: Test | undefined,
@@ -376,6 +415,10 @@ async function resultsMaterialForAttempt(
       // шкалы, показатели и обратная связь теста обязаны дойти. Общий `catch` ниже
       // обнулил бы весь материал экрана из-за необязательной его части.
       breakdownFeedbackByTopic: await readBreakdownFeedback(src, attempt.testId),
+      // Толкования темы и её подтем — из той же ВЫДАННОЙ версии. Правило «текст теста
+      // заменяет текст темы» здесь не применяется: его применит общий построитель, тот же,
+      // что и у пакета SCORM.
+      interpretationsByTopic: await readInterpretations(src, attempt.testId),
       testFeedback: (deliveredTest?.feedbackJson as Partial<FeedbackContent> | null) ?? null,
       // Вводные блоки: экрана и отчёта. Берутся из ВЫДАННОЙ версии теста, как и всё
       // остальное здесь, — попытка показывает то содержание, на котором её проходили.

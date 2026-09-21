@@ -23,7 +23,8 @@ import type { BreakdownDisplaySetting, MeasureInput, MeasuresInput } from "@shar
 import type { ReportInput, AdaptiveReportInput, ReportMeta } from "@shared/report/report-html";
 import { rampFromParams } from "@shared/template/level-ramp";
 import { withResolvedScaleIcons } from "./scale-icons";
-import { parseIndicatorInterpretation, parseScaleInterpretation } from "@shared/scales/interpretation";import type { FeedbackBlock } from "@shared/scales/interpretation";
+import { parseIndicatorInterpretation, parseScaleInterpretation } from "@shared/scales/interpretation";
+import type { FeedbackBlock } from "@shared/scales/interpretation";
 import type { RenderKind } from "@shared/template/measure-view";
 import type { ResultsBlockSettings } from "@shared/template/results-blocks";
 import {
@@ -40,9 +41,26 @@ import {
 } from "@shared/template/results-order";
 import { resolveReportIntro } from "@shared/schema";
 import type { DesignSettings, FeedbackContent, ResultVariable, Scale, SectionGroup, TestIntro } from "@shared/schema";
+import type { InterpretationText } from "@shared/interpretation/resolve";
 import type { ScaleResult } from "@shared/formula/types";
 
 export type { ResultRenderContext };
+
+/**
+ * Толкования ОДНОГО раздела выданной версии: своё у темы, своё у теста и по подтемам.
+ *
+ * Три поля, а не одно уже разрешённое значение: правило «текст теста заменяет текст темы»
+ * — предмет ОБЩЕГО построителя, и он один вправе его применить. Маршрут только читает
+ * колонки; разрешение здесь означало бы второе место, где это правило живёт.
+ */
+export interface TopicInterpretations {
+  /** `topics.interpretation_json` — текст самой темы. */
+  topic?: InterpretationText | null;
+  /** `test_sections.interpretation_json` — переопределение этим тестом. */
+  section?: InterpretationText | null;
+  /** `test_sections.breakdown_interpretation_json.keys` — текст каждой подтемы. */
+  breakdown?: Record<string, InterpretationText> | null;
+}
 
 /** Rows and computed values the measures block needs, gathered by the caller. */
 export interface MeasuresSource {
@@ -92,6 +110,20 @@ export interface MeasuresSource {
    * замораживает его вместе с остальным разделом.
    */
   breakdownFeedbackByTopic?: Record<string, Record<string, FeedbackBlock>> | null;
+  /**
+   * Толкования по разделам ВЫДАННОЙ версии — `topicId` -> три текста, из которых общий
+   * построитель соберёт печатное толкование темы и её подтем.
+   *
+   * Отдельным полем от {@link breakdownFeedbackByTopic}, потому что это другая сущность:
+   * толкование объясняет результат и печатается при ЛЮБОМ вердикте, обратная связь
+   * советует и выдаётся по порогу. Смешать их в одну карту значило бы отдать построителю
+   * материал, по которому он уже не отличит одно от другого.
+   *
+   * Отбор здесь не делается: правило «текст теста заменяет текст темы» живёт в
+   * {@link module:shared/interpretation/resolve}, и зовёт его ОДИН построитель — тот же,
+   * что и у пакета SCORM.
+   */
+  interpretationsByTopic?: Record<string, TopicInterpretations> | null;
   /**
    * PRD-46 §5: do the shown scales divide one whole? Answered by the CALLER
    * (`ipsativeScalesForDelivery`), which is the only side holding the contribution rows and
@@ -291,10 +323,27 @@ export function buildMeasuresInput(source: MeasuresSource): MeasuresInput {
   };
 }
 
+/**
+ * Толкования раздела в виде полей входа темы — только те, что действительно написаны.
+ *
+ * Один помощник на оба построителя (экран и отчёт) и на обе ветви (сохранённая попытка и
+ * свежая): пустой объект вместо трёх `undefined` держит обещание «тест без толкований даёт
+ * прежний контекст до поля».
+ */
+function spreadInterpretations(texts: TopicInterpretations | undefined): Partial<TopicInput> {
+  if (!texts) return {};
+  return {
+    ...(texts.topic ? { interpretation: texts.topic } : {}),
+    ...(texts.section ? { sectionInterpretation: texts.section } : {}),
+    ...(texts.breakdown ? { breakdownInterpretation: texts.breakdown } : {}),
+  };
+}
+
 /** Map a server topic result to the normalized topic input. */
 function toTopicInput(
   t: TopicResult,
   breakdownFeedbackByTopic?: Record<string, Record<string, FeedbackBlock>> | null,
+  interpretationsByTopic?: Record<string, TopicInterpretations> | null,
 ): TopicInput {
   return {
     topicId: t.topicId,
@@ -341,6 +390,11 @@ function toTopicInput(
     ...(breakdownFeedbackByTopic?.[t.topicId]
       ? { breakdownFeedback: breakdownFeedbackByTopic[t.topicId] }
       : {}),
+    // Толкования ЭТОГО раздела — три текста, из которых построитель соберёт печатные:
+    // свой темы, свой теста и по подтемам. Раскладываются по ключу только когда написаны,
+    // поэтому тест, не пользовавшийся толкованием, не добавляет к входу ни одного поля —
+    // и карточка темы у него ровно та же, что была.
+    ...spreadInterpretations(interpretationsByTopic?.[t.topicId]),
   };
 }
 
@@ -398,7 +452,9 @@ export function buildResultContext(
       correct: result.totalCorrect,
       earnedPoints: result.totalEarnedPoints,
       possiblePoints: result.totalPossiblePoints,
-      topicResults: (result.topicResults || []).map((t) => toTopicInput(t, measures?.breakdownFeedbackByTopic)),
+      topicResults: (result.topicResults || []).map((t) =>
+        toTopicInput(t, measures?.breakdownFeedbackByTopic, measures?.interpretationsByTopic),
+      ),
       // PRD-50 FR-11: список блоков разделов теста. Едет тем же путём, что и настройка
       // разрезов, — из ВЫДАННОЙ версии теста. Пусто = блоков нет, и построитель не
       // добавляет к контексту ни одного нового поля (FR-27).
@@ -506,7 +562,9 @@ export function buildReportInput(
       correct: result.totalCorrect,
       earnedPoints: result.totalEarnedPoints,
       possiblePoints: result.totalPossiblePoints,
-      topicResults: (result.topicResults || []).map((t) => toTopicInput(t, measures?.breakdownFeedbackByTopic)),
+      topicResults: (result.topicResults || []).map((t) =>
+        toTopicInput(t, measures?.breakdownFeedbackByTopic, measures?.interpretationsByTopic),
+      ),
       // PRD-50 FR-11: те же блоки, что у экрана, и из того же материала (§5.2 — документ
       // не вправе показать иное, чем экран, с которого его скачали). Разбирает их общий
       // построитель контекста, который отчёт и экран зовут один и тот же.
