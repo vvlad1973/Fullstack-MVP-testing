@@ -45,6 +45,7 @@
 import {
   buildResultContext,
   buildAdaptiveResultContext,
+  headingText,
   topicHasContent,
   type MeasuresInput,
   type ResultRenderContext,
@@ -277,6 +278,9 @@ export function buildReportContext(input: ReportInput, opts: ReportContextOption
   const base = buildResultContext(resultInput, input.testName || "", {
     withTopicPoints: true,
     topicPointsIgnoreScoreSummary: true,
+    // Заголовки итога — тем же приёмом, что настройки ниже: документ печатает ту же
+    // шапку, что экран, с которого его скачали (§5.2).
+    ...(input.headings ? { headings: input.headings } : {}),
     // Источники консолидированного блока обратной связи, которых нет в результате
     // попытки: обратная связь самого теста и признак «тест выносит вердикт». Уходят в
     // ТОТ ЖЕ построитель, что собирает блок для экрана, — второго правила консолидации
@@ -330,7 +334,14 @@ export function buildReportContext(input: ReportInput, opts: ReportContextOption
   // Шапка не пустеет: у документа над ней нет заголовка теста, который есть у экрана.
   // Формулировка не новая — её уже печатает адаптивный отчёт, где вердикта нет по природе
   // режима, поэтому два вида документа сходятся на одном слове.
-  report.verdictHeadline = !hasVerdict ? "Результаты теста" : passed ? "Тест пройден" : "Тест не пройден";
+  // Шапка исхода: авторская, если задана. Умолчание у документа СВОЁ («Тест пройден»
+  // против «Пройден» на экране): у экрана над пилюлей стоит название теста, у документа —
+  // нет, и одним словом шапка документа не держится. Тест без вердикта не переименовывается
+  // вовсе: заголовок исхода утверждал бы то, чего экран о слушателе не утверждает.
+  const headingFor = passed ? headingText(input.headings?.passed) : headingText(input.headings?.failed);
+  report.verdictHeadline = !hasVerdict
+    ? "Результаты теста"
+    : headingFor ?? (passed ? "Тест пройден" : "Тест не пройден");
   // Бейдж и класс гасятся ПОЛНОСТЬЮ, а не заменяются нейтральным значением: плашка несёт
   // цвет вердикта, и любой из двух цветов был бы утверждением. Макет гейтит их на пустоте.
   report.verdictBadge = !hasVerdict ? "" : passed ? "пройден" : "не пройден";

@@ -704,9 +704,40 @@ function fillMeasureBlocks(
 }
 
 /** Optional SCORM-richer additions to the standard results context. */
+/**
+ * Заголовки итога — три строки, которыми тест называет свой результат сам.
+ *
+ * Свойства узла «Итоги теста» в структуре сценария (`content_pages.settings_json`), а не
+ * надписи словаря PRD-49: словарь переименовывает НАДПИСИ ИНТЕРФЕЙСА, общие для всех
+ * тестов шаблона, а это — содержание конкретного теста, и живёт оно там же, где остальные
+ * свойства его итоговой карточки.
+ *
+ * Пустая строка равна отсутствию: тест, ничего не заполнивший, печатает ровно то, что
+ * печатал, — название теста в заголовке и «Тест пройден» / «Тест не пройден» в шапке.
+ */
+export interface ResultHeadings {
+  /** Заголовок документа и экрана; пусто — название теста. */
+  document?: string;
+  /** Заголовок при успехе; пусто — умолчание поверхности. */
+  passed?: string;
+  /** Заголовок при неуспехе; пусто — умолчание поверхности. */
+  failed?: string;
+}
+
+/** Непустая строка настройки либо `undefined`: пробелы не заголовок. */
+export function headingText(value: string | undefined | null): string | undefined {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text.length > 0 ? text : undefined;
+}
+
 export interface ResultContextOptions {
   /** Add the per-topic "Баллов" row (`pointsLabel`) — SCORM shows it, web omits. */
   withTopicPoints?: boolean;
+  /**
+   * Заголовки итога этого теста (см. {@link ResultHeadings}). Отсутствие оставляет
+   * контекст прежним до поля.
+   */
+  headings?: ResultHeadings;
   /**
    * Keep the per-topic "Баллов" row even when the test's score-summary block is
    * switched off (`blockSettings.scoreSummary: "hide"`). Set by the PDF report ONLY:
@@ -1216,7 +1247,12 @@ export function buildResultContext(
   const result: CtxResult = {
     passed,
     passClass: passed ? "is-pass" : "is-fail",
-    statusLabel: passed ? "Пройден" : "Не пройден",
+    // Заголовок исхода: авторский, если задан, иначе прежняя подпись пилюли. Гейт стоит на
+    // ТЕКСТЕ, а не на наличии поля: настройка, из которой текст стёрли, обязана вернуть
+    // умолчание, а не напечатать пустую пилюлю.
+    statusLabel: passed
+      ? headingText(opts.headings?.passed) ?? "Пройден"
+      : headingText(opts.headings?.failed) ?? "Не пройден",
     scorePercent: percent,
     ringDashoffset: Math.round(RING_CIRCUMFERENCE * (1 - percent / 100)),
     totalQuestions: input.totalQuestions,
@@ -1329,7 +1365,14 @@ export function buildResultContext(
   // screen itself reads, so the list says «visible» exactly where the summary prints —
   // including a control test, which never reaches the toggle and has always shown it.
   const labelsTreeOut = attachBlocksAndLabels(result, opts, !result.hideScoreSummary);
-  return { course: { title }, result, ...(labelsTreeOut ? { labels: labelsTreeOut } : {}) };
+  // Заголовок документа заменяет название теста — и на экране, и в отчёте: обе поверхности
+  // печатают одно и то же поле `course.title`, и расхождение здесь было бы расхождением
+  // между экраном и скачанным с него документом (PRD-51 §5.2).
+  return {
+    course: { title: headingText(opts.headings?.document) ?? title },
+    result,
+    ...(labelsTreeOut ? { labels: labelsTreeOut } : {}),
+  };
 }
 
 /** Normalized input for the staged section-results screen (PRD-19 FR-05a). */
@@ -1518,6 +1561,11 @@ export interface AdaptiveResultInput {
 
 /** Optional SCORM action flags for the adaptive results layout. */
 export interface AdaptiveResultContextOptions {
+  /**
+   * Заголовки итога (см. {@link ResultHeadings}). Адаптивный итог читает из них только
+   * заголовок документа: вердикта этот режим не выносит, и заголовков исхода у него нет.
+   */
+  headings?: ResultHeadings;
   hasScormActions?: boolean;
   showPdf?: boolean;
   canRetry?: boolean;
@@ -1736,5 +1784,11 @@ export function buildAdaptiveResultContext(
   // `hasSummary: false` fixed — this screen has never carried a score summary, so no
   // caller-supplied order can ever bring one back onto it.
   const labelsTreeOut = attachBlocksAndLabels(result, opts, false);
-  return { course: { title }, result, ...(labelsTreeOut ? { labels: labelsTreeOut } : {}) };
+  // Заголовок документа действует и здесь: как назван итог, от режима теста не зависит.
+  // Заголовки ИСХОДА у адаптивного итога предмета не имеют — вердикта он не выносит.
+  return {
+    course: { title: headingText(opts.headings?.document) ?? title },
+    result,
+    ...(labelsTreeOut ? { labels: labelsTreeOut } : {}),
+  };
 }

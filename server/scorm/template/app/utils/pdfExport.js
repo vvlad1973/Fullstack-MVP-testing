@@ -96,6 +96,13 @@ function pdfReportMeta() {
     if (feedback) meta.feedback = feedback;
   }
   if (typeof vrHasPassThreshold === 'function') meta.hasPassThreshold = vrHasPassThreshold();
+  // Заголовки итога — те же свойства узла «Итоги теста», что читает экран
+  // (`resultHeadingsOf`, viewResults.js): документ печатает ту же шапку, что экран, с
+  // которого его скачали (PRD-51 §5.2).
+  if (typeof resultHeadingsOf === 'function') {
+    var headings = resultHeadingsOf();
+    if (headings) meta.headings = headings;
+  }
   // PRD-50 FR-13: та же настройка, что читает экран итогов (`viewResults.js`, baked into
   // `TEST_DATA.breakdownDisplay` only when the author turned it on — see `test-json.ts`).
   // Без неё общий построитель держит строки полос погашенными, даже когда темы ниже несут

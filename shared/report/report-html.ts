@@ -20,6 +20,7 @@ import type {
   AdaptiveResultInput,
   AdaptiveTopicInput,
   BreakdownDisplaySetting,
+  ResultHeadings,
 } from "../template/result-context";
 import type { FeedbackBlock } from "../scales/interpretation";
 
@@ -32,6 +33,15 @@ export interface ReportMeta {
   adaptive?: boolean;
   /** Test title (the card headline). */
   testName: string;
+  /**
+   * Заголовки итога этого теста — свойства узла «Итоги теста» в структуре сценария.
+   *
+   * Лежат во ВХОДЕ отчёта по той же причине, что и {@link feedback}: оба хоста собирают
+   * вход там, где этот факт известен, — веб в маршруте результата, пакет в рантайме из
+   * `TEST_DATA`. Отсутствие оставляет документ прежним: название теста в шапке и «Тест
+   * пройден» / «Тест не пройден» над сводкой.
+   */
+  headings?: ResultHeadings;
   /** Learner's full name — LMS `cmi.learner_name` in SCORM, session user on the web. */
   learnerName?: string | null;
   /** ISO timestamp of the attempt being reported. */

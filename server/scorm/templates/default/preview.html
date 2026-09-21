@@ -771,8 +771,10 @@
 .ou-acc__subtitle { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
 
 .ou-acc__chev { color: var(--ou-fg-muted); flex-shrink: 0; transition: transform var(--ou-motion-base) var(--ou-easing-standard); }
-.ou-acc__item.is-open .ou-acc__chev { transform: rotate(180deg); color: var(--ou-accent-default); }
-.ou-acc__item.is-open .ou-acc__title { color: var(--ou-fg-default); }
+/* Прямой ребёнок, а не потомок: раскрытая строка не должна разворачивать галочки и
+   подсвечивать заголовки ВЛОЖЕННЫХ строк — аккордеон внутри аккордеона законен. */
+.ou-acc__item.is-open > .ou-acc__trigger .ou-acc__chev { transform: rotate(180deg); color: var(--ou-accent-default); }
+.ou-acc__item.is-open > .ou-acc__trigger .ou-acc__title { color: var(--ou-fg-default); }
 
 .ou-acc__body {
   padding: 0 var(--ou-space-5) var(--ou-space-5);
@@ -6261,6 +6263,7 @@ span.ou-quiz__dot:hover { transform: none; }
 .ou-rte__area p { margin: 0 0 var(--ou-space-2); }
 .ou-rte__area p:last-child { margin-bottom: 0; }
 .ou-rte__area ul, .ou-rte__area ol { margin: 0 0 var(--ou-space-2); padding-left: var(--ou-space-5); }
+.ou-rte__area ul { list-style: disc outside; }
 .ou-rte__area ul ul { list-style-type: circle; }
 .ou-rte__area ul ul ul { list-style-type: square; }
 .ou-rte__area ol { list-style: decimal outside; }
@@ -8646,6 +8649,116 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
   line-height: 1.35;
 }
 
+/* Typed answer (PRD-57 §6.5, §6.6). The field fills the column like every other answer
+   block; the NUMERIC flavour takes half of it, because a number is short and a field as
+   wide as the column invites a sentence into a box that compares digits. The input rides
+   the same `--tb-answer-fs` as the option text, so all answers on a run are one size. */
+.tb-scene .tb-answer-field { width: 100%; }
+.tb-scene .tb-answer-field--num { width: 50%; }
+.tb-scene .tb-answer-field .ou-field__input {
+  font-size: var(--tb-answer-fs, 20px);
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* Пропуски в тексте задания (PRD-57 §6, FR-24). Поле стоит В СТРОКЕ, поэтому
+   собственных отступов у него НЕТ намеренно: пробелы вокруг пропуска — это пробелы
+   текста задания, а свой margin выглядел бы лишним пробелом перед запятой, стоящей
+   сразу за полем. Ширина живёт в `--tb-blank-w` и выводится из эталона: поле на две
+   цифры и поле на слово — разные подсказки о том, чего ждут. */
+.tb-scene .tb-blank {
+  display: inline-flex;
+  vertical-align: baseline;
+  /* Ширина ТЕКСТА ответа; поля коробки прибавляются сверху, иначе поле на две цифры
+     съело бы их padding'ом и показало обрезок. */
+  width: calc(var(--tb-blank-w, 12ch) + 2 * var(--ou-space-2));
+}
+.tb-scene .tb-blank .ou-field__box { padding-inline: var(--ou-space-2); }
+.tb-scene .tb-blank .ou-field__input {
+  font-size: var(--tb-answer-fs, 20px);
+  text-align: center;
+}
+
+/* Подстановка вместо поля — три режима одной общей функции (FR-24i): прочерк там, где
+   полей нет вовсе; ответ участника и эталон там, где поле уже отыграно. Вид у всех трёх
+   один, различается источник текста и разметка верности. */
+.tb-scene .tb-blank-sub {
+  display: inline-block;
+  border-bottom: 2px solid var(--ou-border-default);
+  text-align: center;
+  font-weight: 600;
+}
+/* Ширину держит ТОЛЬКО прочерк: подставлять там нечего, и без неё он схлопнулся бы в
+   точку. У ответа и эталона ширина равна ширине текста — фиксированная превратилась бы
+   в лишний пробел перед запятой. */
+.tb-scene .tb-blank-sub--dash {
+  color: transparent;
+  min-width: var(--tb-blank-w, 12ch);
+}
+.tb-scene .tb-blank-sub.correct-answer {
+  border-bottom-color: var(--ou-success-default);
+  color: var(--ou-success-on-soft);
+}
+.tb-scene .tb-blank-sub.incorrect-answer {
+  border-bottom-color: var(--ou-error-default);
+  color: var(--ou-error-on-soft);
+}
+/* Эталон автора — нейтральным тоном. Это не «верно», а «вот что ожидалось»; зелёный
+   здесь читался бы как вердикт по чужому ответу. */
+.tb-scene .tb-blank-sub--etalon {
+  border-bottom-style: dashed;
+  color: var(--ou-accent-on-soft);
+}
+
+/* Листинг кода в тексте задания (PRD-57 §4.1). Блок прокручивается САМ: перенос в
+   коде меняет смысл, а прокрутка страницы поперёк — дефект вёрстки (FR-04). Шрифт —
+   из шаблона, поэтому PDF-отчёт одинаков на разных машинах (FR-05). */
+.tb-scene .tb-code {
+  margin: var(--ou-space-3) 0;
+  padding: var(--ou-space-3) var(--ou-space-4);
+  border-radius: var(--ou-radius-m);
+  background: var(--ou-bg-subtle);
+  border: 1px solid var(--ou-border-soft);
+  font-family: var(--ou-font-family-mono);
+  font-size: calc(var(--tb-answer-fs, 20px) * 0.8);
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
+}
+.tb-scene .tb-code code { font-family: var(--ou-font-family-mono); }
+.tb-scene .tb-code-inline {
+  font-family: var(--ou-font-family-mono);
+  font-size: 0.92em;
+  padding: 0 var(--ou-space-1);
+  border-radius: var(--ou-radius-s);
+  background: var(--ou-bg-subtle);
+}
+
+/* Пять ролей подсветки (FR-03c). Цвета — токены ТЕМЫ, а не палитра библиотеки: замена
+   движка подсветки меняет один переводчик на сервере, а не оформление каждого шаблона. */
+.tb-scene .tb-code__kw { color: var(--ou-accent-on-soft); font-weight: 600; }
+.tb-scene .tb-code__str { color: var(--ou-success-on-soft); }
+.tb-scene .tb-code__num { color: var(--ou-warning-on-soft); }
+.tb-scene .tb-code__com { color: var(--ou-fg-muted); font-style: italic; }
+.tb-scene .tb-code__fn { color: var(--ou-info-on-soft, var(--ou-accent-default)); }
+
+/* Формула (PRD-57 §4.2). Картинка приезжает готовой: SVG считает сервер, в пакет
+   едет только он. Выравнивание по базовой линии — формула стоит В СТРОКЕ текста и не
+   должна подпрыгивать над ней. */
+.tb-scene .tb-formula {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+}
+.tb-scene .tb-formula svg {
+  /* Цвет наследуется от текста: у SVG MathJax заливка задана `currentColor`, поэтому
+     формула живёт в теме шаблона, а не в палитре библиотеки. */
+  fill: currentColor;
+  max-width: 100%;
+  height: auto;
+}
+
 /* Multiple: the tick is class-driven (no native input) — mirror DS :checked. */
 .ou-radio-card.is-on .ou-check__box {
   background: var(--ou-accent-default);
@@ -9447,6 +9560,10 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   .tb-scene__col { gap: var(--ou-space-3); }
   .tb-scene__col--doc { gap: var(--ou-space-4); }
 
+  /* Half a column of a 360px screen is a field five digits wide: below this step the
+     numeric answer takes the whole width like every other block. */
+  .tb-scene .tb-answer-field--num { width: 100%; }
+
   /* Header. Measured on a phone the old stack cost 162px of an 844px screen: a brand
      row, then a tier for the timers (the DS digital timer stacks a label OVER a 22px
      number), then a tier for the counters. Here the header itself becomes the wrapping
@@ -10211,7 +10328,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       </div>
 
       <div class="pv-dialog-foot">
-        <span>12 экранов · 42 шаблонов контента · шаблон «Стандартный» v1.10.0</span>
+        <span>12 экранов · 42 шаблонов контента · шаблон «Стандартный» v1.13.0</span>
         <button type="button" class="pv-btn">Закрыть</button>
       </div>
     </div>
@@ -10223,7 +10340,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   window.PRD1_PREVIEW_MANIFEST  = {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.10.0",
+  "version": "1.13.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -10649,6 +10766,24 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       "pageKind": "results",
       "layoutFile": "layouts/results.html",
       "settings": [
+        {
+          "key": "headingDocument",
+          "type": "text",
+          "label": "Заголовок документа",
+          "description": "Пусто — печатается название теста. Действует на экране итогов, в отчёте и в пакете."
+        },
+        {
+          "key": "headingPassed",
+          "type": "text",
+          "label": "Заголовок при успехе",
+          "description": "Пусто — «Тест пройден»."
+        },
+        {
+          "key": "headingFailed",
+          "type": "text",
+          "label": "Заголовок при неуспехе",
+          "description": "Пусто — «Тест не пройден»."
+        },
         {
           "key": "scoreSummary",
           "type": "select",
@@ -12658,8 +12793,8 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   "shell": "<div class=\"tb-player\" data-template=\"default\">\n  <div class=\"tb-progress-wrap\">\n    <div class=\"tb-progress-bar\" id=\"tb-progress-fill\"></div>\n  </div>\n  <main id=\"app\" class=\"tb-content\" data-slot=\"page\" tabindex=\"-1\"></main>\n</div>\n",
   "start": "<div class=\"tb-scene tb-scene--cover\">\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-cover{{#if design.startImageUrl}} tb-cover--media{{/if}}\">\n      <div class=\"tb-cover__main\">\n        {{#if design.logoUrl}}<span class=\"tb-scene__logo tb-cover__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n\n        <div class=\"tb-cover__content\">\n          <div class=\"tb-cover__head\">\n            <div class=\"tb-cover__eyebrow\">\n              {{#if course.subtitle}}<span data-path=\"course.subtitle\"></span>{{/if}}\n              {{#if state.exhausted}}<span class=\"ou-tag ou-tag--neutral\">Попытки исчерпаны</span>{{/if}}\n            </div>\n            <h1 class=\"tb-cover__title\" data-path=\"course.title\"></h1>\n            {{#if course.description}}<div class=\"tb-cover__desc\">{{& course.descriptionHtml }}</div>{{/if}}\n          </div>\n\n          <div class=\"tb-facts\">\n            {{#if course.questionCount}}\n            <div class=\"tb-facts__item\">\n              <div class=\"tb-facts__num\" data-path=\"course.questionCount\"></div>\n              <div class=\"tb-facts__lbl\">вопросов</div>\n            </div>\n            {{/if}}\n            {{#if course.passPercent}}\n            <div class=\"tb-facts__item\">\n              <div class=\"tb-facts__num\"><span data-path=\"course.passPercent\"></span>%</div>\n              <div class=\"tb-facts__lbl\">проходной балл</div>\n            </div>\n            {{/if}}\n            {{#if course.timeLimitLabel}}\n            <div class=\"tb-facts__item\">\n              <div class=\"tb-facts__num\" data-path=\"course.timeLimitLabel\"></div>\n              <div class=\"tb-facts__lbl\">на прохождение</div>\n            </div>\n            {{/if}}\n            {{#if course.maxAttempts}}\n            <div class=\"tb-facts__item\">\n              <div class=\"tb-facts__num\" data-path=\"course.maxAttempts\"></div>\n              <div class=\"tb-facts__lbl\">попыток</div>\n            </div>\n            {{/if}}\n          </div>\n\n          {{#if course.startPageContent}}\n          <div class=\"tb-cover__note\">\n            <span class=\"tb-scene__subhead\">Как проходить</span>\n            <span class=\"tb-scene__note\">{{course.startPageContent}}</span>\n          </div>\n          {{/if}}\n\n          {{#if state.cooldown}}\n          <div class=\"ou-banner ou-banner--sm tb-cooldown\">\n            <span class=\"ou-banner__ico\" aria-hidden=\"true\">\n              <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>\n            </span>\n            <div class=\"ou-banner__body\">\n              <div class=\"ou-banner__title\">Повторное прохождение пока недоступно</div>\n              <div class=\"ou-banner__desc\">Повторный запуск будет доступен с <strong><span data-path=\"state.cooldown.availableDateHuman\"></span></strong>{{#if state.cooldown.daysUntil}} &middot; через <span data-path=\"state.cooldown.daysUntil\"></span> дн.{{/if}}</div>\n            </div>\n          </div>\n          {{/if}}\n\n          {{#if state.priorResult}}\n          <div class=\"ou-banner ou-banner--sm tb-prior\">\n            <div class=\"ou-banner__body\">\n              <div class=\"ou-banner__title\">Прошлая попытка: <span data-path=\"state.priorResult.percent\"></span>%{{#if state.priorResult.verdictLabel}} &middot; <span class=\"{{state.priorResult.verdictClass}}\" data-path=\"state.priorResult.verdictLabel\"></span>{{/if}}{{#if state.priorResult.attemptsLabel}} &middot; <span data-path=\"state.priorResult.attemptsLabel\"></span>{{/if}}</div>\n            </div>\n            <div class=\"ou-banner__actions\">\n              {{#if state.canViewResults}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--s\" data-action=\"view-results\">Мой результат</button>{{/if}}\n              {{#if state.canDownloadReport}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--s\" data-action=\"download-report\">Скачать отчёт</button>{{/if}}\n            </div>\n          </div>\n          {{/if}}\n\n          {{#if state.resumeNote}}\n          <div class=\"ou-banner ou-banner--sm tb-resume\">\n            <div class=\"ou-banner__body\">\n              <div class=\"ou-banner__title\" data-path=\"state.resumeNote\"></div>\n            </div>\n          </div>\n          {{/if}}\n        </div>\n      </div>\n\n      {{#if design.startImageUrl}}\n      <div class=\"tb-cover__media\"><img src=\"{{ design.startImageUrl }}\" alt=\"\"></div>\n      {{/if}}\n    </div>\n  </main>\n\n  <footer class=\"tb-scene__foot\">\n    {{#if state.showBack}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"back\">К списку тестов</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    {{#if state.canResume}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"resume\">{{state.resumeLabel}}</button>{{/if}}\n    {{#if state.cooldown}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" disabled aria-disabled=\"true\">Начать тестирование</button>{{/if}}\n    {{#if state.canStart}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"start-test\">{{state.startLabel}}</button>{{/if}}\n    {{#if state.canRestart}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--l\" data-action=\"restart\">Начать заново</button>{{/if}}\n    {{#unless state.priorResult}}{{#if state.canViewResults}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--l\" data-action=\"view-results\">Мой результат</button>{{/if}}{{/unless}}\n  </footer>\n</div>\n",
   "content": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow tb-scene__brandrow--center\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      {{#if page.pageLabel}}<div class=\"tb-scene__headtag\"><span class=\"ou-tag ou-tag--neutral\" data-path=\"page.pageLabel\"></span></div>{{/if}}\n      <div class=\"tb-scene__timers\">\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"timer-display\">\n          <span class=\"ou-timer__lbl\">тест</span><span class=\"ou-timer__num\"></span>\n        </div>\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"section-timer-display\">\n          <span class=\"ou-timer__lbl\">раздел</span><span class=\"ou-timer__num\"></span>\n        </div>\n      </div>\n    </div>\n    {{#if page.pageLabel}}<div class=\"tb-scene__progress\"><div class=\"tb-scene__progress-fill\" style=\"width:{{page.progressPercent}}%\"></div></div>{{/if}}\n  </header>\n\n  <main class=\"tb-scene__body tb-content-body\">\n    <div class=\"tb-content\" data-slot=\"page-content\"></div>\n  </main>\n  <footer class=\"tb-scene__foot\">\n    {{#if page.canGoBack}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-nav=\"prev\">Назад</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    <button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-nav=\"next\"{{#if page.nextDisabled}} disabled aria-disabled=\"true\"{{/if}}>{{page.nextLabel}}</button>\n  </footer>\n</div>\n",
-  "question": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__timers\">\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"timer-display\">\n          <span class=\"ou-timer__lbl\">тест</span><span class=\"ou-timer__num\"></span>\n        </div>\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"section-timer-display\">\n          <span class=\"ou-timer__lbl\">раздел</span><span class=\"ou-timer__num\"></span>\n        </div>\n      </div>\n    </div>\n    {{#if state.questionsProgress}}\n    <div class=\"ou-quiz ou-quiz--circle ou-quiz--m tb-scene__map\" role=\"group\" aria-label=\"Карта вопросов\">\n      <div class=\"ou-quiz__dots\">\n        {{#each state.questionsProgress.states}}\n        <button type=\"button\" class=\"ou-quiz__dot {{statusClass}}\" {{#unless clickable}}disabled{{/unless}} data-action=\"goto:{{index}}\" aria-label=\"{{ariaLabel}}\">{{number}}</button>\n        {{/each}}\n      </div>\n      <div class=\"ou-quiz__legend\">\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-flagged\"></span>пропущен</span>\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-current\"></span>текущий</span>\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot\"></span>не отвечен</span>\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-answered\"></span>отвечен</span>\n      </div>\n      <div class=\"tb-scene__mapcounts\">\n        <span class=\"tb-scene__mapcount tb-scene__mapcount--answered\">отвечено <strong>{{state.questionsProgress.answeredCount}}</strong> из {{state.questionsProgress.total}}</span>\n        <span class=\"tb-scene__mapcount tb-scene__mapcount--skipped\">пропущено {{state.questionsProgress.skippedCount}}</span>\n      </div>\n    </div>\n    {{/if}}\n    <div class=\"tb-scene__progress\"><div class=\"tb-scene__progress-fill\" id=\"q-progress-fill\"></div></div>\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col\" style=\"--tb-question-fs: {{state.questionFont}}; --tb-answer-fs: {{state.optionFont}}\">\n      <div class=\"tb-scene__meta\">\n        <span data-path=\"state.questionCounterLabel\"></span>\n        {{#if state.sectionName}}<span class=\"ou-tag ou-tag--neutral\" data-path=\"state.sectionName\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__q\">\n        <div data-slot=\"question-media\"></div>\n        <h2 class=\"tb-scene__qtitle\" data-slot=\"question-text\"></h2>\n        <!-- PRD-34 (FR-16): строка подсказки — она же место водяного знака. Якорь пустой:\n             разметку, кегль и контраст знака даёт ЯДРО, шаблон отвечает только за место. -->\n        <div class=\"tb-scene__qmeta\">\n          {{#if state.questionHint}}<span class=\"tb-scene__qhint\" data-path=\"state.questionHint\"></span>{{/if}}\n          <div data-slot=\"protection-mark\"></div>\n        </div>\n      </div>\n      <div class=\"tb-qbody\">\n        <div class=\"tb-qbody__answers\">\n          <div data-slot=\"question-feedback\"></div>\n          <div data-slot=\"question-interaction\"></div>\n        </div>\n      </div>\n    </div>\n  </main>\n\n  <!-- Navigation row. Composition is the TEMPLATE's decision; the host only supplies\n       `state.nav` (see shared/template/question-nav). Both hosts render this markup,\n       so the footer cannot differ between the web run and the package. -->\n  <footer class=\"tb-scene__foot\">\n    {{#if state.nav.showBack}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"answer-back\" {{#unless state.nav.canPrev}}disabled{{/unless}}>← Назад</button>{{/if}}\n    {{#if state.nav.showSkip}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"answer-skip\">Пропустить</button>{{/if}}\n    {{#if state.nav.showReview}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"answer-return\">К обзору</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    <button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"{{state.nav.primaryAction}}\" {{#unless state.nav.primaryEnabled}}disabled{{/unless}} data-path=\"state.nav.primaryLabel\"></button>\n  </footer>\n</div>\n",
-  "results": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__headtag\">{{#if result.statusLabel}}<span class=\"ou-tag {{ result.passClass }}\" data-path=\"result.statusLabel\"></span>{{/if}}</div>\n    </div>\n    <div class=\"tb-scene__progress\"><div class=\"tb-scene__progress-fill\" style=\"width: {{result.scorePercent}}%\"></div></div>\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col tb-scene__col--wide\">\n      <!-- PRD-34 (FR-16): место водяного знака, объявленное макетом. -->\n      <div data-slot=\"protection-mark\"></div>\n      <!-- ВВОДНЫЙ БЛОК автора — первым, до всего остального: он объясняет слушателю, что\n           он сейчас читает. Разметку строит ядро из текста и его формата, поэтому печать\n           идёт контролируемым каналом; пусто = блока нет. -->\n      {{#if result.introHtml}}<div class=\"tb-intro\">{{& result.introHtml }}</div>{{/if}}\n\n      <!-- PRD-49. ЗОНТИК итогов: одна надпись первого уровня и цикл по подблокам, которые\n           ядро уже отобрало и упорядочило (`result.blocks`). Состав и порядок макет не\n           решает — вторая копия этого решения в разметке и есть тот расход, ради которого\n           PRD-49 существует. Пустая надпись = автор её выключил, блок при этом остаётся.\n           Внутри цикла контекст — ЭЛЕМЕНТ массива, поэтому данные экрана адресуются\n           через `@root.`. -->\n      {{#if result.blocks}}\n      {{#if labels.results.heading}}\n      <h2 class=\"tb-scene__hero tb-scene__hero--s\">{{ labels.results.heading }}</h2>\n      {{/if}}\n      {{#each result.blocks}}\n      {{#unless @first}}<hr class=\"ou-separator ou-separator--horizontal\">{{/unless}}\n      {{#if heading}}<div class=\"tb-scene__q\"><h3 class=\"tb-scene__subhead\">{{ heading }}</h3></div>{{/if}}\n\n      {{#if isSummary}}\n      <div class=\"tb-score-strip\">\n        <div class=\"ou-ring tb-ring\">\n          <svg class=\"ou-ring__svg\" width=\"140\" height=\"140\" viewBox=\"0 0 140 140\">\n            <circle class=\"ou-ring__track\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\"></circle>\n            <circle class=\"ou-ring__fill {{ @root.result.passClass }}\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-dasharray=\"395.84\" stroke-dashoffset=\"{{ @root.result.ringDashoffset }}\"></circle>\n          </svg>\n          <div class=\"ou-ring__center\">\n            <div class=\"ou-ring__value\"><span data-path=\"result.scorePercent\"></span>%</div>\n            <div class=\"ou-ring__label\">баллы</div>\n          </div>\n        </div>\n        <div class=\"tb-facts\">\n          <div class=\"tb-facts__item\"><div class=\"tb-facts__num\" data-path=\"result.totalQuestions\"></div><div class=\"tb-facts__lbl\">{{ @root.labels.facts.questions }}</div></div>\n          <div class=\"tb-facts__item\"><div class=\"tb-facts__num\"><span data-path=\"result.correct\"></span>/<span data-path=\"result.totalQuestions\"></span></div><div class=\"tb-facts__lbl\">{{ @root.labels.facts.correct }}</div></div>\n          <div class=\"tb-facts__item\"><div class=\"tb-facts__num\" data-path=\"result.earnedPoints\"></div><div class=\"tb-facts__lbl\">{{ @root.labels.facts.points }}</div></div>\n        </div>\n      </div>\n      {{/if}}\n\n      <!-- ШКАЛЫ и ПОКАЗАТЕЛИ: место каждого в цикле задаёт порядок подблоков, а не\n           разметка. Внутренние циклы уже работают в контексте своего элемента — трогать\n           их нельзя, меняются только внешние пути. -->\n      {{#if isScales}}\n      <div class=\"{{@root.result.scalesBlockClass}}\">\n        {{#if @root.result.scalesChart}}\n        <!-- PRD-46: ОДИН блок на радар и розу. Ядро отдаёт обе диаграммы одной формой, и\n            неподходящие списки приходят ПУСТЫМИ — пустой цикл не рисует ничего, поэтому\n            ветвиться по виду разметке не требуется (в DSL и нечем). Порядок слоёв важен:\n            заливки розы непрозрачны, поэтому сетка идёт ПОВЕРХ них. -->\n        <div class=\"tb-chart\">\n          <svg class=\"tb-chart__svg\" viewBox=\"0 0 {{@root.result.scalesChart.width}} {{@root.result.scalesChart.height}}\" role=\"img\" aria-label=\"{{@root.result.scalesChart.ariaLabel}}\">\n            {{#each @root.result.scalesChart.sectors}}\n            <path class=\"tb-rose__sector {{overflowClass}}\" d=\"{{d}}\" style=\"--tb-hue:{{color}}\"></path>\n            {{/each}}\n            {{#each @root.result.scalesChart.rings}}\n            <circle class=\"tb-chart__ring\" cx=\"{{cx}}\" cy=\"{{cy}}\" r=\"{{radius}}\"></circle>\n            {{/each}}\n            {{#each @root.result.scalesChart.spokes}}\n            <line class=\"tb-chart__axis\" x1=\"{{cx}}\" y1=\"{{cy}}\" x2=\"{{x}}\" y2=\"{{y}}\"></line>\n            {{/each}}\n            {{#each @root.result.scalesChart.axes}}\n            <line class=\"tb-chart__axis\" x1=\"{{cx}}\" y1=\"{{cy}}\" x2=\"{{axisX}}\" y2=\"{{axisY}}\"></line>\n            {{/each}}\n            {{#if @root.result.scalesChart.isRadar}}\n            <polygon class=\"tb-radar__shape\" points=\"{{@root.result.scalesChart.polygonPoints}}\"></polygon>\n            {{/if}}\n            {{#each @root.result.scalesChart.axes}}\n            <circle class=\"tb-radar__dot {{quantizedClass}} {{overflowClass}}\" cx=\"{{x}}\" cy=\"{{y}}\" r=\"6\" style=\"--tb-zone:{{color}}\"></circle>\n            {{/each}}\n            {{#each @root.result.scalesChart.icons}}\n            <g class=\"tb-rose__icon\" transform=\"{{transform}}\">{{#each paths}}<path d=\"{{.}}\"></path>{{/each}}</g>\n            {{/each}}\n            {{#each @root.result.scalesChart.labels}}\n            <text class=\"{{className}}\" x=\"{{x}}\" y=\"{{y}}\" text-anchor=\"{{anchor}}\">{{text}}</text>\n            {{/each}}\n          </svg>\n          {{#if @root.result.scalesChart.limitCaption}}\n          <p class=\"tb-chart__limit\">{{@root.result.scalesChart.limitCaption}}</p>\n          {{/if}}\n        </div>\n        {{/if}}\n        <!-- ЛИНЕЙЧАТАЯ ДИАГРАММА (вид шкал «Линейчатая диаграмма»): столбики всех шкал в\n             одной фигуре, вместо списка карточек. Стоит рядом с розой или радаром, а не\n             вместо них: те отвечают на «как делится целое», эта — на «какая шкала выражена\n             сильнее». Длину задаёт наибольший балл попытки, поэтому ни дорожки до максимума\n             шкалы, ни подписей оси здесь нет: это не линейка прогресса. Ядро отдаёт фигуру\n             только тогда, когда собрало (`scaleBars`), поэтому гейт диаграммы и обратный\n             гейт списка ниже — одна и та же проверка. -->\n        {{#if @root.result.scaleBars}}\n        <div class=\"tb-bars\" role=\"img\" aria-label=\"{{@root.result.scaleBars.ariaLabel}}\">\n          {{#each @root.result.scaleBars.rows}}\n          <div class=\"tb-bars__row\" data-item=\"{{key}}\">\n            <!-- Ячейка имени печатается ВСЕГДА, даже пустой: колонки строк держит одна\n                 сетка, и пропуск ячейки сдвинул бы столбик этой строки относительно\n                 соседних. -->\n            <div class=\"tb-bars__name\">{{#unless hideName}}{{name}}{{/unless}}</div>\n            <div class=\"tb-bars__field\"><span class=\"tb-bars__fill\" style=\"width:{{widthPercent}}%;--tb-zone:{{color}}\"></span></div>\n            <div class=\"tb-bars__val\">\n              {{#if showValue}}<strong>{{valueLabel}}</strong>{{/if}}\n              {{#unless hideLevel}}{{#if levelLabel}}<span class=\"ou-tag ou-tag--s tb-bars__lvl {{toneClass}}\">{{levelLabel}}</span>{{/if}}{{/unless}}\n            </div>\n          </div>\n          {{/each}}\n        </div>\n        {{/if}}\n        {{#unless @root.result.scaleBars}}\n        <div class=\"tb-measures__list\">\n        {{#each @root.result.scales}}\n        <div class=\"ou-formsection tb-measure\" data-render=\"{{renderKind}}\">\n          <div class=\"ou-formsection__intro\">\n            <div class=\"tb-measure__head\">\n              {{#unless hideName}}<h4 class=\"ou-formsection__title\">{{name}}</h4>{{/unless}}\n              {{#unless isRing}}{{#if showValue}}<span class=\"ou-slider__val\"><strong>{{valueText}}</strong>{{#if maxText}} из {{maxText}}{{/if}}</span>{{/if}}{{/unless}}\n            </div>\n            {{#unless hideLevel}}{{#if levelLabel}}<span class=\"ou-tag ou-tag--l tb-measure__level {{toneClass}}\">{{levelLabel}}</span>{{/if}}{{/unless}}\n          </div>\n          <div class=\"ou-formsection__body\">\n            {{#if zones}}\n            <div class=\"ou-slider ou-slider--h tb-measure__slider\">\n              <div class=\"ou-slider__rail\" role=\"img\" aria-label=\"{{ariaLabel}}\">\n                {{#each zones}}\n                <span class=\"ou-slider__fill tb-zone{{#if current}} is-current{{/if}}\"\n                      style=\"left:{{leftPercent}}%;width:{{widthPercent}}%;--tb-zone:{{color}}\"></span>\n                {{/each}}\n                <span class=\"ou-slider__thumb tb-measure__marker\" style=\"left:{{markerPercent}}%\"></span>\n                <div class=\"ou-slider__marks\">\n                  {{#each marks}}\n                  <span class=\"ou-slider__mark\" style=\"left:{{percent}}%\"></span>\n                  <span class=\"ou-slider__mark-lbl\" style=\"left:{{percent}}%\">{{label}}</span>\n                  {{/each}}\n                </div>\n              </div>\n            </div>\n            {{/if}}\n            {{#if isRing}}\n            <div class=\"ou-ring tb-ring\" role=\"img\" aria-label=\"{{ariaLabel}}\">\n              <svg class=\"ou-ring__svg\" width=\"140\" height=\"140\" viewBox=\"0 0 140 140\">\n                <circle class=\"ou-ring__track\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\"></circle>\n                <circle class=\"ou-ring__fill {{toneClass}}\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\" stroke-linecap=\"round\"\n                        stroke-dasharray=\"395.84\" stroke-dashoffset=\"{{ringDashoffset}}\"></circle>\n              </svg>\n              <div class=\"ou-ring__center\">\n                <div class=\"ou-ring__value\">{{valueText}}</div>\n                {{#unless hideLevel}}<div class=\"ou-ring__label\">{{levelLabel}}</div>{{/unless}}\n              </div>\n            </div>\n            {{/if}}\n            {{#if text}}<p class=\"ou-formsection__sub\">{{& textHtml }}</p>{{/if}}\n          </div>\n        </div>\n        {{/each}}\n        </div>\n        {{/unless}}\n      </div>\n      {{/if}}\n\n      {{#if isIndicators}}\n      <div class=\"tb-measures\">\n        {{#each @root.result.indicators}}\n        <div class=\"ou-formsection tb-measure\" data-render=\"{{renderKind}}\">\n          <div class=\"ou-formsection__intro\">\n            {{#unless hideName}}<h4 class=\"ou-formsection__title\">{{name}}</h4>{{/unless}}\n          </div>\n          <div class=\"ou-formsection__body\">\n            {{#if showValue}}<span class=\"ou-slider__val\"><strong>{{valueLabel}}</strong></span>{{/if}}\n            {{#unless hideBanner}}\n            <div class=\"ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}\">\n              <div class=\"ou-banner__body\">\n                {{#unless hideLevel}}{{#if levelLabel}}<div class=\"ou-banner__title\">{{levelLabel}}</div>{{/if}}{{/unless}}\n                {{#if text}}<div class=\"ou-banner__desc\">{{& textHtml }}</div>{{/if}}\n              </div>\n            </div>\n            {{/unless}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n\n      {{#if isTopics}}\n      <!-- PRD-50 (FR-24/FR-25/FR-27): БЛОКИ РАЗДЕЛОВ. Состав блока и его счётчик считает\n           ядро: `result.topicGroups` появляется только тогда, когда автор завёл блоки и\n           хотя бы один раздел в них попал. Плоский `result.topicResults` при этом остаётся\n           ПОЛНЫМ — его печатает сторонний шаблон, не знающий блоков, — поэтому печатать его\n           РЯДОМ с блоками нельзя: тема вышла бы дважды. Отсюда три цикла и одна и та же\n           карточка в каждом: частичных шаблонов у макета нет, а фильтровать список DSL не\n           умеет. Темы без блока идут ПОСЛЕ всех блоков (FR-25). -->\n      {{#each @root.result.topicGroups}}\n      <div class=\"tb-topic-group\">\n        <div class=\"tb-topic-group__head\">\n          {{#if label}}<h4 class=\"tb-topic-group__title\">{{label}}</h4>{{/if}}\n          {{#if counterLabel}}<span class=\"tb-topic-group__counter\">{{counterLabel}}</span>{{/if}}\n        </div>\n        <div class=\"tb-topics-grid\">\n          {{#each topics}}\n          <div class=\"ou-card tb-topic-card\">\n            <div class=\"ou-card__body\">\n              <span class=\"tb-topic-card__name\">{{topicName}}</span>\n              <span class=\"ou-tag ou-tag--s {{passClass}}\">{{statusLabel}}</span>\n              {{#if total}}<div class=\"ou-progress ou-progress--s tb-topic-card__bar {{passClass}}\"><div class=\"ou-progress__track\"><div class=\"ou-progress__fill\" style=\"width: {{percent}}%\"></div></div></div>{{/if}}\n              <div class=\"tb-stat-rows\">\n                {{#if total}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.correct }}</div></div><span class=\"tb-stat-val\">{{correct}} / {{total}}</span></div>{{/if}}\n                {{#if pointsLabel}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.points }}</div></div><span class=\"tb-stat-val\">{{pointsLabel}}</span></div>{{/if}}\n              </div>\n              {{#if breakdown}}\n              <div class=\"tb-topic__breakdown\">\n                {{#each breakdown}}\n                <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n                  <div class=\"tb-breakdown__name\">{{ key }}</div>\n                  <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n                  {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n                  {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n                </div>\n                {{/each}}\n              </div>\n              {{/if}}\n              {{#if requiredLabel}}<span class=\"tb-topic-card__req\">{{requiredLabel}}</span>{{/if}}\n              {{#if hasRecommendations}}\n              <div class=\"tb-topic-card__fb\">\n                <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n              </div>\n              {{/if}}\n            </div>\n          </div>\n          {{/each}}\n        </div>\n      </div>\n      {{/each}}\n      {{#if @root.result.ungroupedTopics}}\n      <div class=\"tb-topics-grid\">\n        {{#each @root.result.ungroupedTopics}}\n        <div class=\"ou-card tb-topic-card\">\n          <div class=\"ou-card__body\">\n            <span class=\"tb-topic-card__name\">{{topicName}}</span>\n            <span class=\"ou-tag ou-tag--s {{passClass}}\">{{statusLabel}}</span>\n            {{#if total}}<div class=\"ou-progress ou-progress--s tb-topic-card__bar {{passClass}}\"><div class=\"ou-progress__track\"><div class=\"ou-progress__fill\" style=\"width: {{percent}}%\"></div></div></div>{{/if}}\n            <div class=\"tb-stat-rows\">\n              {{#if total}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.correct }}</div></div><span class=\"tb-stat-val\">{{correct}} / {{total}}</span></div>{{/if}}\n              {{#if pointsLabel}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.points }}</div></div><span class=\"tb-stat-val\">{{pointsLabel}}</span></div>{{/if}}\n            </div>\n            {{#if breakdown}}\n            <div class=\"tb-topic__breakdown\">\n              {{#each breakdown}}\n              <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n                <div class=\"tb-breakdown__name\">{{ key }}</div>\n                <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n                {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n                {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n              </div>\n              {{/each}}\n            </div>\n            {{/if}}\n            {{#if requiredLabel}}<span class=\"tb-topic-card__req\">{{requiredLabel}}</span>{{/if}}\n            {{#if hasRecommendations}}\n            <div class=\"tb-topic-card__fb\">\n              <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n            </div>\n            {{/if}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n      {{#unless @root.result.topicGroups}}\n      <div class=\"tb-topics-grid\">\n        {{#each @root.result.topicResults}}\n        <div class=\"ou-card tb-topic-card\">\n          <div class=\"ou-card__body\">\n            <span class=\"tb-topic-card__name\">{{topicName}}</span>\n            <span class=\"ou-tag ou-tag--s {{passClass}}\">{{statusLabel}}</span>\n            {{#if total}}<div class=\"ou-progress ou-progress--s tb-topic-card__bar {{passClass}}\"><div class=\"ou-progress__track\"><div class=\"ou-progress__fill\" style=\"width: {{percent}}%\"></div></div></div>{{/if}}\n            <div class=\"tb-stat-rows\">\n              {{#if total}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.correct }}</div></div><span class=\"tb-stat-val\">{{correct}} / {{total}}</span></div>{{/if}}\n              {{#if pointsLabel}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.points }}</div></div><span class=\"tb-stat-val\">{{pointsLabel}}</span></div>{{/if}}\n            </div>\n            {{#if breakdown}}\n            <div class=\"tb-topic__breakdown\">\n              {{#each breakdown}}\n              <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n                <div class=\"tb-breakdown__name\">{{ key }}</div>\n                <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n                {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n                {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n              </div>\n              {{/each}}\n            </div>\n            {{/if}}\n            {{#if requiredLabel}}<span class=\"tb-topic-card__req\">{{requiredLabel}}</span>{{/if}}\n            {{#if hasRecommendations}}\n            <div class=\"tb-topic-card__fb\">\n              <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n            </div>\n            {{/if}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/unless}}\n      {{/if}}\n\n      <!-- PRD-50 (FR-28/FR-33): СВОДНЫЙ РАЗРЕЗ по всему тесту. Список ключей, и никогда не\n           разложение теста на части: ключи не обязаны разбивать выборку. Ключ, выданный в\n           нескольких разделах, стоит здесь ОДНОЙ строкой — ядро свело его отдельным\n           проходом по выданным элементам (FR-04), поэтому группировать строки по разделам\n           тут нельзя: это вернуло бы ровно ту дробность, ради снятия которой блок заведён.\n           Строка та же, что в карточке темы: разрез везде читается одинаково. -->\n      {{#if isBreakdown}}\n      <div class=\"tb-breakdown\">\n        {{#each @root.result.breakdown}}\n        <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n          <div class=\"tb-breakdown__name\">{{ key }}</div>\n          <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n          {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n          {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n      {{/each}}\n      {{/if}}\n\n      <!-- РЕКОМЕНДАЦИИ — не подблок зонтика, а раздел ПЕРВОГО уровня: они говорят не об\n           измерении, а о том, что делать дальше. Поэтому блок стоит ЗА циклом и несёт\n           собственный заголовок из надписей. -->\n      {{#if result.recommendations.hasAny}}\n      <hr class=\"ou-separator ou-separator--horizontal\">\n      {{#if labels.results.recommendations}}\n      <div class=\"tb-scene__q\"><h3 class=\"tb-scene__subhead\">{{ labels.results.recommendations }}</h3></div>\n      {{/if}}\n      <div class=\"tb-recs-block\">\n        {{#if result.recommendations.texts}}\n        <div class=\"tb-recs-group\">\n          {{#each result.recommendations.textsHtml}}<div class=\"tb-recs-group__text\">{{& this }}</div>{{/each}}\n        </div>\n        {{/if}}\n        {{#if result.recommendations.links}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.courses }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.links}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n        {{#if result.recommendations.events}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.events }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.events}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n        {{#if result.recommendations.assets}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.assets }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.assets}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n      </div>\n      {{/if}}\n    </div>\n  </main>\n\n  <!-- Footer of the results screen. Composition is the TEMPLATE's decision; hosts\n       only fill `result.nav` (see shared/template/results-nav) and bind the actions.\n       `result.backAction` is the legacy single-button form kept for contexts that\n       do not build `nav` (host previews). -->\n  <footer class=\"tb-scene__foot\">\n    {{#if result.nav.showReport}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--m\" data-action=\"download-report\">Скачать отчёт</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    {{#if result.nav.canRetry}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--l\" data-action=\"restart\">Пройти заново</button>{{/if}}\n    {{#if result.nav}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"{{result.nav.primaryAction}}\">{{result.nav.primaryLabel}}</button>{{/if}}\n    {{#unless result.nav}}\n      {{#if result.backAction}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"{{result.backAction}}\">{{result.backLabel}}</button>{{/if}}\n      {{#unless result.backAction}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"restart\">Пройти снова</button>{{/unless}}\n    {{/unless}}\n  </footer>\n</div>\n",
+  "question": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__timers\">\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"timer-display\">\n          <span class=\"ou-timer__lbl\">тест</span><span class=\"ou-timer__num\"></span>\n        </div>\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"section-timer-display\">\n          <span class=\"ou-timer__lbl\">раздел</span><span class=\"ou-timer__num\"></span>\n        </div>\n      </div>\n    </div>\n    {{#if state.questionsProgress}}\n    <div class=\"ou-quiz ou-quiz--circle ou-quiz--m tb-scene__map\" role=\"group\" aria-label=\"Карта вопросов\">\n      <div class=\"ou-quiz__dots\">\n        {{#each state.questionsProgress.states}}\n        <button type=\"button\" class=\"ou-quiz__dot {{statusClass}}\" {{#unless clickable}}disabled{{/unless}} data-action=\"goto:{{index}}\" aria-label=\"{{ariaLabel}}\">{{number}}</button>\n        {{/each}}\n      </div>\n      <div class=\"ou-quiz__legend\">\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-flagged\"></span>пропущен</span>\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-current\"></span>текущий</span>\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot\"></span>не отвечен</span>\n        <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-answered\"></span>отвечен</span>\n      </div>\n      <div class=\"tb-scene__mapcounts\">\n        <span class=\"tb-scene__mapcount tb-scene__mapcount--answered\">отвечено <strong>{{state.questionsProgress.answeredCount}}</strong> из {{state.questionsProgress.total}}</span>\n        <span class=\"tb-scene__mapcount tb-scene__mapcount--skipped\">пропущено {{state.questionsProgress.skippedCount}}</span>\n      </div>\n    </div>\n    {{/if}}\n    <div class=\"tb-scene__progress\"><div class=\"tb-scene__progress-fill\" id=\"q-progress-fill\"></div></div>\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col\" style=\"--tb-question-fs: {{state.questionFont}}; --tb-answer-fs: {{state.optionFont}}\">\n      <div class=\"tb-scene__meta\">\n        <span data-path=\"state.questionCounterLabel\"></span>\n        {{#if state.sectionName}}<span class=\"ou-tag ou-tag--neutral\" data-path=\"state.sectionName\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__q\">\n        <div data-slot=\"question-media\"></div>\n        <div class=\"tb-scene__qtitle\" role=\"heading\" aria-level=\"2\" data-slot=\"question-text\"></div>\n        <!-- PRD-34 (FR-16): строка подсказки — она же место водяного знака. Якорь пустой:\n             разметку, кегль и контраст знака даёт ЯДРО, шаблон отвечает только за место. -->\n        <div class=\"tb-scene__qmeta\">\n          {{#if state.questionHint}}<span class=\"tb-scene__qhint\" data-path=\"state.questionHint\"></span>{{/if}}\n          <div data-slot=\"protection-mark\"></div>\n        </div>\n      </div>\n      <div class=\"tb-qbody\">\n        <div class=\"tb-qbody__answers\">\n          <div data-slot=\"question-feedback\"></div>\n          <div data-slot=\"question-interaction\"></div>\n        </div>\n      </div>\n    </div>\n  </main>\n\n  <!-- Navigation row. Composition is the TEMPLATE's decision; the host only supplies\n       `state.nav` (see shared/template/question-nav). Both hosts render this markup,\n       so the footer cannot differ between the web run and the package. -->\n  <footer class=\"tb-scene__foot\">\n    {{#if state.nav.showBack}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"answer-back\" {{#unless state.nav.canPrev}}disabled{{/unless}}>← Назад</button>{{/if}}\n    {{#if state.nav.showSkip}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"answer-skip\">Пропустить</button>{{/if}}\n    {{#if state.nav.showReview}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"answer-return\">К обзору</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    <button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"{{state.nav.primaryAction}}\" {{#unless state.nav.primaryEnabled}}disabled{{/unless}} data-path=\"state.nav.primaryLabel\"></button>\n  </footer>\n</div>\n",
+  "results": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__headtag\">{{#if result.statusLabel}}<span class=\"ou-tag {{ result.passClass }}\" data-path=\"result.statusLabel\"></span>{{/if}}</div>\n    </div>\n    <div class=\"tb-scene__progress\"><div class=\"tb-scene__progress-fill\" style=\"width: {{result.scorePercent}}%\"></div></div>\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col tb-scene__col--wide\">\n      <!-- PRD-34 (FR-16): место водяного знака, объявленное макетом. -->\n      <div data-slot=\"protection-mark\"></div>\n      <!-- ВВОДНЫЙ БЛОК автора — первым, до всего остального: он объясняет слушателю, что\n           он сейчас читает. Разметку строит ядро из текста и его формата, поэтому печать\n           идёт контролируемым каналом; пусто = блока нет. -->\n      {{#if result.introHtml}}<div class=\"tb-intro\">{{& result.introHtml }}</div>{{/if}}\n\n      <!-- PRD-49. ЗОНТИК итогов: одна надпись первого уровня и цикл по подблокам, которые\n           ядро уже отобрало и упорядочило (`result.blocks`). Состав и порядок макет не\n           решает — вторая копия этого решения в разметке и есть тот расход, ради которого\n           PRD-49 существует. Пустая надпись = автор её выключил, блок при этом остаётся.\n           Внутри цикла контекст — ЭЛЕМЕНТ массива, поэтому данные экрана адресуются\n           через `@root.`. -->\n      {{#if result.blocks}}\n      {{#if labels.results.heading}}\n      <h2 class=\"tb-scene__hero tb-scene__hero--s\">{{ labels.results.heading }}</h2>\n      {{/if}}\n      {{#each result.blocks}}\n      {{#unless @first}}<hr class=\"ou-separator ou-separator--horizontal\">{{/unless}}\n      {{#if heading}}<div class=\"tb-scene__q\"><h3 class=\"tb-scene__subhead\">{{ heading }}</h3></div>{{/if}}\n\n      {{#if isSummary}}\n      <div class=\"tb-score-strip\">\n        <div class=\"ou-ring tb-ring\">\n          <svg class=\"ou-ring__svg\" width=\"140\" height=\"140\" viewBox=\"0 0 140 140\">\n            <circle class=\"ou-ring__track\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\"></circle>\n            <circle class=\"ou-ring__fill {{ @root.result.passClass }}\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-dasharray=\"395.84\" stroke-dashoffset=\"{{ @root.result.ringDashoffset }}\"></circle>\n          </svg>\n          <div class=\"ou-ring__center\">\n            <div class=\"ou-ring__value\"><span data-path=\"result.scorePercent\"></span>%</div>\n            <div class=\"ou-ring__label\">баллы</div>\n          </div>\n        </div>\n        <div class=\"tb-facts\">\n          <div class=\"tb-facts__item\"><div class=\"tb-facts__num\" data-path=\"result.totalQuestions\"></div><div class=\"tb-facts__lbl\">{{ @root.labels.facts.questions }}</div></div>\n          <div class=\"tb-facts__item\"><div class=\"tb-facts__num\"><span data-path=\"result.correct\"></span>/<span data-path=\"result.totalQuestions\"></span></div><div class=\"tb-facts__lbl\">{{ @root.labels.facts.correct }}</div></div>\n          <div class=\"tb-facts__item\"><div class=\"tb-facts__num\" data-path=\"result.earnedPoints\"></div><div class=\"tb-facts__lbl\">{{ @root.labels.facts.points }}</div></div>\n        </div>\n      </div>\n      {{/if}}\n\n      <!-- ШКАЛЫ и ПОКАЗАТЕЛИ: место каждого в цикле задаёт порядок подблоков, а не\n           разметка. Внутренние циклы уже работают в контексте своего элемента — трогать\n           их нельзя, меняются только внешние пути. -->\n      {{#if isScales}}\n      <div class=\"{{@root.result.scalesBlockClass}}\">\n        {{#if @root.result.scalesChart}}\n        <!-- PRD-46: ОДИН блок на радар и розу. Ядро отдаёт обе диаграммы одной формой, и\n            неподходящие списки приходят ПУСТЫМИ — пустой цикл не рисует ничего, поэтому\n            ветвиться по виду разметке не требуется (в DSL и нечем). Порядок слоёв важен:\n            заливки розы непрозрачны, поэтому сетка идёт ПОВЕРХ них. -->\n        <div class=\"tb-chart\">\n          <svg class=\"tb-chart__svg\" viewBox=\"0 0 {{@root.result.scalesChart.width}} {{@root.result.scalesChart.height}}\" role=\"img\" aria-label=\"{{@root.result.scalesChart.ariaLabel}}\">\n            {{#each @root.result.scalesChart.sectors}}\n            <path class=\"tb-rose__sector {{overflowClass}}\" d=\"{{d}}\" style=\"--tb-hue:{{color}}\"></path>\n            {{/each}}\n            {{#each @root.result.scalesChart.rings}}\n            <circle class=\"tb-chart__ring\" cx=\"{{cx}}\" cy=\"{{cy}}\" r=\"{{radius}}\"></circle>\n            {{/each}}\n            {{#each @root.result.scalesChart.spokes}}\n            <line class=\"tb-chart__axis\" x1=\"{{cx}}\" y1=\"{{cy}}\" x2=\"{{x}}\" y2=\"{{y}}\"></line>\n            {{/each}}\n            {{#each @root.result.scalesChart.axes}}\n            <line class=\"tb-chart__axis\" x1=\"{{cx}}\" y1=\"{{cy}}\" x2=\"{{axisX}}\" y2=\"{{axisY}}\"></line>\n            {{/each}}\n            {{#if @root.result.scalesChart.isRadar}}\n            <polygon class=\"tb-radar__shape\" points=\"{{@root.result.scalesChart.polygonPoints}}\"></polygon>\n            {{/if}}\n            {{#each @root.result.scalesChart.axes}}\n            <circle class=\"tb-radar__dot {{quantizedClass}} {{overflowClass}}\" cx=\"{{x}}\" cy=\"{{y}}\" r=\"6\" style=\"--tb-zone:{{color}}\"></circle>\n            {{/each}}\n            {{#each @root.result.scalesChart.icons}}\n            <g class=\"tb-rose__icon\" transform=\"{{transform}}\">{{#each paths}}<path d=\"{{.}}\"></path>{{/each}}</g>\n            {{/each}}\n            {{#each @root.result.scalesChart.labels}}\n            <text class=\"{{className}}\" x=\"{{x}}\" y=\"{{y}}\" text-anchor=\"{{anchor}}\">{{text}}</text>\n            {{/each}}\n          </svg>\n          {{#if @root.result.scalesChart.limitCaption}}\n          <p class=\"tb-chart__limit\">{{@root.result.scalesChart.limitCaption}}</p>\n          {{/if}}\n        </div>\n        {{/if}}\n        <!-- ЛИНЕЙЧАТАЯ ДИАГРАММА (вид шкал «Линейчатая диаграмма»): столбики всех шкал в\n             одной фигуре, вместо списка карточек. Стоит рядом с розой или радаром, а не\n             вместо них: те отвечают на «как делится целое», эта — на «какая шкала выражена\n             сильнее». Длину задаёт наибольший балл попытки, поэтому ни дорожки до максимума\n             шкалы, ни подписей оси здесь нет: это не линейка прогресса. Ядро отдаёт фигуру\n             только тогда, когда собрало (`scaleBars`), поэтому гейт диаграммы и обратный\n             гейт списка ниже — одна и та же проверка. -->\n        {{#if @root.result.scaleBars}}\n        <div class=\"tb-bars\" role=\"img\" aria-label=\"{{@root.result.scaleBars.ariaLabel}}\">\n          {{#each @root.result.scaleBars.rows}}\n          <div class=\"tb-bars__row\" data-item=\"{{key}}\">\n            <!-- Ячейка имени печатается ВСЕГДА, даже пустой: колонки строк держит одна\n                 сетка, и пропуск ячейки сдвинул бы столбик этой строки относительно\n                 соседних. -->\n            <div class=\"tb-bars__name\">{{#unless hideName}}{{name}}{{/unless}}</div>\n            <div class=\"tb-bars__field\"><span class=\"tb-bars__fill\" style=\"width:{{widthPercent}}%;--tb-zone:{{color}}\"></span></div>\n            <div class=\"tb-bars__val\">\n              {{#if showValue}}<strong>{{valueLabel}}</strong>{{/if}}\n              {{#unless hideLevel}}{{#if levelLabel}}<span class=\"ou-tag ou-tag--s tb-bars__lvl {{toneClass}}\">{{levelLabel}}</span>{{/if}}{{/unless}}\n            </div>\n          </div>\n          {{/each}}\n        </div>\n        {{/if}}\n        {{#unless @root.result.scaleBars}}\n        <div class=\"tb-measures__list\">\n        {{#each @root.result.scales}}\n        <div class=\"ou-formsection tb-measure\" data-render=\"{{renderKind}}\">\n          <div class=\"ou-formsection__intro\">\n            <div class=\"tb-measure__head\">\n              {{#unless hideName}}<h4 class=\"ou-formsection__title\">{{name}}</h4>{{/unless}}\n              {{#unless isRing}}{{#if showValue}}<span class=\"ou-slider__val\"><strong>{{valueText}}</strong>{{#if maxText}} из {{maxText}}{{/if}}</span>{{/if}}{{/unless}}\n            </div>\n            {{#unless hideLevel}}{{#if levelLabel}}<span class=\"ou-tag ou-tag--l tb-measure__level {{toneClass}}\">{{levelLabel}}</span>{{/if}}{{/unless}}\n          </div>\n          <div class=\"ou-formsection__body\">\n            {{#if zones}}\n            <div class=\"ou-slider ou-slider--h tb-measure__slider\">\n              <div class=\"ou-slider__rail\" role=\"img\" aria-label=\"{{ariaLabel}}\">\n                {{#each zones}}\n                <span class=\"ou-slider__fill tb-zone{{#if current}} is-current{{/if}}\"\n                      style=\"left:{{leftPercent}}%;width:{{widthPercent}}%;--tb-zone:{{color}}\"></span>\n                {{/each}}\n                <span class=\"ou-slider__thumb tb-measure__marker\" style=\"left:{{markerPercent}}%\"></span>\n                <div class=\"ou-slider__marks\">\n                  {{#each marks}}\n                  <span class=\"ou-slider__mark\" style=\"left:{{percent}}%\"></span>\n                  <span class=\"ou-slider__mark-lbl\" style=\"left:{{percent}}%\">{{label}}</span>\n                  {{/each}}\n                </div>\n              </div>\n            </div>\n            {{/if}}\n            {{#if isRing}}\n            <div class=\"ou-ring tb-ring\" role=\"img\" aria-label=\"{{ariaLabel}}\">\n              <svg class=\"ou-ring__svg\" width=\"140\" height=\"140\" viewBox=\"0 0 140 140\">\n                <circle class=\"ou-ring__track\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\"></circle>\n                <circle class=\"ou-ring__fill {{toneClass}}\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\" stroke-linecap=\"round\"\n                        stroke-dasharray=\"395.84\" stroke-dashoffset=\"{{ringDashoffset}}\"></circle>\n              </svg>\n              <div class=\"ou-ring__center\">\n                <div class=\"ou-ring__value\">{{valueText}}</div>\n                {{#unless hideLevel}}<div class=\"ou-ring__label\">{{levelLabel}}</div>{{/unless}}\n              </div>\n            </div>\n            {{/if}}\n            {{#if text}}<p class=\"ou-formsection__sub\">{{& textHtml }}</p>{{/if}}\n          </div>\n        </div>\n        {{/each}}\n        </div>\n        {{/unless}}\n      </div>\n      {{/if}}\n\n      {{#if isIndicators}}\n      <div class=\"tb-measures\">\n        {{#each @root.result.indicators}}\n        <div class=\"ou-formsection tb-measure\" data-render=\"{{renderKind}}\">\n          <div class=\"ou-formsection__intro\">\n            {{#unless hideName}}<h4 class=\"ou-formsection__title\">{{name}}</h4>{{/unless}}\n          </div>\n          <div class=\"ou-formsection__body\">\n            {{#if showValue}}<span class=\"ou-slider__val\"><strong>{{valueLabel}}</strong></span>{{/if}}\n            {{#unless hideBanner}}\n            <div class=\"ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}\">\n              <div class=\"ou-banner__body\">\n                {{#unless hideLevel}}{{#if levelLabel}}<div class=\"ou-banner__title\">{{levelLabel}}</div>{{/if}}{{/unless}}\n                {{#if text}}<div class=\"ou-banner__desc\">{{& textHtml }}</div>{{/if}}\n              </div>\n            </div>\n            {{/unless}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n\n      {{#if isTopics}}\n      <!-- PRD-50 (FR-24/FR-25/FR-27): БЛОКИ РАЗДЕЛОВ. Состав блока и его счётчик считает\n           ядро: `result.topicGroups` появляется только тогда, когда автор завёл блоки и\n           хотя бы один раздел в них попал. Плоский `result.topicResults` при этом остаётся\n           ПОЛНЫМ — его печатает сторонний шаблон, не знающий блоков, — поэтому печатать его\n           РЯДОМ с блоками нельзя: тема вышла бы дважды. Отсюда три цикла и одна и та же\n           карточка в каждом: частичных шаблонов у макета нет, а фильтровать список DSL не\n           умеет. Темы без блока идут ПОСЛЕ всех блоков (FR-25). -->\n      {{#each @root.result.topicGroups}}\n      <div class=\"tb-topic-group\">\n        <div class=\"tb-topic-group__head\">\n          {{#if label}}<h4 class=\"tb-topic-group__title\">{{label}}</h4>{{/if}}\n          {{#if counterLabel}}<span class=\"tb-topic-group__counter\">{{counterLabel}}</span>{{/if}}\n        </div>\n          <!-- PRD-49: слот карточки темы гейтится СВОЕЙ надписью. Выключенная надпись —\n               это пустая строка, и она убирает не подпись, а ВЕСЬ слот: вердикт уходит\n               вместе с цветной пилюлей, «Правильно»/«Баллов» — вместе с числом. Без этого\n               выключенный тумблер оставлял пустой цветной чип и осиротевшее «4 / 5». -->\n        <div class=\"tb-topics-grid\">\n          {{#each topics}}\n          <div class=\"ou-card tb-topic-card\">\n            <div class=\"ou-card__body\">\n              <span class=\"tb-topic-card__name\">{{topicName}}</span>\n              {{#if statusLabel}}<span class=\"ou-tag ou-tag--s {{passClass}}\">{{statusLabel}}</span>{{/if}}\n              {{#if total}}<div class=\"ou-progress ou-progress--s tb-topic-card__bar {{passClass}}\"><div class=\"ou-progress__track\"><div class=\"ou-progress__fill\" style=\"width: {{percent}}%\"></div></div></div>{{/if}}\n              <div class=\"tb-stat-rows\">\n                {{#if @root.labels.topic.correct}}{{#if total}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.correct }}</div></div><span class=\"tb-stat-val\">{{correct}} / {{total}}</span></div>{{/if}}{{/if}}\n                {{#if @root.labels.topic.points}}{{#if pointsLabel}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.points }}</div></div><span class=\"tb-stat-val\">{{pointsLabel}}</span></div>{{/if}}{{/if}}\n              </div>\n              {{#if breakdown}}\n              <div class=\"tb-topic__breakdown\">\n                {{#each breakdown}}\n                <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n                  <div class=\"tb-breakdown__name\">{{ key }}</div>\n                  <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n                  {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n                  {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n                </div>\n                {{/each}}\n              </div>\n              {{/if}}\n              {{#if requiredLabel}}<span class=\"tb-topic-card__req\">{{requiredLabel}}</span>{{/if}}\n              {{#if hasRecommendations}}\n              <div class=\"tb-topic-card__fb\">\n                <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n              </div>\n              {{/if}}\n            </div>\n          </div>\n          {{/each}}\n        </div>\n      </div>\n      {{/each}}\n      {{#if @root.result.ungroupedTopics}}\n      <div class=\"tb-topics-grid\">\n        {{#each @root.result.ungroupedTopics}}\n        <div class=\"ou-card tb-topic-card\">\n          <div class=\"ou-card__body\">\n            <span class=\"tb-topic-card__name\">{{topicName}}</span>\n            {{#if statusLabel}}<span class=\"ou-tag ou-tag--s {{passClass}}\">{{statusLabel}}</span>{{/if}}\n            {{#if total}}<div class=\"ou-progress ou-progress--s tb-topic-card__bar {{passClass}}\"><div class=\"ou-progress__track\"><div class=\"ou-progress__fill\" style=\"width: {{percent}}%\"></div></div></div>{{/if}}\n            <div class=\"tb-stat-rows\">\n              {{#if @root.labels.topic.correct}}{{#if total}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.correct }}</div></div><span class=\"tb-stat-val\">{{correct}} / {{total}}</span></div>{{/if}}{{/if}}\n              {{#if @root.labels.topic.points}}{{#if pointsLabel}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.points }}</div></div><span class=\"tb-stat-val\">{{pointsLabel}}</span></div>{{/if}}{{/if}}\n            </div>\n            {{#if breakdown}}\n            <div class=\"tb-topic__breakdown\">\n              {{#each breakdown}}\n              <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n                <div class=\"tb-breakdown__name\">{{ key }}</div>\n                <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n                {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n                {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n              </div>\n              {{/each}}\n            </div>\n            {{/if}}\n            {{#if requiredLabel}}<span class=\"tb-topic-card__req\">{{requiredLabel}}</span>{{/if}}\n            {{#if hasRecommendations}}\n            <div class=\"tb-topic-card__fb\">\n              <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n            </div>\n            {{/if}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n      {{#unless @root.result.topicGroups}}\n      <div class=\"tb-topics-grid\">\n        {{#each @root.result.topicResults}}\n        <div class=\"ou-card tb-topic-card\">\n          <div class=\"ou-card__body\">\n            <span class=\"tb-topic-card__name\">{{topicName}}</span>\n            {{#if statusLabel}}<span class=\"ou-tag ou-tag--s {{passClass}}\">{{statusLabel}}</span>{{/if}}\n            {{#if total}}<div class=\"ou-progress ou-progress--s tb-topic-card__bar {{passClass}}\"><div class=\"ou-progress__track\"><div class=\"ou-progress__fill\" style=\"width: {{percent}}%\"></div></div></div>{{/if}}\n            <div class=\"tb-stat-rows\">\n              {{#if @root.labels.topic.correct}}{{#if total}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.correct }}</div></div><span class=\"tb-stat-val\">{{correct}} / {{total}}</span></div>{{/if}}{{/if}}\n              {{#if @root.labels.topic.points}}{{#if pointsLabel}}<div class=\"ou-stat-row ou-stat-row--compact\"><div class=\"ou-stat-row__body\"><div class=\"ou-stat-row__title\">{{ @root.labels.topic.points }}</div></div><span class=\"tb-stat-val\">{{pointsLabel}}</span></div>{{/if}}{{/if}}\n            </div>\n            {{#if breakdown}}\n            <div class=\"tb-topic__breakdown\">\n              {{#each breakdown}}\n              <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n                <div class=\"tb-breakdown__name\">{{ key }}</div>\n                <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n                {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n                {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n              </div>\n              {{/each}}\n            </div>\n            {{/if}}\n            {{#if requiredLabel}}<span class=\"tb-topic-card__req\">{{requiredLabel}}</span>{{/if}}\n            {{#if hasRecommendations}}\n            <div class=\"tb-topic-card__fb\">\n              <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n            </div>\n            {{/if}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/unless}}\n      {{/if}}\n\n      <!-- PRD-50 (FR-28/FR-33): СВОДНЫЙ РАЗРЕЗ по всему тесту. Список ключей, и никогда не\n           разложение теста на части: ключи не обязаны разбивать выборку. Ключ, выданный в\n           нескольких разделах, стоит здесь ОДНОЙ строкой — ядро свело его отдельным\n           проходом по выданным элементам (FR-04), поэтому группировать строки по разделам\n           тут нельзя: это вернуло бы ровно ту дробность, ради снятия которой блок заведён.\n           Строка та же, что в карточке темы: разрез везде читается одинаково. -->\n      {{#if isBreakdown}}\n      <div class=\"tb-breakdown\">\n        {{#each @root.result.breakdown}}\n        <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n          <div class=\"tb-breakdown__name\">{{ key }}</div>\n          <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n          {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n          {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n      {{/each}}\n      {{/if}}\n\n      <!-- РЕКОМЕНДАЦИИ — не подблок зонтика, а раздел ПЕРВОГО уровня: они говорят не об\n           измерении, а о том, что делать дальше. Поэтому блок стоит ЗА циклом и несёт\n           собственный заголовок из надписей. -->\n      {{#if result.recommendations.hasAny}}\n      <hr class=\"ou-separator ou-separator--horizontal\">\n      {{#if labels.results.recommendations}}\n      <div class=\"tb-scene__q\"><h3 class=\"tb-scene__subhead\">{{ labels.results.recommendations }}</h3></div>\n      {{/if}}\n      <div class=\"tb-recs-block\">\n        {{#if result.recommendations.texts}}\n        <div class=\"tb-recs-group\">\n          {{#each result.recommendations.textsHtml}}<div class=\"tb-recs-group__text\">{{& this }}</div>{{/each}}\n        </div>\n        {{/if}}\n        {{#if result.recommendations.links}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.courses }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.links}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n        {{#if result.recommendations.events}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.events }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.events}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n        {{#if result.recommendations.assets}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.assets }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.assets}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n      </div>\n      {{/if}}\n    </div>\n  </main>\n\n  <!-- Footer of the results screen. Composition is the TEMPLATE's decision; hosts\n       only fill `result.nav` (see shared/template/results-nav) and bind the actions.\n       `result.backAction` is the legacy single-button form kept for contexts that\n       do not build `nav` (host previews). -->\n  <footer class=\"tb-scene__foot\">\n    {{#if result.nav.showReport}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--m\" data-action=\"download-report\">Скачать отчёт</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    {{#if result.nav.canRetry}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--l\" data-action=\"restart\">Пройти заново</button>{{/if}}\n    {{#if result.nav}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"{{result.nav.primaryAction}}\">{{result.nav.primaryLabel}}</button>{{/if}}\n    {{#unless result.nav}}\n      {{#if result.backAction}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"{{result.backAction}}\">{{result.backLabel}}</button>{{/if}}\n      {{#unless result.backAction}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"restart\">Пройти снова</button>{{/unless}}\n    {{/unless}}\n  </footer>\n</div>\n",
   "results.adaptive": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow tb-scene__brandrow--center\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n    </div>\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col tb-scene__col--wide\">\n      <!-- ВВОДНЫЙ БЛОК автора — первым, до всего остального: он объясняет слушателю, что\n           он сейчас читает. Разметку строит ядро из текста и его формата, поэтому печать\n           идёт контролируемым каналом; пусто = блока нет. -->\n      {{#if result.introHtml}}<div class=\"tb-intro\">{{& result.introHtml }}</div>{{/if}}\n\n      <div class=\"tb-adaptive-hero\">\n        <h2 class=\"tb-scene__hero tb-scene__hero--s\">Тест завершён</h2>\n        <span class=\"tb-scene__lead\">Адаптивный тест подобрал уровень по каждой теме</span>\n      </div>\n\n      <!-- PRD-49. ЗОНТИК итогов: та же схема, что у обычного экрана (`results.html`), с\n           ОДНИМ отличием, которое несёт само ядро — сводки баллов на адаптивном экране нет\n           никогда, поэтому ветки isSummary здесь не существует, а `result.blocks`\n           физически не может содержать такой подблок (см. `attachBlocksAndLabels` в\n           `shared/template/result-context.ts`). Состав и порядок подблоков макет не решает\n           — он приходит из контекста. Внутри цикла контекст — ЭЛЕМЕНТ массива, поэтому\n           данные экрана адресуются через @root. -->\n      {{#if result.blocks}}\n      {{#if labels.results.heading}}\n      <h2 class=\"tb-scene__hero tb-scene__hero--s\">{{ labels.results.heading }}</h2>\n      {{/if}}\n      {{#each result.blocks}}\n      {{#unless @first}}<hr class=\"ou-separator ou-separator--horizontal\">{{/unless}}\n      {{#if heading}}<div class=\"tb-scene__q\"><h3 class=\"tb-scene__subhead\">{{ heading }}</h3></div>{{/if}}\n\n      {{#if isTopics}}\n      <div class=\"tb-topics-grid\">\n        {{#each @root.result.topicResults}}\n        <div class=\"ou-card tb-topic-card\">\n          <div class=\"ou-card__body\">\n            <span class=\"tb-topic-card__name\">{{topicName}}</span>\n            <span class=\"ou-tag ou-tag--s {{levelClass}}\">{{levelLabel}}</span>\n            {{#if hasFeedback}}\n            <div class=\"tb-topic-card__fb\">\n              <span class=\"tb-topic-card__fb-text\">{{feedback}}</span>\n              {{#if hasRecommendations}}<div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>{{/if}}\n            </div>\n            {{/if}}\n            {{#unless hasFeedback}}{{#if hasRecommendations}}\n            <div class=\"tb-topic-card__fb\">\n              <div class=\"tb-recs\">{{#each recommendedCourses}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}{{#each recommendedEvents}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}</div>\n            </div>\n            {{/if}}{{/unless}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n\n      <!-- ШКАЛЫ и ПОКАЗАТЕЛИ: место каждого в цикле задаёт порядок подблоков, а не\n           разметка. Внутренние циклы уже работают в контексте своего элемента — трогать\n           их нельзя, меняются только внешние пути. -->\n      {{#if isScales}}\n      <div class=\"{{@root.result.scalesBlockClass}}\">\n        {{#if @root.result.scalesChart}}\n        <div class=\"tb-radar\">\n          <svg class=\"tb-radar__svg\" viewBox=\"0 0 {{@root.result.scalesChart.width}} {{@root.result.scalesChart.height}}\" role=\"img\" aria-label=\"{{@root.result.scalesChart.ariaLabel}}\">\n            {{#each @root.result.scalesChart.rings}}\n            <circle class=\"tb-radar__ring\" cx=\"{{cx}}\" cy=\"{{cy}}\" r=\"{{radius}}\"></circle>\n            {{/each}}\n            {{#each @root.result.scalesChart.axes}}\n            <line class=\"tb-radar__axis\" x1=\"{{cx}}\" y1=\"{{cy}}\" x2=\"{{axisX}}\" y2=\"{{axisY}}\"></line>\n            {{/each}}\n            <polygon class=\"tb-radar__shape\" points=\"{{@root.result.scalesChart.polygonPoints}}\"></polygon>\n            {{#each @root.result.scalesChart.axes}}\n            <circle class=\"tb-radar__dot {{quantizedClass}}\" cx=\"{{x}}\" cy=\"{{y}}\" r=\"6\" style=\"--tb-zone:{{color}}\"></circle>\n            {{/each}}\n            {{#each @root.result.scalesChart.labels}}\n            <text class=\"{{className}}\" x=\"{{x}}\" y=\"{{y}}\" text-anchor=\"{{anchor}}\">{{text}}</text>\n            {{/each}}\n          </svg>\n        </div>\n        {{/if}}\n        <!-- ЛИНЕЙЧАТАЯ ДИАГРАММА (вид шкал «Линейчатая диаграмма»): столбики всех шкал в\n             одной фигуре, вместо списка карточек. Стоит рядом с розой или радаром, а не\n             вместо них: те отвечают на «как делится целое», эта — на «какая шкала выражена\n             сильнее». Длину задаёт наибольший балл попытки, поэтому ни дорожки до максимума\n             шкалы, ни подписей оси здесь нет: это не линейка прогресса. Ядро отдаёт фигуру\n             только тогда, когда собрало (`scaleBars`), поэтому гейт диаграммы и обратный\n             гейт списка ниже — одна и та же проверка. -->\n        {{#if @root.result.scaleBars}}\n        <div class=\"tb-bars\" role=\"img\" aria-label=\"{{@root.result.scaleBars.ariaLabel}}\">\n          {{#each @root.result.scaleBars.rows}}\n          <div class=\"tb-bars__row\" data-item=\"{{key}}\">\n            <!-- Ячейка имени печатается ВСЕГДА, даже пустой: колонки строк держит одна\n                 сетка, и пропуск ячейки сдвинул бы столбик этой строки относительно\n                 соседних. -->\n            <div class=\"tb-bars__name\">{{#unless hideName}}{{name}}{{/unless}}</div>\n            <div class=\"tb-bars__field\"><span class=\"tb-bars__fill\" style=\"width:{{widthPercent}}%;--tb-zone:{{color}}\"></span></div>\n            <div class=\"tb-bars__val\">\n              {{#if showValue}}<strong>{{valueLabel}}</strong>{{/if}}\n              {{#unless hideLevel}}{{#if levelLabel}}<span class=\"ou-tag ou-tag--s tb-bars__lvl {{toneClass}}\">{{levelLabel}}</span>{{/if}}{{/unless}}\n            </div>\n          </div>\n          {{/each}}\n        </div>\n        {{/if}}\n        {{#unless @root.result.scaleBars}}\n        <div class=\"tb-measures__list\">\n        {{#each @root.result.scales}}\n        <div class=\"ou-formsection tb-measure\" data-render=\"{{renderKind}}\">\n          <div class=\"ou-formsection__intro\">\n            <div class=\"tb-measure__head\">\n              {{#unless hideName}}<h4 class=\"ou-formsection__title\">{{name}}</h4>{{/unless}}\n              {{#unless isRing}}{{#if showValue}}<span class=\"ou-slider__val\"><strong>{{valueText}}</strong>{{#if maxText}} из {{maxText}}{{/if}}</span>{{/if}}{{/unless}}\n            </div>\n            {{#unless hideLevel}}{{#if levelLabel}}<span class=\"ou-tag ou-tag--l tb-measure__level {{toneClass}}\">{{levelLabel}}</span>{{/if}}{{/unless}}\n          </div>\n          <div class=\"ou-formsection__body\">\n            {{#if zones}}\n            <div class=\"ou-slider ou-slider--h tb-measure__slider\">\n              <div class=\"ou-slider__rail\" role=\"img\" aria-label=\"{{ariaLabel}}\">\n                {{#each zones}}\n                <span class=\"ou-slider__fill tb-zone{{#if current}} is-current{{/if}}\"\n                      style=\"left:{{leftPercent}}%;width:{{widthPercent}}%;--tb-zone:{{color}}\"></span>\n                {{/each}}\n                <span class=\"ou-slider__thumb tb-measure__marker\" style=\"left:{{markerPercent}}%\"></span>\n                <div class=\"ou-slider__marks\">\n                  {{#each marks}}\n                  <span class=\"ou-slider__mark\" style=\"left:{{percent}}%\"></span>\n                  <span class=\"ou-slider__mark-lbl\" style=\"left:{{percent}}%\">{{label}}</span>\n                  {{/each}}\n                </div>\n              </div>\n            </div>\n            {{/if}}\n            {{#if isRing}}\n            <div class=\"ou-ring tb-ring\" role=\"img\" aria-label=\"{{ariaLabel}}\">\n              <svg class=\"ou-ring__svg\" width=\"140\" height=\"140\" viewBox=\"0 0 140 140\">\n                <circle class=\"ou-ring__track\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\"></circle>\n                <circle class=\"ou-ring__fill {{toneClass}}\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\" stroke-linecap=\"round\"\n                        stroke-dasharray=\"395.84\" stroke-dashoffset=\"{{ringDashoffset}}\"></circle>\n              </svg>\n              <div class=\"ou-ring__center\">\n                <div class=\"ou-ring__value\">{{valueText}}</div>\n                {{#unless hideLevel}}<div class=\"ou-ring__label\">{{levelLabel}}</div>{{/unless}}\n              </div>\n            </div>\n            {{/if}}\n            {{#if text}}<p class=\"ou-formsection__sub\">{{& textHtml }}</p>{{/if}}\n          </div>\n        </div>\n        {{/each}}\n        </div>\n        {{/unless}}\n      </div>\n      {{/if}}\n\n      {{#if isIndicators}}\n      <div class=\"tb-measures\">\n        {{#each @root.result.indicators}}\n        <div class=\"ou-formsection tb-measure\">\n          <div class=\"ou-formsection__intro\">\n            {{#unless hideName}}<h4 class=\"ou-formsection__title\">{{name}}</h4>{{/unless}}\n          </div>\n          <div class=\"ou-formsection__body\">\n            {{#unless hideBanner}}\n            <div class=\"ou-banner ou-banner--subtle ou-banner--{{bannerVariant}}\">\n              <div class=\"ou-banner__body\">\n                {{#unless hideLevel}}{{#if levelLabel}}<div class=\"ou-banner__title\">{{levelLabel}}</div>{{/if}}{{/unless}}\n                {{#if text}}<div class=\"ou-banner__desc\">{{& textHtml }}</div>{{/if}}\n              </div>\n            </div>\n            {{/unless}}\n          </div>\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n\n      <!-- PRD-50 (FR-28/FR-33): СВОДНЫЙ РАЗРЕЗ по всему тесту — ТА ЖЕ разметка и та же\n           строка, что на обычном экране итогов. Он единственный разрез, который печатает\n           адаптивный режим: карточка темы здесь говорит подтверждённым УРОВНЕМ, и полоса\n           процентов рядом с «Уровень 2» предлагала бы читателю смысл, которого у лестницы\n           нет. Блок отвечает на другой вопрос — по подтемам ПО ВСЕМУ ТЕСТУ, — с уровнями\n           не спорит, а записи для него ядро считает и хранит давно (FR-17/FR-39). -->\n      {{#if isBreakdown}}\n      <div class=\"tb-breakdown\">\n        {{#each @root.result.breakdown}}\n        <div class=\"tb-breakdown__row {{ passClass }}\" data-item=\"{{ key }}\">\n          <div class=\"tb-breakdown__name\">{{ key }}</div>\n          <div class=\"tb-breakdown__bar\"><span style=\"width: {{ barPercent }}%;\"></span></div>\n          {{#if showValue}}<div class=\"tb-breakdown__val\">{{ valueLabel }}</div>{{/if}}\n          {{#if requiredLabel}}<div class=\"tb-breakdown__req\">{{ requiredLabel }}</div>{{/if}}\n        </div>\n        {{/each}}\n      </div>\n      {{/if}}\n      {{/each}}\n      {{/if}}\n\n      {{#if result.recommendations.hasAny}}\n      <hr class=\"ou-separator ou-separator--horizontal\">\n      {{#if labels.results.recommendations}}\n      <div class=\"tb-scene__q\"><h3 class=\"tb-scene__subhead\">{{ labels.results.recommendations }}</h3></div>\n      {{/if}}\n      <div class=\"tb-recs-block\">\n        {{#if result.recommendations.texts}}\n        <div class=\"tb-recs-group\">\n          {{#each result.recommendations.textsHtml}}<div class=\"tb-recs-group__text\">{{& this }}</div>{{/each}}\n        </div>\n        {{/if}}\n        {{#if result.recommendations.links}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.courses }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.links}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n        {{#if result.recommendations.events}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.events }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.events}}<span class=\"tb-rec\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M3 10h18\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg></span>{{title}}</span>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n        {{#if result.recommendations.assets}}\n        <div class=\"tb-recs-group\">\n          <span class=\"tb-eyebrow\">{{ labels.recommendations.assets }}</span>\n          <div class=\"tb-recs\">\n            {{#each result.recommendations.assets}}<a class=\"tb-rec\" href=\"{{url}}\" target=\"_blank\" rel=\"noopener noreferrer\"><span class=\"tb-rec__ico\" aria-hidden=\"true\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg></span>{{title}}</a>{{/each}}\n          </div>\n        </div>\n        {{/if}}\n      </div>\n      {{/if}}\n    </div>\n  </main>\n\n  <!-- Footer of the adaptive results screen. `result.canRetry` / `showFinish` are the\n       PACKAGE's action flags; the WEB host fills `result.nav` instead (see\n       shared/template/results-nav), and its «Пройти снова» obeys `nav.canRetake` —\n       ATTEMPTS ONLY, since re-running an adaptive test stays meaningful after a pass;\n       past the cap the server answers ATTEMPTS_EXHAUSTED and the button would be dead.\n       The web's exit stays `result.showBack`. -->\n  <footer class=\"tb-scene__foot\">\n    {{#if result.showBack}}<button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"results-back\">← К списку тестов</button>{{/if}}\n    {{#if result.nav.showReport}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--m\" data-action=\"download-report\">Скачать отчёт</button>{{/if}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    {{#if result.canRetry}}<button type=\"button\" class=\"ou-btn ou-btn--secondary ou-btn--l\" data-action=\"restart-adaptive\">Пройти заново</button>{{/if}}\n    {{#if result.showFinish}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"finish\">Завершить тест</button>{{/if}}\n    {{#unless result.hasScormActions}}{{#if result.nav.canRetake}}<button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"restart\">Пройти снова</button>{{/if}}{{/unless}}\n  </footer>\n</div>\n",
   "review": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      <div class=\"tb-scene__timers\">\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"timer-display\">\n          <span class=\"ou-timer__lbl\">тест</span><span class=\"ou-timer__num\"></span>\n        </div>\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"section-timer-display\">\n          <span class=\"ou-timer__lbl\">раздел</span><span class=\"ou-timer__num\"></span>\n        </div>\n      </div>\n    </div>\n    <!-- The question map is NOT repeated in the review header — the body carries its\n         own (larger) map and the answered/skipped counts, so a header copy would\n         duplicate it. -->\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col\">\n      <!-- PRD-34 (FR-16): место водяного знака, объявленное макетом. -->\n      <div data-slot=\"protection-mark\"></div>\n      <div class=\"tb-scene__q\">\n        <h2 class=\"tb-scene__hero tb-scene__hero--s\">{{ review.scopeLabel }}</h2>\n        <span class=\"tb-scene__qhint\">{{ review.hint }}</span>\n      </div>\n\n      {{#if state.questionsProgress}}\n      <div class=\"ou-quiz ou-quiz--circle ou-quiz--l tb-review-map\" role=\"group\" aria-label=\"Карта вопросов\">\n        <div class=\"ou-quiz__dots\">\n          {{#each state.questionsProgress.states}}\n          <button type=\"button\" class=\"ou-quiz__dot {{statusClass}}\" {{#unless clickable}}disabled{{/unless}} data-action=\"goto:{{index}}\" aria-label=\"{{ariaLabel}}\">{{number}}</button>\n          {{/each}}\n        </div>\n        <div class=\"ou-quiz__legend\">\n          {{#if review.canReturn}}<span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-current\"></span>текущий</span>{{/if}}\n          <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-flagged\"></span>пропущен</span>\n          <span class=\"ou-quiz__legend-item\"><span class=\"ou-quiz__legend-dot is-answered\"></span>отвечен</span>\n        </div>\n        <span class=\"tb-review-map__count\">отвечено <strong>{{state.questionsProgress.answeredCount}}</strong> из {{state.questionsProgress.total}} · пропущено {{state.questionsProgress.skippedCount}}</span>\n      </div>\n      {{/if}}\n\n      {{#if review.unansweredCount}}\n      <hr class=\"ou-separator ou-separator--horizontal\">\n      <div class=\"tb-card\">\n        <span class=\"tb-card__head\">Без ответа: {{review.unansweredCount}}</span>\n        <div class=\"tb-unanswered\">\n          {{#each review.unanswered}}\n          <div class=\"ou-stat-row\">\n            <div class=\"ou-stat-row__body\">\n              <div class=\"ou-stat-row__title\">Вопрос {{number}} · {{prompt}}</div>\n            </div>\n            <button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--s\" data-action=\"goto:{{index}}\">Перейти</button>\n          </div>\n          {{/each}}\n        </div>\n      </div>\n      {{/if}}\n    </div>\n  </main>\n\n  <footer class=\"tb-scene__foot\">\n    {{#if review.canReturn}}\n    <!-- Opened via «К обзору» mid-flow: «Назад» (to the origin question) is the accented\n         primary; «Завершить …» is demoted to a quiet ghost so it is not fired by accident. -->\n    <button type=\"button\" class=\"ou-btn ou-btn--ghost ou-btn--m\" data-action=\"finish-review\">{{ review.finishLabel }}</button>\n    <div class=\"tb-scene__foot-spacer\"></div>\n    <button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"review-back\">{{ review.backLabel }}</button>\n    {{/if}}\n    {{#unless review.canReturn}}\n    <div class=\"tb-scene__foot-spacer\"></div>\n    <button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"finish-review\">{{ review.finishLabel }}</button>\n    {{/unless}}\n  </footer>\n</div>\n",
   "section-results": "<div class=\"tb-scene\">\n  <header class=\"tb-scene__header\">\n    <div class=\"tb-scene__brandrow tb-scene__brandrow--center\">\n      {{#if design.logoUrl}}<span class=\"tb-scene__logo\"><img src=\"{{ design.logoUrl }}\" alt=\"\"></span>{{/if}}\n      <div class=\"tb-scene__titles\">\n        <h1 class=\"tb-scene__title\" data-path=\"course.title\"></h1>\n        {{#if course.subtitle}}<span class=\"tb-scene__subtitle\" data-path=\"course.subtitle\"></span>{{/if}}\n      </div>\n      {{#if sectionResult.sectionLabel}}<div class=\"tb-scene__headtag\"><span class=\"ou-tag ou-tag--neutral\" data-path=\"sectionResult.sectionLabel\"></span></div>{{/if}}\n      <div class=\"tb-scene__timers\">\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"timer-display\">\n          <span class=\"ou-timer__lbl\">тест</span><span class=\"ou-timer__num\"></span>\n        </div>\n        <div class=\"ou-timer ou-timer--digital ou-timer--s q-timer--hidden\" id=\"section-timer-display\">\n          <span class=\"ou-timer__lbl\">раздел</span><span class=\"ou-timer__num\"></span>\n        </div>\n      </div>\n    </div>\n    {{#if sectionResult.sectionLabel}}<div class=\"tb-scene__progress\"><div class=\"tb-scene__progress-fill\" style=\"width:{{sectionResult.progressPercent}}%\"></div></div>{{/if}}\n  </header>\n\n  <main class=\"tb-scene__body\">\n    <div class=\"tb-scene__col tb-scene__col--center tb-scene__col--narrow\">\n      <!-- PRD-34 (FR-16): место водяного знака, объявленное макетом. -->\n      <div data-slot=\"protection-mark\"></div>\n      {{#if labels.section.eyebrow}}<span class=\"tb-eyebrow\">{{ labels.section.eyebrow }}</span>{{/if}}\n      <h2 class=\"tb-scene__hero tb-scene__hero--s\">Раздел «<span data-path=\"sectionResult.topicName\"></span>»</h2>\n\n      <div class=\"ou-ring tb-ring\">\n        <svg class=\"ou-ring__svg\" width=\"140\" height=\"140\" viewBox=\"0 0 140 140\">\n          <circle class=\"ou-ring__track\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\"></circle>\n          <circle class=\"ou-ring__fill {{ sectionResult.passClass }}\" cx=\"70\" cy=\"70\" r=\"63\" stroke-width=\"12\" stroke-linecap=\"round\" stroke-dasharray=\"395.84\" stroke-dashoffset=\"{{ sectionResult.ringDashoffset }}\"></circle>\n        </svg>\n        <div class=\"ou-ring__center\">\n          <div class=\"ou-ring__value\"><span data-path=\"sectionResult.scorePercent\"></span>%</div>\n          <div class=\"ou-ring__label\">баллы</div>\n        </div>\n      </div>\n\n      {{#if sectionResult.hasVerdict}}<span class=\"ou-tag {{ sectionResult.passClass }}\" data-path=\"sectionResult.statusLabel\"></span>{{/if}}\n\n      <div class=\"tb-facts tb-facts--center\">\n        <div class=\"tb-facts__item\">\n          <div class=\"tb-facts__num\" data-path=\"sectionResult.total\"></div>\n          <div class=\"tb-facts__lbl\">{{ labels.facts.questions }}</div>\n        </div>\n        <div class=\"tb-facts__item\">\n          <div class=\"tb-facts__num\">{{sectionResult.correct}} / {{sectionResult.total}}</div>\n          <div class=\"tb-facts__lbl\">{{ labels.facts.correct }}</div>\n        </div>\n      </div>\n    </div>\n  </main>\n\n  <footer class=\"tb-scene__foot\">\n    <div class=\"tb-scene__foot-spacer\"></div>\n    <button type=\"button\" class=\"ou-btn ou-btn--primary ou-btn--l\" data-action=\"section-continue\">{{ sectionResult.continueLabel }}</button>\n  </footer>\n</div>\n",
@@ -14017,9 +14152,6 @@ function renderContentPage(page, contentTemplates) {
       unlockRules: (TEST_DATA.flowPolicy && TEST_DATA.flowPolicy.sectionUnlockRules) || {},
       completionPolicy:
         (TEST_DATA.flowPolicy && TEST_DATA.flowPolicy.routerCompletionPolicy) || null,
-      // PRD-19: a completed section's card shows its pass/fail only when the test
-      // reveals section results; otherwise the hub keeps it a neutral «Завершена».
-      showSectionResults: TEST_DATA.showSectionResults !== false,
     };
   }
 
@@ -14659,6 +14791,7 @@ var TBTemplate = (() => {
   // shared/template/runtime-entry.ts
   var runtime_entry_exports = {};
   __export(runtime_entry_exports, {
+    BLANK_DASH: () => BLANK_DASH,
     CORE_RENDERER_IDS: () => CORE_RENDERER_IDS,
     DEFAULT_PARAM_CSS_VARS: () => DEFAULT_PARAM_CSS_VARS,
     INPUT_MODES: () => INPUT_MODES,
@@ -14690,7 +14823,9 @@ var TBTemplate = (() => {
     attachBlurGuard: () => attachBlurGuard,
     attachPointerDnd: () => attachPointerDnd,
     attachQuestionMediaFullscreen: () => attachQuestionMediaFullscreen,
+    attachShortAnswer: () => attachShortAnswer,
     baseParams: () => baseParams,
+    blankIds: () => blankIds,
     buildAdaptiveReportContext: () => buildAdaptiveReportContext,
     buildAdaptiveResultContext: () => buildAdaptiveResultContext,
     buildAfterZone: () => buildAfterZone,
@@ -14722,6 +14857,7 @@ var TBTemplate = (() => {
     buildTopicChunk: () => buildTopicChunk,
     buildTransitionContext: () => buildTransitionContext,
     checkPassRule: () => checkPassRule,
+    checkRuleSet: () => checkRuleSet,
     collectSequenceIds: () => collectSequenceIds,
     colorParamKeys: () => colorParamKeys,
     compileTemplate: () => compileTemplate,
@@ -14747,6 +14883,7 @@ var TBTemplate = (() => {
     getPageValues: () => getPageValues,
     hasFixedOptionOrder: () => hasFixedOptionOrder,
     hasOptionList: () => hasOptionList,
+    hasRules: () => hasRules,
     inlineReportImageValues: () => inlineReportImageValues,
     inputModesFor: () => inputModesFor,
     isAllocationComplete: () => isAllocationComplete,
@@ -14757,18 +14894,21 @@ var TBTemplate = (() => {
     isSectionUnlocked: () => isSectionUnlocked,
     isSettingType: () => isSettingType,
     isSingleIndexChoice: () => isSingleIndexChoice,
+    isSystemScreenHidden: () => isSystemScreenHidden,
     isTestTheme: () => isTestTheme,
     lmsScoreFor: () => lmsScoreFor,
     mediaUrlOf: () => mediaUrlOf,
     nextScaleIndex: () => nextScaleIndex,
     normalizeAllocation: () => normalizeAllocation,
     normalizeFeedback: () => normalizeFeedback,
+    normalizeForCompare: () => normalizeForCompare,
     normalizePool: () => normalizePool,
     openQuestionMediaOverlay: () => openQuestionMediaOverlay,
     optionCeiling: () => optionCeiling,
     optionFont: () => optionFont,
     paramsForTheme: () => paramsForTheme,
     paramsOfTheme: () => paramsOfTheme,
+    parseBlanks: () => parseBlanks,
     parseIndicatorInterpretation: () => parseIndicatorInterpretation,
     parseScaleInterpretation: () => parseScaleInterpretation,
     pluralQuestions: () => pluralQuestions2,
@@ -14776,9 +14916,13 @@ var TBTemplate = (() => {
     questionHint: () => questionHint,
     questionIndicesByTopic: () => questionIndicesByTopic,
     readTestTheme: () => readTestTheme,
+    referenceAnswer: () => referenceAnswer,
     renderAllocation: () => renderAllocation,
+    renderBlanksPrompt: () => renderBlanksPrompt,
+    renderBlanksText: () => renderBlanksText,
     renderBlockMarkdown: () => renderBlockMarkdown,
     renderInlineMarkdown: () => renderInlineMarkdown,
+    renderLongAnswer: () => renderLongAnswer,
     renderMatching: () => renderMatching,
     renderMultiple: () => renderMultiple,
     renderPlainText: () => renderPlainText,
@@ -14787,6 +14931,7 @@ var TBTemplate = (() => {
     renderResultField: () => renderResultField,
     renderScale: () => renderScale,
     renderScreenInto: () => renderScreenInto,
+    renderShortAnswer: () => renderShortAnswer,
     renderSingleChoice: () => renderSingleChoice,
     renderTemplate: () => renderTemplate,
     reportFileName: () => reportFileName,
@@ -14929,8 +15074,8 @@ var TBTemplate = (() => {
     }
     return parseNodes();
   }
-  function getPartialAst(name, options, cache) {
-    const cached = cache.get(name);
+  function getPartialAst(name, options, cache2) {
+    const cached = cache2.get(name);
     if (cached) return cached;
     let src;
     if (options.partials && Object.prototype.hasOwnProperty.call(options.partials, name)) {
@@ -14939,7 +15084,7 @@ var TBTemplate = (() => {
       src = options.resolvePartial(name);
     }
     const ast = src === null || src === void 0 ? [] : parse(tokenize(src));
-    cache.set(name, ast);
+    cache2.set(name, ast);
     return ast;
   }
   function renderNodes(nodes, scope, options, partialCache, stack) {
@@ -15018,6 +15163,78 @@ var TBTemplate = (() => {
   function escapeHtml2(value) {
     if (value === null || value === void 0) return "";
     return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  // shared/text/normalize.ts
+  var FENCED = /```[A-Za-zА-Яа-я0-9_+-]*\n[\s\S]*?```/g;
+  function normalizeProse(text) {
+    return text.replace(/^[ \t]+/gm, "").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n");
+  }
+  function normalizeAuthorText(text) {
+    if (typeof text !== "string" || text === "") return "";
+    const lf = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const blocks = [];
+    FENCED.lastIndex = 0;
+    const masked = lf.replace(FENCED, (block) => {
+      blocks.push(block);
+      return `\0c${blocks.length - 1}\0`;
+    });
+    const prose = normalizeProse(masked).trim();
+    return prose.replace(/ c(\d+) /g, (_whole, index) => blocks[Number(index)]);
+  }
+
+  // shared/text/html-to-markdown.ts
+  var NOISE_BLOCKS = [
+    /<style\b[^>]*>[\s\S]*?<\/style>/gi,
+    /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+    /<!--[\s\S]*?-->/g
+  ];
+  var NAMED_ENTITIES = {
+    nbsp: " ",
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    laquo: "\xAB",
+    raquo: "\xBB",
+    mdash: "\u2014",
+    ndash: "\u2013",
+    hellip: "\u2026"
+  };
+  var SAFE_PROTOCOL = /^(https?:\/\/|mailto:)/i;
+  function decodeEntities(text) {
+    return text.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16))).replace(/&([a-z]+);/gi, (match, name) => {
+      const decoded = NAMED_ENTITIES[name.toLowerCase()];
+      return decoded === void 0 ? match : decoded;
+    });
+  }
+  function htmlToMarkdown(html) {
+    if (!html) return "";
+    let text = html;
+    for (const block of NOISE_BLOCKS) text = text.replace(block, "");
+    text = text.replace(
+      /<a\b[^>]*\bhref\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (_, href, label) => {
+        const clean = label.replace(/<[^>]+>/g, "").trim();
+        return SAFE_PROTOCOL.test(href.trim()) ? `[${clean}](${href.trim()})` : clean;
+      }
+    ).replace(
+      /<(b|strong)\b[^>]*>([\s\S]*?)<\/\1>/gi,
+      (_, __, inner) => wrapEmphasis(inner, "**")
+    ).replace(
+      /<(i|em)\b[^>]*>([\s\S]*?)<\/\1>/gi,
+      (_, __, inner) => wrapEmphasis(inner, "*")
+    ).replace(/<br\b[^>]*\/?>/gi, "\n").replace(/<\/li>/gi, "\n").replace(/<\/(?:p|div|h[1-6]|tr|blockquote)>/gi, "\n\n").replace(/<[^>]+>/g, "");
+    return normalizeAuthorText(decodeEntities(text));
+  }
+  function wrapEmphasis(inner, marker) {
+    const stripped = inner.replace(/<[^>]+>/g, "");
+    const content = stripped.trim();
+    if (!content) return "";
+    const leading = stripped.slice(0, stripped.length - stripped.trimStart().length);
+    const trailing = stripped.slice(stripped.trimEnd().length);
+    return `${leading}${marker}${content}${marker}${trailing}`;
   }
 
   // shared/text/hanging-words.ts
@@ -15223,8 +15440,12 @@ var TBTemplate = (() => {
     `${MD_LINK.source}|${BARE_URL.source}|${EMAIL.source}`,
     "g"
   );
-  var SAFE_PROTOCOL = /^(https?:\/\/|mailto:)/i;
+  var SAFE_PROTOCOL2 = /^(https?:\/\/|mailto:)/i;
   var MASK = "\0";
+  var INLINE_CODE = /`([^`\n]+)`/g;
+  var CODE_BLOCK = /```([A-Za-zА-Яа-я0-9_+-]*)\n([\s\S]*?)```/g;
+  var FORMULA = /\$\$([^$]+)\$\$/g;
+  var KNOWN_LANGS = ["python", "sql", "javascript", "js", "ts", "typescript", "json", "bash"];
   function applyEmphasis(html) {
     return html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
   }
@@ -15242,7 +15463,7 @@ var TBTemplate = (() => {
   function renderLinkToken(match) {
     const [source, mdLabel, mdUrl] = match;
     if (mdLabel !== void 0 && mdUrl !== void 0) {
-      if (!SAFE_PROTOCOL.test(mdUrl)) return escapeHtml2(source);
+      if (!SAFE_PROTOCOL2.test(mdUrl)) return escapeHtml2(source);
       return anchor(mdUrl, applyEmphasis(escapeHtml2(applyTypography(mdLabel))));
     }
     const url = /^https?:\/\//i.test(source) ? source : `mailto:${source}`;
@@ -15251,8 +15472,9 @@ var TBTemplate = (() => {
   function renderInlineMarkdown(text) {
     if (!text) return "";
     const links = [];
+    const source = maskFormulas(maskInlineCode(normaliseNewlines(text), links), links);
     LINK_TOKEN_RE.lastIndex = 0;
-    const masked = normaliseNewlines(text).replace(LINK_TOKEN_RE, (...args) => {
+    const masked = source.replace(LINK_TOKEN_RE, (...args) => {
       const match = args.slice(0, -2);
       links.push(renderLinkToken(match));
       return `${MASK}${links.length - 1}${MASK}`;
@@ -15260,9 +15482,127 @@ var TBTemplate = (() => {
     const body = renderLineBreaks(applyEmphasis(escapeHtml2(applyTypography(masked))));
     return body.replace(new RegExp(`${MASK}(\\d+)${MASK}`, "g"), (_, i) => links[Number(i)]);
   }
+  function maskFormulas(text, slots) {
+    FORMULA.lastIndex = 0;
+    return text.replace(FORMULA, (_match, body) => {
+      const latex = body.trim();
+      slots.push(
+        `<span class="tb-formula" data-latex="${escapeHtml2(latex)}">${escapeHtml2(latex)}</span>`
+      );
+      return `${MASK}${slots.length - 1}${MASK}`;
+    });
+  }
+  function maskInlineCode(text, slots) {
+    INLINE_CODE.lastIndex = 0;
+    return text.replace(INLINE_CODE, (_match, body) => {
+      slots.push(`<code class="tb-code-inline">${escapeHtml2(body)}</code>`);
+      return `${MASK}${slots.length - 1}${MASK}`;
+    });
+  }
+  function extractCodeBlocks(text) {
+    const blocks = [];
+    CODE_BLOCK.lastIndex = 0;
+    const rest = text.replace(CODE_BLOCK, (_match, lang, body) => {
+      const language = KNOWN_LANGS.indexOf(lang.toLowerCase()) === -1 ? "" : lang.toLowerCase();
+      const attr = language === "" ? "" : ` data-lang="${language}"`;
+      const code = body.replace(/\n$/, "");
+      blocks.push(`<pre class="tb-code"${attr}><code>${escapeHtml2(code)}</code></pre>`);
+      return `
+
+${MASK}b${blocks.length - 1}${MASK}
+
+`;
+    });
+    return { text: rest, blocks };
+  }
   function renderBlockMarkdown(text) {
     if (!text) return "";
-    return normaliseNewlines(text).split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter((paragraph) => paragraph.length > 0).map((paragraph) => `<p>${renderInlineMarkdown(paragraph)}</p>`).join("");
+    const { text: withoutBlocks, blocks } = extractCodeBlocks(normaliseNewlines(text));
+    return withoutBlocks.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter((paragraph) => paragraph.length > 0).map((paragraph) => {
+      const whole = new RegExp(`^${MASK}b(\\d+)${MASK}$`).exec(paragraph);
+      return whole ? blocks[Number(whole[1])] : `<p>${renderInlineMarkdown(paragraph)}</p>`;
+    }).join("");
+  }
+
+  // shared/questions/blanks.ts
+  var NAME = /^[A-Za-z0-9_]+$/;
+  var RESERVED = "#$&>/^!";
+  function parseBlanks(text, options = {}) {
+    if (typeof text !== "string" || text === "") return [];
+    const found = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let at = 0; at < text.length - 1; at += 1) {
+      if (text[at] !== "{" || text[at + 1] !== "{") continue;
+      if (at > 0 && text[at - 1] === "\\") {
+        at += 1;
+        continue;
+      }
+      const close = text.indexOf("}}", at + 2);
+      if (close === -1) break;
+      const id = text.slice(at + 2, close);
+      const end = close + 2;
+      if (RESERVED.indexOf(id.charAt(0)) !== -1) {
+        if (options.withReserved) found.push({ id, start: at, end, duplicate: false, reserved: true });
+        at = end - 1;
+        continue;
+      }
+      if (!NAME.test(id)) {
+        at = end - 1;
+        continue;
+      }
+      found.push({ id, start: at, end, duplicate: seen.has(id) });
+      seen.add(id);
+      at = end - 1;
+    }
+    return found;
+  }
+  function blankIds(text) {
+    const ids = [];
+    for (const blank of parseBlanks(text)) {
+      if (!blank.duplicate) ids.push(blank.id);
+    }
+    return ids;
+  }
+
+  // shared/questions/blanks-render.ts
+  var BLANK_DASH = "______";
+  function referenceAnswer(set) {
+    const rules = set && Array.isArray(set.rules) ? set.rules : [];
+    for (const rule of rules) {
+      if (rule.kind === "number") {
+        if (rule.op === "eq" && !rule.tolerance) return String(rule.value).replace(".", ",");
+        continue;
+      }
+      if (rule.match !== "wildcard") continue;
+      if (rule.value.indexOf("*") !== -1 || rule.value.indexOf("?") !== -1) continue;
+      if (rule.value.trim() === "") continue;
+      return rule.value;
+    }
+    return null;
+  }
+  function renderBlanksText(text, options) {
+    if (typeof text !== "string" || text === "") return "";
+    const blanks = parseBlanks(text);
+    let out = "";
+    let at = 0;
+    for (const blank of blanks) {
+      out += text.slice(at, blank.start) + substitute(blank.id, options);
+      at = blank.end;
+    }
+    out += text.slice(at);
+    return out.replace(/\\\{\{/g, "{{");
+  }
+  function substitute(id, options) {
+    var _a, _b, _c;
+    if (options.mode === "answer") {
+      const written = (_a = options.answer) == null ? void 0 : _a[id];
+      return typeof written === "string" && written.trim() !== "" ? written : BLANK_DASH;
+    }
+    if (options.mode === "reference") {
+      const set = ((_b = options.blanks) != null ? _b : []).find((item) => item.id === id);
+      return (_c = referenceAnswer(set)) != null ? _c : BLANK_DASH;
+    }
+    return BLANK_DASH;
   }
 
   // shared/text/plain.ts
@@ -15275,6 +15615,7 @@ var TBTemplate = (() => {
   }
   function renderPlainText(text) {
     if (!text) return "";
+    text = renderBlanksText(text, { mode: "dash" });
     return applyTypography(stripMarkdown(text));
   }
 
@@ -15437,9 +15778,14 @@ var TBTemplate = (() => {
     root.appendChild(el);
     (_a = root.ownerDocument.defaultView) == null ? void 0 : _a.setTimeout(() => el.remove(), TOAST_MS);
   }
+  var FIELD_SELECTOR = "textarea, input, [contenteditable]:not([contenteditable='false'])";
+  function isOwnField(el) {
+    return el.closest(FIELD_SELECTOR) !== null;
+  }
   function inPerimeter(root, target) {
     const el = target instanceof Element ? target : null;
     if (!el) return false;
+    if (isOwnField(el)) return false;
     if (root.hasAttribute(PROTECTED_ATTR)) return root.contains(el);
     return el.closest("[" + PROTECTED_ATTR + "]") !== null;
   }
@@ -15474,12 +15820,32 @@ var TBTemplate = (() => {
     el.style.removeProperty("-webkit-user-select");
     el.style.removeProperty("-webkit-touch-callout");
   }
+  var EXEMPT_ATTR = "data-tb-protection-exempt";
+  function exempt(el) {
+    el.setAttribute(EXEMPT_ATTR, "");
+    el.style.userSelect = "text";
+    el.style.setProperty("-webkit-user-select", "text");
+    el.style.setProperty("-webkit-touch-callout", "default");
+  }
+  function unexempt(el) {
+    el.removeAttribute(EXEMPT_ATTR);
+    el.style.removeProperty("user-select");
+    el.style.removeProperty("-webkit-user-select");
+    el.style.removeProperty("-webkit-touch-callout");
+  }
+  function fieldsInside(root) {
+    const fields2 = Array.from(root.querySelectorAll(FIELD_SELECTOR));
+    if (root.hasAttribute(PROTECTED_ATTR)) return fields2;
+    return fields2.filter((field) => field.closest("[" + PROTECTED_ATTR + "]") !== null);
+  }
   function applyProtection(root, target) {
     ensureStyle(root);
+    root.querySelectorAll("[" + EXEMPT_ATTR + "]").forEach(unexempt);
     root.querySelectorAll("[" + PROTECTED_ATTR + "]").forEach(unmark);
     if (root.hasAttribute(PROTECTED_ATTR)) unmark(root);
     if (!target) return;
     for (const el of elementsOf(root, target)) mark(el);
+    for (const field of fieldsInside(root)) exempt(field);
     ensureListeners(root);
   }
 
@@ -16237,11 +16603,11 @@ var TBTemplate = (() => {
   }
 
   // shared/template/measure-view.ts
-  function measureBarColor(valence, ramp, authored, ratio) {
+  function measureBarColor(valence, ramp, authored, ratio2) {
     if (valence === "none" && authored) return authored;
     return rampColor(
       valence === "none" ? LEVEL_SCHEMES.neutral : ramp,
-      valence === "lower_is_better" ? 1 - ratio : ratio
+      valence === "lower_is_better" ? 1 - ratio2 : ratio2
     );
   }
   var RING_CIRCUMFERENCE = 2 * Math.PI * 63;
@@ -16407,8 +16773,8 @@ var TBTemplate = (() => {
     };
     if (!hasDomain) return view;
     const span = domainMax - domainMin;
-    const ratio = span > 0 ? (value - domainMin) / span : 0;
-    const clamped = ratio < 0 ? 0 : ratio > 1 ? 1 : ratio;
+    const ratio2 = span > 0 ? (value - domainMin) / span : 0;
+    const clamped = ratio2 < 0 ? 0 : ratio2 > 1 ? 1 : ratio2;
     if (renderKind === "band_ruler") {
       view.zones = buildZones(input, domainMin, domainMax, (_f = band == null ? void 0 : band.level) != null ? _f : "");
       view.markerPercent = round1(clamped * 100);
@@ -16640,13 +17006,13 @@ var TBTemplate = (() => {
       const top = axisTop(limit, interpretation, domainMin, domainMax, attemptTop);
       const raw = radiusRatio(value, interpretation, domainMin, top, domainMax, quantized);
       const over = raw > 1;
-      const ratio = clamp012(raw);
+      const ratio2 = clamp012(raw);
       const bands = interpretation.bands;
       const band = findBand(bands, value);
       const bandIndex = band ? bands.indexOf(band) : -1;
       const tone = (_b = band == null ? void 0 : band.tone) != null ? _b : toneOf2(interpretation.valence, bandIndex, bands.length);
       const colors = zoneColors(input.ramp, bands.length, interpretation.valence);
-      const color = bandIndex >= 0 && colors[bandIndex] ? colors[bandIndex] : rampColor(input.ramp, interpretation.valence === "lower_is_better" ? 1 - ratio : ratio);
+      const color = bandIndex >= 0 && colors[bandIndex] ? colors[bandIndex] : rampColor(input.ramp, interpretation.valence === "lower_is_better" ? 1 - ratio2 : ratio2);
       const angle = -Math.PI / 2 + step * i;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
@@ -16673,11 +17039,11 @@ var TBTemplate = (() => {
         overflowClass: over ? "tb-radar__dot--over" : "",
         // The share of the RAY, not of the domain — under a narrowed limit the two differ, and
         // the geometry below is built from the same number, so the two cannot disagree.
-        radiusPercent: round12(ratio * 100),
+        radiusPercent: round12(ratio2 * 100),
         cx: CENTER_X,
         cy: CENTER_Y,
-        x: round12(CENTER_X + cos * RADIUS * ratio),
-        y: round12(CENTER_Y + sin * RADIUS * ratio),
+        x: round12(CENTER_X + cos * RADIUS * ratio2),
+        y: round12(CENTER_Y + sin * RADIUS * ratio2),
         axisX: round12(CENTER_X + cos * RADIUS),
         axisY: round12(CENTER_Y + sin * RADIUS)
       });
@@ -17039,6 +17405,24 @@ var TBTemplate = (() => {
     return out;
   }
 
+  // shared/interpretation/resolve.ts
+  function hasText(value) {
+    return typeof (value == null ? void 0 : value.text) === "string" && value.text.trim().length > 0;
+  }
+  function normalize(value, source) {
+    var _a, _b;
+    return { format: (_a = value.format) != null ? _a : "plain", text: String((_b = value.text) != null ? _b : ""), source };
+  }
+  function resolveTopicInterpretation(topic, section) {
+    if (hasText(section)) return normalize(section, "test");
+    if (hasText(topic)) return normalize(topic, "topic");
+    return null;
+  }
+  function resolveBreakdownInterpretation(texts, key) {
+    const value = texts == null ? void 0 : texts[key];
+    return hasText(value) ? normalize(value, "test") : null;
+  }
+
   // shared/template/results-blocks.ts
   function resolve(setting, auto) {
     if (setting === "show") return true;
@@ -17322,6 +17706,10 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       ...blocks.scales ? visibleScales.map(firedFeedback) : []
     ];
   }
+  function headingText(value) {
+    const text = typeof value === "string" ? value.trim() : "";
+    return text.length > 0 ? text : void 0;
+  }
   function topicHasContent(t) {
     var _a, _b, _c, _d;
     return t.total > 0 || t.passed != null || ((_b = (_a = t.recommendedCourses) == null ? void 0 : _a.length) != null ? _b : 0) > 0 || ((_d = (_c = t.recommendedEvents) == null ? void 0 : _c.length) != null ? _d : 0) > 0;
@@ -17336,7 +17724,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const state = passed === true ? "passed" : passed === false ? "failed" : "unknown";
     return (_a = labels == null ? void 0 : labels[`topic.verdict.${state}`]) != null ? _a : DEFAULT_TOPIC_VERDICT_LABEL[state];
   }
-  function breakdownRow(e, display) {
+  function breakdownRow(e, display, interpretations) {
     var _a;
     const showValue = display.visibility === "bar_and_value";
     const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
@@ -17361,8 +17749,17 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       // бы завести вторую правду о пороге и перекрашивать старые попытки при смене настроек.
       passed,
       passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
-      ...showValue && threshold !== null ? { requiredLabel: "\u041D\u0443\u0436\u043D\u043E " + Math.round(threshold) + " %" } : {}
+      ...showValue && threshold !== null ? { requiredLabel: "\u041D\u0443\u0436\u043D\u043E " + Math.round(threshold) + " %" } : {},
+      // ТОЛКОВАНИЕ подтемы печатается только при включённом показе: настройка решает, а не
+      // наличие текста. Автор может написать тексты заранее и не показывать их участнику.
+      ...display.showInterpretation === true ? breakdownInterpretationHtml(e.key, interpretations) : {}
     };
+  }
+  function breakdownInterpretationHtml(key, interpretations) {
+    const resolved = resolveBreakdownInterpretation(interpretations, key);
+    if (!resolved) return {};
+    const html = richTextToHtml(resolved.text, resolved.format);
+    return html ? { interpretationHtml: html } : {};
   }
   function showsNestedBreakdown(display) {
     var _a;
@@ -17397,9 +17794,14 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     };
     if (withPoints && t.total > 0) view.pointsLabel = round15(t.earnedPoints) + " / " + round15(t.possiblePoints);
     if (t.requiredLabel) view.requiredLabel = t.requiredLabel;
+    const interpretation = resolveTopicInterpretation(t.interpretation, t.sectionInterpretation);
+    if (interpretation) {
+      const html = richTextToHtml(interpretation.text, interpretation.format);
+      if (html) view.interpretationHtml = html;
+    }
     const display = breakdownDisplay;
     if (display && showsNestedBreakdown(display) && ((_a = t.breakdown) == null ? void 0 : _a.length)) {
-      view.breakdown = t.breakdown.map((e) => breakdownRow(e, display));
+      view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, t.breakdownInterpretation));
     }
     return view;
   }
@@ -17435,7 +17837,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return opts.labels ? labelsTree(labels) : void 0;
   }
   function buildResultContext(input, title, opts = {}) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
     const passed = !!input.passed;
     const percent3 = Math.round(input.percent || 0);
     const thresholdDeclared = (_b = opts.hasPassThreshold) != null ? _b : (_a = opts.measures) == null ? void 0 : _a.hasPassThreshold;
@@ -17455,13 +17857,19 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const result = {
       passed,
       passClass: passed ? "is-pass" : "is-fail",
-      statusLabel: passed ? "\u041F\u0440\u043E\u0439\u0434\u0435\u043D" : "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D",
+      // Заголовок исхода: авторский, если задан, иначе прежняя подпись пилюли. Гейт стоит на
+      // ТЕКСТЕ, а не на наличии поля: настройка, из которой текст стёрли, обязана вернуть
+      // умолчание, а не напечатать пустую пилюлю.
+      statusLabel: passed ? (_d = headingText((_c = opts.headings) == null ? void 0 : _c.passed)) != null ? _d : "\u041F\u0440\u043E\u0439\u0434\u0435\u043D" : (_f = headingText((_e = opts.headings) == null ? void 0 : _e.failed)) != null ? _f : "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D",
       scorePercent: percent3,
       ringDashoffset: Math.round(RING_CIRCUMFERENCE2 * (1 - percent3 / 100)),
       totalQuestions: input.totalQuestions,
       correct: input.correct,
       earnedPoints: round15(input.earnedPoints),
       possiblePoints: round15(input.possiblePoints),
+      // PRD-57 FR-41: поле появляется, только когда есть что сказать, — контекст теста без
+      // открытых ответов остаётся байт в байт прежним.
+      ...input.gradingComplete === false ? { pendingReview: true } : {},
       topicResults: topicCards.map((c) => c.view)
     };
     const grouped = groupSections(input.sectionGroups, topicCards);
@@ -17479,7 +17887,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);
     }
     fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
-    const introHtml = richTextToHtml((_c = opts.intro) == null ? void 0 : _c.text, (_e = (_d = opts.intro) == null ? void 0 : _d.format) != null ? _e : void 0);
+    const introHtml = richTextToHtml((_g = opts.intro) == null ? void 0 : _g.text, (_i = (_h = opts.intro) == null ? void 0 : _h.format) != null ? _i : void 0);
     if (introHtml) result.introHtml = introHtml;
     if (opts.recommendedCourses && opts.recommendedCourses.length) result.recommendedCourses = opts.recommendedCourses;
     if (opts.recommendedEvents && opts.recommendedEvents.length) result.recommendedEvents = opts.recommendedEvents;
@@ -17504,7 +17912,11 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const recommendations = collectRecommendations(recommendationSources);
     if (recommendations.hasAny) result.recommendations = recommendations;
     const labelsTreeOut = attachBlocksAndLabels(result, opts, !result.hideScoreSummary);
-    return { course: { title }, result, ...labelsTreeOut ? { labels: labelsTreeOut } : {} };
+    return {
+      course: { title: (_k = headingText((_j = opts.headings) == null ? void 0 : _j.document)) != null ? _k : title },
+      result,
+      ...labelsTreeOut ? { labels: labelsTreeOut } : {}
+    };
   }
   function buildSectionResultContext(input, opts = {}) {
     const percent3 = Math.round(input.percent || 0);
@@ -17593,7 +18005,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     };
   }
   function buildAdaptiveResultContext(input, title, opts = {}) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     const result = {
       passed: !!input.passed,
       adaptive: true,
@@ -17621,7 +18033,11 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const recommendations = collectRecommendations(recommendationSources);
     if (recommendations.hasAny) result.recommendations = recommendations;
     const labelsTreeOut = attachBlocksAndLabels(result, opts, false);
-    return { course: { title }, result, ...labelsTreeOut ? { labels: labelsTreeOut } : {} };
+    return {
+      course: { title: (_e = headingText((_d = opts.headings) == null ? void 0 : _d.document)) != null ? _e : title },
+      result,
+      ...labelsTreeOut ? { labels: labelsTreeOut } : {}
+    };
   }
 
   // shared/questions/question-type.ts
@@ -17637,12 +18053,174 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   function hasFixedOptionOrder(type) {
     return type === "scale";
   }
+  function isTextEntry(type) {
+    return type === "short";
+  }
+  function hasBlanks(type) {
+    return type === "blanks";
+  }
+  function isOpenText(type) {
+    return type === "long";
+  }
   function isMeasurementOnly(question) {
-    var _a;
+    var _a, _b, _c;
     if (distributesBudget(question.type)) return true;
+    if (isOpenText(question.type)) return true;
+    if (isTextEntry(question.type)) {
+      const set = (_a = question.correctJson) != null ? _a : question.correct;
+      return !set || !Array.isArray(set.rules) || set.rules.length === 0;
+    }
+    if (hasBlanks(question.type)) {
+      const key2 = (_b = question.correctJson) != null ? _b : question.correct;
+      const blanks = key2 && Array.isArray(key2.blanks) ? key2.blanks : [];
+      return !blanks.some(
+        (set) => set && Array.isArray(set.rules) && set.rules.length > 0
+      );
+    }
     if (question.type !== "scale") return false;
-    const key = (_a = question.correctJson) != null ? _a : question.correct;
+    const key = (_c = question.correctJson) != null ? _c : question.correct;
     return !key || typeof key.correctIndex !== "number";
+  }
+
+  // shared/answer-check/normalize.ts
+  var SPACES = /[   ]/g;
+  var DASHES = /[‐-―−]/g;
+  var SINGLE_QUOTES = /[‘’‚‛′]/g;
+  var DOUBLE_QUOTES = /[“”„‟″«»]/g;
+  function normalizeForCompare(value) {
+    if (typeof value !== "string" || value === "") return "";
+    return value.replace(SPACES, " ").replace(DASHES, "-").replace(SINGLE_QUOTES, "'").replace(DOUBLE_QUOTES, '"').toLowerCase().replace(/ё/g, "\u0435").replace(/\s+/g, " ").trim();
+  }
+
+  // shared/answer-check/regex.ts
+  var cache = /* @__PURE__ */ new Map();
+  function compileExpression(source) {
+    const cached = cache.get(source);
+    if (cached !== void 0) return cached;
+    let compiled;
+    try {
+      compiled = new RegExp(source, "i");
+    } catch (e) {
+      compiled = null;
+    }
+    cache.set(source, compiled);
+    return compiled;
+  }
+  function matchExpression(source, answer) {
+    if (typeof answer !== "string") return false;
+    const text = answer.trim();
+    if (text === "") return false;
+    const compiled = compileExpression(source);
+    return compiled === null ? false : compiled.test(text);
+  }
+
+  // shared/answer-check/wildcard.ts
+  function matchWildcard(pattern, text) {
+    let p = 0;
+    let t = 0;
+    let star = -1;
+    let eaten = 0;
+    while (t < text.length) {
+      if (p < pattern.length && (pattern[p] === "?" || pattern[p] === text[t])) {
+        p++;
+        t++;
+      } else if (p < pattern.length && pattern[p] === "*") {
+        star = p;
+        p++;
+        eaten = t;
+      } else if (star >= 0) {
+        p = star + 1;
+        eaten++;
+        t = eaten;
+      } else {
+        return false;
+      }
+    }
+    while (p < pattern.length && pattern[p] === "*") p++;
+    return p === pattern.length;
+  }
+
+  // shared/answer-check/number.ts
+  var MIXED = /^([+-]?)(\d+) (\d+)\/(\d+)$/;
+  var VULGAR = /^([+-]?)(\d+)\/(\d+)$/;
+  var DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
+  function ratio(sign, whole, numerator, denominator) {
+    if (denominator === 0) return null;
+    const magnitude = whole + numerator / denominator;
+    return sign === "-" ? -magnitude : magnitude;
+  }
+  function parseNumericAnswer(value) {
+    if (typeof value !== "string") return null;
+    const text = value.replace(/−/g, "-").replace(/\s+/g, " ").trim();
+    if (text === "") return null;
+    const mixed = MIXED.exec(text);
+    if (mixed) return ratio(mixed[1], Number(mixed[2]), Number(mixed[3]), Number(mixed[4]));
+    const vulgar = VULGAR.exec(text);
+    if (vulgar) return ratio(vulgar[1], 0, Number(vulgar[2]), Number(vulgar[3]));
+    const compact = text.replace(/ /g, "").replace(",", ".");
+    if (!DECIMAL.test(compact)) return null;
+    const parsed = Number(compact);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function toleranceWindow(rule) {
+    const tolerance = rule.tolerance;
+    if (!tolerance) return 0;
+    return tolerance.unit === "pct" ? Math.abs(rule.value) * tolerance.value / 100 : Math.abs(tolerance.value);
+  }
+  function matchNumber(rule, answer) {
+    if (!Number.isFinite(answer)) return false;
+    switch (rule.op) {
+      case "ne":
+        return Math.abs(answer - rule.value) > toleranceWindow(rule);
+      case "gt":
+        return answer > rule.value;
+      case "gte":
+        return answer >= rule.value;
+      case "lt":
+        return answer < rule.value;
+      case "lte":
+        return answer <= rule.value;
+      case "eq":
+      default:
+        return Math.abs(answer - rule.value) <= toleranceWindow(rule);
+    }
+  }
+
+  // shared/answer-check/rules.ts
+  function hasRules(set) {
+    return !!set && Array.isArray(set.rules) && set.rules.length > 0;
+  }
+  function matchOne(rule, text, numeric2, raw) {
+    if (rule.kind === "number") {
+      return numeric2 === null ? false : matchNumber(rule, numeric2);
+    }
+    if (rule.match === "regex") return matchExpression(rule.value, raw);
+    return matchWildcard(normalizeForCompare(rule.value), text);
+  }
+  function checkRuleSet(set, answer, verdicts, options) {
+    const rules = Array.isArray(set == null ? void 0 : set.rules) ? set.rules : [];
+    const text = normalizeForCompare(answer);
+    const raw = typeof answer === "string" ? answer : "";
+    if (rules.length === 0 || text === "") {
+      return { passed: false, perRule: rules.map(() => false) };
+    }
+    const numeric2 = set.answerKind === "number" ? parseNumericAnswer(answer) : null;
+    const skipped = (rule) => (options == null ? void 0 : options.skipSlow) === true && rule.kind === "text" && rule.match === "regex" && rule.slow === true;
+    const given = (index) => {
+      const ready = verdicts == null ? void 0 : verdicts[index];
+      if (ready !== void 0) return ready;
+      return skipped(rules[index]) ? "budget" : void 0;
+    };
+    const perRule = rules.map((rule, index) => {
+      const ready = given(index);
+      if (ready === true) return true;
+      if (ready === false || ready === "budget") return false;
+      return matchOne(rule, text, numeric2, raw);
+    });
+    const passed = set.join === "all" ? perRule.every(Boolean) : perRule.some(Boolean);
+    const outOfBudget = rules.some((_, index) => given(index) === "budget");
+    const pending = !passed && outOfBudget && rules.every((_, index) => given(index) === "budget" || perRule[index] || set.join === "any");
+    return pending ? { passed, perRule, pending: true } : { passed, perRule };
   }
 
   // shared/scoring/engine.ts
@@ -17652,10 +18230,34 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   function maxOf(nums) {
     return nums.reduce((m, v) => v > m ? v : m, 0);
   }
-  function exactCorrect(type, correct, answer) {
+  function blankTallies(correct, answer, verdicts) {
+    const sets = Array.isArray(correct.blanks) ? correct.blanks : [];
+    const written = answer && typeof answer === "object" && !Array.isArray(answer) ? answer : {};
+    let c = 0;
+    let x = 0;
+    let total = 0;
+    for (const set of sets) {
+      if (!set || !Array.isArray(set.rules) || set.rules.length === 0) continue;
+      total += 1;
+      const value = written[set.id];
+      if (typeof value !== "string" || value.trim() === "") continue;
+      if (checkRuleSet(set, value, verdicts).passed) c += 1;
+      else x += 1;
+    }
+    return { c, x, total };
+  }
+  function exactCorrect(type, correct, answer, verdicts) {
     if (answer === null || answer === void 0) return 0;
     if (isSingleIndexChoice(type)) {
       return answer === correct.correctIndex ? 1 : 0;
+    }
+    if (isTextEntry(type)) {
+      if (typeof answer !== "string") return 0;
+      return checkRuleSet(correct, answer, verdicts).passed ? 1 : 0;
+    }
+    if (hasBlanks(type)) {
+      const tallies = blankTallies(correct, answer, verdicts);
+      return tallies.total > 0 && tallies.c === tallies.total ? 1 : 0;
     }
     if (type === "multiple") {
       const want = Array.isArray(correct.correctIndices) ? correct.correctIndices.slice() : [];
@@ -17683,7 +18285,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     }
     return 0;
   }
-  function countTallies(type, correct, answer) {
+  function countTallies(type, correct, answer, verdicts) {
     if (type === "multiple") {
       const want = Array.isArray(correct.correctIndices) ? correct.correctIndices : [];
       const got = Array.isArray(answer) ? answer : [];
@@ -17716,6 +18318,15 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       }
       return { c: c2, x, total: want.length };
     }
+    if (hasBlanks(type)) return blankTallies(correct, answer, verdicts);
+    if (isTextEntry(type)) {
+      const set = correct;
+      const rules = Array.isArray(set == null ? void 0 : set.rules) ? set.rules : [];
+      const outcome = typeof answer === "string" ? checkRuleSet(set, answer, verdicts) : null;
+      const c2 = outcome ? outcome.perRule.filter(Boolean).length : 0;
+      const x = typeof answer === "string" && answer !== "" && c2 === 0 ? 1 : 0;
+      return { c: c2, x, total: rules.length || 1 };
+    }
     const c = exactCorrect("single", correct, answer);
     return { c, x: answer !== null && answer !== void 0 ? 1 - c : 0, total: 1 };
   }
@@ -17740,10 +18351,10 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     });
   }
   function firstMatchingTier(input) {
-    const { type, correct, answer, scoring } = input;
+    const { type, correct, answer, scoring, verdicts } = input;
     if (!scoring || scoring.kind !== "tiered") return null;
     if (answer === null || answer === void 0) return null;
-    const counters = countTallies(type, correct, answer);
+    const counters = countTallies(type, correct, answer, verdicts);
     const index = scoring.tiers.findIndex((tier) => evalPredicate(tier.when, counters));
     return index >= 0 ? index : null;
   }
@@ -17769,7 +18380,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       score2 = Math.max(0, score2);
       return { score: score2, sMax, ratio: sMax > 0 ? clamp013(score2 / sMax) : 0 };
     }
-    const score = exactCorrect(type, correct, answer);
+    const score = exactCorrect(type, correct, answer, input.verdicts);
     return { score, sMax: 1, ratio: score };
   }
 
@@ -17856,6 +18467,10 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   }
 
   // shared/scoring/aggregate.ts
+  function isUnchecked(q) {
+    if (!q.ruleVerdicts || !isTextEntry(q.type) || typeof q.answer !== "string") return false;
+    return checkRuleSet(q.correct, q.answer, q.ruleVerdicts).pending === true;
+  }
   function aggregateStandardResult(input) {
     var _a;
     const overall = resolveOverallRule(input.overallPassRule);
@@ -17869,6 +18484,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const policy = resolvePassDecisionPolicy(input.passDecisionPolicy);
     const breakdownItems = [];
     const gates = [];
+    const questionOutcomes = [];
     const topicResults = input.sections.map((sec) => {
       var _a2, _b;
       let earned = 0;
@@ -17876,10 +18492,27 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       let correct = 0;
       let scored = 0;
       for (const q of sec.questions) {
-        if (isMeasurementOnly(q)) continue;
+        if (isMeasurementOnly(q) || isUnchecked(q)) {
+          const waiting = isOpenText(q.type) || isUnchecked(q);
+          if (q.id) {
+            questionOutcomes.push({
+              questionId: q.id,
+              result: waiting ? "pending" : "neutral",
+              earned: 0,
+              possible: 0
+            });
+          }
+          continue;
+        }
         scored++;
-        const ratio = q.answer === void 0 || q.answer === null ? 0 : scoreAnswer({ type: q.type, correct: q.correct || {}, answer: q.answer, scoring: q.scoring }).ratio;
-        const questionEarned = q.points * ratio;
+        const ratio2 = q.answer === void 0 || q.answer === null ? 0 : scoreAnswer({
+          type: q.type,
+          correct: q.correct || {},
+          answer: q.answer,
+          scoring: q.scoring,
+          verdicts: q.ruleVerdicts
+        }).ratio;
+        const questionEarned = q.points * ratio2;
         const answered = q.answer !== void 0 && q.answer !== null;
         possible += q.points;
         earned += questionEarned;
@@ -17890,7 +18523,15 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
           possible: q.points,
           answered
         });
-        if (ratio === 1) correct++;
+        if (ratio2 === 1) correct++;
+        if (q.id) {
+          questionOutcomes.push({
+            questionId: q.id,
+            result: ratio2 === 1 ? "correct" : "incorrect",
+            earned: questionEarned,
+            possible: q.points
+          });
+        }
       }
       const total = scored;
       const percent4 = possible > 0 ? earned / possible * 100 : 0;
@@ -17972,7 +18613,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       topicResults,
       breakdowns: testEntries,
       // Absent, not empty: a test without groups keeps the result shape it always had.
-      ...sectionGroups.length ? { sectionGroups } : {}
+      ...sectionGroups.length ? { sectionGroups } : {},
+      // Тем же правилом: попытка без единого опознанного вопроса хранит прежнюю форму
+      // результата, и читатель отличает «списка нет» от «список пуст».
+      ...questionOutcomes.length ? { questionOutcomes } : {},
+      // PRD-57 FR-36: попытка предварительна, пока хоть один ответ ждёт проверки.
+      gradingComplete: !questionOutcomes.some((outcome) => outcome.result === "pending")
     };
   }
   function decideVerdict(policy, gates) {
@@ -18600,6 +19246,77 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const rows = displayOrder(spec.options.length, shuffleMapping).map((i) => allocationRow(spec, normalized, i, review === true)).join("");
     return `<div class="ou-alloc${review ? " ou-alloc--readonly" : ""}"><div class="ou-alloc__counter${complete ? " is-complete" : ""}" role="status" aria-live="polite">${counter}</div><div class="ou-alloc__rows">${rows}</div></div>`;
   }
+  function renderShortAnswer(question, answer, options = {}) {
+    var _a;
+    const value = typeof answer === "string" ? answer : "";
+    const numeric2 = options.numeric === true;
+    const notANumber = numeric2 && value.trim() !== "" && parseNumericAnswer(value) === null;
+    const wrap = (numeric2 ? "ou-field ou-field--l tb-answer-field tb-answer-field--num" : "ou-field ou-field--l ou-field--full tb-answer-field") + (notANumber ? " ou-field--error" : "");
+    const mode = numeric2 ? ' inputmode="decimal" data-answer-kind="number"' : "";
+    const invalid = notANumber ? ' aria-invalid="true"' : "";
+    const locked = options.readonly ? " disabled" : "";
+    const affix = options.unit ? `<span class="ou-field__affix">${attrText(options.unit)}</span>` : "";
+    const own = (_a = question.dataJson) != null ? _a : {};
+    const limit = typeof options.maxLength === "number" && options.maxLength > 0 ? options.maxLength : typeof own.maxLength === "number" && own.maxLength > 0 ? own.maxLength : null;
+    const limitAttr = limit === null ? "" : ` maxlength="${limit}"`;
+    const limitMsg = limit === null ? "" : `<div class="ou-field__msg">\u0414\u043E ${limit} \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432</div>`;
+    const formatHint = numeric2 ? `<div class="ou-field__msg">\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0447\u0438\u0441\u043B\u043E</div>` : "";
+    const nanMsg = numeric2 ? `<div class="ou-field__msg ou-field__msg--error" data-role="nan"${notANumber ? "" : " hidden"}>\u041E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F \u0447\u0438\u0441\u043B\u043E. \u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: -25, 12,5 \u0438\u043B\u0438 3/4</div>` : "";
+    return `<div class="${wrap}">` + formatHint + `<div class="ou-field__box"><input class="ou-field__input" type="text"${mode}${limitAttr} value="${attrText(value)}" aria-label="\u0412\u0430\u0448 \u043E\u0442\u0432\u0435\u0442" data-action="short-answer"${invalid}${locked} />` + affix + `</div>` + limitMsg + nanMsg + `</div>`;
+  }
+  function blankWidth(set) {
+    const reference = referenceAnswer(set);
+    if (!reference) return 12;
+    return Math.max(6, Math.min(24, reference.length));
+  }
+  function renderBlanksPrompt(promptHtml, options) {
+    var _a;
+    if (typeof promptHtml !== "string" || promptHtml === "") return "";
+    const found = parseBlanks(promptHtml);
+    const byId = new Map(((_a = options.blanks) != null ? _a : []).map((set) => [set.id, set]));
+    let out = "";
+    let at = 0;
+    for (const blank of found) {
+      out += promptHtml.slice(at, blank.start) + blankHtml(blank.id, byId.get(blank.id), options);
+      at = blank.end;
+    }
+    out += promptHtml.slice(at);
+    return out.replace(/\\{\{/g, "{{");
+  }
+  function blankHtml(id, set, options) {
+    var _a;
+    const width = `--tb-blank-w:${blankWidth(set)}ch`;
+    const written = (_a = options.answer) == null ? void 0 : _a[id];
+    if (options.mode === "input") {
+      const numeric2 = (set == null ? void 0 : set.answerKind) === "number";
+      const mode = numeric2 ? ' inputmode="decimal" data-answer-kind="number"' : "";
+      const locked = options.readonly ? " disabled" : "";
+      return `<span class="tb-blank" style="${width}"><span class="ou-field ou-field--l ou-field--full"><span class="ou-field__box"><input class="ou-field__input" type="text"${mode} value="${attrText(written != null ? written : "")}" aria-label="\u041F\u0440\u043E\u043F\u0443\u0441\u043A ${attrText(id)}" data-action="short-answer" data-blank="${attrText(id)}"${locked} /></span></span></span>`;
+    }
+    if (options.mode === "answer") {
+      const text = typeof written === "string" && written.trim() !== "" ? written : "";
+      if (text === "") return `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>`;
+      const passed = set ? checkRuleSet(set, text).passed : false;
+      const tone = passed ? "correct-answer" : "incorrect-answer";
+      return `<span class="tb-blank-sub ${tone}" style="${width}">${attrText(text)}</span>`;
+    }
+    if (options.mode === "reference") {
+      const reference = referenceAnswer(set);
+      return reference === null ? `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>` : `<span class="tb-blank-sub tb-blank-sub--etalon" style="${width}">${attrText(reference)}</span>`;
+    }
+    return `<span class="tb-blank-sub tb-blank-sub--dash" style="${width}">&nbsp;</span>`;
+  }
+  function renderLongAnswer(question, answer, options = {}) {
+    var _a;
+    const value = typeof answer === "string" ? answer : "";
+    const data = (_a = question.dataJson) != null ? _a : {};
+    const placeholder = typeof data.placeholder === "string" && data.placeholder.trim() !== "" ? ` placeholder="${attrText(data.placeholder)}"` : "";
+    const limit = typeof data.maxLength === "number" && data.maxLength > 0 ? data.maxLength : null;
+    const limitAttr = limit === null ? "" : ` maxlength="${limit}"`;
+    const limitMsg = limit === null ? "" : `<div class="ou-field__msg">\u0414\u043E ${limit} \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432</div>`;
+    const locked = options.readonly ? " disabled" : "";
+    return `<div class="ou-field ou-field--l ou-field--full tb-answer-field tb-answer-field--long"><div class="ou-field__box"><textarea class="ou-field__input" rows="6"${placeholder}${limitAttr} aria-label="\u0412\u0430\u0448 \u043E\u0442\u0432\u0435\u0442" data-action="short-answer"${locked}>${attrText(value)}</textarea></div>` + limitMsg + `</div>`;
+  }
 
   // shared/template/scale-keyboard.ts
   var STEP_KEYS = {
@@ -18617,6 +19334,40 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     if (current === null) return step < 0 ? count - 1 : 0;
     const target = current + step;
     return target < 0 || target >= count ? null : target;
+  }
+
+  // shared/template/short-answer-dom.ts
+  function attachShortAnswer(root, host) {
+    const onInput = (event) => {
+      var _a, _b, _c, _d;
+      const field = event == null ? void 0 : event.target;
+      if (!field || !((_a = field.matches) == null ? void 0 : _a.call(field, '[data-action="short-answer"]'))) return;
+      if ((_b = host.isLocked) == null ? void 0 : _b.call(host)) return;
+      const value = typeof field.value === "string" ? field.value : "";
+      const blank = (_c = field.getAttribute) == null ? void 0 : _c.call(field, "data-blank");
+      if (blank) (_d = host.setBlank) == null ? void 0 : _d.call(host, blank, value);
+      else host.setAnswer(value);
+      markNumberFormat(field, value);
+    };
+    root.addEventListener("input", onInput);
+    return () => root.removeEventListener("input", onInput);
+  }
+  function withClass(className, add) {
+    const classes = className.split(/\s+/).filter((name) => name !== "" && name !== ERROR_CLASS);
+    if (add) classes.push(ERROR_CLASS);
+    return classes.join(" ");
+  }
+  var ERROR_CLASS = "ou-field--error";
+  function markNumberFormat(field, value) {
+    var _a, _b, _c, _d, _e;
+    if (((_a = field.getAttribute) == null ? void 0 : _a.call(field, "data-answer-kind")) !== "number") return;
+    const wrap = (_b = field.closest) == null ? void 0 : _b.call(field, ".tb-answer-field");
+    const message = (_c = wrap == null ? void 0 : wrap.querySelector) == null ? void 0 : _c.call(wrap, '[data-role="nan"]');
+    const bad = value.trim() !== "" && parseNumericAnswer(value) === null;
+    if (message) message.hidden = !bad;
+    if (wrap && typeof wrap.className === "string") wrap.className = withClass(wrap.className, bad);
+    if (bad) (_d = field.setAttribute) == null ? void 0 : _d.call(field, "aria-invalid", "true");
+    else (_e = field.removeAttribute) == null ? void 0 : _e.call(field, "aria-invalid");
   }
 
   // shared/template/allocation-dom.ts
@@ -18684,8 +19435,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       if (!rail) return 0;
       const box = rail.getBoundingClientRect();
       if (!(box.width > 0)) return 0;
-      const ratio = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
-      return Math.round(ratio * spec.budget);
+      const ratio2 = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
+      return Math.round(ratio2 * spec.budget);
     };
     const apply = (index, next, commit) => {
       const spec = specNow();
@@ -18863,6 +19614,22 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     };
   }
 
+  // shared/questions/prompt-format.ts
+  var PROMPT_FORMATS = ["markdown", "richText", "html"];
+  function promptFormatOf(question) {
+    const value = question == null ? void 0 : question.promptFormat;
+    return PROMPT_FORMATS.indexOf(value) >= 0 ? value : "markdown";
+  }
+  function isMarkupFormat(format) {
+    return format === "richText" || format === "html";
+  }
+  function plainPromptOf(question) {
+    const source = typeof (question == null ? void 0 : question.prompt) === "string" ? question.prompt : "";
+    if (source === "") return "";
+    const text = isMarkupFormat(promptFormatOf(question)) ? htmlToMarkdown(source) : source;
+    return stripMarkdown(text);
+  }
+
   // shared/template/fit-font.ts
   var QUESTION_FIT = { max: 32, min: 16, from: 58, per: 0.17 };
   var OPTION_FIT = { max: 22, min: 14, from: 38, per: 0.14 };
@@ -18871,8 +19638,9 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const size = Math.min(cfg.max, Math.max(cfg.min, cfg.max - shrink));
     return Math.round(size) + "px";
   }
-  function questionFont(prompt) {
-    return fitFont(stripMarkdown(String(prompt != null ? prompt : "")).length, QUESTION_FIT);
+  function questionFont(prompt, format) {
+    const visible = plainPromptOf({ prompt, promptFormat: format });
+    return fitFont(visible.length, QUESTION_FIT);
   }
   function optionFont(texts) {
     const longest = (texts != null ? texts : []).reduce(
@@ -19359,11 +20127,15 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   function isFlowContentPage(page) {
     return !!page && !isSystemKind(page.kind) && page.kind !== "router";
   }
+  function isSystemScreenHidden(contentPages, kind) {
+    const page = (contentPages || []).find((p) => p && p.kind === kind);
+    return (page == null ? void 0 : page.hidden) === true;
+  }
   function contentPagesFor(contentPages, topicId, position) {
     return (contentPages || []).filter(
       (p) => {
         var _a;
-        return !isSystemKind(p.kind) && ((_a = p.topicId) != null ? _a : null) === topicId && p.position === position;
+        return !isSystemKind(p.kind) && p.hidden !== true && ((_a = p.topicId) != null ? _a : null) === topicId && p.position === position;
       }
     ).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   }
@@ -19709,7 +20481,9 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   }
   function isSectionUnlocked(section, state) {
     const rule = (state.unlockRules || {})[section.topicId];
-    if (!rule || !rule.mode || rule.mode === "always") return true;
+    if (!rule || !rule.mode || rule.mode === "always" || rule.mode === "always_available") {
+      return true;
+    }
     const ids = rule.sectionIds || [];
     if (rule.mode === "after_sections_completed") {
       return ids.every((id) => state.topicStates[id] === "completed");
@@ -19738,12 +20512,11 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     });
   }
   function statusLabel(status) {
-    if (status === "completed") return "\u041F\u0440\u043E\u0439\u0434\u0435\u043D\u0430";
+    if (status === "completed") return "\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430";
     if (status === "inProgress") return "\u0412 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u0435";
     return "\u041D\u0435 \u043D\u0430\u0447\u0430\u0442\u0430";
   }
   var CARD_CHECK = '<svg class="router-topic-card__ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>';
-  var CARD_CROSS = '<svg class="router-topic-card__ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>';
   function buildRouterHubHtml(sections, state, options) {
     const list = sections || [];
     let html = "";
@@ -19769,13 +20542,6 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       const status = state.topicStates[section.topicId] || "notStarted";
       const unlocked = isSectionUnlocked(section, state);
       const locked = !unlocked && status !== "completed";
-      let outcome = null;
-      if (status === "completed" && state.showSectionResults) {
-        const result = (state.sectionResults || {})[section.topicId];
-        if (result && result.passed === true) outcome = "passed";
-        else if (result && result.passed === false) outcome = "failed";
-      }
-      const completedLabel = outcome === "passed" ? "\u041F\u0440\u043E\u0439\u0434\u0435\u043D\u0430" : outcome === "failed" ? "\u041D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u0430" : "\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430";
       const disabled = status === "completed" || !unlocked;
       const meta = [];
       if (section.drawCount) meta.push(section.drawCount + " " + pluralQuestions2(section.drawCount));
@@ -19784,9 +20550,9 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       const imgUrl = section.image && typeof section.image === "object" ? section.image.url || "" : section.image || "";
       const imgHtml = imgUrl ? '<span class="router-topic-card__img"><img src="' + escHtml3(imgUrl) + '" alt=""></span>' : "";
       const goHtml = unlocked && status !== "completed" ? '<span class="router-topic-card__go">\u043D\u0430\u0447\u0430\u0442\u044C</span>' : "";
-      cards += '<button type="button" role="listitem" class="router-topic-card router-topic-card--' + status + (outcome ? " router-topic-card--" + outcome : "") + (locked ? " router-topic-card--locked" : "") + '" data-topic-id="' + escHtml3(section.topicId) + '" data-router-status="' + status + '"' + (locked ? ' data-router-locked="true"' : "") + (disabled ? " disabled" : ' data-action="router-select:' + escHtml3(section.topicId) + '"') + '><span class="router-topic-card__top"><span class="router-topic-card__name">' + escHtml3(section.topicName || section.topicId) + (section.required === false ? ' <span class="router-topic-card__optional">(\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u0430\u044F)</span>' : "") + "</span>" + imgHtml + "</span>" + metaHtml + '<span class="router-topic-card__foot"><span class="router-topic-card__status">' + // A completed card carries a mark (✓ done/passed, ✗ failed) so it reads as
-      // clearly finished, distinct from a fresh «Не начата» card at a glance.
-      (status === "completed" ? outcome === "failed" ? CARD_CROSS : CARD_CHECK : "") + escHtml3(unlocked ? status === "completed" ? completedLabel : statusLabel(status) : "\u041D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430") + "</span>" + goHtml + "</span></button>";
+      cards += '<button type="button" role="listitem" class="router-topic-card router-topic-card--' + status + (locked ? " router-topic-card--locked" : "") + '" data-topic-id="' + escHtml3(section.topicId) + '" data-router-status="' + status + '"' + (locked ? ' data-router-locked="true"' : "") + (disabled ? " disabled" : ' data-action="router-select:' + escHtml3(section.topicId) + '"') + '><span class="router-topic-card__top"><span class="router-topic-card__name">' + escHtml3(section.topicName || section.topicId) + (section.required === false ? ' <span class="router-topic-card__optional">(\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u0430\u044F)</span>' : "") + "</span>" + imgHtml + "</span>" + metaHtml + '<span class="router-topic-card__foot"><span class="router-topic-card__status">' + // A completed card carries a ✓ so it reads as clearly finished, distinct from a
+      // fresh «Не начата» card at a glance. The mark says «closed», not «passed».
+      (status === "completed" ? CARD_CHECK : "") + escHtml3(unlocked ? statusLabel(status) : "\u041D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430") + "</span>" + goHtml + "</span></button>";
     }
     html += '<div class="router-topic-cards" role="list" aria-label="\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u0442\u0435\u043C\u044B">' + cards + "</div>";
     return html;
@@ -19887,11 +20653,14 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return { courses, events };
   }
   function buildReportContext(input, opts = {}) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     const resultInput = groupsOf(opts) ? { ...input.result, sectionGroups: groupsOf(opts) } : input.result;
     const base = buildResultContext(resultInput, input.testName || "", {
       withTopicPoints: true,
       topicPointsIgnoreScoreSummary: true,
+      // Заголовки итога — тем же приёмом, что настройки ниже: документ печатает ту же
+      // шапку, что экран, с которого его скачали (§5.2).
+      ...input.headings ? { headings: input.headings } : {},
       // Источники консолидированного блока обратной связи, которых нет в результате
       // попытки: обратная связь самого теста и признак «тест выносит вердикт». Уходят в
       // ТОТ ЖЕ построитель, что собирает блок для экрана, — второго правила консолидации
@@ -19927,7 +20696,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const rec = unmasteredRecommendations(topics);
     const hasVerdict = base.result.statusLabel !== "";
     const report = reportBlock(input, topics.length, opts);
-    report.verdictHeadline = !hasVerdict ? "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u0442\u0435\u0441\u0442\u0430" : passed ? "\u0422\u0435\u0441\u0442 \u043F\u0440\u043E\u0439\u0434\u0435\u043D" : "\u0422\u0435\u0441\u0442 \u043D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D";
+    const headingFor = passed ? headingText((_c = input.headings) == null ? void 0 : _c.passed) : headingText((_d = input.headings) == null ? void 0 : _d.failed);
+    report.verdictHeadline = !hasVerdict ? "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u0442\u0435\u0441\u0442\u0430" : headingFor != null ? headingFor : passed ? "\u0422\u0435\u0441\u0442 \u043F\u0440\u043E\u0439\u0434\u0435\u043D" : "\u0422\u0435\u0441\u0442 \u043D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D";
     report.verdictBadge = !hasVerdict ? "" : passed ? "\u043F\u0440\u043E\u0439\u0434\u0435\u043D" : "\u043D\u0435 \u043F\u0440\u043E\u0439\u0434\u0435\u043D";
     report.verdictClass = !hasVerdict ? "" : passed ? "is-pass" : "is-fail";
     if (!hasVerdict) report.attemptsCountLabel = "";
@@ -19939,7 +20709,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     report.hasCourses = rec.courses.length > 0;
     report.events = rec.events;
     report.hasEvents = rec.events.length > 0;
-    const ctx = { ...base, design: { ...(_c = opts.design) != null ? _c : {} }, report };
+    const ctx = { ...base, design: { ...(_e = opts.design) != null ? _e : {} }, report };
     const rows = ctx.result.topicResults;
     if (Array.isArray(rows)) {
       rows.forEach((row, i) => {
@@ -20593,6 +21363,35 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return out;
   }
 
+  /**
+   * PRD-49: надписи экрана итогов, разрешённые из ОБЪЯВЛЕНИЙ шаблона (`manifest.labels[]`).
+   *
+   * Предпросмотр показывает шаблон таким, каким его получит автор, ещё НЕ трогавший
+   * надписи, — значит берутся умолчания манифеста, и только они: своих значений у
+   * предпросмотра нет, тест сюда не участвует. Дерево, а не плоская карта: DSL режет путь
+   * по точкам, и `{{ labels.topic.correct }}` до ключа `"topic.correct"` иначе не дойдёт.
+   *
+   * Без этого слоты карточки темы, которые с PRD-49 гейтятся своей надписью, в
+   * предпросмотре просто исчезали бы — надписи нет, значит и слота нет.
+   *
+   * @returns {Object} Дерево надписей для контекста DSL.
+   */
+  function buildLabelsTree() {
+    var tree = {};
+    (manifest.labels || []).forEach(function (decl) {
+      if (!decl || !decl.key) return;
+      var text = (decl.defaults && decl.defaults.results) || decl.default || "";
+      var parts = String(decl.key).split(".");
+      var node = tree;
+      for (var i = 0; i < parts.length - 1; i++) {
+        if (typeof node[parts[i]] !== "object" || node[parts[i]] === null) node[parts[i]] = {};
+        node = node[parts[i]];
+      }
+      node[parts[parts.length - 1]] = text;
+    });
+    return tree;
+  }
+
   /** Builds the data object for DSL rendering (merges course + runtime + params). */
   function buildDslData() {
     var course  = demoData.course  || {};
@@ -20614,6 +21413,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       progress: runtime.progress || {},
       state:    state,
       params:   expandParams(demoData.params || paramDefaults()),
+      labels:   buildLabelsTree(),
       sections: sections,
       nav: {
         submitAnswerLabel: "Принять ответ",

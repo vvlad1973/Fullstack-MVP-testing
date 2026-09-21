@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -307,6 +307,24 @@
       "pageKind": "results",
       "layoutFile": "layouts/results.html",
       "settings": [
+        {
+          "key": "headingDocument",
+          "type": "text",
+          "label": "Заголовок документа",
+          "description": "Пусто — печатается название теста. Действует на экране итогов, в отчёте и в пакете."
+        },
+        {
+          "key": "headingPassed",
+          "type": "text",
+          "label": "Заголовок при успехе",
+          "description": "Пусто — «Тест пройден»."
+        },
+        {
+          "key": "headingFailed",
+          "type": "text",
+          "label": "Заголовок при неуспехе",
+          "description": "Пусто — «Тест не пройден»."
+        },
         {
           "key": "scoreSummary",
           "type": "select",

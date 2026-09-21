@@ -46,6 +46,7 @@ import {
 } from "../services/result-context";
 import type { MeasuresInput } from "@shared/template/result-context";
 import type { ResultsBlockSettings } from "@shared/template/results-blocks";
+import type { ResultHeadings } from "@shared/template/result-context";
 import type { ChartKindSettings } from "@shared/template/scales-chart";
 import type { ReportInput, AdaptiveReportInput } from "@shared/report/report-html";
 import { pingSection } from "../services/section-timer";
@@ -348,6 +349,26 @@ async function readInterpretations(
   }
 }
 
+/**
+ * Заголовки итога из свойств узла «Итоги теста».
+ *
+ * Ключи те же, что объявляет манифест шаблона (`settings[]` варианта `results.*`). Пустые
+ * и незаполненные не кладутся вовсе: отсутствие поля и есть «печатать умолчание», и
+ * тест, ничего не заполнивший, отдаёт `null` — материал экрана остаётся прежним до ключа.
+ */
+function readResultHeadings(settings: Record<string, unknown>): ResultHeadings | null {
+  const pick = (key: string) => {
+    const value = settings[key];
+    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+  };
+  const headings: ResultHeadings = {
+    ...(pick("headingDocument") ? { document: pick("headingDocument") } : {}),
+    ...(pick("headingPassed") ? { passed: pick("headingPassed") } : {}),
+    ...(pick("headingFailed") ? { failed: pick("headingFailed") } : {}),
+  };
+  return Object.keys(headings).length > 0 ? headings : null;
+}
+
 async function resultsMaterialForAttempt(
   attempt: { testId: string; snapshotId: string | null },
   liveTest: Test | undefined,
@@ -362,7 +383,8 @@ async function resultsMaterialForAttempt(
     const pages = await src.getContentPages(attempt.testId);
     // No `results` page, or a page with no settings: all three blocks stay on
     // «Автоматически» and the state of the test decides.
-    const blockSettings = (pages.find((p) => p.kind === "results")?.settingsJson ?? {}) as ResultsBlockSettings;
+    const resultsSettings = (pages.find((p) => p.kind === "results")?.settingsJson ?? {}) as Record<string, unknown>;
+    const blockSettings = resultsSettings as ResultsBlockSettings;
     const passRule = deliveredTest?.overallPassRuleJson as PassRule | null | undefined;
     // PRD-47 §5.3: у отчёта свой переключатель вида, и «авто» в нём требует того же
     // признака. `tests.report_settings_json` ветвится по РЕЖИМУ теста, а не по виду
@@ -432,6 +454,10 @@ async function resultsMaterialForAttempt(
       // остальное здесь. Отсутствие (тест блоков не заводил) оставляет `null`, и экран
       // печатает плоский список тем — ровно тот, что печатал до этого PRD (FR-27).
       sectionGroupsJson: deliveredTest?.sectionGroupsJson ?? null,
+      // Заголовки итога — свойства того же узла «Итоги теста», из которого читаются
+      // переключатели блоков выше. Пустые строки отбрасывает общий построитель, здесь
+      // только доставка написанного.
+      resultHeadings: readResultHeadings(resultsSettings),
     };
   } catch (error) {
     // The results screen must not fail because this material could not be read: the

@@ -413,6 +413,20 @@ function resultsBlockSettings() {
   return {};
 }
 
+/**
+ * Заголовки итога — свойства того же узла «Итоги теста», из которого читаются
+ * переключатели блоков. Пустые строки отбрасывает общий построитель; пустой объект здесь
+ * означает «автор ничего не заполнил», и контекст остаётся прежним до поля.
+ */
+function resultHeadingsOf() {
+  var settings = resultsBlockSettings();
+  var out = {};
+  if (settings.headingDocument) out.document = settings.headingDocument;
+  if (settings.headingPassed) out.passed = settings.headingPassed;
+  if (settings.headingFailed) out.failed = settings.headingFailed;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 /** Rows in the author's order — the same ORDER BY the web host reads them with. */
 function measuresBySortOrder(rows) {
   return rows.slice().sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); });
@@ -631,6 +645,10 @@ function renderViewResultsTemplated(app, results) {
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
   // byte-identical to what it was before this PRD.
   if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  // Заголовки итога: их читает ТОТ ЖЕ построитель, что на вебе, — расхождение шапки между
+  // хостами было бы расхождением в том, как тест называет свой результат.
+  var headings = resultHeadingsOf();
+  if (headings) opts.headings = headings;
   var measures = buildResultsMeasures(
     { values: results.scaleValues || {} },
     { values: results.resultValues || {} }
@@ -745,6 +763,10 @@ function renderResultsTemplated(app, results) {
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
   // byte-identical to what it was before this PRD.
   if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  // Заголовки итога: их читает ТОТ ЖЕ построитель, что на вебе, — расхождение шапки между
+  // хостами было бы расхождением в том, как тест называет свой результат.
+  var headings = resultHeadingsOf();
+  if (headings) opts.headings = headings;
   // PRD-29: scales and indicators of THIS attempt (null for a test that declares none,
   // which leaves the context byte-identical to what it has always been).
   var measures = currentAttemptMeasures(results);

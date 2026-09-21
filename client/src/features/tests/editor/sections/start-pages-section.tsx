@@ -2126,6 +2126,10 @@ export function SettingControl(props: {
           label={label}
           size="m"
           fullWidth
+          // Подсказка объявления: у текстовой настройки она так же обязательна, как у
+          // тумблера и выбора рядом, — «пусто» у поля заголовка значит не «ничего», а
+          // «печатается умолчание», и без строки об этом автор этого не узнает.
+          hint={st.description}
           value={typeof value === "string" ? value : value == null ? "" : String(value)}
           placeholder={typeof st.default === "string" ? st.default : undefined}
           onChange={(e) => onChange(e.target.value)}

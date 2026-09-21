@@ -19,7 +19,12 @@ import {
   type TopicInput,
   type AdaptiveTopicInput,
 } from "@shared/template/result-context";
-import type { BreakdownDisplaySetting, MeasureInput, MeasuresInput } from "@shared/template/result-context";
+import type {
+  BreakdownDisplaySetting,
+  MeasureInput,
+  MeasuresInput,
+  ResultHeadings,
+} from "@shared/template/result-context";
 import type { ReportInput, AdaptiveReportInput, ReportMeta } from "@shared/report/report-html";
 import { rampFromParams } from "@shared/template/level-ramp";
 import { withResolvedScaleIcons } from "./scale-icons";
@@ -173,6 +178,13 @@ export interface MeasuresSource {
    * test's results screen, not of whether the test measures anything.
    */
   breakdownDisplayJson?: BreakdownDisplaySetting | null;
+  /**
+   * Заголовки итога — свойства узла «Итоги теста» (`content_pages.settings_json` страницы
+   * `results`). Едут ЗДЕСЬ, а не в `blockSettings`, потому что действуют на каждый тест:
+   * `blockSettings` доезжает до построителя только внутри `measures`, то есть у теста со
+   * шкалами или показателями, а контрольный тест — самая частая конфигурация продукта.
+   */
+  resultHeadings?: ResultHeadings | null;
   /**
    * PRD-50 FR-11: the test's declared section groups (`tests.section_groups_json`).
    * Absent/`null` (no groups saved) leaves the context without `topicGroups` at all —
@@ -467,6 +479,7 @@ export function buildResultContext(
     },
     testTitle,
     {
+      ...(measures?.resultHeadings ? { headings: measures.resultHeadings } : {}),
       ...(recommendedCourses.length ? { recommendedCourses } : {}),
       ...(recommendedEvents.length ? { recommendedEvents } : {}),
       ...(testFeedback ? { testFeedback } : {}),
@@ -526,6 +539,8 @@ function reportFeedbackMeta(measures?: MeasuresSource): Partial<ReportMeta> {
     // отчёт печатает полосы разреза ровно тогда же, когда их печатает экран, с
     // которого его скачали (§5.2).
     ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
+    // Заголовки итога — тем же приёмом: документ печатает ту же шапку, что экран.
+    ...(measures?.resultHeadings ? { headings: measures.resultHeadings } : {}),
   };
 }
 
@@ -693,6 +708,9 @@ export function buildAdaptiveResultContext(
     testTitle,
     {
       ...(testFeedback ? { testFeedback } : {}),
+      // Заголовок документа действует и в адаптивном режиме; заголовков исхода этот итог
+      // не читает — вердикта он не выносит.
+      ...(measures?.resultHeadings ? { headings: measures.resultHeadings } : {}),
       ...(hasMeasures ? { measures: buildMeasuresInput(measures as MeasuresSource) } : {}),
       // PRD-50 FR-13: настройка показа — тот же источник, что у обычного экрана.
       ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
