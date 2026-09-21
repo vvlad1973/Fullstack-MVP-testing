@@ -233,6 +233,10 @@ function renderSectionIntro(page) {
     course: built.course,
     design: (typeof scormDesignContext === "function") ? scormDesignContext() : {},
     sectionIntro: built.sectionIntro,
+    // PRD-22 FR-42: the intro screen is a content page like any other, and its settings
+    // (the section subtitle) arrive in the SAME `page.*` block the generic render path
+    // hands over below. Built by the same call so the two paths cannot drift.
+    page: buildPageRenderContext(page),
   };
 
   var app = document.getElementById("app");
