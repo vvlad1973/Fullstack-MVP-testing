@@ -1804,3 +1804,12 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 }
 .tb-topic-card--split .tb-topic-card__main > .ou-tag.is-pass::before { background: var(--ou-success-default); }
 .tb-topic-card--split .tb-topic-card__main > .ou-tag.is-fail::before { background: var(--ou-error-default); }
+
+/* ТОЛКОВАНИЕ ПОДТЕМЫ на экране: стоит ПОД своей полосой, поэтому название подтемы
+   печатается один раз — в заголовке её строки. Включённый показ разворачивает колонки в
+   список во всю ширину правой колонки: в узкой колонке абзац нечитаем, а повтор названия
+   перед текстом — визуальный мусор (решение владельца 2026-09-21). */
+.tb-breakdown__note { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin-top: var(--ou-space-1); }
+.tb-topic-card--split .tb-topic__breakdown:has(.tb-breakdown__note) {
+  grid-template-columns: minmax(0, 1fr);
+}

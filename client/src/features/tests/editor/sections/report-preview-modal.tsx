@@ -24,6 +24,7 @@ import {
   buildReportPreviewInput,
   type ReportPreviewOutcome,
   type ReportPreviewSection,
+  type ReportPreviewTest,
 } from "@shared/report/report-preview";
 import { reportKindForMode } from "@shared/report/report-variants";
 import { resolveReportDocument } from "@shared/report/report-document";
@@ -49,6 +50,12 @@ export interface ReportPreviewModalProps {
   values: Record<string, unknown>;
   testName: string;
   sections: ReportPreviewSection[];
+  /** Заголовки итога теста — свойства узла «Итоги теста» (см. `ReportPreviewTest`). */
+  headings?: ReportPreviewTest["headings"];
+  /** Настройка показа подытогов теста — оттуда же, откуда её берёт выдача. */
+  breakdownDisplay?: ReportPreviewTest["breakdownDisplay"];
+  /** Группы тем теста — блок со счётчиком в предпросмотре. */
+  sectionGroups?: ReportPreviewTest["sectionGroups"];
   /** Лестница уровней адаптивного теста. */
   levelNames?: string[];
   /**
@@ -79,6 +86,9 @@ export function ReportPreviewModal({
   values,
   testName,
   sections,
+  headings,
+  breakdownDisplay,
+  sectionGroups,
   levelNames,
   document,
 }: ReportPreviewModalProps) {
@@ -138,7 +148,14 @@ export function ReportPreviewModal({
   );
 
   const context = useMemo(() => {
-    const test = { testName, sections, levelNames };
+    const test = {
+      testName,
+      sections,
+      levelNames,
+      ...(headings ? { headings } : {}),
+      ...(breakdownDisplay ? { breakdownDisplay } : {}),
+      ...(sectionGroups?.length ? { sectionGroups } : {}),
+    };
     const design = params as Record<string, unknown>;
     // `isPreview` — тот же флаг, что и у выдачи: макет вправе пометить страницу образцом.
     // PRD-47 §5.4: у предпросмотра нет прогона, поэтому измерения ему даёт демо-набор
@@ -155,7 +172,7 @@ export function ReportPreviewModal({
     return adaptive
       ? buildAdaptiveReportContext(buildAdaptiveReportPreviewInput(test, outcome), opts)
       : buildReportContext(buildReportPreviewInput(test, outcome), opts);
-  }, [adaptive, testName, sections, levelNames, outcome, previewValues, params, bundle]);
+  }, [adaptive, testName, sections, levelNames, headings, breakdownDisplay, sectionGroups, outcome, previewValues, params, bundle]);
 
   const cssVars = useMemo(
     () => buildTemplateCssVars(params, bundle?.manifest.params),

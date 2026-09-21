@@ -26,7 +26,7 @@ import {
   Tag,
 } from "@skillum/ui-kit";
 import type { ReportSettings } from "@shared/schema";
-import type { ReportPreviewSection } from "@shared/report/report-preview";
+import type { ReportPreviewSection, ReportPreviewTest } from "@shared/report/report-preview";
 import {
   useReportVariants,
   reportVariantSwitch,
@@ -162,6 +162,12 @@ export function ReportSettingsCard(props: {
   readOnly?: boolean;
   designParams?: Record<string, unknown>;
   testName?: string;
+  /** Заголовки итога теста — свойства узла «Итоги теста»; уходят в предпросмотр. */
+  headings?: ReportPreviewTest["headings"];
+  /** Настройка показа подытогов теста; уходит в предпросмотр. */
+  breakdownDisplay?: ReportPreviewTest["breakdownDisplay"];
+  /** Группы тем теста; уходят в предпросмотр. */
+  sectionGroups?: ReportPreviewTest["sectionGroups"];
   sections?: ReportPreviewSection[];
   levelNames?: string[];
   /**
@@ -436,6 +442,9 @@ export function ReportSettingsCard(props: {
         // придёт обучающемуся, иначе автор смотрел бы отчёт без подложки и логотипа.
         values={resolveReportValues(catalogue.selected, values)}
         testName={props.testName ?? ""}
+        headings={props.headings}
+        breakdownDisplay={props.breakdownDisplay}
+        sectionGroups={props.sectionGroups}
         sections={props.sections ?? []}
         levelNames={props.levelNames}
         // PRD-51 FR-18: документ ЧЕРНОВИКА, включая ещё не сохранённый текст страниц.

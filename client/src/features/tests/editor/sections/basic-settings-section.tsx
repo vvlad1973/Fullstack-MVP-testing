@@ -75,6 +75,7 @@ import type {
 import { DEFAULT_BREAKDOWN_DISPLAY } from "../test-editor.types";
 import { EMPTY_FIELD_ERRORS, type FieldErrorIndex } from "../field-errors";
 import type { UseDesignSettingsResult } from "../use-design-settings";
+import { useContentPages } from "../use-content-pages";
 import { ReportSettingsCard } from "./report-settings-card";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -424,6 +425,21 @@ export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) 
  * слушатель прочтёт (PRD-27 §7.1). Облик документа остался в «Оформлении».
  */
 export function ReportContentPane({ model, updateModel, design }: SettingsSectionProps) {
+  // Заголовки итога живут свойствами узла «Итоги теста» (`content_pages.settings_json`), а
+  // не в модели теста, поэтому страницы читаются здесь — иначе предпросмотр печатал бы
+  // название теста там, где слушателю уйдёт авторский заголовок документа.
+  const pages = useContentPages(model.id, design?.draft.templateId);
+  const resultsSettings = (pages.pages.find((p) => p.kind === "results")?.settingsJson ?? {}) as
+    Record<string, unknown>;
+  const heading = (key: string) => {
+    const value = resultsSettings[key];
+    return typeof value === "string" && value.trim() !== "" ? value : undefined;
+  };
+  const reportHeadings = {
+    ...(heading("headingDocument") ? { document: heading("headingDocument") } : {}),
+    ...(heading("headingPassed") ? { passed: heading("headingPassed") } : {}),
+    ...(heading("headingFailed") ? { failed: heading("headingFailed") } : {}),
+  };
   return (
       <ReportSettingsCard
         scope="content"
@@ -451,10 +467,14 @@ export function ReportContentPane({ model, updateModel, design }: SettingsSectio
         }
         // FR-18: предпросмотр строится на РЕАЛЬНОЙ структуре редактируемого теста.
         testName={model.basic.title}
+        headings={Object.keys(reportHeadings).length > 0 ? reportHeadings : undefined}
+        breakdownDisplay={model.runtime.breakdownDisplay}
+        sectionGroups={model.sectionGroups}
         sections={model.sections.map((s) => ({
           topicId: s.topicId,
           topicName: s.topicName,
           questionCount: s.drawCount,
+          groupKey: s.groupKey ?? null,
         }))}
         levelNames={
           model.mode === "adaptive"
