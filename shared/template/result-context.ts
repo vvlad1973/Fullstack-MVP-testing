@@ -1068,6 +1068,11 @@ function topicView(
   const display = breakdownDisplay;
   if (display && showsNestedBreakdown(display) && t.breakdown?.length) {
     view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, t.breakdownInterpretation));
+    // Несёт ли хоть одна полоса свой текст. Признак нужен РАСКЛАДКЕ: включённое толкование
+    // разворачивает сетку колонок в список во всю ширину, и решить это построчно нельзя —
+    // модификатор стоит на всей сетке. Считается здесь, потому что макет (подмножество
+    // mustache) перебрать строки и свести ответ не умеет.
+    if (view.breakdown.some((row) => row.interpretationHtml)) view.hasBreakdownNotes = true;
   }
   return view;
 }

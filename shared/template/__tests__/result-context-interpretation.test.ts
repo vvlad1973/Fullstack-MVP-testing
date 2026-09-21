@@ -117,6 +117,22 @@ describe("толкование подтемы", () => {
     expect(firstTopic(ctx).breakdown?.[0]?.interpretationHtml).toBeUndefined();
   });
 
+  it("признак раскладки поднимается, когда хоть одна полоса несёт текст", () => {
+    // Модификатор стоит на ВСЕЙ сетке разрезов, поэтому ответ нужен на уровне темы:
+    // включённое толкование разворачивает три колонки в список, и построчно этого не решить.
+    const ctx = buildResultContext(input({ breakdownInterpretation: texts }), "Тест", {
+      breakdownDisplay: { ...DISPLAY_BARS, showInterpretation: true },
+    });
+    expect(firstTopic(ctx).hasBreakdownNotes).toBe(true);
+  });
+
+  it("без текстов признака нет: сетка остаётся сеткой", () => {
+    const ctx = buildResultContext(input({ breakdownInterpretation: texts }), "Тест", {
+      breakdownDisplay: DISPLAY_BARS,
+    });
+    expect(firstTopic(ctx).hasBreakdownNotes).toBeUndefined();
+  });
+
   it("подтема без своего текста остаётся без поля", () => {
     const ctx = buildResultContext(
       input({ breakdownInterpretation: { "Другая подтема": { text: "Не про эту" } } }),
