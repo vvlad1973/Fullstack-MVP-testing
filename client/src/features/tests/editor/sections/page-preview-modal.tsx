@@ -18,7 +18,12 @@ import { useMemo } from "react";
 import { Banner, Button, ModalDialog } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
 import { buildContentPageScreen, buildScreenInputs, type PreviewDemoDataset } from "@shared/template/preview-context";
-import type { SequencePlacement } from "@shared/template/page-sequences";
+import {
+  buildPageContext,
+  sectionSubtitleOf,
+  type SequenceContentPage,
+  type SequencePlacement,
+} from "@shared/template/page-sequences";
 import { buildSectionIntroContext } from "@shared/template/result-context";
 import { buildTemplateCssVars, buildTemplateDataAttrs } from "@shared/template/params-css";
 import { startImageForVariant, type StartVariantDecl } from "@shared/template/start-image";
@@ -227,7 +232,17 @@ export function PagePreviewModal({
         layoutKey: "section-intro",
         expectedSlots: [],
         input: {
-          context: { course: built.course, sectionIntro: built.sectionIntro },
+          context: {
+            course: built.course,
+            sectionIntro: built.sectionIntro,
+            // PRD-22 FR-42: the section subtitle is a page SETTING, and the preview has to
+            // show it the way both learner hosts do — otherwise the author edits blind.
+            page: buildPageContext(sequencePlacement, {
+              sectionSubtitle: sectionSubtitleOf({
+                settingsJson: page.settingsJson ?? null,
+              } as SequenceContentPage),
+            }),
+          },
           slots: { instruction: instr },
         },
       };
