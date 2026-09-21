@@ -146,7 +146,7 @@ function pdfStandardInput(results) {
     topicResults: (results.topicResults || []).map(function (tr) {
       var rec = pdfTopicRecommendations(tr);
       var fb = pdfTopicFeedback(tr);
-      return {
+      var row = {
         topicId: tr.topicId,
         topicName: tr.topicName,
         correct: tr.correct,
@@ -167,6 +167,12 @@ function pdfStandardInput(results) {
         // PRD-50 FR-11: блок раздела — тот же читатель, что у экрана итогов (§5.2).
         groupKey: (typeof vrTopicGroupKey === 'function') ? vrTopicGroupKey(tr) : null
       };
+      // ТОЛКОВАНИЯ темы, теста над ней и подтем — ТЕМ ЖЕ читателем, что у экрана итогов
+      // (§5.2), и по той же причине, что записи разреза выше: собранные здесь своим
+      // набором полей, они в документ не попадали вовсе, и тема с толкованием печаталась
+      // пустой правой колонкой. Правило замены применяет общий построитель — рантайм
+      // только доносит написанное.
+      return (typeof vrWithInterpretations === 'function') ? vrWithInterpretations(row, tr) : row;
     })
   };
   // PRD-50 FR-11/FR-27: блоки теста, выпеченные в пакет. Отсутствие оставляет вход
