@@ -210,12 +210,20 @@ function sliceSection(
   // есть: напечатать что-нибудь лучше, чем не напечатать ничего.
   const tail = to - top;
   if (slices.length && minTail > 0 && tail < minTail) {
-    let moved = 0;
-    for (const line of safeLines) {
-      if (line > slices[slices.length - 1].top + MIN_SLICE_PX && to - line >= minTail && line > moved) {
-        moved = line;
+    const lastTop = slices[slices.length - 1].top;
+    const back = (lines: number[]) => {
+      let best = 0;
+      for (const line of lines) {
+        if (line > lastTop + MIN_SLICE_PX && to - line >= minTail && line > best) best = line;
       }
-    }
+      return best;
+    };
+    // Отступать назад тоже лучше по ГРАНИЦЕ вложенного блока: строка текста, подходящая
+    // по арифметике, может лежать ВНУТРИ карточки — и тогда подтягивание хвоста само
+    // рассекает её пополам, ровно то, от чего разрез выше и уходил. Отчёт РТК ловил это
+    // на списке тем: черта между темами лежала в трёх десятках пикселей выше выбранной
+    // строки. Границы нет — отступаем по строке, как раньше.
+    const moved = back(blockLines) || back(safeLines);
     if (moved) {
       const last = slices[slices.length - 1];
       last.height = moved - last.top;
