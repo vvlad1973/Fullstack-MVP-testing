@@ -147,6 +147,18 @@ export const topics = pgTable("topics", {
   // the legacy tables until r.3; this column backs the unified topic feedback
   // editor (T-32 Drawer). NULL = not yet backfilled.
   feedbackJson: jsonb("feedback_json"),
+  /**
+   * ТОЛКОВАНИЕ темы — текст, который объясняет результат, а не советует, что делать
+   * (см. {@link interpretationSchema}). Печатается в строке темы ВСЕГДА: и когда тема
+   * взята, и когда нет, — и в сводный блок «Рекомендации» не попадает.
+   *
+   * Живёт на ТЕМЕ, а не на тесте: описание компетенции («формирует эффективную команду…»)
+   * принадлежит самой компетенции и переиспользуется каждым тестом, который её измеряет.
+   * Тест вправе сказать своё — для этого есть `test_sections.interpretation_json`.
+   *
+   * NULL/пустой текст = толкования нет, и строка темы печатается как печаталась.
+   */
+  interpretationJson: jsonb("interpretation_json").$type<InterpretationText>(),
   folderId: varchar("folder_id", { length: 36 }),
   // PRD-15 FR-01: creation audit. NULL = legacy row (destructive ops admin-only).
   createdBy: varchar("created_by", { length: 36 }),
@@ -806,6 +818,28 @@ export const testSections = pgTable("test_sections", {
    */
   breakdownFeedbackJson: jsonb("breakdown_feedback_json").$type<BreakdownFeedbackShape<FeedbackContent>>(),
   /**
+   * ТОЛКОВАНИЕ темы, заданное ЭТИМ ТЕСТОМ. Заменяет текст самой темы целиком (не
+   * складывается с ним) — то же правило, что у обратной связи темы: две редакции одного
+   * текста, склеенные в выдаче, автор нигде не видит и не может проверить.
+   *
+   * Правка из ящика теста пишется ТОЛЬКО сюда: тема общая для многих тестов, и менять её
+   * из редактора одного теста значило бы править чужие тесты. NULL = берётся текст темы.
+   */
+  interpretationJson: jsonb("interpretation_json").$type<InterpretationText>(),
+  /**
+   * ТОЛКОВАНИЯ ПОДТЕМ (тегов) этого раздела — карта «ключ подтемы -> текст».
+   *
+   * Своя колонка, а не ветвь `breakdown_feedback_json`: та несёт РЕКОМЕНДАЦИЮ, у неё своё
+   * правило выдачи (доля подтемы ниже общего порога теста) и свой адресат — сводный блок
+   * рекомендаций. Толкование печатается всегда, когда автор включил его показ, и стоит под
+   * полосой своей подтемы. Два разных правила в одном поле не живут.
+   *
+   * Сущности «тег» в базе нет (теги — строки в `questions.tags`), поэтому текст принадлежит
+   * РАЗДЕЛУ: в другом тесте та же подтема описывается заново. NULL = толкований нет.
+   */
+  breakdownInterpretationJson: jsonb("breakdown_interpretation_json")
+    .$type<BreakdownFeedbackShape<InterpretationText>>(),
+  /**
    * PRD-50 FR-11/FR-12: the group this section belongs to — a `key` of the test's
    * `section_groups_json`. Null = the section belongs to no group and prints after all
    * groups, in its own order (FR-25); a key no group declares means the SAME thing, so a
@@ -1239,6 +1273,36 @@ export const introBlockSchema = z.object({
 });
 
 /**
+ * ТОЛКОВАНИЕ — текст, который объясняет результат темы или подтемы.
+ *
+ * Форма та же, что у вводного блока (`format` + `text`), и разметку из него строит тот же
+ * `richTextToHtml`: автор пишет все эти тексты в одном редакторе и вправе ожидать
+ * одинакового поведения. Вложений (курсы, материалы, мероприятия) у толкования НЕТ — они
+ * принадлежат рекомендации, а толкование не советует, а объясняет.
+ *
+ * Пустой текст = толкования нет: гейт стоит на тексте, а не на наличии записи, иначе автор,
+ * стерший текст, получил бы пустую строку вместо исчезнувшего блока.
+ */
+export const interpretationSchema = z.object({
+  format: feedbackFormatSchema.default("plain"),
+  text: z.string().default(""),
+});
+
+export type InterpretationText = z.infer<typeof interpretationSchema>;
+
+/**
+ * Толкования подтем ОДНОГО раздела: `axis` + карта «ключ подтемы -> текст».
+ *
+ * Форма повторяет {@link breakdownFeedbackSchema} намеренно: адресация подтемы (ключ как его
+ * написал автор, сопоставление через `tagKey`) — это уже решённый вопрос, и второй способ
+ * адресовать ту же сущность развёл бы тексты и рекомендации по разным ключам.
+ */
+export const breakdownInterpretationSchema = z.object({
+  axis: z.literal("tag"),
+  keys: z.record(z.string(), interpretationSchema),
+});
+
+/**
  * `tests.intro_json`. Экран итогов и отчёт — РАЗНЫЕ адресаты: экран читают сразу и бегло,
  * отчёт уносят с собой и показывают специалисту, поэтому тексты хранятся раздельно и
  * задаются независимо. Отсутствие ветви = вводного блока в этой выдаче нет.
@@ -1279,6 +1343,19 @@ export const breakdownDisplaySchema = z.object({
    * already print, i.e. `topics`.
    */
   placement: z.enum(["topics", "block", "both"]).optional(),
+  /**
+   * Печатать ли ТОЛКОВАНИЯ подтем (`test_sections.breakdown_interpretation_json`).
+   *
+   * Живёт здесь, рядом с остальными решениями «что показывает строка подтемы», а не у
+   * текстов: показ и содержание — разные вопросы, и автор ищет «показывать или нет» там,
+   * где уже стоят вид полосы, база и место печати.
+   *
+   * ОТСУТСТВИЕ = НЕ печатать. Референс сертификата толкований подтем не содержит, и ни один
+   * существующий тест не должен получить их молча — включение остаётся действием автора.
+   * Показ вложен в показ самих подытогов: при `visibility: "hidden"` строк подтем нет, и
+   * печатать толкование некуда.
+   */
+  showInterpretation: z.boolean().optional(),
 });
 
 export type BreakdownDisplaySetting = z.infer<typeof breakdownDisplaySchema>;

@@ -38,6 +38,11 @@ import { buildScaleBars, type CtxScaleBars } from "./scale-bars";
 import { parseScaleAppearance } from "./scale-appearance";
 import { collectRecommendations } from "./recommendations";
 import { collectBreakdownFeedback } from "../breakdown/feedback";
+import {
+  resolveTopicInterpretation,
+  resolveBreakdownInterpretation,
+  type InterpretationText,
+} from "../interpretation/resolve";
 import { resolveResultsBlocks, type ResultsBlocks, type ResultsBlockSettings } from "./results-blocks";
 // PRD-29 §6.7 lives in the scoring layer, not here: the results screen was its first
 // reader, not its owner (see the two gates in `buildResultContext`).
@@ -165,6 +170,14 @@ export interface BreakdownDisplaySetting {
    * {@link visibility} still governs them jointly: `hidden` prints none of them (FR-31).
    */
   placement?: "topics" | "block" | "both";
+  /**
+   * Печатать ли ТОЛКОВАНИЯ подтем под их полосами.
+   *
+   * OPTIONAL, и отсутствие значит НЕ печатать: тексты подтем — новая возможность, и ни один
+   * тест, сохранённый до неё, не должен получить их молча. Показ вложен в {@link visibility}:
+   * при `hidden` строк подтем нет, и печатать толкование некуда.
+   */
+  showInterpretation?: boolean;
 }
 
 /** Normalized per-topic input (host adapts its own field names into this). */
@@ -187,6 +200,18 @@ export interface TopicInput extends TopicFeedbackInput {
    * declare, all mean the same: no group (FR-12).
    */
   groupKey?: string | null;
+  /**
+   * ТОЛКОВАНИЕ самой темы (`topics.interpretation_json`) и толкование, заданное ЭТИМ тестом
+   * (`test_sections.interpretation_json`). Разрешает их ядро одной функцией — и для выдачи,
+   * и для карточки редактора, чтобы автор видел ровно тот текст, который получит участник.
+   */
+  interpretation?: InterpretationText | null;
+  sectionInterpretation?: InterpretationText | null;
+  /**
+   * ТОЛКОВАНИЯ ПОДТЕМ этого раздела: «ключ подтемы -> текст»
+   * (`test_sections.breakdown_interpretation_json.keys`). Хост только привозит написанное.
+   */
+  breakdownInterpretation?: Record<string, InterpretationText> | null;
 }
 
 /**
@@ -871,7 +896,11 @@ function topicVerdictLabel(passed: boolean | null, labels?: Record<string, strin
  * projections show the same kind of fact, and a row that rounded or worded itself
  * differently depending on where it is printed would read as two different measurements.
  */
-function breakdownRow(e: BreakdownEntry, display: BreakdownDisplaySetting): CtxBreakdownRow {
+function breakdownRow(
+  e: BreakdownEntry,
+  display: BreakdownDisplaySetting,
+  interpretations?: Record<string, InterpretationText> | null,
+): CtxBreakdownRow {
   const showValue = display.visibility === "bar_and_value";
   const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
   const passed = e.passed ?? null;
@@ -896,7 +925,26 @@ function breakdownRow(e: BreakdownEntry, display: BreakdownDisplaySetting): CtxB
     passed,
     passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
     ...(showValue && threshold !== null ? { requiredLabel: "Нужно " + Math.round(threshold) + " %" } : {}),
+    // ТОЛКОВАНИЕ подтемы печатается только при включённом показе: настройка решает, а не
+    // наличие текста. Автор может написать тексты заранее и не показывать их участнику.
+    ...(display.showInterpretation === true ? breakdownInterpretationHtml(e.key, interpretations) : {}),
   };
+}
+
+/**
+ * Разметка толкования подтемы для строки разреза, или пустой объект.
+ *
+ * Пустой объект, а не пустая строка: поле должно ОТСУТСТВОВАТЬ, иначе `{{#if}}` макета
+ * напечатает пустой блок под полосой.
+ */
+function breakdownInterpretationHtml(
+  key: string,
+  interpretations?: Record<string, InterpretationText> | null,
+): { interpretationHtml?: string } {
+  const resolved = resolveBreakdownInterpretation(interpretations, key);
+  if (!resolved) return {};
+  const html = richTextToHtml(resolved.text, resolved.format as RichTextFormat);
+  return html ? { interpretationHtml: html } : {};
 }
 
 /**
@@ -975,13 +1023,20 @@ function topicView(
   // down; the layout drops the sibling «Правильно» row on the same `total` check.
   if (withPoints && t.total > 0) view.pointsLabel = round1(t.earnedPoints) + " / " + round1(t.possiblePoints);
   if (t.requiredLabel) view.requiredLabel = t.requiredLabel;
+  // ТОЛКОВАНИЕ темы: печатается ВСЕГДА, когда автор его написал, — вердикт здесь ни при чём.
+  // Текст теста заменяет текст темы целиком; правило одно на выдачу и на редактор.
+  const interpretation = resolveTopicInterpretation(t.interpretation, t.sectionInterpretation);
+  if (interpretation) {
+    const html = richTextToHtml(interpretation.text, interpretation.format as RichTextFormat);
+    if (html) view.interpretationHtml = html;
+  }
   // PRD-50: the breakdown rows print only when the author turned them on FOR THIS
   // PROJECTION (FR-44) AND the topic actually carries at least one key — a list of keys,
   // not a decomposition of the topic into parts, so keys are not required to partition its
   // questions.
   const display = breakdownDisplay;
   if (display && showsNestedBreakdown(display) && t.breakdown?.length) {
-    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display));
+    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, t.breakdownInterpretation));
   }
   return view;
 }
