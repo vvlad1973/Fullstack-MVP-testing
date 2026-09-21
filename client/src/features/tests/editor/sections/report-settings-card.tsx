@@ -37,6 +37,7 @@ import { resolveReportValues } from "@shared/report/report-variants";
 import { fieldsOfScope, type ReportFieldScope } from "@shared/report/report-field-scope";
 import { ReportPreviewModal } from "./report-preview-modal";
 import { ReportDocumentList } from "./report-document-list";
+import { ReportVariantModal } from "./report-variant-modal";
 import { ReportBlockPalette } from "./report-block-palette";
 import { ReportBlockFields } from "./report-block-fields";
 import { insertBlock, initialReportDraft, type DraftBlock } from "../use-report-document";
@@ -182,6 +183,8 @@ export function ReportSettingsCard(props: {
   const [previewOpen, setPreviewOpen] = useState(false);
   // Позиция, с которой открыли палитру: блок встаёт ИМЕННО туда, откуда его добавляли.
   const [addAt, setAddAt] = useState<number | null>(null);
+  /** Строка, у которой меняют вариант блока; `null` — окно закрыто. */
+  const [variantAt, setVariantAt] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const values = branch?.values ?? {};
@@ -363,6 +366,7 @@ export function ReportSettingsCard(props: {
                 onChange={setDoc}
                 onAdd={setAddAt}
                 readOnly={props.readOnly}
+                onReplaceVariant={(i) => setVariantAt(i)}
                 expandedIndex={expanded}
                 onToggleExpand={(i) => setExpanded(expanded === i ? null : i)}
                 renderExpanded={(i) => (
@@ -374,6 +378,18 @@ export function ReportSettingsCard(props: {
                     onChange={(next) => setDoc(doc.map((b, j) => (j === i ? next : b)))}
                   />
                 )}
+              />
+              {/* Смена варианта БЛОКА: состав документа при этом не меняется, поэтому
+                  своё окно, а не палитра добавления. */}
+              <ReportVariantModal
+                open={variantAt !== null}
+                block={variantAt !== null ? doc[variantAt].block : ""}
+                current={variantAt !== null ? doc[variantAt].templateKey : null}
+                variants={blockOptions}
+                onClose={() => setVariantAt(null)}
+                onPick={(templateKey) =>
+                  setDoc(doc.map((b, j) => (j === variantAt ? { ...b, templateKey } : b)))
+                }
               />
               <ReportBlockPalette
                 open={addAt !== null}

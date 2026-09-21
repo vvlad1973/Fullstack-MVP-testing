@@ -1723,3 +1723,48 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 .tb-intro a,
 .tb-recs-group__text a,
 .tb-topic-card__fb-text a { color: var(--ou-accent-default); text-decoration: underline; }
+
+/* ДВУХКОЛОНОЧНАЯ СТРОКА ТЕМЫ (эскиз approved/prd-rtk-topic-row.html, согласован
+   2026-09-21). Слева имя, вердикт и сводка, справа толкование темы либо полосы подтем.
+
+   Раскладку решают ДАННЫЕ: модификатор ставит ядро признаком `hasAside`, то есть только у
+   темы, которой есть что нести справа. Обёртки при этом стоят в разметке ВСЕГДА, и по
+   умолчанию они ПРОЗРАЧНЫ (`display: contents`): их дети остаются прямыми потомками
+   `.ou-card__body`, флексовая колонка карточки не меняется, и тема без толкования и без
+   подтем печатается ровно так, как печаталась.
+
+   Двухколоночная карточка занимает ВСЮ ширину сетки: в колонке минимум 340 px двум
+   колонкам текста не разойтись, а в референсе строки идут во всю ширину листа. */
+.tb-topic-card__main,
+.tb-topic-card__aside { display: contents; }
+.tb-topic-card--split { grid-column: 1 / -1; }
+.tb-topic-card--split .ou-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: var(--ou-space-2) var(--ou-space-6);
+  align-items: start;
+}
+.tb-topic-card--split .tb-topic-card__main,
+.tb-topic-card--split .tb-topic-card__aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ou-space-2);
+  min-width: 0;
+}
+/* Хвост карточки — подпись требования и рекомендации — идёт ПОД обеими колонками: это
+   высказывание обо всей теме, а не о её левой половине. */
+.tb-topic-card--split .tb-topic-card__req,
+.tb-topic-card--split .tb-topic-card__fb { grid-column: 1 / -1; }
+/* ТОЛКОВАНИЕ темы на экране. Абзацы автора сохраняются: ядро отдаёт разметку, а не строку. */
+.tb-topic-card__interpretation { font: var(--ou-text-body-m); color: var(--ou-fg-soft); }
+.tb-topic-card__interpretation p { margin: 0 0 var(--ou-space-2); }
+.tb-topic-card__interpretation p:last-child { margin-bottom: 0; }
+/* Полосы подтем в правой колонке идут в три колонки — как в референсе; на узком экране
+   раскладка схлопывается вместе с самой карточкой (см. медиазапрос ниже по файлу). */
+.tb-topic-card--split .tb-topic__breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+  gap: var(--ou-space-3) var(--ou-space-5);
+  align-items: end;
+}

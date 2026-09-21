@@ -1074,6 +1074,10 @@ function topicView(
     // mustache) перебрать строки и свести ответ не умеет.
     if (view.breakdown.some((row) => row.interpretationHtml)) view.hasBreakdownNotes = true;
   }
+  // Есть ли что нести правой колонке. Ставится ПОСЛЕ обоих слотов — толкования темы и
+  // полос подтем: любого из них хватает, чтобы строка стала двухколоночной, а темы без
+  // обоих остаются такими, какими были.
+  if (view.interpretationHtml || view.breakdown?.length) view.hasAside = true;
   return view;
 }
 
