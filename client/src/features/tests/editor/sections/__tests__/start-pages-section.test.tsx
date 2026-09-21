@@ -14,7 +14,13 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { StructureSection, reorderByDrop, insertIndexFor } from "../start-pages-section";
+import {
+  StructureSection,
+  reorderByDrop,
+  insertIndexFor,
+  SettingControl,
+  showsSetting,
+} from "../start-pages-section";
 import type { TestEditorModel, EditorSection } from "../../test-editor.types";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
 
@@ -872,5 +878,70 @@ describe("<StructureSection /> — replace-variant search + diff", () => {
     // Modal opens with the page's current variant pre-selected → no diff.
     await waitFor(() => expect(screen.getByTestId("structure-replace-search")).toBeInTheDocument());
     expect(screen.queryByTestId("structure-replace-diff")).toBeNull();
+  });
+});
+
+// ─── PRD-22 §11: подзаголовок раздела ─────────────────────────────────────────
+
+describe("SettingControl — тумблер и умолчание манифеста (PRD-22 FR-45)", () => {
+  /** Обязательные пропсы веток, которых тумблер не читает. */
+  const REST: { sequenceIds: string[]; sequenceTotal: number } = { sequenceIds: [], sequenceTotal: 0 };
+
+  it("незаданное значение показывается по умолчанию манифеста", () => {
+    render(
+      <SettingControl
+        setting={{ key: "sectionSubtitleShown", type: "boolean", label: "Показывать", default: true }}
+        value={undefined}
+        onChange={vi.fn()}
+        {...REST}
+        testId="s-shown"
+      />,
+    );
+
+    expect(screen.getByTestId("s-shown")).toBeChecked();
+  });
+
+  it("явное «выключено» умолчанием не перебивается", () => {
+    render(
+      <SettingControl
+        setting={{ key: "sectionSubtitleShown", type: "boolean", label: "Показывать", default: true }}
+        value={false}
+        onChange={vi.fn()}
+        {...REST}
+        testId="s-off"
+      />,
+    );
+
+    expect(screen.getByTestId("s-off")).not.toBeChecked();
+  });
+
+  it("без объявленного умолчания тумблер выключен", () => {
+    render(
+      <SettingControl
+        setting={{ key: "flag", type: "boolean", label: "Флаг" }}
+        value={undefined}
+        onChange={vi.fn()}
+        {...REST}
+        testId="s-flag"
+      />,
+    );
+
+    expect(screen.getByTestId("s-flag")).not.toBeChecked();
+  });
+});
+
+describe("showsSetting — зависимые настройки (PRD-22 FR-44)", () => {
+  const subtitle = { key: "sectionSubtitle", type: "text", label: "Подзаголовок раздела" };
+
+  it("поле формулировки скрыто при выключенном тумблере", () => {
+    expect(showsSetting({ sectionSubtitleShown: false })(subtitle)).toBe(false);
+  });
+
+  it("поле формулировки показано при включённом тумблере", () => {
+    expect(showsSetting({ sectionSubtitleShown: true })(subtitle)).toBe(true);
+  });
+
+  it("поле формулировки показано, пока тумблер не задан", () => {
+    expect(showsSetting({})(subtitle)).toBe(true);
   });
 });
