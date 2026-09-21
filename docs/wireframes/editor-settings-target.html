@@ -1256,6 +1256,18 @@
                   <span class="ou-formfield__desc">Сводный блок печатает подтему, живущую в нескольких разделах, одной строкой по всему тесту. В адаптивном тесте карточка темы говорит подтверждённым уровнем и полос не печатает — там работает только сводный блок.</span>
                 </div>
               </div>
+              <!-- Согласовано 2026-09-21 (approved/prd-rtk-editor-cards.html, состояние
+                   «Состав итогов · показ»): «показывать или нет» живёт здесь либо в настройках
+                   блока шаблона. Доступно, пока показаны сами подытоги. -->
+              <div class="ou-formfield">
+                <label class="ou-switch-field">
+                  <span class="ou-switch ou-switch--m"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                  <span class="ou-switch-field__text">
+                    <span class="ou-switch-field__label">Показывать толкование подтем</span>
+                    <span class="ou-switch-field__desc">Выключено — тексты хранятся, но участнику не печатаются. Тексты задаются в разделе «Обратная связь» → «По темам», карточка «По подтемам (тегам)».</span>
+                  </span>
+                </label>
+              </div>
                 </div>
               </div>
 
@@ -1637,52 +1649,100 @@
                   <h3 class="ou-formsection__title">По темам</h3>
                 </div>
                 <div class="ou-formsection__body">
-                  <div class="ou-formfield">
-                    <div class="tb-feedback-head">
-                      <label class="ou-formfield__lbl">1. О компании</label>
-                      <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-rotate-ccw" /></svg></span><span>Сбросить до установок темы</span></button>
+                  <!-- Согласовано 2026-09-21 (approved/prd-rtk-editor-cards.html, состояние
+                       «По темам · толкование»): у темы ДВА текста. Название темы стало
+                       подзаголовком группы, тег в шапке поля называет источник, сброс —
+                       пиктограмма круговой стрелки. -->
+                  <div class="tb-textgroup">
+                    <div class="tb-section-label">1. О компании</div>
+                    <div class="tb-textfield">
+                      <div class="tb-feedback-head">
+                        <label class="ou-formfield__lbl">Толкование</label>
+                      <span class="tb-feedback-head__trail">
+                        <span class="ou-tag ou-tag--warning ou-tag--s">этот тест</span>
+                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Сбросить толкование до установок темы" title="Сбросить толкование до установок темы"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-rotate-ccw" /></svg></span></button>
+                      </span>
+                      </div>
+                      <div class="tb-feedback-preview is-overridden">
+                        <div class="tb-feedback-preview__head">
+                          <span class="tb-feedback-preview__snippet">Знание рынка, продуктов и стратегии компании.</span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        </div>
+                      </div>
                     </div>
-                    <div class="tb-feedback-preview is-overridden">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Стоит освежить раздел «Продукты».</span>
-                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                    <div class="tb-textfield">
+                      <div class="tb-feedback-head">
+                        <label class="ou-formfield__lbl">Обратная связь</label>
+                      <span class="tb-feedback-head__trail">
+                        <span class="ou-tag ou-tag--warning ou-tag--s">этот тест</span>
+                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Сбросить обратную связь до установок темы" title="Сбросить обратную связь до установок темы"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-rotate-ccw" /></svg></span></button>
+                      </span>
                       </div>
-                      <div class="tb-feedback-preview__group">
-                        <div class="tb-feedback-preview__group-title">Курсы</div>
-                        <ul class="tb-feedback-preview__items">
-                          <li class="tb-feedback-preview__item">Стратегия компании 2030</li>
-                          <li class="tb-feedback-preview__item">Продуктовый портфель</li>
-                        </ul>
-                      </div>
-                      <div class="tb-feedback-preview__group">
-                        <div class="tb-feedback-preview__group-title">Мероприятия</div>
-                        <ul class="tb-feedback-preview__items">
-                          <li class="tb-feedback-preview__item">Школа руководителя</li>
-                        </ul>
+                      <div class="tb-feedback-preview is-overridden">
+                        <div class="tb-feedback-preview__head">
+                          <span class="tb-feedback-preview__snippet">Стоит освежить раздел «Продукты».</span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        </div>
+                        <div class="tb-feedback-preview__group">
+                          <div class="tb-feedback-preview__group-title">Курсы</div>
+                          <ul class="tb-feedback-preview__items">
+                            <li class="tb-feedback-preview__item">Стратегия компании 2030</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div class="ou-formfield">
-                    <label class="ou-formfield__lbl">2. Корпоративные финансы</label>
-                    <div class="tb-feedback-preview">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Разберите бюджетный цикл.</span>
-                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                  <div class="tb-textgroup">
+                    <div class="tb-section-label">2. Корпоративные финансы</div>
+                    <div class="tb-textfield">
+                      <div class="tb-feedback-head">
+                        <label class="ou-formfield__lbl">Толкование</label>
+                      <span class="ou-tag ou-tag--neutral ou-tag--s">из темы</span>
                       </div>
-                      <div class="tb-feedback-preview__group">
-                        <div class="tb-feedback-preview__group-title">Курсы</div>
-                        <ul class="tb-feedback-preview__items">
-                          <li class="tb-feedback-preview__item">Финансы для руководителей</li>
-                        </ul>
+                      <div class="tb-feedback-preview">
+                        <div class="tb-feedback-preview__head">
+                          <span class="tb-feedback-preview__snippet">Бюджетный цикл и управление затратами.</span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tb-textfield">
+                      <div class="tb-feedback-head">
+                        <label class="ou-formfield__lbl">Обратная связь</label>
+                      <span class="ou-tag ou-tag--neutral ou-tag--s">из темы</span>
+                      </div>
+                      <div class="tb-feedback-preview">
+                        <div class="tb-feedback-preview__head">
+                          <span class="tb-feedback-preview__snippet">Разберите бюджетный цикл.</span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div class="ou-formfield">
-                    <label class="ou-formfield__lbl">3. Технологии</label>
-                    <div class="tb-feedback-preview is-empty">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Без текста</span>
-                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                  <div class="tb-textgroup">
+                    <div class="tb-section-label">3. Технологии</div>
+                    <div class="tb-textfield">
+                      <div class="tb-feedback-head">
+                        <label class="ou-formfield__lbl">Толкование</label>
+                      <span class="ou-tag ou-tag--neutral ou-tag--s">из темы</span>
+                      </div>
+                      <div class="tb-feedback-preview is-empty">
+                        <div class="tb-feedback-preview__head">
+                          <span class="tb-feedback-preview__snippet">Без текста</span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tb-textfield">
+                      <div class="tb-feedback-head">
+                        <label class="ou-formfield__lbl">Обратная связь</label>
+                      <span class="ou-tag ou-tag--neutral ou-tag--s">из темы</span>
+                      </div>
+                      <div class="tb-feedback-preview is-empty">
+                        <div class="tb-feedback-preview__head">
+                          <span class="tb-feedback-preview__snippet">Без текста</span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1708,36 +1768,89 @@
                       <span class="ou-tag ou-tag--neutral ou-tag--outline">3 подтемы</span>
                     </div>
                     <div class="tb-fold-sec__body">
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Стратегия компании</label>
-                        <div class="tb-feedback-preview">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Сверьтесь со стратегией до 2030.</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                      <!-- Согласовано 2026-09-21: у подтемы те же два текста. Тег говорит
+                           «скрыто от участника», пока показ толкований выключен. -->
+                      <div class="tb-textgroup">
+                        <div class="tb-section-label">Стратегия компании</div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl">Толкование</label>
+                          <span class="ou-tag ou-tag--neutral ou-tag--s">скрыто от участника</span>
                           </div>
-                          <div class="tb-feedback-preview__group">
-                            <div class="tb-feedback-preview__group-title">Материалы</div>
-                            <ul class="tb-feedback-preview__items">
-                              <li class="tb-feedback-preview__item">Стратегия-2030.pdf</li>
-                            </ul>
+                          <div class="tb-feedback-preview">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Понимание стратегических целей компании до 2030 года.</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl">Обратная связь</label>
+                          </div>
+                          <div class="tb-feedback-preview">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Сверьтесь со стратегией до 2030.</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                            <div class="tb-feedback-preview__group">
+                              <div class="tb-feedback-preview__group-title">Материалы</div>
+                              <ul class="tb-feedback-preview__items">
+                                <li class="tb-feedback-preview__item">Стратегия-2030.pdf</li>
+                              </ul>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Продукты компании</label>
-                        <div class="tb-feedback-preview is-empty">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Без текста</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                      <div class="tb-textgroup">
+                        <div class="tb-section-label">Продукты компании</div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl">Толкование</label>
+                          <span class="ou-tag ou-tag--neutral ou-tag--s">скрыто от участника</span>
+                          </div>
+                          <div class="tb-feedback-preview is-empty">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Без текста</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl">Обратная связь</label>
+                          </div>
+                          <div class="tb-feedback-preview is-empty">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Без текста</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div class="ou-formfield">
-                        <label class="ou-formfield__lbl">Корпоративная культура</label>
-                        <div class="tb-feedback-preview is-empty">
-                          <div class="tb-feedback-preview__head">
-                            <span class="tb-feedback-preview__snippet">Без текста</span>
-                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                      <div class="tb-textgroup">
+                        <div class="tb-section-label">Корпоративная культура</div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl">Толкование</label>
+                          <span class="ou-tag ou-tag--neutral ou-tag--s">скрыто от участника</span>
+                          </div>
+                          <div class="tb-feedback-preview is-empty">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Без текста</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl">Обратная связь</label>
+                          </div>
+                          <div class="tb-feedback-preview is-empty">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Без текста</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
                           </div>
                         </div>
                       </div>

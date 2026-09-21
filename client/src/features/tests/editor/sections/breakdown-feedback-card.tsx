@@ -241,6 +241,7 @@ function TagFeedbackRow(props: {
         hideLinks
         hideAssets
         hideEvents
+        textLabel="Текст толкования"
         onCancel={() => setInterpretationOpen(false)}
         onSave={(v: FeedbackEditorValue) => {
           props.onSaveInterpretation(
