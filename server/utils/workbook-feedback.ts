@@ -624,12 +624,23 @@ function applyRecommendation(
  *   address is not here is the SAME orphan as a recommendation whose owner is missing from
  *   «Обратная связь». Omitting the argument therefore means "the book describes no levels" —
  *   which is exactly what a book without the «Адаптивные уровни» sheet says.
+ * @param headers Column titles the sheet actually HAS. The rule is the workbook's own, the
+ *   one `mergeOutcomes` spells out: a column the sheet has defines its field in full — an
+ *   emptied cell clears the text, because that cell is the author's only way to clear it —
+ *   while a column the sheet LACKS says nothing at all. It matters for «Толкование», which
+ *   appeared only in contract 3.9.0: a book exported before it has no such column, and
+ *   reading its every cell as "erased" would wipe the texts of a test whose author never
+ *   opened that book's columns. Omitting the argument means "the sheet is of the current
+ *   format" — the caller that can look at the header row passes it.
  */
 export function parseFeedbackSheets(
   feedbackRows: Record<string, unknown>[] = [],
   recommendationRows: Record<string, unknown>[] = [],
   knownLevels: ReadonlySet<string> = new Set<string>(),
+  headers?: ReadonlySet<string>,
 ): ParsedFeedbackSheets {
+  /** Несёт ли лист колонку толкования вообще. Её отсутствие = «о толкованиях молчу». */
+  const readsInterpretation = headers ? headers.has(FB_INT_TEXT) : true;
   const errors: string[] = [];
   const topicDrafts = new Map<string, OwnerDraft>();
   const topicNames = new Map<string, string>();
@@ -680,7 +691,7 @@ export function parseFeedbackSheets(
     if (owner.value.kind === "test") {
       // У ТЕСТА толкования нет как сущности: толкуется тема, а не тест. Заполненная
       // ячейка — не мелочь, которую можно промолчать: автор ждёт, что текст доедет.
-      if (intText !== "") {
+      if (readsInterpretation && intText !== "") {
         errors.push(
           `${where}: для «${FB_OWNER}» = «${OWNER_TEST}» колонка «${FB_INT_TEXT}» должна быть `
           + `пустой: толкование принадлежит разделу или подтеме`,
@@ -700,9 +711,11 @@ export function parseFeedbackSheets(
       const prev = forTopic.get(tag);
       forTopic.set(tag, prev ? { ...prev, format: format.value, text } : newDraft(format.value, text));
       keyDrafts.set(key, forTopic);
-      const forTopicInt = interpretationByKey.get(key) ?? new Map<string, InterpretationPayload | null>();
-      forTopicInt.set(tag, interpretation);
-      interpretationByKey.set(key, forTopicInt);
+      if (readsInterpretation) {
+        const forTopicInt = interpretationByKey.get(key) ?? new Map<string, InterpretationPayload | null>();
+        forTopicInt.set(tag, interpretation);
+        interpretationByKey.set(key, forTopicInt);
+      }
       // Имя раздела нужно и подтеме: ошибку «такого раздела нет в «Структуре»» автор ищет
       // по тому написанию, которое сам набрал.
       topicNames.set(key, name);
@@ -711,7 +724,7 @@ export function parseFeedbackSheets(
     const { key, name } = owner.value;
     const existing = topicDrafts.get(key);
     topicDrafts.set(key, existing ? { ...existing, format: format.value, text } : newDraft(format.value, text));
-    interpretationByTopic.set(key, interpretation);
+    if (readsInterpretation) interpretationByTopic.set(key, interpretation);
     topicNames.set(key, name);
   });
 

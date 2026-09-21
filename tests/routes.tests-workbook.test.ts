@@ -2906,6 +2906,64 @@ describe("POST /:id/workbook/import — обратная связь и реко�
         events: [],
       });
     });
+
+    // Та же ловушка, но между ПОЛЯМИ одного листа: «Толкование» появилось в контракте
+    // 3.9.0, и книга прежнего формата называет обратную связь раздела, ничего не говоря
+    // о его толковании. Судить оба поля по одному признаку «раздел назван» значило бы
+    // стереть тексты, которых автор этой книги в глаза не видел.
+    it("книга прежнего формата заменяет обратную связь и сохраняет толкования", async () => {
+      storageMock.getTestSections.mockResolvedValue([
+        {
+          ...existingSection,
+          interpretationJson: { format: "plain", text: "Толкование темы теста" },
+          breakdownInterpretationJson: {
+            axis: "tag",
+            keys: { "Замыкания": { format: "plain", text: "Толкование подтемы" } },
+          },
+        },
+      ]);
+      const buf = await makeWorkbook({
+        "Структура": structureRows,
+        "Обратная связь": [
+          { "Кому": "Раздел", "Раздел": "JavaScript", "Формат": "Простой", "Текст": "Новый отзыв" },
+        ],
+      });
+      const res = await postWorkbook(buf);
+
+      expect(res.status).toBe(200);
+      expect(res.body.errors).toEqual([]);
+      const payload = testSettingsMock.save.mock.calls[0][1] as any;
+      expect(payload.sections[0].feedbackJson).toMatchObject({ text: "Новый отзыв" });
+      expect(payload.sections[0].interpretationJson).toEqual({
+        format: "plain",
+        text: "Толкование темы теста",
+      });
+      expect(payload.sections[0].breakdownInterpretationJson).toEqual({
+        axis: "tag",
+        keys: { "Замыкания": { format: "plain", text: "Толкование подтемы" } },
+      });
+    });
+
+    it("книга нынешнего формата с пустой ячейкой толкование снимает", async () => {
+      storageMock.getTestSections.mockResolvedValue([
+        { ...existingSection, interpretationJson: { format: "plain", text: "Было" } },
+      ]);
+      const buf = await makeWorkbook({
+        "Структура": structureRows,
+        "Обратная связь": [
+          {
+            "Кому": "Раздел", "Раздел": "JavaScript", "Формат": "Простой", "Текст": "Новый отзыв",
+            "Формат толкования": "", "Толкование": "",
+          },
+        ],
+      });
+      const res = await postWorkbook(buf);
+
+      expect(res.status).toBe(200);
+      expect(res.body.errors).toEqual([]);
+      const payload = testSettingsMock.save.mock.calls[0][1] as any;
+      expect(payload.sections[0].interpretationJson).toBeNull();
+    });
   });
 
   // Книга без «Структуры» разделы не переписывает — применить обратную связь разделу

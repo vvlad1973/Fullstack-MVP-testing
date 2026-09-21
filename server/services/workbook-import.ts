@@ -437,32 +437,50 @@ async function saveOrCollect(
   }
 }
 
+/** Поля раздела, о которых книга вправе промолчать; каждое переносится САМО ПО СЕБЕ. */
+const CARRIED_TEXT_FIELDS = [
+  "feedbackJson",
+  "breakdownFeedbackJson",
+  "interpretationJson",
+  "breakdownInterpretationJson",
+] as const;
+
 /**
- * Carry the target's own feedback into every section the «Обратная связь» sheet did NOT
+ * Carry the target's own texts into every section the «Обратная связь» sheet did NOT
  * name, matching the current sections by topic.
  *
  * «Структура» rewrites the sections wholesale — `testSettingsService` deletes them and
  * inserts the payload — so a field the payload leaves out is not "left alone", it is
- * ERASED. Feedback is the one section field a book may legitimately say nothing about:
+ * ERASED. The texts are the section fields a book may legitimately say nothing about:
  * every book exported before the sheet existed carries «Структура» and no «Обратная
  * связь», and applying such a book must not blank out the target's per-section feedback.
  * A workbook does not change what it does not name (FR-20).
  *
- * A section the sheet DID name keeps whatever the sheet gave it, `null` included: a named
- * owner takes its feedback WHOLE from the book, which is how an author erases it.
+ * Each field is carried on its OWN: the sheet gained «Толкование» only in contract 3.9.0,
+ * so a book of the previous format names a section's feedback and says nothing about its
+ * interpretation — one field is taken from the book and the other from the test. Judging
+ * all four by the presence of one would either erase the texts a book cannot express or
+ * ignore the erasure an author did mean.
+ *
+ * A field the sheet DID name keeps whatever the sheet gave it, `null` included: a named
+ * owner takes that text WHOLE from the book, which is how an author erases it.
  */
 async function keepUnnamedSectionFeedback(
   testId: string,
   sections: SectionPayload[],
 ): Promise<void> {
-  const unnamed = sections.filter((s) => !("feedbackJson" in s));
-  if (unnamed.length === 0) return;
+  const silent = CARRIED_TEXT_FIELDS.filter((f) => sections.some((s) => !(f in s)));
+  if (silent.length === 0) return;
 
   const current = await storage.getTestSections(testId);
-  const feedbackByTopic = new Map(current.map((s) => [s.topicId, s.feedbackJson]));
-  for (const section of unnamed) {
-    if (!feedbackByTopic.has(section.topicId)) continue;
-    section.feedbackJson = feedbackByTopic.get(section.topicId);
+  const storedByTopic = new Map(current.map((s) => [s.topicId, s]));
+  for (const section of sections) {
+    const stored = storedByTopic.get(section.topicId);
+    if (!stored) continue;
+    for (const field of silent) {
+      if (field in section) continue;
+      section[field] = (stored as Record<string, unknown>)[field];
+    }
   }
 }
 
@@ -1369,6 +1387,9 @@ export async function importWorkbook(
       // A level row of «Рекомендации» may only name a level the book itself described;
       // with no adaptive sheet the set is empty and such rows are reported as orphans.
       adaptive?.levelKeys,
+      // Какие колонки лист НЕСЁТ: книга, выгруженная до контракта 3.9.0, не знает
+      // «Толкование», и её пустые ячейки не должны читаться как «стереть текст».
+      sheetHeaders(feedbackSheet),
     );
     result.errors.push(...feedback.errors);
     // `undefined` = the test level was not named, so its feedback is not touched;
