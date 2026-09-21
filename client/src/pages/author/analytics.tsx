@@ -1324,7 +1324,8 @@ export default function AnalyticsPage() {
           <Text as="h1" variant="display-s" weight="semibold">Аналитика</Text>
           <Text tone="muted">Прохождения, срезы и дела, по которым нужно действие</Text>
         </Stack>
-        <Cluster gap={2}>
+        {/* Кнопки одного ряда — родственные элементы, интервал 1x модульной сетки. */}
+        <Cluster gap={1}>
           {/* PRD-54: вторая точка входа. Теста в контексте нет — он берётся из самого файла. */}
           <Button variant="secondary" size="s" leadingIcon={<Upload size={16} />} onClick={() => setLmsImportOpen(true)}>
             Загрузить выгрузку LMS

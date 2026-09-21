@@ -3,6 +3,7 @@ import { cn } from '../utils';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { Input } from './Input';
+import { Cluster } from './Layout';
 import { MenuDivider, MenuItem, MenuLabel, MenuTrigger } from './Menu';
 
 export interface FilterBarAppliedItem {
@@ -171,7 +172,10 @@ export const FilterBar = forwardRef<HTMLDivElement, FilterBarProps>(
             </MenuTrigger>
           )}
 
-          {actions && <div className="ou-filterbar__spacer">{actions}</div>}
+          {/* The actions are a group, not one control: a bare box would let them touch,
+              because sibling elements carry no spacing of their own. One row of akin
+              controls is 1x on the modular grid, so the gap is `--ou-space-1`. */}
+          {actions && <Cluster gap={1} className="ou-filterbar__spacer">{actions}</Cluster>}
         </div>
 
         {applied.length > 0 && (
