@@ -105,7 +105,7 @@ Tailwind/Radix полностью удалены (UI на дизайн-сист�
 - Слой конфигурации: `server/config.ts` + `server/config-loader.mjs` загружают `.env.<NODE_ENV>`,
   затем `.env`, поверх -- некритичный `config/config.jsonc` и per-instance `config/production.config.jsonc`
   (последний выигрывает под `NODE_ENV=production`). Основа для разделения контуров.
-- Docker-обвязка под развёртывание (`docker/Dockerfile`, `docker/build/config/docker-compose.yml`).
+- Docker-обвязка под развёртывание (`docker/Dockerfile`, `docker/templates/docker-compose.yml`).
 
 Статус: Вне кода. Изменение с 2026-06-07: добавлен слой `config/*.config.jsonc`, разделяющий
 секреты (`.env`) и некритичные параметры. Рекомендация: зафиксировать матрицу сред в проектной документации.
@@ -420,8 +420,8 @@ WAF (СОИБ Веб), Анти-DDoS, проверка кода на уязви�
 - `docker/Dockerfile`: непривилегированный пользователь `nodejs` (UID/GID 1500, `docker/Dockerfile:34-35`),
   drop привилегий через `gosu`, `npm ci --omit=dev`, монтирование `uploads/`, `logs/`, `.env` как volume --
   хорошие практики.
-- `docker/build/config/docker-compose.yml:13`: healthcheck обращается к `/api/me` (требует сессии
-  и вернёт 401) вместо `/api/health` -- дефект пробы. То же в `docker/templates/docker-compose.yml:41`.
+- `docker/templates/docker-compose.yml:41`: healthcheck обращается к `/api/me` (требует сессии
+  и вернёт 401) вместо `/api/health` -- дефект пробы.
 - Манифестов Kubernetes, сетевых политик, Ingress, ограничений NodePort/hostNetwork в репозитории нет --
   требования раздела 12 для K8s проверяются на уровне платформы (Вне кода).
 
