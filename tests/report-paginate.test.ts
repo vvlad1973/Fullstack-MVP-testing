@@ -169,6 +169,29 @@ describe("хвост не превращается в почти пустую с
     expect(slices[0].height).toBe(800);
     expect(slices[1].height).toBe(600);
   });
+
+  it("отступает назад по ГРАНИЦЕ БЛОКА, а не по строке внутри него", () => {
+    // Отчёт РТК: строки тем идут блоками по ~75 px, и подтягивание хвоста уводило разрез
+    // на ближайшую строку ТЕКСТА — то есть рассекало строку темы пополам, хотя черта
+    // между темами лежала в трёх десятках пикселей выше.
+    const lines = Array.from({ length: 100 }, (_, i) => (i + 1) * 14);
+    // Границы тем: каждые 75 px.
+    const blockLines = Array.from({ length: 18 }, (_, i) => (i + 1) * 75);
+    const slices = sliceBySafeLines(lines, 950, 802, { blockLines });
+    const tail = slices[slices.length - 1];
+    expect(tail.height).toBeGreaterThanOrEqual(802 * 0.25);
+    // Разрез стоит ровно на границе темы.
+    expect(blockLines).toContain(tail.top);
+    expect(slices.reduce((sum, s) => sum + s.height, 0)).toBe(950);
+  });
+
+  it("границы блока нет — отступает по строке, как раньше", () => {
+    const lines = Array.from({ length: 100 }, (_, i) => (i + 1) * 14);
+    const slices = sliceBySafeLines(lines, 950, 802, { blockLines: [] });
+    const tail = slices[slices.length - 1];
+    expect(tail.height).toBeGreaterThanOrEqual(802 * 0.25);
+    expect(lines).toContain(tail.top);
+  });
 });
 
 describe("принудительный разрыв между блоками документа", () => {
