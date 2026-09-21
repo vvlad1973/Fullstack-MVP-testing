@@ -77,6 +77,20 @@ export type BreakdownFeedbackEntry = FeedbackContent & {
 };
 
 /**
+ * Толкование — текст и его формат, и БОЛЬШЕ НИЧЕГО.
+ *
+ * Ни курсов, ни материалов, ни мероприятий: толкование объясняет результат, а не
+ * советует, что с ним делать. Тип отдельный от {@link BreakdownFeedbackEntry} именно
+ * поэтому — совпадение с {@link FeedbackContent} по форме здесь случайно, и заводить
+ * одно имя на две разные сущности значило бы стереть различие, ради которого они и
+ * разделены.
+ */
+export type InterpretationEntry = {
+  format: FeedbackFormat;
+  text: string;
+};
+
+/**
  * Material attached to feedback — title + external URL (PRD-42). `fileName`/`mimeType` are
  * legacy-only: descriptors saved through the retired upload flow (PRD-32) carry them, new
  * rows do not. `scormHref` is a legacy in-package address kept for reading old data only.
@@ -243,6 +257,20 @@ export type EditorSection = {
    * Своя колонка, отдельно от выдачи: квота — про доставку, текст — про содержание.
    */
   breakdownFeedback?: Record<string, BreakdownFeedbackEntry> | null;
+  /**
+   * Толкование темы, заданное ЭТИМ тестом (`test_sections.interpretation_json`).
+   *
+   * Заменяет текст самой темы целиком; `null`/отсутствие = тест не переопределял, и
+   * участник читает текст темы. Отдельно от {@link feedback}: толкование объясняет
+   * результат и печатается при любом вердикте, обратная связь советует и выдаётся по
+   * правилу — свести их в одно поле значило бы потерять это различие.
+   */
+  interpretation?: InterpretationEntry | null;
+  /**
+   * Толкования ПОДТЕМ этого раздела (`test_sections.breakdown_interpretation_json`) —
+   * ключ подтемы -> её текст. Печатаются под своей полосой, когда включён их показ.
+   */
+  breakdownInterpretation?: Record<string, InterpretationEntry> | null;
   /**
    * PRD-30 FR-02/FR-18: this topic's OVERRIDE of the test-wide delivery order.
    * `null`/absent = «как в тесте» (the default), `random` = today's shuffle,
@@ -759,6 +787,10 @@ export type TestSectionPayload = {
   formSetJson: FormSet | null;
   /** PRD-50 FR-50: тексты подтем; `null` = автор их не писал. */
   breakdownFeedbackJson: { axis: "tag"; keys: Record<string, BreakdownFeedbackEntry> } | null;
+  /** Толкование темы, заданное этим тестом; `null` = тест не переопределял. */
+  interpretationJson: InterpretationEntry | null;
+  /** Толкования подтем; `null` = автор их не писал. */
+  breakdownInterpretationJson: { axis: "tag"; keys: Record<string, InterpretationEntry> } | null;
   /** PRD-50 FR-11/FR-12: the test's block this section belongs to; `null` = no block. */
   groupKey: string | null;
   /** PRD-15 block D (FR-31): per-section default price; `null` = inherit test. */

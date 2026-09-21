@@ -15,6 +15,7 @@ const TOPICS = [
     id: "law",
     name: "Право",
     feedbackJson: { format: "plain", text: "Текст самой темы", links: [], assets: [], events: [] },
+    interpretationJson: { format: "plain", text: "Толкование темы" },
   },
   { id: "hist", name: "История", feedbackJson: null, feedback: "Легаси-текст темы" },
 ];
@@ -97,8 +98,8 @@ const runUpdater = (fn: ReturnType<typeof vi.fn>, model: TestEditorModel) =>
 describe("<TopicFeedbackCard />", () => {
   it("без своей правки печатает текст ТЕМЫ и называет источник", () => {
     render(baseModel([section("law", "Право")]));
-    // Источник показывает ТОЛЬКО полоса слева у превью: подписи рядом эскиз не рисует
-    // (решение 13). Текст темы — не переопределение, полосы нет.
+    // Источник называют ДВОЕ: тег в шапке поля («из темы» / «этот тест») и полоса слева у
+    // превью. Текст темы — не переопределение, полосы нет.
     expect(screen.getByTestId("topic-feedback-law")).not.toHaveClass("is-overridden");
     expect(screen.getByTestId("topic-feedback-law")).toHaveTextContent("Текст самой темы");
     // Сбрасывать нечего — кнопки нет.
@@ -144,5 +145,74 @@ describe("<TopicFeedbackCard />", () => {
   it("тест без тем объясняет, где их заводят", () => {
     render(baseModel([]));
     expect(screen.getByTestId("topic-feedback-no-topics")).toBeInTheDocument();
+  });
+});
+
+describe("<TopicFeedbackCard />: толкование", () => {
+  it("печатает текст ТЕМЫ, пока тест его не переопределил", () => {
+    render(baseModel([section("law", "Право")]));
+    const preview = screen.getByTestId("topic-interpretation-law");
+    expect(preview).toHaveTextContent("Толкование темы");
+    expect(preview).not.toHaveClass("is-overridden");
+    // Сбрасывать нечего: правки теста нет.
+    expect(screen.queryByTestId("topic-interpretation-law-reset")).toBeNull();
+  });
+
+  it("текст теста ЗАМЕНЯЕТ текст темы", () => {
+    const model = baseModel([section("law", "Право")]);
+    model.sections[0].interpretation = { format: "plain", text: "Толкование этого теста" };
+    render(model);
+    const preview = screen.getByTestId("topic-interpretation-law");
+    expect(preview).toHaveTextContent("Толкование этого теста");
+    expect(preview).not.toHaveTextContent("Толкование темы");
+    expect(preview).toHaveClass("is-overridden");
+  });
+
+  it("стоит ОТДЕЛЬНО от обратной связи: у темы теперь два текста", () => {
+    render(baseModel([section("law", "Право", "Текст этого теста")]));
+    expect(screen.getByTestId("topic-interpretation-law")).toHaveTextContent("Толкование темы");
+    expect(screen.getByTestId("topic-feedback-law")).toHaveTextContent("Текст этого теста");
+  });
+
+  it("правка пишется в РАЗДЕЛ теста и не трогает обратную связь", () => {
+    const updateModel = vi.fn();
+    const model = baseModel([section("law", "Право", "Текст этого теста")]);
+    render(model, updateModel);
+    fireEvent.click(screen.getByTestId("topic-interpretation-law-edit"));
+    fireEvent.change(screen.getByTestId("feedback-editor-text"), {
+      target: { value: "Своё толкование" },
+    });
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    const next = runUpdater(updateModel, model);
+    expect(next.sections[0].interpretation).toEqual({ format: "plain", text: "Своё толкование" });
+    expect(next.sections[0].feedback.text).toBe("Текст этого теста");
+  });
+
+  it("стёртый текст снимает переопределение, а не пишет пустую запись", () => {
+    const updateModel = vi.fn();
+    const model = baseModel([section("law", "Право")]);
+    model.sections[0].interpretation = { format: "plain", text: "Толкование этого теста" };
+    render(model, updateModel);
+    fireEvent.click(screen.getByTestId("topic-interpretation-law-edit"));
+    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "   " } });
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    expect(runUpdater(updateModel, model).sections[0].interpretation).toBeNull();
+  });
+
+  it("сброс возвращает текст темы", () => {
+    const updateModel = vi.fn();
+    const model = baseModel([section("law", "Право")]);
+    model.sections[0].interpretation = { format: "plain", text: "Толкование этого теста" };
+    render(model, updateModel);
+    fireEvent.click(screen.getByTestId("topic-interpretation-law-reset"));
+    expect(runUpdater(updateModel, model).sections[0].interpretation).toBeNull();
+  });
+
+  it("у толкования нет ни курсов, ни материалов, ни мероприятий", () => {
+    render(baseModel([section("law", "Право")]));
+    fireEvent.click(screen.getByTestId("topic-interpretation-law-edit"));
+    expect(screen.queryByTestId("feedback-editor-link-add")).toBeNull();
+    expect(screen.queryByTestId("feedback-editor-asset-add")).toBeNull();
+    expect(screen.queryByTestId("feedback-editor-event-add")).toBeNull();
   });
 });

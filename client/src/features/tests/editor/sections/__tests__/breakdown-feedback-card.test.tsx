@@ -149,3 +149,68 @@ describe("<BreakdownFeedbackCard />", () => {
     expect(next.sections[0].breakdownFeedback).toBeNull();
   });
 });
+
+describe("<BreakdownFeedbackCard />: толкование", () => {
+  /** Модель с толкованием одной подтемы и заданным показом. */
+  function withInterpretation(shown: boolean): TestEditorModel {
+    const model = baseModel([
+      {
+        ...section("law", "Право"),
+        breakdownInterpretation: {
+          "Персональные данные": { format: "plain" as const, text: "Что проверяет эта подтема" },
+        },
+      },
+    ] as never);
+    model.runtime.breakdownDisplay = {
+      visibility: "bar_and_value",
+      basis: "points",
+      ...(shown ? { showInterpretation: true } : {}),
+    };
+    return model;
+  }
+
+  it("стоит своим полем рядом с обратной связью подтемы", () => {
+    render(withInterpretation(true));
+    expect(
+      screen.getByTestId("breakdown-interpretation-law-Персональные данные"),
+    ).toHaveTextContent("Что проверяет эта подтема");
+    expect(screen.getByTestId("breakdown-feedback-law-Персональные данные")).toHaveTextContent(
+      "Без текста",
+    );
+  });
+
+  it("при выключенном показе говорит, что участник этого не увидит", () => {
+    render(withInterpretation(false));
+    expect(screen.getAllByText("скрыто от участника").length).toBeGreaterThan(0);
+  });
+
+  it("при включённом показе не подписывает ничего: печатать текст — норма", () => {
+    render(withInterpretation(true));
+    expect(screen.queryByText("скрыто от участника")).toBeNull();
+  });
+
+  it("правка уходит в свою колонку и не трогает обратную связь подтемы", () => {
+    const updateModel = vi.fn();
+    const model = withInterpretation(true);
+    render(model, updateModel);
+    fireEvent.click(screen.getByTestId("breakdown-interpretation-law-Персональные данные-edit"));
+    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Новый текст" } });
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    const next = (updateModel.mock.calls[0][0] as (m: TestEditorModel) => TestEditorModel)(model);
+    expect(next.sections[0].breakdownInterpretation).toEqual({
+      "Персональные данные": { format: "plain", text: "Новый текст" },
+    });
+    expect(next.sections[0].breakdownFeedback ?? null).toBeNull();
+  });
+
+  it("стёртый текст снимает ключ, а не оставляет пустую запись", () => {
+    const updateModel = vi.fn();
+    const model = withInterpretation(true);
+    render(model, updateModel);
+    fireEvent.click(screen.getByTestId("breakdown-interpretation-law-Персональные данные-edit"));
+    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "   " } });
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    const next = (updateModel.mock.calls[0][0] as (m: TestEditorModel) => TestEditorModel)(model);
+    expect(next.sections[0].breakdownInterpretation).toBeNull();
+  });
+});

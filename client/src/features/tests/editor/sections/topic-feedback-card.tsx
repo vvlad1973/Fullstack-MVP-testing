@@ -14,16 +14,17 @@
 import { useState } from "react";
 import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Banner, Button, FormSection } from "@skillum/ui-kit";
-import { RotateCcw } from "lucide-react";
+import { Banner, FormSection } from "@skillum/ui-kit";
+import { resolveTopicInterpretation } from "@shared/interpretation/resolve";
 import { FeedbackEditorModal, type FeedbackEditorValue } from "./feedback-editor-modal";
-import { FeedbackPreview } from "./feedback-preview";
+import { FeedbackField, FeedbackPreview } from "./feedback-preview";
 import type {
   EditorSection,
   FeedbackAsset,
   FeedbackContent,
   FeedbackEvent,
   FeedbackLink,
+  InterpretationEntry,
   TestEditorModel,
 } from "../test-editor.types";
 
@@ -41,6 +42,8 @@ type TopicRow = {
   } | null;
   /** Легаси-колонка: у темы, которой редактор тем не касался, весь текст лежит здесь. */
   feedback?: string | null;
+  /** Толкование самой темы (`topics.interpretation_json`). */
+  interpretationJson?: InterpretationEntry | null;
 };
 
 export type TopicFeedbackCardProps = {
@@ -126,6 +129,7 @@ function TopicFeedbackRow(props: {
   onSave: (patch: Partial<EditorSection>) => void;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  const [interpretationOpen, setInterpretationOpen] = useState(false);
   const { section, topic } = props;
   const own = hasOwnFeedback(section);
   // Разрешение — то же правило, что печатает выдача (`topicFeedbackTexts`): своя правка
@@ -148,43 +152,70 @@ function TopicFeedbackRow(props: {
         events: topicBlock?.events ?? [],
       };
   const testId = `topic-feedback-${section.topicId}`;
+  // Толкование разрешается тем же правилом и тем же кодом, что и в выдаче: текст теста
+  // заменяет текст темы целиком. Автор видит в карточке ровно то, что получит участник.
+  const interpretation = resolveTopicInterpretation(
+    topic?.interpretationJson ?? null,
+    section.interpretation ?? null,
+  );
+  const ownInterpretation = interpretation?.source === "test";
+  const interpretationTestId = `topic-interpretation-${section.topicId}`;
   return (
     <>
-      <div className="ou-formfield">
-        {/* Источник текста показывает ТОЛЬКО полоса слева у превью: подпись рядом была бы
-            вторым разом о том же (решение эскиза 13). */}
-        <div className="tb-feedback-head">
-          <label className="ou-formfield__lbl">{`${props.index + 1}. ${section.topicName}`}</label>
-          {own && (
-            <Button
-              variant="ghost"
-              size="s"
-              leadingIcon={<RotateCcw size={14} aria-hidden="true" />}
-              onClick={() =>
-                props.onSave({
-                  feedback: { format: "plain", text: "" },
-                  feedbackLinks: [],
-                  feedbackAssets: [],
-                  feedbackEvents: [],
-                })
-              }
-              data-testid={`${testId}-reset`}
-            >
-              Сбросить до установок темы
-            </Button>
-          )}
-        </div>
-        <FeedbackPreview
-          format={resolved.format}
-          text={resolved.text}
-          links={resolved.links}
-          assets={resolved.assets}
-          events={resolved.events}
-          onEdit={() => setOpen(true)}
-          editAriaLabel={`Редактировать обратную связь темы «${section.topicName}»`}
-          overridden={own}
-          testId={testId}
-        />
+      <div className="tb-textgroup">
+        {/* Название темы — подзаголовок группы полей, а не метка поля: полей под ним теперь
+            два, и у каждого своя метка. */}
+        <div className="tb-section-label">{`${props.index + 1}. ${section.topicName}`}</div>
+
+        <FeedbackField
+          label="Толкование"
+          tag={{ text: ownInterpretation ? "этот тест" : "из темы", tone: ownInterpretation ? "warning" : "neutral" }}
+          onReset={ownInterpretation ? () => props.onSave({ interpretation: null }) : undefined}
+          resetLabel="Сбросить толкование до установок темы"
+          resetTestId={`${interpretationTestId}-reset`}
+        >
+          <FeedbackPreview
+            format={interpretation?.format ?? "plain"}
+            text={interpretation?.text ?? ""}
+            links={[]}
+            assets={[]}
+            events={[]}
+            onEdit={() => setInterpretationOpen(true)}
+            editAriaLabel={`Редактировать толкование темы «${section.topicName}»`}
+            overridden={ownInterpretation}
+            testId={interpretationTestId}
+          />
+        </FeedbackField>
+
+        <FeedbackField
+          label="Обратная связь"
+          tag={{ text: own ? "этот тест" : "из темы", tone: own ? "warning" : "neutral" }}
+          onReset={
+            own
+              ? () =>
+                  props.onSave({
+                    feedback: { format: "plain", text: "" },
+                    feedbackLinks: [],
+                    feedbackAssets: [],
+                    feedbackEvents: [],
+                  })
+              : undefined
+          }
+          resetLabel="Сбросить обратную связь до установок темы"
+          resetTestId={`${testId}-reset`}
+        >
+          <FeedbackPreview
+            format={resolved.format}
+            text={resolved.text}
+            links={resolved.links}
+            assets={resolved.assets}
+            events={resolved.events}
+            onEdit={() => setOpen(true)}
+            editAriaLabel={`Редактировать обратную связь темы «${section.topicName}»`}
+            overridden={own}
+            testId={testId}
+          />
+        </FeedbackField>
       </div>
       <FeedbackEditorModal
         open={open}
@@ -202,6 +233,25 @@ function TopicFeedbackRow(props: {
           setOpen(false);
         }}
         testId={`${testId}-modal`}
+      />
+      {/* Та же модалка, но БЕЗ курсов, материалов и мероприятий: толкование ничего не
+          советует, и место для ссылки, которую некуда сохранить, было бы обещанием. */}
+      <FeedbackEditorModal
+        open={interpretationOpen}
+        title={`Толкование темы «${section.topicName}»`}
+        description="Текст объясняет результат по этой теме и печатается при любом вердикте. Сохраняется в ЭТОМ тесте и заменяет собой толкование темы — сама тема не меняется."
+        value={{ format: interpretation?.format ?? "plain", text: interpretation?.text ?? "", links: [], assets: [] }}
+        hideLinks
+        hideAssets
+        hideEvents
+        onCancel={() => setInterpretationOpen(false)}
+        onSave={(v: FeedbackEditorValue) => {
+          props.onSave({
+            interpretation: v.text.trim() === "" ? null : { format: v.format, text: v.text },
+          });
+          setInterpretationOpen(false);
+        }}
+        testId={`${interpretationTestId}-modal`}
       />
     </>
   );

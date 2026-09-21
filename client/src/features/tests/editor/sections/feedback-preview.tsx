@@ -14,10 +14,65 @@
  * decorative (`aria-hidden`) — a real button inside would nest one control in
  * another.
  */
-import { CalendarDays, FileText, Link as LinkIcon, Pencil } from "lucide-react";
-import { IconButton } from "@skillum/ui-kit";
+import { CalendarDays, FileText, Link as LinkIcon, Pencil, RotateCcw } from "lucide-react";
+import { IconButton, Tag } from "@skillum/ui-kit";
 import type { FeedbackFormat } from "@shared/schema";
 import type { FeedbackAsset, FeedbackEvent, FeedbackLink } from "../test-editor.types";
+
+export type FeedbackFieldProps = {
+  /** Что это за текст: «Толкование» или «Обратная связь». */
+  label: string;
+  /** Подпись источника («из темы» / «этот тест») или состояния («скрыто от участника»). */
+  tag?: { text: string; tone?: "neutral" | "warning" };
+  /** Снять правку теста. Без него сброса нет — значит, править нечего. */
+  onReset?: () => void;
+  /** Подпись действия сброса: она называет, ЧТО именно сбрасывается. */
+  resetLabel?: string;
+  resetTestId?: string;
+  /** Предпросмотр текста. */
+  children: React.ReactNode;
+};
+
+/**
+ * Поле текста: шапка (что это, откуда взято, чем сбросить) и предпросмотр под ней.
+ *
+ * Своя обёртка, а не `ou-formfield`: полей внутри одной темы теперь ДВА — толкование и
+ * обратная связь, — и группой их держит как раз `ou-formfield`. Подпись источника стоит
+ * ТЕГОМ: без неё автор не отличит, где текст пришёл из темы, а где переопределён этим
+ * тестом, а полосы слева для этого мало — она говорит «не как у темы», но не говорит, что
+ * это за поле (решение эскиза 2026-09-21).
+ */
+export function FeedbackField(props: FeedbackFieldProps): React.JSX.Element {
+  const tag = props.tag ? (
+    <Tag tone={props.tag.tone ?? "neutral"} size="s">
+      {props.tag.text}
+    </Tag>
+  ) : null;
+  return (
+    <div className="tb-textfield">
+      <div className="tb-feedback-head">
+        <label className="ou-formfield__lbl">{props.label}</label>
+        {props.onReset ? (
+          <span className="tb-feedback-head__trail">
+            {tag}
+            <IconButton
+              icon={<RotateCcw size={14} aria-hidden="true" />}
+              aria-label={props.resetLabel ?? "Сбросить до установок темы"}
+              title={props.resetLabel ?? "Сбросить до установок темы"}
+              variant="ghost"
+              size="s"
+              onClick={props.onReset}
+              data-testid={props.resetTestId}
+            />
+          </span>
+        ) : (
+          tag
+        )}
+      </div>
+      {props.children}
+    </div>
+  );
+}
 
 export type FeedbackPreviewProps = {
   format: FeedbackFormat;

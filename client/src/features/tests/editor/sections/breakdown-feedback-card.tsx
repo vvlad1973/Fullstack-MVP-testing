@@ -18,10 +18,14 @@ import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Banner, FormSection } from "@skillum/ui-kit";
 import { FeedbackEditorModal, type FeedbackEditorValue } from "./feedback-editor-modal";
-import { FeedbackPreview } from "./feedback-preview";
+import { FeedbackField, FeedbackPreview } from "./feedback-preview";
 import { FoldAllButtons, FoldSection, useSectionFold } from "./section-fold";
 import { buildTagsByTopic, type QuestionTagRow } from "./topics-structure-section";
-import type { BreakdownFeedbackEntry, TestEditorModel } from "../test-editor.types";
+import type {
+  BreakdownFeedbackEntry,
+  InterpretationEntry,
+  TestEditorModel,
+} from "../test-editor.types";
 
 export type BreakdownFeedbackCardProps = {
   model: TestEditorModel;
@@ -34,7 +38,7 @@ const EMPTY: BreakdownFeedbackEntry = { format: "plain", text: "", links: [], as
 /** Заголовок карточки — один и тот же и когда подтемы есть, и когда их нет. */
 const CARD_TITLE = "По подтемам (тегам)";
 const CARD_SUBTITLE =
-  "Текст выдаётся, когда результат по подтеме ниже общего проходного порога теста, — независимо от того, сдан тест или нет.";
+  "Толкование печатается под полосой подтемы, когда включён его показ. Обратная связь выдаётся, когда результат по подтеме ниже общего проходного порога теста.";
 
 /**
  * Пустое состояние карточки. Баннер стоит ВНУТРИ секции, а не вместо неё: голым он
@@ -112,6 +116,27 @@ export function BreakdownFeedbackCard({
       }),
     }));
 
+  const setInterpretationKey = (topicId: string, key: string, next: InterpretationEntry | null) =>
+    updateModel((m) => ({
+      ...m,
+      sections: m.sections.map((section) => {
+        if (section.topicId !== topicId) return section;
+        const keys: Record<string, InterpretationEntry> = { ...(section.breakdownInterpretation ?? {}) };
+        // То же правило, что у текстов выше: стёртый текст снимает ключ, а не остаётся
+        // пустой записью.
+        if (next === null) delete keys[key];
+        else keys[key] = next;
+        return {
+          ...section,
+          breakdownInterpretation: Object.keys(keys).length > 0 ? keys : null,
+        };
+      }),
+    }));
+
+  // Показ толкований подтем — настройка ТЕСТА («Состав итогов»). Карточка её не меняет, а
+  // только называет: иначе автор пишет текст и не понимает, почему участник его не видит.
+  const interpretationShown = model.runtime.breakdownDisplay?.showInterpretation === true;
+
   return (
     <FormSection
       stacked
@@ -139,7 +164,10 @@ export function BreakdownFeedbackCard({
                   topicId={section.topicId}
                   tag={tag}
                   value={value}
+                  interpretation={section.breakdownInterpretation?.[tag] ?? null}
+                  interpretationShown={interpretationShown}
                   onSave={(next) => setKey(section.topicId, tag, next)}
+                  onSaveInterpretation={(next) => setInterpretationKey(section.topicId, tag, next)}
                 />
               );
             })}
@@ -150,28 +178,77 @@ export function BreakdownFeedbackCard({
   );
 }
 
-/** Одна подтема: предпросмотр написанного и модалка правки — та же, что у темы и теста. */
+/** Одна подтема: толкование и обратная связь — два текста с разными правилами выдачи. */
 function TagFeedbackRow(props: {
   topicId: string;
   tag: string;
   value: BreakdownFeedbackEntry;
+  /** Толкование этой подтемы; `null` = автор его не писал. */
+  interpretation: InterpretationEntry | null;
+  /** Включён ли показ толкований подтем в настройках теста. */
+  interpretationShown: boolean;
   onSave: (next: BreakdownFeedbackEntry | null) => void;
+  onSaveInterpretation: (next: InterpretationEntry | null) => void;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
-  const { value, tag } = props;
+  const [interpretationOpen, setInterpretationOpen] = useState(false);
+  const { value, tag, interpretation } = props;
   const testId = `breakdown-feedback-${props.topicId}-${tag}`;
+  const interpretationTestId = `breakdown-interpretation-${props.topicId}-${tag}`;
   return (
-    <div className="ou-formfield">
-      <label className="ou-formfield__lbl">{tag}</label>
-      <FeedbackPreview
-        format={value.format}
-        text={value.text}
-        links={value.links ?? []}
-        assets={value.assets ?? []}
-        events={value.events ?? []}
-        onEdit={() => setOpen(true)}
-        editAriaLabel={`Редактировать обратную связь подтемы «${tag}»`}
-        testId={testId}
+    <div className="tb-textgroup">
+      {/* Название подтемы — подзаголовок группы, как и название темы выше: полей под ним
+          два, и метка у каждого своя. */}
+      <div className="tb-section-label">{tag}</div>
+
+      <FeedbackField
+        label="Толкование"
+        // Тег молчит, когда показ включён: подписывать «показывается» нечего — это норма.
+        // Он говорит ровно тогда, когда написанное участнику не попадёт.
+        tag={props.interpretationShown ? undefined : { text: "скрыто от участника" }}
+      >
+        <FeedbackPreview
+          format={interpretation?.format ?? "plain"}
+          text={interpretation?.text ?? ""}
+          links={[]}
+          assets={[]}
+          events={[]}
+          onEdit={() => setInterpretationOpen(true)}
+          editAriaLabel={`Редактировать толкование подтемы «${tag}»`}
+          testId={interpretationTestId}
+        />
+      </FeedbackField>
+
+      <FeedbackField label="Обратная связь">
+        <FeedbackPreview
+          format={value.format}
+          text={value.text}
+          links={value.links ?? []}
+          assets={value.assets ?? []}
+          events={value.events ?? []}
+          onEdit={() => setOpen(true)}
+          editAriaLabel={`Редактировать обратную связь подтемы «${tag}»`}
+          testId={testId}
+        />
+      </FeedbackField>
+
+      {/* Без курсов, материалов и мероприятий — по той же причине, что и у темы. */}
+      <FeedbackEditorModal
+        open={interpretationOpen}
+        title={`Толкование подтемы «${tag}»`}
+        description="Текст объясняет результат по этой подтеме и печатается под её полосой, когда включён показ толкований подтем."
+        value={{ format: interpretation?.format ?? "plain", text: interpretation?.text ?? "", links: [], assets: [] }}
+        hideLinks
+        hideAssets
+        hideEvents
+        onCancel={() => setInterpretationOpen(false)}
+        onSave={(v: FeedbackEditorValue) => {
+          props.onSaveInterpretation(
+            v.text.trim() === "" ? null : { format: v.format, text: v.text },
+          );
+          setInterpretationOpen(false);
+        }}
+        testId={`${interpretationTestId}-modal`}
       />
       <FeedbackEditorModal
         open={open}

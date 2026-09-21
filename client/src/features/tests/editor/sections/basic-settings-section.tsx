@@ -1362,6 +1362,40 @@ export function BreakdownDisplayPane({ model, updateModel }: SettingsSectionProp
             />
           </div>
         )}
+        {/* «Показывать или не показывать» — настройка обратной связи и итогов либо блока
+            шаблона (решение владельца 2026-09-21), поэтому переключатель стоит здесь, рядом
+            с самими подытогами. Доступен, пока подытоги показаны: без полосы толкованию не
+            под чем печататься. Тексты при этом никуда не деваются — они хранятся на
+            разделе, и выключение их не стирает. */}
+        {(model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).visibility !== "hidden" && (
+          <div className="ou-formfield">
+            <Switch
+              label="Показывать толкование подтем"
+              description="Выключено — тексты хранятся, но участнику не печатаются. Тексты задаются в разделе «Обратная связь» → «По темам», карточка «По подтемам (тегам)»."
+              checked={
+                (model.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY).showInterpretation === true
+              }
+              onChange={(e) => {
+                const checked = e.target.checked;
+                updateModel((m) => {
+                  const current = m.runtime.breakdownDisplay ?? DEFAULT_BREAKDOWN_DISPLAY;
+                  // Выключение СНИМАЕТ ключ, а не пишет `false`: настройка теста, не
+                  // трогавшего толкования, обязана остаться прежней до байта — это то же
+                  // правило, по которому поле читается (`readBreakdownDisplayFromApi`).
+                  const { showInterpretation: _drop, ...rest } = current;
+                  return {
+                    ...m,
+                    runtime: {
+                      ...m.runtime,
+                      breakdownDisplay: checked ? { ...rest, showInterpretation: true } : rest,
+                    },
+                  };
+                });
+              }}
+              data-testid="settings-breakdown-interpretation-switch"
+            />
+          </div>
+        )}
       </FormSection>
     </>
   );

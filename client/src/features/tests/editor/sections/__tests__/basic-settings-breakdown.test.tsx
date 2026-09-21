@@ -188,3 +188,68 @@ describe("<BreakdownDisplayPane /> — где показывать подыто�
     });
   });
 });
+
+describe("Показ толкований подтем", () => {
+  const withDisplay = (breakdownDisplay?: TestEditorModel["runtime"]["breakdownDisplay"]) =>
+    baseModel({
+      runtime: {
+        timeLimitMinutes: null,
+        maxAttempts: null,
+        showCorrectAnswers: false,
+        allowReturnToUnanswered: true,
+        allowFreeSectionNavigation: false,
+        allowAnswerChange: false,
+        quickAdvance: false,
+        showSectionResults: true,
+        skipReviewWhenComplete: false,
+        copyProtection: true,
+        protectionWatermark: false,
+        protectionHideOnBlur: false,
+        lmsAttemptResult: "best" as const,
+        ...(breakdownDisplay ? { breakdownDisplay } : {}),
+      },
+    } as Partial<TestEditorModel>);
+
+  it("переключателя нет, пока подытоги не показываются: толкованию не под чем стоять", () => {
+    render(<BreakdownDisplayPane model={withDisplay()} updateModel={() => {}} />);
+    expect(screen.queryByTestId("settings-breakdown-interpretation-switch")).not.toBeInTheDocument();
+  });
+
+  it("по умолчанию выключен", () => {
+    render(
+      <BreakdownDisplayPane
+        model={withDisplay({ visibility: "bar", basis: "units" })}
+        updateModel={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("settings-breakdown-interpretation-switch")).not.toBeChecked();
+  });
+
+  it("включение отдаёт наверх признак, не трогая остальное", () => {
+    const updateModel = vi.fn();
+    const model = withDisplay({ visibility: "bar_and_value", basis: "points", placement: "block" });
+    render(<BreakdownDisplayPane model={model} updateModel={updateModel} />);
+    fireEvent.click(screen.getByTestId("settings-breakdown-interpretation-switch"));
+    expect(runUpdater(updateModel, model).runtime.breakdownDisplay).toEqual({
+      visibility: "bar_and_value",
+      basis: "points",
+      placement: "block",
+      showInterpretation: true,
+    });
+  });
+
+  it("выключение СНИМАЕТ ключ, а не пишет false: настройка возвращается к прежнему виду", () => {
+    const updateModel = vi.fn();
+    const model = withDisplay({
+      visibility: "bar_and_value",
+      basis: "points",
+      showInterpretation: true,
+    });
+    render(<BreakdownDisplayPane model={model} updateModel={updateModel} />);
+    fireEvent.click(screen.getByTestId("settings-breakdown-interpretation-switch"));
+    expect(runUpdater(updateModel, model).runtime.breakdownDisplay).toEqual({
+      visibility: "bar_and_value",
+      basis: "points",
+    });
+  });
+});

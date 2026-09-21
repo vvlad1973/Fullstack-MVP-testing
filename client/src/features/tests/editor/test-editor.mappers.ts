@@ -21,7 +21,13 @@
 import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
-import { breakdownFeedbackSchema, formSetSchema, sectionGroupsSchema } from "@shared/schema";
+import {
+  breakdownFeedbackSchema,
+  breakdownInterpretationSchema,
+  formSetSchema,
+  interpretationSchema,
+  sectionGroupsSchema,
+} from "@shared/schema";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 import type {
   AdaptiveLevelConfig,
@@ -29,6 +35,7 @@ import type {
   AdaptiveSettingsPayload,
   AdaptiveTopicConfig,
   BreakdownFeedbackEntry,
+  InterpretationEntry,
   EditorSection,
   FeedbackAsset,
   FeedbackContent,
@@ -361,6 +368,30 @@ function readBreakdownFeedbackFromApi(raw: unknown): Record<string, BreakdownFee
 }
 
 /**
+ * Толкование темы из jsonb API. Пустой текст читается как ОТСУТСТВИЕ: гейт стоит на
+ * тексте и в выдаче (`shared/interpretation/resolve`), и запись с пустой строкой означала
+ * бы в редакторе «переопределено», а у участника — ничего.
+ */
+function readInterpretationFromApi(raw: unknown): InterpretationEntry | null {
+  if (raw == null) return null;
+  const parsed = interpretationSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return parsed.data.text.trim() !== "" ? parsed.data : null;
+}
+
+/** Толкования подтем из jsonb API — по тому же правилу, на каждый ключ. */
+function readBreakdownInterpretationFromApi(raw: unknown): Record<string, InterpretationEntry> | null {
+  if (raw == null) return null;
+  const parsed = breakdownInterpretationSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const keys: Record<string, InterpretationEntry> = {};
+  for (const [key, value] of Object.entries(parsed.data.keys as Record<string, InterpretationEntry>)) {
+    if (value.text.trim() !== "") keys[key] = value;
+  }
+  return Object.keys(keys).length > 0 ? keys : null;
+}
+
+/**
  * Read the test's blocks of sections (PRD-50 FR-11) from the API jsonb. Validated
  * with `sectionGroupsSchema`; absence or any malformed shape degrades to `[]` (no
  * blocks) — the same thing an absent column has always meant (FR-27) — so a bad
@@ -437,6 +468,9 @@ function buildSectionsFromApi(src: ApiTestResponse): {
       // PRD-17 (BR-12): fixed-variant set (validate; invalid/absent = null).
       formSet: readFormSetFromApi(raw.formSetJson),
       breakdownFeedback: readBreakdownFeedbackFromApi(raw.breakdownFeedbackJson),
+      // Толкования: переопределение текста темы этим тестом и тексты подтем.
+      interpretation: readInterpretationFromApi(raw.interpretationJson),
+      breakdownInterpretation: readBreakdownInterpretationFromApi(raw.breakdownInterpretationJson),
       // PRD-50 FR-11/FR-12: this section's block, or null when it belongs to none —
       // including a legacy section saved before this PRD.
       groupKey: typeof raw.groupKey === "string" ? raw.groupKey : null,
@@ -997,7 +1031,15 @@ function readBreakdownDisplayFromApi(api: ApiTestResponse): BreakdownDisplaySett
   // значило бы переписать настройку автора при первом же открытии редактора.
   const placement =
     r.placement === "block" || r.placement === "both" || r.placement === "topics" ? r.placement : undefined;
-  return { visibility, basis, ...(placement ? { placement } : {}) };
+  // Показ толкований подтем — по тому же правилу, что и положение выше: ключа нет значит
+  // «выключено», и подставлять его в настройку автора не за что.
+  const showInterpretation = r.showInterpretation === true ? true : undefined;
+  return {
+    visibility,
+    basis,
+    ...(placement ? { placement } : {}),
+    ...(showInterpretation ? { showInterpretation } : {}),
+  };
 }
 
 function readReportSettingsFromApi(api: ApiTestResponse): ReportSettings {
@@ -1543,6 +1585,18 @@ export function mapEditorSectionsToPayload(model: TestEditorModel): TestSectionP
       breakdownFeedbackJson:
         section.breakdownFeedback && Object.keys(section.breakdownFeedback).length > 0
           ? { axis: "tag" as const, keys: section.breakdownFeedback }
+          : null,
+      // Толкование темы, заданное этим тестом. Пустой текст уходит как `null`: «не
+      // переопределял» и «переопределил пустотой» — одно и то же, и лишняя запись в базе
+      // заставила бы карточку показывать различие, которого у участника нет.
+      interpretationJson:
+        section.interpretation && section.interpretation.text.trim() !== ""
+          ? section.interpretation
+          : null,
+      // Толкования подтем — по тому же правилу, что и их тексты выше.
+      breakdownInterpretationJson:
+        section.breakdownInterpretation && Object.keys(section.breakdownInterpretation).length > 0
+          ? { axis: "tag" as const, keys: section.breakdownInterpretation }
           : null,
       // PRD-50 FR-11/FR-12: the block this section belongs to; `null` = no block.
       groupKey: section.groupKey ?? null,
