@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.23.1](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.23.0...v2.23.1)
+
+### Fixes
+
+- **fix**(ui): интервал кнопок одного ряда — 1x модульной сетки (2026-09-21) [`9cac73767bca44a3f40e213b5f58ed4a60ec8127`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/9cac73767bca44a3f40e213b5f58ed4a60ec8127)
+  Ряд действий в шапке аналитики и полоса действий `FilterBar` разводили кнопки на 2x.
+  Кнопки одного ряда — родственные элементы, и по модульной сетке им положен 1x.
+  
+  В `FilterBar` действия лежали в голом `div`, то есть не несли интервала вовсе и
+  держались только на внешних отступах самих кнопок; теперь это `Cluster` с gap 1.
+
 ## [2.23.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.22.0...v2.23.0)
 
 ### Features
