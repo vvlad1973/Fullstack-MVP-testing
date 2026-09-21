@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.24.1](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.24.0...v2.24.1)
+
+### Fixes
+
+- **fix**(scorm): толкования темы доезжают до отчёта пакета (2026-09-21) [`7f72ee72a4e7b3785e6dd76c8734ec2b699253e4`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/7f72ee72a4e7b3785e6dd76c8734ec2b699253e4)
+  Вход отчёта собирался своим набором полей и терял `interpretation`,
+  `sectionInterpretation` и `breakdownInterpretation`, хотя рядом осознанно звал
+  читатели экрана итогов для полос разреза и блоков разделов. Из-за этого
+  толкование печаталось на экране и НИКОГДА в PDF: тема с заполненным текстом
+  уходила в документ с пустой правой колонкой, и увидеть это можно было только
+  скачав файл. Теперь строку темы дописывает тот же `vrWithInterpretations`, что и
+  экран, — правило замены остаётся у общего построителя.
+  
+  Веб-хост дефекта не имел: там контекст собирает `result-context.ts`.
+
+- **fix**(deps): закрыть шесть уязвимостей в дереве зависимостей (2026-09-21) [`015369030b89ea41003b2350e81b3e812ebf8098`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/015369030b89ea41003b2350e81b3e812ebf8098)
+  multer, body-parser, qs и brace-expansion поднялись в пределах уже
+  записанных диапазонов, правкой одного lock-файла. Две находки npm audit
+  fix взять не смог, хотя и обещал: speech-rule-engine пинует
+  @xmldom/xmldom точной версией, семвер-люфта нет — закрыто через
+  overrides; пара vitest и @vitest/coverage-v8 циклична, взята явным
+  install. npm audit и по прод-дереву образа, и по полному даёт ноль.
+
 ## [2.24.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.23.2...v2.24.0)
 
 ### Features
