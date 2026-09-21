@@ -71,11 +71,24 @@ const kindsOf = (b: Record<string, unknown>): string[] =>
 
 describe("манифест «Сертификации» объявляет документ", () => {
   it("объявляет вариант каждого системного блока обычного отчёта", () => {
+    // Сравниваются РАЗНЫЕ блоки, а не все объявления: у блока вправе быть несколько
+    // видов строки (у `topics` их два — карточки со счётчиком и строка в две колонки),
+    // и список объявлений тогда несёт его дважды. Стеречь здесь надо покрытие блоков —
+    // что ни один системный блок документа не остался без раскладки.
     const forReport = blocks.filter((b) => kindsOf(b).includes("report") && b.block !== "page");
-    expect(forReport.map((b) => b.block).sort()).toEqual([
+    expect([...new Set(forReport.map((b) => b.block))].sort()).toEqual([
       "breakdown", "courses", "events", "header", "indicators",
       "intro", "recommendations", "scales", "summary", "topics",
     ]);
+  });
+
+  it("у блока разделов объявлен вариант «строка в две колонки»", () => {
+    // Референсный отчёт РТК печатается именно им; вариант объявляет ШАБЛОН, и его
+    // пропажа обнаружилась бы только сборкой документа, уже потерявшего вид.
+    const split = blocks.find((b) => b.key === "report.block.topics.split");
+    expect(split, "вариант report.block.topics.split не объявлен").toBeTruthy();
+    expect(split?.block).toBe("topics");
+    expect(split?.isDefault).not.toBe(true);
   });
 
   it("на блок ровно одно умолчание для каждого вида", () => {
