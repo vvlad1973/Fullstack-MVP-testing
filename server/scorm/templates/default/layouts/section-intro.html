@@ -30,7 +30,7 @@
       </div>
       {{#if sectionIntro.hasInstruction}}
       <div class="tb-card">
-        <span class="tb-card__head">Инструкция</span>
+        {{#if page.sectionSubtitle}}<span class="tb-card__head">{{ page.sectionSubtitle }}</span>{{/if}}
         <span class="tb-card__body" data-slot="instruction"></span>
       </div>
       {{/if}}

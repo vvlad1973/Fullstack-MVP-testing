@@ -108,6 +108,10 @@ import { VariantPreviewPicker } from "./variant-preview-picker";
 import { SanitizeBanner } from "./sanitize-banner";
 import { ScaleAppearanceControl, type AppearanceScale } from "./scale-appearance-control";
 import { SCALE_APPEARANCE_KEY } from "@shared/template/scale-appearance";
+import {
+  SECTION_SUBTITLE_SETTING_KEY,
+  SECTION_SUBTITLE_SHOWN_SETTING_KEY,
+} from "@shared/template/page-sequences";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -2033,8 +2037,18 @@ function PageEditForm(props: {
 const CHART_KINDS_WITH_LOOK = new Set(["rose", "auto"]);
 
 export function showsSetting(settings: Record<string, unknown>) {
-  return (st: ContentTemplateSetting): boolean =>
-    st.key !== SCALE_APPEARANCE_KEY || CHART_KINDS_WITH_LOOK.has(String(settings.scalesChartKind));
+  return (st: ContentTemplateSetting): boolean => {
+    // The rose's per-scale look only means anything on a chart that reads it.
+    if (st.key === SCALE_APPEARANCE_KEY) {
+      return CHART_KINDS_WITH_LOOK.has(String(settings.scalesChartKind));
+    }
+    // PRD-22 FR-44: a live wording field under an off switch invites «I typed it, why is
+    // it not showing» — so it hides together with the line it words.
+    if (st.key === SECTION_SUBTITLE_SETTING_KEY) {
+      return settings[SECTION_SUBTITLE_SHOWN_SETTING_KEY] !== false;
+    }
+    return true;
+  };
 }
 
 /**
@@ -2101,7 +2115,12 @@ export function SettingControl(props: {
           // description an author whose test has two sees a switch that does nothing
           // and no reason why. The report card already shows it; the structure did not.
           description={st.description}
-          checked={Boolean(value)}
+          // PRD-22 FR-45: an UNSET value means «the author never opened this property», so
+          // what has to be shown is the manifest's declared default, not the off state. The
+          // `text` branch already shows its default as a placeholder; here the two drifted,
+          // and a page created before a property was declared showed an off switch while
+          // the property was in force.
+          checked={value === undefined || value === null ? st.default === true : Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
           data-testid={testId}
         />

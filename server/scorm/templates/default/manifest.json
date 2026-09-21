@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -552,6 +552,22 @@
       "pageKind": "content.intro",
       "layoutFile": "layouts/section-intro.html",
       "isDefault": true,
+      "settings": [
+        {
+          "key": "sectionSubtitleShown",
+          "type": "boolean",
+          "default": true,
+          "label": "Показывать подзаголовок раздела"
+        },
+        {
+          "key": "sectionSubtitle",
+          "type": "text",
+          "default": "Инструкция",
+          "label": "Подзаголовок раздела",
+          "required": false,
+          "maxLength": 120
+        }
+      ],
       "placeholders": [
         {
           "key": "instruction",
