@@ -233,18 +233,21 @@
     // hooks (e.g. transition animations).
     emitRouterEvent("router:sectionSelected", { topicId: topicId });
 
-    // PRD-4 v1.1 §3.2 (Phase 4e): start the per-section timer on entry.
-    // Stopped by returnFromTopic (normal completion) or by the timer's
-    // own expiry handler. Sections without a custom limit (null/inherit_test)
-    // skip startSectionTimer's no-op early return.
+    // PRD-4 v1.1 §3.2 (Phase 4e): таймер раздела СТАНДАРТНОГО режима здесь НЕ
+    // запускается. Выбор темы в хабе ведёт на её первую страницу — заставку раздела,
+    // условия, инструкцию, — а отсчёт лимита начинается там, где начинаются вопросы:
+    // его заводит `maybeUpdateSectionTimer` на первом вопросе чанка (contentFlow.js).
+    // Пуск отсюда списывал с лимита чтение заставки, которая сама же этот лимит и
+    // объявляет.
+    //
+    // Адаптивная ветка ниже — исключение по устройству: она не идёт через
+    // `pageSequence`, движок забирает отрисовку себе, и запустить отсчёт больше
+    // негде. Сессия и ЕСТЬ блок вопросов темы, так что момент пуска тот же.
     var section = (TEST_DATA.sections || []).find(function (s) {
       return s.topicId === topicId;
     });
-    if (
-      section &&
-      section.timeLimitMinutes &&
-      typeof startSectionTimer === "function"
-    ) {
+    var startSectionCountdown = function () {
+      if (!section || !section.timeLimitMinutes || typeof startSectionTimer !== "function") return;
       startSectionTimer(topicId, section.timeLimitMinutes, function () {
         // On expiry mark the topic completed (with whatever was answered)
         // and return to the router. The completion still feeds the
@@ -253,7 +256,7 @@
         // populated it.
         returnFromTopic();
       });
-    }
+    };
 
     // PRD-4 v1.1 §4.7: adaptive + router_by_topics — launch a single-topic
     // adaptive session via the AdaptiveSession wrapper. On completion
@@ -264,6 +267,7 @@
       typeof AdaptiveSession !== "undefined" &&
       AdaptiveSession.runAdaptiveSession
     ) {
+      startSectionCountdown();
       var ok = AdaptiveSession.runAdaptiveSession(topicId, function (topicResult) {
         // topicResult is the adaptive engine's per-topic entry:
         // { topicId, topicName, finalLevelIndex, finalLevelName,
@@ -277,6 +281,9 @@
         returnFromTopic();
       });
       if (!ok) {
+        // Сессия не поднялась — отсчёт, заведённый под неё, снимается: дальше идёт
+        // обычный чанк, и таймер там заведёт первый вопрос, как в стандартном режиме.
+        if (typeof stopSectionTimer === "function") stopSectionTimer();
         // Defensive: strict gating (Phase 1 L2/L3) should prevent this,
         // but if a malformed package reaches the runtime, fall back to a
         // standard topic chunk so the learner can still navigate.
@@ -354,15 +361,10 @@
     var idx = (typeof pageIndex === "number" && pageIndex >= 0 && pageIndex < chunk.length)
       ? pageIndex : 0;
     state.currentPageIndex = idx;
-    // Section timers are not persisted (PRD-4 §3.2): restart fresh on re-entry.
-    var section = (TEST_DATA.sections || []).find(function (s) {
-      return s.topicId === topicId;
-    });
-    if (section && section.timeLimitMinutes && typeof startSectionTimer === "function") {
-      startSectionTimer(topicId, section.timeLimitMinutes, function () {
-        returnFromTopic();
-      });
-    }
+    // Отсчёт раздела здесь тоже не заводится: возврат в тему ведёт на ту страницу, где
+    // участник её оставил, и если это заставка или страница до вопросов — считать нечего.
+    // Таймер поднимет `maybeUpdateSectionTimer` на первом вопросе, а остаток он возьмёт из
+    // сохранённого бюджета раздела (`sectionBudget`), поэтому возврат не покупает времени.
     if (typeof syncPhaseToCurrentPage === "function") syncPhaseToCurrentPage();
     if (typeof render === "function") render();
     return true;

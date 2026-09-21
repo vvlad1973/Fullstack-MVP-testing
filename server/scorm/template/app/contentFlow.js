@@ -109,6 +109,17 @@
     if (runningTopicId === currentTopicId) return; // same section — keep running
     if (typeof stopSectionTimer === "function") stopSectionTimer();
     if (!currentTopicId) return; // outside any section (test-scope/router page)
+    // ОТСЧЁТ НАЧИНАЕТСЯ ТАМ, ГДЕ НАЧИНАЮТСЯ ВОПРОСЫ. Страницы раздела до вопросов —
+    // заставка «Раздел N из M · 12 вопросов · 20 мин», условия, инструкция — читаются
+    // ДО того, как участник решил начать: списывать с лимита время на чтение условий,
+    // которые сам этот лимит и объявляют, нельзя. Останов выше уже сработал, поэтому
+    // таймер ПРЕДЫДУЩЕГО раздела на такой странице замирает, а нового не возникает —
+    // он запустится на первом же вопросе (или на маркере адаптивной сессии, которая
+    // и есть блок вопросов этой темы).
+    //
+    // Так ведёт себя веб-хост: `use-section-timer` включён только в фазе вопроса
+    // (`client/src/pages/learner/take-test.tsx`). До этой правки расходился ПАКЕТ.
+    if (item && item.kind === "content") return;
     var section = (TEST_DATA.sections || []).find(function (s) {
       return s.topicId === currentTopicId;
     });
