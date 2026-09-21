@@ -1768,3 +1768,39 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   gap: var(--ou-space-3) var(--ou-space-5);
   align-items: end;
 }
+
+/* Что двухколоночная строка НЕ печатает (эскиз approved/prd-rtk-topic-row.html,
+   референс PRD-51 §10.1): «Правильно» / «Баллов», полосу темы и подпись «Нужно N %».
+   Референс их не содержит, а строка с ними читается как две разные карточки рядом.
+   Правило действует ТОЛЬКО в этом состоянии — тема без толкования и без подтем печатает
+   их по-прежнему.
+
+   Скрытие, а не изъятие из макета: разметка общая у трёх шаблонов и держится гардом
+   паритета, а условие «если справа есть что показать» в ней выражается одним признаком на
+   карточке, не оборачивая каждый блок отдельно. */
+.tb-topic-card--split .tb-stat-rows,
+.tb-topic-card--split .tb-topic-card__bar,
+.tb-topic-card--split .tb-topic-card__req,
+.tb-topic-card--split .tb-breakdown__req { display: none; }
+
+/* ЧИП УРОВНЯ: белый, с цветной точкой. Цвет исхода несёт ровно один элемент строки —
+   ни полосы темы, ни заливки чипа рядом больше нет, и две краски об одном и том же
+   спорили бы друг с другом. */
+.tb-topic-card--split .tb-topic-card__main > .ou-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ou-space-2);
+  background: var(--ou-bg-surface-1);
+  border: var(--wf-border-w, 1px) solid var(--ou-border-default);
+  color: var(--ou-fg-default);
+}
+/* База НЕЙТРАЛЬНАЯ: тема без вердикта не должна получить точку исхода. */
+.tb-topic-card--split .tb-topic-card__main > .ou-tag::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ou-fg-muted);
+}
+.tb-topic-card--split .tb-topic-card__main > .ou-tag.is-pass::before { background: var(--ou-success-default); }
+.tb-topic-card--split .tb-topic-card__main > .ou-tag.is-fail::before { background: var(--ou-error-default); }
