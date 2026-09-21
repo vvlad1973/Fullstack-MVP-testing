@@ -118,9 +118,23 @@ describe("манифест «Сертификации» объявляет до�
     }
   });
 
-  it("даёт автору три варианта страницы: одна колонка, две, три", () => {
+  it("даёт автору пять вариантов страницы, включая связки «заголовок + колонки»", () => {
     const pages = blocks.filter((b) => b.block === "page");
-    expect(pages).toHaveLength(3);
+    expect(pages.map((p) => p.key).sort()).toEqual([
+      "report.block.page.cols2",
+      "report.block.page.cols3",
+      "report.block.page.text",
+      "report.block.page.textCols2",
+      "report.block.page.textCols3",
+    ]);
+    // Связки — не украшение: постраничная раскладка режет документ МЕЖДУ блоками, и
+    // пара «страница с текстом» + «страница с колонками» разъезжалась по листам,
+    // оставляя заголовок сиротой внизу предыдущего.
+    for (const key of ["report.block.page.textCols2", "report.block.page.textCols3"]) {
+      const v = pages.find((p) => p.key === key)!;
+      const keys = (v.placeholders as Array<{ key: string }>).map((p) => p.key);
+      expect(keys.slice(0, 2), `${key}: заголовок и вводный текст`).toEqual(["title", "body"]);
+    }
     // Страница служит ОБОИМ видам: авторский текст не зависит от того, адаптивен ли тест.
     for (const p of pages) expect(p.kinds, `${p.key} привязан к виду`).toBeUndefined();
   });
