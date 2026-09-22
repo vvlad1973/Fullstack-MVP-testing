@@ -382,6 +382,8 @@
             <label class="ou-check"><input class="ou-check__input" type="checkbox"><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Несколько ответов</span></span></label>
             <label class="ou-check"><input class="ou-check__input" type="checkbox"><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Соответствие</span></span></label>
             <label class="ou-check"><input class="ou-check__input" type="checkbox"><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Ранжирование</span></span></label>
+            <label class="ou-check"><input class="ou-check__input" type="checkbox"><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Шкала</span></span></label>
+            <label class="ou-check"><input class="ou-check__input" type="checkbox"><span class="ou-check__box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Распределение баллов</span></span></label>
           </div>
         </div>
         <div class="cb-facet cb-facet--wide">
@@ -874,13 +876,18 @@
             </select>
           </div>
           <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Тип вопроса</span>
-            <div class="ou-seg ou-seg--m" role="group" aria-label="Тип вопроса">
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Один ответ</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Несколько ответов</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Соответствие</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Ранжирование</button>
-            </div>
+            <label class="ou-formfield__lbl" for="qd-type">Тип вопроса</label>
+            <select class="ou-select ou-field--m" id="qd-type">
+              <option selected>Один ответ</option>
+              <option>Несколько ответов</option>
+              <option>Соответствие</option>
+              <option>Ранжирование</option>
+              <option>Шкала</option>
+              <option>Распределение баллов</option>
+              <option>Короткий ответ</option>
+              <option>Пропуски</option>
+              <option>Развёрнутый ответ</option>
+            </select>
           </div>
           <div class="ou-formfield">
             <label class="ou-formfield__lbl" for="qd-prompt">Текст вопроса</label>
@@ -977,13 +984,18 @@
             <div class="ou-banner__body"><div class="ou-banner__desc">Отметьте хотя бы один правильный вариант</div></div>
           </div>
           <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Тип вопроса</span>
-            <div class="ou-seg ou-seg--m" role="group" aria-label="Тип вопроса">
-              <button type="button" class="ou-seg__item" aria-pressed="false">Один ответ</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Несколько ответов</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Соответствие</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Ранжирование</button>
-            </div>
+            <label class="ou-formfield__lbl" for="qm-type">Тип вопроса</label>
+            <select class="ou-select ou-field--m" id="qm-type">
+              <option>Один ответ</option>
+              <option selected>Несколько ответов</option>
+              <option>Соответствие</option>
+              <option>Ранжирование</option>
+              <option>Шкала</option>
+              <option>Распределение баллов</option>
+              <option>Короткий ответ</option>
+              <option>Пропуски</option>
+              <option>Развёрнутый ответ</option>
+            </select>
           </div>
           <div class="ou-formfield">
             <label class="ou-formfield__lbl" for="qm-prompt">Текст вопроса</label>
@@ -1037,13 +1049,18 @@
       <div class="ou-drawer__body" tabindex="0">
         <div class="qd-stack">
           <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Тип вопроса</span>
-            <div class="ou-seg ou-seg--m" role="group" aria-label="Тип вопроса">
-              <button type="button" class="ou-seg__item" aria-pressed="false">Один ответ</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Несколько ответов</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Соответствие</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Ранжирование</button>
-            </div>
+            <label class="ou-formfield__lbl" for="qmt-type">Тип вопроса</label>
+            <select class="ou-select ou-field--m" id="qmt-type">
+              <option>Один ответ</option>
+              <option>Несколько ответов</option>
+              <option selected>Соответствие</option>
+              <option>Ранжирование</option>
+              <option>Шкала</option>
+              <option>Распределение баллов</option>
+              <option>Короткий ответ</option>
+              <option>Пропуски</option>
+              <option>Развёрнутый ответ</option>
+            </select>
           </div>
           <div class="ou-formfield">
             <label class="ou-formfield__lbl" for="qmt-prompt">Текст вопроса</label>
@@ -1093,13 +1110,18 @@
       <div class="ou-drawer__body" tabindex="0">
         <div class="qd-stack">
           <div class="ou-formfield">
-            <span class="ou-formfield__lbl">Тип вопроса</span>
-            <div class="ou-seg ou-seg--m" role="group" aria-label="Тип вопроса">
-              <button type="button" class="ou-seg__item" aria-pressed="false">Один ответ</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Несколько ответов</button>
-              <button type="button" class="ou-seg__item" aria-pressed="false">Соответствие</button>
-              <button type="button" class="ou-seg__item is-active" aria-pressed="true">Ранжирование</button>
-            </div>
+            <label class="ou-formfield__lbl" for="qr-type">Тип вопроса</label>
+            <select class="ou-select ou-field--m" id="qr-type">
+              <option>Один ответ</option>
+              <option>Несколько ответов</option>
+              <option>Соответствие</option>
+              <option selected>Ранжирование</option>
+              <option>Шкала</option>
+              <option>Распределение баллов</option>
+              <option>Короткий ответ</option>
+              <option>Пропуски</option>
+              <option>Развёрнутый ответ</option>
+            </select>
           </div>
           <div class="ou-formfield">
             <label class="ou-formfield__lbl" for="qr-prompt">Текст вопроса</label>
@@ -1589,11 +1611,11 @@
       <tr><td>Меню вопроса (⋯)</td><td>⋯ на строке вопроса открывает действия: «Редактировать…» (= Drawer вопроса), «Дублировать», «Переместить в тему…» (тот же пикер выбора темы), «Удалить». Симметрично меню темы; меню рендерится вне карточки (портал)</td><td>действия над вопросом</td></tr>
       <tr><td>Drawer темы</td><td>Вкладка «Свойства»: название, папка, описание. Поле «Папка» меняет папку темы (= перенос между папками; папка — визуальная организация, на вопросы не влияет). Вкладка «Доступ»: владелец, видимость, гранты — полный Drawer (отзыв, смена владельца) спроектирован в prd15-topic-access</td><td>UX-03; FR-18..20</td></tr>
       <tr><td>Перенос темы в папку</td><td>«Переместить в папку…» в ⋯-меню темы открывает выбор папки-получателя (включая «Без папки / в корень»); текущая папка — disabled. То же доступно полем «Папка» в Drawer темы — дублирование оставлено намеренно. Папка только визуальная: на вопросы темы перенос не влияет</td><td>папка — визуальная организация</td></tr>
-      <tr><td>Drawer вопроса</td><td>Поля: тема, тип, текст, варианты (конструктор), сложность (слайдер + поле числа, либо свитч «Не задано» — контролы скрываются), медиа, теги, случайный порядок вариантов (порядок опций задаётся вручную перетаскиванием). Смена типа перестраивает конструктор вариантов (с подтверждением, если данные уже введены). Теги питают квоты выдачи по подтемам (PRD-11). Балл/цена ответа здесь НЕ задаются — это свойство теста</td><td>UX-03/08; PRD-11; PRD-15 D</td></tr>
+      <tr><td>Drawer вопроса</td><td>Поля сверху вниз: тема (<code>Select</code>), тип (<code>Select</code>), режим ввода текста и панель вставки (PRD-57 — отдельный эскиз <code>prd57-question-text.html</code>), текст, варианты (конструктор по типу), случайный порядок вариантов (порядок опций задаётся вручную перетаскиванием), сложность (слайдер + поле числа, либо свитч «Не задано» — контролы скрываются), индекс в теме, медиа, теги, обратная связь (общая либо по исходу). В подвале, рядом с «Отмена»/«Сохранить», — «Предпросмотр» (PRD-57 FR-24g). Смена типа перестраивает конструктор вариантов. Теги питают квоты выдачи по подтемам (PRD-11). Балл/цена ответа здесь НЕ задаются — это свойство теста</td><td>UX-03/08; PRD-11; PRD-15 D; PRD-57</td></tr>
       <tr><td>Медиа — только загрузка файла</td><td>Медиа вопроса — один опциональный файл (изображение/аудио/видео). Добавляется ТОЛЬКО загрузкой через DS FileUploader в модалке «Загрузка медиа»; тип определяется автоматически из файла. Свободного URL и ручного «Тип медиа» нет. Внешние ссылки не поддерживаются: в SCORM-пакет бандлятся лишь загруженные файлы (<code>/uploads/...</code>), внешний URL остался бы битым офлайн. В Drawer показывается вложением: превью + «Заменить»/«Удалить»</td><td>исправление модели медиа; надёжная SCORM-выгрузка</td></tr>
-      <tr><td>Конструктор вариантов по типам</td><td>Тип задаёт конструктор: ОДИНОЧНЫЙ — radio (ровно один правильный); МНОЖЕСТВЕННЫЙ — чекбоксы (≥1 правильный); СООТВЕТСТВИЕ — пары левое↔правое; РАНЖИРОВАНИЕ — список с ручкой переноса и эталонным порядком. У одиночного/множественного/соответствия порядок задаётся вручную перетаскиванием (ручка слева) + переключатель «Случайный порядок вариантов». У Ранжирования ручки тоже есть, но порядок = эталон ответа, а перемешивание при выдаче обязательно — тоггла нет. Состояния s-q-multiple / s-q-matching / s-q-ranking показывают только конструктор (остальные поля — как в основном Drawer вопроса)</td><td>edge case: разные типы вариантов</td></tr>
-      <tr><td>Валидация перед сохранением</td><td>Раньше валидировались только тема+текст — можно было сохранить вопрос без правильного ответа. Теперь гарды: тема выбрана; текст непустой; ≥2 непустых варианта; задан правильный ответ (single — выбран; multiple — отмечен ≥1; matching — все пары заполнены; ranking — ≥2 элемента). Ошибки показываются БАННЕРОМ вверху формы (<code>ou-banner--error</code>), «Сохранить» заблокирована (см. s-q-multiple: нет отмеченного правильного → баннер «Отметьте хотя бы один правильный вариант»)</td><td>edge case: «не задан корректный вариант ответа»</td></tr>
-      <tr><td>Смена типа вопроса</td><td>Смена типа в seg СОХРАНЯЕТ введённые варианты: тексты переносятся между типами без подтверждения (для Соответствия — в левую колонку), пересобирается только структура ответа (один правильный / несколько / пары / порядок). Состояние каждого типа в форме сохраняется — возврат восстанавливает специфику</td><td>решение 2026-06-16: без потери данных</td></tr>
+      <tr><td>Конструктор вариантов по типам</td><td>Тип задаёт конструктор: ОДИНОЧНЫЙ — radio (ровно один правильный); МНОЖЕСТВЕННЫЙ — чекбоксы (≥1 правильный); СООТВЕТСТВИЕ — пары левое↔правое; РАНЖИРОВАНИЕ — список с ручкой переноса и эталонным порядком. У одиночного/множественного/соответствия порядок задаётся вручную перетаскиванием (ручка слева) + переключатель «Случайный порядок вариантов». У Ранжирования ручки тоже есть, но порядок = эталон ответа, а перемешивание при выдаче обязательно — тоггла нет. Состояния s-q-multiple / s-q-matching / s-q-ranking показывают только конструктор (остальные поля — как в основном Drawer вопроса). Типы, добавленные позже, живут в своих эскизах, а в Drawer встают на то же место: ШКАЛА — градации по порядку + свитч «Есть правильная градация», по умолчанию выключенный (<code>question-scale.html</code>, PRD-26); РАСПРЕДЕЛЕНИЕ БАЛЛОВ — утверждения + бюджет, минимум и максимум на вариант, блока правильного ответа нет (<code>question-allocation.html</code>, PRD-44); КОРОТКИЙ ОТВЕТ — вместо вариантов блок «Проверка ответа» с набором правил (<code>prd57-answer-rule.html</code>); ПРОПУСКИ — список пропусков, вынутых из текста задания, со своим набором правил у каждого (<code>prd57-blanks-editor.html</code>); РАЗВЁРНУТЫЙ ОТВЕТ — конструктора вариантов нет, ответ проверяет человек</td><td>edge case: разные типы вариантов</td></tr>
+      <tr><td>Валидация перед сохранением</td><td>Раньше валидировались только тема+текст — можно было сохранить вопрос без правильного ответа. Теперь гарды: тема выбрана; текст непустой; ≥2 непустых варианта; задан правильный ответ (single — выбран; multiple — отмечен ≥1; matching — все пары заполнены; ranking — ≥2 элемента; scale — ≥2 градации, правильная обязательна ТОЛЬКО при включённом свитче; allocation — 2–10 утверждений и выполнимая тройка «бюджет / минимум / максимум», сообщение называет числа). Текстовые типы (короткий ответ, пропуски, развёрнутый) гардов сверх темы и текста не имеют: набор правил может быть и пустым. Ошибки показываются БАННЕРОМ вверху формы (<code>ou-banner--error</code>), «Сохранить» заблокирована (см. s-q-multiple: нет отмеченного правильного → баннер «Отметьте хотя бы один правильный вариант»)</td><td>edge case: «не задан корректный вариант ответа»</td></tr>
+      <tr><td>Смена типа вопроса</td><td>Смена типа в выпадающем списке СОХРАНЯЕТ введённые варианты: тексты переносятся между типами без подтверждения (для Соответствия — в левую колонку), пересобирается только структура ответа (один правильный / несколько / пары / порядок). Состояние каждого типа в форме сохраняется — возврат восстанавливает специфику</td><td>решение 2026-06-16: без потери данных</td></tr>
       <tr><td>Порядок вариантов и перемешивание</td><td>Для ВСЕХ типов, кроме Ранжирования (одиночный/множественный/соответствие): автор задаёт базовый порядок вручную — перетаскиванием за ручку слева; переключатель «Случайный порядок вариантов» (рядом с вариантами, по умолчанию вкл) рандомизирует показ ученику, выключен — показ в заданном порядке (для «Все/Ничего из перечисленного» и т. п.). Ранжирование — исключение: заданный порядок и есть эталон ответа, перемешивание при выдаче обязательно и без тоггла</td><td>уточнение: ручной порядок + «Случайный порядок» для всех типов, кроме ранжирования</td></tr>
       <tr><td>⋯-меню вне карточки</td><td>Выпадающее меню рендерится вне карточки (портал), чтобы не обрезалось её границей</td><td>фикс клиппинга</td></tr>
       <tr><td>Оценка не в этом разделе</td><td>Балл/цена ответа в Drawer вопроса НЕ задаются — свойство теста</td><td>ортогональность; PRD-15 D</td></tr>
@@ -1622,10 +1644,10 @@
       <tr><td><code>.ou-fab</code> + <code>.fab-*</code></td><td>Создание (speed-dial)</td><td>FAB / SpeedDial</td><td><code>Button</code> + <code>Menu</code></td></tr>
       <tr><td><code>.ou-drawer</code> / <code>.ou-modal</code></td><td>Настройки темы и вопроса / пикер «Переместить»</td><td>Drawer / Modal</td><td><code>Drawer</code> / <code>ModalDialog</code></td></tr>
       <tr><td><code>.ou-menu</code></td><td>⋯-меню строки (портал)</td><td>Menu</td><td><code>DropdownMenu</code></td></tr>
-      <tr><td><code>.ou-tabs</code> / <code>.ou-seg</code></td><td>Вкладки темы; тип вопроса</td><td>Tabs / SegmentedControl</td><td><code>Tabs</code> / <code>SegmentedControl</code></td></tr>
+      <tr><td><code>.ou-tabs</code> / <code>.ou-seg</code></td><td>Вкладки темы; область в фильтре</td><td>Tabs / SegmentedControl</td><td><code>Tabs</code> / <code>SegmentedControl</code></td></tr>
       <tr><td><code>.ou-slider</code></td><td>Сложность вопроса (Drawer, 0–100, слайдер + поле числа) и интервал сложности в фильтре (range)</td><td>Slider / Input(number)</td><td><code>Slider</code></td></tr>
       <tr><td><code>.ou-uploader</code> / <code>.ou-file</code></td><td>Загрузка медиа (dropzone в модалке «Загрузка медиа») и вложение-файл вопроса (превью + «Заменить»/«Удалить»)</td><td>FileUploader / FileItem</td><td><code>FileUploader</code> / <code>FileItem</code></td></tr>
-      <tr><td><code>.ou-field</code> / <code>.ou-textarea</code> / <code>.ou-select</code></td><td>Поиск, поля, фильтры</td><td>Input / Textarea / Select</td><td><code>Input</code> / <code>Textarea</code> / <code>Select</code></td></tr>
+      <tr><td><code>.ou-field</code> / <code>.ou-textarea</code> / <code>.ou-select</code></td><td>Поиск, поля, фильтры; тема и тип вопроса в Drawer</td><td>Input / Textarea / Select</td><td><code>Input</code> / <code>Textarea</code> / <code>Select</code></td></tr>
       <tr><td><code>.ou-radio</code> / <code>.ou-switch</code> / <code>.ou-check</code></td><td>Правильный вариант; перемешивание и «Не задана» / «Не задано» (свитчи); фасеты и выбор</td><td>Radio / Switch / Checkbox</td><td><code>RadioGroup</code> / <code>Switch</code> / <code>Checkbox</code></td></tr>
       <tr><td><code>.ou-tag</code></td><td>Счётчики тем (метрика), бейдж числа активных фильтров</td><td>Tag</td><td><code>Tag</code></td></tr>
       <tr><td><code>.ou-chip--removable</code></td><td>Теги подтем в поле (token-input: <code>ou-field__box.wf-tags-box</code> + чипы + инлайн-инпут) и съёмные чипы активных условий фильтра. Канон — prd11-question-tags</td><td>Chip / TagInput (композиция Field + Chip)</td><td><code>TagInput</code> / <code>Chip</code></td></tr>
