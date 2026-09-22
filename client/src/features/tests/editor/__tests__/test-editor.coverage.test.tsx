@@ -118,7 +118,7 @@ describe("<TestEditor /> — create mode", () => {
     render(withClient(makeClient(), <TestEditor open onClose={() => {}} />));
     await screen.findByTestId("test-editor-root");
     expect(screen.getByText("Редактор теста")).toBeInTheDocument();
-    expect(screen.getByTestId("test-editor-tab-body-composition")).toBeInTheDocument();
+    expect(screen.getByTestId("test-editor-tab-body-main")).toBeInTheDocument();
   });
 });
 
@@ -282,7 +282,7 @@ describe("<TestEditor /> — close-confirm error anchor", () => {
     }
 
     render(withClient(client, <Harness />));
-    await screen.findByText("1. Основы ИБ");
+    await screen.findByTestId("settings-pane-main");
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
     });

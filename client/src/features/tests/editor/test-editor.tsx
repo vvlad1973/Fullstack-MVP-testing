@@ -87,7 +87,7 @@ export type TestEditorProps = {
   /**
    * Tab to open on. Lets a caller send the author straight to the work that
    * prompted the opening — the tests list points at «Структура» for a test whose
-   * pages need mapping (PRD-22, plan Э6). Defaults to «Состав».
+   * pages need mapping (PRD-22, plan Э6). Defaults to «Основное».
    */
   initialTab?: EditorTabKey;
   /**
@@ -111,7 +111,7 @@ export type TestEditorViewProps = {
   onClose: () => void;
   /** Editor state (typically the result of {@link useTestEditor}). */
   editor: UseTestEditorResult;
-  /** Tab to open on; defaults to «Состав». See {@link TestEditorProps.initialTab}. */
+  /** Tab to open on; defaults to «Основное». See {@link TestEditorProps.initialTab}. */
   initialTab?: EditorTabKey;
   /** См. {@link TestEditorProps.focusReviewThreadId}. */
   focusReviewThreadId?: string;
@@ -266,7 +266,14 @@ export function TestEditor(props: TestEditorProps): React.JSX.Element | null {
  */
 export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | null {
   const { open, onClose, editor } = props;
-  const [activeTab, setActiveTab] = useState<EditorTabKey>(props.initialTab ?? "composition");
+  /**
+   * Вкладка по умолчанию — «Основное» (решение владельца 2026-09-22; открытый вопрос
+   * приёмки эскизов, раздел A). Она отвечает на первый вопрос автора — что это за тест, —
+   * и держит обязательное название. Пока ящик открывался на «Составе и сценарии», новый
+   * тест встречал автора баннером «Название обязательно» и единственной видимой точкой у
+   * «Состава»: поле, о котором шла речь, лежало на соседней вкладке.
+   */
+  const [activeTab, setActiveTab] = useState<EditorTabKey>(props.initialTab ?? "main");
   /**
    * PRD-52 FR-28: вопрос, открытый по переходу из комментария. Ящик редактора
    * вопроса монтируется ТОЛЬКО когда открыт: он тянет за собой охрану контента и
@@ -325,7 +332,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   // The Drawer stays mounted between openings, so the initial tab has to be
   // re-applied on each open — otherwise only the very first opening honours it.
   useEffect(() => {
-    if (open) setActiveTab(props.initialTab ?? "composition");
+    if (open) setActiveTab(props.initialTab ?? "main");
   }, [open, props.initialTab]);
 
   useEffect(() => {

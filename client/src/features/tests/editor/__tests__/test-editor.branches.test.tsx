@@ -296,7 +296,7 @@ describe("<TestEditor /> — header status tag", () => {
     // статус, тег отнимал единственное место, где виден статус публикации.
     nextResponse(buildApiResponse({ title: "" }));
     render(withClient(makeClient(), <TestEditor testId="test-1" open onClose={() => {}} />));
-    await screen.findByText("1. Основы ИБ");
+    await screen.findByTestId("settings-pane-main");
     await waitFor(() =>
       expect(screen.getByTestId("test-editor-error-summary")).toBeInTheDocument(),
     );

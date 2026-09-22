@@ -139,6 +139,35 @@ describe("<TestEditor /> DOM and focus", () => {
     expect(save.getAttribute("aria-disabled")).toBe("true");
   });
 
+  // Решение владельца 2026-09-22: ящик открывается на «Основном». Прежде он открывался
+  // на «Составе и сценарии», и автор нового теста читал баннер «Название обязательно»,
+  // не видя ни поля названия, ни пометки рядом с ним: и поле, и точка — на соседней
+  // вкладке, а единственная видимая точка стояла у «Состава».
+  it("по умолчанию открывается вкладка «Основное»", async () => {
+    nextResponse(buildApiResponse());
+    const client = makeClient();
+    render(withClient(client, <TestEditor testId="test-1" open onClose={() => {}} />));
+
+    await screen.findByTestId("settings-pane-main");
+    expect(screen.getByRole("tab", { selected: true }).textContent).toContain("Основное");
+  });
+
+  it("`initialTab` перебивает умолчание", async () => {
+    nextResponse(buildApiResponse());
+    const client = makeClient();
+    render(
+      withClient(
+        client,
+        <TestEditor testId="test-1" open initialTab="rules" onClose={() => {}} />,
+      ),
+    );
+
+    await screen.findByTestId("test-editor-root");
+    expect(screen.getByRole("tab", { selected: true }).textContent).toContain(
+      "Правила прохождения",
+    );
+  });
+
   it("wires the body as the active tab's panel (a11y: tab aria-controls resolves)", async () => {
     // `Tabs` runs with `hidePanel`, so the body div is the panel. It must carry
     // role=tabpanel + id=panel-<activeKey> + aria-labelledby=tab-<activeKey> so
@@ -246,8 +275,8 @@ describe("<TestEditor /> DOM and focus", () => {
 
 describe("<TestEditor /> FR-20c — error summary anchor navigation", () => {
   it("surfaces the summary and focuses the offending field via «Перейти к ошибкам»", async () => {
-    // Empty title is a blocking error (FR-11); the field lives in the Настройки
-    // tab while the editor opens on Состав, so the anchor must switch tabs.
+    // Empty title is a blocking error (FR-11); the anchor has to scroll to the
+    // field and focus it, whichever tab the editor happens to be showing.
     nextResponse(buildApiResponse({ title: "" }));
     const client = makeClient();
     render(withClient(client, <TestEditor testId="test-1" open onClose={() => {}} />));
@@ -306,7 +335,12 @@ describe("<TestEditor /> FR-20c — error summary anchor navigation", () => {
     render(withClient(client, <TestEditor testId="test-1" open onClose={() => {}} />));
 
     await screen.findByTestId("test-editor-error-summary");
+    // Ящик открыт на «Основном», а виноватое поле — в «Составе». Заглядываем туда,
+    // убеждаемся, что карточка темы свёрнута, и возвращаемся: переход обязан и вкладку
+    // сменить, и карточку раскрыть.
+    fireEvent.click(screen.getByRole("tab", { name: /Состав и сценарий/i }));
     expect(screen.getByTestId("topic-toggle-topic-1")).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("tab", { name: /Основное/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /Перейти к ошибкам/i }));
 
@@ -737,8 +771,9 @@ describe("<TestEditor /> — close-confirmation with blocking errors (Gap 5)", (
     }
 
     render(withClient(client, <Harness />));
-    // Title is empty, so wait for a loaded-model marker (the default section topic).
-    await screen.findByText("1. Основы ИБ");
+    // Title is empty, so wait for a loaded-model marker: the «Основное» pane, which
+    // mounts only once the draft is in hand.
+    await screen.findByTestId("settings-pane-main");
 
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
@@ -784,7 +819,7 @@ describe("<TestEditor /> — footer «Отменить» discards and closes wit
     }
 
     render(withClient(client, <Harness />));
-    await screen.findByText("1. Основы ИБ");
+    await screen.findByTestId("settings-pane-main");
 
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
@@ -1114,8 +1149,8 @@ describe("<TestEditor /> — close-confirm chips + error banner", () => {
     }
 
     render(withClient(client, <Harness />));
-    // Title is empty → wait for the loaded section marker instead of "Sample Test".
-    await screen.findByText("1. Основы ИБ");
+    // Title is empty → wait for the «Основное» pane instead of "Sample Test".
+    await screen.findByTestId("settings-pane-main");
 
     act(() => {
       fireEvent.click(screen.getByTestId("harness-dirty"));
