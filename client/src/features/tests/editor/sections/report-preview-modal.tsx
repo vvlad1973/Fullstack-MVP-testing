@@ -54,6 +54,8 @@ export interface ReportPreviewModalProps {
   headings?: ReportPreviewTest["headings"];
   /** Настройка показа подытогов теста — оттуда же, откуда её берёт выдача. */
   breakdownDisplay?: ReportPreviewTest["breakdownDisplay"];
+  /** Вводные блоки теста (PRD-61 FR-23): окно печатает их, как печатает выдача. */
+  intro?: ReportPreviewTest["intro"];
   /** Группы тем теста — блок со счётчиком в предпросмотре. */
   sectionGroups?: ReportPreviewTest["sectionGroups"];
   /** Лестница уровней адаптивного теста. */
@@ -89,6 +91,7 @@ export function ReportPreviewModal({
   headings,
   breakdownDisplay,
   sectionGroups,
+  intro,
   levelNames,
   document,
 }: ReportPreviewModalProps) {
@@ -155,6 +158,10 @@ export function ReportPreviewModal({
       ...(headings ? { headings } : {}),
       ...(breakdownDisplay ? { breakdownDisplay } : {}),
       ...(sectionGroups?.length ? { sectionGroups } : {}),
+      // PRD-61 FR-23: вводный текст едет из РЕАЛЬНОГО теста — автор пишет его прямо перед
+      // тем, как открыть это окно, и не увидеть его здесь значит проверять вёрстку вместо
+      // содержания.
+      ...(intro ? { intro } : {}),
     };
     const design = params as Record<string, unknown>;
     // `isPreview` — тот же флаг, что и у выдачи: макет вправе пометить страницу образцом.
@@ -172,7 +179,7 @@ export function ReportPreviewModal({
     return adaptive
       ? buildAdaptiveReportContext(buildAdaptiveReportPreviewInput(test, outcome), opts)
       : buildReportContext(buildReportPreviewInput(test, outcome), opts);
-  }, [adaptive, testName, sections, levelNames, headings, breakdownDisplay, sectionGroups, outcome, previewValues, params, bundle]);
+  }, [adaptive, testName, sections, levelNames, headings, breakdownDisplay, sectionGroups, intro, outcome, previewValues, params, bundle]);
 
   const cssVars = useMemo(
     () => buildTemplateCssVars(params, bundle?.manifest.params),

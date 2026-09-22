@@ -301,13 +301,10 @@ export function buildTestJson(data: ExportData): string {
     // трогал, остаётся байт-в-байт прежним; рантайм читает отсутствие как «выключено».
     ...(data.test.breakdownGateEnabled ? { breakdownGateEnabled: true } : {}),
     webhookUrl: data.test.webhookUrl,
-    testFeedback: data.test.feedback || null,
-    // PRD-29 §7.1: the test's OWN feedback block (`tests.feedback_json`) is one of the
-    // three equal sources of the results-screen recommendations, so the WHOLE block
-    // travels — text, courses, events and PDF assets — not just the legacy plain-text
-    // `testFeedback` above (a different column, left untouched). Included only when
-    // authored, so a test without it keeps exactly the TEST_DATA shape it had (FR-02).
-    ...(data.test.feedbackJson ? { testFeedbackJson: data.test.feedbackJson } : {}),
+    // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята — ни легаси-текст (`tests.feedback`),
+    // ни блок (`tests.feedback_json`) в пакет больше не запекаются. Рантайм их и не ищет:
+    // сводный блок рекомендаций собирается из тем, шкал и показателей. Обратная связь ТЕМ
+    // и РАЗДЕЛОВ едет как ехала — снят ровно один уровень.
     // Вводные блоки экрана и отчёта (PRD-27 §7.1). Едут одним полем: рантайм сам берёт
     // свою ветвь — экран печатает свой текст, конвейер отчёта свой.
     ...(data.test.introJson ? { introJson: data.test.introJson } : {}),

@@ -47,6 +47,9 @@ import { resolveResultsBlocks, type ResultsBlocks, type ResultsBlockSettings } f
 // PRD-29 §6.7 lives in the scoring layer, not here: the results screen was its first
 // reader, not its owner (see the two gates in `buildResultContext`).
 import { hasGradedScore as isGradedRun, hasPronouncedVerdict } from "../scoring/pass-rule";
+// PRD-61: КАКИЕ вводные тексты печатать — вопрос выдачи, и ответ на него один на оба хоста.
+// Лежит он в `shared/report`, потому что тот же ответ нужен внутри SCORM-пакета.
+import { introBlocksToPrint, type IntroBlockLike } from "../report/report-intro";
 // PRD-50 FR-26: the counter rule lives with the verdict it counts, not with the layout —
 // `aggregateStandardResult` stamps the same numbers onto the stored result through it.
 import { groupSections } from "../scoring/section-groups";
@@ -815,13 +818,17 @@ export interface ResultContextOptions {
    */
   measures?: MeasuresInput;
   /**
-   * Вводный блок этой выдачи: авторский текст и его формат (`tests.intro_json`).
+   * Вводный блок этой выдачи: общее вступление и тексты по исходу (`tests.intro_json`).
    *
    * Разметку строит построитель, а не хост: правило одно и то же для экрана и для отчёта,
    * а два его применения разошлись бы ровно так же, как разошлись бы два расчёта вердикта.
    * Пустой текст блока не даёт (см. {@link CtxResult.introHtml}).
+   *
+   * PRD-61: ветвь выдачи приезжает ЦЕЛИКОМ — какой из текстов исхода печатать, решает
+   * {@link module:shared/report/report-intro introBlocksToPrint} здесь же, где уже известен
+   * вердикт. Хост вынимать текст не должен и не умеет.
    */
-  intro?: { text?: string | null; format?: RichTextFormat | null } | null;
+  intro?: IntroBlockLike | null;
   /**
    * PRD-49: resolved labels of THIS screen, flat map from `shared/template/labels`
    * (`{"results.scales": "По шкалам"}`). Absent = the caller has not been taught the
@@ -1297,7 +1304,22 @@ export function buildResultContext(
   fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.
-  const introHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);
+  //
+  // PRD-61: блоков может быть два — общее вступление и текст исхода. Исход берётся из
+  // `noVerdict`, посчитанного выше ДЛЯ ВЕРДИКТНОЙ ШАПКИ: одна причина — один ответ, иначе
+  // шапка и текст под ней снова начнут говорить разное, как в боевом отчёте 2026-09-22
+  // («Сертификация пройдена» над абзацем о нехватке баллов).
+  const introHtml = introBlocksToPrint(opts.intro, {
+    verdictPronounced: !noVerdict,
+    passed: !!input.passed,
+  })
+    .map((b) => richTextToHtml(b.text, b.format ?? undefined))
+    .filter(Boolean)
+    // Пустая строка между блоками, а не пустой шов: простой текст приходит без обёртки в
+    // абзац, и склейка встык давала «…прохождение теста.Пока вам не хватает баллов…» одной
+    // строкой. `join` на единственном блоке не добавляет ничего, поэтому старая форма — один
+    // текст — печатается байт в байт как печаталась.
+    .join("<br><br>");
   if (introHtml) result.introHtml = introHtml;
   if (opts.recommendedCourses && opts.recommendedCourses.length) result.recommendedCourses = opts.recommendedCourses;
   if (opts.recommendedEvents && opts.recommendedEvents.length) result.recommendedEvents = opts.recommendedEvents;
@@ -1321,19 +1343,19 @@ export function buildResultContext(
   // pronounced and `passed` is a default, not a judgement), and the verdict must be a
   // PASS. A measurement test without a threshold therefore keeps its feedback whatever
   // `passed` holds — that feedback IS its result, the whole point of PRD-29.
-  const explicitPass = hasGradedScore && passed;
   // Sources of the ONE recommendations block, gathered in the order dedup should keep:
-  // the general before the specific. Collected rather than merged on the spot because
-  // the measurement sources are conditional while the other two are not — a test with
-  // neither scales nor indicators still hands the learner its own feedback and what its
-  // topics and sections attached (PRD-32). The test's own block leads: it is the widest.
+  // the general before the specific.
   //
-  // Unless the learner PASSED: a test the learner is through with owes no work on the
-  // mistakes, so its own block is dropped at the source (owner's agreed rule). The
-  // per-measure blocks below are NOT dropped with it — a scale's band or an indicator's
-  // outcome is the interpretation of a measurement, not guidance on a failure, and a
-  // learner who passed still gets to read what was measured.
-  const recommendationSources: Array<FeedbackBlock | null | undefined> = explicitPass ? [] : [opts.testFeedback];
+  // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята — три вводных текста говорят то же самое
+  // и там, где автор этого ждёт, в начале документа, а не в конце среди рекомендаций.
+  // `opts.testFeedback` больше НЕ источник: поле убрано из ящика, не запекается в пакет и
+  // не печатается ни одним хостом.
+  //
+  // Тексты ТЕМ, ПОДТЕМ, ШКАЛ и ПОКАЗАТЕЛЕЙ не тронуты, и их собственный гейт — тоже: тема
+  // выдаёт написанное, пока не пройдена (`topic.passed !== true` ниже), по правилу «молчим
+  // только там, где уверены в успехе». Прежний `explicitPass` гасил ИМЕННО блок теста и
+  // вместе с ним ушёл.
+  const recommendationSources: Array<FeedbackBlock | null | undefined> = [];
   if (opts.measures && resolvedMeasures && blocks) {
     // `hasGradedScore`, the visible measures and `blocks` are resolved ONCE, above — the
     // score summary, the verdict tag, the topic points row and the feedback gate must not
@@ -1617,8 +1639,13 @@ export interface AdaptiveResultContextOptions {
    * to what the adaptive screen produced before.
    */
   measures?: MeasuresInput;
-  /** Вводный блок этой выдачи — тот же, что у стандартного экрана (см. там же). */
-  intro?: { text?: string | null; format?: RichTextFormat | null } | null;
+  /**
+   * Вводный блок этой выдачи — тот же, что у стандартного экрана (см. там же).
+   *
+   * Тексты исхода в нём допустимы, но не печатаются: этот режим вердикта не выносит
+   * (PRD-61 FR-14b). Тип общий, чтобы хост не разбирал, какому построителю что отдавать.
+   */
+  intro?: IntroBlockLike | null;
   /**
    * PRD-50 FR-13/FR-44: the author's display setting, read here for ONE thing — the
    * summary block ({@link AdaptiveResultInput.breakdowns}).
@@ -1745,7 +1772,18 @@ export function buildAdaptiveResultContext(
   // этапа их никто не читал обратно: посчитанное молча не показывалось.
   fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
   // Вводный блок — первым, до уровней и измерений: правило общее для обоих режимов.
-  const adaptiveIntroHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);
+  //
+  // PRD-61 FR-14b: адаптивный режим вердикта НЕ выносит — заголовков исхода у него нет (см.
+  // {@link AdaptiveResultContextOptions.headings}), — поэтому печатается только общее
+  // вступление. Текст исхода ходит парой с заголовком исхода: там, где шапка не ветвится, не
+  // ветвится и текст.
+  const adaptiveIntroHtml = introBlocksToPrint(opts.intro, {
+    verdictPronounced: false,
+    passed: !!input.passed,
+  })
+    .map((b) => richTextToHtml(b.text, b.format ?? undefined))
+    .filter(Boolean)
+    .join("<br><br>");
   if (adaptiveIntroHtml) result.introHtml = adaptiveIntroHtml;
   if (opts.hasScormActions) {
     result.hasScormActions = true;
@@ -1754,23 +1792,17 @@ export function buildAdaptiveResultContext(
     result.showFinish = !!opts.showFinish;
   }
   // The SAME consolidated block the standard results screen carries, from the SAME
-  // collector and the same sources in the same order — the test's own feedback first,
-  // then what the topics of this attempt wrote and attached. Feedback is a property of
-  // the TEST, not of its flow mode, so a second assembly rule for the adaptive screen
-  // would only mean two screens disagreeing about what the learner is owed; the adaptive
-  // screen used to carry no block at all, which is that disagreement at its widest.
+  // collector and the same sources in the same order. Feedback is a property of the TEST,
+  // not of its flow mode, so a second assembly rule for the adaptive screen would only mean
+  // two screens disagreeing about what the learner is owed; the adaptive screen used to
+  // carry no block at all, which is that disagreement at its widest.
   //
   // What differs between the modes is ONE thing — how a topic's failure is spelled — and
   // it enters as the gate's argument (see `topicRecommendationSources`).
   //
-  // The test's own block obeys the same rule as on the standard screen: withheld on an
-  // EXPLICIT pass, because a learner who is through with the test owes no work on the
-  // mistakes. Here the verdict needs no threshold check — the adaptive mode has no
-  // pass-percentage setting to be absent, `overallPassed` is pronounced by
-  // `aggregateAdaptiveResult` from the levels actually confirmed. An absent flag is
-  // therefore not «unknown» but a plain non-success, and it shows.
-  const recommendationSources: Array<FeedbackBlock | null | undefined> =
-    input.passed === true ? [] : [opts.testFeedback];
+  // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята и здесь — по той же причине и тем же
+  // заходом, что на стандартном экране. Блок собирается из тем, шкал и показателей.
+  const recommendationSources: Array<FeedbackBlock | null | undefined> = [];
   // The measurement blocks and what their fired bands / outcomes say — the SAME routine
   // the standard screen runs, so the two screens cannot draw the same scale differently
   // (issue #33). `false` for the score summary: this screen has none, and only that

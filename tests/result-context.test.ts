@@ -163,11 +163,12 @@ describe("вердикт контрольного теста (PRD-29 §6.7)", ()
     testFeedback: { text: "Повторите материал курса." },
   };
 
-  it("порог есть, оценивать нечего — шапки нет, обратная связь на месте", () => {
+  it("порог есть, оценивать нечего — шапки нет", () => {
+    // PRD-61 §10: вторая половина проверки опиралась на обратную связь ТЕСТА, и её сняли.
+    // Предмет проверки — молчание ВЕРДИКТА — остался.
     const ctx = buildResultContext(nothingGraded, "Опросник", controlMaterial);
     expect(ctx.result.statusLabel).toBe("");
     expect(ctx.result.passClass).toBe("");
-    expect(ctx.result.recommendations?.texts).toEqual(["Повторите материал курса."]);
   });
 
   it("порога у теста нет — вердикта тоже нет", () => {
@@ -176,10 +177,12 @@ describe("вердикт контрольного теста (PRD-29 §6.7)", ()
     expect(ctx.result.statusLabel).toBe("");
   });
 
-  it("порог и баллы на месте — вердикт остаётся, обратная связь молчит", () => {
+  it("порог и баллы на месте — вердикт остаётся", () => {
     const graded: AttemptResult = { ...nothingGraded, totalPossiblePoints: 10, totalEarnedPoints: 10, overallPercent: 100 };
     const ctx = buildResultContext(graded, "Контрольный", controlMaterial);
     expect(ctx.result.statusLabel).toBe("Пройден");
+    // Блока рекомендаций нет, и теперь по двум причинам сразу: тест пройден, а обратной
+    // связи уровня теста больше не существует.
     expect(ctx.result.recommendations).toBeUndefined();
   });
 
@@ -191,7 +194,6 @@ describe("вердикт контрольного теста (PRD-29 §6.7)", ()
     });
     expect(root.querySelector(".tb-scene__headtag .ou-tag")).toBeNull();
     expect(root.textContent).not.toContain("Пройден");
-    expect(root.textContent).toContain("Повторите материал курса.");
   });
 });
 

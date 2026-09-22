@@ -453,11 +453,6 @@ function renderAdaptiveResultsTemplated(app, result) {
     : null;
   var adaptiveOpts = {
     hasScormActions: true,
-    // The test's OWN feedback (`TEST_DATA.testFeedbackJson`) — the widest source of the
-    // block and its first one. A property of the TEST, not of the flow mode: an author
-    // who wrote a closing word for an adaptive test owes it to the learner just the same,
-    // and the web host hands over the very same block on this screen.
-    testFeedback: vrTestFeedback(),
     // Вводный блок ЭКРАНА — тот же, что у обычного режима: он свойство теста, а не
     // способа выдачи. Читатель у него один и тот же.
     intro: (typeof vrScreenIntro === 'function') ? vrScreenIntro() : null,

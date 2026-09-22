@@ -168,6 +168,8 @@ export function ReportSettingsCard(props: {
   breakdownDisplay?: ReportPreviewTest["breakdownDisplay"];
   /** Группы тем теста; уходят в предпросмотр. */
   sectionGroups?: ReportPreviewTest["sectionGroups"];
+  /** Вводные блоки теста (PRD-61 FR-23); уходят в предпросмотр. */
+  intro?: ReportPreviewTest["intro"];
   sections?: ReportPreviewSection[];
   levelNames?: string[];
   /**
@@ -445,6 +447,7 @@ export function ReportSettingsCard(props: {
         headings={props.headings}
         breakdownDisplay={props.breakdownDisplay}
         sectionGroups={props.sectionGroups}
+        intro={props.intro}
         sections={props.sections ?? []}
         levelNames={props.levelNames}
         // PRD-51 FR-18: документ ЧЕРНОВИКА, включая ещё не сохранённый текст страниц.

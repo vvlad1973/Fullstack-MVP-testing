@@ -586,7 +586,15 @@ export const tests = pgTable("tests", {
   published: boolean("published").default(false),
   status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
   version: integer("version").notNull().default(1),
+  /**
+   * @deprecated PRD-61 §10: общая обратная связь УРОВНЯ ТЕСТА снята. Колонка не читается ни
+   * одним хостом, не запекается в пакет, не выгружается книгой и не правится из ящика —
+   * её назначение закрыли три вводных текста (`intro_json`). Оставлена, чтобы снятие можно
+   * было откатить без потери данных; сносится отдельной миграцией (пункт технического долга
+   * ROADMAP §0.3). Обратная связь ТЕМ и РАЗДЕЛОВ — другие колонки, они живы.
+   */
   feedback: text("feedback"),
+  /** @deprecated PRD-61 §10 — см. {@link feedback} выше. */
   feedbackJson: jsonb("feedback_json"),
   flowPolicyJson: jsonb("flow_policy_json"),
   telemetryEnabled: boolean("telemetry_enabled").notNull().default(false),
@@ -1267,9 +1275,29 @@ export const breakdownFeedbackSchema = z.object({
  * Пустой текст = блока нет. Гейт стоит именно на тексте, а не на наличии записи: автор,
  * стерший текст, ожидает, что блок исчезнет, а не станет пустой рамкой.
  */
-export const introBlockSchema = z.object({
+export const introTextSchema = z.object({
   format: feedbackFormatSchema.default("plain"),
   text: z.string().default(""),
+});
+
+/**
+ * ВВОДНЫЙ ТЕКСТ одной выдачи (PRD-61): общее вступление плюс необязательные тексты по исходу.
+ *
+ * `format`/`text` — общее вступление, печатаемое при ЛЮБОМ исходе. Это ровно тот текст, что
+ * лежал здесь до PRD-61, и смысл его не менялся: он и тогда печатался всегда. `passed` и
+ * `failed` печатаются ВТОРЫМ блоком, под ним, и только когда вердикт вынесен — правило живёт
+ * в {@link module:shared/report/report-intro}, а не здесь.
+ *
+ * Ветви исхода — тексты, а не блоки ({@link introTextSchema}): у текста исхода не может быть
+ * собственных текстов исхода.
+ *
+ * Отсутствие ветвей — не порча данных и не переходное состояние, а вечный вход: так выглядит
+ * всякий тест, заведённый до PRD-61, всякий снимок публикации, сделанный до него (снимок
+ * морозит строку теста целиком и не мигрируется), и всякий SCORM-пакет, собранный раньше.
+ */
+export const introBlockSchema = introTextSchema.extend({
+  passed: introTextSchema.nullish(),
+  failed: introTextSchema.nullish(),
 });
 
 /**
@@ -1323,6 +1351,7 @@ export const testIntroSchema = z.object({
   reportSameAsResults: z.boolean().optional(),
 });
 
+export type IntroText = z.infer<typeof introTextSchema>;
 export type IntroBlock = z.infer<typeof introBlockSchema>;
 export type TestIntro = z.infer<typeof testIntroSchema>;
 

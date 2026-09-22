@@ -204,22 +204,9 @@ function vrTopicGroupKey(tr) {
   return (section && section.groupKey) || null;
 }
 
-/**
- * The test's OWN feedback block (`tests.feedback_json`, baked as `TEST_DATA.testFeedbackJson`),
- * normalised for the recommendations block — the widest source, and the first one.
- *
- * Read OUTSIDE `buildResultsMeasures`, which returns null for a test with neither scales
- * nor indicators: the feedback of such a test is exactly as due to the learner as any
- * other, and the commonest test in the product has no measurements at all. The address
- * rule lives in the shared normaliser — the fired band/outcome blocks pass through the
- * same one inside the builder.
- */
-function vrTestFeedback() {
-  var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
-  var raw = (typeof TEST_DATA !== 'undefined' && TEST_DATA.testFeedbackJson) || null;
-  if (!raw || !TB || typeof TB.normalizeFeedback !== 'function') return null;
-  return TB.normalizeFeedback(raw);
-}
+/* PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята. Здесь была `vrTestFeedback()`, читавшая
+   `TEST_DATA.testFeedbackJson`; ни поля в пакете, ни источника в построителе больше нет.
+   Обратная связь ТЕМ и РАЗДЕЛОВ не тронута — она едет в темах результата. */
 
 /**
  * Вводный блок ЭКРАНА итогов (`tests.intro_json.results`, PRD-27 §7.1).
@@ -633,7 +620,6 @@ function renderViewResultsTemplated(app, results) {
     recommendedEvents: rec.events,
     // PRD-29 §7.1 / PRD-32: the test's own feedback is a source of recommendations in
     // its own right, whether or not the test has scales and indicators.
-    testFeedback: vrTestFeedback(),
     // …and the builder withholds it on an EXPLICIT pass only, so it needs to know
     // whether this test pronounces a verdict at all. Travels for every test, unlike the
     // copy inside `measures`, which a test without measurements never sends.
@@ -751,7 +737,6 @@ function renderResultsTemplated(app, results) {
     recommendedEvents: rec.events,
     // PRD-29 §7.1 / PRD-32: the test's own feedback is a source of recommendations in
     // its own right, whether or not the test has scales and indicators.
-    testFeedback: vrTestFeedback(),
     // …and the builder withholds it on an EXPLICIT pass only, so it needs to know
     // whether this test pronounces a verdict at all. Travels for every test, unlike the
     // copy inside `measures`, which a test without measurements never sends.

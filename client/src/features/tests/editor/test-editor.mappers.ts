@@ -19,7 +19,7 @@
  *   - FR-25h adaptive payload excluded when `mode === "standard"`
  */
 import type { DrawBlueprint, EligibilityPluginRef, FormSet, RetakePolicy, SectionGroup } from "@shared/schema";
-import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
+import type { ReportSettings, TestIntro, IntroText, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone } from "@shared/scales/interpretation";
 import {
   breakdownFeedbackSchema,
@@ -994,6 +994,15 @@ export function defaultRetakePolicy(): RetakePolicy {
  * Читается защитно, как и прочий jsonb автора: ветвь без текста — это отсутствие блока,
  * а не пустая карточка, поэтому пустые тексты не поднимаются в модель вовсе.
  */
+function readIntroText(raw: unknown): IntroText | undefined {
+  if (!isPlainObject(raw)) return undefined;
+  const b = raw as Record<string, unknown>;
+  const text = typeof b.text === "string" ? b.text : "";
+  if (!text.trim()) return undefined;
+  const format = b.format === "richText" || b.format === "html" ? b.format : "plain";
+  return { text, format };
+}
+
 function readIntroFromApi(api: ApiTestResponse): TestIntro {
   const raw = api.introJson;
   if (!isPlainObject(raw)) return {};
@@ -1002,10 +1011,19 @@ function readIntroFromApi(api: ApiTestResponse): TestIntro {
     const branch = (raw as Record<string, unknown>)[side];
     if (!isPlainObject(branch)) continue;
     const b = branch as Record<string, unknown>;
-    const text = typeof b.text === "string" ? b.text : "";
-    if (!text.trim()) continue;
-    const format = b.format === "richText" || b.format === "html" ? b.format : "plain";
-    out[side] = { text, format };
+    const common = readIntroText(b);
+    const passed = readIntroText(b.passed);
+    const failed = readIntroText(b.failed);
+    // PRD-61: ветвь жива, пока в ней есть ХОТЬ ОДИН текст. Прежний код выходил по пустому
+    // общему вступлению и терял тексты исхода, заведённые книгой или через API, — а первое
+    // же сохранение теста из ящика записало бы эту потерю в базу.
+    if (!common && !passed && !failed) continue;
+    out[side] = {
+      format: common?.format ?? "plain",
+      text: common?.text ?? "",
+      ...(passed ? { passed } : {}),
+      ...(failed ? { failed } : {}),
+    };
   }
   // Признак «в отчёте тот же текст» живёт рядом с текстами и читается независимо от них:
   // включённым он остаётся и тогда, когда собственный текст отчёта пуст, — в этом и смысл.

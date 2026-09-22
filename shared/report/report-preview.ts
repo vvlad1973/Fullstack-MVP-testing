@@ -22,6 +22,9 @@
  */
 
 import type { AdaptiveReportInput, ReportInput, AdaptiveReportTopic } from "./report-html";
+// Ветвь отчёта выбирается ТЕМ ЖЕ правилом, что и в выдаче: предпросмотр, решающий иначе,
+// показывал бы не тот документ, что уйдёт в PDF.
+import { resolveReportIntro, type TestIntroLike } from "./report-intro";
 import type {
   BreakdownDisplaySetting,
   ResultHeadings,
@@ -70,6 +73,18 @@ export interface ReportPreviewTest {
    * показывал бы плоский список там, где слушатель получит блоки.
    */
   sectionGroups?: { key: string; label: string; order?: number }[];
+  /**
+   * Вводные блоки теста (`tests.intro_json`) — ЦЕЛИКОМ, обе ветви выдачи.
+   *
+   * Едут из РЕАЛЬНОГО теста, как и настройка подытогов выше: вводный текст автор пишет
+   * прямо перед тем, как открыть это окно, и не увидеть его здесь — значит проверять
+   * вёрстку вместо содержания. До PRD-61 окно не подавало `intro` вовсе, и это была одна
+   * из трёх его слепых зон.
+   *
+   * Какую ветвь взять, решает `resolveReportIntro` — то же правило, что и в выдаче; какой
+   * текст исхода напечатать, решает построитель по вердикту образца.
+   */
+  intro?: TestIntroLike | null;
 }
 
 /**
@@ -223,6 +238,9 @@ export function buildReportPreviewInput(
     attemptsCount: DEMO_ATTEMPTS,
     ...(test.headings ? { headings: test.headings } : {}),
     ...(test.breakdownDisplay ? { breakdownDisplay: test.breakdownDisplay } : {}),
+    // PRD-61 FR-23: вводный блок отчёта. Текст исхода выберет построитель — по вердикту
+    // образца, который задаёт переключатель окна.
+    ...(resolveReportIntro(test.intro) ? { intro: resolveReportIntro(test.intro)! } : {}),
     result: {
       passed: outcome === "passed",
       percent: totalQuestions > 0 ? Math.round((correct / totalQuestions) * 100) : 0,
@@ -270,6 +288,9 @@ export function buildAdaptiveReportPreviewInput(
     testName: test.testName || "Тест",
     learnerName: PREVIEW_LEARNER_NAME,
     attemptsCount: DEMO_ATTEMPTS,
+    // PRD-61: вводный блок печатается и здесь, но БЕЗ текстов исхода — адаптивный режим
+    // вердикта не выносит (FR-14b), и построитель их не возьмёт.
+    ...(resolveReportIntro(test.intro) ? { intro: resolveReportIntro(test.intro)! } : {}),
     result: { passed: outcome === "passed", topicResults },
   };
 }

@@ -23,6 +23,7 @@ import type {
   ResultHeadings,
 } from "../template/result-context";
 import type { FeedbackBlock } from "../scales/interpretation";
+import type { IntroBlockLike } from "./report-intro";
 
 /** What the report prints besides the result itself. */
 export interface ReportMeta {
@@ -71,12 +72,15 @@ export interface ReportMeta {
    */
   hasPassThreshold?: boolean;
   /**
-   * Вводный блок ОТЧЁТА (`tests.intro_json.report`) — текст и его формат.
+   * Вводный блок ОТЧЁТА (`tests.intro_json.report`) — общее вступление и тексты по исходу.
    *
    * Отдельный от текста экрана: документ уносят с собой и показывают специалисту, поэтому
    * вводное слово у него своё. Отсутствие = блока в отчёте нет.
+   *
+   * PRD-61: ветвь приезжает ЦЕЛИКОМ, а какой текст исхода печатать, решает построитель
+   * контекста — он один знает вердикт этого прогона.
    */
-  intro?: { text?: string | null; format?: "plain" | "richText" | "html" | null } | null;
+  intro?: IntroBlockLike | null;
   /**
    * PRD-50 FR-13: the test's breakdown display setting (`tests.breakdown_display_json`) —
    * the SAME class of fact as {@link feedback} and {@link hasPassThreshold} above: a

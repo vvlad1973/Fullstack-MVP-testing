@@ -453,18 +453,35 @@ describe("<CompositionTab /> — точки состояния рейла", () =
   });
 });
 
-// ─── Test-level feedback trigger ──────────────────────────────────────────────
+// ─── Вводный текст по исходу (PRD-61) ─────────────────────────────────────────
 
-describe("<FeedbackTextsPane /> — общая обратная связь теста", () => {
-  it("opens the feedback modal and persists edited text", () => {
+describe("<FeedbackTextsPane /> — вводный текст по исходу", () => {
+  // Здесь была правка общей обратной связи ТЕСТА: её сняли (PRD-61 §10), и вместо неё
+  // страница правит три вводных текста. Проверяется самое хрупкое место — правка текста
+  // ИСХОДА не должна задевать общий текст и наоборот.
+  it("текст исхода пишется в свою ветвь и не трогает общий", () => {
     const updateModel = vi.fn();
     const model = baseModel();
     renderSettings(model, updateModel, { pane: FeedbackTextsPane });
-    // Empty preview root opens the modal.
-    fireEvent.click(screen.getByTestId("settings-feedback-trigger"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Молодец!" } });
+    fireEvent.click(screen.getByTestId("settings-intro-results-failed-trigger"));
+    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Не хватило баллов." } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
-    expect(runUpdater(updateModel, model).basic.feedback.text).toBe("Молодец!");
+    const next = runUpdater(updateModel, model);
+    expect(next.intro?.results?.failed?.text).toBe("Не хватило баллов.");
+    expect(next.intro?.results?.text).toBe("");
+  });
+
+  it("общий текст пишется рядом с текстом исхода, не стирая его", () => {
+    const updateModel = vi.fn();
+    const model = baseModel();
+    model.intro = { results: { format: "plain", text: "", failed: { format: "plain", text: "Не хватило." } } };
+    renderSettings(model, updateModel, { pane: FeedbackTextsPane });
+    fireEvent.click(screen.getByTestId("settings-intro-results-trigger"));
+    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Спасибо." } });
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    const next = runUpdater(updateModel, model);
+    expect(next.intro?.results?.text).toBe("Спасибо.");
+    expect(next.intro?.results?.failed?.text).toBe("Не хватило.");
   });
 });
 

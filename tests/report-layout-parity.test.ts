@@ -480,32 +480,34 @@ describe("макет печатает консолидированный бло�
     return (title?.parentElement as HTMLElement) ?? null;
   };
 
-  it("печатает тексты теста, темы и раздела в порядке блока", () => {
+  it("печатает тексты темы и раздела в порядке блока", () => {
+    // PRD-61 §10: текст ТЕСТА снят и в этом списке больше не печатается.
     const card = recsCard(renderToRoot(REPORT, buildReportContext(WITH_FEEDBACK)));
     expect(card).not.toBeNull();
-    expect(visibleText(card as HTMLElement)).toContain("Разберите ошибки. Текст темы Текст раздела");
+    expect(visibleText(card as HTMLElement)).toContain("Текст темы Текст раздела");
+    expect(visibleText(card as HTMLElement)).not.toContain("Разберите ошибки.");
   });
 
   it("печатает вложения кликабельными чипами, как курсы", () => {
     const root = renderToRoot(REPORT, buildReportContext(WITH_FEEDBACK));
     const card = recsCard(root) as HTMLElement;
-    expect(linkUrls(card)).toEqual(["https://e/net", "assets/media/test.pdf", "assets/media/topic.pdf"]);
-    expect(visibleText(card)).toContain("Памятка теста");
+    // Курс и памятка ТЕСТА ушли вместе с уровнем — остаётся вложение темы.
+    expect(linkUrls(card)).toEqual(["assets/media/topic.pdf"]);
     expect(visibleText(card)).toContain("Разбор темы");
   });
 
-  it("текст, написанный и у теста, и у темы, печатается один раз", () => {
+  it("один и тот же текст у двух тем печатается один раз", () => {
+    // Дедуп проверялся на паре «тест и тема»; уровень теста снят, и вторым источником
+    // той же строки стала вторая тема.
     const dup: ReportInput = {
       ...WITH_FEEDBACK,
       result: {
         ...WITH_FEEDBACK.result,
-        topicResults: WITH_FEEDBACK.result.topicResults.map((t, i) =>
-          i === 1 ? { ...t, feedbackTexts: ["Разберите ошибки."] } : t,
-        ),
+        topicResults: WITH_FEEDBACK.result.topicResults.map((t) => ({ ...t, feedbackTexts: ["Текст темы"] })),
       },
     };
     const text = visibleText(recsCard(renderToRoot(REPORT, buildReportContext(dup))) as HTMLElement);
-    expect(text.match(/Разберите ошибки\./g)).toHaveLength(1);
+    expect(text.match(/Текст темы/g)).toHaveLength(1);
   });
 
   it("пройденная тема и явно пройденный тест молчат", () => {
@@ -536,8 +538,9 @@ describe("макет печатает консолидированный бло�
     };
     const card = recsCard(renderToRoot(REPORT_ADAPTIVE, buildAdaptiveReportContext(adaptive))) as HTMLElement;
     expect(card).not.toBeNull();
-    expect(visibleText(card)).toContain("Разберите ошибки. Текст темы");
-    expect(linkUrls(card)).toEqual(["https://e/net", "assets/media/test.pdf", "assets/media/topic.pdf"]);
+    expect(visibleText(card)).toContain("Текст темы");
+    expect(visibleText(card)).not.toContain("Разберите ошибки.");
+    expect(linkUrls(card)).toEqual(["assets/media/topic.pdf"]);
   });
 
   it("адаптивный отчёт без обратной связи блока не рисует", () => {

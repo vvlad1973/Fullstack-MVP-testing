@@ -12,10 +12,75 @@
  * Чистый модуль: ни DOM, ни Node.
  */
 
-/** Вводный блок: текст и формат, в котором автор его написал. */
-export interface IntroBlockLike {
+/** ОДИН текст вводного блока: разметка и формат, в котором автор его написал. */
+export interface IntroTextLike {
   text?: string | null;
   format?: "plain" | "richText" | "html" | null;
+}
+
+/**
+ * Вводный блок ОДНОЙ выдачи: общее вступление плюс необязательные тексты по исходу (PRD-61).
+ *
+ * `text`/`format` — общее вступление, печатаемое при ЛЮБОМ исходе; это ровно то, что лежало
+ * здесь до PRD-61. `passed`/`failed` печатаются вторым блоком — см. {@link introBlocksToPrint}.
+ */
+export interface IntroBlockLike extends IntroTextLike {
+  /** Текст прошедшему. Отсутствие = такого текста автор не писал. */
+  passed?: IntroTextLike | null;
+  /** Текст не прошедшему. */
+  failed?: IntroTextLike | null;
+}
+
+/**
+ * Исход прогона в тех терминах, в которых его знает построитель контекста.
+ *
+ * ДВА поля, а не одно: `passed` у теста, который ничего не судит, — это умолчание, а не
+ * суждение, и печатать по нему текст исхода значит соврать.
+ */
+export interface IntroOutcome {
+  /**
+   * Был ли вердикт ВЫНЕСЕН.
+   *
+   * Считается `hasPronouncedVerdict()` из `shared/scoring/pass-rule` — ТОЙ ЖЕ функцией, которой
+   * построитель гасит вердиктную шапку. Второе определение этого понятия заводить нельзя:
+   * расхождение двух копий вердиктного гейта уже давало дефект, когда шапка печатала зелёное
+   * «Пройден» над блоком работы над ошибками.
+   */
+  verdictPronounced: boolean;
+  passed: boolean;
+}
+
+/**
+ * КАКИЕ тексты печатает вводный блок этой выдачи и в каком порядке (PRD-61 FR-06 - FR-09).
+ *
+ * Общее вступление идёт первым и печатается всегда; текст исхода — вторым и только когда
+ * вердикт вынесен. Пустой текст блока не даёт: гейт стоит на самом тексте, а не на наличии
+ * записи, — автор, стерший текст, ожидает, что блок исчезнет, а не станет пустой рамкой.
+ *
+ * Разметку строит ВЫЗЫВАЮЩИЙ: правило отвечает на вопрос «что печатать», а не «как». Формат
+ * каждого блока едет свой — автор вправе написать вступление простым текстом, а поздравление
+ * разметкой.
+ *
+ * Адаптивный режим сюда приходит с `verdictPronounced: false`: он вердикта не выносит, и
+ * заголовков исхода у него нет (см. `buildAdaptiveResultContext`).
+ *
+ * @param block Вводный блок выдачи (`intro_json.results` либо ветвь отчёта).
+ * @param outcome Исход прогона.
+ * @returns Блоки к печати, в порядке печати: ноль, один или два.
+ */
+export function introBlocksToPrint(
+  block: IntroBlockLike | null | undefined,
+  outcome: IntroOutcome,
+): Array<{ text: string; format: IntroTextLike["format"] }> {
+  if (!block) return [];
+  const out: Array<{ text: string; format: IntroTextLike["format"] }> = [];
+  const push = (source: IntroTextLike | null | undefined) => {
+    const text = String(source?.text ?? "");
+    if (text.trim()) out.push({ text, format: source?.format ?? null });
+  };
+  push(block);
+  if (outcome.verdictPronounced) push(outcome.passed ? block.passed : block.failed);
+  return out;
 }
 
 /** Вводные блоки теста (`tests.intro_json`) в том виде, в каком их читает выдача. */
