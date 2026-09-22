@@ -14,11 +14,14 @@ import { describe, expect, it } from "vitest";
 import {
   QUESTION_TYPES,
   distributesBudget,
+  hasBlanks,
   hasFixedOptionOrder,
   hasGradedContent,
   hasOptionList,
   isMeasurementOnly,
+  isOpenText,
   isSingleIndexChoice,
+  isTextEntry,
 } from "../question-type";
 
 interface Traits {
@@ -26,16 +29,60 @@ interface Traits {
   isSingleIndexChoice: boolean;
   hasFixedOptionOrder: boolean;
   distributesBudget: boolean;
+  isTextEntry: boolean;
+  hasBlanks: boolean;
+  isOpenText: boolean;
 }
 
-/** One row per supported type — every trait decided explicitly, none inherited. */
+/**
+ * One row per supported type — every trait decided explicitly, none inherited.
+ *
+ * `Traits` requires EVERY field, choice types included, and that is the whole point:
+ * a type added to `QUESTION_TYPES` cannot be listed here without an answer for each
+ * predicate, and a predicate added to the module cannot be listed in `Traits` without
+ * an answer for each type. A row of «what is true», with the rest inferred false,
+ * would let both slip through silently.
+ */
 const TRAITS: Record<string, Traits> = {
-  single: { hasOptionList: true, isSingleIndexChoice: true, hasFixedOptionOrder: false, distributesBudget: false },
-  multiple: { hasOptionList: true, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false },
-  matching: { hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false },
-  ranking: { hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false },
-  scale: { hasOptionList: true, isSingleIndexChoice: true, hasFixedOptionOrder: true, distributesBudget: false },
-  allocation: { hasOptionList: true, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: true },
+  single: {
+    hasOptionList: true, isSingleIndexChoice: true, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: false, hasBlanks: false, isOpenText: false,
+  },
+  multiple: {
+    hasOptionList: true, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: false, hasBlanks: false, isOpenText: false,
+  },
+  matching: {
+    hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: false, hasBlanks: false, isOpenText: false,
+  },
+  ranking: {
+    hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: false, hasBlanks: false, isOpenText: false,
+  },
+  scale: {
+    hasOptionList: true, isSingleIndexChoice: true, hasFixedOptionOrder: true, distributesBudget: false,
+    isTextEntry: false, hasBlanks: false, isOpenText: false,
+  },
+  allocation: {
+    hasOptionList: true, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: true,
+    isTextEntry: false, hasBlanks: false, isOpenText: false,
+  },
+  // PRD-57. The three text types share every choice trait (all false) and differ only
+  // in WHICH text trait they carry — see the module doc for why they are three traits
+  // and not one: one answer key per task, one per blank, none at all.
+  short: {
+    hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: true, hasBlanks: false, isOpenText: false,
+  },
+  blanks: {
+    hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: false, hasBlanks: true, isOpenText: false,
+  },
+  long: {
+    hasOptionList: false, isSingleIndexChoice: false, hasFixedOptionOrder: false, distributesBudget: false,
+    isTextEntry: false, hasBlanks: false, isOpenText: true,
+  },
 };
 
 describe("признаки типа вопроса", () => {
@@ -44,11 +91,14 @@ describe("признаки типа вопроса", () => {
   });
 
   for (const [type, traits] of Object.entries(TRAITS)) {
-    it(`${type}: все четыре признака`, () => {
+    it(`${type}: все семь признаков`, () => {
       expect(hasOptionList(type)).toBe(traits.hasOptionList);
       expect(isSingleIndexChoice(type)).toBe(traits.isSingleIndexChoice);
       expect(hasFixedOptionOrder(type)).toBe(traits.hasFixedOptionOrder);
       expect(distributesBudget(type)).toBe(traits.distributesBudget);
+      expect(isTextEntry(type)).toBe(traits.isTextEntry);
+      expect(hasBlanks(type)).toBe(traits.hasBlanks);
+      expect(isOpenText(type)).toBe(traits.isOpenText);
     });
   }
 
@@ -57,6 +107,9 @@ describe("признаки типа вопроса", () => {
     expect(isSingleIndexChoice("nope")).toBe(false);
     expect(hasFixedOptionOrder("nope")).toBe(false);
     expect(distributesBudget("nope")).toBe(false);
+    expect(isTextEntry("nope")).toBe(false);
+    expect(hasBlanks("nope")).toBe(false);
+    expect(isOpenText("nope")).toBe(false);
   });
 });
 

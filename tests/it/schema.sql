@@ -78,6 +78,7 @@ CREATE TABLE "content_pages" (
 	"settings_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"auto_advance" boolean DEFAULT false NOT NULL,
 	"auto_advance_delay_ms" integer,
+	"hidden" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -176,6 +177,7 @@ CREATE TABLE "questions" (
 	"topic_id" varchar(36) NOT NULL,
 	"type" text NOT NULL,
 	"prompt" text NOT NULL,
+	"prompt_format" text DEFAULT 'markdown' NOT NULL,
 	"data_json" jsonb NOT NULL,
 	"correct_json" jsonb NOT NULL,
 	"difficulty" integer DEFAULT 50,
@@ -405,6 +407,8 @@ CREATE TABLE "test_sections" (
 	"draw_blueprint_json" jsonb,
 	"form_set_json" jsonb,
 	"breakdown_feedback_json" jsonb,
+	"interpretation_json" jsonb,
+	"breakdown_interpretation_json" jsonb,
 	"group_key" text,
 	"question_order" text,
 	"default_points" integer,
@@ -482,6 +486,7 @@ CREATE TABLE "topics" (
 	"description" text,
 	"feedback" text,
 	"feedback_json" jsonb,
+	"interpretation_json" jsonb,
 	"folder_id" varchar(36),
 	"created_by" varchar(36),
 	"owner_id" varchar(36),

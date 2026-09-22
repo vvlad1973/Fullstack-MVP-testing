@@ -52,7 +52,11 @@ function finishPath(name: string): string {
   return src.slice(start).match(/^function [^\n]*\n[\s\S]*?\n\}/)![0];
 }
 
-const SHARED = ["to1", "mapScormType", "formatResponse", "getCorrectAnswerFor", "interactionResultFor", "questionLatency", "buildQuestionInteraction"];
+// `correctPatternFor` стоит рядом с `getCorrectAnswerFor` не случайно: эталон собирается
+// в ДВА шага — сначала ответ в форме ответа ученика, затем образец `correct_responses`,
+// — и у текстовых типов (PRD-57) второй шаг решает сам, писать ли эталон вообще. Обе
+// половины извлекаются вместе, иначе в круге останется та, что уже разъезжалась.
+const SHARED = ["to1", "mapScormType", "formatResponse", "getCorrectAnswerFor", "correctPatternFor", "interactionResultFor", "questionLatency", "buildQuestionInteraction"];
 
 const runtime = new Function(
   `${qtypeSrc}
