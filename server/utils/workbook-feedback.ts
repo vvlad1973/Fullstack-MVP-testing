@@ -318,13 +318,18 @@ interface OwnerRow {
  * толкование, не попадал в книгу вовсе: выгрузил, загрузил — и текста нет.
  */
 function ownersOf(
-  testFeedback: FeedbackSource | null | undefined,
+  // PRD-61 §10: уровень «Тест» больше не выгружается, поэтому значение не читается.
+  // Параметр оставлен в сигнатуре намеренно: колонки `tests.feedback_json` и `tests.feedback`
+  // ещё живы (их сносит отдельная миграция), и убирать его стоит вместе с ними — одним
+  // заходом, а не двумя правками одного и того же контракта.
+  _testFeedback: FeedbackSource | null | undefined,
   sections: readonly FeedbackSectionSource[],
 ): OwnerRow[] {
   const owners: OwnerRow[] = [];
-  if (hasFeedback(testFeedback)) {
-    owners.push({ level: OWNER_TEST, topicName: "", tag: "", feedback: testFeedback });
-  }
+  // PRD-61 §10: строки уровня «Тест» книга больше НЕ ВЫГРУЖАЕТ — обратная связь этого уровня
+  // снята, и печатать поле, которого нет ни в ящике, ни в выдаче, значит звать автора править
+  // мёртвое. На ИМПОРТЕ владелец «Тест» по-прежнему распознаётся (см. `OWNER_CHOICES`): уже
+  // выданные книги обязаны читаться, и их строка просто ничего не меняет.
   for (const section of sections) {
     // A section with no topic name cannot be addressed by the sheet at all — the sheet has
     // no other key for it — so it is skipped instead of producing an unloadable row.

@@ -1339,19 +1339,19 @@ export function buildResultContext(
   // pronounced and `passed` is a default, not a judgement), and the verdict must be a
   // PASS. A measurement test without a threshold therefore keeps its feedback whatever
   // `passed` holds — that feedback IS its result, the whole point of PRD-29.
-  const explicitPass = hasGradedScore && passed;
   // Sources of the ONE recommendations block, gathered in the order dedup should keep:
-  // the general before the specific. Collected rather than merged on the spot because
-  // the measurement sources are conditional while the other two are not — a test with
-  // neither scales nor indicators still hands the learner its own feedback and what its
-  // topics and sections attached (PRD-32). The test's own block leads: it is the widest.
+  // the general before the specific.
   //
-  // Unless the learner PASSED: a test the learner is through with owes no work on the
-  // mistakes, so its own block is dropped at the source (owner's agreed rule). The
-  // per-measure blocks below are NOT dropped with it — a scale's band or an indicator's
-  // outcome is the interpretation of a measurement, not guidance on a failure, and a
-  // learner who passed still gets to read what was measured.
-  const recommendationSources: Array<FeedbackBlock | null | undefined> = explicitPass ? [] : [opts.testFeedback];
+  // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята — три вводных текста говорят то же самое
+  // и там, где автор этого ждёт, в начале документа, а не в конце среди рекомендаций.
+  // `opts.testFeedback` больше НЕ источник: поле убрано из ящика, не запекается в пакет и
+  // не печатается ни одним хостом.
+  //
+  // Тексты ТЕМ, ПОДТЕМ, ШКАЛ и ПОКАЗАТЕЛЕЙ не тронуты, и их собственный гейт — тоже: тема
+  // выдаёт написанное, пока не пройдена (`topic.passed !== true` ниже), по правилу «молчим
+  // только там, где уверены в успехе». Прежний `explicitPass` гасил ИМЕННО блок теста и
+  // вместе с ним ушёл.
+  const recommendationSources: Array<FeedbackBlock | null | undefined> = [];
   if (opts.measures && resolvedMeasures && blocks) {
     // `hasGradedScore`, the visible measures and `blocks` are resolved ONCE, above — the
     // score summary, the verdict tag, the topic points row and the feedback gate must not
@@ -1788,23 +1788,17 @@ export function buildAdaptiveResultContext(
     result.showFinish = !!opts.showFinish;
   }
   // The SAME consolidated block the standard results screen carries, from the SAME
-  // collector and the same sources in the same order — the test's own feedback first,
-  // then what the topics of this attempt wrote and attached. Feedback is a property of
-  // the TEST, not of its flow mode, so a second assembly rule for the adaptive screen
-  // would only mean two screens disagreeing about what the learner is owed; the adaptive
-  // screen used to carry no block at all, which is that disagreement at its widest.
+  // collector and the same sources in the same order. Feedback is a property of the TEST,
+  // not of its flow mode, so a second assembly rule for the adaptive screen would only mean
+  // two screens disagreeing about what the learner is owed; the adaptive screen used to
+  // carry no block at all, which is that disagreement at its widest.
   //
   // What differs between the modes is ONE thing — how a topic's failure is spelled — and
   // it enters as the gate's argument (see `topicRecommendationSources`).
   //
-  // The test's own block obeys the same rule as on the standard screen: withheld on an
-  // EXPLICIT pass, because a learner who is through with the test owes no work on the
-  // mistakes. Here the verdict needs no threshold check — the adaptive mode has no
-  // pass-percentage setting to be absent, `overallPassed` is pronounced by
-  // `aggregateAdaptiveResult` from the levels actually confirmed. An absent flag is
-  // therefore not «unknown» but a plain non-success, and it shows.
-  const recommendationSources: Array<FeedbackBlock | null | undefined> =
-    input.passed === true ? [] : [opts.testFeedback];
+  // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята и здесь — по той же причине и тем же
+  // заходом, что на стандартном экране. Блок собирается из тем, шкал и показателей.
+  const recommendationSources: Array<FeedbackBlock | null | undefined> = [];
   // The measurement blocks and what their fired bands / outcomes say — the SAME routine
   // the standard screen runs, so the two screens cannot draw the same scale differently
   // (issue #33). `false` for the score summary: this screen has none, and only that

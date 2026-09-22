@@ -487,26 +487,11 @@ export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) 
         )}
       </FormSection>
 
-      <FormSection stacked title="Общая обратная связь теста" data-testid="settings-feedback-card">
-        <TestFeedbackTrigger
-          feedback={model.basic.feedback}
-          links={model.basic.feedbackLinks}
-          assets={model.basic.feedbackAssets}
-          events={model.basic.feedbackEvents}
-          onSave={(next) => {
-            updateModel((m) => ({
-              ...m,
-              basic: {
-                ...m.basic,
-                feedback: { format: next.format, text: next.text },
-                feedbackLinks: next.links,
-                feedbackAssets: next.assets,
-                feedbackEvents: next.events,
-              },
-            }));
-          }}
-        />
-      </FormSection>
+      {/* PRD-61 §10: карточка «Общая обратная связь теста» отсюда УБРАНА. Три вводных текста
+          закрывают её назначение и говорят то же самое в начале документа, а не в конце среди
+          рекомендаций; материалы (курсы, файлы, мероприятия) остаются у ТЕМ, на странице «По
+          темам», где ими и пользуются. Колонки `tests.feedback_json` и легаси `tests.feedback`
+          пока живы и сносятся отдельной миграцией — см. пункт технического долга. */}
     </>
   );
 }
@@ -2509,61 +2494,9 @@ function IntroEditTrigger(props: {
   );
 }
 
-function TestFeedbackTrigger(props: {
-  feedback: FeedbackContent;
-  links: FeedbackLink[];
-  assets: FeedbackAsset[];
-  events: FeedbackEvent[];
-  onSave: (next: {
-    format: FeedbackContent["format"];
-    text: string;
-    links: FeedbackLink[];
-    assets: FeedbackAsset[];
-    events: FeedbackEvent[];
-  }) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      {/* TD-02: grouped-list preview (Материалы / Курсы / Мероприятия) + pencil. */}
-      <FeedbackPreview
-        format={props.feedback.format}
-        text={props.feedback.text}
-        links={props.links}
-        assets={props.assets}
-        events={props.events}
-        onEdit={() => setOpen(true)}
-        editAriaLabel="Редактировать обратную связь теста"
-        testId="settings-feedback-trigger"
-      />
-      <FeedbackEditorModal
-        open={open}
-        title="Общая обратная связь теста"
-        description="Текст и материалы, которые обучающийся увидит после завершения теста."
-        value={{
-          format: props.feedback.format,
-          text: props.feedback.text,
-          links: props.links,
-          assets: props.assets,
-          events: props.events,
-        }}
-        onCancel={() => setOpen(false)}
-        onSave={(v: FeedbackEditorValue) => {
-          props.onSave({
-            format: v.format,
-            text: v.text,
-            links: v.links,
-            assets: v.assets,
-            events: v.events ?? [],
-          });
-          setOpen(false);
-        }}
-        testId="settings-feedback-modal"
-      />
-    </>
-  );
-}
+/* PRD-61 §10: здесь был `TestFeedbackTrigger` — окно правки общей обратной связи ТЕСТА.
+   Карточка снята, последний потребитель ушёл вместе с ней. Правка обратной связи ТЕМ и
+   РАЗДЕЛОВ живёт в своих компонентах и этим треком не затронута. */
 
 /**
  * Inline trigger that opens the unified FeedbackEditorModal (FR-36 / FR-37).

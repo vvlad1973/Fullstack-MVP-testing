@@ -117,15 +117,20 @@ describe("buildTestJson (PRD-29)", () => {
     expect(baked.configJson.outcomes[0].code).toBe("burnout");
   });
 
-  it("запекает блок обратной связи теста целиком", () => {
+  it("обратную связь ТЕСТА в пакет больше не запекает (PRD-61 §10)", () => {
+    // Уровень теста снят: три вводных текста говорят то же самое и в начале документа.
+    // Ни блок, ни легаси-текст в TEST_DATA не попадают — рантайм их и не ищет.
     const feedbackJson = {
       text: "Опросник носит справочный характер.",
       links: [{ title: "Курс", url: "https://example.test/c" }],
       assets: [{ title: "Памятка.pdf", fileName: "p.pdf", mimeType: "application/pdf", scormHref: "feedback/p.pdf" }],
     };
-    const baked = bake({ ...(exportData as any), test: { ...baseTest, feedbackJson } });
-    // RAW, with `scormHref` intact — the runtime normalises it exactly once.
-    expect(baked.testFeedbackJson).toEqual(feedbackJson);
+    const baked = bake({
+      ...(exportData as any),
+      test: { ...baseTest, feedbackJson, feedback: "Легаси-текст" },
+    });
+    expect(baked.testFeedbackJson).toBeUndefined();
+    expect(baked.testFeedback).toBeUndefined();
   });
 
   it("запекает вложения ТЕМЫ и РАЗДЕЛА в один список раздела (PRD-32)", () => {

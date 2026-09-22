@@ -91,10 +91,8 @@ function pdfTopicFeedback(topicResult) {
  */
 function pdfReportMeta() {
   var meta = {};
-  if (typeof vrTestFeedback === 'function') {
-    var feedback = vrTestFeedback();
-    if (feedback) meta.feedback = feedback;
-  }
+  // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята — читать нечего и передавать нечего.
+  // Рекомендации ТЕМ едут в самих темах результата и документа не покидают.
   if (typeof vrHasPassThreshold === 'function') meta.hasPassThreshold = vrHasPassThreshold();
   // Заголовки итога — те же свойства узла «Итоги теста», что читает экран
   // (`resultHeadingsOf`, viewResults.js): документ печатает ту же шапку, что экран, с

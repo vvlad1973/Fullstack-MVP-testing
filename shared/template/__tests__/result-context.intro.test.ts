@@ -121,3 +121,37 @@ describe("адаптивный режим печатает только обще
     expect(ctx.result.introHtml).toBe("Об итогах");
   });
 });
+
+describe("общая обратная связь ТЕСТА снята (PRD-61 §10)", () => {
+  const failedRun = {
+    ...run(false),
+    topicResults: [
+      {
+        topicId: "t1",
+        topicName: "Тема",
+        correct: 0,
+        total: 2,
+        percent: 0,
+        earnedPoints: 0,
+        possiblePoints: 2,
+        passed: false,
+        feedbackTexts: ["Текст ТЕМЫ"],
+      },
+    ],
+  };
+
+  it("текст теста не попадает в рекомендации, а текст темы попадает", () => {
+    const ctx = buildResultContext(failedRun, "Тест", {
+      hasPassThreshold: true,
+      testFeedback: { format: "plain", text: "Текст ТЕСТА" },
+    });
+    const printed = JSON.stringify(ctx.result);
+    expect(printed).toContain("Текст ТЕМЫ");
+    expect(printed).not.toContain("Текст ТЕСТА");
+  });
+
+  it("тест без обратной связи печатает рекомендации тем как раньше", () => {
+    const ctx = buildResultContext(failedRun, "Тест", { hasPassThreshold: true });
+    expect(JSON.stringify(ctx.result)).toContain("Текст ТЕМЫ");
+  });
+});

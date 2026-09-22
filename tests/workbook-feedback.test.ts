@@ -53,14 +53,22 @@ describe("листы «Обратная связь» и «Рекомендаци
     expect(byTopic.get("финансы")?.text).toBe("ОС темы");
   });
 
-  it("обратная связь теста и раздела ходит по кругу", () => {
+  it("обратная связь РАЗДЕЛА ходит по кругу", () => {
     const fb = serializeFeedbackRows(PAYLOAD, [{ topicName: "Финансы", feedback: PAYLOAD }]);
     const rec = serializeRecommendationRows(PAYLOAD, [{ topicName: "Финансы", feedback: PAYLOAD }]);
     const { test, byTopic, errors } = parseFeedbackSheets(fb, rec);
 
     expect(errors).toEqual([]);
-    expect(test).toEqual(PAYLOAD);
     expect(byTopic.get("финансы")).toEqual(PAYLOAD);
+    // PRD-61 §10: уровень «Тест» книга больше не ВЫГРУЖАЕТ, поэтому и обратно он не
+    // приезжает — даже когда источник его несёт. Разбор чужой книги со строкой «Тест»
+    // при этом по-прежнему работает: он проверяется отдельно, тестом ниже.
+    expect(test).toBeUndefined();
+  });
+
+  it("уровень «Тест» не выгружается вовсе (PRD-61 §10)", () => {
+    const rows = serializeFeedbackRows(PAYLOAD, [{ topicName: "Финансы", feedback: PAYLOAD }]);
+    expect(rows.map((r) => r["Кому"])).toEqual(["Раздел"]);
   });
 
   it("тема с именем «Тест» не уводит строку на уровень теста", () => {

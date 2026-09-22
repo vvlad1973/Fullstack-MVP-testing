@@ -586,7 +586,15 @@ export const tests = pgTable("tests", {
   published: boolean("published").default(false),
   status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
   version: integer("version").notNull().default(1),
+  /**
+   * @deprecated PRD-61 §10: общая обратная связь УРОВНЯ ТЕСТА снята. Колонка не читается ни
+   * одним хостом, не запекается в пакет, не выгружается книгой и не правится из ящика —
+   * её назначение закрыли три вводных текста (`intro_json`). Оставлена, чтобы снятие можно
+   * было откатить без потери данных; сносится отдельной миграцией (пункт технического долга
+   * ROADMAP §0.3). Обратная связь ТЕМ и РАЗДЕЛОВ — другие колонки, они живы.
+   */
   feedback: text("feedback"),
+  /** @deprecated PRD-61 §10 — см. {@link feedback} выше. */
   feedbackJson: jsonb("feedback_json"),
   flowPolicyJson: jsonb("flow_policy_json"),
   telemetryEnabled: boolean("telemetry_enabled").notNull().default(false),
