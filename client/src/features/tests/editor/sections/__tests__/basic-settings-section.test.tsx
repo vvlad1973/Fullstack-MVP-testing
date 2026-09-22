@@ -206,12 +206,22 @@ describe("<MainPane /> — «Основное»", () => {
     expect(runUpdater(updateModel, model).flowMode).toBe("router_by_topics");
   });
 
-  // Э3.6: карточка обратной связи переехала на «Обратная связь и итоги».
-  it("renders the «Общая обратная связь теста» card with feedback trigger", () => {
+  // PRD-61 §10: карточки «Общая обратная связь теста» на этой странице БОЛЬШЕ НЕТ — её
+  // назначение закрыли три вводных текста. Вместо неё здесь две карточки вводного текста.
+  it("печатает две карточки вводного текста и НЕ печатает обратную связь теста", () => {
     const model = baseModel();
     render(<FeedbackTextsPane model={model} updateModel={vi.fn()} />);
-    expect(screen.getByTestId("settings-feedback-card")).toBeInTheDocument();
-    expect(screen.getByTestId("settings-feedback-trigger")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-intro-card")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-intro-report-card")).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-feedback-card")).not.toBeInTheDocument();
+  });
+
+  it("в каждой карточке три текста: общий и два по исходу", () => {
+    const model = baseModel();
+    render(<FeedbackTextsPane model={model} updateModel={vi.fn()} />);
+    for (const id of ["settings-intro-results", "settings-intro-results-passed", "settings-intro-results-failed"]) {
+      expect(screen.getByTestId(`${id}-trigger`)).toBeInTheDocument();
+    }
   });
 
   // Э3.6: показ правильных ответов — это «Во время теста» на вкладке обратной связи.

@@ -1527,27 +1527,28 @@ describe("Attempts routes — result and history", () => {
       return (res.body.render?.context?.result?.recommendations?.texts ?? []) as string[];
     }
 
-    it("показывает тексты и вложения непройденной темы и обратную связь теста", async () => {
+    it("показывает тексты и вложения непройденной темы", async () => {
       storageMock.getAttempt.mockResolvedValue(adaptiveAttempt(null));
       storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive", feedbackJson: { text: "Разберите ошибки." } });
       storageMock.getAttemptsByUserAndTest.mockResolvedValue([finishedAttempt]);
 
       const res = await asLearner(request(app).get("/api/attempts/atmp1/result"));
       expect(res.status).toBe(200);
-      // Обратная связь теста — самый общий источник, поэтому впереди материалов темы.
-      expect(texts(res)).toEqual(["Разберите ошибки.", "Текст темы", "Текст раздела"]);
+      // PRD-61 §10: обратная связь ТЕСТА снята, список начинается с материалов темы.
+      expect(texts(res)).toEqual(["Текст темы", "Текст раздела"]);
       expect(res.body.render.context.result.recommendations.assets).toEqual([TOPIC_PDF]);
     });
 
-    it("тема с подтверждённым уровнем молчит, обратная связь теста остаётся", async () => {
+    it("тема с подтверждённым уровнем молчит — блока не остаётся вовсе", async () => {
       storageMock.getAttempt.mockResolvedValue(adaptiveAttempt(1));
       storageMock.getTest.mockResolvedValue({ ...dbTest, mode: "adaptive", feedbackJson: { text: "Разберите ошибки." } });
       storageMock.getAttemptsByUserAndTest.mockResolvedValue([finishedAttempt]);
 
       const res = await asLearner(request(app).get("/api/attempts/atmp1/result"));
       expect(res.status).toBe(200);
-      expect(texts(res)).toEqual(["Разберите ошибки."]);
-      expect(res.body.render.context.result.recommendations.assets ?? []).toEqual([]);
+      // Второго источника у блока больше нет (PRD-61 §10), поэтому он пуст целиком.
+      expect(texts(res)).toEqual([]);
+      expect(res.body.render.context.result.recommendations?.assets ?? []).toEqual([]);
     });
 
     it("явно пройденный тест не показывает и своей обратной связи", async () => {

@@ -1591,13 +1591,10 @@ describe("GET /:id/workbook/export — обратная связь и реком
     expect(res.status).toBe(200);
     const wb = await readWorkbookFromBuffer(res.body as Buffer);
 
+    // PRD-61 §10: строки уровня «Тест» книга больше не выгружает — остаётся раздел.
     const fbRows = sheetToObjects(wb.getWorksheet("Обратная связь")!);
-    expect(fbRows).toHaveLength(2);
+    expect(fbRows).toHaveLength(1);
     expect(fbRows[0]).toMatchObject({
-      "Кому": "Тест", "Формат": "Простой", "Текст": "Общий отзыв по тесту",
-    });
-    expect(String(fbRows[0]["Раздел"] ?? "")).toBe("");
-    expect(fbRows[1]).toMatchObject({
       "Кому": "Раздел", "Раздел": "JavaScript", "Формат": "HTML", "Текст": "<b>Отзыв по теме</b>",
     });
 
@@ -1609,9 +1606,6 @@ describe("GET /:id/workbook/export — обратная связь и реком
       ),
     );
     expect(recRows).toEqual([
-      { "Кому": "Тест", "Раздел": "", "Тип": "Курс", "Заголовок": "Курс по JS", "Ссылка": "https://example.test/js" },
-      { "Кому": "Тест", "Раздел": "", "Тип": "Материал", "Заголовок": "Памятка", "Ссылка": "https://example.test/memo.pdf" },
-      { "Кому": "Тест", "Раздел": "", "Тип": "Мероприятие", "Заголовок": "Вебинар", "Ссылка": "" },
       {
         "Кому": "Раздел", "Раздел": "JavaScript", "Тип": "Курс",
         "Заголовок": "Курс по замыканиям", "Ссылка": "https://example.test/closures",
@@ -1649,8 +1643,8 @@ describe("GET /:id/workbook/export — обратная связь и реком
     const wb = await readWorkbookFromBuffer(res.body as Buffer);
 
     const fbRows = sheetToObjects(wb.getWorksheet("Обратная связь")!);
-    expect(fbRows).toHaveLength(3);
-    expect(fbRows[2]).toMatchObject({
+    expect(fbRows).toHaveLength(2);
+    expect(fbRows[1]).toMatchObject({
       "Кому": "Подтема",
       "Раздел": "JavaScript",
       "Подтема": "замыкания",
@@ -2207,7 +2201,7 @@ describe("Round-trip: обратная связь и рекомендации ч
     storageMock.getQuestionMeasurements.mockResolvedValue([]);
   });
 
-  it("книга переносит обратную связь теста и раздела со всеми рекомендациями в другой тест", async () => {
+  it("книга переносит обратную связь РАЗДЕЛА со всеми рекомендациями в другой тест", async () => {
     const exportRes = await getExport();
     expect(exportRes.status).toBe(200);
 
@@ -2225,7 +2219,8 @@ describe("Round-trip: обратная связь и рекомендации ч
 
     const [savedTestId, payload] = testSettingsMock.save.mock.calls[0] as [string, any];
     expect(savedTestId).toBe("test-2");
-    expect(payload.test.feedbackJson).toEqual(testFeedback);
+    // PRD-61 §10: уровень «Тест» книга не выгружает, поэтому и переносить его нечем.
+    expect(payload.test.feedbackJson).toBeUndefined();
     expect(payload.sections).toHaveLength(1);
     expect(payload.sections[0].topicId).toBe(jsTopic.id);
     expect(payload.sections[0].feedbackJson).toEqual(sectionFeedback);

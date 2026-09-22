@@ -153,8 +153,9 @@ describe("вход отчёта пакета несёт источники бл�
     expect(topic.recommendedAssets).toEqual(SECTION_ASSETS);
   });
 
-  it("обратная связь теста и признак порога уходят вместе с входом", () => {
-    expect(inputs().meta()).toEqual({ feedback: TEST_FEEDBACK, hasPassThreshold: true });
+  it("признак порога уходит вместе с входом, обратной связи теста в нём больше нет", () => {
+    // PRD-61 §10: `pdfReportMeta` перестал читать обратную связь ТЕСТА — её сняли целиком.
+    expect(inputs().meta()).toEqual({ hasPassThreshold: true });
   });
 });
 
