@@ -1151,3 +1151,45 @@ describe("PRD-50 FR-11 section groups mapping", () => {
     expect(payloads[1].groupKey).toBeNull();
   });
 });
+
+describe("вводный текст по исходу (PRD-61)", () => {
+  it("поднимает тексты исхода вместе с общим вступлением", () => {
+    const model = apiToEditorModel({
+      introJson: {
+        results: {
+          format: "plain",
+          text: "Общее",
+          passed: { format: "html", text: "<p>Поздравляем</p>" },
+          failed: { format: "plain", text: "Не хватило" },
+        },
+      },
+    });
+    expect(model.intro?.results?.text).toBe("Общее");
+    expect(model.intro?.results?.passed).toEqual({ format: "html", text: "<p>Поздравляем</p>" });
+    expect(model.intro?.results?.failed).toEqual({ format: "plain", text: "Не хватило" });
+  });
+
+  it("поднимает тексты исхода, ДАЖЕ когда общее вступление пусто", () => {
+    // Иначе тексты, заведённые книгой или через API, не доедут до модели, и первое же
+    // сохранение теста из ящика молча их сотрёт.
+    const model = apiToEditorModel({
+      introJson: {
+        report: { format: "plain", text: "", failed: { format: "plain", text: "Не хватило" } },
+      },
+    });
+    expect(model.intro?.report?.failed?.text).toBe("Не хватило");
+    expect(model.intro?.report?.text).toBe("");
+  });
+
+  it("ветвь без единого текста не поднимается вовсе", () => {
+    const model = apiToEditorModel({
+      introJson: { results: { format: "plain", text: "  ", passed: { format: "plain", text: " " } } },
+    });
+    expect(model.intro?.results).toBeUndefined();
+  });
+
+  it("старая форма читается как раньше", () => {
+    const model = apiToEditorModel({ introJson: { results: { format: "richText", text: "Об итогах" } } });
+    expect(model.intro?.results).toEqual({ format: "richText", text: "Об итогах" });
+  });
+});

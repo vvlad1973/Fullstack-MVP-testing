@@ -45,7 +45,7 @@ import {
   sanitizeHtml as sanitizeContentHtml,
   DESCRIPTION_SCOPE,
 } from "@shared/security/html-sanitize";
-import type { EligibilityPluginRef, Form, IntroBlock, RetakePolicy } from "@shared/schema";
+import type { EligibilityPluginRef, Form, IntroBlock, IntroText, RetakePolicy } from "@shared/schema";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
 // PRD-31: the clamp is shared with the mapper so the field and a value read back
 // from the server can never disagree about the valid range.
@@ -342,33 +342,111 @@ export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
 // ─── Панель «Обратная связь» (тексты после теста) ─────────────────────────────
 
 /**
+ * ОБЩЕЕ ВСТУПЛЕНИЕ ветви выдачи — без текстов исхода (PRD-61).
+ *
+ * Триггер правит ОДИН текст, а ветвь несёт три, поэтому её приходится разбирать. Пустое
+ * вступление при заполненных текстах исхода — законное состояние: автор вправе обратиться
+ * только к прошедшему.
+ */
+function introCommonOf(side: IntroBlock | null | undefined): IntroText | null {
+  if (!side || !String(side.text ?? "").trim()) return null;
+  return { format: side.format ?? "plain", text: side.text };
+}
+
+/** Ветвь выдачи, собранная из трёх частей; пустая целиком = ветви нет. */
+function introSide(
+  common: IntroText | null,
+  passed: IntroText | null | undefined,
+  failed: IntroText | null | undefined,
+): IntroBlock | undefined {
+  if (!common && !passed && !failed) return undefined;
+  return {
+    format: common?.format ?? "plain",
+    text: common?.text ?? "",
+    ...(passed ? { passed } : {}),
+    ...(failed ? { failed } : {}),
+  };
+}
+
+/**
+ * Правка ОБЩЕГО вступления одной выдачи. Тексты исхода при этом обязаны уцелеть: автор,
+ * стирающий вступление, не просил стереть поздравление.
+ */
+function setIntroCommon(
+  m: TestEditorModel,
+  side: "results" | "report",
+  next: IntroText | null,
+): TestEditorModel {
+  const cur = m.intro?.[side];
+  return {
+    ...m,
+    intro: { ...(m.intro ?? {}), [side]: introSide(next, cur?.passed, cur?.failed) },
+  };
+}
+
+/** Правка ОДНОГО текста исхода; общее вступление и второй исход не трогаются. */
+function setIntroOutcome(
+  m: TestEditorModel,
+  side: "results" | "report",
+  outcome: "passed" | "failed",
+  next: IntroText | null,
+): TestEditorModel {
+  const cur = m.intro?.[side];
+  const common = introCommonOf(cur);
+  const passed = outcome === "passed" ? next : cur?.passed;
+  const failed = outcome === "failed" ? next : cur?.failed;
+  return {
+    ...m,
+    intro: { ...(m.intro ?? {}), [side]: introSide(common, passed, failed) },
+  };
+}
+
+/**
  * Тексты, которые участник читает ПОСЛЕ теста: общая обратная связь и вводный текст
  * итогов и отчёта. Прежде они висели в «Основном» вперемешку с названием теста (Э3.6).
  */
 export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) {
   return (
     <>
-      {/* Порядок разделов — по эскизу: вводное слово идёт раньше общей обратной связи,
-          как оно идёт и на экране итогов. */}
-      <FormSection stacked title="Вводный текст" data-testid="settings-intro-card">
+      {/* PRD-61 (эскиз approved/prd61-intro-by-outcome.html): вводный текст разведён на ДВЕ
+          карточки, по одной на выдачу, и в каждой три текста — общий и два по вердикту.
+          Адресат ушёл в заголовок карточки, поэтому подписи полей внутри короткие и
+          параллельные. */}
+      <FormSection stacked title="Вводный текст на экране итогов" data-testid="settings-intro-card">
         <IntroEditTrigger
-          label="На экране итогов"
+          label="При любом исходе"
           modalTitle="Вводный текст на экране итогов"
-          description="Идёт первым, до сводки и результатов по темам. Пусто — блока нет."
-          value={model.intro?.results ?? null}
-          onSave={(next) =>
-            updateModel((m) => ({ ...m, intro: { ...(m.intro ?? {}), results: next } }))
-          }
+          description="Идёт первым, до сводки и результатов по темам. Печатается всегда."
+          value={introCommonOf(model.intro?.results)}
+          onSave={(next) => updateModel((m) => setIntroCommon(m, "results", next))}
           testId="settings-intro-results"
         />
-        {/* Переключатель — ССЫЛКА, а не копия: включённый, он не переносит текст в
-            ветвь отчёта, поэтому правка на экране меняет обе выдачи разом, а
-            собственный текст отчёта дожидается своего часа нетронутым. */}
+        <IntroEditTrigger
+          label="Если тест пройден"
+          modalTitle="Вводный текст на экране итогов, если тест пройден"
+          description="Печатается под общим текстом. Тест без порога прохождения его не показывает."
+          value={model.intro?.results?.passed ?? null}
+          onSave={(next) => updateModel((m) => setIntroOutcome(m, "results", "passed", next))}
+          testId="settings-intro-results-passed"
+        />
+        <IntroEditTrigger
+          label="Если тест не пройден"
+          modalTitle="Вводный текст на экране итогов, если тест не пройден"
+          description="Печатается под общим текстом. Тест без порога прохождения его не показывает."
+          value={model.intro?.results?.failed ?? null}
+          onSave={(next) => updateModel((m) => setIntroOutcome(m, "results", "failed", next))}
+          testId="settings-intro-results-failed"
+        />
+      </FormSection>
+      <FormSection stacked title="Вводный текст в отчёте" data-testid="settings-intro-report-card">
+        {/* Переключатель — ССЫЛКА, а не копия: включённый, он не переносит тексты в ветвь
+            отчёта, поэтому правка на экране меняет обе выдачи разом, а собственные тексты
+            отчёта дожидаются своего часа нетронутыми. Действует на все три сразу. */}
         <div className="ou-formfield">
           <Switch
             id="intro-report-same"
-            label="В отчёте — тот же текст, что на экране итогов"
-            description="Правится в одном месте. Выключите, чтобы задать отчёту своё вводное слово."
+            label="Те же тексты, что на экране итогов"
+            description="Правятся в одном месте. Выключите, чтобы задать отчёту своё вводное слово."
             checked={!!model.intro?.reportSameAsResults}
             onChange={(e) =>
               updateModel((m) => ({
@@ -380,16 +458,32 @@ export function FeedbackTextsPane({ model, updateModel }: SettingsSectionProps) 
           />
         </div>
         {!model.intro?.reportSameAsResults && (
-          <IntroEditTrigger
-            label="В отчёте"
-            modalTitle="Вводный текст в отчёте"
-            description="Идёт первым, до карточки результата. Задаётся отдельно от текста экрана."
-            value={model.intro?.report ?? null}
-            onSave={(next) =>
-              updateModel((m) => ({ ...m, intro: { ...(m.intro ?? {}), report: next } }))
-            }
-            testId="settings-intro-report"
-          />
+          <>
+            <IntroEditTrigger
+              label="При любом исходе"
+              modalTitle="Вводный текст в отчёте"
+              description="Идёт первым, до карточки результата. Печатается всегда."
+              value={introCommonOf(model.intro?.report)}
+              onSave={(next) => updateModel((m) => setIntroCommon(m, "report", next))}
+              testId="settings-intro-report"
+            />
+            <IntroEditTrigger
+              label="Если тест пройден"
+              modalTitle="Вводный текст в отчёте, если тест пройден"
+              description="Печатается под общим текстом. Тест без порога прохождения его не показывает."
+              value={model.intro?.report?.passed ?? null}
+              onSave={(next) => updateModel((m) => setIntroOutcome(m, "report", "passed", next))}
+              testId="settings-intro-report-passed"
+            />
+            <IntroEditTrigger
+              label="Если тест не пройден"
+              modalTitle="Вводный текст в отчёте, если тест не пройден"
+              description="Печатается под общим текстом. Тест без порога прохождения его не показывает."
+              value={model.intro?.report?.failed ?? null}
+              onSave={(next) => updateModel((m) => setIntroOutcome(m, "report", "failed", next))}
+              testId="settings-intro-report-failed"
+            />
+          </>
         )}
       </FormSection>
 
@@ -2373,8 +2467,8 @@ function IntroEditTrigger(props: {
   label: string;
   modalTitle: string;
   description: string;
-  value: IntroBlock | null;
-  onSave: (next: IntroBlock | null) => void;
+  value: IntroText | null;
+  onSave: (next: IntroText | null) => void;
   testId: string;
 }) {
   const [open, setOpen] = useState(false);
