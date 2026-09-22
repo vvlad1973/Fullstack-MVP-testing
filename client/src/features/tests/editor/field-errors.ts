@@ -51,6 +51,20 @@ export function buildFieldErrorIndex(issues: ValidationIssue[]): FieldErrorIndex
   };
 }
 
+/**
+ * Событие «к этому месту идёт переход — раскройся».
+ *
+ * `goToError` шлёт его на якоре поля, и оно ВСПЛЫВАЕТ: каждая сворачиваемая карточка
+ * на пути слышит его и открывается, поэтому вложенность разбирается сама, без знания
+ * о том, кто внутри кого лежит.
+ *
+ * Явное событие, а не догадка по DOM, потому что тело свёрнутой карточки остаётся в
+ * разметке — её прячет CSS. Значит и «точный» якорь находится, и `focus()` на нём
+ * молча не срабатывает: до этого автор нажимал «Перейти к ошибкам» и не двигался
+ * никуда, а ошибка оставалась невидимой.
+ */
+export const REVEAL_EVENT = "tb:reveal";
+
 /** Empty index — used as a safe default when a section receives no errors. */
 export const EMPTY_FIELD_ERRORS: FieldErrorIndex = {
   get: () => undefined,

@@ -24,6 +24,7 @@ import {
 } from "../topics-structure-section";
 import type { TestEditorModel, EditorSection } from "../../test-editor.types";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
+import { buildFieldErrorIndex } from "../../field-errors";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -109,6 +110,54 @@ describe("<CompositionSection />", () => {
       <CompositionSection model={baseModel()} updateModel={() => {}} />,
     );
     expect(screen.getByTestId("composition-empty")).toBeInTheDocument();
+  });
+
+  // Контракт «Индикация проблем»: ошибка, о которой сказал баннер, обязана быть
+  // видна на месте. Тело карточки темы существует только в развёрнутом виде, и
+  // свёрнутая карточка молчала: автор видел «Поля с ошибками: 1» и пустой экран.
+  it("свёрнутая карточка темы несёт точку ошибки и якорь перехода", () => {
+    const model = baseModel({
+      sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ", drawCount: 4 })],
+    });
+    const fieldErrors = buildFieldErrorIndex([
+      {
+        field: "sections[0].formSetJson",
+        code: "range",
+        message: "Тема «Основы ИБ»: нужно не менее 2 вариантов теста.",
+        severity: "error",
+      },
+    ]);
+    renderWithClient(
+      <CompositionSection model={model} updateModel={() => {}} fieldErrors={fieldErrors} />,
+    );
+
+    const row = screen.getByTestId("topic-row-top-1");
+    expect(row.getAttribute("aria-expanded")).not.toBe("true");
+    expect(row.getAttribute("data-field")).toBe("sections[0]");
+    const dot = screen.getByTestId("topic-issue-top-1");
+    expect(dot.className).toContain("tb-status-dot--err");
+  });
+
+  it("у темы без ошибок точки в шапке нет", () => {
+    const model = baseModel({
+      sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ", drawCount: 4 })],
+    });
+    renderWithClient(<CompositionSection model={model} updateModel={() => {}} />);
+    expect(screen.queryByTestId("topic-issue-top-1")).toBeNull();
+  });
+
+  // Якоря блоков внутри темы: без них «Перейти к ошибкам» некуда вести — путь
+  // `sections[0].formSetJson` совпадал лишь с общим `sections` на кнопке «Добавить тему».
+  it("блоки квот и вариантов несут собственные якоря", () => {
+    const model = baseModel({
+      sections: [buildSection({ topicId: "top-1", topicName: "Основы ИБ", drawCount: 4 })],
+    });
+    renderWithClient(<CompositionSection model={model} updateModel={() => {}} />);
+    fireEvent.click(screen.getByTestId("topic-chev-top-1"));
+
+    const row = screen.getByTestId("topic-row-top-1");
+    expect(row.querySelector('[data-field="sections[0].drawBlueprintJson"]')).not.toBeNull();
+    expect(row.querySelector('[data-field="sections[0].formSetJson"]')).not.toBeNull();
   });
 
   it("шеврон строки темы разворачивает её, а не молчит", () => {

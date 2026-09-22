@@ -272,6 +272,52 @@ describe("<TestEditor /> FR-20c — error summary anchor navigation", () => {
     await screen.findByText("Sample Test");
     expect(screen.queryByTestId("test-editor-error-summary")).toBeNull();
   });
+
+  // Контракт «Индикация проблем»: баннер говорит, СКОЛЬКО проблем И В ЧЁМ ОНИ.
+  // Один счётчик оставлял автора со свёрнутой карточкой наедине с «Поля с ошибками: 1».
+  it("баннер называет саму ошибку, а не только их число", async () => {
+    nextResponse(buildApiResponse({ title: "" }));
+    const client = makeClient();
+    render(withClient(client, <TestEditor testId="test-1" open onClose={() => {}} />));
+
+    const banner = await screen.findByTestId("test-editor-error-summary");
+    expect(banner).toHaveTextContent("Название обязательно.");
+  });
+
+  // Ошибка внутри темы: точного якоря в DOM нет, пока карточка свёрнута, а общий
+  // `data-field="sections"` висит на кнопке «Добавить тему» — переход уводил на неё,
+  // и автор оставался без подсветки и без сообщения.
+  it("переход к ошибке темы раскрывает карточку и ведёт к полю, а не к «Добавить тему»", async () => {
+    nextResponse(
+      buildApiResponse({
+        sections: [
+          {
+            id: "section-1",
+            topicId: "topic-1",
+            topicName: "Основы ИБ",
+            drawCount: 50,
+            required: true,
+            maxQuestions: 10,
+          },
+        ],
+      }),
+    );
+    const client = makeClient();
+    render(withClient(client, <TestEditor testId="test-1" open onClose={() => {}} />));
+
+    await screen.findByTestId("test-editor-error-summary");
+    expect(screen.getByTestId("topic-toggle-topic-1")).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: /Перейти к ошибкам/i }));
+
+    await waitFor(() => {
+      // Карточка раскрыта: её тело остаётся в разметке и в свёрнутом виде, поэтому
+      // проверяем именно состояние свёртки, а не присутствие поля в DOM.
+      expect(screen.getByTestId("topic-toggle-topic-1")).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByTestId("topic-drawcount-topic-1")).toHaveFocus();
+    });
+    expect(screen.getByTestId("composition-add-topic")).not.toHaveFocus();
+  });
 });
 
 // ─── Hook-level conflict / 422 tests ──────────────────────────────────────────

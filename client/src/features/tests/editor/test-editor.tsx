@@ -48,8 +48,8 @@ import {
   type UseTestEditorResult,
 } from "./use-test-editor";
 import { apiToEditorModel, type ApiTestResponse } from "./test-editor.mappers";
-import type { TestEditorModel } from "./test-editor.types";
-import { buildFieldErrorIndex, buildIssueLevel } from "./field-errors";
+import type { TestEditorModel, ValidationIssue } from "./test-editor.types";
+import { buildFieldErrorIndex, buildIssueLevel, REVEAL_EVENT } from "./field-errors";
 import { useDesignSettings } from "./use-design-settings";
 import { useContentPages, hasStructureErrors, hasStructureWarnings } from "./use-content-pages";
 import { useToast } from "@/hooks/use-toast";
@@ -159,6 +159,68 @@ function tabForField(field: string): EditorTabKey {
   if (field.startsWith("scales") || field.startsWith("resultVariables")) return "scoring";
   if (field.startsWith("retakePolicy") || field.startsWith("runtime")) return "rules";
   return "main";
+}
+
+/**
+ * Русское склонение слова «поле» при числе (2 поля, 5 полей).
+ */
+function pluralFields(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return "полей";
+  const mod10 = n % 10;
+  if (mod10 === 1) return "поле";
+  if (mod10 >= 2 && mod10 <= 4) return "поля";
+  return "полей";
+}
+
+/**
+ * Строка баннера, называющая САМУ проблему: сообщение первой находки плюс хвост
+ * «Ещё N полей» — остальные автор увидит на месте, когда исправит эту.
+ *
+ * Перечислять все сообщения нельзя: их бывает десяток, и баннер вытеснил бы форму.
+ * Молчать тоже нельзя — контракт «Индикация проблем» требует от баннера «сколько
+ * проблем И В ЧЁМ ОНИ», а до этого он печатал только число.
+ *
+ * @param issues - Находки одного уровня (ошибки или предупреждения).
+ * @param fieldCount - Сколько РАЗНЫХ адресов они занимают (то же число, что в заголовке).
+ * @returns Готовая строка или `null`, если находок нет.
+ */
+function summarizeIssues(issues: ValidationIssue[], fieldCount: number): string | null {
+  const first = issues[0];
+  if (!first) return null;
+  const rest = Math.max(0, fieldCount - 1);
+  return rest === 0 ? first.message : `${first.message} Ещё ${rest} ${pluralFields(rest)}.`;
+}
+
+/**
+ * Ближайший якорь `[data-field]` к адресу `field`: точное совпадение, иначе самый
+ * ДЛИННЫЙ путь-предок.
+ *
+ * Длина решает потому, что адреса вложены друг в друга: у темы есть и общий
+ * `sections` (кнопка «Добавить тему»), и `sections[0]` (карточка), и
+ * `sections[0].drawCount` (поле). Прежний отбор брал первый подходящий в порядке
+ * DOM, а кнопка добавления стоит ВЫШЕ карточек — поэтому переход к ошибке внутри
+ * темы приводил автора к добавлению новой темы.
+ *
+ * @param root - Корень ящика редактора.
+ * @param field - Адрес поля из находки проверки.
+ * @returns Элемент-якорь или `null`, если подходящего адреса в DOM нет.
+ */
+function findFieldAnchor(root: HTMLElement, field: string): HTMLElement | null {
+  const exact = root.querySelector<HTMLElement>(`[data-field="${field}"]`);
+  if (exact) return exact;
+  let best: HTMLElement | null = null;
+  let bestLength = -1;
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-field]"))) {
+    const f = el.dataset.field;
+    if (f === undefined) continue;
+    if (!(field.startsWith(`${f}.`) || field.startsWith(`${f}[`))) continue;
+    if (f.length > bestLength) {
+      best = el;
+      bestLength = f.length;
+    }
+  }
+  return best;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -346,6 +408,18 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     [editor.validation.warnings],
   );
 
+  // Контракт «Индикация проблем»: баннер говорит, СКОЛЬКО проблем и В ЧЁМ ОНИ.
+  // Один счётчик оставлял автора ни с чем, когда виноватое поле лежит в свёрнутой
+  // карточке: на экране «Поля с ошибками: 1» и ни одной пометки.
+  const errorSummary = useMemo(
+    () => summarizeIssues(editor.validation.errors, errorFieldCount),
+    [editor.validation.errors, errorFieldCount],
+  );
+  const warningSummary = useMemo(
+    () => summarizeIssues(editor.validation.warnings, warningFieldCount),
+    [editor.validation.warnings, warningFieldCount],
+  );
+
   // FR-20c: per-field error index passed to every section so the exact
   // offending control is marked invalid (not just the tab badge / banner).
   const fieldErrors = useMemo(
@@ -363,38 +437,67 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   /**
    * FR-20c: switch to the tab owning `field`, then scroll/focus the matching
    * input. Anchors are `data-field` attributes on the section formfields; an
-   * exact match wins, otherwise the nearest ancestor path (for nested array
-   * fields) is used. Focus lands on the first focusable control inside it.
+   * exact match wins, otherwise the CLOSEST ancestor path (see
+   * {@link findFieldAnchor}). Focus lands on the first focusable control inside it.
+   *
+   * Карточку, внутри которой лежит адрес, переход РАСКРЫВАЕТ: тело свёрнутой карточки
+   * не смонтировано, поэтому ни точного якоря, ни сообщения об ошибке в DOM нет, и
+   * автор приезжал к молчащей карточке (а до якоря на самой карточке — и вовсе к
+   * кнопке «Добавить тему»: общий адрес `sections` висит на ней).
    */
   const goToError = useCallback((field: string) => {
     setActiveTab(tabForField(field));
+    /**
+     * Прокрутить к якорю и поставить фокус на его поле.
+     *
+     * @returns `false` — поле ещё скрыто (браузер не принимает фокус на невидимом
+     * элементе), значит раскрытие карточки не доехало и попытку надо повторить.
+     */
+    const land = (anchor: HTMLElement): boolean => {
+      anchor.scrollIntoView?.({ block: "center" });
+      // Поле вперёд кнопок: у числового поля DS первыми в разметке идут стрелки
+      // «Уменьшить»/«Увеличить», и фокус доставался им — автор приезжал к ошибке,
+      // а под курсором оказывалось действие, меняющее значение.
+      const control = anchor.matches("input, textarea, select, button, [tabindex]")
+        ? anchor
+        : anchor.querySelector<HTMLElement>("input, textarea, select") ??
+          anchor.querySelector<HTMLElement>("button, [tabindex]");
+      control?.focus();
+      const landed = control == null || document.activeElement === control;
+      // Программный `focus()` не считается «видимым» фокусом: `:focus-visible` браузер
+      // ставит по клавиатуре, а не по вызову из кода, — и после перехода поле выглядит
+      // ровно как соседние. Кольцо ставим сами и снимаем, когда поле покинут; на
+      // неудавшейся попытке не ставим вовсе — снять его было бы уже нечем.
+      const box = anchor.matches(".ou-field, .ou-textarea, .ou-select")
+        ? anchor
+        : anchor.querySelector<HTMLElement>(".ou-field, .ou-textarea, .ou-select");
+      if (box && landed) {
+        box.classList.add("is-focused");
+        control?.addEventListener("blur", () => box.classList.remove("is-focused"), { once: true });
+      }
+      return landed;
+    };
     // Defer to the next macrotask so the freshly-activated tab has rendered.
     window.setTimeout(() => {
       const root = drawerRef.current;
       if (!root) return;
-      let anchor = root.querySelector<HTMLElement>(`[data-field="${field}"]`);
-      if (!anchor) {
-        anchor = Array.from(root.querySelectorAll<HTMLElement>("[data-field]")).find((el) => {
-          const f = el.dataset.field;
-          return f !== undefined && (field === f || field.startsWith(`${f}.`) || field.startsWith(`${f}[`));
-        }) ?? null;
-      }
+      const anchor = findFieldAnchor(root, field);
       if (!anchor) return;
-      anchor.scrollIntoView?.({ block: "center" });
-      const control = anchor.matches("input, textarea, select, button, [tabindex]")
-        ? anchor
-        : anchor.querySelector<HTMLElement>("input, textarea, select, button, [tabindex]");
-      control?.focus();
-      // Программный `focus()` не считается «видимым» фокусом: `:focus-visible` браузер
-      // ставит по клавиатуре, а не по вызову из кода, — и после перехода поле выглядит
-      // ровно как соседние. Кольцо ставим сами и снимаем, когда поле покинут.
-      const box = anchor.matches(".ou-field, .ou-textarea, .ou-select")
-        ? anchor
-        : anchor.querySelector<HTMLElement>(".ou-field, .ou-textarea, .ou-select");
-      if (box) {
-        box.classList.add("is-focused");
-        control?.addEventListener("blur", () => box.classList.remove("is-focused"), { once: true });
-      }
+      // Сначала просим раскрыться всё, внутри чего лежит адрес. Событие ВСПЛЫВАЕТ,
+      // поэтому вложенность разбирается сама: каждая свёрнутая карточка на пути
+      // слышит его и открывается. Угадывать это по DOM нельзя — тело свёрнутой
+      // карточки остаётся в разметке (её прячет CSS), так что и «точный» якорь
+      // находится, и фокус на нём молча не встаёт: автор приезжал в никуда.
+      anchor.dispatchEvent(new CustomEvent(REVEAL_EVENT, { bubbles: true }));
+      // Раскрытие доезжает не мгновенно, а пока карточка закрыта, поле не принимает
+      // фокус. Пробуем несколько кадров подряд и сдаёмся, чтобы не крутиться вечно.
+      const tryLand = (attempt: number) => {
+        const root2 = drawerRef.current;
+        if (!root2) return;
+        if (land(findFieldAnchor(root2, field) ?? anchor)) return;
+        if (attempt < 5) window.setTimeout(() => tryLand(attempt + 1), 32);
+      };
+      tryLand(0);
     }, 0);
   }, []);
 
@@ -679,7 +782,11 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
                 <Banner
                   tone="error"
                   title={`Поля с ошибками: ${errorFieldCount}`}
-                  description="Исправьте отмеченные поля — сохранение недоступно, пока есть ошибки."
+                  description={
+                    errorSummary
+                      ? `${errorSummary} Сохранение недоступно, пока есть ошибки.`
+                      : "Исправьте отмеченные поля — сохранение недоступно, пока есть ошибки."
+                  }
                   actions={
                     editor.validation.errors.length > 0
                       ? [
@@ -697,7 +804,11 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
                 <Banner
                   tone="warning"
                   title={`Предупреждения: ${warningFieldCount}`}
-                  description="Сохранить можно, но посмотрите — вероятно, задумано было иначе."
+                  description={
+                    warningSummary
+                      ? `${warningSummary} Сохранить можно, но посмотрите — вероятно, задумано было иначе.`
+                      : "Сохранить можно, но посмотрите — вероятно, задумано было иначе."
+                  }
                   actions={[
                     {
                       label: "Перейти к предупреждениям",

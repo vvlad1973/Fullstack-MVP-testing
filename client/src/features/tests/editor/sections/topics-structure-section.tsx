@@ -19,7 +19,7 @@
  * прохождения» table column — has been retired; this is the single point of
  * control for `sections[].required`.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -77,7 +77,7 @@ import type {
 } from "../test-editor.types";
 import { applyFormSetChange } from "../test-editor.mappers";
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
-import { EMPTY_FIELD_ERRORS, type FieldErrorIndex } from "../field-errors";
+import { EMPTY_FIELD_ERRORS, REVEAL_EVENT, type FieldErrorIndex } from "../field-errors";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -498,6 +498,9 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
       drawCountError={fieldErrors.get(`sections[${index}].drawCount`)}
       blueprintError={fieldErrors.get(`sections[${index}].drawBlueprintJson`)}
       variantsError={fieldErrors.get(`sections[${index}].formSetJson`)}
+      // `has` матчит и потомков: точка загорается от ЛЮБОЙ ошибки внутри темы,
+      // а не только от трёх, у которых есть своё сообщение в карточке.
+      hasIssue={fieldErrors.has(`sections[${index}]`)}
       topicTags={tagsByTopic.get(section.topicId)?.tags ?? []}
       availByKey={tagsByTopic.get(section.topicId)?.availByKey ?? {}}
       tagsByQuestion={tagsByQuestion}
@@ -867,6 +870,13 @@ function TopicRow(props: {
   onChangeFormSet: (formSet: FormSet | null) => void;
   /** FR-20c: validation message for this section's variants. */
   variantsError?: string;
+  /**
+   * Контракт «Индикация проблем»: в теме есть блокирующая ошибка — по ЛЮБОМУ её
+   * адресу, включая те, у которых нет своего сообщения в карточке. Тело карточки
+   * живёт только в развёрнутом виде, поэтому свёрнутая обязана сказать о проблеме
+   * сама — иначе баннер насчитал ошибку, а показать её негде.
+   */
+  hasIssue?: boolean;
   /** Цена ответа в этом тесте — для меты строк в наборе вариантов. */
   pointsOf: (questionId: string) => number;
   onRemove: () => void;
@@ -924,13 +934,39 @@ function TopicRow(props: {
     opacity: sortable.isDragging ? 0.5 : undefined,
   };
 
+  // «Перейти к ошибкам» целится в поле ВНУТРИ карточки. Тело свёрнутой карточки
+  // остаётся в разметке (её прячет CSS), поэтому сам переход раскрыть её не может —
+  // он лишь просит об этом событием, а знает про свёртку карточка.
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const setRowRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      rowRef.current = el;
+      sortable.setNodeRef(el);
+    },
+    [sortable],
+  );
+  const { open, onToggleOpen } = props;
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const reveal = () => {
+      if (!open) onToggleOpen();
+    };
+    el.addEventListener(REVEAL_EVENT, reveal);
+    return () => el.removeEventListener(REVEAL_EVENT, reveal);
+  }, [open, onToggleOpen]);
+
   return (
     <>
       <div
-        ref={sortable.setNodeRef}
+        ref={setRowRef}
         style={dragStyle}
         className={`ou-acc__item${props.open ? " is-open" : ""}`}
         data-testid={`topic-row-${section.topicId}`}
+        // FR-20c: якорь перехода на КАРТОЧКУ темы. Без него самым близким адресом
+        // для `sections[i].*` оставался общий `sections` на кнопке «Добавить тему»,
+        // и «Перейти к ошибкам» уводило от виноватой темы к добавлению новой.
+        data-field={`sections[${props.index}]`}
       >
         {/* Шапка аккордеона отдельной строкой, а не содержимым триггера: кнопку удаления
             нельзя вкладывать в кнопку раскрытия — это и невалидная разметка, и клик по
@@ -946,6 +982,16 @@ function TopicRow(props: {
           >
             <GripVertical size={14} aria-hidden="true" />
           </span>
+          {/* Точка статуса — тем же знаком и в том же месте шапки, что у карточки
+              шкалы: ошибка внутри видна, пока карточка свёрнута. Чисто — точки нет
+              (контракт «Индикация проблем»: точка, а не счётчик, и только по делу). */}
+          {props.hasIssue && (
+            <span
+              className="tb-status-dot tb-status-dot--err"
+              aria-label={`Есть ошибки: ${section.topicName}`}
+              data-testid={`topic-issue-${section.topicId}`}
+            />
+          )}
           <button
             type="button"
             className="ou-acc__trigger"
@@ -1117,31 +1163,38 @@ function TopicRow(props: {
             </span>
           </div>
 
-          <KeysTable
-            topicId={section.topicId}
-            topicName={section.topicName}
-            drawCount={section.drawCount}
-            blueprint={section.drawBlueprint ?? null}
-            topicTags={props.topicTags}
-            availByKey={props.availByKey}
-            onChange={props.onChangeBlueprint}
-            disabled={partialDrawLocked}
-            disabledReason={quotaReason}
-            formSet={variantsOn ? (section.formSet ?? null) : null}
-            tagsByQuestion={props.tagsByQuestion}
-          />
+          {/* FR-20c: свой якорь на каждый блок, у которого есть своя проверка —
+              иначе переход к `drawBlueprintJson` / `formSetJson` упирался в общий
+              адрес темы и автор искал виноватый блок глазами. */}
+          <div data-field={`sections[${props.index}].drawBlueprintJson`}>
+            <KeysTable
+              topicId={section.topicId}
+              topicName={section.topicName}
+              drawCount={section.drawCount}
+              blueprint={section.drawBlueprint ?? null}
+              topicTags={props.topicTags}
+              availByKey={props.availByKey}
+              onChange={props.onChangeBlueprint}
+              disabled={partialDrawLocked}
+              disabledReason={quotaReason}
+              formSet={variantsOn ? (section.formSet ?? null) : null}
+              tagsByQuestion={props.tagsByQuestion}
+            />
+          </div>
 
           {/* PRD-17 (BR-12): fixed variants. In adaptive mode the section draws by
               difficulty levels, so the editor is shown DISABLED (not hidden). */}
-          <VariantsEditor
-            topicId={section.topicId}
-            topicName={section.topicName}
-            formSet={section.formSet ?? null}
-            onChange={props.onChangeFormSet}
-            error={props.variantsError}
-            disabled={props.adaptive}
-            pointsOf={props.pointsOf}
-          />
+          <div data-field={`sections[${props.index}].formSetJson`}>
+            <VariantsEditor
+              topicId={section.topicId}
+              topicName={section.topicName}
+              formSet={section.formSet ?? null}
+              onChange={props.onChangeFormSet}
+              error={props.variantsError}
+              disabled={props.adaptive}
+              pointsOf={props.pointsOf}
+            />
+          </div>
 
           {/* Обратная связь темы правится во вкладке «Обратная связь и итоги»,
               подраздел «Обратная связь», карточка «По темам»: там она показана
