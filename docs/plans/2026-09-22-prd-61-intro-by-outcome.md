@@ -25,7 +25,8 @@
 
 **Файлы:**
 
-- Создать: `docs/wireframes/prd61-intro-by-outcome.html`
+- Создать: `docs/wireframes/prd61-intro-by-outcome.html`; после согласования — переехал в
+  `docs/wireframes/approved/prd61-intro-by-outcome.html` (СОГЛАСОВАН владельцем 2026-09-22)
 - Читать перед началом: `docs/guides/ds-handbook.md` (handbook-first), существующий эскиз
   ящика `docs/wireframes/editor-settings-target.html` — карточка «Вводный текст» в нём уже есть
 

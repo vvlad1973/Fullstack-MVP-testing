@@ -1590,47 +1590,58 @@
                 <button type="button" class="ou-drawer__rail-item">Отчёт</button>
               </nav>
               <div class="tb-settings-content">
+              <!-- PRD-61 (эскиз approved/prd61-intro-by-outcome.html, согласован 2026-09-22):
+                   вводный текст разведён на ДВЕ карточки, и у каждой три текста — общий и два по
+                   вердикту. Карточка «Общая обратная связь теста» отсюда УБРАНА: три вводных
+                   текста делают её избыточной (спецификация PRD-61 §10). Материалы остаются у
+                   ТЕМ, на странице «По темам». -->
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro">
-                  <h3 class="ou-formsection__title">Вводный текст</h3>
+                  <h3 class="ou-formsection__title">Вводный текст на экране итогов</h3>
                 </div>
                 <div class="ou-formsection__body">
                   <div class="ou-formfield">
-                    <label class="ou-formfield__lbl">На экране итогов</label>
+                    <label class="ou-formfield__lbl">При любом исходе</label>
                     <div class="tb-feedback-preview">
                       <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Вы прошли сертификацию руководителей. Ниже — ваш результат по темам.</span>
-                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                        <span class="tb-feedback-preview__snippet">Спасибо за прохождение теста.</span>
+                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: вводный текст на экране итогов при любом исходе"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
                       </div>
-                  </div>
+                    </div>
                   </div>
                   <div class="ou-formfield">
-                    <label class="ou-switch-field">
-                      <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
-                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">В отчёте — тот же текст, что на экране итогов</span><span class="ou-switch-field__desc">Правится в одном месте. Выключите, чтобы задать отчёту своё вводное слово.</span></span>
-                    </label>
+                    <label class="ou-formfield__lbl">Если тест пройден</label>
+                    <div class="tb-feedback-preview">
+                      <div class="tb-feedback-preview__head">
+                        <span class="tb-feedback-preview__snippet">Ваш уровень компетенций и знаний соответствует стандарту руководителя в «Ростелекоме».</span>
+                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: вводный текст на экране итогов, если тест пройден"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                      </div>
+                    </div>
                   </div>
-                  <!-- Переключатель выключен: появляется второе поле «В отчёте» с собственным
-                       текстом. Пока он включён, поля нет — дубля того же текста не показываем. -->
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl">Если тест не пройден</label>
+                    <div class="tb-feedback-preview">
+                      <div class="tb-feedback-preview__head">
+                        <span class="tb-feedback-preview__snippet">Пока вам не хватает баллов по одной или нескольким темам. Повторно пройти тест можно через 14 дней.</span>
+                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: вводный текст на экране итогов, если тест не пройден"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="ou-formsection ou-formsection--stacked">
                 <div class="ou-formsection__intro">
-                  <h3 class="ou-formsection__title">Общая обратная связь теста</h3>
+                  <h3 class="ou-formsection__title">Вводный текст в отчёте</h3>
                 </div>
                 <div class="ou-formsection__body">
-                    <div class="tb-feedback-preview">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Поздравляем! Сертификация пройдена. Ниже — разбор по темам.</span>
-                        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать обратную связь"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
-                      </div>
-                      <div class="tb-feedback-preview__group">
-                        <div class="tb-feedback-preview__group-title">Курсы</div>
-                        <ul class="tb-feedback-preview__items">
-                          <li class="tb-feedback-preview__item">Управление изменениями</li>
-                        </ul>
-                      </div>
-                    </div>
+                  <div class="ou-formfield">
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">Те же тексты, что на экране итогов</span><span class="ou-switch-field__desc">Правятся в одном месте. Выключите, чтобы задать отчёту своё вводное слово.</span></span>
+                    </label>
+                  </div>
+                  <!-- Переключатель выключен: появляются те же три поля, но со своими текстами.
+                       Пока он включён, полей нет — дубля тех же текстов не показываем. -->
                 </div>
               </div>
             </div>
