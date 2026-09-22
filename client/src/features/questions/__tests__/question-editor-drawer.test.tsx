@@ -4,8 +4,9 @@
  * prop-driven question editor mounted in a design-system Drawer. Coverage:
  *   - Per-type builders render (single / multiple / matching / ranking), driven
  *     by the `question` prop and by the type SegmentedControl.
- *   - Field editing: prompt text, topic Select, option add / remove, marking the
- *     correct answer (single radio, multiple checkbox).
+ *   - Field editing: prompt text, topic Combobox (selection, substring search and
+ *     its empty state), option add / remove, marking the correct answer (single
+ *     radio, multiple checkbox).
  *   - Live validation: the error banner appears (empty prompt) and blocks save;
  *     a valid form enables save.
  *   - Save paths: create routes through the create mutation (POST /api/questions,
@@ -227,15 +228,87 @@ describe("<QuestionEditorDrawer />", () => {
     expect(screen.getByRole("checkbox", { name: "Вариант ответа 3" })).toBeChecked();
   });
 
+  /** Open the topic picker and hand back its search input. */
+  function openTopicPicker(): HTMLInputElement {
+    const field = screen.getByTestId("select-question-topic");
+    // The field holds two buttons (trigger + reset), so address the trigger by class.
+    fireEvent.click(field.querySelector(".ou-select__trigger") as HTMLButtonElement);
+    return within(field).getByRole("combobox") as HTMLInputElement;
+  }
+
+  /** What the closed topic picker currently shows. */
+  function topicPickerValue(): string {
+    const field = screen.getByTestId("select-question-topic");
+    return field.querySelector(".ou-select__value")?.textContent ?? "";
+  }
+
   it("selecting a topic clears the topic-required validation error", () => {
     renderDrawer();
     expect(screen.getByText("Тема обязательна")).toBeInTheDocument();
 
-    const trigger = within(screen.getByTestId("select-question-topic")).getByRole("button");
-    fireEvent.click(trigger);
+    openTopicPicker();
     fireEvent.click(screen.getByRole("option", { name: "Тема A" }));
 
     expect(screen.queryByText("Тема обязательна")).toBeNull();
+  });
+
+  it("filters the topic list by a substring of the typed query", () => {
+    renderDrawer();
+    const search = openTopicPicker();
+
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Тема A",
+      "Тема B",
+    ]);
+
+    // A substring, not a prefix: the query matches the tail of the name.
+    fireEvent.change(search, { target: { value: "ма b" } });
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Тема B"]);
+
+    fireEvent.click(screen.getByRole("option", { name: "Тема B" }));
+    expect(screen.queryByText("Тема обязательна")).toBeNull();
+    // The picked topic reads as plain text on the trigger — no chip, no checkbox.
+    expect(topicPickerValue()).toBe("Тема B");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.getByTestId("select-question-topic").querySelector(".ou-combo__chip")).toBeNull();
+  });
+
+  it("reports an empty result when no topic matches the query", () => {
+    renderDrawer();
+    const search = openTopicPicker();
+
+    fireEvent.change(search, { target: { value: "кварк" } });
+
+    expect(screen.getByText("Тема не найдена")).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Тема A" })).toBeNull();
+  });
+
+  it("drops the query when the picker is reopened", () => {
+    renderDrawer();
+    const search = openTopicPicker();
+    fireEvent.change(search, { target: { value: "B" } });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    const reopened = openTopicPicker();
+
+    expect(reopened.value).toBe("");
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+  });
+
+  it("resets the chosen topic through the clear button", () => {
+    renderDrawer({ defaultTopicId: "t1" });
+    const field = screen.getByTestId("select-question-topic");
+    expect(topicPickerValue()).toBe("Тема A");
+    expect(screen.queryByText("Тема обязательна")).toBeNull();
+
+    fireEvent.click(within(field).getByRole("button", { name: "Очистить тему" }));
+
+    // Cleared: the placeholder is back, the reset button is gone with the value,
+    // and the form reports the field as required again.
+    expect(topicPickerValue()).toBe("Выберите тему");
+    expect(screen.getByText("Тема обязательна")).toBeInTheDocument();
+    expect(within(field).queryByRole("button", { name: "Очистить тему" })).toBeNull();
   });
 
   it("shows the validation banner and blocks save when the prompt is emptied", async () => {

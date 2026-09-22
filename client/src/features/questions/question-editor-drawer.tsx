@@ -4,7 +4,8 @@
  * Drawer, used by both the question bank and the `/author/content` section.
  * The field layout follows the approved wireframe
  * (docs/wireframes/approved/content-bank-explorer.html, state s-q-drawer):
- * Тема -> Тип (Select) -> Текст -> Варианты (per-type builder with
+ * Тема (Select with `searchable` + a reset button — the bank holds hundreds of
+ * topics) -> Тип (Select) -> Текст -> Варианты (per-type builder with
  * drag-reorder handles) -> «Случайный порядок вариантов» -> Сложность
  * (nullable, PRD-16) -> Медиа -> Теги, with the additive (non-wireframe)
  * blocks — conditional feedback and the PRD-15 price-moved hint — appended
@@ -841,6 +842,14 @@ export function QuestionEditorDrawer({
               ))}
             </Banner>
           )}
+          {/*
+            The topic is a searchable Select: the bank holds hundreds of topics, and
+            finding one by eye in a flat list is the slow path. The control stays a
+            plain single-value picker — no chips, no checkbox-looking marks — and the
+            menu simply grows a search row that filters by a substring of the name.
+            The reset button hands the form an empty string, which is what «no topic»
+            means to the schema (and what the validation banner reports).
+          */}
           <Controller
             control={form.control}
             name="topicId"
@@ -849,9 +858,14 @@ export function QuestionEditorDrawer({
                 label={t.questions.topic}
                 value={field.value}
                 onChange={field.onChange}
+                onClear={() => field.onChange("")}
+                clearLabel={t.questions.clearTopic}
                 placeholder={t.questions.selectTopic}
                 error={fieldState.error?.message}
                 fullWidth
+                searchable
+                searchPlaceholder={t.questions.topicSearchPlaceholder}
+                emptyMessage={t.questions.topicSearchEmpty}
                 data-testid="select-question-topic"
                 options={topics?.map((topic) => ({ value: topic.id, label: topic.name })) ?? []}
               />

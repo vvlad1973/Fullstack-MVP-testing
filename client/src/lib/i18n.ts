@@ -495,6 +495,10 @@ export const t = {
     loadingQuestions: "Загрузка вопросов...",
     topic: "Тема",
     selectTopic: "Выберите тему",
+    /** Search row of the topic picker, its empty state and its reset button. */
+    topicSearchPlaceholder: "Поиск по названию темы",
+    topicSearchEmpty: "Тема не найдена",
+    clearTopic: "Очистить тему",
     type: "Тип",
     questionType: "Тип вопроса",
     selectType: "Выберите тип",
