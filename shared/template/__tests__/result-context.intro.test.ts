@@ -35,7 +35,7 @@ const run = (passed: boolean) => ({
 describe("вводный текст по исходу (PRD-61)", () => {
   it("пройден: общее вступление, затем текст прошедшему", () => {
     const ctx = buildResultContext(run(true), "Тест", { intro, hasPassThreshold: true });
-    expect(ctx.result.introHtml).toBe("Спасибо за прохождение теста.Поздравляем.");
+    expect(ctx.result.introHtml).toBe("Спасибо за прохождение теста.<br><br>Поздравляем.");
   });
 
   it("не пройден: общее вступление, затем текст не прошедшему", () => {
@@ -82,7 +82,7 @@ describe("вводный текст по исходу (PRD-61)", () => {
       intro: { format: "plain", text: "Строка\nВторая", passed: { format: "richText", text: "<b>Ура</b>" } },
       hasPassThreshold: true,
     });
-    expect(ctx.result.introHtml).toBe("Строка<br>Вторая<b>Ура</b>");
+    expect(ctx.result.introHtml).toBe("Строка<br>Вторая<br><br><b>Ура</b>");
   });
 
   it("старая форма без ветвей исхода: контекст прежний", () => {

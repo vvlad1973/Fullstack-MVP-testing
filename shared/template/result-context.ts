@@ -1315,7 +1315,11 @@ export function buildResultContext(
   })
     .map((b) => richTextToHtml(b.text, b.format ?? undefined))
     .filter(Boolean)
-    .join("");
+    // Пустая строка между блоками, а не пустой шов: простой текст приходит без обёртки в
+    // абзац, и склейка встык давала «…прохождение теста.Пока вам не хватает баллов…» одной
+    // строкой. `join` на единственном блоке не добавляет ничего, поэтому старая форма — один
+    // текст — печатается байт в байт как печаталась.
+    .join("<br><br>");
   if (introHtml) result.introHtml = introHtml;
   if (opts.recommendedCourses && opts.recommendedCourses.length) result.recommendedCourses = opts.recommendedCourses;
   if (opts.recommendedEvents && opts.recommendedEvents.length) result.recommendedEvents = opts.recommendedEvents;
@@ -1779,7 +1783,7 @@ export function buildAdaptiveResultContext(
   })
     .map((b) => richTextToHtml(b.text, b.format ?? undefined))
     .filter(Boolean)
-    .join("");
+    .join("<br><br>");
   if (adaptiveIntroHtml) result.introHtml = adaptiveIntroHtml;
   if (opts.hasScormActions) {
     result.hasScormActions = true;
