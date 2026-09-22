@@ -65,6 +65,57 @@
       .wf-state { display: none; }
       .wf-state.active { display: block; }
       .wf-state .ou-drawer { top: var(--ou-space-12); }
+
+      /* ══ Интервалы — из эталона ящика (editor-settings-target.html, строки 71-141),
+         перенесены дословно. Часть правил перебивает СОБСТВЕННЫЕ интервалы компонентов
+         ui-kit; чтобы интерфейс совпал с эскизом, те же значения надо поменять в
+         vendor/ui-kit — строки помечены комментарием «ui-kit». ══ */
+
+      /* ── Края ящика: всё содержимое отбито от края на 6x ─────────────────── */
+      .ou-drawer__head { padding: var(--ou-space-6); }            /* ui-kit: 20 -> 24 */
+      .ou-tabs__list { padding-inline: var(--ou-space-6); }       /* ui-kit: 0 -> 24 */
+      /* Семь вкладок с точками состояния шире полосы: отступ вкладки — на два шага меньше,
+         полосе разрешена прокрутка (то же правило в `tb-components.css`). */
+      .ou-tabs--m .ou-tabs__tab { padding-inline: var(--ou-space-2); }
+      .ou-tabs__list { overflow-x: auto; scrollbar-width: thin; }
+      .ou-drawer__body { padding: 0; }
+      .ou-drawer__foot { padding: var(--ou-space-6); }            /* ui-kit: 20 -> 24 */
+      .ou-drawer__rail { padding: var(--ou-space-6); }            /* ui-kit: 24/16 -> 24 */
+      .ou-drawer__split .tb-settings-content { flex: 1 1 auto; min-width: 0; }
+      .tb-settings-content { padding: var(--ou-space-6); }        /* проектный слой: 20 -> 24 */
+
+      /* ── Родственные пары внутри компонентов: 1x ─────────────────────────── */
+      /* Проектный слой (tb-components.css:148) даёт формфилду gap 8 и нижнюю отбивку 16;
+         второе складывалось с интервалом группы. Правится там же, не в ui-kit. */
+      .ou-formfield,
+      .tb-settings-content .ou-formfield { gap: var(--ou-space-1); margin-bottom: 0; }
+      .ou-switch-field { gap: var(--ou-space-1); }                /* ui-kit: 12 -> 4 */
+      .ou-switch-field__text { gap: var(--ou-space-1); }          /* ui-kit: 2 -> 4 */
+      .ou-btn { gap: var(--ou-space-1); }                         /* ui-kit: 8 -> 4 */
+
+      /* ── Однородные строки списка: 1x ────────────────────────────────────── */
+      .ou-drawer__rail { gap: var(--ou-space-1); }                /* ui-kit: 2 -> 4 */
+      .ou-drawer__foot { gap: var(--ou-space-1); }                /* ui-kit: 12 -> 4 */
+
+      /* ── Разные элементы: 4x ─────────────────────────────────────────────── */
+      .tb-settings-content > * { margin: var(--ou-space-4) 0 0; }
+      .tb-settings-content > *:first-child { margin-top: 0; }
+      /* Разделы отбиваются друг от друга сильнее, чем заголовок от своего содержимого. */
+      .tb-settings-content > .ou-formsection { margin-top: var(--ou-space-6); }
+      .tb-settings-content > .ou-formsection:first-child { margin-top: 0; }
+      /* Раскладка группы — одна колонка (штатный --stacked), без разделителя и
+         собственных вертикальных полей: интервалы задаёт панель. */
+      .ou-formsection { padding: 0; border-bottom: 0; }
+      .ou-formsection__body { gap: var(--ou-space-4); }           /* ui-kit: 20 -> 16 */
+      /* ДС отбивает соседние поля ЕЩЁ И собственным margin (`.ou-formfield + .ou-formfield`,
+         skillum-ds.css), и он складывается с gap группы: между полями выходит 32 вместо 16.
+         В карточке с одним полем это не проявлялось, поэтому и не было замечено — эталон
+         ящика (editor-settings-target.html) несёт тот же двойной интервал. Интервалы задаёт
+         КОНТЕЙНЕР, поэтому margin гасится. */
+      .ou-formsection__body > .ou-formfield + .ou-formfield { margin-top: 0; }  /* ui-kit: 16 -> 0 */
+      /* Заголовок раздела принадлежит своему содержимому: под ним 1x, а до него — 6x. */
+      .ou-formsection__intro { margin-bottom: 0; }
+      .tb-settings-content .ou-formsection { gap: var(--ou-space-1); }
     </style>
   </head>
   <!-- Класс `ou` обязателен: токены ДС объявлены под ним, и без него страница рисуется
