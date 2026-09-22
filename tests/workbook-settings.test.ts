@@ -71,8 +71,21 @@ const ROUND_TRIP_SOURCE = {
     attemptInterval: { enabled: true, hours: 24 },
   },
   introJson: {
-    results: { format: "html" as const, text: "<p>Итоги</p>" },
-    report: { format: "plain" as const, text: "Отчёт" },
+    results: {
+      format: "html" as const,
+      text: "<p>Итоги</p>",
+      // PRD-61: тексты по исходу. Все четыре заведены здесь, потому что гвард реестра ниже
+      // требует, чтобы фикстура ЗАДЕЛА каждый параметр листа — иначе новая строка прошла бы
+      // круг непроверенной.
+      passed: { format: "plain" as const, text: "Итоги: прошёл" },
+      failed: { format: "richText" as const, text: "<b>Итоги: не прошёл</b>" },
+    },
+    report: {
+      format: "plain" as const,
+      text: "Отчёт",
+      passed: { format: "html" as const, text: "<p>Отчёт: прошёл</p>" },
+      failed: { format: "plain" as const, text: "Отчёт: не прошёл" },
+    },
     reportSameAsResults: false,
   },
   // Четыре настройки, которых у листа не было до 2026-09-04: смысл вердикта, результат для
@@ -377,7 +390,34 @@ describe("реестр листа «Настройки»", () => {
     expect(draft.introResults).toEqual({ format: "html", text: "<p>Итоги</p>" });
     expect(draft.introReport).toEqual({ format: "plain", text: "Отчёт" });
     expect(draft.introRoot).toEqual({ reportSameAsResults: false });
+    // PRD-61: тексты исхода едут своими корзинами — по одной на (выдачу, исход).
+    expect(draft.introResultsPassed).toEqual({ format: "plain", text: "Итоги: прошёл" });
+    expect(draft.introResultsFailed).toEqual({ format: "richText", text: "<b>Итоги: не прошёл</b>" });
+    expect(draft.introReportPassed).toEqual({ format: "html", text: "<p>Отчёт: прошёл</p>" });
+    expect(draft.introReportFailed).toEqual({ format: "plain", text: "Отчёт: не прошёл" });
     expect(draft.folderPath).toBe("Аттестация / 2026");
+  });
+
+  it("тексты исхода печатаются на листе отдельными строками (PRD-61)", () => {
+    const rows = serializeSettingsRows(ROUND_TRIP_SOURCE);
+    expect(cellOf(rows, "Вводный текст на экране итогов, если тест пройден")).toBe("Итоги: прошёл");
+    expect(cellOf(rows, "Вводный текст на экране итогов, если тест не пройден"))
+      .toBe("<b>Итоги: не прошёл</b>");
+    expect(cellOf(rows, "Формат вводного текста на экране итогов, если тест не пройден"))
+      .toBe("Форматированный");
+    expect(cellOf(rows, "Вводный текст в отчёте, если тест пройден")).toBe("<p>Отчёт: прошёл</p>");
+    expect(cellOf(rows, "Формат вводного текста в отчёте, если тест пройден")).toBe("HTML");
+    expect(cellOf(rows, "Вводный текст в отчёте, если тест не пройден")).toBe("Отчёт: не прошёл");
+  });
+
+  it("тест без текстов исхода печатает их строки пустыми", () => {
+    // Пустая ячейка = «не трогать»: книга старого теста не должна ничего ему дописывать.
+    const rows = serializeSettingsRows({
+      introJson: { results: { format: "plain" as const, text: "Только общее" } },
+    } as never);
+    expect(cellOf(rows, "Вводный текст на экране итогов")).toBe("Только общее");
+    expect(cellOf(rows, "Вводный текст на экране итогов, если тест пройден")).toBe("");
+    expect(cellOf(rows, "Вводный текст в отчёте, если тест не пройден")).toBe("");
   });
 
   // ── Переименования и старые книги (Э5.1, Э5.2) ──────────────────────────────

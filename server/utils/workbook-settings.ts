@@ -63,6 +63,14 @@ export interface SettingsDraft {
   introResults: Record<string, unknown>;
   introReport: Record<string, unknown>;
   introRoot: Record<string, unknown>;
+  /**
+   * PRD-61: тексты по исходу — своя корзина на каждую пару (выдача, исход), потому что каждая
+   * сливается в СВОЮ вложенную ветвь `intro_json.<выдача>.<исход>`.
+   */
+  introResultsPassed: Record<string, unknown>;
+  introResultsFailed: Record<string, unknown>;
+  introReportPassed: Record<string, unknown>;
+  introReportFailed: Record<string, unknown>;
   /** Merged onto `breakdown_display_json` (PRD-50 FR-13/FR-44). */
   breakdown: Record<string, unknown>;
   /**
@@ -91,13 +99,18 @@ export function emptySettingsDraft(): SettingsDraft {
     introResults: {},
     introReport: {},
     introRoot: {},
+    introResultsPassed: {},
+    introResultsFailed: {},
+    introReportPassed: {},
+    introReportFailed: {},
     breakdown: {},
   };
 }
 
 /** Draft branches available to plain parameters (everything except the scalar fields). */
 type Bucket = "test" | "router" | "overall" | "retake" | "attemptInterval" | "plugin"
-  | "introResults" | "introReport" | "introRoot" | "breakdown";
+  | "introResults" | "introReport" | "introRoot" | "breakdown"
+  | "introResultsPassed" | "introResultsFailed" | "introReportPassed" | "introReportFailed";
 
 export interface SettingParam {
   /** Text of the «Параметр» cell — the editor's label, verbatim. */
@@ -613,6 +626,18 @@ export const SETTING_PARAMS: SettingParam[] = [
   textParam("Вводный текст в отчёте", (s) => branch(s.introJson, "report").text, "introReport", "text"),
   enumParam("Формат вводного текста в отчёте", FORMAT_LABELS, (s) => branch(s.introJson, "report").format, "introReport", "format"),
   boolParam("В отчёте — тот же текст, что на экране итогов", (s) => branch(s.introJson).reportSameAsResults, "introRoot", "reportSameAsResults"),
+
+  // PRD-61: тексты по исходу. ОТДЕЛЬНЫЕ строки, а не один столбец с разделителем: книга
+  // правится руками, и склеенное поле автор порвёт первым же переносом строки. Имена
+  // полные — лист плоский, и другого способа сказать, чей это текст, у него нет.
+  textParam("Вводный текст на экране итогов, если тест пройден", (s) => branch(s.introJson, "results", "passed").text, "introResultsPassed", "text"),
+  enumParam("Формат вводного текста на экране итогов, если тест пройден", FORMAT_LABELS, (s) => branch(s.introJson, "results", "passed").format, "introResultsPassed", "format"),
+  textParam("Вводный текст на экране итогов, если тест не пройден", (s) => branch(s.introJson, "results", "failed").text, "introResultsFailed", "text"),
+  enumParam("Формат вводного текста на экране итогов, если тест не пройден", FORMAT_LABELS, (s) => branch(s.introJson, "results", "failed").format, "introResultsFailed", "format"),
+  textParam("Вводный текст в отчёте, если тест пройден", (s) => branch(s.introJson, "report", "passed").text, "introReportPassed", "text"),
+  enumParam("Формат вводного текста в отчёте, если тест пройден", FORMAT_LABELS, (s) => branch(s.introJson, "report", "passed").format, "introReportPassed", "format"),
+  textParam("Вводный текст в отчёте, если тест не пройден", (s) => branch(s.introJson, "report", "failed").text, "introReportFailed", "text"),
+  enumParam("Формат вводного текста в отчёте, если тест не пройден", FORMAT_LABELS, (s) => branch(s.introJson, "report", "failed").format, "introReportFailed", "format"),
 
   // ── Состав итогов (PRD-50) ──
   enumParam("Подытоги по подтемам (тегам)", BREAKDOWN_VISIBILITY_LABELS, (s) => branch(s.breakdownDisplayJson).visibility, "breakdown", "visibility"),

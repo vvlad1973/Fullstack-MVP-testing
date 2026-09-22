@@ -219,6 +219,8 @@ function countSettingsParams(draft: SettingsDraft): number {
   const groups = [
     draft.test, draft.router, draft.overall, draft.retake, draft.attemptInterval,
     draft.plugin, draft.introResults, draft.introReport, draft.introRoot, draft.breakdown,
+    draft.introResultsPassed, draft.introResultsFailed,
+    draft.introReportPassed, draft.introReportFailed,
   ];
   return groups.reduce((n, g) => n + Object.keys(g).length, 0)
     + (draft.flowMode !== undefined ? 1 : 0)
@@ -345,18 +347,40 @@ function buildTestPatch(draft: SettingsDraft, current: Test | undefined): Record
     patch.retakePolicyJson = retake;
   }
 
-  const hasIntro = [draft.introResults, draft.introReport, draft.introRoot].some(
-    (b) => Object.keys(b).length > 0,
-  );
+  const hasIntro = [
+    draft.introResults, draft.introReport, draft.introRoot,
+    draft.introResultsPassed, draft.introResultsFailed,
+    draft.introReportPassed, draft.introReportFailed,
+  ].some((b) => Object.keys(b).length > 0);
   if (hasIntro) {
     const cur = (current?.introJson ?? {}) as Record<string, unknown>;
     const intro: Record<string, unknown> = { ...cur, ...draft.introRoot };
-    if (Object.keys(draft.introResults).length > 0) {
-      intro.results = { format: "plain", text: "", ...(cur.results as object ?? {}), ...draft.introResults };
-    }
-    if (Object.keys(draft.introReport).length > 0) {
-      intro.report = { format: "plain", text: "", ...(cur.report as object ?? {}), ...draft.introReport };
-    }
+    /**
+     * PRD-61: одна выдача — общий текст плюс две ветви исхода. Ветвь выдачи заводится, если
+     * книга сказала хоть что-то ЛЮБОЙ из трёх частей: текст исхода, приехавший к тесту без
+     * общего вступления, обязан сохраниться, а не пропасть вместе с ненужной ему ветвью.
+     */
+    const mergeSide = (
+      side: "results" | "report",
+      common: Record<string, unknown>,
+      passed: Record<string, unknown>,
+      failed: Record<string, unknown>,
+    ) => {
+      if (![common, passed, failed].some((b) => Object.keys(b).length > 0)) return;
+      const curSide = (cur[side] ?? {}) as Record<string, unknown>;
+      const next: Record<string, unknown> = { format: "plain", text: "", ...curSide, ...common };
+      // Ветвь исхода — целый текст со своим форматом, поэтому у неё свои умолчания. Пустой
+      // текст ветви не стирает: пустая ячейка везде в книге значит «оставить как есть».
+      if (Object.keys(passed).length > 0) {
+        next.passed = { format: "plain", text: "", ...((curSide.passed ?? {}) as object), ...passed };
+      }
+      if (Object.keys(failed).length > 0) {
+        next.failed = { format: "plain", text: "", ...((curSide.failed ?? {}) as object), ...failed };
+      }
+      intro[side] = next;
+    };
+    mergeSide("results", draft.introResults, draft.introResultsPassed, draft.introResultsFailed);
+    mergeSide("report", draft.introReport, draft.introReportPassed, draft.introReportFailed);
     patch.introJson = intro;
   }
 
