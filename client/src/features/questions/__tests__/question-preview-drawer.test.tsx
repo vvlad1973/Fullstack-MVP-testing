@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { chooseQuestionType } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Topic } from "@shared/schema";
 
@@ -110,7 +111,7 @@ describe("предпросмотр задания", () => {
 
   it("показывает ТЕКУЩИЙ черновик, а не сохранённое задание", async () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "Развёрнутый ответ" }));
+    chooseQuestionType("Развёрнутый ответ");
     fireEvent.change(screen.getByTestId("input-question-prompt"), { target: { value: "Опишите порядок." } });
     fireEvent.click(screen.getByTestId("button-preview-question"));
 

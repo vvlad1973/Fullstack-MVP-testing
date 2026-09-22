@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { chooseQuestionType, questionTypeOptions } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Question, Topic } from "@shared/schema";
 
@@ -80,7 +81,7 @@ function postedBody(): any {
 describe("<QuestionEditorDrawer /> — пропуски", () => {
   it("предлагает тип «Пропуски»", () => {
     renderDrawer();
-    expect(screen.getByRole("button", { name: "Пропуски" })).toBeTruthy();
+    expect(questionTypeOptions()).toContain("Пропуски");
   });
 
   it("открывает сохранённые пропуски строками списка", () => {
@@ -129,7 +130,7 @@ describe("<QuestionEditorDrawer /> — пропуски", () => {
     // Правка существующего вопроса идёт через защиту содержимого (PRD-15), поэтому
     // проверяется СОЗДАНИЕ: путь сохранения у них один.
     renderDrawer({ defaultTopicId: "t1" });
-    fireEvent.click(screen.getByRole("button", { name: "Пропуски" }));
+    chooseQuestionType("Пропуски");
     fireEvent.change(screen.getByTestId("input-question-prompt"), {
       target: { value: "Надзор осуществляет {{organ}}, срок {{srok}} суток." },
     });
@@ -145,7 +146,7 @@ describe("<QuestionEditorDrawer /> — пропуски", () => {
 describe("вставка пропуска кнопкой (FR-24b)", () => {
   it("ставит пустые скобки и просит ввести имя", async () => {
     renderDrawer({ defaultTopicId: "t1" });
-    fireEvent.click(screen.getByRole("button", { name: "Пропуски" }));
+    chooseQuestionType("Пропуски");
     const prompt = screen.getByTestId("input-question-prompt") as HTMLTextAreaElement;
     fireEvent.change(prompt, { target: { value: "Наряд выдаёт " } });
     prompt.setSelectionRange(prompt.value.length, prompt.value.length);

@@ -4,7 +4,7 @@
  * Drawer, used by both the question bank and the `/author/content` section.
  * The field layout follows the approved wireframe
  * (docs/wireframes/approved/content-bank-explorer.html, state s-q-drawer):
- * Тема -> Тип (SegmentedControl) -> Текст -> Варианты (per-type builder with
+ * Тема -> Тип (Select) -> Текст -> Варианты (per-type builder with
  * drag-reorder handles) -> «Случайный порядок вариантов» -> Сложность
  * (nullable, PRD-16) -> Медиа -> Теги, with the additive (non-wireframe)
  * blocks — conditional feedback and the PRD-15 price-moved hint — appended
@@ -858,20 +858,24 @@ export function QuestionEditorDrawer({
             )}
           />
 
-          {/* PRD-16: type is a SegmentedControl (matches the approved wireframe s-q-drawer). */}
+          {/*
+            The type is a Select — the approved wireframe (content-bank-explorer.html,
+            state s-q-drawer) and PRD-26 FR-28 / PRD-44 FR-44 («выпадающий список типов»).
+            It used to be a SegmentedControl back when the model had four types; with nine
+            the strip overflowed the drawer and cut the trailing types off.
+          */}
           <Controller
             control={form.control}
             name="type"
             render={({ field }) => (
-              <Stack gap={2}>
-                <Label>{t.questions.questionType}</Label>
-                <SegmentedControl<QuestionType>
-                  value={field.value as QuestionType}
-                  onChange={(next) => applyTypeChange(next)}
-                  items={questionTypes.map((type) => ({ value: type.value, label: type.label }))}
-                  data-testid="seg-question-type"
-                />
-              </Stack>
+              <Select<QuestionType>
+                label={t.questions.questionType}
+                value={field.value as QuestionType}
+                onChange={(next) => applyTypeChange(next)}
+                fullWidth
+                data-testid="select-question-type"
+                options={questionTypes.map((type) => ({ value: type.value, label: type.label }))}
+              />
             )}
           />
 

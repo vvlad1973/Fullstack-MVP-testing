@@ -14,6 +14,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { chooseQuestionType, questionTypeOptions } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Question, Topic } from "@shared/schema";
 
@@ -95,7 +96,7 @@ function renderDrawer(overrides: Partial<QuestionEditorDrawerProps> = {}) {
 
 /** Switch the editor to the scale type through the type control. */
 function pickScale() {
-  fireEvent.click(screen.getByRole("button", { name: "Шкала" }));
+  chooseQuestionType("Шкала");
 }
 
 const switchScaleCorrect = () => screen.getByTestId("switch-scale-has-correct") as HTMLInputElement;
@@ -109,7 +110,7 @@ function postedBody(): any {
 describe("<QuestionEditorDrawer /> — scale (PRD-26)", () => {
   it("offers «Шкала» among the question types", () => {
     renderDrawer();
-    expect(screen.getByRole("button", { name: "Шкала" })).toBeInTheDocument();
+    expect(questionTypeOptions()).toContain("Шкала");
   });
 
   it("starts in measurement mode: the switch is off and no graduation is markable", () => {
@@ -142,7 +143,7 @@ describe("<QuestionEditorDrawer /> — scale (PRD-26)", () => {
     pickScale();
     expect((screen.getByTestId("input-option-0") as HTMLInputElement).value).toBe("Никогда");
     expect((screen.getByTestId("input-option-1") as HTMLInputElement).value).toBe("Постоянно");
-    fireEvent.click(screen.getByRole("button", { name: "Один ответ" }));
+    chooseQuestionType("Один ответ");
     expect((screen.getByTestId("input-option-0") as HTMLInputElement).value).toBe("Никогда");
   });
 

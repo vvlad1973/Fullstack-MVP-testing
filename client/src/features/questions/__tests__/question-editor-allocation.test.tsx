@@ -14,6 +14,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { questionTypeOptions } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Question, Topic } from "@shared/schema";
 
@@ -86,7 +87,7 @@ const numberInput = (testId: string): HTMLInputElement =>
 describe("карточка вопроса-распределения", () => {
   it("тип объявлен в списке типов (FR-44)", () => {
     renderDrawer();
-    expect(screen.getByText("Распределение баллов")).toBeInTheDocument();
+    expect(questionTypeOptions()).toContain("Распределение баллов");
   });
 
   it("открывает вопрос с бюджетом и доменом (FR-45)", () => {

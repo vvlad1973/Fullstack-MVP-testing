@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { chooseQuestionType, questionTypeOptions } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Question, Topic } from "@shared/schema";
 
@@ -84,12 +85,12 @@ function postedBody(): any {
 describe("<QuestionEditorDrawer /> — короткий ответ (PRD-57)", () => {
   it("предлагает «Короткий ответ» среди типов", () => {
     renderDrawer();
-    expect(screen.getByRole("button", { name: "Короткий ответ" })).toBeTruthy();
+    expect(questionTypeOptions()).toContain("Короткий ответ");
   });
 
   it("на этом типе показывает блок правил вместо вариантов", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "Короткий ответ" }));
+    chooseQuestionType("Короткий ответ");
     expect(screen.getByTestId("answer-rules-block")).toBeTruthy();
     // Правило можно написать сразу: у нового вопроса проверка включена, потому что
     // ради неё тип и выбирают.
@@ -106,7 +107,7 @@ describe("<QuestionEditorDrawer /> — короткий ответ (PRD-57)", ()
 
   it("сохраняет набранные правила эталоном вопроса", async () => {
     renderDrawer({ defaultTopicId: "t1" });
-    fireEvent.click(screen.getByRole("button", { name: "Короткий ответ" }));
+    chooseQuestionType("Короткий ответ");
     fireEvent.change(screen.getByTestId("input-question-prompt"), {
       target: { value: "Кто выдаёт наряд-допуск?" },
     });

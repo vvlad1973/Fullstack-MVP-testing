@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { chooseQuestionType } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Topic } from "@shared/schema";
 
@@ -70,7 +71,7 @@ describe("панель вставки", () => {
   it("кнопка пропуска — только у своего типа", () => {
     renderDrawer();
     expect(screen.queryByTestId("insert-blank")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Пропуски" }));
+    chooseQuestionType("Пропуски");
     expect(screen.getByTestId("insert-blank")).toBeTruthy();
   });
 

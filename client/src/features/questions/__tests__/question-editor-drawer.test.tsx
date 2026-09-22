@@ -17,6 +17,7 @@
 import type * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { chooseQuestionType } from "./helpers/question-type";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Question, Topic } from "@shared/schema";
 
@@ -143,7 +144,7 @@ describe("<QuestionEditorDrawer />", () => {
 
   it("renders the single-choice builder (create default)", () => {
     renderDrawer();
-    expect(screen.getByTestId("seg-question-type")).toBeInTheDocument();
+    expect(screen.getByTestId("select-question-type")).toBeInTheDocument();
     expect(screen.getByTestId("input-option-0")).toBeInTheDocument();
     expect(screen.getByTestId("input-option-3")).toBeInTheDocument();
     // Single choice exposes a "correct answer" radio per option.
@@ -180,7 +181,7 @@ describe("<QuestionEditorDrawer />", () => {
     expect(screen.getByTestId("input-option-0")).toBeInTheDocument();
     expect(screen.getByTestId("switch-shuffle-answers")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ранжирование" }));
+    chooseQuestionType("Ранжирование");
 
     expect(screen.getByTestId("input-ranking-0")).toBeInTheDocument();
     expect(screen.queryByTestId("input-option-0")).toBeNull();
@@ -293,7 +294,7 @@ describe("<QuestionEditorDrawer />", () => {
 
   it("adds and removes options in the multiple-choice builder", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "Несколько ответов" }));
+    chooseQuestionType("Несколько ответов");
 
     expect(screen.queryByTestId("input-multi-option-4")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Добавить вариант" }));
@@ -305,7 +306,7 @@ describe("<QuestionEditorDrawer />", () => {
 
   it("adds and removes items in the ranking builder", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "Ранжирование" }));
+    chooseQuestionType("Ранжирование");
 
     expect(screen.queryByTestId("input-ranking-4")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Добавить вариант" }));
@@ -317,7 +318,7 @@ describe("<QuestionEditorDrawer />", () => {
 
   it("adds a pair and auto-links it when the left cell is filled (matching)", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "Соответствие" }));
+    chooseQuestionType("Соответствие");
 
     // Options carried over from single choice (4) → 4 rows; «Добавить пару» grows both columns.
     expect(screen.getByTestId("input-matching-left-3")).toBeInTheDocument();
