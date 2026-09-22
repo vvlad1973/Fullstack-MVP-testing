@@ -15,8 +15,14 @@
       client/src/features/tests/editor/sections/feedback-preview.tsx: заполненное поле —
       .tb-feedback-preview, пустое — .tb-feedback-preview.is-empty с надписью «Без текста».
 
-      РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-09-22: вводный текст разводится на ДВЕ карточки — «на экране
-      итогов» и «в отчёте», — чтобы подписи полей внутри остались короткими. Подписи
+      РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-09-22 (второе): карточка «Общая обратная связь теста» с этой
+      страницы УХОДИТ. Три вводных текста закрывают её назначение: «При любом исходе» плюс
+      текст исхода говорят то же и там, где автор этого ждёт — в начале. Материалы (курсы,
+      файлы, мероприятия) остаются у ТЕМ, где ими и пользуются. Подробности и судьба данных —
+      в спецификации, §9.
+
+      РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-09-22 (первое): вводный текст разводится на ДВЕ карточки — «на
+      экране итогов» и «в отчёте», — чтобы подписи полей внутри остались короткими. Подписи
       параллельны по конструкции («При любом исходе» / «Если тест пройден» / «Если тест не
       пройден»), а не вводят новое слово для общего текста. Переключатель «те же тексты,
       что на экране итогов» живёт в карточке ОТЧЁТА: он про отчёт, и карточка либо
@@ -217,19 +223,6 @@
                   </div>
                 </div>
               </div>
-              <div class="ou-formsection ou-formsection--stacked">
-                <div class="ou-formsection__intro">
-                  <h3 class="ou-formsection__title">Общая обратная связь теста</h3>
-                </div>
-                <div class="ou-formsection__body">
-                    <div class="tb-feedback-preview is-empty" role="button" tabindex="0" aria-label="Редактировать: общая обратная связь теста">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Без текста</span>
-                        <span class="tb-feedback-preview__edit-hint" aria-hidden="true"><svg width="14" height="14"><use href="#i-pencil" /></svg></span>
-                      </div>
-                    </div>
-                </div>
-              </div>
             </div>
           </div>
           </div>
@@ -353,19 +346,6 @@
                   </div>
                 </div>
               </div>
-              <div class="ou-formsection ou-formsection--stacked">
-                <div class="ou-formsection__intro">
-                  <h3 class="ou-formsection__title">Общая обратная связь теста</h3>
-                </div>
-                <div class="ou-formsection__body">
-                    <div class="tb-feedback-preview is-empty" role="button" tabindex="0" aria-label="Редактировать: общая обратная связь теста">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Без текста</span>
-                        <span class="tb-feedback-preview__edit-hint" aria-hidden="true"><svg width="14" height="14"><use href="#i-pencil" /></svg></span>
-                      </div>
-                    </div>
-                </div>
-              </div>
             </div>
           </div>
           </div>
@@ -457,19 +437,6 @@
                       <span class="ou-switch-field__text"><span class="ou-switch-field__label">Те же тексты, что на экране итогов</span><span class="ou-switch-field__desc">Правятся в одном месте. Выключите, чтобы задать отчёту своё вводное слово.</span></span>
                     </label>
                   </div>
-                </div>
-              </div>
-              <div class="ou-formsection ou-formsection--stacked">
-                <div class="ou-formsection__intro">
-                  <h3 class="ou-formsection__title">Общая обратная связь теста</h3>
-                </div>
-                <div class="ou-formsection__body">
-                    <div class="tb-feedback-preview is-empty" role="button" tabindex="0" aria-label="Редактировать: общая обратная связь теста">
-                      <div class="tb-feedback-preview__head">
-                        <span class="tb-feedback-preview__snippet">Без текста</span>
-                        <span class="tb-feedback-preview__edit-hint" aria-hidden="true"><svg width="14" height="14"><use href="#i-pencil" /></svg></span>
-                      </div>
-                    </div>
                 </div>
               </div>
             </div>

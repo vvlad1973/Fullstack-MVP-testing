@@ -715,6 +715,107 @@ git commit -m "fix(prd-61): предпросмотр отчёта печатае
 
 ---
 
+## Э6а. Снятие общей обратной связи теста
+
+Решение владельца 2026-09-22 (спецификация §10): три вводных текста делают обратную связь УРОВНЯ
+ТЕСТА избыточной. Порядок — «скрыть сейчас, удалить потом»: колонки остаются, сносит их отдельная
+миграция позже.
+
+**Файлы:**
+
+- Изменить: `shared/template/result-context.ts` (сборка `recommendationSources`, около строки 1336
+  — и такая же в адаптивном построителе)
+- Изменить: `server/scorm/builders/test-json.ts:304` и `:310` (оба поля обратной связи теста)
+- Изменить: `server/utils/workbook-feedback.ts` (владелец уровня `OWNER_TEST`)
+- Изменить: `client/src/features/tests/editor/sections/basic-settings-section.tsx` (карточка
+  «Общая обратная связь теста» и её триггер)
+- Изменить: `shared/schema.ts` (пометить `tests.feedbackJson` и `tests.feedback` устаревшими)
+
+- [ ] **Шаг 1. Написать падающий тест на выдачу**
+
+```ts
+it("текст обратной связи ТЕСТА больше не попадает в рекомендации, а тексты ТЕМ попадают", () => {
+  const ctx = buildResultContext(
+    {
+      passed: false,
+      correctAnswers: 0,
+      totalQuestions: 2,
+      earnedPoints: 0,
+      possiblePoints: 2,
+      overallPercent: 0,
+      topicResults: [
+        { topicId: "t1", topicName: "Тема", correct: 0, total: 1, percent: 0, passed: false,
+          feedbackTexts: ["Текст темы"] },
+      ],
+    },
+    "Тест",
+    { hasPassThreshold: true, testFeedback: { format: "plain", text: "Текст теста" } },
+  );
+  const printed = JSON.stringify(ctx.result);
+  expect(printed).toContain("Текст темы");
+  expect(printed).not.toContain("Текст теста");
+});
+```
+
+Форму входа и имя поля темы сверить с соседним тестом построителя — вымышленные имена не
+использовать.
+
+- [ ] **Шаг 2. Прогнать тест и убедиться, что он падает**
+
+Команда: `npm test -- shared/template/__tests__/result-context.intro.test.ts`
+Ожидание: FAIL — «Текст теста» пока печатается.
+
+- [ ] **Шаг 3. Убрать источник из сборщика**
+
+В `buildResultContext` заменить строку сбора источников:
+
+```ts
+  // PRD-61 §10: обратная связь УРОВНЯ ТЕСТА снята — три вводных текста говорят то же самое и
+  // там, где автор этого ждёт, в начале. Блок рекомендаций собирается только из тем, подтем,
+  // шкал и показателей; `opts.testFeedback` больше не источник и не читается.
+  const recommendationSources: Array<FeedbackBlock | null | undefined> = [];
+```
+
+Гейт `explicitPass` при этом остаётся: он гасит ещё и тексты тем (`topicRecommendationSources`),
+и трогать его нельзя. То же изменение — в адаптивном построителе.
+
+- [ ] **Шаг 4. Прогнать тест**
+
+Команда: `npm test -- shared/template/__tests__/result-context.intro.test.ts`
+Ожидание: PASS.
+
+- [ ] **Шаг 5. Убрать из пакета**
+
+В `server/scorm/builders/test-json.ts` снять оба поля — `testFeedback: data.test.feedback || null`
+(строка 304) и ветвь `testFeedbackJson` (строка 310). Тест `server/scorm/__tests__/test-json-prd29.test.ts`
+проверяет их наличие — переписать под новое поведение, а не удалить.
+
+- [ ] **Шаг 6. Убрать строку уровня «Тест» из книги**
+
+В `server/utils/workbook-feedback.ts` снять ветвь `OWNER_TEST` в `ownersOf`. Строки тем, разделов
+и подтем не трогать. Прогнать: `npm test -- tests/workbook-feedback.test.ts` (имя файла сверить
+по `ls tests | grep feedback`).
+
+- [ ] **Шаг 7. Убрать карточку из ящика**
+
+В `basic-settings-section.tsx` снять карточку «Общая обратная связь теста» вместе с
+`TestFeedbackTrigger`, если он больше нигде не используется (проверить: `grep -rn "TestFeedbackTrigger" client/src`).
+
+- [ ] **Шаг 8. Пометить колонки устаревшими**
+
+В `shared/schema.ts` у `feedbackJson` и `feedback` таблицы `tests` поставить `@deprecated` с
+ссылкой на PRD-61 §10 и на пункт технического долга.
+
+- [ ] **Шаг 9. Прогнать затронутые наборы и закоммитить**
+
+```bash
+npm test -- shared/template/__tests__
+npm test -- server/scorm/__tests__/test-json-prd29.test.ts
+npm run check
+git add -A
+git commit -m "feat(prd-61): общая обратная связь теста снята с выдачи и из ящика"
+```
+
 ## Э7. Приёмка
 
 - [ ] **Шаг 1. Веб: два прогона**
@@ -745,6 +846,13 @@ npm run scorm:player
 - [ ] **Шаг 5. Книга**
 
 Выгрузить книгу теста с текстами исхода, загрузить в другой тест, сверить все девять строк.
+Заодно убедиться, что на листе обратной связи нет строки уровня «Тест», а строки тем на месте.
+
+- [ ] **Шаг 5а. Снятая обратная связь теста**
+
+Открыть тест, у которого `feedback_json` заполнен (на проде это черновики HRBP с «Благодарим за
+участие!»): карточки в ящике нет, текст не печатается ни на экране, ни в отчёте, ни в пакете, а
+рекомендации ТЕМ печатаются как раньше.
 
 - [ ] **Шаг 6. Прогон тестов**
 
