@@ -16,6 +16,28 @@ import { templateRoot } from "./helpers/template-roots";
 const CERT = templateRoot("certification");
 const css = fs.readFileSync(path.join(CERT, "styles", "report.css"), "utf8");
 
+/** Значение пиксельного CSS-токена (`--tb-sheet-pad-y: 20px` -> 20). */
+function cssVarPx(source: string, name: string): number {
+  const value = source.match(new RegExp(`${name}:\\s*(\\d+)px`))?.[1];
+  expect(value, `токен ${name} не объявлен`).toBeTruthy();
+  return Number(value);
+}
+
+/**
+ * Пиксели из CSS-выражения: `calc(...)` с подстановкой пиксельных токенов. Считается
+ * то, что реально стоит в правиле, — иначе тест пришлось бы переписывать на каждую
+ * правку раскладки, а именно от неё он и стережёт.
+ */
+function evalPx(expr: string, source: string): number {
+  const substituted = expr
+    .replace(/var\((--[\w-]+)\)/g, (_, name: string) => String(cssVarPx(source, name)))
+    .replace(/calc/g, "")
+    .replace(/px/g, "")
+    .trim();
+  expect(substituted, `в выражении «${expr}» осталось неарифметическое`).toMatch(/^[\d\s+\-*/().]+$/);
+  return Number(new Function(`return (${substituted});`)());
+}
+
 describe("лист документа «Сертификации» светлый", () => {
   it("фон листа — серый референса, а не тёмный эталона", () => {
     expect(css).toMatch(/\.tb-report\s*\{[^}]*background:\s*#E2E2E2/i);
@@ -34,11 +56,15 @@ describe("лист документа «Сертификации» светлы�
     // Без border-box поля плиты ложатся ПОВЕРХ высоты, титул выходит за лист и уезжает
     // на второй, оставляя на первом один логотип.
     expect(rule).toMatch(/box-sizing:\s*border-box/);
-    const min = Number(rule?.match(/min-height:\s*(\d+)px/)?.[1] ?? 0);
-    // 750 — предел раскладки: полезная высота листа 816 минус 66 до верха плиты (поле
-    // корня 13, логотип 38, зазор 15). Выше — титул на лист не влезает.
+    const expr = rule?.match(/min-height:\s*([^;]+);/)?.[1] ?? "";
+    // Предел обязан считаться ОТ поля листа: голое число расходится с полями молча —
+    // так и случилось, когда поля выросли 13 -> 20, а число осталось прежним.
+    expect(expr, "предел высоты титула задан числом, а не полем листа").toContain("--tb-sheet-pad-y");
+    const min = evalPx(expr, css);
+    const usable = 842 - 2 * cssVarPx(css, "--tb-sheet-pad-y");
     expect(min).toBeGreaterThan(600);
-    expect(min).toBeLessThanOrEqual(750);
+    // Выше полезной высоты листа титул на него не влезает.
+    expect(min).toBeLessThanOrEqual(usable);
   });
 
   it("карточка вердикта тёмная — единственный тёмный узел документа", () => {
