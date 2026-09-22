@@ -563,6 +563,7 @@ export function ReportContentPane({ model, updateModel, design }: SettingsSectio
         testName={model.basic.title}
         headings={Object.keys(reportHeadings).length > 0 ? reportHeadings : undefined}
         breakdownDisplay={model.runtime.breakdownDisplay}
+        intro={model.intro}
         sectionGroups={model.sectionGroups}
         sections={model.sections.map((s) => ({
           topicId: s.topicId,
