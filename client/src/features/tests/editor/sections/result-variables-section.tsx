@@ -388,6 +388,15 @@ function SortableVariableCard(props: CardProps) {
 
   const heading = `${v.name || "новый показатель"}${v.label ? ` — ${v.label}` : ""}`;
 
+  // Контракт «Индикация проблем»: свёрнутая карточка сама говорит об ошибке внутри
+  // себя — точкой в шапке. Тело живёт только развёрнутым, и без точки карточка
+  // молчала бы о проблеме, которую сводный баннер уже посчитал. `has` матчит и
+  // потомков: точка загорается от любой ошибки внутри показателя.
+  const hasIssue = props.fieldErrors.has(`resultVariables[${props.index}]`);
+  // Находки самого показателя (PRD-53, профиль) адресованы КАРТОЧКЕ целиком —
+  // отдельного поля у них нет.
+  const cardError = props.fieldErrors.get(`resultVariables[${props.index}]`);
+
   return (
     <section
       ref={sortable.setNodeRef}
@@ -397,6 +406,13 @@ function SortableVariableCard(props: CardProps) {
       data-field={`resultVariables[${props.index}]`}
     >
       <header className="ou-card__header tb-level-card__head">
+        {hasIssue && (
+          <span
+            className="tb-status-dot tb-status-dot--err"
+            aria-label="Есть ошибки"
+            data-testid={`metrics-card-dot-${props.index}`}
+          />
+        )}
         {!readOnly && (
           <button
             type="button"
@@ -437,6 +453,14 @@ function SortableVariableCard(props: CardProps) {
 
       {expanded && (
         <div className="ou-card__body tb-level-card__body">
+          {cardError && (
+            <Banner
+              tone="error"
+              size="sm"
+              description={cardError}
+              data-testid={`metrics-card-error-${props.index}`}
+            />
+          )}
           <VariableForm
             variable={v}
             index={props.index}
@@ -566,6 +590,12 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
     [v.formula, onChange],
   );
 
+  // Контракт «Индикация проблем»: у каждой ошибки — своя пометка НА МЕСТЕ. Адреса
+  // читаются один раз: ниже они нужны и полю, и баннеру-заместителю там, где поля
+  // на экране может не быть (конструктор формулы; управление статусом у небулева).
+  const formulaError = fieldErrors.get(`resultVariables[${index}].formula`);
+  const controlsStatusError = fieldErrors.get(`resultVariables[${index}].controlsStatus`);
+
   return (
     <>
       <Grid cols={2} gap={3}>
@@ -628,6 +658,7 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               rows={4}
               value={v.formula}
               disabled={readOnly}
+              error={formulaError}
               placeholder='напр. IF(percent >= 75, "Зачёт", "Незачёт")'
               aria-label="Формула DSL"
               onChange={(e) => onChange({ formula: e.target.value })}
@@ -635,7 +666,19 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
             />
           </>
         ) : (
-          <FormulaBuilder variable={v} topics={topics} scales={scales} readOnly={readOnly} onChange={onChange} />
+          <>
+            <FormulaBuilder variable={v} topics={topics} scales={scales} readOnly={readOnly} onChange={onChange} />
+            {/* В конструкторе поля «формула» нет — её собирают из частей, — поэтому
+                ошибку показывает баннер на месте, а не `error` у поля. */}
+            {formulaError && (
+              <Banner
+                tone="error"
+                size="sm"
+                description={formulaError}
+                data-testid={`metrics-formula-error-${index}`}
+              />
+            )}
+          </>
         )}
       </div>
       {fnOpen && <FunctionReferenceModal onClose={() => setFnOpen(false)} onInsert={insertAtCursor} />}
@@ -792,20 +835,36 @@ function VariableForm({ variable: v, index, topics, scales, testId, readOnly, fi
               data-testid={`metrics-visibility-${index}`}
             />
             {isBoolean && (
-              <Select<ResultVariableControlsStatus>
-                size="m"
-                fullWidth
-                label="Управление статусом курса"
-                hint="Доступно только для показателей типа «да/нет»."
-                value={v.controlsStatus}
-                disabled={readOnly}
-                options={STATUS_OPTIONS}
-                onChange={(value) => onChange({ controlsStatus: value })}
-                data-testid={`metrics-status-${index}`}
-              />
+              <div data-field={`resultVariables[${index}].controlsStatus`}>
+                <Select<ResultVariableControlsStatus>
+                  size="m"
+                  fullWidth
+                  label="Управление статусом курса"
+                  hint="Доступно только для показателей типа «да/нет»."
+                  value={v.controlsStatus}
+                  disabled={readOnly}
+                  error={controlsStatusError}
+                  options={STATUS_OPTIONS}
+                  onChange={(value) => onChange({ controlsStatus: value })}
+                  data-testid={`metrics-status-${index}`}
+                />
+              </div>
             )}
           </Grid>
         </>
+      )}
+      {/* «Тип не булев, а управление статусом задано» — ошибка поля, которого в этом
+          случае на экране НЕТ: селектор показывается только булеву. Без этой строки
+          сообщение жило бы только в сводном баннере, а пометить было бы нечего. */}
+      {!isBoolean && controlsStatusError && (
+        <div data-field={`resultVariables[${index}].controlsStatus`}>
+          <Banner
+            tone="error"
+            size="sm"
+            description={controlsStatusError}
+            data-testid={`metrics-status-error-${index}`}
+          />
+        </div>
       )}
       {/* D-48: выдача в LMS — не пара к видимости, а отдельное решение о другом
           адресате: одно про экран обучающегося, другое про запись в систему. */}

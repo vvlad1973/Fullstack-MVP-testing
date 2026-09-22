@@ -604,6 +604,21 @@ export function CompositionSection({ model, updateModel, fieldErrors = EMPTY_FIE
           </Cluster>
           <FoldAllButtons fold={fold} testIdPrefix="composition-topics" />
         </div>
+        {/* Контракт «Индикация проблем»: ошибка обязана быть видна НА МЕСТЕ, а не
+            только числом в сводном баннере. У «нет тем» нет своего поля, которое можно
+            пометить невалидным, — текст стоит сразу под кнопкой, которой её чинят.
+            Внутри карточки, а не рядом с пустым состоянием: прямой ребёнок
+            `.tb-settings-content` становится ЛИПКИМ баннером шапки панели (с
+            отрицательной верхней отбивкой) и наезжает на эти же кнопки.
+            Якорь `data-field="sections"` остаётся на кнопке: переход ведёт к
+            ДЕЙСТВИЮ, а не к сообщению о нём. */}
+        {fieldErrors.get("sections") && (
+          <Banner
+            tone="error"
+            description={fieldErrors.get("sections")}
+            data-testid="composition-empty-error"
+          />
+        )}
       </FormSection>
 
       {model.sections.length === 0 && (

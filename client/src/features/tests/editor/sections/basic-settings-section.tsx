@@ -223,15 +223,22 @@ export function MainPane({
  * страницу-маршрутизатор. Стоит рядом с полотном сценария, а не в «Основном»: это ответ
  * на вопрос «как он идёт», а не «что это за тест» (Э3.3).
  */
-export function ScenarioSettingsPane({ model, updateModel }: SettingsSectionProps) {
+export function ScenarioSettingsPane({
+  model,
+  updateModel,
+  fieldErrors = EMPTY_FIELD_ERRORS,
+}: SettingsSectionProps) {
   return (
     <FormSection title="Сценарий" stacked>
-      <div className="ou-formfield">
+      <div className="ou-formfield" data-field="flowMode">
         <Select<FlowMode>
           id="settings-flow-mode"
           size="m"
           fullWidth
           label="Сценарий прохождения"
+          // Адаптивный тест в плоском сценарии не поддерживается. Ошибка адресована
+          // ЭТОМУ выбору — он и помечается, иначе автор видит её только счётчиком.
+          error={fieldErrors.get("flowMode")}
           value={model.flowMode}
           // PRD-4 v1.1 L1 guard: linear_flat is disabled when mode=adaptive
           // (the (adaptive, linear_flat) combo is deferred to a future PRD).
@@ -1529,17 +1536,23 @@ export function VerdictPane({
         data-testid="settings-pass-rules-card"
         data-field="passRules"
       >
-          <RadioGroup<PassDecisionPolicy>
-            name="pass-decision-policy"
-            value={model.passRules.decisionPolicy}
-            options={DECISION_POLICIES}
-            onChange={(value) =>
-              updateModel((m) => ({
-                ...m,
-                passRules: { ...m.passRules, decisionPolicy: value },
-              }))
-            }
-          />
+          {/* Свой якорь и своя пометка: адрес `passRules.decisionPolicy` проверяется
+              отдельно от порога, и без них переход упирался в карточку целиком, а
+              ошибка не была видна ни у одного элемента. */}
+          <div data-field="passRules.decisionPolicy">
+            <RadioGroup<PassDecisionPolicy>
+              name="pass-decision-policy"
+              value={model.passRules.decisionPolicy}
+              options={DECISION_POLICIES}
+              error={fieldErrors.get("passRules.decisionPolicy")}
+              onChange={(value) =>
+                updateModel((m) => ({
+                  ...m,
+                  passRules: { ...m.passRules, decisionPolicy: value },
+                }))
+              }
+            />
+          </div>
 
           <>
             <div className="ou-formfield">
@@ -1745,12 +1758,16 @@ function PassTopicRow(props: {
     <>
       <tr data-testid={`pass-topic-row-${props.topicId}`}>
         <td>{props.topicName}</td>
-        <td>
+        <td data-field={`passRules.byTopic[${props.topicId}]`}>
           <Select<TopicPassRule["source"]>
             size="s"
             fullWidth
             value={props.rule.source}
             aria-label={`Правило оценки темы ${props.topicName}`}
+            // «По вариантам» у темы без вариантов: правило выбрано, а варианта нет.
+            // Пометка садится на САМ выбор — больше её посадить не на что, а строка
+            // без неё выглядит исправной.
+            error={props.fieldErrors?.get(`passRules.byTopic[${props.topicId}]`)}
             options={[
               { value: "inherit_overall", label: "Как у теста" },
               { value: "custom", label: "Индивидуальное правило" },
@@ -2018,7 +2035,11 @@ function makeDefaultLevel(index: number): AdaptiveLevelConfig {
   };
 }
 
-export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
+export function AdaptivePane({
+  model,
+  updateModel,
+  fieldErrors = EMPTY_FIELD_ERRORS,
+}: SettingsSectionProps) {
   // Parent (SettingsSection) only renders this pane when mode === "adaptive",
   // so the «mode=standard» fallback banner has been removed. If you need to
   // re-introduce it (e.g., for a quick preview from standard mode), restore
@@ -2078,7 +2099,13 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
       ) : (
         // Корневые классы аккордеона обязательны: разделительный вид `--separated` живёт
         // на корне, а без него `ou-acc__item` внутри остаются без рамок и отступов.
-        <div className="ou-acc ou-acc--separated tb-adaptive-topics" data-testid="adaptive-topics-list">
+        <div
+          className="ou-acc ou-acc--separated tb-adaptive-topics"
+          data-testid="adaptive-topics-list"
+          // Якорь ошибки «нужна хотя бы одна включённая тема»: сама она уже видна
+          // баннером ниже, но без адреса «Перейти к ошибкам» вело в никуда.
+          data-field="adaptive.topics"
+        >
           {model.sections.every((section) => {
             const topic = model.adaptive.topics.find((t) => t.topicId === section.topicId);
             return !topic || !topic.enabled;
@@ -2096,6 +2123,12 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
               section.topicId,
               section.topicName,
             );
+            // Адреса ошибок уровня считаются от позиции темы в `adaptive.topics`,
+            // а список на экране идёт по `sections`. Темы, которой в модели ещё нет,
+            // проверка не касается — тогда префикса нет и подсвечивать нечего.
+            const topicIdx = model.adaptive.topics.findIndex(
+              (t) => t.topicId === section.topicId,
+            );
             return (
               <AdaptiveTopicAccordion
                 key={section.topicId}
@@ -2103,6 +2136,8 @@ export function AdaptivePane({ model, updateModel }: SettingsSectionProps) {
                 onToggleOpen={() => fold.toggle(section.topicId)}
                 topic={topic}
                 questionCount={section.maxQuestions}
+                fieldErrors={fieldErrors}
+                fieldPrefix={topicIdx >= 0 ? `adaptive.topics[${topicIdx}]` : null}
                 onToggleEnabled={(enabled) =>
                   upsertTopic(section.topicId, (t) => ({ ...t, enabled }))
                 }
@@ -2149,6 +2184,9 @@ function AdaptiveTopicAccordion(props: {
   onToggleOpen: () => void;
   topic: AdaptiveTopicConfig & { enabled: boolean };
   questionCount: number;
+  fieldErrors: FieldErrorIndex;
+  /** Адрес темы в модели (`adaptive.topics[i]`) или `null`, если её там ещё нет. */
+  fieldPrefix: string | null;
   onToggleEnabled: (enabled: boolean) => void;
   onFailureFeedbackChange: (text: string) => void;
   onAddLevel: () => void;
@@ -2160,10 +2198,20 @@ function AdaptiveTopicAccordion(props: {
   // Warning only applies to enabled topics: disabled topics are excluded from
   // the adaptive test logic so missing levels are not a problem there.
   const levelCount = topic.levels.length;
+  // Ошибка внутри темы перебивает местный тон: тело аккордеона живёт только
+  // раскрытым, и свёрнутая тема с зелёной точкой молчала о поле, которое держит
+  // сохранение (контракт «Индикация проблем» — карточка говорит об ошибке внутри
+  // себя точкой в шапке).
+  const hasIssue = props.fieldPrefix ? props.fieldErrors.has(props.fieldPrefix) : false;
   // Три состояния, а не два: выключенная тема НЕ «в порядке», она вне игры, и эскиз
   // красит её серым `--off`. Зелёным остаётся только включённая с готовой лестницей.
-  const statusTone: "ok" | "warn" | "off" =
-    !topic.enabled ? "off" : levelCount >= 2 ? "ok" : "warn";
+  const statusTone: "ok" | "warn" | "off" | "err" = hasIssue
+    ? "err"
+    : !topic.enabled
+      ? "off"
+      : levelCount >= 2
+        ? "ok"
+        : "warn";
   // Число склоняется общим правилом языка, а не тремя ветками на месте: «21 вопрос»
   // и «11 вопросов» отличаются, и ручная ветка это упускала.
   const subtitle =
@@ -2261,12 +2309,18 @@ function AdaptiveTopicAccordion(props: {
               </div>
             ) : (
               <div className="tb-adaptive-levels">
-                {topic.levels.map((level) => (
+                {topic.levels.map((level, levelPos) => (
                   <AdaptiveLevelCard
                     key={level.levelIndex}
                     topicId={topic.topicId}
                     level={level}
                     canRemove={topic.levels.length > 1}
+                    fieldErrors={props.fieldErrors}
+                    // Проверка адресует уровень ПОЗИЦИЕЙ в массиве, а не `levelIndex`:
+                    // после удаления среднего уровня они расходятся.
+                    fieldPrefix={
+                      props.fieldPrefix ? `${props.fieldPrefix}.levels[${levelPos}]` : null
+                    }
                     onChange={(patch) => props.onLevelChange(level.levelIndex, patch)}
                     onRemove={() => props.onLevelRemove(level.levelIndex)}
                   />
@@ -2284,12 +2338,18 @@ function AdaptiveLevelCard(props: {
   topicId: string;
   level: AdaptiveLevelConfig;
   canRemove: boolean;
+  fieldErrors: FieldErrorIndex;
+  /** Адрес уровня (`adaptive.topics[i].levels[j]`) или `null`, если темы нет в модели. */
+  fieldPrefix: string | null;
   onChange: (patch: Partial<AdaptiveLevelConfig>) => void;
   onRemove: () => void;
 }) {
   const { level } = props;
   const [collapsed, setCollapsed] = useState(false);
   const testIdBase = `adaptive-level-${props.topicId}-${level.levelIndex}`;
+  /** Сообщение проверки по адресу поля уровня; без префикса подсвечивать нечего. */
+  const errorOf = (leaf: string) =>
+    props.fieldPrefix ? props.fieldErrors.get(`${props.fieldPrefix}.${leaf}`) : undefined;
 
   // Validation: a level is "valid" when min ≤ max, questions ≥ 1 and
   // threshold is within bounds. Defer richer rules until validation
@@ -2299,7 +2359,11 @@ function AdaptiveLevelCard(props: {
     level.questionsCount >= 1 &&
     level.passThreshold >= 0 &&
     (level.passThresholdType !== "percent" || level.passThreshold <= 100);
-  const statusTone: "ok" | "err" = isValid ? "ok" : "err";
+  // Местная проверка повторяет часть общей, но не всю (ссылки уровня она не знает),
+  // поэтому точка слушает ОБЕ: иначе свёрнутый уровень молчал бы о находке, которую
+  // сводный баннер уже посчитал.
+  const hasIssue = props.fieldPrefix ? props.fieldErrors.has(props.fieldPrefix) : false;
+  const statusTone: "ok" | "err" = isValid && !hasIssue ? "ok" : "err";
   const statusLabel = isValid ? "валидно" : "невалидно";
 
   return (
@@ -2364,7 +2428,10 @@ function AdaptiveLevelCard(props: {
               data-testid={`${testIdBase}-name`}
             />
           </div>
-          <div className="ou-formfield">
+          <div
+            className="ou-formfield"
+            data-field={props.fieldPrefix ? `${props.fieldPrefix}.minDifficulty` : undefined}
+          >
             <NumberInput
               id={`${testIdBase}-min`}
               size="s"
@@ -2372,11 +2439,15 @@ function AdaptiveLevelCard(props: {
               value={level.minDifficulty}
               min={0}
               max={100}
+              error={errorOf("minDifficulty")}
               data-testid={`${testIdBase}-min`}
               onChange={(next) => props.onChange({ minDifficulty: next })}
             />
           </div>
-          <div className="ou-formfield">
+          <div
+            className="ou-formfield"
+            data-field={props.fieldPrefix ? `${props.fieldPrefix}.maxDifficulty` : undefined}
+          >
             <NumberInput
               id={`${testIdBase}-max`}
               size="s"
@@ -2384,17 +2455,22 @@ function AdaptiveLevelCard(props: {
               value={level.maxDifficulty}
               min={0}
               max={100}
+              error={errorOf("maxDifficulty")}
               data-testid={`${testIdBase}-max`}
               onChange={(next) => props.onChange({ maxDifficulty: next })}
             />
           </div>
-          <div className="ou-formfield">
+          <div
+            className="ou-formfield"
+            data-field={props.fieldPrefix ? `${props.fieldPrefix}.questionsCount` : undefined}
+          >
             <NumberInput
               id={`${testIdBase}-questions`}
               size="s"
               label="Вопросов"
               value={level.questionsCount}
               min={1}
+              error={errorOf("questionsCount")}
               data-testid={`${testIdBase}-questions`}
               onChange={(next) => props.onChange({ questionsCount: next })}
             />
@@ -2413,7 +2489,10 @@ function AdaptiveLevelCard(props: {
               data-testid={`${testIdBase}-threshold-type`}
             />
           </div>
-          <div className="ou-formfield">
+          <div
+            className="ou-formfield"
+            data-field={props.fieldPrefix ? `${props.fieldPrefix}.passThreshold` : undefined}
+          >
             <NumberInput
               id={`${testIdBase}-threshold`}
               size="s"
@@ -2422,6 +2501,7 @@ function AdaptiveLevelCard(props: {
               min={0}
               max={level.passThresholdType === "percent" ? 100 : level.questionsCount}
               suffix={level.passThresholdType === "percent" ? "%" : "б."}
+              error={errorOf("passThreshold")}
               data-testid={`${testIdBase}-threshold`}
               onChange={(next) => props.onChange({ passThreshold: next })}
             />

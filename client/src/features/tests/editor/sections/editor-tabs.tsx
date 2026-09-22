@@ -169,10 +169,16 @@ export function CompositionTab({
       {active === "composition" && (
         <CompositionSection model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
       )}
-      {active === "adaptive" && <AdaptivePane model={model} updateModel={updateModel} />}
+      {active === "adaptive" && (
+        <AdaptivePane model={model} updateModel={updateModel} fieldErrors={fieldErrors} />
+      )}
       {active === "scenario" && (
         <>
-          <ScenarioSettingsPane model={model} updateModel={updateModel} />
+          <ScenarioSettingsPane
+            model={model}
+            updateModel={updateModel}
+            fieldErrors={fieldErrors}
+          />
           <StructureSection
             model={model}
             testId={testId}
