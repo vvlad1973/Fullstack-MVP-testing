@@ -6371,13 +6371,16 @@ span.ou-quiz__dot:hover { transform: none; }
 
 .ou-select__menu {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
-  margin: 0; padding: var(--ou-space-1); list-style: none;
+  margin: 0; padding: 0; list-style: none;
   background: var(--ou-bg-elevated);
   border: 1px solid var(--ou-border-soft);
   border-radius: var(--ou-radius-m);
   box-shadow: var(--ou-shadow-md);
-  max-height: 280px; overflow-y: auto;
+  display: flex; flex-direction: column; overflow: hidden;
 }
+/* Scrolling lives on the list, not on the menu: a searchable Select keeps its
+   search row fixed above the options while they scroll. */
+.ou-select__list { margin: 0; padding: var(--ou-space-1); list-style: none; max-height: 280px; overflow-y: auto; }
 .ou-select__opt {
   padding: var(--ou-space-2) var(--ou-space-3);
   border-radius: var(--ou-radius-s);
@@ -6396,6 +6399,35 @@ span.ou-quiz__dot:hover { transform: none; }
    правила — отбор исходников выбрасывал всё, чей класс уже объявлен выше, и вместе с
    повторами выбросил базовые правила и части составных селекторов. */
 .ou-select__optgroup { padding: var(--ou-space-2) var(--ou-space-3) var(--ou-space-1); font: var(--ou-text-body-s); font-weight: 600; color: var(--ou-fg-muted); pointer-events: none; }
+
+/* ── Select · поиск по списку (`searchable`) ── */
+.ou-select__search { display: flex; align-items: center; gap: var(--ou-space-2); padding: var(--ou-space-2) var(--ou-space-3); border-bottom: 1px solid var(--ou-border-soft); }
+.ou-select__search-ico { color: var(--ou-fg-muted); flex-shrink: 0; }
+.ou-select__search-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: var(--ou-text-body-m); color: var(--ou-fg-default); }
+.ou-select__search-input::-webkit-input-placeholder { color: var(--ou-fg-muted); }
+.ou-select__search-input::-moz-placeholder { color: var(--ou-fg-muted); }
+.ou-select__search-input::placeholder { color: var(--ou-fg-muted); }
+.ou-select__empty { padding: var(--ou-space-4) var(--ou-space-3); font: var(--ou-text-body-s); color: var(--ou-fg-muted); text-align: center; }
+.ou-select__opt.is-active { background: var(--ou-bg-hover); }
+.ou-select__opt.is-selected.is-active { background: var(--ou-accent-soft); }
+.ou-select__opt mark { background: transparent; color: var(--ou-accent-default); font-weight: 600; }
+
+/* ── Select · кнопка сброса (`onClear`) ──
+   Кнопка не может лежать внутри триггера-кнопки, поэтому она — сестра, лежащая
+   поверх правого края, левее шеврона. Обёртка появляется только вместе с ней. */
+.ou-select__control { position: relative; display: flex; width: 100%; }
+.ou-select__trigger--clearable { padding-right: calc(var(--ou-space-3) + 18px + var(--ou-space-5)); }
+.ou-select__trigger--clearable .ou-select__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ou-select__clear {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  right: calc(var(--ou-space-3) + 18px + var(--ou-space-1));
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--ou-space-5); height: var(--ou-space-5); padding: 0;
+  border: 0; border-radius: var(--ou-radius-s); background: transparent;
+  color: var(--ou-fg-muted); cursor: pointer;
+}
+.ou-select__clear:hover { background: var(--ou-bg-hover); color: var(--ou-fg-default); }
+.ou-select__clear:focus-visible { outline: none; box-shadow: var(--ou-shadow-focus); }
 
 
 /* ─── Separator.css ───────────────────────────────── */
