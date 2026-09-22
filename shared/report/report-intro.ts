@@ -91,17 +91,34 @@ export interface TestIntroLike {
   reportSameAsResults?: boolean;
 }
 
+/** Есть ли в тексте хоть что-то, кроме пробелов. */
+function hasText(source: IntroTextLike | null | undefined): boolean {
+  return String(source?.text ?? "").trim().length > 0;
+}
+
 /**
  * Вводный блок ОТЧЁТА с учётом переключателя «как на экране итогов».
  *
  * Переключатель — ссылка, а не копия: собственный текст отчёта не стирается, он просто не
  * используется, пока переключатель включён, и возвращается, стоит его выключить.
  *
+ * ГЕЙТ СТОИТ НА ВСЕХ ТРЁХ ТЕКСТАХ ВЕТВИ, а не на одном общем вступлении. Пока он смотрел
+ * только на `text`, PRD-61 не доезжал до отчёта: автор, заполнивший «Если тест пройден» и
+ * оставивший «При любом исходе» пустым, получал документ БЕЗ вводного блока — при том что
+ * экран итогов тот же текст печатал, потому что туда ветвь едет объектом, без этого гейта
+ * (`measures.intro.results` в `server/services/result-context.ts`). Расхождение било по трём
+ * выдачам разом: веб-отчёт, предпросмотр в редакторе и отчёт внутри SCORM-пакета — все три
+ * спрашивают это правило.
+ *
+ * Отбор ПУСТЫХ текстов остаётся за {@link introBlocksToPrint}: здесь решается только, есть
+ * ли у отчёта вводный блок вообще (FR-05: ветвь без единого текста = блока нет).
+ *
  * @param intro Вводные блоки теста.
- * @returns Блок для отчёта либо `null`, когда печатать нечего (пустой текст = блока нет).
+ * @returns Блок для отчёта либо `null`, когда печатать нечего (пустая ветвь = блока нет).
  */
 export function resolveReportIntro(intro: TestIntroLike | null | undefined): IntroBlockLike | null {
   if (!intro) return null;
   const source = intro.reportSameAsResults ? intro.results : intro.report;
-  return source && String(source.text ?? "").trim() ? source : null;
+  if (!source) return null;
+  return hasText(source) || hasText(source.passed) || hasText(source.failed) ? source : null;
 }

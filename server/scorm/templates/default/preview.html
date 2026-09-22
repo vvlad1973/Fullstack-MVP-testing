@@ -17598,6 +17598,30 @@ ${MASK}b${blocks.length - 1}${MASK}
     return !(nothingToGrade(possiblePoints) || thresholdDeclared === false);
   }
 
+  // shared/report/report-intro.ts
+  function introBlocksToPrint(block, outcome) {
+    if (!block) return [];
+    const out = [];
+    const push = (source) => {
+      var _a, _b;
+      const text = String((_a = source == null ? void 0 : source.text) != null ? _a : "");
+      if (text.trim()) out.push({ text, format: (_b = source == null ? void 0 : source.format) != null ? _b : null });
+    };
+    push(block);
+    if (outcome.verdictPronounced) push(outcome.passed ? block.passed : block.failed);
+    return out;
+  }
+  function hasText2(source) {
+    var _a;
+    return String((_a = source == null ? void 0 : source.text) != null ? _a : "").trim().length > 0;
+  }
+  function resolveReportIntro(intro) {
+    if (!intro) return null;
+    const source = intro.reportSameAsResults ? intro.results : intro.report;
+    if (!source) return null;
+    return hasText2(source) || hasText2(source.passed) || hasText2(source.failed) ? source : null;
+  }
+
   // shared/scoring/section-groups.ts
   function normalizeSectionGroups(raw) {
     if (!Array.isArray(raw)) return [];
@@ -17951,7 +17975,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return opts.labels ? labelsTree(labels) : void 0;
   }
   function buildResultContext(input, title, opts = {}) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const passed = !!input.passed;
     const percent3 = Math.round(input.percent || 0);
     const thresholdDeclared = (_b = opts.hasPassThreshold) != null ? _b : (_a = opts.measures) == null ? void 0 : _a.hasPassThreshold;
@@ -18001,7 +18025,13 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       if (grouped.ungrouped.length) result.ungroupedTopics = grouped.ungrouped.map((c) => c.view);
     }
     fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
-    const introHtml = richTextToHtml((_g = opts.intro) == null ? void 0 : _g.text, (_i = (_h = opts.intro) == null ? void 0 : _h.format) != null ? _i : void 0);
+    const introHtml = introBlocksToPrint(opts.intro, {
+      verdictPronounced: !noVerdict,
+      passed: !!input.passed
+    }).map((b) => {
+      var _a2;
+      return richTextToHtml(b.text, (_a2 = b.format) != null ? _a2 : void 0);
+    }).filter(Boolean).join("<br><br>");
     if (introHtml) result.introHtml = introHtml;
     if (opts.recommendedCourses && opts.recommendedCourses.length) result.recommendedCourses = opts.recommendedCourses;
     if (opts.recommendedEvents && opts.recommendedEvents.length) result.recommendedEvents = opts.recommendedEvents;
@@ -18013,8 +18043,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       result.passClass = "";
       result.statusLabel = "";
     }
-    const explicitPass = hasGradedScore2 && passed;
-    const recommendationSources = explicitPass ? [] : [opts.testFeedback];
+    const recommendationSources = [];
     if (opts.measures && resolvedMeasures && blocks) {
       if (!blocks.scoreSummary) result.hideScoreSummary = true;
       recommendationSources.push(...fillMeasureBlocks(result, opts.measures, resolvedMeasures));
@@ -18027,7 +18056,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     if (recommendations.hasAny) result.recommendations = recommendations;
     const labelsTreeOut = attachBlocksAndLabels(result, opts, !result.hideScoreSummary);
     return {
-      course: { title: (_k = headingText((_j = opts.headings) == null ? void 0 : _j.document)) != null ? _k : title },
+      course: { title: (_h = headingText((_g = opts.headings) == null ? void 0 : _g.document)) != null ? _h : title },
       result,
       ...labelsTreeOut ? { labels: labelsTreeOut } : {}
     };
@@ -18119,14 +18148,20 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     };
   }
   function buildAdaptiveResultContext(input, title, opts = {}) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b;
     const result = {
       passed: !!input.passed,
       adaptive: true,
       topicResults: (input.topicResults || []).map(adaptiveTopicView)
     };
     fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
-    const adaptiveIntroHtml = richTextToHtml((_a = opts.intro) == null ? void 0 : _a.text, (_c = (_b = opts.intro) == null ? void 0 : _b.format) != null ? _c : void 0);
+    const adaptiveIntroHtml = introBlocksToPrint(opts.intro, {
+      verdictPronounced: false,
+      passed: !!input.passed
+    }).map((b) => {
+      var _a2;
+      return richTextToHtml(b.text, (_a2 = b.format) != null ? _a2 : void 0);
+    }).filter(Boolean).join("<br><br>");
     if (adaptiveIntroHtml) result.introHtml = adaptiveIntroHtml;
     if (opts.hasScormActions) {
       result.hasScormActions = true;
@@ -18134,7 +18169,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       result.canRetry = !!opts.canRetry;
       result.showFinish = !!opts.showFinish;
     }
-    const recommendationSources = input.passed === true ? [] : [opts.testFeedback];
+    const recommendationSources = [];
     if (opts.measures) {
       recommendationSources.push(
         ...fillMeasureBlocks(result, opts.measures, resolveMeasures(opts.measures, false))
@@ -18148,7 +18183,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     if (recommendations.hasAny) result.recommendations = recommendations;
     const labelsTreeOut = attachBlocksAndLabels(result, opts, false);
     return {
-      course: { title: (_e = headingText((_d = opts.headings) == null ? void 0 : _d.document)) != null ? _e : title },
+      course: { title: (_b = headingText((_a = opts.headings) == null ? void 0 : _a.document)) != null ? _b : title },
       result,
       ...labelsTreeOut ? { labels: labelsTreeOut } : {}
     };
@@ -21334,14 +21369,6 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       showCompetencyRadar: values.showCompetencyRadar === true
     };
     return { ...screen, chartSettings };
-  }
-
-  // shared/report/report-intro.ts
-  function resolveReportIntro(intro) {
-    var _a;
-    if (!intro) return null;
-    const source = intro.reportSameAsResults ? intro.results : intro.report;
-    return source && String((_a = source.text) != null ? _a : "").trim() ? source : null;
   }
   return __toCommonJS(runtime_entry_exports);
 })();

@@ -106,4 +106,34 @@ describe("resolveReportIntro с текстами исхода (FR-11)", () => {
     };
     expect(resolveReportIntro(intro)?.failed?.text).toBe("Свой провал");
   });
+
+  it("общего вступления нет, есть только текст исхода: ветвь доезжает до отчёта", () => {
+    // Гейт стоит на ТЕКСТАХ ветви, а не на одном общем вступлении. Пока он смотрел только
+    // на `text`, автор, заполнивший «Если тест пройден» и оставивший «При любом исходе»
+    // пустым, получал документ БЕЗ вводного блока — при том что экран итогов тот же текст
+    // печатал (`measures.intro.results` едет туда объектом, без этого гейта).
+    const intro = {
+      report: { format: "plain" as const, text: "", passed: { format: "plain" as const, text: "Поздравляем." } },
+    };
+    expect(resolveReportIntro(intro)?.passed?.text).toBe("Поздравляем.");
+  });
+
+  it("переключатель включён, а общее вступление экрана пусто: текст исхода не теряется", () => {
+    const intro = {
+      results: { format: "plain" as const, text: "   ", failed: { format: "plain" as const, text: "Не хватило." } },
+      reportSameAsResults: true,
+    };
+    expect(resolveReportIntro(intro)?.failed?.text).toBe("Не хватило.");
+  });
+
+  it("ветвь пуста целиком: блока нет (FR-05)", () => {
+    // Автор, стерший все три текста, ожидает, что блок исчезнет, а не станет пустой рамкой.
+    expect(resolveReportIntro({ report: { format: "plain", text: "  " } })).toBeNull();
+    expect(
+      resolveReportIntro({
+        report: { format: "plain", text: "", passed: { format: "plain", text: " " }, failed: null },
+      }),
+    ).toBeNull();
+    expect(resolveReportIntro({})).toBeNull();
+  });
 });
