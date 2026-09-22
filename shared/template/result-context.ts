@@ -47,6 +47,9 @@ import { resolveResultsBlocks, type ResultsBlocks, type ResultsBlockSettings } f
 // PRD-29 §6.7 lives in the scoring layer, not here: the results screen was its first
 // reader, not its owner (see the two gates in `buildResultContext`).
 import { hasGradedScore as isGradedRun, hasPronouncedVerdict } from "../scoring/pass-rule";
+// PRD-61: КАКИЕ вводные тексты печатать — вопрос выдачи, и ответ на него один на оба хоста.
+// Лежит он в `shared/report`, потому что тот же ответ нужен внутри SCORM-пакета.
+import { introBlocksToPrint, type IntroBlockLike } from "../report/report-intro";
 // PRD-50 FR-26: the counter rule lives with the verdict it counts, not with the layout —
 // `aggregateStandardResult` stamps the same numbers onto the stored result through it.
 import { groupSections } from "../scoring/section-groups";
@@ -815,13 +818,17 @@ export interface ResultContextOptions {
    */
   measures?: MeasuresInput;
   /**
-   * Вводный блок этой выдачи: авторский текст и его формат (`tests.intro_json`).
+   * Вводный блок этой выдачи: общее вступление и тексты по исходу (`tests.intro_json`).
    *
    * Разметку строит построитель, а не хост: правило одно и то же для экрана и для отчёта,
    * а два его применения разошлись бы ровно так же, как разошлись бы два расчёта вердикта.
    * Пустой текст блока не даёт (см. {@link CtxResult.introHtml}).
+   *
+   * PRD-61: ветвь выдачи приезжает ЦЕЛИКОМ — какой из текстов исхода печатать, решает
+   * {@link module:shared/report/report-intro introBlocksToPrint} здесь же, где уже известен
+   * вердикт. Хост вынимать текст не должен и не умеет.
    */
-  intro?: { text?: string | null; format?: RichTextFormat | null } | null;
+  intro?: IntroBlockLike | null;
   /**
    * PRD-49: resolved labels of THIS screen, flat map from `shared/template/labels`
    * (`{"results.scales": "По шкалам"}`). Absent = the caller has not been taught the
@@ -1297,7 +1304,18 @@ export function buildResultContext(
   fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.
-  const introHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);
+  //
+  // PRD-61: блоков может быть два — общее вступление и текст исхода. Исход берётся из
+  // `noVerdict`, посчитанного выше ДЛЯ ВЕРДИКТНОЙ ШАПКИ: одна причина — один ответ, иначе
+  // шапка и текст под ней снова начнут говорить разное, как в боевом отчёте 2026-09-22
+  // («Сертификация пройдена» над абзацем о нехватке баллов).
+  const introHtml = introBlocksToPrint(opts.intro, {
+    verdictPronounced: !noVerdict,
+    passed: !!input.passed,
+  })
+    .map((b) => richTextToHtml(b.text, b.format ?? undefined))
+    .filter(Boolean)
+    .join("");
   if (introHtml) result.introHtml = introHtml;
   if (opts.recommendedCourses && opts.recommendedCourses.length) result.recommendedCourses = opts.recommendedCourses;
   if (opts.recommendedEvents && opts.recommendedEvents.length) result.recommendedEvents = opts.recommendedEvents;
@@ -1617,8 +1635,13 @@ export interface AdaptiveResultContextOptions {
    * to what the adaptive screen produced before.
    */
   measures?: MeasuresInput;
-  /** Вводный блок этой выдачи — тот же, что у стандартного экрана (см. там же). */
-  intro?: { text?: string | null; format?: RichTextFormat | null } | null;
+  /**
+   * Вводный блок этой выдачи — тот же, что у стандартного экрана (см. там же).
+   *
+   * Тексты исхода в нём допустимы, но не печатаются: этот режим вердикта не выносит
+   * (PRD-61 FR-14b). Тип общий, чтобы хост не разбирал, какому построителю что отдавать.
+   */
+  intro?: IntroBlockLike | null;
   /**
    * PRD-50 FR-13/FR-44: the author's display setting, read here for ONE thing — the
    * summary block ({@link AdaptiveResultInput.breakdowns}).
@@ -1745,7 +1768,18 @@ export function buildAdaptiveResultContext(
   // этапа их никто не читал обратно: посчитанное молча не показывалось.
   fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
   // Вводный блок — первым, до уровней и измерений: правило общее для обоих режимов.
-  const adaptiveIntroHtml = richTextToHtml(opts.intro?.text, opts.intro?.format ?? undefined);
+  //
+  // PRD-61 FR-14b: адаптивный режим вердикта НЕ выносит — заголовков исхода у него нет (см.
+  // {@link AdaptiveResultContextOptions.headings}), — поэтому печатается только общее
+  // вступление. Текст исхода ходит парой с заголовком исхода: там, где шапка не ветвится, не
+  // ветвится и текст.
+  const adaptiveIntroHtml = introBlocksToPrint(opts.intro, {
+    verdictPronounced: false,
+    passed: !!input.passed,
+  })
+    .map((b) => richTextToHtml(b.text, b.format ?? undefined))
+    .filter(Boolean)
+    .join("");
   if (adaptiveIntroHtml) result.introHtml = adaptiveIntroHtml;
   if (opts.hasScormActions) {
     result.hasScormActions = true;
