@@ -22,7 +22,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
-import { pluralize } from "@/lib/i18n";
+import { pluralize, t } from "@/lib/i18n";
 import {
   Banner,
   Button,
@@ -36,7 +36,6 @@ import {
   SegmentedControl,
   Select,
   Switch,
-  Textarea,
   RichTextEditor,
 } from "@skillum/ui-kit";
 import { richTextToHtml, richTextToPlain } from "@shared/template/rich-text";
@@ -61,10 +60,6 @@ import type {
   AdaptiveLinkConfig,
   AdaptiveTopicConfig,
   EditorSection,
-  FeedbackAsset,
-  FeedbackContent,
-  FeedbackEvent,
-  FeedbackLink,
   FlowMode,
   OverallPassRule,
   OverallPassType,
@@ -285,7 +280,10 @@ export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
       <FormSection title="Показ правильных ответов" stacked>
         <div className="ou-formfield">
           <Switch
-            label="Показывать правильные ответы после прохождения"
+            // Имя поля переименовано вместе с книгой Excel и списком изменений:
+            // подсветка печатается сразу ПОСЛЕ ОТВЕТА, а не в конце прохождения,
+            // и форма оставалась последним местом со старой формулировкой.
+            label={t.tests.showCorrectAnswers}
             checked={model.runtime.showCorrectAnswers}
             onChange={(e) => {
               const checked = e.target.checked;

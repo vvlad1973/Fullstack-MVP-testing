@@ -64,26 +64,16 @@ export interface PublishInfeasibleError {
 }
 
 /**
- * PRD-50 FR-45 - FR-47: one delivery trap reported AFTER a successful publication
- * (server `BreakdownWarningCode`). A warning, never a block — the mirror image of
- * {@link PublishInfeasibleError}, which is a 409.
+ * PRD-50 FR-45 - FR-47: one delivery trap reported AFTER a successful publication.
+ * A warning, never a block — the mirror image of {@link PublishInfeasibleError},
+ * which is a 409.
+ *
+ * The shape is RE-EXPORTED from the engine that produces it, not copied: the local
+ * copy drifted once already — it still listed `key_thresholds_no_longer_gate`, dropped
+ * in PRD-50 §16, and knew nothing of `gate_without_display`, which replaced it, nor of
+ * the test-level warning's `topicId: null`.
  */
-export type BreakdownWarningCode =
-  | "quota_sum_mismatch"
-  | "questions_without_key"
-  | "question_outside_variants"
-  | "quotas_ignored_in_variants"
-  | "key_thresholds_no_longer_gate";
-
-/** One publication warning (server `BreakdownWarning`). */
-export interface BreakdownWarning {
-  code: BreakdownWarningCode;
-  topicId: string;
-  topicName: string;
-  /** The key a warning speaks about, when it names one. */
-  key?: string;
-  /** The number the message quotes: Σ quotas, or how many questions are affected. */
-  count?: number;
-  /** What `count` is compared against (the section's sample size). */
-  total?: number;
-}
+export type {
+  BreakdownWarning,
+  BreakdownWarningCode,
+} from "@shared/breakdown/publish-warnings";

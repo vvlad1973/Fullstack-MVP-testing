@@ -19,10 +19,12 @@
  *     params for that section.
  *
  * Save flow:
- *   - Design has its own endpoint (`PUT /api/tests/:id/design`) separate from
- *     the main editor save. A pane-local «Сохранить оформление» button drives
- *     the mutation; the Drawer footer's primary save stays bound to the test
- *     settings as in the rest of the editor.
+ *   - Design has its own endpoint (`PUT /api/tests/:id/design`), separate from the
+ *     test-settings PUT, but NOT its own button: the Drawer footer's «Сохранить»
+ *     drives both (and the content-page commit) in one action, so the author never
+ *     has to save the same drawer twice. The pane only surfaces the save ERROR of
+ *     that endpoint (`DesignSaveError`), since a failing design PUT must not be
+ *     masked by the settings one having succeeded.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -34,7 +36,6 @@ import {
   Paperclip,
   RotateCcw,
   SquareOff,
-  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -60,7 +61,6 @@ import type { TestTheme } from "@shared/template/themes";
 import {
   useDesignSettings,
   type MediaParamValue,
-  type ParamSection,
   type TemplateParam,
   type UseDesignSettingsResult,
 } from "../use-design-settings";
@@ -69,7 +69,6 @@ import { extractThemeTokens } from "@shared/template/theme-tokens";
 import { useTemplateBundle } from "./use-template-bundle";
 import { DEFAULT_PARAM_CSS_VARS } from "@shared/template/params-css";
 import { resolveLabels, type LabelDeclaration, type LabelValues } from "@shared/template/labels";
-import { templateBlockOrder } from "@shared/template/results-order";
 import { ResultsLabelsPane } from "./results-labels-pane";
 import { TemplatePreviewModal } from "./template-preview-modal";
 import { TemplateGalleryModal } from "./template-gallery-modal";
