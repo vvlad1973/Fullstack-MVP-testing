@@ -115,6 +115,14 @@
 
     /* Drawer / modal form local layout */
     .qd-stack { display: flex; flex-direction: column; gap: var(--ou-space-6); }
+    /* Поле «Тема» нарисовано ОТКРЫТЫМ, чтобы эскиз показывал строку поиска. Держать
+       состояние классом `is-open` нельзя: `prd7-shared.js` снимает его со всех
+       select'ов по любому клику на документе, и меню гасло сразу после переключения
+       состояния. Поэтому — собственный класс и своя специфичность поверх гейта
+       `.ou-select:not(.is-open) .ou-select__menu` из `wf-utils.css`. */
+    #s-q-drawer .wf-open-static .ou-select__menu { display: flex; }
+    #s-q-drawer .wf-open-static .ou-select__trigger { border-color: var(--ou-accent-default); box-shadow: var(--ou-shadow-focus); }
+    #s-q-drawer .wf-open-static .ou-select__chev { transform: rotate(180deg); }
     .qd-opt { display: flex; align-items: center; gap: var(--ou-space-3); }
     .qd-opt .ou-field { flex: 1; }
     /* Token/tag input — композиция Field + Chip (канон prd11-question-tags) */
@@ -860,20 +868,35 @@
       </header>
       <div class="ou-drawer__body" tabindex="0">
         <div class="qd-stack">
-          <div class="ou-formfield">
-            <label class="ou-formfield__lbl" for="qd-topic">Тема</label>
-            <select class="ou-select ou-field--m" id="qd-topic">
-              <optgroup label="Личные финансы">
-                <option selected>Финансовая грамотность</option>
-                <option>Налоги физлиц</option>
-                <option>Кредиты и вклады</option>
-              </optgroup>
-              <optgroup label="Экономика">
-                <option>Инвестиции</option>
-                <option>Страхование</option>
-              </optgroup>
-              <option>Охрана труда (без папки)</option>
-            </select>
+          <!-- Тема — тот же одиночный выбор, что и был, плюс поиск: банк держит сотни
+               тем, и находить нужную глазами в плоском списке долго. Список фильтруется
+               по ПОДСТРОКЕ названия, совпадение подсвечивается; пустой запрос показывает
+               все темы, то есть поле работает и как обычный выпадающий список. Значение —
+               обычный текст (ни чипов, ни отметок-квадратов: тема у вопроса одна),
+               крестик сбрасывает выбор. Показано открытое состояние: меню лежит поверх
+               следующего поля, как и в жизни. -->
+          <div class="ou-select ou-field--m ou-field--full wf-open-static">
+            <label class="ou-field__lbl" for="qd-topic">Тема</label>
+            <div class="ou-select__control">
+              <button type="button" class="ou-field__box ou-select__trigger ou-select__trigger--clearable" id="qd-topic" aria-haspopup="listbox" aria-expanded="true">
+                <span class="ou-select__value">Финансовая грамотность</span>
+                <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button type="button" class="ou-select__clear" aria-label="Очистить тему"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+            </div>
+            <div class="ou-select__menu">
+              <div class="ou-select__search">
+                <svg class="ou-select__search-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input class="ou-select__search-input" type="text" value="гра" aria-label="Поиск по названию темы" autocomplete="off">
+              </div>
+              <ul class="ou-select__list" role="listbox" aria-labelledby="qd-topic">
+                <li class="ou-select__optgroup" role="presentation">Личные финансы</li>
+                <li class="ou-select__opt is-selected" role="option" aria-selected="true">Финансовая <mark>гра</mark>мотность</li>
+                <li class="ou-select__opt is-active" role="option" aria-selected="false">Финансовая <mark>гра</mark>мота для детей</li>
+                <li class="ou-select__optgroup" role="presentation">Экономика</li>
+                <li class="ou-select__opt" role="option" aria-selected="false">Демо<mark>гра</mark>фия рынков</li>
+              </ul>
+            </div>
           </div>
           <div class="ou-formfield">
             <label class="ou-formfield__lbl" for="qd-type">Тип вопроса</label>
