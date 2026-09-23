@@ -706,6 +706,124 @@ describe("useTestEditor — create mode", () => {
     });
   });
 
+  // Ловушка пути создания: тест создаётся одним POST, а набранное до создания
+  // дописывается следом отдельными запросами. Сбой любого из них роняет мутацию, но
+  // тест в базе УЖЕ есть — и повтор не имеет права создать второй.
+  it("повтор после сбоя дозаписи не создаёт второй тест", async () => {
+    nextResponse({ ...buildApiResponse({ id: "te-new", title: "Свежий" }) }, 201); // POST — успех
+    nextResponse({ error: "boom" }, 500); // дозапись оформления — 500
+
+    const client = makeClient();
+    const { result } = renderHook(
+      () => useTestEditor({ mode: "create", folderId: null }),
+      { wrapper: ({ children }) => withClient(client, <>{children}</>) },
+    );
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+
+    act(() => {
+      result.current.updateModel((m) => ({
+        ...m,
+        basic: { ...m.basic, title: "Свежий" },
+        sections: oneSection(),
+        design: { templateId: "corporate", params: { companyName: "Ромашка" } },
+      }));
+    });
+
+    await act(async () => {
+      await result.current.save();
+    });
+    // Сохранение не удалось, ящик остаётся открытым — но тест уже создан.
+    expect(result.current.createdId).toBeNull();
+    expect(result.current.getCreatedId()).toBe("te-new");
+    expect(
+      fetchMock.mock.calls.filter(
+        (c) => String(c[0]) === "/api/tests" && (c[1] as RequestInit)?.method === "POST",
+      ),
+    ).toHaveLength(1);
+
+    // Повтор: чтение версии → PUT тела по тому же идентификатору → дозапись заново.
+    nextResponse(buildApiResponse({ id: "te-new", version: 1 })); // GET версии
+    nextResponse(buildApiResponse({ id: "te-new", version: 2 })); // PUT тела
+    nextResponse({ templateId: "corporate", params: { companyName: "Ромашка" } }); // PUT оформления
+    nextResponse(buildApiResponse({ id: "te-new", version: 2 })); // финальный GET
+    await act(async () => {
+      await result.current.save();
+    });
+
+    // Второго создания не случилось.
+    expect(
+      fetchMock.mock.calls.filter(
+        (c) => String(c[0]) === "/api/tests" && (c[1] as RequestInit)?.method === "POST",
+      ),
+    ).toHaveLength(1);
+    // Тело ушло PUT'ом по созданному идентификатору, с ТЕКУЩЕЙ версией строки.
+    const put = fetchMock.mock.calls.find(
+      (c) => String(c[0]) === "/api/tests/te-new" && (c[1] as RequestInit)?.method === "PUT",
+    );
+    expect(put).toBeDefined();
+    expect(JSON.parse(String((put![1] as RequestInit).body)).expectedVersion).toBe(1);
+    // Дозапись прогналась заново и на этот раз удалась.
+    expect(
+      fetchMock.mock.calls.some((c) => String(c[0]) === "/api/tests/te-new/design"),
+    ).toBe(true);
+    expect(result.current.createdId).toBe("te-new");
+  });
+
+  it("следующее создание не дописывается в тест прошлой попытки", async () => {
+    nextResponse({ ...buildApiResponse({ id: "te-first", title: "Первый" }) }, 201);
+    nextResponse({ error: "boom" }, 500);
+
+    const client = makeClient();
+    const { result, rerender } = renderHook(
+      ({ open }: { open: boolean }) =>
+        useTestEditor(open ? { mode: "create", folderId: null } : null),
+      {
+        wrapper: ({ children }) => withClient(client, <>{children}</>),
+        initialProps: { open: true },
+      },
+    );
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+
+    act(() => {
+      result.current.updateModel((m) => ({
+        ...m,
+        basic: { ...m.basic, title: "Первый" },
+        sections: oneSection(),
+        design: { templateId: "corporate", params: { companyName: "Ромашка" } },
+      }));
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(result.current.getCreatedId()).toBe("te-first");
+
+    // Ящик закрыли и открыли снова: сеанс создания начинается чисто.
+    rerender({ open: false });
+    rerender({ open: true });
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+    expect(result.current.getCreatedId()).toBeNull();
+
+    nextResponse({ ...buildApiResponse({ id: "te-second", title: "Второй" }) }, 201);
+    act(() => {
+      result.current.updateModel((m) => ({
+        ...m,
+        basic: { ...m.basic, title: "Второй" },
+        sections: oneSection(),
+      }));
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    // Второй тест создан СВОИМ POST, а не дописан в первый.
+    expect(result.current.createdId).toBe("te-second");
+    expect(
+      fetchMock.mock.calls.filter(
+        (c) => String(c[0]) === "/api/tests/te-first" && (c[1] as RequestInit)?.method === "PUT",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("правка существующего теста об оформлении не сообщает", async () => {
     nextResponse(buildApiResponse());
     const client = makeClient();

@@ -546,9 +546,14 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     // sources (test-settings draft, design draft, content-page mutations); the
     // toast confirms the user's action succeeded for whichever was dirty.
     const wasDirty = editor.isDirty || design.isDirty || contentPages.isDirty;
+    // Идентификатор только что созданного теста читается СРАЗУ после сохранения, без
+    // ожиданий между: дальше идут `await`, а ящик закрывается по появлению этого
+    // идентификатора, и между ними успевает встать перерисовка.
+    let createdId: string | null = null;
     if (editor.isDirty) {
       const ok = await editor.save();
       if (!ok) return false;
+      createdId = editor.getCreatedId();
     }
     if (design.isDirty) {
       await design.save();
@@ -561,7 +566,6 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     // до этого момента структура была предсказанием, и дописывать её надо по тому
     // адресу, который вернуло создание, а не ждать перерисовки.
     if (contentPages.isDirty) {
-      const createdId = editor.getCreatedId();
       try {
         await contentPages.commit(createdId ?? undefined);
       } catch {
@@ -872,7 +876,14 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
             <Banner
               tone="error"
               title="Не удалось сохранить тест"
-              description={editor.saveError.message}
+              description={
+                // Сбой на ДОЗАПИСИ: сам тест уже создан, повтор допишет остальное в
+                // него же и второго теста не создаст. Без этой строки автор читает
+                // «не удалось сохранить» и не знает, что тест уже есть.
+                editor.mode === "create" && editor.getCreatedId()
+                  ? `Тест создан, но часть настроек дописать не удалось: ${editor.saveError.message}. Нажмите «Сохранить» ещё раз — повтор дополнит этот же тест.`
+                  : editor.saveError.message
+              }
               onClose={editor.dismissSaveError}
               data-testid="test-editor-save-error"
             />

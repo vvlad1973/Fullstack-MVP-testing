@@ -630,6 +630,10 @@ export function useTestEditor(
     setSaveError(null);
     setConflict(null);
     setRequiredFieldsMissing([]);
+    // И идентификатор созданного теста: он живёт ровно один сеанс создания. Иначе
+    // после неудачной дозаписи (тест создан, ящик закрыли) СЛЕДУЮЩЕЕ создание в той
+    // же папке дописалось бы в тот старый тест вместо своего.
+    createdIdRef.current = null;
   }, [sessionKey]);
 
   const mutation = useMutation({
@@ -676,8 +680,36 @@ export function useTestEditor(
           questionScoring: draft.scoring.questionOverrides,
         };
       }
-      const created = await postTest(fullPayload);
-      const newId = (created as { id?: string } | null)?.id;
+      // ── Создание ────────────────────────────────────────────────────────────
+      //
+      // ПОВТОР ПОСЛЕ СБОЯ. Тест создаётся одним `POST`, а всё, что автор набрал до
+      // создания, дописывается следом отдельными запросами. Упади любой из них —
+      // мутация падает целиком, ящик остаётся открытым с ошибкой, а тест В БАЗЕ УЖЕ
+      // ЕСТЬ. Пока повтор шёл тем же путём, второе «Сохранить» создавало ВТОРОЙ тест,
+      // и автор получал дубль вместо исправления.
+      //
+      // Поэтому идентификатор запоминается СРАЗУ после успешного `POST`, до любой
+      // дозаписи: пока он есть, создание больше не повторяется — тело уходит `PUT`'ом
+      // по этому идентификатору, а дозапись прогоняется заново. Ссылка обнуляется при
+      // смене сеанса редактора (закрыли ящик — следующее создание начинается чисто).
+      const retryId = createdIdRef.current;
+      let created: unknown;
+      let newId: string | undefined;
+      if (retryId) {
+        // Версия читается перед записью: у теста, которого ещё никто не видел,
+        // разойтись ей не с кем, а правки, сделанные ПОСЛЕ неудачной попытки, так не
+        // теряются (иначе повтор молча откатил бы их к состоянию первой попытки).
+        const current = (await fetchTest(retryId)) as { version?: number };
+        created = await putTest(retryId, {
+          ...fullPayload,
+          expectedVersion: current.version ?? fullPayload.expectedVersion,
+        });
+        newId = retryId;
+      } else {
+        created = await postTest(fullPayload);
+        newId = (created as { id?: string } | null)?.id;
+        if (newId) createdIdRef.current = newId;
+      }
       // Черновик не требует сохранения, чтобы его настроить: всё, что автор набрал до
       // создания, дописывается СРАЗУ ПОСЛЕ INSERT — теми же маршрутами, какими это
       // правится у существующего теста. Показатели, шкалы и измерения жили так всегда;
@@ -692,6 +724,9 @@ export function useTestEditor(
         overrides.length > 0 ||
         designOverrides !== null;
       if (newId && hasChildren) {
+        // Снимок пустой и на повторе: дозапись идёт по тем же маршрутам, что у
+        // существующего теста, и они перезаписывают своё состояние целиком —
+        // повторный прогон приводит к тому же результату, что удачный первый.
         if (draft.resultVariables.length > 0) await saveResultVariables(newId, draft.resultVariables, []);
         if (draft.scales.length > 0) await saveScales(newId, draft.scales, []);
         if (draft.measurements.length > 0) {
@@ -814,7 +849,10 @@ export function useTestEditor(
 
   const consumeCreatedId = useCallback(() => {
     setCreatedId(null);
-    createdIdRef.current = null;
+    // Ссылку здесь НЕ трогаем. Её читает дозапись структуры уже после того, как
+    // мутация выставила `createdId` и этот обработчик отработал эффектом; обнулив её
+    // тут, мы бы устроили гонку, в которой структура нового теста уходит в никуда.
+    // Сеанс создания закрывает ссылку сам — при смене `sessionKey`.
   }, []);
 
   const resultMode: UseTestEditorResult["mode"] = options
