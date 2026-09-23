@@ -147,7 +147,7 @@ describe("<TestEditor /> — focus trap (NFR-20)", () => {
 // ─── Successful unified save ─────────────────────────────────────────────────
 
 describe("<TestEditor /> — successful save", () => {
-  it("footer «Сохранить» persists and closes the drawer", async () => {
+  it("footer «Применить» persists and KEEPS the drawer open", async () => {
     nextResponse(buildApiResponse());
     const onClose = vi.fn();
     const client = makeClient();
@@ -179,7 +179,12 @@ describe("<TestEditor /> — successful save", () => {
     nextResponse(buildApiResponse({ version: 8, title: "Sample Test edited" }));
     fireEvent.click(screen.getByTestId("test-editor-save"));
 
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    // Применение — не выход: правки записаны, тег «Изменено» погас, ящик на месте.
+    await waitFor(() =>
+      expect(screen.queryByTestId("test-editor-foot-dirty-tag")).toBeNull(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("test-editor-foot")).toBeInTheDocument();
   });
 
   // PRD-22: the tests-list column «недоступный вариант» is server-computed, so it
@@ -215,8 +220,9 @@ describe("<TestEditor /> — successful save", () => {
     nextResponse(buildApiResponse({ version: 8, title: "Sample Test edited" }));
     fireEvent.click(screen.getByTestId("test-editor-save"));
 
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["/api/tests"] });
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["/api/tests"] }),
+    );
   });
 
   it("close-confirm «Сохранить» saves and exits", async () => {

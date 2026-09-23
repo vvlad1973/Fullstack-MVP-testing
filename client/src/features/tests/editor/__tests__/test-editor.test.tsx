@@ -5,7 +5,7 @@
  * Coverage:
  *   - DS Drawer markup (FR-43): `ou-drawer-root`, `ou-drawer--xl --right`,
  *     `ou-tabs--underline --m`, four tab triggers, `ou-drawer__foot` with a
- *     single primary `Сохранить` action.
+ *     three footer actions: «Отменить» / «Применить» / «Закрыть».
  *   - NFR-19: focus the first interactive element on open.
  *   - FR-05: closing while dirty opens the FR-05 confirmation dialog; closing
  *     while clean calls `onClose` directly.
@@ -100,7 +100,7 @@ function nextResponse(body: unknown, status = 200) {
 // ─── Component tests ──────────────────────────────────────────────────────────
 
 describe("<TestEditor /> DOM and focus", () => {
-  it("renders the DS Drawer with the seven tabs and a single Сохранить action", async () => {
+  it("renders the DS Drawer with the seven tabs and the three footer actions", async () => {
     nextResponse(buildApiResponse());
     const client = makeClient();
     render(
@@ -136,7 +136,10 @@ describe("<TestEditor /> DOM and focus", () => {
     await waitFor(() => expect(screen.getByText("Sample Test")).toBeInTheDocument());
 
     const save = screen.getByTestId("test-editor-save");
+    expect(save).toHaveTextContent("Применить");
     expect(save.getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByTestId("test-editor-cancel")).toHaveTextContent("Отменить");
+    expect(screen.getByTestId("test-editor-foot-close")).toHaveTextContent("Закрыть");
   });
 
   // Решение владельца 2026-09-22: ящик открывается на «Основном». Прежде он открывался
@@ -1144,10 +1147,13 @@ describe("<TestEditor /> — публикация не запирает реда
 
     const foot = await screen.findByTestId("test-editor-foot");
     expect(foot.getAttribute("data-state")).toBe("default");
-    expect(screen.getByTestId("test-editor-cancel")).toHaveTextContent("Закрыть");
+    // Три действия стоят всегда; без правок откатывать и применять нечего.
+    expect(screen.getByTestId("test-editor-foot-close")).toHaveTextContent("Закрыть");
+    expect(screen.getByTestId("test-editor-cancel")).toBeDisabled();
+    expect(screen.getByTestId("test-editor-save")).toBeDisabled();
   });
 
-  it("closes immediately without confirm when published and clean", async () => {
+  it("«Закрыть» без правок закрывает сразу, без вопроса", async () => {
     nextResponse(buildApiResponse({ status: "published" }));
     const onClose = vi.fn();
     const client = makeClient();
@@ -1157,7 +1163,7 @@ describe("<TestEditor /> — публикация не запирает реда
 
     await screen.findByText("Sample Test");
 
-    fireEvent.click(screen.getByTestId("test-editor-cancel"));
+    fireEvent.click(screen.getByTestId("test-editor-foot-close"));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(

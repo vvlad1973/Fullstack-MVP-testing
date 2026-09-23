@@ -255,7 +255,7 @@ describe("<TestEditor /> — conflict resolution", () => {
 // ─── saveAll: design draft persisted through the unified footer ───────────────
 
 describe("<TestEditor /> — unified save persists a dirty design draft", () => {
-  it("footer «Сохранить» commits the design draft (design.isDirty branch)", async () => {
+  it("footer «Применить» commits the design draft (design.isDirty branch)", async () => {
     const onClose = vi.fn();
     let designPut = false;
     fetchMock.mockImplementation(async (input: RequestInfo, init?: RequestInit) => {
@@ -283,7 +283,61 @@ describe("<TestEditor /> — unified save persists a dirty design draft", () => 
     fireEvent.click(screen.getByTestId("test-editor-save"));
 
     await waitFor(() => expect(designPut).toBe(true));
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    // Применение не закрывает ящик — выход остался отдельным действием.
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+// ─── «Применить» в режиме создания ────────────────────────────────────────────
+//
+// Применение — не выход: тест создаётся, а ящик остаётся открытым и переключается на
+// созданный. Переключает владелец состояния, поэтому ящик сообщает ему идентификатор
+// (`onCreated`) вместо того, чтобы закрыться.
+
+describe("<TestEditor /> — «Применить» на новом тесте", () => {
+  it("создаёт тест, не закрывает ящик и отдаёт идентификатор наверх", async () => {
+    const onClose = vi.fn();
+    const onCreated = vi.fn();
+    const created = buildApiResponse({ id: "te-new", title: "Свежий", version: 1 });
+    fetchMock.mockImplementation(async (input: RequestInfo, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.url;
+      const method = (init?.method ?? "GET").toUpperCase();
+      const path = url.split("?")[0];
+      if (path === "/api/topics") return res([{ id: "topic-1", name: "Основы ИБ" }]);
+      if (path === "/api/questions") return res([]);
+      if (path === "/api/tests" && method === "POST") return res(created, 201);
+      if (path === "/api/tests/te-new" && method === "GET") return res(created);
+      if (path === "/api/tests/te-new/design") return res({ templateId: "default" });
+      if (path.startsWith("/api/templates/")) {
+        return res({
+          id: "default", name: "Default", version: "1", templateApiVersion: "1",
+          isBuiltin: true, isActive: true, previewPath: null,
+          manifest: { id: "default", name: "Default", version: "1", templateApiVersion: "1", params: [], contentTemplates: [] },
+        });
+      }
+      if (path === "/api/tests/te-new/content-pages") return res([]);
+      return res(method === "GET" ? [] : {});
+    });
+
+    render(
+      withClient(
+        makeClient(),
+        <TestEditor createMode={{ folderId: null }} open onClose={onClose} onCreated={onCreated} />,
+      ),
+    );
+
+    // Название и одна тема — минимум, без которого сохранение заперто.
+    const title = await screen.findByTestId("settings-title-input");
+    fireEvent.change(title, { target: { value: "Свежий" } });
+    fireEvent.click(screen.getByRole("tab", { name: /Состав и сценарий/i }));
+    fireEvent.click(await screen.findByTestId("composition-add-topic"));
+    fireEvent.click(await screen.findByTestId("topic-picker-item-topic-1"));
+
+    await waitFor(() => expect(screen.getByTestId("test-editor-save")).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId("test-editor-save"));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("te-new"));
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 

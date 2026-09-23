@@ -85,6 +85,14 @@ export type TestEditorProps = {
   /** Invoked when the user closes the Drawer (or the close confirmation). */
   onClose: () => void;
   /**
+   * Тест создан «Применить»-ем. Ящик при этом НЕ закрывается: автор продолжает
+   * работу с уже созданным тестом, поэтому владелец состояния обязан переключить
+   * ящик из режима создания в режим правки этого идентификатора.
+   *
+   * Не передан — ящик закрывается, как раньше.
+   */
+  onCreated?: (testId: string) => void;
+  /**
    * Tab to open on. Lets a caller send the author straight to the work that
    * prompted the opening — the tests list points at «Структура» for a test whose
    * pages need mapping (PRD-22, plan Э6). Defaults to «Основное».
@@ -240,12 +248,17 @@ export function TestEditor(props: TestEditorProps): React.JSX.Element | null {
   }, [open, createMode, testId]);
   const editor = useTestEditor(options);
 
+  const { onCreated } = props;
   useEffect(() => {
-    if (editor.createdId !== null) {
-      editor.consumeCreatedId();
-      onClose();
-    }
-  }, [editor.createdId, editor, onClose]);
+    if (editor.createdId === null) return;
+    const id = editor.createdId;
+    editor.consumeCreatedId();
+    // «Применить» создало тест и ящик не закрывает: работу продолжают с СОЗДАННЫМ
+    // тестом, а для этого владелец состояния переводит ящик в режим правки. Без
+    // обработчика поведение прежнее — закрыть.
+    if (onCreated) onCreated(id);
+    else onClose();
+  }, [editor.createdId, editor, onClose, onCreated]);
 
   return (
     <TestEditorView
@@ -603,7 +616,15 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     );
   }, [editor, props]);
 
-  const handleSave = useCallback(async () => {
+  /**
+   * «Применить» — записать набранное и ОСТАТЬСЯ в ящике. Закрытие — отдельное
+   * действие («Закрыть»), поэтому здесь его нет: автор применяет правки по ходу
+   * работы столько раз, сколько нужно.
+   *
+   * В режиме создания это же нажатие создаёт тест; ящик остаётся открытым и
+   * переключается на созданный (см. `onCreated`).
+   */
+  const handleApply = useCallback(async () => {
     if (saveDisabled) return;
     const ok = await saveAll();
     if (!ok) return;
@@ -616,8 +637,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
       );
     }
     reportFeasibility();
-    onClose();
-  }, [saveAll, saveDisabled, onClose, editor.model?.id, editor.validation.warnings.length, queryClient, reportFeasibility]);
+  }, [saveAll, saveDisabled, editor.model?.id, editor.validation.warnings.length, queryClient, reportFeasibility]);
 
   const handleSaveAndExit = useCallback(async () => {
     if (hasErrors) return;
@@ -1018,10 +1038,11 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
               Сначала исправьте ошибки в выделенных секциях.
             </span>
           )}
-          {combinedDirty ? (
+          {/* Тег состояния и список правок нужны только когда правки есть; три
+              действия стоят всегда и запираются по смыслу — прыгающий подвал хуже
+              заперной кнопки, потому что кнопка на месте, а состав кнопок нет. */}
+          {combinedDirty && (
             <>
-              {/* Тег состояния стоит в подвале слева, как в эскизе: подвал — то место,
-                  где принимают решение сохранять, и статус нужен именно здесь. */}
               <Tag tone="warning" data-testid="test-editor-foot-dirty-tag">
                 Изменено
               </Tag>
@@ -1045,56 +1066,44 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
                   />
                 )}
               </div>
-              <Button
-                variant="secondary"
-                size="m"
-                // Explicit cancel: discard the draft and close immediately, with no
-                // "save before closing?" prompt (that prompt belongs to the ambiguous
-                // header «×» / backdrop). The user already declared intent to cancel.
-                onClick={handleExitWithoutSave}
-                disabled={combinedSaving}
-                data-testid="test-editor-cancel"
-              >
-                Отменить
-              </Button>
-              <Button
-                variant="primary"
-                size="m"
-                disabled={saveDisabled}
-                aria-disabled={saveDisabled ? "true" : "false"}
-                aria-describedby={hasErrors ? "test-editor-save-blocked" : undefined}
-                onClick={handleSave}
-                loading={combinedSaving}
-                data-testid="test-editor-save"
-              >
-                {combinedSaving ? "Сохранение…" : "Сохранить"}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="m"
-                onClick={requestClose}
-                disabled={combinedSaving}
-                data-testid="test-editor-cancel"
-              >
-                Закрыть
-              </Button>
-              <Button
-                variant="primary"
-                size="m"
-                disabled={saveDisabled}
-                aria-disabled={saveDisabled ? "true" : "false"}
-                aria-describedby={hasErrors ? "test-editor-save-blocked" : undefined}
-                onClick={handleSave}
-                loading={combinedSaving}
-                data-testid="test-editor-save"
-              >
-                {combinedSaving ? "Сохранение…" : "Сохранить"}
-              </Button>
             </>
           )}
+          <Button
+            variant="secondary"
+            size="m"
+            // Отказ от набранного: откатывает черновик и закрывает ящик СРАЗУ, без
+            // вопроса «сохранить перед закрытием» — автор уже сказал, чего хочет.
+            // Вопрос принадлежит неоднозначным путям выхода: «Закрыть», крестику и
+            // клику по подложке.
+            onClick={handleExitWithoutSave}
+            disabled={!combinedDirty || combinedSaving}
+            data-testid="test-editor-cancel"
+          >
+            Отменить
+          </Button>
+          <Button
+            variant="primary"
+            size="m"
+            disabled={saveDisabled}
+            aria-disabled={saveDisabled ? "true" : "false"}
+            aria-describedby={hasErrors ? "test-editor-save-blocked" : undefined}
+            onClick={handleApply}
+            loading={combinedSaving}
+            data-testid="test-editor-save"
+          >
+            {combinedSaving ? "Сохранение…" : "Применить"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="m"
+            // Выход. Есть неприменённое — спрашиваем, как и крестик в шапке.
+            // Свой `testid`: у крестика в шапке уже занят `test-editor-close`.
+            onClick={requestClose}
+            disabled={combinedSaving}
+            data-testid="test-editor-foot-close"
+          >
+            Закрыть
+          </Button>
         </footer>
       </aside>
 

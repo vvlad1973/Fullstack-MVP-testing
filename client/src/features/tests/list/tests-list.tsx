@@ -869,6 +869,10 @@ export function TestsListPage(): React.JSX.Element {
           // уже обычная работа со списком, а не переход по чьей-то ссылке.
           setFocusReviewThreadId(null);
         }}
+        // «Применить» создало тест, а ящик остался открытым: переводим его в режим
+        // правки созданного, чтобы следующее «Применить» дописывало этот тест, а не
+        // создавало новый.
+        onCreated={(testId) => setEditorTarget({ kind: "edit", testId })}
         initialTab={editorTarget?.kind === "edit" ? editorTarget.tab : undefined}
         focusReviewThreadId={focusReviewThreadId ?? undefined}
         onFeasibilityNotes={setSaveNotes}
