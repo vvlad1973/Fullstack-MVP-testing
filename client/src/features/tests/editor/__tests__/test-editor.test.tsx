@@ -564,10 +564,28 @@ describe("useTestEditor — create mode", () => {
     expect(result.current.createdId).toBe("te-new");
   });
 
-  // Оформление нового теста: шаблон выбирается ещё до первого сохранения и обязан
-  // уехать телом создания. Позже поздно — системные страницы теста связывает с
-  // шаблоном та же транзакция.
-  it("кладёт выбранный шаблон в тело создания", async () => {
+  /** Минимальный состав, без которого сохранение заблокировано валидацией. */
+  const oneSection = () => [
+    {
+      topicId: "top-1",
+      topicName: "Topic",
+      maxQuestions: 10,
+      drawCount: 1,
+      drawAll: false,
+      required: true,
+      timeLimit: { source: "inherit_test" as const },
+      feedback: { format: "plain" as const, text: "" },
+      feedbackLinks: [],
+      feedbackAssets: [],
+      feedbackEvents: [],
+      defaultPoints: null,
+    },
+  ];
+
+  // Оформление нового теста едет в ДВА приёма: шаблон — телом создания (системные
+  // страницы связывает с ним та же транзакция, позже поздно), а всё прочее — своим
+  // маршрутом сразу после INSERT, где эта проверка против манифеста уже написана.
+  it("шаблон кладёт в тело создания, а параметры дописывает после INSERT", async () => {
     nextResponse({ ...buildApiResponse({ id: "te-new", title: "Свежий" }) }, 201);
 
     const client = makeClient();
@@ -577,34 +595,21 @@ describe("useTestEditor — create mode", () => {
     );
     await waitFor(() => expect(result.current.model).not.toBeNull());
     // Новый тест начинает со «Стандартного» — того же, чем его обслужит выдача.
-    expect(result.current.model?.designTemplateId).toBe("default");
+    expect(result.current.model?.design).toEqual({ templateId: "default", params: {} });
 
     act(() => {
       result.current.updateModel((m) => ({
         ...m,
         basic: { ...m.basic, title: "Свежий" },
-        designTemplateId: "corporate",
-        sections: [
-          {
-            topicId: "top-1",
-            topicName: "Topic",
-            maxQuestions: 10,
-            drawCount: 1,
-            drawAll: false,
-            required: true,
-            timeLimit: { source: "inherit_test" },
-            feedback: { format: "plain", text: "" },
-            feedbackLinks: [],
-            feedbackAssets: [],
-            feedbackEvents: [],
-            defaultPoints: null,
-          },
-        ],
+        design: { templateId: "corporate", params: { companyName: "Ромашка" } },
+        sections: oneSection(),
       }));
     });
-    // Выбор шаблона зажигает точку своей вкладки, а не чужой.
+    // Правка оформления зажигает точку своей вкладки, а не чужой.
     expect(result.current.tabStatuses.design.dirty).toBe(true);
 
+    nextResponse({ templateId: "corporate", params: { companyName: "Ромашка" } });
+    nextResponse(buildApiResponse({ id: "te-new" }));
     await act(async () => {
       await result.current.save();
     });
@@ -612,8 +617,93 @@ describe("useTestEditor — create mode", () => {
     const post = fetchMock.mock.calls.find(
       (c) => String(c[0]) === "/api/tests" && (c[1] as RequestInit)?.method === "POST",
     );
-    const body = JSON.parse(String((post?.[1] as RequestInit).body));
-    expect(body.designSettingsJson).toEqual({ templateId: "corporate" });
+    expect(JSON.parse(String((post?.[1] as RequestInit).body)).designSettingsJson).toEqual({
+      templateId: "corporate",
+    });
+
+    const designPut = fetchMock.mock.calls.find(
+      (c) => String(c[0]) === "/api/tests/te-new/design",
+    );
+    expect(designPut).toBeDefined();
+    expect(JSON.parse(String((designPut?.[1] as RequestInit).body))).toEqual({
+      templateId: "corporate",
+      params: { companyName: "Ромашка" },
+    });
+  });
+
+  it("выбрали только шаблон — лишнего запроса за оформлением нет", async () => {
+    nextResponse({ ...buildApiResponse({ id: "te-new", title: "Свежий" }) }, 201);
+
+    const client = makeClient();
+    const { result } = renderHook(
+      () => useTestEditor({ mode: "create", folderId: null }),
+      { wrapper: ({ children }) => withClient(client, <>{children}</>) },
+    );
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+
+    act(() => {
+      result.current.updateModel((m) => ({
+        ...m,
+        basic: { ...m.basic, title: "Свежий" },
+        design: { templateId: "corporate", params: {} },
+        sections: oneSection(),
+      }));
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    // Шаблон уже записан телом создания; повторять его отдельным PUT незачем.
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/design"))).toBe(false);
+  });
+
+  it("переопределения оценки дописываются после INSERT", async () => {
+    nextResponse({ ...buildApiResponse({ id: "te-new", title: "Свежий" }) }, 201);
+
+    const client = makeClient();
+    const { result } = renderHook(
+      () => useTestEditor({ mode: "create", folderId: null }),
+      { wrapper: ({ children }) => withClient(client, <>{children}</>) },
+    );
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+
+    act(() => {
+      result.current.updateModel((m) => ({
+        ...m,
+        basic: { ...m.basic, title: "Свежий" },
+        sections: oneSection(),
+        scoring: {
+          defaultQuestionPoints: null,
+          questionOverrides: [
+            {
+              id: "",
+              testId: "",
+              questionId: "q-1",
+              points: 5,
+              scoringJson: null,
+              difficulty: null,
+              pinnedContentHash: "hash-1",
+            },
+          ],
+        },
+      }));
+    });
+
+    nextResponse({ ok: true });
+    nextResponse(buildApiResponse({ id: "te-new" }));
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const scoringPut = fetchMock.mock.calls.find(
+      (c) => String(c[0]) === "/api/tests/te-new/question-scoring/q-1",
+    );
+    expect(scoringPut).toBeDefined();
+    expect(JSON.parse(String((scoringPut?.[1] as RequestInit).body))).toEqual({
+      points: 5,
+      scoringJson: null,
+      difficulty: null,
+    });
   });
 
   it("правка существующего теста об оформлении не сообщает", async () => {
@@ -623,9 +713,9 @@ describe("useTestEditor — create mode", () => {
       wrapper: ({ children }) => withClient(client, <>{children}</>),
     });
     await waitFor(() => expect(result.current.model).not.toBeNull());
-    // У открытого на правку теста поля нет вовсе: оформление правит свой ресурс
+    // У открытого на правку теста среза нет вовсе: оформление правит свой ресурс
     // (`PUT /api/tests/:id/design`), и второй писатель затёр бы его параметры.
-    expect(result.current.model?.designTemplateId).toBeUndefined();
+    expect(result.current.model?.design).toBeUndefined();
 
     nextResponse(buildApiResponse({ version: 8 }));
     act(() => {

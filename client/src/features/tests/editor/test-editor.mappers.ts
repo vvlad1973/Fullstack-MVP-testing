@@ -1186,9 +1186,9 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
     flowSettings: {},
     folderId: args.folderId,
     // Новый тест начинает со «Стандартного» — тем же шаблоном его обслуживает выдача,
-    // когда оформление не задано вовсе. Автор меняет выбор во вкладке «Оформление», и
-    // выбранный шаблон уезжает вместе с телом создания.
-    designTemplateId: "default",
+    // когда оформление не задано вовсе. Всё, что автор задаст поверх, копится здесь и
+    // уезжает вместе с созданием (см. `TestEditorModel.design`).
+    design: { templateId: "default", params: {} },
     basic: {
       title: "",
       description: "",
@@ -1504,13 +1504,16 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
       : {}),
     expectedVersion: model.version,
     folderId: model.folderId,
-    // Оформление едет только при СОЗДАНИИ: поле есть лишь у черновика нового теста
-    // (см. `TestEditorModel.designTemplateId`). У открытого на правку теста его нет,
-    // и PUT по-прежнему ничего об оформлении не сообщает — иначе сохранение с любой
-    // вкладки затирало бы параметры, надписи и палитры, которых модель не знает.
-    ...(model.designTemplateId
-      ? { designSettingsJson: { templateId: model.designTemplateId } }
-      : {}),
+    // Оформление едет только при СОЗДАНИИ, и только ВЫБОР ШАБЛОНА: системные страницы
+    // теста связывает с шаблоном та же транзакция, что их создаёт, и опоздать здесь
+    // нельзя. Всё прочее (параметры, палитры, надписи, порядок блоков) дописывается
+    // сразу после INSERT через `PUT /api/tests/:id/design` — там эта проверка против
+    // манифеста уже написана, и дублировать её в маршруте создания незачем.
+    //
+    // Срез есть только у черновика нового теста (см. `TestEditorModel.design`), поэтому
+    // PUT теста по-прежнему ничего об оформлении не сообщает: иначе сохранение с любой
+    // вкладки затирало бы то, чего модель существующего теста не знает.
+    ...(model.design ? { designSettingsJson: { templateId: model.design.templateId } } : {}),
   };
 
   return payload;

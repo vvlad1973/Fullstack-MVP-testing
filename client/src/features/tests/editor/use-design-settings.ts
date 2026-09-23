@@ -34,6 +34,7 @@ import {
 } from "@shared/template/themes";
 import type { LabelDeclaration, LabelValues } from "@shared/template/labels";
 import type { ResultsBlockKey, TemplateBlockOrder } from "@shared/template/results-order";
+import type { TestDesignDraft } from "./test-editor.types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -176,36 +177,26 @@ export type TemplateRow = {
   reportLabelKeys?: string[];
 };
 
-export type DesignSettings = {
-  templateId: string;
-  templateVersion?: string;
-  templateApiVersion?: string;
-  params?: Record<string, unknown>;
-  /** PRD-23: palette pinned by the author; absent reads as «Авто». */
-  theme?: TestTheme;
-  /** PRD-23: colour overrides per palette. Only for a template with themes. */
-  paramsByTheme?: Partial<Record<ThemeId, Record<string, unknown>>>;
-  /**
-   * PRD-49 §4.2: the test's own wording of the labels the template declares — only the
-   * DEVIATIONS. A key that is absent means «the template's text stands», so the settings
-   * of a test nobody reworded keep exactly the shape they had before the PRD.
-   */
-  labels?: LabelValues;
-  /** PRD-49 §3: the author's order of the four sub-blocks under the results umbrella. */
-  resultsBlockOrder?: ResultsBlockKey[];
-};
+/**
+ * Форма настроек оформления. Объявлена в модели редактора
+ * ({@link module:features/tests/editor/test-editor.types TestDesignDraft}), потому
+ * что у черновика НОВОГО теста этот срез принадлежит ей; здесь он живёт под своим
+ * историческим именем, которым пользуются панели и тесты.
+ */
+export type DesignSettings = TestDesignDraft;
 
 /**
- * Режим СОЗДАНИЯ: теста ещё нет, и выбранный шаблон хранит черновик редактора —
- * он же отправит его телом создания. Хук в этом режиме ничего не грузит и не
- * сохраняет по адресу теста, а `draft` выводит из переданного идентификатора,
- * поэтому второго места хранения выбора не возникает.
+ * Режим СОЗДАНИЯ: теста ещё нет, и черновик оформления принадлежит модели
+ * редактора — он уедет вместе с созданием. Хук в этом режиме ничего не грузит по
+ * адресу теста и не сохраняет сам, но работает во всём остальном: тянет манифест
+ * выбранного шаблона и правит переданный черновик. Так у настроек оформления
+ * остаётся ОДНО место хранения и до первого сохранения, и после.
  */
 export type DesignCreateBinding = {
-  /** Выбор автора; живёт в `TestEditorModel.designTemplateId`. */
-  templateId: string;
-  /** Записать новый выбор туда же — вызывается вместо правки локального черновика. */
-  onTemplateChange: (templateId: string) => void;
+  /** Черновик автора; живёт в `TestEditorModel.design`. */
+  draft: DesignSettings;
+  /** Записать новое состояние туда же — вместо правки локального состояния хука. */
+  onChange: (next: DesignSettings) => void;
 };
 
 export type UseDesignSettingsResult = {
@@ -314,7 +305,13 @@ async function fetchTemplate(templateId: string): Promise<TemplateRow> {
   return res.json();
 }
 
-async function putDesign(
+/**
+ * Сохранение оформления. Экспортируется, потому что этим же маршрутом черновик
+ * НОВОГО теста дописывается сразу после его создания (`useTestEditor`): маршрут
+ * проверяет параметры против манифеста, темы, надписи и порядок блоков, и второй
+ * путь записи означал бы вторую, неизбежно расходящуюся проверку.
+ */
+export async function putDesign(
   testId: string,
   body: DesignSettings,
 ): Promise<DesignSettings> {
@@ -347,17 +344,24 @@ export function useDesignSettings(
 
   const persisted: DesignSettings | undefined = designQuery.data;
 
-  const [localDraft, setDraft] = useState<DesignSettings>({ templateId: "default" });
+  const [localDraft, setLocalDraft] = useState<DesignSettings>({ templateId: "default" });
 
-  // В режиме создания черновик ВЫВОДИТСЯ из выбора редактора, а не хранится здесь:
-  // сохранённых настроек нет, и параметров у нового теста тоже (их правят уже у
-  // существующего). Идентичность объекта держится мемоизацией — иначе каждая
-  // перерисовка пересчитывала бы всё, что от черновика зависит.
-  const boundTemplateId = createBinding?.templateId;
-  const draft = useMemo<DesignSettings>(
-    () => (boundTemplateId !== undefined ? { templateId: boundTemplateId, params: {} } : localDraft),
-    [boundTemplateId, localDraft],
-  );
+  // В режиме создания черновик принадлежит модели редактора: сохранённых настроек
+  // нет, а набранное должно уехать вместе с созданием теста. Подмена делается ОДНОЙ
+  // парой «состояние + сеттер», поэтому все панели и все сеттеры ниже написаны
+  // одинаково для обоих режимов и второго места хранения не возникает.
+  const draft = createBinding ? createBinding.draft : localDraft;
+  const setDraft = (
+    next: DesignSettings | ((prev: DesignSettings) => DesignSettings),
+  ): void => {
+    if (createBinding) {
+      createBinding.onChange(
+        typeof next === "function" ? next(createBinding.draft) : next,
+      );
+      return;
+    }
+    setLocalDraft(next);
+  };
 
   // Sync the draft from the persisted settings as soon as they (re)load. Done
   // during render (React's "adjust state when a prop changes" pattern) rather than
@@ -381,6 +385,10 @@ export function useDesignSettings(
     enabled: (Boolean(persisted) || createBinding !== undefined) && Boolean(draft.templateId),
   });
 
+  // Режим создания остаётся ЧИСТЫМ намеренно: сохранённого снимка нет, сохранять по
+  // адресу теста нечего, а изменённость отслеживает сама модель редактора (срез
+  // `design` попадает в её сравнение с снимком). Подняв здесь флаг, мы заставили бы
+  // общее «Сохранить» слать PUT по адресу теста, которого ещё не существует.
   const isDirty = useMemo(() => {
     if (!persisted) return false;
     const norm = (s: DesignSettings) =>
@@ -424,12 +432,6 @@ export function useDesignSettings(
   };
 
   const setTemplate = (templateId: string) => {
-    // Режим создания: выбор принадлежит черновику редактора — он уедет телом создания,
-    // и локальная копия здесь была бы вторым источником истины.
-    if (createBinding) {
-      createBinding.onTemplateChange(templateId);
-      return;
-    }
     // S12-G3: clears params on switch (new template's defaults apply via the
     // manifest hydration). Drops templateVersion/templateApiVersion so the
     // server re-stamps them from the chosen template during PUT.

@@ -13,6 +13,9 @@ import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
 import type { TestQuestionOrder } from "@shared/draw/assemble-delivery";
 import type { RichTextFormat } from "@shared/template/rich-text";
+import type { TestTheme, ThemeId } from "@shared/template/themes";
+import type { LabelValues } from "@shared/template/labels";
+import type { ResultsBlockKey } from "@shared/template/results-order";
 import type { QuestionScoringOverride } from "./scoring-api";
 import type { FeedbackEditorValue } from "./sections/feedback-editor-modal";
 
@@ -50,6 +53,37 @@ export type SectionUnlockMode =
   | "always_available"
   | "after_sections_completed"
   | "after_sections_passed";
+
+// ─── Оформление ───────────────────────────────────────────────────────────────
+
+/**
+ * Настройки оформления теста: выбранный шаблон и всё, что автор задал поверх его
+ * умолчаний. Форма совпадает с телом `PUT /api/tests/:id/design` и с колонкой
+ * `tests.design_settings_json`.
+ *
+ * Объявлено ЗДЕСЬ, а не в хуке, потому что у черновика НОВОГО теста этот срез —
+ * часть модели редактора ({@link TestEditorModel.design}); хук
+ * (`useDesignSettings`) переиспользует тип под именем `DesignSettings`.
+ */
+export type TestDesignDraft = {
+  templateId: string;
+  /** Штампуются сервером при сохранении; в черновике нового теста их нет. */
+  templateVersion?: string;
+  templateApiVersion?: string;
+  params?: Record<string, unknown>;
+  /** PRD-23: палитра, закреплённая автором; отсутствие читается как «Авто». */
+  theme?: TestTheme;
+  /** PRD-23: цвета по палитрам. Только у шаблона, объявившего темы. */
+  paramsByTheme?: Partial<Record<ThemeId, Record<string, unknown>>>;
+  /**
+   * PRD-49 §4.2: собственные формулировки надписей — только ОТСТУПЛЕНИЯ. Отсутствие
+   * ключа означает «текст шаблона в силе», поэтому настройки теста, которому надписи
+   * не переписывали, сохраняют ту же форму, что была до PRD.
+   */
+  labels?: LabelValues;
+  /** PRD-49 §3: авторский порядок четырёх подблоков под итогами. */
+  resultsBlockOrder?: ResultsBlockKey[];
+};
 
 // ─── Feedback ─────────────────────────────────────────────────────────────────
 
@@ -563,15 +597,21 @@ export type TestEditorModel = {
   /** Parent folder; `null` means root (no folder). */
   folderId: string | null;
   /**
-   * Шаблон оформления, выбранный ДО первого сохранения. Живёт в модели ТОЛЬКО в
-   * режиме создания: у существующего теста оформление правится своим ресурсом
+   * Оформление, набранное ДО первого сохранения. Живёт в модели ТОЛЬКО в режиме
+   * создания: у существующего теста оформление правится своим ресурсом
    * (`PUT /api/tests/:id/design`) со своим черновиком, и второе место хранения
-   * означало бы два источника истины о шаблоне.
+   * означало бы два источника истины.
    *
-   * Поэтому {@link apiToEditorModel} его НЕ заполняет: у открытого на правку теста
+   * Поэтому {@link apiToEditorModel} срез НЕ заполняет: у открытого на правку теста
    * поля нет, и `editorModelToPayload` ничего об оформлении в PUT не кладёт.
+   *
+   * Сохраняется в ДВА приёма (см. правило 9 в
+   * `docs/architecture/test-editor-contracts.md`): `templateId` уезжает телом
+   * создания, потому что системные страницы связывает с шаблоном та же транзакция,
+   * а остальное дописывается сразу после INSERT тем же `PUT /:id/design` — по образцу
+   * показателей, шкал и измерений, которые редактор буферизует так же.
    */
-  designTemplateId?: string;
+  design?: TestDesignDraft;
   basic: {
     title: string;
     description: string;

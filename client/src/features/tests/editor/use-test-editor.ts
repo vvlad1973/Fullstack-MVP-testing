@@ -44,8 +44,10 @@ import { tagKey } from "@shared/tags";
 import { saveResultVariables } from "./result-variables-api";
 import { saveScales, saveMeasurements } from "./scales-api";
 import { saveQuestionOverrides } from "./scoring-api";
+import { putDesign } from "./use-design-settings";
 import type {
   ScaleModel,
+  TestDesignDraft,
   TestEditorModel,
   ValidationResult,
 } from "./test-editor.types";
@@ -301,10 +303,10 @@ function diffDirtyTabs(
   ) {
     dirty.add("scoring");
   }
-  // «Оформление»: выбор шаблона до первого сохранения. У существующего теста поля в
+  // «Оформление»: набранное до первого сохранения. У существующего теста среза в
   // модели нет ни у черновика, ни у снимка, и вкладка помечается своим черновиком
   // (`useDesignSettings.isDirty`) — здесь ловится только режим создания.
-  if (draft.designTemplateId !== snapshot.designTemplateId) {
+  if (!shallowEqualJson(draft.design, snapshot.design)) {
     dirty.add("design");
   }
   return dirty;
@@ -313,6 +315,26 @@ function diffDirtyTabs(
 /** Structural equality via JSON serialisation. Sufficient for plain editor data. */
 function shallowEqualJson(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Есть ли в черновике оформления что-то, кроме выбора шаблона. Сам выбор уже уехал
+ * телом создания (`editorModelToPayload`), и повторять его отдельным сохранением
+ * незачем — тест, которому задали только шаблон, не должен получать лишний запрос.
+ *
+ * `theme: "auto"` тоже не отступление: это значение по умолчанию, и у шаблона без
+ * объявленных палитр маршрут принимает ТОЛЬКО его.
+ */
+function hasDesignOverrides(design: TestDesignDraft): boolean {
+  return (
+    Object.keys(design.params ?? {}).length > 0 ||
+    (design.theme !== undefined && design.theme !== "auto") ||
+    Object.values(design.paramsByTheme ?? {}).some(
+      (values) => Object.keys(values ?? {}).length > 0,
+    ) ||
+    Object.keys(design.labels ?? {}).length > 0 ||
+    (design.resultsBlockOrder ?? []).length > 0
+  );
 }
 
 // ─── Fetch / mutate helpers ───────────────────────────────────────────────────
@@ -648,8 +670,19 @@ export function useTestEditor(
       }
       const created = await postTest(fullPayload);
       const newId = (created as { id?: string } | null)?.id;
+      // Черновик не требует сохранения, чтобы его настроить: всё, что автор набрал до
+      // создания, дописывается СРАЗУ ПОСЛЕ INSERT — теми же маршрутами, какими это
+      // правится у существующего теста. Показатели, шкалы и измерения жили так всегда;
+      // переопределения оценки и оформление встали в тот же ряд.
+      const designOverrides =
+        draft.design && hasDesignOverrides(draft.design) ? draft.design : null;
+      const overrides = draft.scoring.questionOverrides;
       const hasChildren =
-        draft.resultVariables.length > 0 || draft.scales.length > 0 || draft.measurements.length > 0;
+        draft.resultVariables.length > 0 ||
+        draft.scales.length > 0 ||
+        draft.measurements.length > 0 ||
+        overrides.length > 0 ||
+        designOverrides !== null;
       if (newId && hasChildren) {
         if (draft.resultVariables.length > 0) await saveResultVariables(newId, draft.resultVariables, []);
         if (draft.scales.length > 0) await saveScales(newId, draft.scales, []);
@@ -657,6 +690,10 @@ export function useTestEditor(
           const keyToId = await resolveScaleKeyToId(newId, draft.scales, true);
           await saveMeasurements(newId, draft.measurements, [], keyToId);
         }
+        // PRD-15 блок D: цена и градация отдельных вопросов. Снимок пустой — у только
+        // что созданного теста переопределений нет, поэтому сверять не с чем.
+        if (overrides.length > 0) await saveQuestionOverrides(newId, overrides, []);
+        if (designOverrides) await putDesign(newId, designOverrides);
         return fetchTest(newId);
       }
       return {

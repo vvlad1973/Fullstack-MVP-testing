@@ -12,6 +12,10 @@
  *     against the snapshot (scoring-api `saveQuestionOverrides`); each persisted
  *     PUT/DELETE bumps the test version (FR-12).
  *
+ * Сохранённого теста вкладка НЕ требует: вопросы приходят из банка, а обе части
+ * состояния — умолчания и переопределения — живут в модели. У нового теста они
+ * дописываются сразу после INSERT тем же `saveQuestionOverrides`.
+ *
  * The questions table shows the EFFECTIVE values (shared resolver). The
  * «настроено в тесте» mark — an accent bar on the row + a soft accent fill on
  * each overridden cell (tooltip «Настроено в тесте») — flags a configured
@@ -27,7 +31,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CircleDot, Pencil, RotateCcw } from "lucide-react";
 import {
-  Banner, Collapsible, CollapsibleContent, CollapsibleTrigger, IconButton, Input, Tag,
+  Collapsible, CollapsibleContent, CollapsibleTrigger, IconButton, Input, Tag,
 } from "@skillum/ui-kit";
 
 import { resolveEffectiveScoring } from "@shared/scoring/effective-scoring";
@@ -44,7 +48,13 @@ import { QUESTION_TYPE_ICON, QUESTION_TYPE_LABEL } from "./question-type-icon";
 
 export type ScoringSectionProps = {
   model: TestEditorModel;
-  /** Test id; `undefined` in create mode — per-question overrides need a saved test. */
+  /**
+   * Тест, если он уже существует; `undefined` в режиме создания. Вкладка от него не
+   * зависит: вопросы приходят из банка, а переопределения лежат в черновике модели и
+   * дописываются сразу после создания теста (см. `useTestEditor`). Идентификатор
+   * нужен только строке переопределения — и только чтобы она не мешала сравнению
+   * черновика со снимком.
+   */
   testId?: string;
   updateModel: (updater: (model: TestEditorModel) => TestEditorModel) => void;
   readOnly?: boolean;
@@ -177,19 +187,10 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
         <span className="tb-qscoring__default-hint">
           Пусто — системное умолчание: 1 балл за полностью верный ответ.
         </span>
-        {testId && model.sections.length > 0 && (
+        {model.sections.length > 0 && (
           <FoldAllButtons fold={fold} testIdPrefix="scoring" />
         )}
       </div>
-
-      {!testId && (
-        <Banner
-          tone="info"
-          size="sm"
-          description="Сохраните тест, чтобы настраивать балл, цену ответа и сложность отдельных вопросов."
-          data-testid="scoring-create-hint"
-        />
-      )}
 
       {model.sections.map((section) => {
         const questions = questionsByTopic.get(section.topicId) ?? [];
@@ -236,7 +237,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
 
               <CollapsibleContent>
                 <div className="tb-fold-sec__body">
-            {testId && questions.length > 0 && (
+            {questions.length > 0 && (
               <table className="tb-table" aria-label={`Оценка вопросов темы «${section.topicName}»`}>
                 <thead>
                   <tr>
@@ -367,7 +368,7 @@ export function ScoringSection({ model, testId, updateModel, readOnly }: Scoring
         );
       })}
 
-      {modalState && testId && (
+      {modalState && (
         <QuestionScoringModal
           question={modalState.question}
           sectionName={modalState.sectionName}

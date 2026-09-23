@@ -79,7 +79,11 @@ import type { TestEditorModel } from "../test-editor.types";
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export type DesignSectionProps = {
-  /** Test id is required to fetch design settings; `undefined` in create mode. */
+  /**
+   * Тест, чьё оформление грузить самостоятельно; `undefined` в режиме создания.
+   * Раздел о режиме НЕ знает: у нового теста черновик приходит готовым в `design`,
+   * и панели работают одинаково до первого сохранения и после.
+   */
   testId: string | undefined;
   /**
    * Optional pre-hoisted design hook instance. When provided, the section
@@ -208,19 +212,13 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
     return declared.filter((d) => allowed.has(d.key));
   }, [design.template]);
 
-  // Режим создания: теста ещё нет. Шаблон выбрать можно — он уедет телом создания, —
-  // а параметры шаблона привязаны к существующему тесту (свой ресурс, своя загрузка
-  // медиа), поэтому остальные пункты рейла заперты ровно тем же способом, каким их
-  // запирает недоступный шаблон.
-  const createMode = testId === undefined;
-
-  const effectiveActive: DesignRailKey = design.templateMissing || createMode
+  const effectiveActive: DesignRailKey = design.templateMissing
     ? "template"
     : visibleRail.some((i) => i.key === active)
       ? active
       : "template";
   const isRailDisabled = (key: DesignRailKey): boolean =>
-    (design.templateMissing || createMode) && key !== "template";
+    design.templateMissing && key !== "template";
 
   return (
     <>
@@ -256,17 +254,7 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
           })}
         </nav>
         <div className="tb-settings-content" data-testid={`design-pane-${effectiveActive}`}>
-          {createMode ? (
-            <>
-              <CreateModeNotice />
-              <TemplatePane
-                design={design}
-                createMode
-                onPreview={() => setPreviewOpen(true)}
-                onOpenGallery={() => setGalleryOpen(true)}
-              />
-            </>
-          ) : design.isLoading ? (
+          {design.isLoading ? (
             <LoadingNotice />
           ) : design.templateMissing ? (
             <TemplateIncompatibleBanner
@@ -390,23 +378,6 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
 
 // ─── Sub-panes ────────────────────────────────────────────────────────────────
 
-/**
- * Режим создания. Шаблон здесь уже выбирается — он часть черновика и уезжает телом
- * создания, — а его параметры нет: брендирование, цвета и макет пишутся своим
- * ресурсом теста и грузят файлы в медиатеку под его идентификатором. Баннер
- * объясняет именно эту границу, иначе запертые пункты рейла читались бы как поломка.
- */
-function CreateModeNotice() {
-  return (
-    <Banner
-      tone="info"
-      title="Шаблон можно выбрать сразу"
-      description="Выбранный шаблон применится к тесту при создании. Его параметры — брендирование, цвета, макет, вид диаграмм и облик отчёта — привязаны к существующему тесту: заполните обязательные поля во вкладке «Основное», сохраните черновик, и эти разделы откроются."
-      data-testid="design-create-notice"
-    />
-  );
-}
-
 function LoadingNotice() {
   return (
     <Banner
@@ -468,16 +439,10 @@ function TemplateIncompatibleBanner(props: {
 
 function TemplatePane({
   design,
-  createMode = false,
   onPreview,
   onOpenGallery,
 }: {
   design: UseDesignSettingsResult;
-  /**
-   * Тест ещё не создан: параметров оформления у него нет по определению, поэтому
-   * «Сбросить до умолчаний» нечего сбрасывать — кнопка не показывается.
-   */
-  createMode?: boolean;
   onPreview: () => void;
   /** PRD-7 S12-G3 / FR-33: opens the TemplateGalleryModal. */
   onOpenGallery: () => void;
@@ -585,16 +550,14 @@ function TemplatePane({
             >
               Заменить шаблон
             </Button>
-            {!createMode && (
-              <Button
-                variant="ghost"
-                size="s"
-                data-testid="design-template-reset"
-                onClick={design.resetToDefaults}
-              >
-                Сбросить до умолчаний
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="s"
+              data-testid="design-template-reset"
+              onClick={design.resetToDefaults}
+            >
+              Сбросить до умолчаний
+            </Button>
           </div>
         </div>
       </div>

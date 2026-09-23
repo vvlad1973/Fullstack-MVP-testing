@@ -8,7 +8,7 @@ import React from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useDesignSettings } from "../use-design-settings";
+import { useDesignSettings, type DesignSettings } from "../use-design-settings";
 
 const TEST_ID = "te-1";
 
@@ -186,11 +186,29 @@ describe("useDesignSettings — themes (PRD-23)", () => {
   });
 });
 
-// ─── Режим создания: выбор шаблона до первого сохранения ─────────────────────
+
+// ─── Режим создания: настраивается до первого сохранения ────────────────────
 //
-// Теста ещё нет: настройки оформления неоткуда прочитать и некуда сохранить. Но
-// выбрать шаблон автор уже может — выбор живёт в черновике редактора и уезжает
-// телом создания, а хук отвечает только за манифест выбранного шаблона.
+// Теста ещё нет: читать и сохранять оформление по его адресу нечем. Но набирать
+// его автор уже может — черновик живёт в модели редактора и уезжает вместе с
+// созданием, а хук в этом режиме отвечает за манифест и за правку ЭТОГО черновика.
+
+/** Связка «черновик в состоянии вызывающего» — так её собирает ящик редактора. */
+function renderBound(initial: DesignSettings, onChange?: (next: DesignSettings) => void) {
+  const seen: DesignSettings[] = [];
+  const hook = renderHook(
+    ({ draft }: { draft: DesignSettings }) =>
+      useDesignSettings(undefined, {
+        draft,
+        onChange: (next) => {
+          seen.push(next);
+          onChange?.(next);
+        },
+      }),
+    { wrapper, initialProps: { draft: initial } },
+  );
+  return { ...hook, seen };
+}
 
 describe("useDesignSettings — режим создания", () => {
   it("грузит манифест выбранного шаблона, не спрашивая оформление теста", async () => {
@@ -201,38 +219,34 @@ describe("useDesignSettings — режим создания", () => {
       return jsonResponse({ error: "unexpected" }, 500);
     });
 
-    const { result } = renderHook(
-      () =>
-        useDesignSettings(undefined, {
-          templateId: "corporate",
-          onTemplateChange: () => {},
-        }),
-      { wrapper },
-    );
+    const { result } = renderBound({ templateId: "corporate", params: {} });
 
     await waitFor(() => expect(result.current.template).not.toBeNull());
     expect(result.current.draft.templateId).toBe("corporate");
     expect(calls.some((u) => u.includes("/design"))).toBe(false);
   });
 
-  it("выбор шаблона уходит в черновик редактора, а не в локальное состояние", async () => {
+  it("любая правка уходит в переданный черновик, а не в состояние хука", async () => {
     mockFetch((url) => {
       if (url.startsWith("/api/templates/")) return jsonResponse(TEMPLATE);
       return jsonResponse({ error: "unexpected" }, 500);
     });
 
-    const onTemplateChange = vi.fn();
-    const { result } = renderHook(
-      () => useDesignSettings(undefined, { templateId: "default", onTemplateChange }),
-      { wrapper },
-    );
+    const { result, seen, rerender } = renderBound({ templateId: "corporate", params: {} });
+    await waitFor(() => expect(result.current.template).not.toBeNull());
 
-    act(() => result.current.setTemplate("corporate"));
+    act(() => result.current.setParam("companyName", "Ромашка"));
+    expect(seen.at(-1)).toEqual({ templateId: "corporate", params: { companyName: "Ромашка" } });
+    // Пока вызывающий не перерисовал хук новым черновиком, тот показывает прежний:
+    // единственный источник истины — привязка.
+    expect(result.current.draft.params).toEqual({});
 
-    expect(onTemplateChange).toHaveBeenCalledWith("corporate");
-    // Привязка — единственный источник истины: пока редактор не перерисовал хук с
-    // новым значением, черновик показывает прежний выбор.
-    expect(result.current.draft.templateId).toBe("default");
+    rerender({ draft: seen.at(-1)! });
+    expect(result.current.draft.params).toEqual({ companyName: "Ромашка" });
+
+    act(() => result.current.setTemplate("default"));
+    // Смена шаблона сбрасывает параметры — они принадлежали прежнему манифесту.
+    expect(seen.at(-1)).toEqual({ templateId: "default", params: {} });
   });
 
   it("никогда не грязный: сохранять по адресу теста нечего", async () => {
@@ -241,15 +255,7 @@ describe("useDesignSettings — режим создания", () => {
       return jsonResponse({ error: "unexpected" }, 500);
     });
 
-    const { result } = renderHook(
-      () =>
-        useDesignSettings(undefined, {
-          templateId: "corporate",
-          onTemplateChange: () => {},
-        }),
-      { wrapper },
-    );
-
+    const { result } = renderBound({ templateId: "corporate", params: { companyName: "Ромашка" } });
     await waitFor(() => expect(result.current.template).not.toBeNull());
     expect(result.current.isDirty).toBe(false);
   });

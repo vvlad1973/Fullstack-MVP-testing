@@ -301,16 +301,17 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   // both the test-settings PUT and the design-settings PUT in a single
   // action (per wireframe prd7-design-tab.html — single footer save).
   //
-  // В режиме создания сохранять пока нечем и некуда: теста нет. Хук получает
-  // привязку к черновику редактора — выбранный шаблон хранится там и уезжает телом
-  // создания, а хук только подтягивает манифест, чтобы карточка и галерея работали.
+  // В режиме создания теста ещё нет, поэтому хук получает привязку к черновику
+  // редактора: набранное оформление хранится ТАМ и уезжает вместе с созданием
+  // (`templateId` — телом создания, остальное — сразу после INSERT). Сам хук работает
+  // как обычно: тянет манифест и правит этот черновик, так что панели не знают, в
+  // каком режиме их открыли.
   const design = useDesignSettings(
     editor.model?.id,
     editor.mode === "create" && editor.model
       ? {
-          templateId: editor.model.designTemplateId ?? "default",
-          onTemplateChange: (templateId: string) =>
-            editor.updateModel((m) => ({ ...m, designTemplateId: templateId })),
+          draft: editor.model.design ?? { templateId: "default", params: {} },
+          onChange: (next) => editor.updateModel((m) => ({ ...m, design: next })),
         }
       : undefined,
   );

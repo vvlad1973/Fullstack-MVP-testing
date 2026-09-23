@@ -307,10 +307,12 @@ describe("<ScoringSection />", () => {
     expect(await screen.findByTestId("scoring-row-q1")).toBeInTheDocument();
   });
 
-  it("create mode: hint banner instead of question tables", () => {
+  // Черновик не требует сохранения, чтобы его настроить: вопросы приходят из банка,
+  // а переопределения лежат в модели и дописываются сразу после создания теста.
+  it("режим создания: таблица вопросов доступна без сохранённого теста", async () => {
     const model = baseModel({ id: undefined, sections: [buildSection()] });
     renderWithClient(<ScoringSection model={model} updateModel={() => {}} />);
-    expect(screen.getByTestId("scoring-create-hint")).toBeInTheDocument();
-    expect(screen.queryByTestId("scoring-row-q1")).toBeNull();
+    expect(await screen.findByTestId("scoring-row-q1")).toBeInTheDocument();
+    expect(screen.queryByTestId("scoring-create-hint")).toBeNull();
   });
 });
