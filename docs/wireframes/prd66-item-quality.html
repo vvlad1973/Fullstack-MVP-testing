@@ -45,6 +45,12 @@
       /* Пузырёк подсказки позиционируется от своего якоря, поэтому в узкой ячейке
          таблицы сжимается до ширины заголовка. Ширину задаёт эскизный класс. */
       .wf-tip-wide { width: var(--wf-size-240); white-space: normal; }
+      /* Шкала доли: значение фиксированной ширины, дорожка занимает остаток ячейки,
+         поэтому обе колонки разреза выглядят одинаково при любой ширине стола. */
+      .wf-scale { display: flex; align-items: center; gap: var(--ou-space-2); }
+      .wf-scale__value { min-width: var(--wf-size-44); text-align: right; }
+      .wf-scale__track { flex: 1; height: var(--wf-size-18); background: var(--ou-bg-muted); border-radius: var(--ou-radius-pill); overflow: hidden; }
+      .wf-scale__fill { display: block; height: 100%; background: var(--ou-accent-default); border-radius: var(--ou-radius-pill); }
       /* У колонок справа пузырёк уходил за край стола и добавлял горизонтальную
          прокрутку; здесь он выравнивается по правому краю заголовка. */
       .wf-tip-end[data-placement="bottom"] .ou-tip__bubble { left: auto; right: 0; --ou-tip-tx: 0; }
@@ -62,6 +68,9 @@
       /* Многоточие нужно в ТЕЛЕ таблицы; на заголовке `overflow: hidden` срезал бы
          пузырёк подсказки, который выходит за пределы ячейки. */
       .wf-grid-fixed td { overflow: hidden; }
+      /* Ячейка с меню строки — исключение: меню всплывает за её пределы, и обрезка
+         оставляла от него только тень. */
+      .wf-grid-fixed td.wf-rowmenu-cell { overflow: visible; }
       .wf-grid-fixed .ou-grid__cell-strong, .wf-grid-fixed .ou-grid__cell-sub { text-overflow: ellipsis; }
     </style>
 
@@ -709,28 +718,28 @@
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Проверка контрагента перед сделкой<span class="ou-grid__cell-sub">верный ответ</span></td>
                         <td class="is-numeric">41 %</td>
-                        <td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="19 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">19 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="19.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td><td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="68 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">68 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="68.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td>
+                        <td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">19 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 19%"></span></span></span></td><td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">68 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 68%"></span></span></span></td>
                         <td class="is-numeric">+0,34</td>
                         <td><span class="ou-tag ou-tag--success ou-tag--s">Работает</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Согласование подарка с руководителем</td>
                         <td class="is-numeric">34 %</td>
-                        <td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="46 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">46 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="46.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td><td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="21 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">21 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="21.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td>
+                        <td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">46 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 46%"></span></span></span></td><td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">21 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 21%"></span></span></span></td>
                         <td class="is-numeric">−0,22</td>
                         <td><span class="ou-tag ou-tag--success ou-tag--s">Работает</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Ежегодное обучение сотрудников</td>
                         <td class="is-numeric">24 %</td>
-                        <td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="33 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">33 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="33.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td><td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="11 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">11 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="11.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td>
+                        <td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">33 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 33%"></span></span></span></td><td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">11 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 11%"></span></span></span></td>
                         <td class="is-numeric">−0,18</td>
                         <td><span class="ou-tag ou-tag--success ou-tag--s">Работает</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Ведение бумажного журнала посещений</td>
                         <td class="is-numeric">1 %</td>
-                        <td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="2 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">2 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="40" y="4" width="2.0" height="8" rx="4" fill="var(--ou-accent-default)" /></svg></td><td><svg width="150" height="16" viewBox="0 0 145 16" role="img" aria-label="0 процентов"><text x="32" y="12" font-size="11" text-anchor="end" fill="var(--ou-fg-default)">0 %</text><rect x="40" y="4" width="100" height="8" rx="4" fill="var(--ou-bg-muted)" /></svg></td>
+                        <td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">2 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 2%"></span></span></span></td><td><span class="wf-scale"><span class="wf-scale__value ou-text ou-text--body-s">0 %</span><span class="wf-scale__track"><span class="wf-scale__fill" style="width: 0%"></span></span></span></td>
                         <td class="is-numeric is-muted">—</td>
                         <td><span class="ou-tag ou-tag--warning ou-tag--s">Мёртвый вариант</span></td>
                       </tr>
