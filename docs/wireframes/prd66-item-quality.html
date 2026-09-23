@@ -255,7 +255,7 @@
                     <thead>
                       <tr>
                         <th class="col-stick col-stick--shadow"><div class="ou-grid__th is-sortable">Задание<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
-                        <th><div class="ou-grid__th">Признак</div></th>
+                        <th><div class="ou-grid__th is-sortable">Признак<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
                         <th><div class="ou-grid__th is-sortable wf-th-end">Трудность<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
                         <th><div class="ou-grid__th is-sortable wf-th-end">Различает<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
                         <th><div class="ou-grid__th is-sortable wf-th-end">n<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
@@ -383,7 +383,7 @@
                     <thead>
                       <tr>
                         <th class="col-stick col-stick--shadow"><div class="ou-grid__th is-sortable">Задание<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
-                        <th><div class="ou-grid__th">Состояние</div></th>
+                        <th><div class="ou-grid__th is-sortable">Состояние<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
                         <th><div class="ou-grid__th is-sortable wf-th-end">Трудность<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
                         <th><div class="ou-grid__th is-sortable wf-th-end">Различает<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
                         <th><div class="ou-grid__th is-sortable wf-th-end">n<svg width="12" height="12"><use href="#i-sort" /></svg></div></th>
@@ -982,6 +982,11 @@
                   <td>Состав выборки</td>
                   <td>веб / телеметрия / импорт + несопоставленные</td>
                   <td>FR-42, FR-11. Три источника — три популяции, и каждая может считаться отдельно. Несопоставленные взаимодействия показываются рядом с объёмом: молчаливая потеря выборки заменена видимой</td>
+                </tr>
+                <tr>
+                  <td>Сортировка по колонке «Признак»</td>
+                  <td>по силе подозрения, не по алфавиту</td>
+                  <td>FR-48a. Колонка сортируется, потому что порядок по умолчанию иначе невозвратен: отсортировав по объёму или трудности, вернуться к порядку «сначала самое тревожное» нечем. Порядок задан рангом признака: сильные ошибаются чаще, на уровне угадывания, почти не различает, признаки вкладки «Вопросы», ориентировочно, без признака, мало данных. Внутри ранга — по величине, которая признак вызвала. Обратное направление ведёт от спокойных заданий к тревожным. Алфавитная сортировка ярлыков смысла не имеет и запрещена</td>
                 </tr>
                 <tr>
                   <td>Меню строки</td>
