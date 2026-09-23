@@ -80,7 +80,7 @@ beforeEach(() => {
     avgPercent: 0,
     activeUsers: 0,
   });
-  sectionsMock.buildMaterials.mockResolvedValue({ activeTemplates: [], docs: [] });
+  sectionsMock.buildMaterials.mockResolvedValue({ docs: [] });
   topicAccessMock.duplicateNameGroups.mockResolvedValue([]);
 });
 
