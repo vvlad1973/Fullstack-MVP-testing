@@ -2086,6 +2086,7 @@ export function AdaptivePane({
       <FormSection
         stacked
         title="Адаптивность по темам"
+        headClassName="tb-section-head"
         meta={<FoldAllButtons fold={fold} testIdPrefix="adaptive-topics" />}
       />
 

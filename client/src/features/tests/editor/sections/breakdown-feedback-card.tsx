@@ -142,6 +142,7 @@ export function BreakdownFeedbackCard({
       stacked
       title={CARD_TITLE}
       subtitle={CARD_SUBTITLE}
+      headClassName="tb-section-head"
       meta={<FoldAllButtons fold={fold} testIdPrefix="breakdown-feedback" />}
       data-testid="breakdown-feedback-card"
     >

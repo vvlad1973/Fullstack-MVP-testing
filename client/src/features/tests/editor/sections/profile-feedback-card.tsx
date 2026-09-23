@@ -94,6 +94,7 @@ export function ProfileFeedbackCard({
       stacked
       title={CARD_TITLE}
       subtitle={CARD_SUBTITLE}
+      headClassName="tb-section-head"
       meta={profiles.length > 0 ? <FoldAllButtons fold={fold} testIdPrefix="profile-feedback" /> : undefined}
       data-testid="profile-feedback-card"
     >

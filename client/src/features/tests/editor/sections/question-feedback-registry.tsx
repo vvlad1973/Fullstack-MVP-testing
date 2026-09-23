@@ -91,6 +91,9 @@ export function QuestionFeedbackRegistry({
     <FormSection
       stacked
       title="Обратная связь вопросов"
+      // Действия списка стоят в строке заголовка, справа, — как рисует эскиз. Без
+      // `tb-section-head` слот `meta` рисует их пилюлей-меткой под заголовком.
+      headClassName="tb-section-head"
       meta={<FoldAllButtons fold={fold} testIdPrefix="question-feedback" />}
       data-testid="question-feedback-registry"
     >

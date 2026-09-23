@@ -122,10 +122,14 @@ export function BandFeedbackSection({
   const openBand = openGroup?.bands[editing?.band ?? -1];
 
   return (
-    <FormSection stacked title={texts.title} data-testid={`${texts.testId}-section`}>
-      <div className="tb-fold-toolbar">
-        <FoldAllButtons fold={fold} testIdPrefix={texts.testId} />
-      </div>
+    <FormSection
+      stacked
+      title={texts.title}
+      // Действия списка — в строке заголовка, справа: один приём во всех разделах ящика.
+      headClassName="tb-section-head"
+      meta={groups.length > 0 ? <FoldAllButtons fold={fold} testIdPrefix={texts.testId} /> : undefined}
+      data-testid={`${texts.testId}-section`}
+    >
 
       {groups.map((group) => {
         const open = fold.isOpen(group.id) && group.bands.length > 0;

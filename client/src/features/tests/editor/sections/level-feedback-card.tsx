@@ -70,7 +70,16 @@ export function LevelFeedbackCard({
     }));
 
   return (
-    <FormSection stacked title="По уровням сложности" data-testid="level-feedback-card">
+    <FormSection
+      stacked
+      title="По уровням сложности"
+      // Действия списка — в строке заголовка, справа: один приём во всех разделах ящика.
+      headClassName="tb-section-head"
+      meta={
+        enabled.length > 0 ? <FoldAllButtons fold={fold} testIdPrefix="difficulty-levels" /> : undefined
+      }
+      data-testid="level-feedback-card"
+    >
       {enabled.length === 0 ? (
         <Banner
           tone="info"
@@ -80,9 +89,6 @@ export function LevelFeedbackCard({
         />
       ) : (
         <>
-          <div className="tb-fold-toolbar">
-            <FoldAllButtons fold={fold} testIdPrefix="difficulty-levels" />
-          </div>
           {enabled.map((topic) => {
             const open = fold.isOpen(topic.topicId);
             return (

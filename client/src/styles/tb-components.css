@@ -2635,6 +2635,37 @@
 }
 .tb-fold-chev { flex: none; color: var(--ou-fg-muted); }
 .tb-fold-toolbar { display: flex; align-items: center; }
+
+/* ─── Шапка раздела с действиями ──────────────────────────────────────────────
+   Эскиз `editor-settings-target.html` ставит действия списка («Развернуть все /
+   Свернуть все») в СТРОКУ заголовка раздела, справа: `.ou-formsection__intro.tb-section-head`.
+   Слот `meta` у FormSection задуман под метку-пилюлю — у него своя заливка, скругление
+   и отбивка, и пара кнопок попадала в неё серой плашкой ПОД заголовком, прижатой влево.
+   Класс приходит на шапку через `headClassName`: `className` достаёт только до корня
+   секции, а раскладку задаёт шапка. */
+.tb-section-head {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  /* Подзаголовок — родственник заголовка (1x), действия — другой компонент (4x). */
+  column-gap: var(--ou-space-4);
+  row-gap: var(--ou-space-1);
+}
+.tb-section-head > .ou-formsection__title { margin: 0; }
+/* Подзаголовок остаётся ПОД заголовком: он описывает раздел, а не действия. */
+.tb-section-head > .ou-formsection__sub { flex: 1 0 100%; order: 1; }
+/* Здесь `meta` — панель действий, а не метка: без плашки, скругления и отбивок. */
+.tb-section-head > .ou-formsection__meta {
+  flex: 0 0 auto;
+  order: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+}
 .tb-fold-sec {
   border: var(--wf-border-w) solid var(--ou-border-soft);
   border-radius: var(--ou-radius-m);
