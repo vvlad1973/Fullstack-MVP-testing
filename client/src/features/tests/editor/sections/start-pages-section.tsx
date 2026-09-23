@@ -31,6 +31,13 @@
  * the active template declares a single variant of that kind. Structural
  * classes live in `client/src/styles/tb-components.css`; controls use
  * `@skillum/ui-kit`.
+ *
+ * Сохранённого теста раздел НЕ требует. У нового теста системные узлы приходят
+ * ПРЕДСКАЗАННЫМИ — их считает общий планировщик (`shared/content-pages/lifecycle`),
+ * тот же, которым сервер раскладывает строки в транзакции создания, — поэтому перед
+ * сохранением автор видит ровно ту структуру, которую получит. Разница только в
+ * идентификаторах: у предсказанных узлов они черновые, и сохранение сопоставляет их
+ * с настоящими по паре «вид + тема» (см. `useContentPages.commit`).
  */
 import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -117,7 +124,12 @@ import {
 
 export type StructureSectionProps = {
   model: TestEditorModel;
-  /** Test id is required to fetch content_pages; `undefined` in create mode. */
+  /**
+   * Тест, чьи страницы грузить самостоятельно; `undefined` в режиме создания.
+   * Раздел о режиме НЕ знает: у нового теста страницы приходят готовым черновиком в
+   * `content` — системные узлы там ПРЕДСКАЗАНЫ тем же планировщиком, которым сервер
+   * разложит их при создании.
+   */
   testId?: string;
   /**
    * Optional pre-hoisted content-pages hook. When provided, the section does
@@ -500,9 +512,7 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
           ради строки, которая ничего не говорит. О СМЕНЕ режима говорит баннер выше. */}
       <UnmappedPagesBanner pages={cp.pages} onMap={(page) => setReplaceCtx({ page })} />
 
-      {testId === undefined ? (
-        <CreateModeNotice />
-      ) : cp.isLoading ? (
+      {cp.isLoading ? (
         <LoadingNotice />
       ) : cp.error ? (
         <ErrorNotice message={cp.error.message} />
@@ -580,17 +590,6 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
 export const StartPagesSection = StructureSection;
 
 // ─── Top banner ───────────────────────────────────────────────────────────────
-
-function CreateModeNotice() {
-  return (
-    <Banner
-      tone="info"
-      title="Сначала сохраните черновик"
-      description="Структура страниц «до / после» привязана к существующему тесту. Сохраните черновик во вкладке «Основное», после этого здесь появится возможность редактировать страницы."
-      data-testid="structure-create-notice"
-    />
-  );
-}
 
 function LoadingNotice() {
   return <Banner tone="info" title="Загружаем структуру…" data-testid="structure-loading" />;

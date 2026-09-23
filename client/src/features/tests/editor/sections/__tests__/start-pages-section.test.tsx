@@ -3,7 +3,9 @@
  * @description Tests for the «Структура» tab section (closeout of PRD-1 §4).
  *
  * Coverage:
- *   - flowMode banner, empty state, create-mode notice, no stub
+ *   - flowMode banner, empty state, no stub
+ *   - режим создания: системные узлы ПРЕДСКАЗАНЫ общим планировщиком, а сохранение
+ *     подставляет им настоящие идентификаторы и создаёт авторские страницы
  *   - Kind-aware layout: start → «До теста», results → «После теста», questions →
  *     one row per topic; PRD-19 обзор (review) + итоги раздела (section-results)
  *     system nodes per section (no legacy per-topic intro/summary)
@@ -22,6 +24,7 @@ import {
   showsSetting,
 } from "../start-pages-section";
 import type { TestEditorModel, EditorSection } from "../../test-editor.types";
+import { useContentPages, type UseContentPagesResult } from "../../use-content-pages";
 import { defaultRetakePolicy } from "../../test-editor.mappers";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -183,6 +186,9 @@ function buildPage(over: Partial<RawPage> = {}): RawPage {
   };
 }
 
+/** Ссылка на хук харнеса режима создания — чтобы дёргать его из теста. */
+let createHarnessContent: UseContentPagesResult | null = null;
+
 // ─── Stateful fetch mock ────────────────────────────────────────────────────────
 
 function makeQueryClient() {
@@ -292,14 +298,112 @@ describe("<StructureSection /> — flow mode + lifecycle", () => {
     await waitFor(() => expect(screen.getByTestId("structure-empty")).toBeInTheDocument());
   });
 
-  it("shows the create-mode notice when testId is undefined", () => {
+
+  // ── Режим создания: структура настраивается до первого сохранения ──────────
+  //
+  // Системные узлы ПРЕДСКАЗЫВАЮТСЯ общим планировщиком (`shared/content-pages`) —
+  // тем же, которым сервер разложит их в транзакции создания. Поэтому автор видит
+  // перед сохранением ровно то, что получит.
+
+  function CreateHarness({ model }: { model: TestEditorModel }) {
+    const content = useContentPages(undefined, "default", {
+      flowMode: model.flowMode,
+      topicIds: model.sections.map((s) => s.topicId),
+    });
+    createHarnessContent = content;
+    return <StructureSection model={model} content={content} />;
+  }
+
+  function renderCreate(model: TestEditorModel) {
     const client = makeQueryClient();
-    render(
+    return render(
       <QueryClientProvider client={client}>
-        <StructureSection model={baseModel()} />
+        <CreateHarness model={model} />
       </QueryClientProvider>,
     );
-    expect(screen.getByTestId("structure-create-notice")).toBeInTheDocument();
+  }
+
+  it("рисует предсказанные системные узлы без сохранённого теста", async () => {
+    renderCreate(baseModel({ sections: [buildSection()] }));
+    // «Сначала сохраните черновик» больше нет — есть полотно структуры.
+    await waitFor(() =>
+      expect(screen.getByTestId("structure-system-start")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("structure-create-notice")).toBeNull();
+    expect(screen.getByTestId("structure-zone-before-test")).toBeInTheDocument();
+    expect(screen.getByTestId("structure-zone-after-test")).toBeInTheDocument();
+    // linear_flat: один плоский узел вопросов, без узлов границ раздела.
+    expect(screen.getByTestId("structure-flat-questions-row")).toBeInTheDocument();
+  });
+
+  it("состав узлов следует за сценарием: по темам появляются узлы раздела", async () => {
+    renderCreate(baseModel({ flowMode: "linear_by_topics", sections: [buildSection()] }));
+    // Ждать надо ПРЕДСКАЗАННЫЙ узел: строка вопросов рисуется из состава теста и
+    // появляется до того, как планировщик отдал страницы.
+    await waitFor(() =>
+      expect(screen.getByTestId("structure-system-intro-top-1")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("structure-questions-row-top-1")).toBeInTheDocument();
+    expect(screen.getByTestId("structure-system-section-results-top-1")).toBeInTheDocument();
+  });
+
+  it("сохранение подставляет узлам настоящие идентификаторы и создаёт авторские страницы", async () => {
+    // Сервер УЖЕ разложил системные строки в транзакции INSERT — сохранение читает
+    // их и сопоставляет с предсказанными по паре «вид + тема».
+    const real = [
+      buildPage({ id: "real-start", testId: "te-new", kind: "start", type: "info", mode: "template", position: "before", templateKey: "start.standard", valuesJson: {} }),
+      buildPage({ id: "real-results", testId: "te-new", kind: "results", type: "summary", mode: "template", position: "after", templateKey: "results.standard", valuesJson: {} }),
+      buildPage({ id: "real-review", testId: "te-new", kind: "review", type: "info", mode: "template", position: "after", templateKey: "review.standard", valuesJson: {} }),
+      buildPage({ id: "real-questions", testId: "te-new", kind: "questions", type: "info", mode: "template", position: "before_topic", templateKey: "question.standard", valuesJson: {} }),
+    ];
+    const calls: Array<{ method: string; url: string; body?: any }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? "GET";
+        const body = init?.body ? JSON.parse(init.body as string) : undefined;
+        calls.push({ method, url, body });
+        if (url === "/api/templates/default") return jsonResponse(TEMPLATE);
+        if (url.startsWith("/api/tests/te-new/content-pages") && method === "GET") return jsonResponse(real);
+        // Маршруты несут `?templateId=…` — сверяем по началу адреса, иначе POST
+        // уходит в общую ветку и созданная страница возвращается без идентификатора.
+        if (url.startsWith("/api/tests/te-new/content-pages?") && method === "POST") {
+          return jsonResponse(buildPage({ ...body, id: "real-author" }), 201);
+        }
+        if (url.startsWith("/api/tests/te-new/content-pages/reorder")) return jsonResponse({ ok: true });
+        return jsonResponse({ ok: true });
+      }),
+    );
+
+    renderCreate(baseModel({ sections: [buildSection()] }));
+    await waitFor(() => expect(screen.getByTestId("structure-system-start")).toBeInTheDocument());
+
+    // Авторская страница «до теста» — пока только в черновике.
+    await createHarnessContent!.create({
+      position: "before",
+      topicId: null,
+      mode: "template",
+      type: "info",
+      templateKey: "info.text",
+      valuesJson: { values: { title: "Памятка" } },
+    });
+    await waitFor(() => expect(createHarnessContent!.isDirty).toBe(true));
+
+    await createHarnessContent!.commit("te-new");
+
+    const posted = calls.filter(
+      (c) => c.method === "POST" && c.url.startsWith("/api/tests/te-new/content-pages?"),
+    );
+    expect(posted).toHaveLength(1);
+    expect(posted[0].body).toMatchObject({ templateKey: "info.text", position: "before" });
+    // Ни одна системная строка не создана заново и не удалена: они СОПОСТАВЛЕНЫ.
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    const reorder = calls.find((c) => c.url.includes("/reorder"));
+    expect(reorder).toBeDefined();
+    const ids = (reorder!.body as Array<{ id: string }>).map((r) => r.id);
+    expect(ids).toContain("real-start");
+    expect(ids).toContain("real-author");
+    expect(ids.some((id) => id.startsWith("draft-"))).toBe(false);
   });
 
   it("no longer renders the «next step» stub (feature is live)", async () => {

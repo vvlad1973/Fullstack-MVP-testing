@@ -326,7 +326,20 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   // Pass the «Оформление» DRAFT template id so the variant catalogue (and the
   // «Сменить вариант» / add-page options) follows the in-progress template
   // selection immediately, before the design is saved.
-  const contentPages = useContentPages(editor.model?.id, design.draft.templateId);
+  // В режиме создания страниц ещё нет: хук получает план — сценарий и темы, — и
+  // ПРЕДСКАЗЫВАЕТ системные узлы тем же планировщиком, которым сервер разложит их в
+  // транзакции создания. Автор настраивает структуру сразу, а сохранение дописывает
+  // её по настоящим идентификаторам.
+  const contentPages = useContentPages(
+    editor.model?.id,
+    design.draft.templateId,
+    editor.mode === "create" && editor.model
+      ? {
+          flowMode: editor.model.flowMode,
+          topicIds: editor.model.sections.map((s) => s.topicId),
+        }
+      : undefined,
+  );
   // Required-empty in any author page → Save is blocked (error).
   // templateKeyMissing → status-dot warning only (does not block Save).
   const structureErr = useMemo(
@@ -543,10 +556,24 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
     // Commit the «Структура» draft AFTER the design — so a template switch is
     // persisted first and the content pages validate/persist against it. On a
     // commit failure keep the drawer open (error surfaced via the structure banner).
+    //
+    // Идентификатор только что созданного теста читается СИНХРОННО (`getCreatedId`):
+    // до этого момента структура была предсказанием, и дописывать её надо по тому
+    // адресу, который вернуло создание, а не ждать перерисовки.
     if (contentPages.isDirty) {
+      const createdId = editor.getCreatedId();
       try {
-        await contentPages.commit();
+        await contentPages.commit(createdId ?? undefined);
       } catch {
+        // Тест уже создан, а дописать структуру не удалось: ящик всё равно закроется
+        // (его закрывает появление идентификатора), поэтому баннер внутри никто не
+        // увидит — говорим отдельно и называем, что делать.
+        if (createdId) {
+          toast({
+            title: "Тест создан, но структуру дописать не удалось",
+            description: "Откройте тест и сохраните структуру ещё раз.",
+          });
+        }
         return false;
       }
     }

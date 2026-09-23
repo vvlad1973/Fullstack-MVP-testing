@@ -176,6 +176,13 @@ export type UseTestEditorResult = {
    * Re-set to `null` by {@link consumeCreatedId} once handled.
    */
   createdId: string | null;
+  /**
+   * То же самое, но читаемое СРАЗУ после `save()`: черновик, набранный до создания
+   * теста, дописывают его собственные ресурсы, и адресату этих запросов нужен
+   * идентификатор до того, как React перерисует состояние. Тот же приём, что у
+   * {@link getFeasibility}.
+   */
+  getCreatedId: () => string | null;
   /** Apply a partial draft update; tracks dirty / validation reactively. */
   updateModel: (updater: (model: TestEditorModel) => TestEditorModel) => void;
   /**
@@ -613,6 +620,7 @@ export function useTestEditor(
    */
   const [saveError, setSaveError] = useState<{ status: number; message: string } | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const createdIdRef = useRef<string | null>(null);
 
   // Reset transient save/conflict/required-field errors when switching tests.
   // The session-load effect above only resets draft/snapshot (and runs before
@@ -720,6 +728,7 @@ export function useTestEditor(
         queryClient.setQueryData(["/api/tests", editTestId], data);
       } else if (newId) {
         queryClient.setQueryData(["/api/tests", newId], data);
+        createdIdRef.current = newId;
         setCreatedId(newId);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/tests"] });
@@ -805,6 +814,7 @@ export function useTestEditor(
 
   const consumeCreatedId = useCallback(() => {
     setCreatedId(null);
+    createdIdRef.current = null;
   }, []);
 
   const resultMode: UseTestEditorResult["mode"] = options
@@ -828,6 +838,7 @@ export function useTestEditor(
     feasibility,
     getFeasibility: () => feasibilityRef.current,
     createdId,
+    getCreatedId: () => createdIdRef.current,
     updateModel,
     save,
     reset,
