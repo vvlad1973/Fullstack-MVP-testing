@@ -5,26 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
     Wireframe: PRD-66 — психометрическая аналитика качества заданий.
-    Контракт: docs/specs/prd-66/psychometric-analytics.md, разделы 12 (FR-45 - FR-52),
-    3 (граница с PRD-56: FR-01 - FR-05), 11 (FR-38 - FR-44) и 13 (FR-53 - FR-54).
+    Контракт: docs/specs/prd-66/psychometric-analytics.md.
 
-    Единица этого экрана — ЗАДАНИЕ КАК ИНСТРУМЕНТ. Вкладка «Вопросы» отвечает на
-    вопрос «что происходит с заданием» (частоты, время, пропуски); эта — на вопрос
-    «годится ли оно, чтобы мерить». Вторая таблица заданий не заводится: состояние
-    «вопросы» показывает ту же таблицу PRD-56 с заменённой колонкой (FR-02) и новой
-    колонкой «Различает» (FR-03).
-
-    Анатомия и разметка взяты с работающего экрана PRD-56
-    (prd56-test-analytics.html): `AppShell` + `AppSidebar`, содержимое карточками
-    `Card`, шапка/вкладки/фильтр — те же шаблоны. Решения того экрана действуют и
-    здесь: у каждой величины объём выборки; ниже порога — словами, а не числом.
-
-    Состояния (6):
-      качество   — quality (данных достаточно), quality-thin (данных мало);
-      задание    — item (карточка: дистракторы, версии, время);
-      вопросы    — items (таблица PRD-56 после FR-02 и FR-03);
-      шкалы      — scales (измерительный тест: вкладка показывает только шкалы);
-      docs       — пояснения и DS-маппинг.
+    Состояния (7):
+      quality       — данных достаточно;
+      quality-thin  — данных мало;
+      compare       — сравнение срезов;
+      item          — разбор задания;
+      items         — вкладка «Вопросы» после FR-02 и FR-03;
+      scales        — измерительный тест;
+      docs          — пояснения.
     -->
     <title>PRD-66 — Качество заданий</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/skillum-ds.css?v=3" />
@@ -40,14 +30,10 @@
       .wf-sprite { display: none; }
       .wf-doc { padding: var(--ou-space-6) var(--ou-space-6) var(--ou-space-10); }
 
-      /* `.ou-shell__main` — колонка flex с прокруткой, и её дети по умолчанию СЖИМАЮТСЯ.
-         В приложении экран прокручивается страницей, а в эскизе каркас стоит в окне
-         фиксированной высоты, поэтому длинное состояние вместо прокрутки давит карточки
-         и режет текст. Запрет сжатия возвращает им собственную высоту. */
+      /* Модульная сетка: 4x между разными блоками, 6x от краёв. */
+      .wf-state .ou-shell__main { gap: var(--ou-space-4); padding-inline: var(--ou-space-6); }
       .wf-state .ou-shell__main > * { flex-shrink: 0; }
 
-      /* Держатели, которым в коде отвечают пропы компонентов: выравнивание числовой
-         колонки `DataGrid` и меню строки, открывающееся влево от кнопки. */
       .wf-th-end { justify-content: flex-end; }
       .wf-rowmenu-cell { position: relative; text-align: right; }
       .wf-rowmenu { position: absolute; right: 0; top: 100%; z-index: 20; min-width: var(--wf-size-240); text-align: left; }
@@ -96,7 +82,7 @@
     <template id="wf-side-tpl">
       <aside class="ou-side">
         <div class="ou-side__brand">
-          <a href="#" class="ou-link-reset ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <a href="#" class="ou-link-reset ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
             <span class="ou-shell__brand-mark"><svg width="16" height="16"><use href="#i-book" /></svg></span>
             <span class="ou-text ou-text--body-m ou-text--w-semibold">Skill'Ум</span>
           </a>
@@ -138,14 +124,12 @@
         <h1 class="ou-text ou-text--heading-l">Сертификация руководителей</h1>
         <p class="ou-text ou-text--body-m ou-text--tone-muted">486 завершённых прохождений · веб, телеметрия LMS и импортированные выгрузки</p>
       </div>
-      <div class="ou-stack ou-stack--row ou-stack--gap-2">
+      <div class="ou-stack ou-stack--row ou-stack--gap-1">
         <a href="prd56-analytics-section.html" class="ou-btn ou-btn--secondary ou-btn--s ou-link-reset"><span>Прохождения в реестре</span><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-chevron-right" /></svg></span></a>
         <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-refresh" /></svg></span><span>Обновить</span></button>
       </div>
     </template>
 
-    <!-- Вкладки экрана. «Качество заданий» встаёт между «Вопросами» и «Выдачей»:
-         сначала что происходит с заданием, затем годится ли оно, затем как выдаётся. -->
     <template id="wf-tabs-tpl">
       <div class="ou-tabs__list" role="tablist">
         <button type="button" class="ou-tabs__tab" role="tab" data-tab="overview"><span class="ou-tabs__label">Обзор</span></button>
@@ -156,9 +140,6 @@
       </div>
     </template>
 
-    <!-- Рамка выборки. Тот же `FilterBar`, что на вкладках «Обзор» и «Вопросы» (PRD-56 FR-13),
-         плюс переход в сравнение срезов: разбиение выборки в продукте одно, своего языка
-         условий психометрика не заводит. -->
     <template id="wf-filter-tpl">
       <div class="ou-filterbar">
         <div class="ou-filterbar__row">
@@ -174,7 +155,6 @@
       </div>
     </template>
 
-    <!-- Состав выборки: FR-42. Показывается всегда, в том числе когда источник один. -->
     <template id="wf-sample-tpl">
       <section class="ou-card ou-card--outlined">
         <div class="ou-card__body ou-stack ou-stack--gap-4">
@@ -357,7 +337,7 @@
               </div>
             </div>
             <footer class="ou-card__footer">
-              <div class="ou-stack ou-stack--row ou-stack--gap-2 ou-stack--ai-center">
+              <div class="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
                 <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-download" /></svg></span><span>Психометрический отчёт</span></button>
                 <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-download" /></svg></span><span>Матрица ответов</span></button>
               </div>
@@ -1111,10 +1091,6 @@
     </div>
 
     <script>
-      /**
-       * Повторяющиеся куски держим в <template> и подставляем, чтобы копии не
-       * расходились между состояниями. Активная вкладка — из `data-tab` состояния.
-       */
       (function () {
         function fill(sel, tplId) {
           var tpl = document.getElementById(tplId);
@@ -1143,7 +1119,6 @@
         });
       }());
 
-      /** Начальное состояние из адреса: `?state=item`, `?theme=dark`. */
       window.addEventListener('DOMContentLoaded', () => {
         const want = new URLSearchParams(location.search).get('state');
         if (want) {
