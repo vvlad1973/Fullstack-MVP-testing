@@ -49,7 +49,9 @@
          таблицу и включал горизонтальную прокрутку. Фиксированная раскладка делит
          ширину долями, а хвост срезается многоточием — полный текст виден в разборе. */
       .wf-grid-fixed { table-layout: fixed; width: 100%; }
-      .wf-grid-fixed td, .wf-grid-fixed th { overflow: hidden; }
+      /* Многоточие нужно в ТЕЛЕ таблицы; на заголовке `overflow: hidden` срезал бы
+         пузырёк подсказки, который выходит за пределы ячейки. */
+      .wf-grid-fixed td { overflow: hidden; }
       .wf-grid-fixed .ou-grid__cell-strong, .wf-grid-fixed .ou-grid__cell-sub { text-overflow: ellipsis; }
     </style>
 
@@ -588,10 +590,6 @@
               <div class="ou-card__heading">
                 <h2 class="ou-card__title">Варианты ответа</h2>
                 <p class="ou-card__subtitle">Частота выбора и связь с остальным баллом · 268 наблюдений</p>
-                <div class="ou-chart__legend">
-                  <span class="ou-chart__legend-item"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="var(--ou-accent-default)" /></svg>Сильные 27 % выборки</span>
-                  <span class="ou-chart__legend-item"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="var(--ou-bg-elevated)" stroke="var(--ou-accent-default)" stroke-width="2" /></svg>Слабые 27 %</span>
-                </div>
               </div>
             </header>
             <div class="ou-card__body">
@@ -602,9 +600,7 @@
                       <tr>
                         <th class="col-stick col-stick--shadow"><div class="ou-grid__th">Вариант</div></th>
                         <th><div class="ou-grid__th wf-th-end">Выбрали</div></th>
-                        <th><div class="ou-grid__th"><span class="ou-tip" data-placement="bottom" tabindex="0">Разрыв, 0 — 100 %<span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Доля выбравших вариант в сильной и слабой группах на общей шкале. У верного ответа точка сильных правее, у работающего дистрактора — точка слабых.</span></span></div></th>
-                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip" data-placement="bottom" tabindex="0">Сильные 27 %<span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Верхняя четверть с небольшим по баллу за тест: участники сортируются по доле балла на своей форме, и берутся лучшие 27 %. Столько же берётся снизу — при таком делении разница между группами самая устойчивая.</span></span></div></th>
-                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip" data-placement="bottom" tabindex="0">Слабые 27 %<span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Нижние 27 % выборки по баллу за тест. Дистрактор работает, когда его выбирают в этой группе чаще, чем в сильной.</span></span></div></th>
+                        <th><div class="ou-grid__th"><span class="ou-tip" data-placement="bottom" tabindex="0">Сильные и слабые 27 %<span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Участники сортируются по баллу за тест; берутся верхние 27 % и нижние 27 %. Полоса — доля выбравших вариант в группе. У верного ответа длиннее верхняя полоса, у работающего дистрактора — нижняя.</span></span></div></th>
                         <th><div class="ou-grid__th wf-th-end"><span class="ou-tip" data-placement="bottom" tabindex="0">Связь с баллом<span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Корреляция выбора варианта с баллом за остальные задания. У верного ответа должна быть положительной, у дистрактора — отрицательной. Положительная у дистрактора значит, что его выбирают сильные: вариант частично верен либо ключ неверен.</span></span></div></th>
                         <th><div class="ou-grid__th">Признак</div></th>
                       </tr>
@@ -613,36 +609,28 @@
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Проверка контрагента перед сделкой<span class="ou-grid__cell-sub">верный ответ</span></td>
                         <td class="is-numeric">41 %</td>
-                        <td><svg width="170" height="22" viewBox="0 0 200 22" role="img" aria-label="Сильные 68 %, слабые 19 %"><line x1="8" x2="192" y1="11" y2="11" stroke="var(--ou-border-soft)" stroke-width="2" stroke-linecap="round" /><line x1="43.0" x2="133.1" y1="11" y2="11" stroke="var(--ou-accent-soft)" stroke-width="4" stroke-linecap="round" /><circle cx="43.0" cy="11" r="5" fill="var(--ou-bg-elevated)" stroke="var(--ou-accent-default)" stroke-width="2" /><circle cx="133.1" cy="11" r="5" fill="var(--ou-accent-default)" stroke="var(--ou-bg-elevated)" stroke-width="2" /></svg></td>
-                        <td class="is-numeric">68 %</td>
-                        <td class="is-numeric">19 %</td>
+                        <td><svg width="200" height="32" viewBox="0 0 200 32" role="img" aria-label="Сильные 68 %, слабые 19 %"><text x="0" y="9" font-size="9" fill="var(--ou-fg-muted)">сильные</text><rect x="42" y="2" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="2" width="78.2" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="9" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">68 %</text><text x="0" y="25" font-size="9" fill="var(--ou-fg-muted)">слабые</text><rect x="42" y="18" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="18" width="21.8" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="25" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">19 %</text></svg></td>
                         <td class="is-numeric">+0,34</td>
                         <td><span class="ou-tag ou-tag--success ou-tag--s">Работает</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Согласование подарка с руководителем</td>
                         <td class="is-numeric">34 %</td>
-                        <td><svg width="170" height="22" viewBox="0 0 200 22" role="img" aria-label="Сильные 21 %, слабые 46 %"><line x1="8" x2="192" y1="11" y2="11" stroke="var(--ou-border-soft)" stroke-width="2" stroke-linecap="round" /><line x1="46.6" x2="92.6" y1="11" y2="11" stroke="var(--ou-accent-soft)" stroke-width="4" stroke-linecap="round" /><circle cx="92.6" cy="11" r="5" fill="var(--ou-bg-elevated)" stroke="var(--ou-accent-default)" stroke-width="2" /><circle cx="46.6" cy="11" r="5" fill="var(--ou-accent-default)" stroke="var(--ou-bg-elevated)" stroke-width="2" /></svg></td>
-                        <td class="is-numeric">21 %</td>
-                        <td class="is-numeric">46 %</td>
+                        <td><svg width="200" height="32" viewBox="0 0 200 32" role="img" aria-label="Сильные 21 %, слабые 46 %"><text x="0" y="9" font-size="9" fill="var(--ou-fg-muted)">сильные</text><rect x="42" y="2" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="2" width="24.1" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="9" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">21 %</text><text x="0" y="25" font-size="9" fill="var(--ou-fg-muted)">слабые</text><rect x="42" y="18" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="18" width="52.9" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="25" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">46 %</text></svg></td>
                         <td class="is-numeric">−0,22</td>
                         <td><span class="ou-tag ou-tag--success ou-tag--s">Работает</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Ежегодное обучение сотрудников</td>
                         <td class="is-numeric">24 %</td>
-                        <td><svg width="170" height="22" viewBox="0 0 200 22" role="img" aria-label="Сильные 11 %, слабые 33 %"><line x1="8" x2="192" y1="11" y2="11" stroke="var(--ou-border-soft)" stroke-width="2" stroke-linecap="round" /><line x1="28.2" x2="68.7" y1="11" y2="11" stroke="var(--ou-accent-soft)" stroke-width="4" stroke-linecap="round" /><circle cx="68.7" cy="11" r="5" fill="var(--ou-bg-elevated)" stroke="var(--ou-accent-default)" stroke-width="2" /><circle cx="28.2" cy="11" r="5" fill="var(--ou-accent-default)" stroke="var(--ou-bg-elevated)" stroke-width="2" /></svg></td>
-                        <td class="is-numeric">11 %</td>
-                        <td class="is-numeric">33 %</td>
+                        <td><svg width="200" height="32" viewBox="0 0 200 32" role="img" aria-label="Сильные 11 %, слабые 33 %"><text x="0" y="9" font-size="9" fill="var(--ou-fg-muted)">сильные</text><rect x="42" y="2" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="2" width="12.6" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="9" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">11 %</text><text x="0" y="25" font-size="9" fill="var(--ou-fg-muted)">слабые</text><rect x="42" y="18" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="18" width="37.9" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="25" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">33 %</text></svg></td>
                         <td class="is-numeric">−0,18</td>
                         <td><span class="ou-tag ou-tag--success ou-tag--s">Работает</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Ведение бумажного журнала посещений</td>
                         <td class="is-numeric">1 %</td>
-                        <td><svg width="170" height="22" viewBox="0 0 200 22" role="img" aria-label="Сильные 0 %, слабые 2 %"><line x1="8" x2="192" y1="11" y2="11" stroke="var(--ou-border-soft)" stroke-width="2" stroke-linecap="round" /><line x1="8.0" x2="11.7" y1="11" y2="11" stroke="var(--ou-accent-soft)" stroke-width="4" stroke-linecap="round" /><circle cx="11.7" cy="11" r="5" fill="var(--ou-bg-elevated)" stroke="var(--ou-accent-default)" stroke-width="2" /><circle cx="8.0" cy="11" r="5" fill="var(--ou-accent-default)" stroke="var(--ou-bg-elevated)" stroke-width="2" /></svg></td>
-                        <td class="is-numeric">0 %</td>
-                        <td class="is-numeric">2 %</td>
+                        <td><svg width="200" height="32" viewBox="0 0 200 32" role="img" aria-label="Сильные 0 %, слабые 2 %"><text x="0" y="9" font-size="9" fill="var(--ou-fg-muted)">сильные</text><rect x="42" y="2" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><text x="200" y="9" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">0 %</text><text x="0" y="25" font-size="9" fill="var(--ou-fg-muted)">слабые</text><rect x="42" y="18" width="115" height="8" rx="4" fill="var(--ou-bg-muted)" /><rect x="42" y="18" width="2.3" height="8" rx="4" fill="var(--ou-accent-default)" /><text x="200" y="25" font-size="9" text-anchor="end" fill="var(--ou-fg-default)">2 %</text></svg></td>
                         <td class="is-numeric is-muted">—</td>
                         <td><span class="ou-tag ou-tag--warning ou-tag--s">Мёртвый вариант</span></td>
                       </tr>
