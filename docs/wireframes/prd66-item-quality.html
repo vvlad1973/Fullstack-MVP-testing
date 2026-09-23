@@ -34,6 +34,7 @@
       .wf-th-end { justify-content: flex-end; }
       .wf-rowmenu-cell { position: relative; text-align: right; }
       .wf-rowmenu { position: absolute; right: 0; top: 100%; z-index: 20; min-width: var(--wf-size-240); text-align: left; }
+      .wf-rowmenu--up { top: auto; bottom: 100%; }
     </style>
 
     <style data-wf-template-overrides>
@@ -317,7 +318,7 @@
                         <td class="is-muted">мало данных</td>
                         <td class="is-numeric">12</td>
                         <td class="wf-rowmenu-cell"><button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия с заданием" aria-haspopup="menu" aria-expanded="true"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-dots" /></svg></span></button>
-                          <div class="ou-menu ou-menu--sm wf-rowmenu" role="menu">
+                          <div class="ou-menu ou-menu--sm wf-rowmenu wf-rowmenu--up" role="menu">
                             <button type="button" class="ou-menu__item" role="menuitem" onclick="showState(null, 'item')"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Разбор задания</span></span></button>
                             <button type="button" class="ou-menu__item" role="menuitem"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Открыть вопрос в теме</span></span></button>
                             <button type="button" class="ou-menu__item" role="menuitem"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Исключить из выдачи…</span></span></button>
@@ -1013,6 +1014,11 @@
                   <td>Состав выборки</td>
                   <td>веб / телеметрия / импорт + несопоставленные</td>
                   <td>FR-42, FR-11. Три источника — три популяции, и каждая может считаться отдельно. Несопоставленные взаимодействия показываются рядом с объёмом: молчаливая потеря выборки заменена видимой</td>
+                </tr>
+                <tr>
+                  <td>Меню строки</td>
+                  <td>раскрывается вверх у нижних строк</td>
+                  <td>Направление выбирается по свободному месту: у нижних строк список, открытый вниз, упирается в край таблицы и обрезается её прокруткой, а у правого края — краем карточки. В коде это штатное поведение `Menu`, которому эскиз обязан соответствовать, иначе на приёмке появится «в макете было иначе»</td>
                 </tr>
                 <tr>
                   <td>Колонка «Признак»</td>
