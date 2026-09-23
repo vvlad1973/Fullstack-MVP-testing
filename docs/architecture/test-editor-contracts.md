@@ -497,6 +497,13 @@ Backend возвращает 400 с полем `fields` для всех validati
 7. `tests.start_page_content` НЕ пишется — стартовая страница управляется через `content_pages`
    типа `intro` без `topic_id` (FR-44).
 8. Пустые строки нормализуются в `null` для nullable-полей (`description`, `webhookUrl`).
+9. `designSettingsJson` пишется ТОЛЬКО при создании и только как `{ templateId }` — из
+   `model.designTemplateId`, которое есть лишь у черновика НОВОГО теста (`emptyEditorModel`;
+   `apiToEditorModel` поле не заполняет). У существующего теста оформление правит свой ресурс
+   `PUT /api/tests/:id/design` со своим черновиком, и PUT теста об оформлении не сообщает:
+   иначе сохранение с любой вкладки затирало бы параметры, палитры и надписи, которых модель
+   редактора не знает. Маршрут создания сам проверяет, что шаблон существует и активен
+   (`422`, `field: "templateId"`), и штампует `templateVersion`/`templateApiVersion`.
 
 ---
 
@@ -520,7 +527,7 @@ Backend возвращает 400 с полем `fields` для всех validati
 | --- | --- | --- |
 | `title`, `description`, `feedback`, `webhookUrl`, `telemetryEnabled` | да | `PUT /api/tests/:id` |
 | `mode`, `flowMode`, `passRules`, `runtime`, `sections`, `adaptive` | да | `PUT /api/tests/:id` |
-| `designSettingsJson` | да | `PUT /api/tests/:id/design` или `PUT /api/tests/:id` |
+| `designSettingsJson` | да | `PUT /api/tests/:id/design`; при создании — `{ templateId }` в `POST /api/tests` |
 | `content_pages` (CRUD) | да (на тесте) | соответствующие endpoints content-pages |
 | `status` через `PATCH /status` | нет | `PATCH /api/tests/:id/status` |
 | `feedback.assets` метаданные | да | `PUT /api/tests/:id` |

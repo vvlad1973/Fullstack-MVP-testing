@@ -1185,6 +1185,10 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
     questionOrder: "random",
     flowSettings: {},
     folderId: args.folderId,
+    // Новый тест начинает со «Стандартного» — тем же шаблоном его обслуживает выдача,
+    // когда оформление не задано вовсе. Автор меняет выбор во вкладке «Оформление», и
+    // выбранный шаблон уезжает вместе с телом создания.
+    designTemplateId: "default",
     basic: {
       title: "",
       description: "",
@@ -1500,6 +1504,13 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
       : {}),
     expectedVersion: model.version,
     folderId: model.folderId,
+    // Оформление едет только при СОЗДАНИИ: поле есть лишь у черновика нового теста
+    // (см. `TestEditorModel.designTemplateId`). У открытого на правку теста его нет,
+    // и PUT по-прежнему ничего об оформлении не сообщает — иначе сохранение с любой
+    // вкладки затирало бы параметры, надписи и палитры, которых модель не знает.
+    ...(model.designTemplateId
+      ? { designSettingsJson: { templateId: model.designTemplateId } }
+      : {}),
   };
 
   return payload;

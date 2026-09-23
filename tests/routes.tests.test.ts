@@ -14,7 +14,11 @@ import express from "express";
 import session from "express-session";
 
 // ─── Hoist mocks ──────────────────────────────────────────────────────────────
-const { storageMock, serviceMock } = vi.hoisted(() => ({
+const { storageMock, serviceMock, dbRows } = vi.hoisted(() => ({
+  // Строки, которые отдаёт любой `db.select()` маршрута. По умолчанию пусто —
+  // так вёл себя прежний неизменяемый мок; тест на выбор шаблона при создании
+  // кладёт сюда строку шаблона.
+  dbRows: { current: [] as unknown[] },
   storageMock: {
     getTest: vi.fn(),
     getTests: vi.fn(),
@@ -86,7 +90,7 @@ const { storageMock, serviceMock } = vi.hoisted(() => ({
 
 vi.mock("../server/storage", () => ({ storage: storageMock }));
 vi.mock("../server/db", () => ({
-  db: { select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }) },
+  db: { select: () => ({ from: () => ({ where: () => Promise.resolve(dbRows.current) }) }) },
 }));
 vi.mock("../server/scorm-exporter", () => ({ generateScormPackage: vi.fn() }));
 vi.mock("../server/template-registry", () => ({ isSupportedTemplateApiVersion: vi.fn().mockReturnValue(true) }));
@@ -747,6 +751,71 @@ describe("POST /api/tests — Zod validation", () => {
     expect(payload.test.status).toBe("published");
     expect(payload.test.telemetryEnabled).toBe(true);
     expect(payload.test.feedbackJson).toMatchObject({ format: "plain", text: "Well done" });
+  });
+});
+
+// ─── POST /api/tests — оформление, выбранное до первого сохранения ───────────
+//
+// Автор выбирает шаблон во вкладке «Оформление» ещё в форме создания. Выбор едет
+// тем же телом, что и остальной черновик: системные страницы теста связывает с
+// шаблоном та же транзакция, и «доехать позже» для них поздно.
+describe("POST /api/tests — designSettingsJson.templateId", () => {
+  let app: express.Express;
+
+  const corporate = {
+    id: "corporate",
+    name: "Корпоративный",
+    version: "1.2.0",
+    templateApiVersion: "1.0",
+    isActive: true,
+    manifest: { params: [] },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbRows.current = [];
+    storageMock.getUser.mockResolvedValue(authorUser);
+    storageMock.getTestSections.mockResolvedValue([]);
+    serviceMock.create.mockResolvedValue(dbTest);
+    app = makeApp();
+  });
+
+  it("201 — штампует версию выбранного шаблона в designSettingsJson", async () => {
+    dbRows.current = [corporate];
+    const res = await asAuthor(request(app).post("/api/tests").send({
+      title: "С шаблоном",
+      sections: [{ topicId: "t1", drawCount: 3 }],
+      designSettingsJson: { templateId: "corporate" },
+    }));
+    expect(res.status).toBe(201);
+    const [payload] = serviceMock.create.mock.calls[0] as [{ test: Record<string, unknown> }];
+    expect(payload.test.designSettingsJson).toEqual({
+      templateId: "corporate",
+      templateVersion: "1.2.0",
+      templateApiVersion: "1.0",
+      params: {},
+    });
+  });
+
+  it("422 — шаблон не найден или выключен: тест не создаётся", async () => {
+    dbRows.current = [];
+    const res = await asAuthor(request(app).post("/api/tests").send({
+      title: "С мёртвым шаблоном",
+      sections: [{ topicId: "t1", drawCount: 3 }],
+      designSettingsJson: { templateId: "ghost" },
+    }));
+    expect(res.status).toBe(422);
+    expect(res.body.field).toBe("templateId");
+    expect(serviceMock.create).not.toHaveBeenCalled();
+  });
+
+  it("201 — без выбора оформление не пишется вовсе (колонка остаётся умолчанием)", async () => {
+    await asAuthor(request(app).post("/api/tests").send({
+      title: "Без шаблона",
+      sections: [{ topicId: "t1", drawCount: 3 }],
+    }));
+    const [payload] = serviceMock.create.mock.calls[0] as [{ test: Record<string, unknown> }];
+    expect(payload.test.designSettingsJson).toBeUndefined();
   });
 });
 

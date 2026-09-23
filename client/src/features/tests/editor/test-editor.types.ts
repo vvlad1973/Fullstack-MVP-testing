@@ -562,6 +562,16 @@ export type TestEditorModel = {
   flowSettings: FlowSettings;
   /** Parent folder; `null` means root (no folder). */
   folderId: string | null;
+  /**
+   * Шаблон оформления, выбранный ДО первого сохранения. Живёт в модели ТОЛЬКО в
+   * режиме создания: у существующего теста оформление правится своим ресурсом
+   * (`PUT /api/tests/:id/design`) со своим черновиком, и второе место хранения
+   * означало бы два источника истины о шаблоне.
+   *
+   * Поэтому {@link apiToEditorModel} его НЕ заполняет: у открытого на правку теста
+   * поля нет, и `editorModelToPayload` ничего об оформлении в PUT не кладёт.
+   */
+  designTemplateId?: string;
   basic: {
     title: string;
     description: string;
@@ -770,6 +780,12 @@ export type TestSettingsPayload = {
   /** Only sent on create (FAB folder-pick). PUT path leaves it undefined and
    *  uses the dedicated `/api/test-folders/move/:id` endpoint instead. */
   folderId?: string | null;
+  /**
+   * Выбранный шаблон оформления. Уходит ТОЛЬКО при создании — маршрут создания
+   * принимает один идентификатор и сам штампует версии. На пути PUT поле остаётся
+   * пустым: там оформление сохраняет `PUT /api/tests/:id/design`.
+   */
+  designSettingsJson?: { templateId: string };
 };
 
 export type TestSectionPayload = {

@@ -14,6 +14,7 @@
  *   - Save button is disabled until the draft is dirty
  *   - Layout / Progress panes still show «следующий шаг» stubs
  */
+import { useState } from "react";
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -77,6 +78,16 @@ const TEMPLATE = {
   },
 };
 
+/** Встроенный шаблон — с него начинает НОВЫЙ тест, пока автор не выбрал другой. */
+const DEFAULT_TEMPLATE = {
+  ...TEMPLATE,
+  id: "default",
+  name: "Стандартный",
+  description: "Базовое оформление",
+  version: "2.0.0",
+  manifest: { ...TEMPLATE.manifest, id: "default", name: "Стандартный", version: "2.0.0" },
+};
+
 const DESIGN_SETTINGS_DEFAULT = { templateId: "corporate", params: {} };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -111,6 +122,8 @@ beforeEach(() => {
   mockFetch((url) => {
     if (url === `/api/tests/${TEST_ID}/design`) return jsonResponse(DESIGN_SETTINGS_DEFAULT);
     if (url === `/api/templates/corporate`) return jsonResponse(TEMPLATE);
+    if (url === `/api/templates/default`) return jsonResponse(DEFAULT_TEMPLATE);
+    if (url === `/api/templates`) return jsonResponse([DEFAULT_TEMPLATE, TEMPLATE]);
     return jsonResponse({ error: "unexpected" }, 500);
   });
 });
@@ -207,9 +220,76 @@ describe("<DesignSection /> — rail navigation", () => {
 
 describe("<DesignSection /> — create-mode notice", () => {
   it("shows the create-mode notice when testId is undefined", () => {
+    // Без привязки к черновику редактора (раздел собран сам по себе) манифеста нет,
+    // и показывать в карточке нечего — остаётся одно объяснение.
     renderWithClient(<DesignSection testId={undefined} />);
     expect(screen.getByTestId("design-create-notice")).toBeInTheDocument();
     expect(screen.queryByTestId("design-template-pane")).toBeNull();
+  });
+});
+
+// ─── Режим создания: шаблон выбирается до первого сохранения ─────────────────
+//
+// Ящик поднимает хук наверх и привязывает его к черновику редактора: выбранный
+// шаблон хранится там и уезжает телом создания. Здесь та же связка собрана вручную.
+
+function CreateModeHarness({ onPick }: { onPick?: (templateId: string) => void }) {
+  const [templateId, setTemplateId] = useState("default");
+  const design = useDesignSettings(undefined, {
+    templateId,
+    onTemplateChange: (id) => {
+      setTemplateId(id);
+      onPick?.(id);
+    },
+  });
+  return <DesignSection testId={undefined} design={design} />;
+}
+
+describe("<DesignSection /> — выбор шаблона в режиме создания", () => {
+  it("рисует карточку выбранного шаблона рядом с объяснением", async () => {
+    renderWithClient(<CreateModeHarness />);
+    expect(screen.getByTestId("design-create-notice")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-name")).toHaveTextContent("Стандартный"),
+    );
+  });
+
+  it("не предлагает «Сбросить до умолчаний»: параметров ещё нет", async () => {
+    renderWithClient(<CreateModeHarness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-card")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("design-template-reset")).toBeNull();
+  });
+
+  it("запирает остальные пункты рейла — их настройки привязаны к тесту", async () => {
+    renderWithClient(<CreateModeHarness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-card")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("design-rail-template")).not.toBeDisabled();
+    expect(screen.getByTestId("design-rail-branding")).toBeDisabled();
+    expect(screen.getByTestId("design-rail-report")).toBeDisabled();
+  });
+
+  it("выбор из галереи уходит в черновик редактора и меняет карточку", async () => {
+    const onPick = vi.fn();
+    renderWithClient(<CreateModeHarness onPick={onPick} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-card")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId("design-template-replace"));
+    await waitFor(() =>
+      expect(screen.getByTestId("design-gallery-card-corporate")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("design-gallery-card-corporate"));
+    fireEvent.click(screen.getByTestId("design-gallery-apply"));
+
+    expect(onPick).toHaveBeenCalledWith("corporate");
+    await waitFor(() =>
+      expect(screen.getByTestId("design-template-name")).toHaveTextContent("Корпоративный"),
+    );
   });
 });
 

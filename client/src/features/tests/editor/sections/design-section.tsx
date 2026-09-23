@@ -208,13 +208,19 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
     return declared.filter((d) => allowed.has(d.key));
   }, [design.template]);
 
-  const effectiveActive: DesignRailKey = design.templateMissing
+  // Режим создания: теста ещё нет. Шаблон выбрать можно — он уедет телом создания, —
+  // а параметры шаблона привязаны к существующему тесту (свой ресурс, своя загрузка
+  // медиа), поэтому остальные пункты рейла заперты ровно тем же способом, каким их
+  // запирает недоступный шаблон.
+  const createMode = testId === undefined;
+
+  const effectiveActive: DesignRailKey = design.templateMissing || createMode
     ? "template"
     : visibleRail.some((i) => i.key === active)
       ? active
       : "template";
   const isRailDisabled = (key: DesignRailKey): boolean =>
-    design.templateMissing && key !== "template";
+    (design.templateMissing || createMode) && key !== "template";
 
   return (
     <>
@@ -250,8 +256,16 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
           })}
         </nav>
         <div className="tb-settings-content" data-testid={`design-pane-${effectiveActive}`}>
-          {testId === undefined ? (
-            <CreateModeNotice />
+          {createMode ? (
+            <>
+              <CreateModeNotice />
+              <TemplatePane
+                design={design}
+                createMode
+                onPreview={() => setPreviewOpen(true)}
+                onOpenGallery={() => setGalleryOpen(true)}
+              />
+            </>
           ) : design.isLoading ? (
             <LoadingNotice />
           ) : design.templateMissing ? (
@@ -376,12 +390,18 @@ export function DesignSection({ testId, design: designProp, model, updateModel }
 
 // ─── Sub-panes ────────────────────────────────────────────────────────────────
 
+/**
+ * Режим создания. Шаблон здесь уже выбирается — он часть черновика и уезжает телом
+ * создания, — а его параметры нет: брендирование, цвета и макет пишутся своим
+ * ресурсом теста и грузят файлы в медиатеку под его идентификатором. Баннер
+ * объясняет именно эту границу, иначе запертые пункты рейла читались бы как поломка.
+ */
 function CreateModeNotice() {
   return (
     <Banner
       tone="info"
-      title="Сначала сохраните черновик"
-      description="Настройки оформления привязаны к существующему тесту. Заполните обязательные поля во вкладке «Основное», сохраните черновик — после этого вкладка «Оформление» станет доступна для редактирования."
+      title="Шаблон можно выбрать сразу"
+      description="Выбранный шаблон применится к тесту при создании. Его параметры — брендирование, цвета, макет, вид диаграмм и облик отчёта — привязаны к существующему тесту: заполните обязательные поля во вкладке «Основное», сохраните черновик, и эти разделы откроются."
       data-testid="design-create-notice"
     />
   );
@@ -448,10 +468,16 @@ function TemplateIncompatibleBanner(props: {
 
 function TemplatePane({
   design,
+  createMode = false,
   onPreview,
   onOpenGallery,
 }: {
   design: UseDesignSettingsResult;
+  /**
+   * Тест ещё не создан: параметров оформления у него нет по определению, поэтому
+   * «Сбросить до умолчаний» нечего сбрасывать — кнопка не показывается.
+   */
+  createMode?: boolean;
   onPreview: () => void;
   /** PRD-7 S12-G3 / FR-33: opens the TemplateGalleryModal. */
   onOpenGallery: () => void;
@@ -559,14 +585,16 @@ function TemplatePane({
             >
               Заменить шаблон
             </Button>
-            <Button
-              variant="ghost"
-              size="s"
-              data-testid="design-template-reset"
-              onClick={design.resetToDefaults}
-            >
-              Сбросить до умолчаний
-            </Button>
+            {!createMode && (
+              <Button
+                variant="ghost"
+                size="s"
+                data-testid="design-template-reset"
+                onClick={design.resetToDefaults}
+              >
+                Сбросить до умолчаний
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -171,10 +171,25 @@ const testBodyBaseSchema = z.object({
   folderId: z.string().nullable().optional(),
 });
 
-const createTestBodySchema = testBodyBaseSchema.refine(
-  (b) => !!b.title,
-  { message: "Title is required", path: ["title"] },
-);
+const createTestBodySchema = testBodyBaseSchema
+  .extend({
+    /**
+     * Оформление, выбранное ДО первого сохранения: автор указывает шаблон прямо в
+     * форме создания, и выбор обязан доехать до INSERT. Системные страницы теста
+     * раскладывает та же транзакция (`_reconcileSystemPages`) и связывает их с
+     * шаблоном — приняв выбор позже, мы связали бы их со «Стандартным» и заставили
+     * автора пересопоставлять страницы сразу после создания.
+     *
+     * Принимается ТОЛЬКО идентификатор шаблона. Параметры, палитры и надписи живут в
+     * `PUT /api/tests/:id/design`, где их проверяют против манифеста; второй путь их
+     * записи означал бы вторую, неизбежно расходящуюся валидацию.
+     */
+    designSettingsJson: z.object({ templateId: z.string().min(1) }).optional(),
+  })
+  .refine(
+    (b) => !!b.title,
+    { message: "Title is required", path: ["title"] },
+  );
 
 /**
  * PRD-51: ДОКУМЕНТ ОТЧЁТА в теле сохранения. Ключ объявлен ЯВНО: незаявленный zod
@@ -713,6 +728,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       breakdownGateEnabled,
       sectionGroupsJson,
       defaultQuestionPoints,
+      designSettingsJson,
       folderId,
     } = parsed.data;
 
@@ -737,6 +753,29 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         message: "Тест ссылается на недоступную тему",
         topicId: invisible,
       });
+    }
+
+    // Выбранный шаблон проверяется ровно тем же правилом, что и в `PUT /:id/design`:
+    // он должен существовать и быть активным. Версия и версия контракта штампуются
+    // здесь же — иначе тест родился бы с оформлением без версии, и редактор никогда
+    // не смог бы сказать, что шаблон с тех пор перезалили.
+    let designSettings: Record<string, unknown> | undefined;
+    if (designSettingsJson) {
+      const [template] = await db
+        .select()
+        .from(templates)
+        .where(and(eq(templates.id, designSettingsJson.templateId), eq(templates.isActive, true)));
+      if (!template) {
+        return res.status(422).json({ error: "Template not found or inactive", field: "templateId" });
+      }
+      designSettings = {
+        templateId: template.id,
+        templateVersion: template.version,
+        templateApiVersion: template.templateApiVersion,
+        // Параметров у нового теста нет по определению: их правят на вкладке
+        // «Оформление» уже существующего теста.
+        params: {},
+      };
     }
 
     const test = await testSettingsService.create({
@@ -777,6 +816,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         breakdownGateEnabled,
         sectionGroupsJson: sectionGroupsJson ?? null,
         defaultQuestionPoints: defaultQuestionPoints ?? null,
+        designSettingsJson: designSettings,
         folderId: folderId ?? null,
         // PRD-13: creator owns the test atomically in the INSERT (the post-insert
         // setTestOwner below is now a redundant safety net).

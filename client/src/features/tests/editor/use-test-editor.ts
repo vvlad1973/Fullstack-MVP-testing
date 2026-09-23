@@ -301,6 +301,12 @@ function diffDirtyTabs(
   ) {
     dirty.add("scoring");
   }
+  // «Оформление»: выбор шаблона до первого сохранения. У существующего теста поля в
+  // модели нет ни у черновика, ни у снимка, и вкладка помечается своим черновиком
+  // (`useDesignSettings.isDirty`) — здесь ловится только режим создания.
+  if (draft.designTemplateId !== snapshot.designTemplateId) {
+    dirty.add("design");
+  }
   return dirty;
 }
 

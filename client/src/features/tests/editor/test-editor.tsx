@@ -300,7 +300,20 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   // Hoist design hook here so the unified drawer footer «Сохранить» drives
   // both the test-settings PUT and the design-settings PUT in a single
   // action (per wireframe prd7-design-tab.html — single footer save).
-  const design = useDesignSettings(editor.model?.id);
+  //
+  // В режиме создания сохранять пока нечем и некуда: теста нет. Хук получает
+  // привязку к черновику редактора — выбранный шаблон хранится там и уезжает телом
+  // создания, а хук только подтягивает манифест, чтобы карточка и галерея работали.
+  const design = useDesignSettings(
+    editor.model?.id,
+    editor.mode === "create" && editor.model
+      ? {
+          templateId: editor.model.designTemplateId ?? "default",
+          onTemplateChange: (templateId: string) =>
+            editor.updateModel((m) => ({ ...m, designTemplateId: templateId })),
+        }
+      : undefined,
+  );
 
   const { toast } = useToast();
   // PRD-52: свои комментарии подписываются «Вы» — панель отличает их по идентификатору.

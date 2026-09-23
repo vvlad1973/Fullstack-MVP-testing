@@ -563,6 +563,84 @@ describe("useTestEditor — create mode", () => {
     );
     expect(result.current.createdId).toBe("te-new");
   });
+
+  // Оформление нового теста: шаблон выбирается ещё до первого сохранения и обязан
+  // уехать телом создания. Позже поздно — системные страницы теста связывает с
+  // шаблоном та же транзакция.
+  it("кладёт выбранный шаблон в тело создания", async () => {
+    nextResponse({ ...buildApiResponse({ id: "te-new", title: "Свежий" }) }, 201);
+
+    const client = makeClient();
+    const { result } = renderHook(
+      () => useTestEditor({ mode: "create", folderId: null }),
+      { wrapper: ({ children }) => withClient(client, <>{children}</>) },
+    );
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+    // Новый тест начинает со «Стандартного» — того же, чем его обслужит выдача.
+    expect(result.current.model?.designTemplateId).toBe("default");
+
+    act(() => {
+      result.current.updateModel((m) => ({
+        ...m,
+        basic: { ...m.basic, title: "Свежий" },
+        designTemplateId: "corporate",
+        sections: [
+          {
+            topicId: "top-1",
+            topicName: "Topic",
+            maxQuestions: 10,
+            drawCount: 1,
+            drawAll: false,
+            required: true,
+            timeLimit: { source: "inherit_test" },
+            feedback: { format: "plain", text: "" },
+            feedbackLinks: [],
+            feedbackAssets: [],
+            feedbackEvents: [],
+            defaultPoints: null,
+          },
+        ],
+      }));
+    });
+    // Выбор шаблона зажигает точку своей вкладки, а не чужой.
+    expect(result.current.tabStatuses.design.dirty).toBe(true);
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const post = fetchMock.mock.calls.find(
+      (c) => String(c[0]) === "/api/tests" && (c[1] as RequestInit)?.method === "POST",
+    );
+    const body = JSON.parse(String((post?.[1] as RequestInit).body));
+    expect(body.designSettingsJson).toEqual({ templateId: "corporate" });
+  });
+
+  it("правка существующего теста об оформлении не сообщает", async () => {
+    nextResponse(buildApiResponse());
+    const client = makeClient();
+    const { result } = renderHook(() => useTestEditor({ mode: "edit", testId: "test-1" }), {
+      wrapper: ({ children }) => withClient(client, <>{children}</>),
+    });
+    await waitFor(() => expect(result.current.model).not.toBeNull());
+    // У открытого на правку теста поля нет вовсе: оформление правит свой ресурс
+    // (`PUT /api/tests/:id/design`), и второй писатель затёр бы его параметры.
+    expect(result.current.model?.designTemplateId).toBeUndefined();
+
+    nextResponse(buildApiResponse({ version: 8 }));
+    act(() => {
+      result.current.updateModel((m) => ({ ...m, basic: { ...m.basic, title: "Другое" } }));
+    });
+    await act(async () => {
+      await result.current.save();
+    });
+
+    const put = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "PUT",
+    );
+    const body = JSON.parse(String((put?.[1] as RequestInit).body));
+    expect(body.designSettingsJson).toBeUndefined();
+  });
 });
 
 // ─── Gap 4: Create adaptive happy path ──────────────────────────────────────────

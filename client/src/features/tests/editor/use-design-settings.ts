@@ -12,6 +12,10 @@
  *     own dirty flag.
  *   - Provide a `save()` mutation that resolves with the persisted settings
  *     and invalidates the design query.
+ *   - Serve the CREATE mode too ({@link DesignCreateBinding}): there is no test to
+ *     fetch and nothing to PUT, but the author still picks a template. The choice
+ *     then lives in the editor's own draft and travels with the create request; the
+ *     hook only loads that template's manifest so the card and the gallery work.
  *
  * Anti-goals:
  *   - This hook is intentionally scoped to ONE template at a time. The
@@ -191,6 +195,19 @@ export type DesignSettings = {
   resultsBlockOrder?: ResultsBlockKey[];
 };
 
+/**
+ * Режим СОЗДАНИЯ: теста ещё нет, и выбранный шаблон хранит черновик редактора —
+ * он же отправит его телом создания. Хук в этом режиме ничего не грузит и не
+ * сохраняет по адресу теста, а `draft` выводит из переданного идентификатора,
+ * поэтому второго места хранения выбора не возникает.
+ */
+export type DesignCreateBinding = {
+  /** Выбор автора; живёт в `TestEditorModel.designTemplateId`. */
+  templateId: string;
+  /** Записать новый выбор туда же — вызывается вместо правки локального черновика. */
+  onTemplateChange: (templateId: string) => void;
+};
+
 export type UseDesignSettingsResult = {
   /** Whether either of the underlying queries is still loading. */
   isLoading: boolean;
@@ -316,7 +333,10 @@ async function putDesign(
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useDesignSettings(testId: string | undefined): UseDesignSettingsResult {
+export function useDesignSettings(
+  testId: string | undefined,
+  createBinding?: DesignCreateBinding,
+): UseDesignSettingsResult {
   const queryClient = useQueryClient();
 
   const designQuery = useQuery({
@@ -327,7 +347,17 @@ export function useDesignSettings(testId: string | undefined): UseDesignSettings
 
   const persisted: DesignSettings | undefined = designQuery.data;
 
-  const [draft, setDraft] = useState<DesignSettings>({ templateId: "default" });
+  const [localDraft, setDraft] = useState<DesignSettings>({ templateId: "default" });
+
+  // В режиме создания черновик ВЫВОДИТСЯ из выбора редактора, а не хранится здесь:
+  // сохранённых настроек нет, и параметров у нового теста тоже (их правят уже у
+  // существующего). Идентичность объекта держится мемоизацией — иначе каждая
+  // перерисовка пересчитывала бы всё, что от черновика зависит.
+  const boundTemplateId = createBinding?.templateId;
+  const draft = useMemo<DesignSettings>(
+    () => (boundTemplateId !== undefined ? { templateId: boundTemplateId, params: {} } : localDraft),
+    [boundTemplateId, localDraft],
+  );
 
   // Sync the draft from the persisted settings as soon as they (re)load. Done
   // during render (React's "adjust state when a prop changes" pattern) rather than
@@ -346,7 +376,9 @@ export function useDesignSettings(testId: string | undefined): UseDesignSettings
   const templateQuery = useQuery({
     queryKey: ["templates", draft.templateId],
     queryFn: () => fetchTemplate(draft.templateId),
-    enabled: Boolean(persisted) && Boolean(draft.templateId),
+    // В режиме создания сохранённых настроек нет и не будет, но манифест нужен: без
+    // него карточка шаблона пуста, и выбирать автору нечего.
+    enabled: (Boolean(persisted) || createBinding !== undefined) && Boolean(draft.templateId),
   });
 
   const isDirty = useMemo(() => {
@@ -392,6 +424,12 @@ export function useDesignSettings(testId: string | undefined): UseDesignSettings
   };
 
   const setTemplate = (templateId: string) => {
+    // Режим создания: выбор принадлежит черновику редактора — он уедет телом создания,
+    // и локальная копия здесь была бы вторым источником истины.
+    if (createBinding) {
+      createBinding.onTemplateChange(templateId);
+      return;
+    }
     // S12-G3: clears params on switch (new template's defaults apply via the
     // manifest hydration). Drops templateVersion/templateApiVersion so the
     // server re-stamps them from the chosen template during PUT.
