@@ -673,7 +673,7 @@
                         <th><div class="ou-grid__th wf-th-end">n</div></th>
                         <th><div class="ou-grid__th wf-th-end">Трудность</div></th>
                         <th><div class="ou-grid__th wf-th-end">Различает</div></th>
-                        <th><div class="ou-grid__th">Показывается</div></th>
+                        <th><div class="ou-grid__th">Статистика карточки</div></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -689,14 +689,14 @@
                         <td class="is-numeric">141</td>
                         <td class="is-numeric">0,52</td>
                         <td class="is-numeric">0,19</td>
-                        <td><button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Смотреть</span></button></td>
+                        <td><button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span>Показать эту</span></button></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong is-muted col-stick col-stick--shadow">Версия неизвестна<span class="ou-grid__cell-sub">импорт выгрузок и прохождения до 23.09.2026</span></td>
                         <td class="is-numeric">96</td>
                         <td class="is-numeric is-muted">0,47</td>
                         <td class="is-numeric is-muted">—</td>
-                        <td><span class="ou-tag ou-tag--neutral ou-tag--s">Не смешивается</span></td>
+                        <td><button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span>Показать эту</span></button></td>
                       </tr>
                     </tbody>
                   </table>
@@ -1012,6 +1012,11 @@
                   <td>Разрез по четвертям</td>
                   <td>доля выбравших вариант в сильной и слабой четвертях</td>
                   <td>FR-26. Именно он показывает, ЧЕМ дистрактор привлекателен: вариант, который слабые выбирают втрое чаще сильных, работает; вариант, который не выбирает никто, занимает место и удлиняет чтение</td>
+                </tr>
+                <tr>
+                  <td>Выбор редакции</td>
+                  <td>«Показать эту» переключает всю карточку</td>
+                  <td>FR-49a. Кнопка не открывает ничего отдельного: она делает выбранной другую редакцию, и на её наблюдениях пересчитывается ВСЯ карточка — плитки трудности и различения, таблица вариантов, время, сравнение с замыслом. Метка «Выбрана» переезжает в нажатую строку. Так автор отвечает на главный вопрос правки: стало ли задание лучше. В примере видно, что стало: было 0,52 при различении 0,19, стало 0,41 при 0,34</td>
                 </tr>
                 <tr>
                   <td>Версии содержания</td>
