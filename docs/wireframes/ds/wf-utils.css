@@ -376,20 +376,12 @@ select.ou-select {
 .ou-pagination-pages button:hover:not(.active) { background: var(--ou-bg-hover); }
 
 /* ── Banner ──────────────────────────────────────────────────────────────── */
-.ou-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--ou-space-3);
-  padding: var(--ou-space-4);
-  border-radius: var(--ou-radius-m);
-  margin-bottom: var(--ou-space-4);
-}
-
-.ou-banner--error {
-  background: var(--ou-error-soft);
-  color: var(--ou-error-on-soft);
-  border: var(--wf-border-w) solid var(--ou-border-error, var(--ou-error-on-soft));
-}
+/* `.ou-banner` и `.ou-banner--error` живут в дизайн-системе: здесь их копии стояли
+   с прошлых эскизов и, загружаясь позже, перебивали её. Копия несла собственный
+   `margin-bottom`, который складывался с интервалом контейнера и давал под каждым
+   баннером 32px вместо 16px — отступ вне модульной сетки. Расстояния между блоками
+   задаёт контейнер, а не элемент. Ниже остались только эскизные классы с одинарным
+   дефисом: в дизайн-системе их нет. */
 
 .ou-banner-icon  { font-size: var(--wf-size-18); flex-shrink: 0; margin-top: var(--wf-border-w); }
 .ou-banner-title { font-weight: 600; margin-bottom: var(--ou-space-1); }
