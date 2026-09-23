@@ -8,7 +8,11 @@
  * Required body class on every wireframe: ou ou--light ou--normal
  * ───────────────────────────────────────────────────────────────────────── */
 
-@import url('./ds/skillum-ds.css');
+/* Метка версии обязательна: без неё браузер берёт снимок ДС из кэша, и правка
+   дизайн-системы не видна в эскизах — при этом импортированная копия стоит в
+   каскаде ПОЗЖЕ ссылки из <head> и перебивает свежую. Поднимать вместе с
+   `?v=` в эскизах при каждом обновлении снимка. */
+@import url('./ds/skillum-ds.css?v=4');
 
 /* ── Wireframe-local tokens (no DS equivalent) ────────────────────────── */
 /* DS does not expose border-width / hairline tokens. Local aliases keep   */
