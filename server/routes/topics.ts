@@ -52,13 +52,23 @@ function parseFeedbackJson(raw: unknown): { ok: true; value: FeedbackContent | u
  *
  * Своя проверка, а не общая с обратной связью: у толкования нет ни курсов, ни мероприятий,
  * ни вложений, и принять их значило бы завести вторую, молчаливую точку хранения материалов.
+ *
+ * Три исхода, и они РАЗНЫЕ:
+ *   - ключа в теле нет (`undefined`/`null`) -> `undefined`: «не трогать», написанное
+ *     остаётся. Клиент, не знающий о поле (в том числе импорт книги), не обнуляет его;
+ *   - пришла запись с ПУСТЫМ текстом -> `null`: «толкования нет», колонка обнуляется.
+ *     Иначе автор, стерший текст в ящике темы, оставлял бы в базе пустую запись, а она
+ *     истинна: `readInterpretations` (`server/routes/attempts.ts`) судит по наличию
+ *     ОБЪЕКТА и завела бы тему без единого написанного текста;
+ *   - пришёл текст -> сама запись.
  */
 function parseInterpretationJson(
   raw: unknown,
-): { ok: true; value: InterpretationText | undefined } | { ok: false } {
+): { ok: true; value: InterpretationText | null | undefined } | { ok: false } {
   if (raw === undefined || raw === null) return { ok: true, value: undefined };
   const parsed = interpretationSchema.safeParse(raw);
-  return parsed.success ? { ok: true, value: parsed.data } : { ok: false };
+  if (!parsed.success) return { ok: false };
+  return { ok: true, value: parsed.data.text.trim() === "" ? null : parsed.data };
 }
 
 // GET /api/topics - Список тем с курсами и количеством вопросов
