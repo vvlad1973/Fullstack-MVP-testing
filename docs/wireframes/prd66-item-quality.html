@@ -714,7 +714,7 @@
                         <th class="col-stick col-stick--shadow"><div class="ou-grid__th">Вариант</div></th>
                         <th><div class="ou-grid__th wf-th-end">Выбрали</div></th>
                         <th><div class="ou-grid__th"><span class="ou-tip" data-placement="bottom" tabindex="0">Слабые 27 %<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Нижние 27 % участников по баллу за весь тест. Число — доля ИЗ ЭТОЙ ГРУППЫ, выбравшая вариант; колонка целиком даёт 100 %. Дистрактор работает, когда здесь больше, чем у сильных.</span></span></div></th><th><div class="ou-grid__th"><span class="ou-tip wf-tip-end" data-placement="bottom" tabindex="0">Сильные 27 %<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Верхние 27 % участников по баллу за весь тест. Число — доля ИЗ ЭТОЙ ГРУППЫ, выбравшая вариант; колонка целиком даёт 100 %. У верного ответа здесь должно быть больше, чем у слабых.</span></span></div></th>
-                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip wf-tip-end" data-placement="bottom" tabindex="0">Связь с баллом<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Корреляция выбора варианта с баллом за остальные задания. У верного ответа должна быть положительной, у дистрактора — отрицательной. Положительная у дистрактора значит, что его выбирают сильные: вариант частично верен либо ключ неверен.</span></span></div></th>
+                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip wf-tip-end" data-placement="bottom" tabindex="0">Корреляция с остатком<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Корреляция выбора варианта с баллом за остальные задания. У верного ответа должна быть положительной, у дистрактора — отрицательной. Положительная у дистрактора значит, что его выбирают сильные: вариант частично верен либо ключ неверен.</span></span></div></th>
                         <th><div class="ou-grid__th">Признак</div></th>
                       </tr>
                     </thead>
@@ -944,7 +944,7 @@
                       <tr>
                         <th class="col-stick col-stick--shadow"><div class="ou-grid__th">Шкала</div></th>
                         <th><div class="ou-grid__th wf-th-end">Пунктов</div></th>
-                        <th><div class="ou-grid__th wf-th-end">Альфа</div></th>
+                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip" data-placement="bottom" tabindex="0">Альфа Кронбаха<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Насколько согласованно пункты шкалы меряют одно и то же. Приемлемо от 0,70, хорошо от 0,80. У ипсативной методики занижена по построению и дефектом не считается.</span></span></div></th>
                         <th><div class="ou-grid__th wf-th-end">n</div></th>
                         <th><div class="ou-grid__th">Признак</div></th>
                       </tr>
@@ -962,14 +962,14 @@
                         <td class="is-numeric">5</td>
                         <td class="is-numeric">0,64</td>
                         <td class="is-numeric">312</td>
-                        <td><span class="ou-tag ou-tag--warning ou-tag--s">Ниже приемлемого</span><span class="ou-grid__cell-sub">порог 0,70; в шкале есть пункт, работающий против неё</span></td>
+                        <td><span class="ou-tag ou-tag--warning ou-tag--s">Ниже приемлемого</span><span class="ou-grid__cell-sub">порог 0,70</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow">Распределение приоритетов</td>
                         <td class="is-numeric">6</td>
                         <td class="is-numeric">0,58</td>
                         <td class="is-numeric">312</td>
-                        <td><span class="ou-tag ou-tag--info ou-tag--s">Ипсативная</span><span class="ou-grid__cell-sub">сумма баллов фиксирована: альфа занижена по построению, это не дефект шкалы</span></td>
+                        <td><span class="ou-tag ou-tag--info ou-tag--s">Ипсативная</span><span class="ou-grid__cell-sub">сумма баллов фиксирована, альфа занижена</span></td>
                       </tr>
                     </tbody>
                   </table>
@@ -993,9 +993,9 @@
                     <thead class="wf-th-wrap">
                       <tr>
                         <th class="col-stick col-stick--shadow"><div class="ou-grid__th">Пункт</div></th>
-                        <th><div class="ou-grid__th wf-th-end">Вклад</div></th>
-                        <th><div class="ou-grid__th wf-th-end">Связь со шкалой</div></th>
-                        <th><div class="ou-grid__th">Разброс по градациям 1 — 5</div></th>
+                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip" data-placement="bottom" tabindex="0">Вклад<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">С каким знаком ответ на пункт входит в шкалу. У обратного пункта вклад должен быть отрицательным — иначе он портит согласованность шкалы.</span></span></div></th>
+                        <th><div class="ou-grid__th wf-th-end"><span class="ou-tip" data-placement="bottom" tabindex="0">Корреляция с остатком шкалы<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Связь ответа на этот пункт с суммой по ОСТАЛЬНЫМ пунктам той же шкалы. Показывает, тянет ли пункт в ту же сторону, что шкала целиком. Отрицательная — пункт работает против своей шкалы: чаще всего у обратного пункта забыли поставить отрицательный вклад.</span></span></div></th>
+                        <th><div class="ou-grid__th"><span class="ou-tip" data-placement="bottom" tabindex="0">Распределение ответов<svg class="wf-tip-ico" width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg><span class="ou-tip__bubble ou-tip__bubble--wrap wf-tip-wide">Доли участников по каждой градации ответа, от первой к пятой. Нужны, чтобы увидеть мёртвый пункт: если почти все выбирают одну градацию, пункт никого не различает и в шкалу не работает.</span></span></div></th>
                         <th><div class="ou-grid__th">Признак</div></th>
                       </tr>
                     </thead>
@@ -1012,14 +1012,14 @@
                         <td class="is-numeric">+1</td>
                         <td class="is-numeric">−0,44</td>
                         <td>6 / 12 / 22 / 37 / 23 %</td>
-                        <td><span class="ou-tag ou-tag--error ou-tag--s">Обратный пункт без зеркала</span><span class="ou-grid__cell-sub">формулировка обратная, а вклад положительный: нужен вклад −1</span></td>
+                        <td><span class="ou-tag ou-tag--error ou-tag--s">Обратный пункт без зеркала</span><span class="ou-grid__cell-sub">нужен вклад −1</span></td>
                       </tr>
                       <tr>
                         <td class="ou-grid__cell-strong col-stick col-stick--shadow"><span class="tb-qscoring__qtype" title="Шкала" aria-label="Шкала"><svg width="16" height="16" aria-hidden="true"><use href="#i-q-scale" /></svg></span>Работа с людьми даётся мне тяжело</td>
                         <td class="is-numeric">+1</td>
                         <td class="is-numeric">0,18</td>
                         <td>1 / 2 / 94 / 2 / 1 %</td>
-                        <td><span class="ou-tag ou-tag--warning ou-tag--s">Мёртвый пункт</span><span class="ou-grid__cell-sub">94 % выбирают середину: пункт не различает никого</span></td>
+                        <td><span class="ou-tag ou-tag--warning ou-tag--s">Мёртвый пункт</span><span class="ou-grid__cell-sub">94 % в одной градации</span></td>
                       </tr>
                     </tbody>
                   </table>
@@ -1088,7 +1088,7 @@
                 <span class="ou-text ou-text--body-xs ou-text--tone-muted">При таком делении разница между группами самая устойчивая.</span>
               </div>
               <div class="ou-stack ou-stack--gap-1">
-                <span class="ou-text ou-text--body-m ou-text--w-semibold">Связь с баллом</span>
+                <span class="ou-text ou-text--body-m ou-text--w-semibold">Корреляция с остатком</span>
                 <span class="ou-text ou-text--body-s">Корреляция выбора варианта с баллом за остальные задания.</span>
                 <span class="ou-text ou-text--body-xs ou-text--tone-muted">У верного ответа положительная, у работающего дистрактора отрицательная.</span>
               </div>
