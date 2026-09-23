@@ -35,6 +35,13 @@
       .wf-rowmenu-cell { position: relative; text-align: right; }
       .wf-rowmenu { position: absolute; right: 0; top: 100%; z-index: 20; min-width: var(--wf-size-240); text-align: left; }
       .wf-rowmenu--up { top: auto; bottom: 100%; }
+      /* Слоты сравниваемых срезов — разметка и стили взяты из согласованного эскиза
+         раздела «Аналитика» (prd56-analytics-section.html), чтобы один механизм
+         выглядел одинаково на обоих экранах. */
+      .wf-slots { align-items: start; }
+      .wf-slot { min-width: 0; padding: var(--ou-space-3); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-l); }
+      .wf-slot-add { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ou-space-1); background: transparent; cursor: pointer; color: var(--ou-accent-default); }
+      .wf-slot-add:hover { border-color: var(--ou-accent-default); }
       /* Пузырёк подсказки позиционируется от своего якоря, поэтому в узкой ячейке
          таблицы сжимается до ширины заголовка. Ширину задаёт эскизный класс. */
       .wf-tip-wide { width: var(--wf-size-240); white-space: normal; }
@@ -84,6 +91,7 @@
       <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
       <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
       <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></symbol>
       <symbol id="i-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></symbol>
       <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
@@ -447,7 +455,7 @@
       </div>
     </div>
 
-    <!-- ════════════════ Психометрика по сравниваемым срезам ════════════════ -->
+    <!-- ════════ Сравнение срезов ════════ -->
     <div id="wf-compare" class="wf-state" data-tab="quality">
       <div class="ou-shell">
         <div class="ou-shell__side" data-wf-side></div>
@@ -456,77 +464,164 @@
           <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--ai-start ou-stack--gap-4" data-wf-head></div>
           <div class="ou-tabs ou-tabs--underline ou-tabs--m" data-wf-tabs></div>
 
-          <section class="ou-card ou-card--outlined">
+          <section class="ou-card ou-card--outlined" role="tabpanel">
             <header class="ou-card__header">
               <div class="ou-card__heading">
                 <h2 class="ou-card__title">Сравнение срезов</h2>
+                <p class="ou-card__subtitle">Два набора условий на одном тесте: «Производство, поток 2026» — 214 прохождений, «Офис» — 272</p>
               </div>
               <div class="ou-card__trail">
-                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(null, 'quality')"><span>Вернуться к одной выборке</span></button>
+                <div class="ou-seg ou-seg--s" role="group">
+                  <button type="button" class="ou-seg__item" aria-pressed="false" onclick="showState(null, 'quality')"><span>Одна выборка</span></button>
+                  <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span>Сравнение</span></button>
+                </div>
               </div>
             </header>
-            <div class="ou-card__body ou-stack ou-stack--gap-4">
-              <div class="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
-                <span class="ou-tag ou-tag--info ou-tag--s">Срез А: группа «Производство»</span>
-                <span class="ou-tag ou-tag--info ou-tag--s">Срез Б: группа «Офис»</span>
-                <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Добавить срез</span></button>
+            <div class="ou-card__body">
+              <div class="ou-stack ou-stack--gap-4">
+                <div class="ou-lgrid ou-lgrid--auto ou-lgrid--min-md ou-lgrid--gap-4 wf-slots">
+          <div class="ou-stack ou-stack--gap-3 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+              <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 1</span>
+              <span class="ou-text ou-text--body-xs ou-text--tone-muted">214 прохождений</span>
+            </div>
+            <div class="ou-stack ou-stack--gap-1">
+              <span class="ou-text ou-text--body-xs ou-text--tone-muted">Сохранённый срез</span>
+              <div class="ou-select ou-field--s" data-ou-options="— не выбран —|Производство, поток 2026|Офис|Подрядчики|Пересдачи">
+                <button type="button" class="ou-select__trigger"><span class="ou-select__value">Производство, поток 2026</span><span class="ou-select__chev"><svg width="14" height="14"><use href="#i-chevron-down" /></svg></span></button>
               </div>
-              <div class="ou-grid">
-                <div class="ou-grid__scroll">
-                  <table class="ou-grid__table wf-grid-fixed">
-                    <colgroup><col style="width: 34%" /><col style="width: 22%" /><col style="width: 22%" /><col style="width: 22%" /></colgroup>
-                    <thead class="wf-th-wrap">
-                      <tr>
-                        <th class="col-stick col-stick--shadow"><div class="ou-grid__th">Величина</div></th>
-                        <th><div class="ou-grid__th wf-th-end">Производство</div></th>
-                        <th><div class="ou-grid__th wf-th-end">Офис</div></th>
-                        <th><div class="ou-grid__th wf-th-end">Разница</div></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td class="ou-grid__cell-strong col-stick col-stick--shadow">Прохождений в срезе</td>
-                        <td class="is-numeric">214</td>
-                        <td class="is-numeric">272</td>
-                        <td class="is-numeric is-muted">—</td>
-                      </tr>
-                      <tr>
-                        <td class="ou-grid__cell-strong col-stick col-stick--shadow">Надёжность (альфа)</td>
-                        <td class="is-numeric">0,81</td>
-                        <td class="is-numeric">0,86</td>
-                        <td class="is-numeric">+0,05</td>
-                      </tr>
-                      <tr>
-                        <td class="ou-grid__cell-strong col-stick col-stick--shadow">Ошибка измерения</td>
-                        <td class="is-numeric">4,8 п.п.</td>
-                        <td class="is-numeric">3,9 п.п.</td>
-                        <td class="is-numeric">−0,9 п.п.</td>
-                      </tr>
-                      <tr>
-                        <td class="ou-grid__cell-strong col-stick col-stick--shadow">Заданий под подозрением</td>
-                        <td class="is-numeric">7</td>
-                        <td class="is-numeric">3</td>
-                        <td class="is-numeric">−4</td>
-                      </tr>
-                      <tr>
-                        <td class="ou-grid__cell-strong col-stick col-stick--shadow">Какая мера относится к антикоррупционным?<span class="ou-grid__cell-sub">трудность</span></td>
-                        <td class="is-numeric">0,29</td>
-                        <td class="is-numeric">0,51</td>
-                        <td class="is-numeric">+0,22</td>
-                      </tr>
-                      <tr>
-                        <td class="ou-grid__cell-strong col-stick col-stick--shadow">Выберите верные утверждения о СИЗ<span class="ou-grid__cell-sub">трудность</span></td>
-                        <td class="is-numeric">0,71</td>
-                        <td class="is-numeric">0,44</td>
-                        <td class="is-numeric">−0,27</td>
-                      </tr>
-                    </tbody>
-                  </table>
+            </div>
+            <div class="ou-acc ou-acc--plain">
+              <div class="ou-acc__item is-open">
+                <button type="button" class="ou-acc__trigger" aria-expanded="true">
+                  <span class="ou-acc__trigger-text">
+                    <span class="ou-acc__title">Условия отбора · 3</span>
+                  </span>
+                  <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
+                </button>
+                <div class="ou-acc__body" role="region">
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Производство</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Попытка</span><span class="ou-text ou-text--body-xs">Первая</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Источник</span><span class="ou-text ou-text--body-xs">Веб и телеметрия</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+              <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog"><span>Изменить условия</span></button>
+            </div>
+          </div>
+          <div class="ou-stack ou-stack--gap-3 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+              <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 2</span>
+              <span class="ou-text ou-text--body-xs ou-text--tone-muted">272 прохождений</span>
+            </div>
+            <div class="ou-stack ou-stack--gap-1">
+              <span class="ou-text ou-text--body-xs ou-text--tone-muted">Сохранённый срез</span>
+              <div class="ou-select ou-field--s" data-ou-options="— не выбран —|Производство, поток 2026|Офис|Подрядчики|Пересдачи">
+                <button type="button" class="ou-select__trigger"><span class="ou-select__value">— не выбран —</span><span class="ou-select__chev"><svg width="14" height="14"><use href="#i-chevron-down" /></svg></span></button>
+              </div>
+            </div>
+            <div class="ou-acc ou-acc--plain">
+              <div class="ou-acc__item">
+                <button type="button" class="ou-acc__trigger" aria-expanded="false">
+                  <span class="ou-acc__trigger-text">
+                    <span class="ou-acc__title">Условия отбора · 2</span>
+                  </span>
+                  <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
+                </button>
+                <div class="ou-acc__body" role="region">
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Офис</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Попытка</span><span class="ou-text ou-text--body-xs">Первая</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+              <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog"><span>Изменить условия</span></button>
+              <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Убрать</span></button>
+            </div>
+          </div>
+                  <button type="button" class="ou-box ou-box--border-dashed ou-box--radius-l ou-box--pad-4 wf-slot-add">
+                    <span class="ou-text ou-text--body-s ou-text--w-medium">+ Добавить срез</span>
+                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">до четырёх срезов</span>
+                  </button>
+                </div>
+
+                <span class="ou-text ou-text--body-s ou-text--w-medium">Надёжность и ошибка измерения</span>
+                <div class="ou-grid">
+                  <div class="ou-grid__scroll">
+                    <table class="ou-grid__table wf-grid-fixed">
+                      <colgroup><col style="width: 40%" /><col style="width: 22%" /><col style="width: 22%" /><col style="width: 16%" /></colgroup>
+                      <thead>
+                        <tr>
+                          <th><div class="ou-grid__th">Показатель</div></th>
+                          <th><div class="ou-grid__th wf-th-end"><span class="ou-stack ou-stack--gap-1"><span>Производство</span><span class="ou-text ou-text--body-xs ou-text--tone-muted ou-text--w-regular">214 прохождений</span></span></div></th>
+                          <th><div class="ou-grid__th wf-th-end"><span class="ou-stack ou-stack--gap-1"><span>Офис</span><span class="ou-text ou-text--body-xs ou-text--tone-muted ou-text--w-regular">272 прохождения</span></span></div></th>
+                          <th><div class="ou-grid__th wf-th-end">Разница</div></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Надёжность (альфа)</td>
+                          <td class="is-numeric">0,81</td>
+                          <td class="is-numeric">0,86</td>
+                          <td class="is-numeric"><span class="ou-text ou-text--body-s ou-text--tone-muted">+0,05</span></td>
+                        </tr>
+                        <tr>
+                          <td>Ошибка измерения</td>
+                          <td class="is-numeric">4,8 п.п.</td>
+                          <td class="is-numeric">3,9 п.п.</td>
+                          <td class="is-numeric"><span class="ou-text ou-text--body-s ou-text--tone-muted">−0,9 п.п.</span></td>
+                        </tr>
+                        <tr>
+                          <td>Заданий под подозрением</td>
+                          <td class="is-numeric">7</td>
+                          <td class="is-numeric">3</td>
+                          <td class="is-numeric"><span class="ou-text ou-text--body-s ou-text--tone-muted">−4</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <span class="ou-text ou-text--body-s ou-text--w-medium">Трудность заданий</span>
+                <div class="ou-grid">
+                  <div class="ou-grid__scroll">
+                    <table class="ou-grid__table wf-grid-fixed">
+                      <colgroup><col style="width: 40%" /><col style="width: 22%" /><col style="width: 22%" /><col style="width: 16%" /></colgroup>
+                      <thead>
+                        <tr>
+                          <th><div class="ou-grid__th">Задание</div></th>
+                          <th><div class="ou-grid__th wf-th-end"><span class="ou-stack ou-stack--gap-1"><span>Производство</span><span class="ou-text ou-text--body-xs ou-text--tone-muted ou-text--w-regular">214 прохождений</span></span></div></th>
+                          <th><div class="ou-grid__th wf-th-end"><span class="ou-stack ou-stack--gap-1"><span>Офис</span><span class="ou-text ou-text--body-xs ou-text--tone-muted ou-text--w-regular">272 прохождения</span></span></div></th>
+                          <th><div class="ou-grid__th wf-th-end">Разница</div></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Какая мера относится к антикоррупционным?</td>
+                          <td class="is-numeric">0,29</td>
+                          <td class="is-numeric">0,51</td>
+                          <td class="is-numeric"><span class="ou-text ou-text--body-s ou-text--tone-muted">+0,22</span></td>
+                        </tr>
+                        <tr>
+                          <td>Выберите верные утверждения о СИЗ</td>
+                          <td class="is-numeric">0,71</td>
+                          <td class="is-numeric">0,44</td>
+                          <td class="is-numeric"><span class="ou-text ou-text--body-s ou-text--tone-muted">−0,27</span></td>
+                        </tr>
+                        <tr>
+                          <td>Сопоставьте роль и зону ответственности</td>
+                          <td class="is-numeric">0,70</td>
+                          <td class="is-numeric">0,75</td>
+                          <td class="is-numeric"><span class="ou-text ou-text--body-s ou-text--tone-muted">+0,05</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
-
         </main>
       </div>
     </div>
