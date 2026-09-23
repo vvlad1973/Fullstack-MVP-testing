@@ -756,7 +756,13 @@
   grid-template-areas:
     "side header"
     "side main";
-  min-height: 100vh;
+  /* The shell is EXACTLY one viewport tall, never "at least" one: only a
+     definite height gives the `main` track a definite size, which is what makes
+     its own `overflow: auto` the single scroll container. With `min-height` the
+     grid grew with its content instead, the main scroller was never engaged and
+     the document scrolled as a whole — the header and the side panel slid out
+     past the top edge together with the form. */
+  height: 100vh;
   background: var(--ou-bg-page);
   color: var(--ou-fg-default);
   font-family: var(--ou-font-family-base);
