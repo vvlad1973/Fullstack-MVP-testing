@@ -1,39 +1,27 @@
 /**
  * @module tests/scorm-question-time
  *
- * Время показа вопроса в SCORM-пакете (техдолг ROADMAP §0.3: колонка «Продолжительность
- * (сек.)» в отчёте LMS пуста всегда, потому что пакет время не измерял вовсе).
+ * Время показа вопроса — ОДИН счётчик на оба хоста (PRD-66 FR-37). Раньше он жил только в
+ * пакете, а веб времени не мерил вовсе; два хоста, меряющие «время на задании» по-разному,
+ * сделали бы источники несравнимыми — ровно те, что психометрика ставит рядом.
  *
  * Ключевое требование — СУММА заходов, а не последний. При разрешённом возврате к
  * неотвеченным человек возвращается к вопросу, и «последний заход» показал бы две секунды
  * на задании, над которым думали минуту.
  *
- * Модуль исполняется настоящий, с подменёнными часами: измерение времени нельзя проверить,
+ * Счёт исполняется настоящий, с подменёнными часами: измерение времени нельзя проверить,
  * пересказав его.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-const src = readFileSync(
-  resolve(process.cwd(), "server/scorm/template/app/utils/questionTime.js"),
-  "utf8",
-);
+import { createQuestionTime } from "@shared/questions/question-time";
 
 interface Clock { t: number }
 
-/** The real module over a clock the test drives by hand. */
+/** The real counter over a clock the test drives by hand. */
 function makeTracker() {
   const clock: Clock = { t: 1_000_000 };
-  const fakeDate = { now: () => clock.t };
-  const win: Record<string, unknown> = {};
-  const tracker = new Function("Date", "window", `${src}\nreturn TBQuestionTime;`)(fakeDate, win) as {
-    show: (id: string) => void;
-    leave: () => void;
-    totalMsFor: (id: string) => number;
-    reset: () => void;
-  };
-  return { tracker, clock, win };
+  const tracker = createQuestionTime(() => clock.t);
+  return { tracker, clock };
 }
 
 describe("накопление времени показа", () => {
@@ -120,8 +108,26 @@ describe("накопление времени показа", () => {
     expect(tracker.totalMsFor("q1")).toBe(0);
   });
 
-  it("модуль выставляется глобально — его зовут из нескольких частей рантайма", () => {
-    const { win } = makeTracker();
-    expect(win.TBQuestionTime).toBeDefined();
+  it("счётчики независимы — у каждой попытки свой", () => {
+    // Веб-хост проходит несколько попыток за одну сессию страницы; общий счётчик перенёс бы
+    // секунды одной попытки в следующую.
+    const first = makeTracker();
+    const second = makeTracker();
+    first.tracker.show("q1");
+    first.clock.t += 5000;
+    first.tracker.leave();
+
+    expect(first.tracker.totalMsFor("q1")).toBe(5000);
+    expect(second.tracker.totalMsFor("q1")).toBe(0);
+  });
+
+  it("карта итогов включает открытый заход", () => {
+    const { tracker, clock } = makeTracker();
+    tracker.show("q1");
+    clock.t += 4000;
+    tracker.show("q2");
+    clock.t += 3000;
+
+    expect(tracker.totals()).toEqual({ q1: 4000, q2: 3000 });
   });
 });

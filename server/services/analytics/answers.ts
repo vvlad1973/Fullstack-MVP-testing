@@ -74,7 +74,7 @@ export type GradeWebAnswer = (
 
 /** Веб-часть выборки: попытки с их ответами и правило оценки. */
 export interface WebAnswerInput {
-  attempts: ReadonlyArray<{ id?: string; answersJson?: unknown; resultJson?: unknown }>;
+  attempts: ReadonlyArray<{ id?: string; answersJson?: unknown; resultJson?: unknown; variantJson?: unknown }>;
   /**
    * Оценка ответа.
    *
@@ -100,6 +100,12 @@ export async function loadAnswerFacts(
 
   for (const attempt of web.attempts) {
     const answers = (attempt.answersJson ?? {}) as Record<string, unknown>;
+    // PRD-66 FR-37a: время на задании веб хранит в ФОРМЕ попытки, рядом с составом выдачи:
+    // карта ответов плоская, «задание -> значение», и второй величине в ней места нет.
+    // Попытка, пройденная до появления замера, карты не имеет — у её ответов времени нет,
+    // и это «не измерялось», а не ноль.
+    const latency = ((attempt.variantJson as { latencyMs?: Record<string, number> } | null)?.latencyMs
+      ?? {}) as Record<string, number>;
     for (const [questionId, answer] of Object.entries(answers)) {
       const grade = web.grade(questionId, answer, attempt.resultJson);
       if (grade === null) continue;
@@ -108,8 +114,7 @@ export async function loadAnswerFacts(
         attemptId: attempt.id ?? "",
         result: grade.result,
         source: "web",
-        // Веб времени на вопрос не измеряет: `latency_ms` заполняет только пакет (PRD-55).
-        latencyMs: null,
+        latencyMs: typeof latency[questionId] === "number" ? latency[questionId] : null,
         earnedPoints: grade.earnedPoints,
         possiblePoints: grade.possiblePoints,
         answer,

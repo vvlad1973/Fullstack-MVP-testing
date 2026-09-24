@@ -10,6 +10,7 @@ import { fmtIsoDateHuman, fmtIsoInstantHuman } from "./cooldown-format";
 import { downloadAttemptReport } from "@/features/learner/attempt-report";
 import { deliversShuffledOrder, hasAnswer, rankingDeliveryOrder } from "./answer-gate";
 import { isSingleIndexChoice, isMeasurementOnly } from "@shared/questions/question-type";
+import { createQuestionTime } from "@shared/questions/question-time";
 // PRD-10 (FR-12): мгновенный вердикт по ответу считает тот же движок, что и итоги
 // попытки и рантайм SCORM-пакета — второй копии правил оценивания на вебе нет.
 import {
@@ -740,6 +741,13 @@ export default function TakeTestPage() {
   // Adaptive mode state
   const [adaptiveState, setAdaptiveState] = useState<AdaptiveState | null>(null);
 
+  // PRD-66 FR-37a: секундомер задания — ОДИН на оба хоста (`shared/questions/question-time`).
+  // Живёт в ref, а не в состоянии: его показания меняются каждую миллисекунду, и перерисовывать
+  // экран прохождения ради них нельзя. Своя копия на каждую попытку: страница переживает
+  // несколько прохождений подряд, и общий счётчик перенёс бы секунды одного в следующее.
+  const questionTimeRef = useRef(createQuestionTime());
+  const questionTime = questionTimeRef.current;
+
   // PRD-34 (FR-30): решение о защите принимает ОДИН общий построитель — тот же, что и в
   // пакете, поэтому веб и SCORM не могут разойтись. Отметка знака обезличена (FR-17):
   // идентификатор попытки, укороченный до шести знаков, чтобы читался на снимке.
@@ -868,7 +876,11 @@ export default function TakeTestPage() {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               // PRD-19 Block E (FR-15): timeout auto-finish — drafts don't count in flexible.
-              body: JSON.stringify({ answers: pickGradedAnswers(answers, questionStatus, navSettings.allowReturnToUnanswered), timeExpired: true }),
+              body: JSON.stringify({
+                answers: pickGradedAnswers(answers, questionStatus, navSettings.allowReturnToUnanswered),
+                timeExpired: true,
+                latencyMs: questionTime.totals(),
+              }),
             });
 
             if (!res.ok) throw new Error("Failed to submit");
@@ -1567,6 +1579,9 @@ export default function TakeTestPage() {
         currentIndex: nextIndex,
         questionStatus: nextStatus,
         sectionPositions: positions,
+        // PRD-66 FR-37a: замер едет с каждым сохранением — брошенная попытка тоже наблюдение,
+        // и время, измеренное до ухода, теряться не должно.
+        latencyMs: questionTime.totals(),
       }),
     }).catch((err) => console.error("Auto-save error:", err));
   };
@@ -1810,6 +1825,24 @@ export default function TakeTestPage() {
     setArrivalZone(null);
     setPhase("content");
   }, [phase, contentTpl, arrivalZone, currentIndex, showReview, sectionResultView]);
+
+  // PRD-66 FR-37a: сколько времени участник провёл на каждом задании. Засечки ставятся там же,
+  // где хост показывает вопрос, — тем же счётчиком, что и в пакете (`shared/questions/
+  // question-time`): два хоста, меряющие время по-разному, сделали бы источники несравнимыми.
+  //
+  // Показом считается ИМЕННО экран задания: обзор, итоги раздела и страницы содержания счёт
+  // останавливают — время, проведённое в обзоре, не есть время на задании.
+  useEffect(() => {
+    const onQuestion = phase === "question" && !showReview && !sectionResultView;
+    const shownId = testMode === "adaptive"
+      ? adaptiveState?.currentQuestion?.id
+      : flatQuestions[currentIndex]?.question.id;
+    if (onQuestion && shownId) questionTime.show(shownId);
+    else questionTime.leave();
+  }, [
+    phase, showReview, sectionResultView, currentIndex, flatQuestions,
+    testMode, adaptiveState?.currentQuestion?.id, questionTime,
+  ]);
 
   // Автор мог скрыть системный экран целиком (решение владельца 2026-09-20). Признак
   // читается ТЕМ ЖЕ общим хелпером, которым пользуется пакет: иначе хосты разойдутся в
@@ -2237,6 +2270,9 @@ export default function TakeTestPage() {
             fresh?.status ?? questionStatus,
             navSettings.allowReturnToUnanswered,
           ),
+          // Попытку часто завершают прямо с вопроса: открытый заход входит в итог, иначе
+          // время последнего задания осталось бы недосчитанным.
+          latencyMs: questionTime.totals(),
         }),
       });
 
@@ -2265,7 +2301,10 @@ export default function TakeTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ answers: pickGradedAnswers(answers, questionStatus, navSettings.allowReturnToUnanswered) }),
+        body: JSON.stringify({
+          answers: pickGradedAnswers(answers, questionStatus, navSettings.allowReturnToUnanswered),
+          latencyMs: questionTime.totals(),
+        }),
       });
       if (res.status === 404) { setAttemptGone(true); return; }
       if (!res.ok) throw new Error("Failed to submit");
@@ -2404,6 +2443,8 @@ export default function TakeTestPage() {
         body: JSON.stringify({
           questionId: adaptiveState.currentQuestion.id,
           answer: adaptiveState.answer,
+          // PRD-66 FR-37a: адаптив отдаёт задание по одному, и ответ — его последняя точка.
+          latencyMs: questionTime.totals(),
         }),
       });
 
@@ -2527,6 +2568,8 @@ export default function TakeTestPage() {
         body: JSON.stringify({
           questionId: adaptiveState.currentQuestion.id,
           answer: adaptiveState.answer,
+          // PRD-66 FR-37a: адаптив отдаёт задание по одному, и ответ — его последняя точка.
+          latencyMs: questionTime.totals(),
         }),
       });
 

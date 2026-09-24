@@ -129,6 +129,32 @@ describe("loadAnswerFacts", () => {
     ]);
   });
 
+  it("берёт время на задании из формы веб-попытки (PRD-66 FR-37a)", async () => {
+    // Веб мерит время с этой работы и хранит его рядом с составом выдачи: карта ответов
+    // плоская, «задание -> значение», и второй величине в ней места нет.
+    const facts = await loadAnswerFacts("test1", {
+      attempts: [{
+        id: "a1",
+        answersJson: { q1: 0, q2: 1 },
+        variantJson: { sections: [], latencyMs: { q1: 42_000 } },
+      }],
+      grade: () => ({ result: "correct", earnedPoints: 1, possiblePoints: 1 }),
+    });
+
+    expect(facts[0].latencyMs).toBe(42_000);
+    // У задания, которого в замере нет, время НЕ измерялось — это не ноль секунд.
+    expect(facts[1].latencyMs).toBeNull();
+  });
+
+  it("попытка, пройденная до замера, времени не выдумывает", async () => {
+    const facts = await loadAnswerFacts("test1", {
+      attempts: [{ id: "a1", answersJson: { q1: 0 }, variantJson: { sections: [] } }],
+      grade: () => ({ result: "correct", earnedPoints: 1, possiblePoints: 1 }),
+    });
+
+    expect(facts[0].latencyMs).toBeNull();
+  });
+
   it("пропускает ответ на вопрос, которого в тесте уже нет", async () => {
     // Вопрос могли убрать из темы: его ответы остались в попытке, но приписывать их
     // несуществующему заданию незачем — строки статистики у него не будет.

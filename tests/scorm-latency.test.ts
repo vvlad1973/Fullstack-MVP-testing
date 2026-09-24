@@ -12,6 +12,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatScormDuration } from "@shared/lms-export/duration";
+import { createQuestionTime } from "@shared/questions/question-time";
 
 const RUNTIME = "server/scorm/template/app";
 const wrapperSrc = readFileSync(resolve(process.cwd(), "server/scorm/assets/runtime.js"), "utf8");
@@ -37,14 +38,17 @@ const SHARED = ["to1", "mapScormType", "formatResponse", "correctPatternFor", "g
 /** The interaction builder over the REAL question-time tracker and a clock we drive. */
 function makeBuilder() {
   const clock = { t: 5_000_000 };
+  // PRD-66 FR-37: счётчик пакет берёт из общего бандла (`TBTemplate`) — тот же, что и веб.
+  // Поэтому в песочницу он и подаётся: подменять здесь нечего, кроме часов.
   const build = new Function(
     "Date",
+    "TBTemplate",
     `${qtypeSrc}
      ${textSrc}
      ${questionTimeSrc}
      ${SHARED.map((n) => extractTopLevel(resultsSrc, n)).join("\n")}
      return { build: buildQuestionInteraction, time: TBQuestionTime };`,
-  )({ now: () => clock.t }) as {
+  )({ now: () => clock.t }, { createQuestionTime: () => createQuestionTime(() => clock.t) }) as {
     build: (q: { id: string; type: string; prompt?: string; correct?: unknown }, ans: unknown, ok: boolean) => { latency?: string };
     time: { show: (id: string) => void; leave: () => void };
   };

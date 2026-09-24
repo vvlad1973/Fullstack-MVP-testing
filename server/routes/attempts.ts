@@ -143,6 +143,25 @@ function stampsOfDelivery(questions: Question[]): Record<string, string> {
 }
 
 /**
+ * PRD-66 FR-37a: карта «задание -> миллисекунды», очищенная от того, что измерением быть не может.
+ *
+ * Значение приходит от клиента — как и у пакета, другого источника времени на задании нет.
+ * Подделка чисел в ту или другую сторону этим не лечится и лечиться здесь не должна; отсекается
+ * мусор — строки, отрицательные величины, `NaN`, — который отравил бы медиану времени молча.
+ *
+ * `null` означает «клиент времени не прислал»: молчание старого клиента не должно стирать уже
+ * измеренное.
+ */
+function sanitizeLatency(raw: unknown): Record<string, number> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const clean: Record<string, number> = {};
+  for (const [questionId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) clean[questionId] = value;
+  }
+  return clean;
+}
+
+/**
  * PRD-66 FR-09b: штампы выдачи, сверенные с редакцией на момент завершения.
  *
  * Расхождение значит, что задание правили ПОСРЕДИ прохождения. Такое наблюдение не
@@ -1295,6 +1314,9 @@ router.post("/attempts/:attemptId/answer-adaptive", requirePermission("attempts.
     // PRD-66 FR-09b: в адаптивном прохождении задание выдаётся по одному и читается прямо
     // здесь, поэтому штамп снимается в момент ответа — он и есть момент выдачи.
     variant.psychoHashes = { ...(variant.psychoHashes || {}), [questionId]: resolvePsychoHash(question) };
+    // PRD-66 FR-37a: время на задании приходит той же точкой — другой у адаптива нет.
+    const adaptiveLatency = sanitizeLatency(req.body?.latencyMs);
+    if (adaptiveLatency) variant.latencyMs = adaptiveLatency;
 
     currentLevel.answeredQuestionIds.push(questionId);
     if (isCorrect) {
@@ -1640,12 +1662,19 @@ router.post("/attempts/:attemptId/save-progress", requirePermission("attempts.ta
       return res.status(400).json({ error: "Attempt already finished" });
     }
 
-    const { answers, currentIndex, shuffleMappings, questionStatus, sectionPositions } = req.body;
+    const { answers, currentIndex, shuffleMappings, questionStatus, sectionPositions, latencyMs } = req.body;
 
     const updatedVariant: any = {
       ...(attempt.variantJson as any),
       currentIndex,
     };
+
+    // PRD-66 FR-37a: время, проведённое на каждом задании, — материал анализа пунктов: оно
+    // отличает задание, над которым думают, от того, что пролистывают не читая. Живёт рядом с
+    // составом выдачи, а не в карте ответов: та плоская, «задание -> значение ответа», и второй
+    // величине в ней места нет. Клиент, который поля не шлёт, прежде измеренное НЕ стирает.
+    const measured = sanitizeLatency(latencyMs);
+    if (measured) updatedVariant.latencyMs = measured;
 
     if (shuffleMappings) {
       updatedVariant.shuffleMappings = shuffleMappings;
@@ -2027,11 +2056,23 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
     // PRD-66 FR-09b: правка задания посреди прохождения обесценивает штамп выдачи —
     // сверка отмечает это до того, как наблюдение уйдёт в статистику.
     const reconciled = reconcileStamps(variant.psychoHashes, stampsAtFinish);
+    // PRD-66 FR-37a: попытку часто завершают прямо с вопроса, и последний заход приходит
+    // именно здесь — без него время этого задания осталось бы недосчитанным.
+    const measured = sanitizeLatency(req.body?.latencyMs);
+    const variantChanged = reconciled || measured;
 
     await storage.updateAttempt(attempt.id, {
       answersJson: answers,
       resultJson: result,
-      ...(reconciled ? { variantJson: { ...variant, psychoHashes: reconciled } } : {}),
+      ...(variantChanged
+        ? {
+            variantJson: {
+              ...variant,
+              ...(reconciled ? { psychoHashes: reconciled } : {}),
+              ...(measured ? { latencyMs: measured } : {}),
+            },
+          }
+        : {}),
       finishedAt: new Date(),
     });
 

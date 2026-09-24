@@ -38,6 +38,11 @@ export {
 export { attachPointerDnd } from "./dnd/pointer-dnd";
 // PRD-38: single question-media renderer + fullscreen overlay, shared by both hosts.
 export { renderQuestionMedia, attachQuestionMediaFullscreen, openQuestionMediaOverlay } from "./question-media";
+// PRD-66 FR-37: ONE stopwatch for both hosts. The package used to carry its own plain-JS
+// copy and the web host measured nothing at all; two hosts counting «time on question»
+// differently make the two sources incomparable — and comparing them is the whole point of
+// the psychometric layer.
+export { createQuestionTime } from "../questions/question-time";
 export { buildResultContext, buildAdaptiveResultContext, buildSectionResultContext, buildSectionIntroContext } from "./result-context";
 // PRD-29: the package assembles the measures input for the results screen ITSELF,
 // to the very shape `server/services/result-context` assembles on the web host —
