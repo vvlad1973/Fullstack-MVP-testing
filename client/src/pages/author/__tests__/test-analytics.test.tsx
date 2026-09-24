@@ -129,16 +129,22 @@ type State = {
   mode: "standard" | "adaptive";
   analyticsBody: unknown;
   detailBody: unknown;
+  /** PRD-66: расчёт психометрики — питает колонки трудности и дискриминативности. */
+  psychometricsBody: unknown;
 };
 let state: State;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  state = { mode: "standard", analyticsBody: standardAnalytics(), detailBody: standardDetail() };
+  state = {
+    mode: "standard", analyticsBody: standardAnalytics(), detailBody: standardDetail(),
+    psychometricsBody: [],
+  };
   const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
   fetchMock = vi.fn(async (input: string) => {
     const u = String(input);
     if (u === "/api/analytics/tests/t1") return ok(state.analyticsBody);
+    if (u === "/api/analytics/psychometrics/t1") return ok(state.psychometricsBody);
     if (u.startsWith("/api/analytics/attempts/")) return ok(state.detailBody);
     return ok([]);
   });
@@ -242,8 +248,31 @@ describe("<TestAnalyticsPage />", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Вопросы" }));
     // PRD-56 FR-15: карточки заменены таблицей — задания сравнивают между собой.
     await waitFor(() => expect(screen.getByText("Что такое бюджет?")).toBeInTheDocument());
-    expect(screen.getByText("Доля верных")).toBeInTheDocument();
-    expect(screen.getByText("70 %")).toBeInTheDocument();
+    // PRD-66 FR-02: место доли верных заняла трудность по доле балла.
+    expect(screen.getByText("Трудность")).toBeInTheDocument();
+    expect(screen.getByText("80 %")).toBeInTheDocument();
+  });
+
+  it("берёт трудность и дискриминативность из расчёта психометрики (PRD-66 FR-02, FR-03)", async () => {
+    // Ручка одна на обе вкладки: колонка таблицы и карточка разбора не могут разойтись в
+    // числах, потому что читают один ответ.
+    state.psychometricsBody = {
+      items: [{
+        questionId: "q1", observations: 40, difficulty: 0.62, correctedDifficulty: null,
+        itemRest: 0.31, discrimination: null, declaredDifficulty: null,
+        difficultyConfidence: "reliable", coefficientConfidence: "reliable",
+        flags: { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false },
+        timingFlags: { rushed: false, slow: false },
+      }],
+      reliability: "too-few-items", sem: null, cutBand: null,
+      sample: { respondents: 40, responses: 40, bySource: { web: 40 }, unknownVersionShare: 0 },
+      firstAttemptOnly: true,
+    };
+    await renderLoaded();
+    fireEvent.click(screen.getByRole("tab", { name: "Вопросы" }));
+
+    await waitFor(() => expect(screen.getByText("0,62")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /Разбор задания/ })).toBeInTheDocument();
   });
 
 

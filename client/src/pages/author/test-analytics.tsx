@@ -10,7 +10,7 @@
  * `features/analytics/test/*`, здесь остаётся только сборка и запросы: данные «Выдачи» и
  * «Шкал» грузятся своими ручками и ТОЛЬКО на своей вкладке.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PassTrend } from "@/features/analytics/test/pass-trend";
 import { ScoreDistribution } from "@/features/analytics/test/score-distribution";
 import { QuestionTable } from "@/features/analytics/test/question-table";
@@ -310,8 +310,30 @@ export default function TestAnalyticsPage() {
      */
     const { data: itemQuality, isLoading: qualityLoading } = useQuery<ItemQualityView>({
         queryKey: [`/api/analytics/psychometrics/${testId}`],
-        enabled: !!testId && activeTab === "quality",
+        // PRD-66 FR-02, FR-03: те же числа стоят в строке таблицы «Вопросы», поэтому расчёт
+        // нужен и там. Ключ запроса ОДИН на обе вкладки: переход между ними не платит за
+        // второй расчёт, а колонка и карточка не могут разойтись в числах.
+        enabled: !!testId && (activeTab === "quality" || activeTab === "questions"),
     });
+
+    /**
+     * Психометрика строкой таблицы: задание -> трудность и дискриминативность.
+     *
+     * Выборка у неё СВОЯ — первая попытка каждого участника (`firstAttemptOnly` движка), и
+     * это сказано подписью под таблицей. Считать её по всем попыткам значило бы складывать
+     * зависимые наблюдения: повторная попытка того же человека — не второй участник.
+     */
+    const questionPsychometrics = useMemo(() => {
+        // Списка может не быть вовсе: расчёт ещё в пути либо ручка ответила иначе, чем ждём.
+        // Пустая карта тут честнее исключения — колонка покажет прочерк и дождётся чисел.
+        if (!itemQuality?.items) return undefined;
+        return Object.fromEntries(itemQuality.items.map(item => [item.questionId, {
+            difficulty: item.difficulty,
+            itemRest: item.itemRest,
+            observations: item.observations,
+            coefficientConfidence: item.coefficientConfidence,
+        }]));
+    }, [itemQuality]);
 
     /**
      * PRD-66 FR-24: разбор одного задания — своим запросом и только когда его открыли.
@@ -443,6 +465,16 @@ export default function TestAnalyticsPage() {
                 // FR-17: переход в реестр к прохождениям, где на задании ошиблись. Условия
                 // отбора живут в адресе реестра (FR-03), поэтому это обычная ссылка.
                 window.location.href = `/author/analytics?testId=${testId}&outcome=failed&questionId=${questionId}`;
+            }}
+            psychometrics={questionPsychometrics}
+            onOpenQuality={questionId => {
+                // PRD-66 FR-03: дискриминативность — вход в разбор задания, а не просто
+                // число. Переход открывает КАРТОЧКУ на своей вкладке: возвращать автора к
+                // списку, из которого он только что пришёл, значит заставить искать строку
+                // второй раз.
+                setBreakdownId(questionId);
+                setBreakdownVersion(undefined);
+                setActiveTab("quality");
             }}
         />
     );

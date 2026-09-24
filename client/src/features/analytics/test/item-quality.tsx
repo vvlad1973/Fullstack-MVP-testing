@@ -28,8 +28,7 @@ import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type
 import type { QuestionType } from "@shared/questions/question-type";
 import { pluralize } from "@/lib/i18n";
 
-/** Наблюдений, начиная с которых коэффициент вообще выводится (движок: COEFFICIENT_MIN). */
-const COEFFICIENT_MIN = 30;
+import { COEFFICIENT_MIN, num } from "./psychometrics-format";
 
 /** Уровень доверия к числу — то же, что считает движок. */
 type Confidence = "insufficient" | "tentative" | "reliable";
@@ -99,11 +98,6 @@ const SOURCE_TITLE: Record<string, string> = {
   telemetry: "телеметрия LMS",
   import: "импорт выгрузок",
 };
-
-/** Число с запятой и двумя знаками; прочерк там, где величины нет. */
-function num(value: number | null, digits = 2): string {
-  return value === null ? "—" : value.toFixed(digits).replace(".", ",");
-}
 
 /** Оценка альфы словами — ориентиры FR-19. */
 function alphaVerdict(alpha: number): string {

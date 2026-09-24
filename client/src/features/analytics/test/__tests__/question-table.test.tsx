@@ -100,18 +100,104 @@ describe("QuestionTable", () => {
   });
 
   it("сортирует по столбцу", async () => {
-    render(<QuestionTable questions={QUESTIONS} />);
+    render(<QuestionTable questions={QUESTIONS} psychometrics={{
+      q1: { difficulty: 0.41, itemRest: 0.34, observations: 60, coefficientConfidence: "reliable" },
+      q2: { difficulty: 0.2, itemRest: 0.1, observations: 50, coefficientConfidence: "tentative" },
+    }} />);
 
     // Заголовок сортируемой колонки в ДС — не кнопка, а кликабельная ячейка: доступность
     // заголовков это отдельный долг ДС, записанный в план Э4. По умолчанию таблица уже
-    // отсортирована по доле верных, поэтому проверяется ОБРАТНЫЙ порядок после клика.
-    await userEvent.click(screen.getByText(/Доля верных/));
+    // отсортирована по трудности, поэтому проверяется ОБРАТНЫЙ порядок после клика.
+    await userEvent.click(screen.getByText("Трудность"));
 
     const rows = screen.getAllByRole("row").slice(1);
-    // Убывание: задание без доли верных всегда первое (его «нет значения» уезжает в конец
-    // при возрастании и в начало при убывании), затем 41 %, затем 20 %.
+    // Убывание: задание без трудности всегда первое (его «нет значения» уезжает в конец
+    // при возрастании и в начало при убывании), затем 0,41, затем 0,20.
     expect(within(rows[0]).getByText("Насколько вы согласны?")).toBeTruthy();
     expect(within(rows[2]).getByText("Быстрый и мимо")).toBeTruthy();
+  });
+});
+
+/**
+ * PRD-66 FR-02, FR-03: колонка «Доля верных» заменена трудностью, рядом встала
+ * дискриминативность.
+ *
+ * Почему замена, а не соседство: доля верных схлопывает верность к «ровно максимум» и у
+ * задания с частичным кредитом просто неверна. Две похожие колонки с расходящимися числами
+ * на одном экране читаются как поломка (ОВ-01, решение владельца 2026-09-24).
+ *
+ * Числа приходят из ТОГО ЖЕ расчёта, что питает вкладку «Качество заданий»: считать трудность
+ * второй раз здесь значило бы завести второй источник правды о ней.
+ */
+describe("QuestionTable — психометрика в строке (PRD-66)", () => {
+  const PSYCHO = {
+    q1: { difficulty: 0.41, itemRest: 0.34, observations: 60, coefficientConfidence: "reliable" as const },
+    q2: { difficulty: 0.79, itemRest: -0.21, observations: 50, coefficientConfidence: "tentative" as const },
+  };
+
+  it("вместо доли верных показывает трудность по доле балла", () => {
+    render(<QuestionTable questions={QUESTIONS} psychometrics={PSYCHO} />);
+
+    expect(screen.queryByText("Доля верных")).toBeNull();
+    const row = screen.getByText("Какая мера относится к антикоррупционным?").closest("tr")!;
+    expect(within(row).getByText("0,41")).toBeTruthy();
+  });
+
+  it("у задания с частичным кредитом трудность ВЫШЕ доли верных", () => {
+    // Ровно тот случай, ради которого колонка заменена: доля верных у этого задания 20 %,
+    // потому что полный балл берут немногие, а набирают его частями почти все.
+    render(<QuestionTable questions={QUESTIONS} psychometrics={PSYCHO} />);
+
+    const row = screen.getByText("Быстрый и мимо").closest("tr")!;
+    expect(within(row).getByText("0,79")).toBeTruthy();
+    expect(within(row).queryByText("20 %")).toBeNull();
+  });
+
+  it("авторская трудность называется «Замысел», иначе колонок «Трудность» было бы две", () => {
+    render(<QuestionTable questions={QUESTIONS} psychometrics={PSYCHO} />);
+
+    expect(screen.getByText("Замысел")).toBeTruthy();
+    expect(screen.getAllByText("Трудность")).toHaveLength(1);
+  });
+
+  it("дискриминативность ведёт в разбор задания", async () => {
+    const onOpenQuality = vi.fn();
+    render(<QuestionTable questions={QUESTIONS} psychometrics={PSYCHO} onOpenQuality={onOpenQuality} />);
+
+    // FR-03: без перехода новая вкладка осталась бы складом, куда никто не заходит.
+    await userEvent.click(screen.getByRole("button", { name: /Разбор задания: Какая мера/ }));
+
+    expect(onOpenQuality).toHaveBeenCalledWith("q1");
+  });
+
+  it("ниже порога коэффициента дискриминативности нет, а трудность есть", () => {
+    // FR-38a: у двух величин РАЗНЫЕ пороги, и это не сбой — коэффициент на выборке меньше
+    // тридцати меняется от одного нового участника, среднее — нет.
+    render(<QuestionTable questions={QUESTIONS} psychometrics={{
+      q1: { difficulty: 0.33, itemRest: null, observations: 12, coefficientConfidence: "insufficient" },
+    }} />);
+
+    const row = screen.getByText("Какая мера относится к антикоррупционным?").closest("tr")!;
+    expect(within(row).getByText("0,33")).toBeTruthy();
+    expect(within(row).getByText("мало данных")).toBeTruthy();
+  });
+
+  it("разовое пояснение о смене числа закрывается навсегда", async () => {
+    render(<QuestionTable questions={QUESTIONS} psychometrics={PSYCHO} />);
+
+    expect(screen.getByText(/заменена трудностью/i)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Больше не показывать" }));
+
+    expect(screen.queryByText(/заменена трудностью/i)).toBeNull();
+  });
+
+  it("без психометрики колонки на месте, но числа не выдуманы", () => {
+    // Расчёт идёт отдельным запросом и приходит позже разметки: нули в этот момент были бы
+    // ложью о задании, которую автор успеет прочитать.
+    render(<QuestionTable questions={QUESTIONS} />);
+
+    const row = screen.getByText("Какая мера относится к антикоррупционным?").closest("tr")!;
+    expect(within(row).getAllByText("—").length).toBeGreaterThan(0);
   });
 });
 
@@ -281,7 +367,8 @@ describe("QuestionTable — измерительный тест", () => {
   it("оцениваемому тесту таблицу не меняет", () => {
     render(<QuestionTable questions={QUESTIONS} />);
 
-    expect(screen.getByText("Доля верных")).toBeTruthy();
+    // С PRD-66 FR-02 место доли верных занимает трудность — у оцениваемого теста она есть.
+    expect(screen.getByText("Трудность")).toBeTruthy();
     expect(screen.queryByText("Разброс ответов")).toBeNull();
   });
 });
@@ -307,10 +394,11 @@ describe("QuestionTable — написанные ответы (PRD-57)", () => {
     },
   ];
 
-  it("колонка появляется и в обычном тесте, а доля верных остаётся", () => {
+  it("колонка появляется и в обычном тесте, а оценка задания остаётся", () => {
     render(<QuestionTable questions={WRITTEN} minObservations={10} />);
     expect(screen.getByText("Что отвечали")).toBeTruthy();
-    expect(screen.getByText("Доля верных")).toBeTruthy();
+    // PRD-66 FR-02: колонка оценки задания на месте, но считается долей балла.
+    expect(screen.getByText("Трудность")).toBeTruthy();
     expect(screen.getByText("Ростехнадзор 55 % · РТН 30 %")).toBeTruthy();
   });
 

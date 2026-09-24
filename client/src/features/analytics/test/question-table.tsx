@@ -17,13 +17,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Ban } from "lucide-react";
 
 import {
-  Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, ProgressBar, SegmentedControl,
-  Stack, Text,
+  Banner, Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, ProgressBar,
+  SegmentedControl, Stack, Text,
 } from "@skillum/ui-kit";
 
 import type { QuestionType } from "@shared/questions/question-type";
 import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
 import { pluralize } from "@/lib/i18n";
+
+import { COEFFICIENT_MIN, num } from "./psychometrics-format";
 
 /** Признак ревизии — то, что отдаёт `GET /api/analytics/tests/:testId`. */
 export interface ReviewFlagView {
@@ -93,6 +95,28 @@ export interface QuestionTableProps {
   onDeliveryChange?: (questionId: string, excluded: boolean) => void;
   /** Тест, у которого спрашиваются последствия исключения. */
   testId?: string;
+  /**
+   * PRD-66 FR-02, FR-03: трудность и дискриминативность задания, посчитанные движком
+   * психометрики.
+   *
+   * Приходят сверху отдельным запросом, а не считаются здесь: то же число показывает вкладка
+   * «Качество заданий», и второй расчёт развёл бы их при первой же правке движка. Отсутствие
+   * записи — «ещё не посчитано», и это прочерк, а не ноль.
+   */
+  psychometrics?: Record<string, QuestionPsychometrics>;
+  /** Открыть разбор задания на вкладке «Качество заданий» (FR-03). */
+  onOpenQuality?: (questionId: string) => void;
+}
+
+/** Психометрика одного задания — ровно то, что нужно строке таблицы. */
+export interface QuestionPsychometrics {
+  /** Доля набранного балла: 0 — не решил никто, 1 — решили все. */
+  difficulty: number | null;
+  /** Корреляция задание-остаток; `null` — считать не на чем. */
+  itemRest: number | null;
+  observations: number;
+  /** `insufficient` — наблюдений меньше порога коэффициентов (FR-38a). */
+  coefficientConfidence: "insufficient" | "tentative" | "reliable";
 }
 
 /** Почему выдачу собрать нельзя — находка проверки выполнимости. */
@@ -132,6 +156,9 @@ function issueText(issue: DeliveryIssue): string {
 type View = "all" | "review" | "excluded";
 type SortDir = "asc" | "desc";
 
+/** Где браузер помнит, что пояснение о смене числа уже прочитано (FR-02). */
+const DIFFICULTY_NOTICE_KEY = "tb.analytics.difficulty-notice-hidden";
+
 /** Процент для чтения человеком; прочерк там, где величины нет. */
 function percent(value: number | null): string {
   return value === null ? "—" : `${Math.round(value)} %`;
@@ -145,13 +172,14 @@ function duration(ms: number | null): string {
 }
 
 /** Значение для сортировки: отсутствующее всегда уезжает в конец. */
-function sortValue(row: QuestionRow, key: string): number {
-  const value = key === "correct" ? row.correctPercent
-    : key === "skip" ? row.skipShare
-      : key === "exposure" ? row.exposurePercent
-        : key === "latency" ? row.latencyMedianMs
-          : key === "difficulty" ? row.difficulty
-            : row.totalAnswers;
+function sortValue(row: QuestionRow, key: string, psycho?: QuestionPsychometrics): number {
+  const value = key === "difficulty" ? psycho?.difficulty ?? null
+    : key === "itemRest" ? psycho?.itemRest ?? null
+      : key === "skip" ? row.skipShare
+        : key === "exposure" ? row.exposurePercent
+          : key === "latency" ? row.latencyMedianMs
+            : key === "declared" ? row.difficulty
+              : row.totalAnswers;
   return value ?? Number.POSITIVE_INFINITY;
 }
 
@@ -204,9 +232,10 @@ function spreadLabel(
 
 export function QuestionTable({
   questions, onOpenRegistry, onDeliveryChange, testId, measurement, minObservations = 0,
+  psychometrics, onOpenQuality,
 }: QuestionTableProps) {
   const [view, setView] = useState<View>("all");
-  const [sortKey, setSortKey] = useState(measurement ? "answers" : "correct");
+  const [sortKey, setSortKey] = useState(measurement ? "answers" : "difficulty");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   /** Задание, для которого открыто окно подтверждения исключения. */
   const [pending, setPending] = useState<QuestionRow | null>(null);
@@ -214,6 +243,30 @@ export function QuestionTable({
   /** Задание, ответы которого открыты списком (FR-32). */
   const [reading, setReading] = useState<QuestionRow | null>(null);
   const [answers, setAnswers] = useState<AnswerRow[] | null>(null);
+  /**
+   * Закрыто ли разовое пояснение о смене числа в колонке (FR-02).
+   *
+   * Отказ живёт в браузере читателя, а не в его учётной записи: это заметка «я прочитал»,
+   * а не настройка продукта, и синхронизировать её между устройствами незачем. Хранилище
+   * бывает недоступно (приватное окно, запрет на данные сайта), поэтому отказ читается и
+   * пишется под try/catch, а недоступность значит «показать»: пояснение важнее тишины.
+   */
+  const [noticeHidden, setNoticeHidden] = useState(() => {
+    try {
+      return window.localStorage.getItem(DIFFICULTY_NOTICE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const hideNotice = () => {
+    setNoticeHidden(true);
+    try {
+      window.localStorage.setItem(DIFFICULTY_NOTICE_KEY, "1");
+    } catch {
+      // Не сохранилось — пояснение вернётся в следующий раз. Это мелкое неудобство, а
+      // падение экрана аналитики из-за заметки «я прочитал» — нет.
+    }
+  };
 
   const flagged = useMemo(
     () => questions.filter(question => question.reviewFlags.length > 0),
@@ -289,10 +342,11 @@ export function QuestionTable({
   const rows = useMemo(() => {
     const shown = view === "review" ? flagged : view === "excluded" ? excludedRows : questions;
     return [...shown].sort((a, b) => {
-      const diff = sortValue(a, sortKey) - sortValue(b, sortKey);
+      const diff = sortValue(a, sortKey, psychometrics?.[a.questionId])
+        - sortValue(b, sortKey, psychometrics?.[b.questionId]);
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [questions, flagged, excludedRows, view, sortKey, sortDir]);
+  }, [questions, flagged, excludedRows, view, sortKey, sortDir, psychometrics]);
 
   const columns = [
     {
@@ -305,7 +359,9 @@ export function QuestionTable({
       render: (row: QuestionRow) => (
         // Текст задания переносится, иначе строка вопроса распирает столбец по себе: ячейки
         // стола по умолчанию не переносятся, и это верно для чисел, но не для предложения.
-        <Stack gap={1} className="ou-grid__cell-wrap">
+        // `tb-psy-question` держит НИЖНИЙ предел ширины: с приходом колонки
+        // «Дискриминативность» условие сжималось в столбик по три слова (PRD-66, приёмка).
+        <Stack gap={1} className={`ou-grid__cell-wrap${measurement ? "" : " tb-psy-question"}`}>
           <Stack direction="row" gap={2} align="center">
             <QuestionTypeIcon type={row.questionType as QuestionType} />
             {/*
@@ -391,13 +447,46 @@ export function QuestionTable({
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => row.totalAnswers,
-    }] : [{
-      key: "correct",
-      header: "Доля верных",
-      numeric: true,
-      sortable: true,
-      render: (row: QuestionRow) => percent(row.correctPercent),
-    }]),
+    }] : [
+      // PRD-66 FR-02: место доли верных заняла трудность. Доля верных схлопывала верность к
+      // «ровно максимум» и у задания с частичным кредитом была просто неверна; держать обе
+      // колонки значило бы закрепить неверное число рядом с верным.
+      {
+        key: "difficulty",
+        header: "Трудность",
+        numeric: true,
+        sortable: true,
+        render: (row: QuestionRow) => num(psychometrics?.[row.questionId]?.difficulty ?? null),
+      },
+      // FR-03: главное психометрическое число обязано быть видно там, где автор работает, —
+      // иначе новая вкладка становится складом, куда никто не заходит.
+      {
+        key: "itemRest",
+        header: "Дискриминативность",
+        numeric: true,
+        sortable: true,
+        render: (row: QuestionRow) => {
+          const psycho = psychometrics?.[row.questionId];
+          // FR-38a: у коэффициента свой порог, и он ВЫШЕ порога трудности. Строка, где
+          // трудность есть, а дискриминативности нет, — это не сбой, и сказать об этом надо
+          // словами: прочерк читался бы как «ноль» или «сломалось».
+          if (!psycho || psycho.itemRest === null || psycho.coefficientConfidence === "insufficient") {
+            return <Text variant="body-s" tone="muted">мало данных</Text>;
+          }
+          if (!onOpenQuality) return num(psycho.itemRest);
+          return (
+            <Button
+              variant="ghost"
+              size="s"
+              aria-label={`Разбор задания: ${row.questionPrompt}`}
+              onClick={() => onOpenQuality(row.questionId)}
+            >
+              {num(psycho.itemRest)}
+            </Button>
+          );
+        },
+      },
+    ]),
     {
       key: "skip",
       header: "Пропуски",
@@ -424,9 +513,13 @@ export function QuestionTable({
     },
     // Авторская трудность у опросника бессмысленна: трудным бывает задание с верным ответом,
     // а здесь верного ответа нет вовсе.
+    //
+    // Называется «Замысел», потому что с PRD-66 FR-02 в таблице появилась НАБЛЮДАЕМАЯ
+    // трудность: две колонки «Трудность» с разными числами читались бы как поломка, а
+    // заявленная автором величина — это именно замысел, а не измерение.
     ...(measurement ? [] : [{
-      key: "difficulty",
-      header: "Трудность",
+      key: "declared",
+      header: "Замысел",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => row.difficulty,
@@ -478,7 +571,24 @@ export function QuestionTable({
   ];
 
   return (
-    <Card>
+    <Stack gap={4}>
+      {/*
+        PRD-66 ОВ-01: число в колонке сменилось у экрана, который автор уже читает, и молча
+        подменять его нельзя — он сравнивает сегодняшнюю таблицу со вчерашней. Пояснение
+        разовое: закрывший его больше не увидит (FR-02).
+      */}
+      {!measurement && noticeHidden === false ? (
+        <Banner
+          variant="subtle"
+          tone="info"
+          size="sm"
+          title="Колонка «Доля верных» заменена трудностью"
+          description="Трудность считается долей набранного балла. У заданий с точной оценкой число прежнее, у заданий с частичным кредитом — выше."
+          actions={[{ label: "Больше не показывать", onClick: hideNotice }]}
+        />
+      ) : null}
+
+      <Card>
       <CardHeader
         title="Вопросы теста"
         subtitle={`${questions.length} ${pluralize(questions.length, "задание", "задания", "заданий")} в выдаче · доля пропусков считается по веб-прохождениям: состав выданной формы пакет не сообщает`}
@@ -509,6 +619,19 @@ export function QuestionTable({
               ? "Из выдачи ничего не исключено"
               : "Заданий в выдаче пока нет"}
         />
+        {/*
+          PRD-66 FR-04, FR-38a: два порога сосуществуют в одной строке, и экран обязан
+          сказать, какой к какому числу относится. Выборка названа там же: трудность считается
+          по первой попытке участника, а пропуски и время — по всем ответам, и автор, который
+          сверит таблицу со вкладкой «Качество заданий», должен знать почему.
+        */}
+        {!measurement ? (
+          <Text variant="body-xs" tone="muted">
+            Трудность и дискриминативность считаются по доле балла в первой попытке участника ·
+            пропуски, экспозиция и время — от {minObservations || 10} наблюдений,
+            дискриминативность — от {COEFFICIENT_MIN}
+          </Text>
+        ) : null}
       </CardBody>
 
       {/*
@@ -618,6 +741,7 @@ export function QuestionTable({
           )}
         </Stack>
       </ModalDialog>
-    </Card>
+      </Card>
+    </Stack>
   );
 }
