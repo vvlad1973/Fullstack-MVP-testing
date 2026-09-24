@@ -80,12 +80,28 @@ describe("flagsOf", () => {
     expect(flagsOf(options[3])).toMatchObject({ inverted: true });
   });
 
+  it("верный вариант, который выбирают СЛАБЫЕ, назван — это симптом испорченного ключа", () => {
+    // Вскрыто приёмкой: у такого варианта стоял нейтральный ярлык «Верный ответ», хотя рядом
+    // висела отрицательная корреляция. Нейтральный ярлык читается как «здесь всё в порядке».
+    const brokenKey = analyseOptions(
+      [
+        { respondentId: "S1", chosen: [1] }, { respondentId: "S2", chosen: [1] },
+        { respondentId: "S3", chosen: [1] }, { respondentId: "S4", chosen: [1] },
+        { respondentId: "W1", chosen: [0] }, { respondentId: "W2", chosen: [0] },
+        { respondentId: "W3", chosen: [0] }, { respondentId: "W4", chosen: [0] },
+      ],
+      [0], 2, ABILITY,
+    );
+
+    expect(flagsOf(brokenKey.options[0])).toMatchObject({ correctButWeak: true });
+  });
+
   it("верный вариант признаков дистрактора не получает никогда", () => {
     // У него положительная связь с баллом по построению — это норма, а не симптом.
-    expect(flagsOf(options[0])).toEqual({ dead: false, inverted: false });
+    expect(flagsOf(options[0])).toEqual({ dead: false, inverted: false, correctButWeak: false });
   });
 
   it("работающий дистрактор чист по обоим признакам", () => {
-    expect(flagsOf(options[1])).toEqual({ dead: false, inverted: false });
+    expect(flagsOf(options[1])).toEqual({ dead: false, inverted: false, correctButWeak: false });
   });
 });

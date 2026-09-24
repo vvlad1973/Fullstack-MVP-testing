@@ -258,8 +258,18 @@ router.get(
           ? 0
           : (psychometrics.sample.bySource.import ?? 0) / psychometrics.sample.responses;
 
+        // Подписи заданий: без них в колонке стоял бы uuid — вскрыто приёмкой.
+        const topics = new Map((await storage.getTopics()).map(topic => [topic.id, topic.name]));
+        const questionRows = await storage.getQuestionsByIds(psychometrics.items.map(i => i.questionId));
+        const labels = new Map(questionRows.map(q => [q.id, {
+          prompt: q.prompt,
+          topicName: topics.get(q.topicId) ?? "",
+          questionType: q.type,
+        }]));
+
         return {
           ...psychometrics,
+          items: psychometrics.items.map(item => ({ ...item, ...labels.get(item.questionId) })),
           observations: matrix.observations.length,
           firstAttemptOnly: onlyFirst,
           // FR-39, FR-40: два повода к одному баннеру — неоднородная выдача и заметная доля

@@ -21,6 +21,7 @@ const { storageMock } = vi.hoisted(() => ({
     getTestQuestionScoring: vi.fn().mockResolvedValue([]),
     getLmsImportBatches: vi.fn().mockResolvedValue([]),
     getSlices: vi.fn().mockResolvedValue([]),
+    getTopics: vi.fn().mockResolvedValue([{ id: "t1", name: "Тема" }]),
     getQuestionsByIds: vi.fn().mockResolvedValue([]),
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),
     getUserTestGrants: vi.fn().mockResolvedValue([]),
@@ -100,6 +101,7 @@ beforeEach(() => {
   storageMock.getTestQuestionScoring.mockResolvedValue([]);
   storageMock.getLmsImportBatches.mockResolvedValue([]);
   storageMock.getSlices.mockResolvedValue([]);
+  storageMock.getTopics.mockResolvedValue([{ id: "t1", name: "Тема" }]);
   storageMock.getQuestionsByIds.mockResolvedValue(TOPIC_QUESTIONS);
   storageMock.getAttemptsByIds.mockResolvedValue(ATTEMPTS);
   storageMock.selectAnswersForAttempts.mockResolvedValue([]);

@@ -33,6 +33,8 @@ export interface OptionRow {
   restCorrelation: number | null;
   dead: boolean;
   inverted: boolean;
+  /** Верный вариант, который выбирают слабые, — симптом испорченного ключа. */
+  correctButWeak?: boolean;
 }
 
 /** Разбор задания — то, что отдаёт `GET .../psychometrics/:testId/items/:questionId`. */
@@ -111,6 +113,9 @@ function ShareScale({ value }: { value: number | null }) {
 
 /** Признак варианта: симптом словами, без догадки о причине. */
 function optionFlag(option: OptionRow): { tone: "success" | "warning" | "error"; label: string } {
+  // Верный вариант, который выбирают СЛАБЫЕ, — самый яркий симптом испорченного ключа, и
+  // нейтральный ярлык «Верный ответ» на нём читался бы как «здесь всё в порядке».
+  if (option.correct && option.correctButWeak) return { tone: "error", label: "Верный ответ выбирают слабые" };
   if (option.correct) return { tone: "success", label: "Верный ответ" };
   if (option.dead) return { tone: "warning", label: "Мёртвый вариант" };
   if (option.inverted) return { tone: "error", label: "Выбирают сильные" };

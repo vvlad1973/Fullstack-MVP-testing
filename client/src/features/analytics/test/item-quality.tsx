@@ -391,8 +391,12 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
         <CardBody>
           <Stack direction="row" gap={1} align="center" wrap>
             <Text variant="body-s" weight="semibold">Выборка:</Text>
+            {/* Числа здесь — НАБЛЮДЕНИЯ (ответы), а не прохождения: «веб — 26» рядом с
+                «Попытки 10» читалось как двадцать шесть прохождений (вскрыто приёмкой). */}
             {Object.entries(view.sample.bySource).map(([source, count]) => (
-              <Tag key={source} tone="neutral" size="s">{SOURCE_TITLE[source] ?? source} — {count}</Tag>
+              <Tag key={source} tone="neutral" size="s">
+                {SOURCE_TITLE[source] ?? source} — {count} {pluralize(count, "наблюдение", "наблюдения", "наблюдений")}
+              </Tag>
             ))}
             {view.sample.unknownVersionShare > 0 ? (
               <Tag tone="warning" size="s">

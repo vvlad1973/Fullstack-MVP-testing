@@ -208,6 +208,11 @@ export function computePsychometrics(
     const timing = summariseTiming(facts.map(f => f.latencyMs));
     const rushed = rushedShare(facts.map(f => f.latencyMs), question?.prompt.length ?? 0);
 
+    const difficultyConfidenceLevel = descriptiveConfidence(observations, ctx.minObservations);
+    const coefficientConfidenceLevel = coefficientConfidence(observations);
+    const descriptiveEnough = difficultyConfidenceLevel !== "insufficient";
+    const coefficientEnough = coefficientConfidenceLevel !== "insufficient";
+
     items.push({
       questionId,
       observations,
@@ -217,17 +222,27 @@ export function computePsychometrics(
       discrimination: groups?.index ?? null,
       timing,
       timingFlags: timingFlags(timing, rushed, testTiming?.medianMs ?? null, p),
-      difficultyConfidence: descriptiveConfidence(observations, ctx.minObservations),
-      coefficientConfidence: coefficientConfidence(observations),
+      difficultyConfidence: difficultyConfidenceLevel,
+      coefficientConfidence: coefficientConfidenceLevel,
       declaredDifficulty: question?.difficulty ?? null,
+      // ПРИЗНАК НЕ СТАВИТСЯ ПО ЧИСЛУ, КОТОРОМУ САМ ЭКРАН НЕ ВЕРИТ (FR-05, AC-05).
+      //
+      // Вскрыто приёмкой: на выборке в два наблюдения задание получало ярлык «Сильные
+      // ошибаются чаще» с дискриминативностью −1,00, а в колонке рядом честно стояло «мало
+      // данных». Два наблюдения дают корреляцию −1 просто потому, что их двое, и печатать по
+      // ней приговор — ровно то, что запрещает порог коэффициентов.
+      //
+      // Поэтому признаки трудности живут при пороге ОПИСАТЕЛЬНЫХ величин, а признаки
+      // дискриминации и угадывания — при пороге КОЭФФИЦИЕНТОВ: каждый при том пороге, по
+      // которому посчитана вызвавшая его величина.
       flags: {
-        tooHard: p !== null && p < TOO_HARD,
-        tooEasy: p !== null && p > TOO_EASY,
+        tooHard: descriptiveEnough && p !== null && p < TOO_HARD,
+        tooEasy: descriptiveEnough && p !== null && p > TOO_EASY,
         // Достаточно ОДНОГО из двух показателей: они считаются по-разному и ловят разное, а
         // симптом у них один — сильные ошибаются чаще слабых (FR-16).
-        negativeDiscrimination: (itemRest !== null && itemRest < 0)
-          || (groups !== null && groups.index < 0),
-        atChanceLevel: corrected !== null && corrected <= 0,
+        negativeDiscrimination: coefficientEnough
+          && ((itemRest !== null && itemRest < 0) || (groups !== null && groups.index < 0)),
+        atChanceLevel: coefficientEnough && corrected !== null && corrected <= 0,
       },
     });
   }
@@ -301,6 +316,7 @@ export interface ItemBreakdown {
     restCorrelation: number | null;
     dead: boolean;
     inverted: boolean;
+    correctButWeak: boolean;
   }> | null;
 }
 

@@ -65,6 +65,22 @@ const CTX = {
   minObservations: 10,
 };
 
+
+/**
+ * Набор из СОРОКА респондентов: признаки ставятся только при достаточной выборке, и на
+ * четырёх наблюдениях эталонного набора их не проверить (правило вскрыто приёмкой).
+ */
+function bigSet(shape: (ability: number, index: number) => Record<string, number | null>): ResponseFact[] {
+  const out: ResponseFact[] = [];
+  for (let i = 0; i < 40; i += 1) {
+    const values = shape(i / 39, i);
+    for (const [questionId, ratio] of Object.entries(values)) {
+      out.push(fact({ respondentId: `R${i}`, questionId, scoreRatio: ratio }));
+    }
+  }
+  return out;
+}
+
 describe("computePsychometrics", () => {
   it("считает по каждому заданию трудность и оба показателя дискриминативности", () => {
     const result = computePsychometrics(RESPONSES, CTX);
@@ -89,15 +105,29 @@ describe("computePsychometrics", () => {
   });
 
   it("признак «на уровне угадывания» появляется, когда поправка ушла в ноль и ниже", () => {
-    // q4: p = 0,25 при четырёх вариантах — ровно вероятность случайного попадания.
-    const q4 = computePsychometrics(RESPONSES, CTX).items.find(i => i.questionId === "q4")!;
-    expect(q4.flags.atChanceLevel).toBe(true);
+    // Четверть верных при четырёх вариантах — ровно вероятность случайного попадания.
+    const set = bigSet((_a, i) => ({ q1: i % 4 === 0 ? 1 : 0, q2: i % 2 }));
+    const q1 = computePsychometrics(set, CTX).items.find(i => i.questionId === "q1")!;
+    expect(q1.flags.atChanceLevel).toBe(true);
   });
 
   it("слишком лёгкое и слишком трудное задание помечаются по порогам трудности", () => {
+    const set = bigSet((_a, i) => ({ q1: i % 20 === 0 ? 0 : 1, q2: i % 20 === 0 ? 1 : 0, q3: i % 2 }));
+    const items = computePsychometrics(set, CTX).items;
+
+    expect(items.find(i => i.questionId === "q1")!.flags.tooEasy).toBe(true);
+    expect(items.find(i => i.questionId === "q2")!.flags.tooHard).toBe(true);
+  });
+
+  it("на выборке, которой экран не верит, признаков НЕТ вовсе (FR-05, AC-05)", () => {
+    // Вскрыто приёмкой: на двух наблюдениях задание получало ярлык «Сильные ошибаются чаще»
+    // с дискриминативностью −1,00, а в колонке рядом честно стояло «мало данных».
     const items = computePsychometrics(RESPONSES, CTX).items;
-    expect(items.find(i => i.questionId === "q2")!.flags.tooEasy).toBe(true);
-    expect(items.find(i => i.questionId === "q4")!.flags.tooHard).toBe(false);
+
+    expect(items.every(item => item.coefficientConfidence === "insufficient")).toBe(true);
+    expect(items.some(item =>
+      item.flags.negativeDiscrimination || item.flags.atChanceLevel
+      || item.flags.tooHard || item.flags.tooEasy)).toBe(false);
   });
 
   it("к трудности и к коэффициентам применяются РАЗНЫЕ пороги (FR-38a)", () => {
@@ -278,7 +308,16 @@ describe("приёмка PRD-66 (AC-02 — AC-04)", () => {
   };
 
   it("AC-02: задание с испорченным ключом получает отрицательную дискриминацию", () => {
-    const qX = computePsychometrics(BROKEN, CTX_3).items.find(i => i.questionId === "qX")!;
+    // Сорок респондентов: на меньшей выборке признак законно не ставится вовсе.
+    const broken: ResponseFact[] = [];
+    for (let i = 0; i < 40; i += 1) {
+      const strong = i >= 20;
+      broken.push(fact({ respondentId: `R${i}`, questionId: "qA", scoreRatio: strong ? 1 : 0 }));
+      broken.push(fact({ respondentId: `R${i}`, questionId: "qB", scoreRatio: i % 3 === 0 ? 1 : 0 }));
+      broken.push(fact({ respondentId: `R${i}`, questionId: "qX", scoreRatio: strong ? 0 : 1 }));
+    }
+
+    const qX = computePsychometrics(broken, CTX_3).items.find(i => i.questionId === "qX")!;
 
     expect(qX.itemRest!).toBeLessThan(0);
     expect(qX.discrimination!).toBeLessThan(0);

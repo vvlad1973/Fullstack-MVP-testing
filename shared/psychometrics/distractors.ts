@@ -56,6 +56,14 @@ export interface OptionFlags {
   dead: boolean;
   /** Неверный вариант, который выбирают сильные. */
   inverted: boolean;
+  /**
+   * ВЕРНЫЙ вариант, который выбирают слабые (отрицательная связь с баллом).
+   *
+   * Самый яркий симптом испорченного ключа, и до приёмки экран о нём молчал: у верного
+   * варианта стоял нейтральный ярлык «Верный ответ», хотя рядом висела корреляция −0,78.
+   * Нейтральный ярлык на таком варианте читается как «здесь всё в порядке».
+   */
+  correctButWeak: boolean;
 }
 
 export interface DistractorAnalysis {
@@ -129,6 +137,7 @@ export function flagsOf(option: OptionStats): OptionFlags {
   return {
     dead: !option.correct && option.share < DEAD_OPTION_SHARE,
     inverted: !option.correct && option.restCorrelation !== null && option.restCorrelation > 0,
+    correctButWeak: option.correct && option.restCorrelation !== null && option.restCorrelation < 0,
   };
 }
 
