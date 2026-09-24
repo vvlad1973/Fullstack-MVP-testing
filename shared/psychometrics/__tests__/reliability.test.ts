@@ -1,0 +1,169 @@
+/**
+ * @module shared/psychometrics/__tests__/reliability
+ *
+ * Эталон посчитан вручную (AC-01) на том же наборе, что и метрики задания:
+ *
+ * ```text
+ *        q1   q2   q3   q4   сумма
+ *   A     1    1    1    1     4
+ *   B     1    1    1    0     3
+ *   C     1    1    0    0     2
+ *   D     0    1    0    0     1
+ * ```
+ *
+ * Дисперсии пунктов (делитель 3): 0,25 + 0 + 0,3(3) + 0,25 = 0,8(3).
+ * Дисперсия суммы: 5 / 3 = 1,6(6). alpha = (4/3) × (1 − 0,8(3)/1,6(6)) = 2/3.
+ * SEM = √(5/3) × √(1/3) = 0,745355…
+ */
+import { describe, expect, it } from "vitest";
+
+import {
+  alphaOf,
+  cutScoreBand,
+  spearmanBrown,
+  standardErrorOfMeasurement,
+  type ItemValue,
+} from "../reliability";
+
+/** Тот же эталонный набор, приведённый к значениям пунктов. */
+const VALUES: ItemValue[] = [
+  { respondentId: "A", itemId: "q1", value: 1 },
+  { respondentId: "A", itemId: "q2", value: 1 },
+  { respondentId: "A", itemId: "q3", value: 1 },
+  { respondentId: "A", itemId: "q4", value: 1 },
+  { respondentId: "B", itemId: "q1", value: 1 },
+  { respondentId: "B", itemId: "q2", value: 1 },
+  { respondentId: "B", itemId: "q3", value: 1 },
+  { respondentId: "B", itemId: "q4", value: 0 },
+  { respondentId: "C", itemId: "q1", value: 1 },
+  { respondentId: "C", itemId: "q2", value: 1 },
+  { respondentId: "C", itemId: "q3", value: 0 },
+  { respondentId: "C", itemId: "q4", value: 0 },
+  { respondentId: "D", itemId: "q1", value: 0 },
+  { respondentId: "D", itemId: "q2", value: 1 },
+  { respondentId: "D", itemId: "q3", value: 0 },
+  { respondentId: "D", itemId: "q4", value: 0 },
+];
+
+describe("alphaOf", () => {
+  it("совпадает с ручным счётом", () => {
+    const result = alphaOf(VALUES);
+    expect(typeof result).not.toBe("string");
+    if (typeof result === "string") return;
+
+    expect(result.alpha).toBeCloseTo(2 / 3, 12);
+    expect(result.items).toBe(4);
+    expect(result.respondents).toBe(4);
+    expect(result.totalSd).toBeCloseTo(Math.sqrt(5 / 3), 12);
+  });
+
+  it("дихотомический набор опознаётся — там альфа И ЕСТЬ KR-20", () => {
+    // Не другая формула, а её частный случай: считать KR-20 отдельно значило бы завести
+    // второй источник одного и того же числа.
+    const result = alphaOf(VALUES);
+    if (typeof result === "string") throw new Error("ожидался коэффициент");
+    expect(result.dichotomous).toBe(true);
+  });
+
+  it("частичный кредит дихотомией не считается", () => {
+    const partial = VALUES.map(v => (v.itemId === "q3" && v.value === 1 ? { ...v, value: 0.5 } : v));
+    const result = alphaOf(partial);
+    if (typeof result === "string") throw new Error("ожидался коэффициент");
+    expect(result.dichotomous).toBe(false);
+  });
+
+  it("считает ТОЛЬКО по полным наборам и говорит, скольких включил", () => {
+    // Респондент, пропустивший пункт, попал бы в дисперсию одних пунктов и не попал в
+    // дисперсию других: отношение таких дисперсий не значит ничего (FR-19b).
+    const withGap: ItemValue[] = [
+      ...VALUES,
+      { respondentId: "E", itemId: "q1", value: 1 },
+      { respondentId: "E", itemId: "q2", value: 1 },
+    ];
+    const result = alphaOf(withGap);
+    if (typeof result === "string") throw new Error("ожидался коэффициент");
+
+    expect(result.respondents).toBe(4);
+    expect(result.alpha).toBeCloseTo(2 / 3, 12);
+  });
+
+  it("перевёрнутый вклад пункта МЕНЯЕТ альфу — она вычислима, а не гадательна (FR-31b)", () => {
+    // Значение пункта — вклад со знаком, поэтому «а что, если перевернуть» проверяется тем же
+    // движком на тех же наблюдениях. Это и позволяет подписи давать следствие вместо догадки.
+    const mirrored = VALUES.map(v => (v.itemId === "q4" ? { ...v, value: 1 - v.value } : v));
+    const before = alphaOf(VALUES);
+    const after = alphaOf(mirrored);
+    if (typeof before === "string" || typeof after === "string") throw new Error("ожидался коэффициент");
+
+    expect(after.alpha).not.toBeCloseTo(before.alpha, 6);
+  });
+
+  it("на одном пункте согласованности нет по построению", () => {
+    expect(alphaOf(VALUES.filter(v => v.itemId === "q1"))).toBe("too-few-items");
+  });
+
+  it("на одном респонденте разброса нет", () => {
+    expect(alphaOf(VALUES.filter(v => v.respondentId === "A"))).toBe("too-few-respondents");
+  });
+
+  it("когда все набрали поровну, коэффициента нет — это не нулевая надёжность", () => {
+    const flat: ItemValue[] = [
+      { respondentId: "A", itemId: "q1", value: 1 },
+      { respondentId: "A", itemId: "q2", value: 0 },
+      { respondentId: "B", itemId: "q1", value: 0 },
+      { respondentId: "B", itemId: "q2", value: 1 },
+    ];
+    expect(alphaOf(flat)).toBe("no-variance");
+  });
+});
+
+describe("standardErrorOfMeasurement", () => {
+  it("совпадает с ручным счётом", () => {
+    expect(standardErrorOfMeasurement(Math.sqrt(5 / 3), 2 / 3)).toBeCloseTo(0.7453559925, 9);
+  });
+
+  it("при нулевой надёжности ошибка равна всему разбросу", () => {
+    expect(standardErrorOfMeasurement(2, 0)).toBe(2);
+  });
+
+  it("при отрицательной альфе ошибка не превышает разброс дважды и остаётся числом", () => {
+    // Набор, где пункты противоречат друг другу, не измеряет ничего — но `NaN` вместо числа
+    // ронял бы экран (FR-44).
+    expect(Number.isFinite(standardErrorOfMeasurement(2, -0.5))).toBe(true);
+  });
+});
+
+describe("cutScoreBand", () => {
+  it("строит интервал вокруг порога", () => {
+    const band = cutScoreBand(70, 5);
+    expect(band.low).toBeCloseTo(70 - 1.96 * 5, 12);
+    expect(band.high).toBeCloseTo(70 + 1.96 * 5, 12);
+  });
+
+  it("множитель ошибки задаётся явно", () => {
+    expect(cutScoreBand(70, 5, 1).low).toBe(65);
+  });
+});
+
+describe("spearmanBrown", () => {
+  it("считает, во сколько раз удлинить тест ради целевой надёжности", () => {
+    // alpha = 0,6, цель 0,8: factor = 0,8 × 0,4 / (0,6 × 0,2) = 2,6(6) → к 10 заданиям ещё 17.
+    const forecast = spearmanBrown(0.6, 0.8, 10)!;
+    expect(forecast.factor).toBeCloseTo(2.6666666667, 9);
+    expect(forecast.itemsDelta).toBe(17);
+  });
+
+  it("при надёжности выше целевой тест можно укоротить", () => {
+    const forecast = spearmanBrown(0.9, 0.8, 20)!;
+    expect(forecast.factor).toBeLessThan(1);
+    expect(forecast.itemsDelta).toBeLessThan(0);
+  });
+
+  it("прогноза нет там, где он невозможен", () => {
+    // Несогласованные пункты не лечатся добавлением таких же; надёжность в единицу
+    // недостижима никаким числом заданий.
+    expect(spearmanBrown(0, 0.8, 10)).toBeNull();
+    expect(spearmanBrown(-0.2, 0.8, 10)).toBeNull();
+    expect(spearmanBrown(0.6, 1, 10)).toBeNull();
+  });
+});
