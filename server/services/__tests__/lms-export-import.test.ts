@@ -114,8 +114,10 @@ function storageStub(externalKeys: Record<string, string> = {}) {
   const answers: unknown[][] = [];
   /** Номера версий, о которых спрашивали: партия обязана спрашивать каждую по разу. */
   const snapshotLookups: number[] = [];
+  /** Патчи счётчиков, которыми партия дописывается после записи строк. */
+  const batchPatches: Record<string, unknown>[] = [];
   return {
-    batches, attempts, answers, snapshotLookups,
+    batches, attempts, answers, snapshotLookups, batchPatches,
     // PRD-56 FR-19a: у теста одна опубликованная версия — третья.
     getSnapshotByVersion: async (_testId: string, version: number) => {
       snapshotLookups.push(version);
@@ -136,7 +138,7 @@ function storageStub(externalKeys: Record<string, string> = {}) {
     getQuestionsByIds: async (ids: string[]) =>
       [{ id: "q1", type: "allocation", prompt: "Вопрос", topicId: "t1" }].filter((q) => ids.includes(q.id)),
     createLmsImportBatch: async (b: unknown) => { batches.push(b); return { id: "batch-1" }; },
-    updateLmsImportBatch: async () => undefined,
+    updateLmsImportBatch: async (_id: string, patch: Record<string, unknown>) => { batchPatches.push(patch); return undefined; },
     upsertImportedAttempt: async (a: unknown) => { attempts.push(a); return { id: "a1", created: true }; },
     replaceImportedAnswers: async (_id: string, rows: unknown[]) => { answers.push(rows); },
   };
@@ -255,6 +257,30 @@ describe("runImport", () => {
 
     expect(s.answers[0]).toHaveLength(0);
     expect(res.warnings.join()).toContain("без исхода");
+  });
+
+  it("несопоставленные взаимодействия ХРАНЯТСЯ на партии (PRD-66 FR-11)", async () => {
+    // Протокол загрузки живёт ровно один раз — в момент импорта. Психометрике же доля потерь
+    // нужна потом и постоянно: она показывается рядом с числом наблюдений как видимая потеря
+    // выборки, иначе читатель считает неполную партию полной.
+    const alien = {
+      ...book,
+      questionIds: ["q1", "zzz"],
+      rows: [{ ...book.rows[0], answers: { q1: "0[.]7", zzz: "1" }, results: { q1: "neutral", zzz: "correct" } }],
+    };
+    const s = storageStub();
+
+    const res = await runImport(alien as never, ON, ctx, s as never);
+
+    expect(res.rowsUnmatched).toBe(1);
+    expect(s.batchPatches.at(-1)).toMatchObject({ rowsUnmatched: 1 });
+  });
+
+  it("партия без потерь пишет ноль, а не пропускает поле", async () => {
+    const s = storageStub();
+    const res = await runImport(book as never, ON, ctx, s as never);
+    expect(res.rowsUnmatched).toBe(0);
+    expect(s.batchPatches.at(-1)).toMatchObject({ rowsUnmatched: 0 });
   });
 
   it("пропущенная строка попадает в rowsSkipped", async () => {

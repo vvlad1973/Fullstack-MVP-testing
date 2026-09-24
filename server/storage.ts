@@ -379,6 +379,7 @@ export interface IStorage {
   replaceImportedAnswers(attemptId: string, answers: (InsertScormAnswer & { id: string })[]): Promise<void>;
   createLmsImportBatch(batch: InsertLmsImportBatch & { id: string }): Promise<{ id: string }>;
   updateLmsImportBatch(id: string, counts: LmsImportCounts): Promise<void>;
+  setLmsImportBatchCounted(id: string, counted: boolean): Promise<void>;
   getLmsImportBatchById(id: string): Promise<LmsImportBatch | undefined>;
   getLmsImportBatches(testId: string): Promise<LmsImportBatch[]>;
   deleteLmsImportBatch(id: string): Promise<void>;
@@ -1281,6 +1282,10 @@ export class DatabaseStorage implements IStorage {
 
   updateLmsImportBatch(id: string, counts: LmsImportCounts): Promise<void> {
     return this.scormRepo.updateLmsImportBatch(id, counts);
+  }
+
+  setLmsImportBatchCounted(id: string, counted: boolean): Promise<void> {
+    return this.scormRepo.setLmsImportBatchCounted(id, counted);
   }
 
   getLmsImportBatchById(id: string): Promise<LmsImportBatch | undefined> {

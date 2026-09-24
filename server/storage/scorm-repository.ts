@@ -57,6 +57,8 @@ export interface LmsImportCounts {
   rowsUpdated: number;
   rowsSkipped: number;
   rowsLinked: number;
+  /** PRD-66 FR-11: взаимодействий, не нашедших своего задания в тесте. */
+  rowsUnmatched: number;
   warnings: string[];
 }
 
@@ -230,8 +232,21 @@ export class ScormRepository {
       rowsUpdated: counts.rowsUpdated,
       rowsSkipped: counts.rowsSkipped,
       rowsLinked: counts.rowsLinked,
+      rowsUnmatched: counts.rowsUnmatched,
       warningsJson: counts.warnings,
     }).where(eq(lmsImportBatches.id, id));
+  }
+
+  /**
+   * PRD-66 FR-12: включить партию в расчёты или снять с учёта.
+   *
+   * Снятая партия исчезает из ВЫБОРКИ, но не из базы: выгрузка, в которой засомневались,
+   * перестаёт искажать числа, а строки остаются для разбора и возвращаются одним переключением.
+   * Прежде у партии было только два состояния — загружена и удалена, — и любое сомнение
+   * приходилось разрешать необратимо.
+   */
+  async setLmsImportBatchCounted(id: string, counted: boolean): Promise<void> {
+    await db.update(lmsImportBatches).set({ counted }).where(eq(lmsImportBatches.id, id));
   }
 
   /**

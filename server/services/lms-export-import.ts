@@ -159,6 +159,13 @@ export interface ImportResult {
   rowsUpdated: number;
   rowsSkipped: number;
   rowsLinked: number;
+  /**
+   * PRD-66 FR-11: сколько взаимодействий файла не удалось привязать к заданию теста.
+   *
+   * Считается по ВЗАИМОДЕЙСТВИЯМ, а не по колонкам: одна чужая колонка в файле на тысячу
+   * прохождений — это тысяча потерянных наблюдений, и доля потерь выборки видна только так.
+   */
+  rowsUnmatched: number;
   warnings: string[];
 }
 
@@ -230,6 +237,9 @@ export async function runImport(
   // PRD-66 FR-10a: сколько взаимодействий пришло без исхода у ОЦЕНИВАЕМОГО задания. Не потеря
   // сопоставления (задание найдено), а пробел в самом файле — и считается отдельно.
   let resultsMissing = 0;
+  // PRD-66 FR-11: сколько взаимодействий не нашли своего задания в тесте. Протокол загрузки
+  // живёт один раз, а психометрике доля потерь нужна постоянно — рядом с числом наблюдений.
+  let rowsUnmatched = 0;
 
   let batchId: string | null = null;
   if (!dryRun) {
@@ -308,7 +318,10 @@ export async function runImport(
         const q = questionById.get(a.questionId);
         // Вопроса нет в базе — записать ответ не во что: `scorm_answers` требует тип и текст
         // вопроса. Такая строка уже названа в предупреждении о чужих вопросах.
-        if (!q) return [];
+        if (!q) {
+          rowsUnmatched += 1;
+          return [];
+        }
         // PRD-66 FR-10a: `neutral` остаётся ТОЛЬКО за измерительным заданием — у него эталона
         // нет вовсе, и пустой исход законен. У оцениваемого пустой исход значит, что файл его
         // не сообщил: приписать «неверно» — выдумать ответ, которого могло не быть, приписать
@@ -363,6 +376,7 @@ export async function runImport(
     rowsUpdated,
     rowsSkipped: book.rows.length - plan.rows.length,
     rowsLinked,
+    rowsUnmatched,
     warnings,
   };
 
@@ -373,6 +387,7 @@ export async function runImport(
       rowsUpdated: result.rowsUpdated,
       rowsSkipped: result.rowsSkipped,
       rowsLinked: result.rowsLinked,
+      rowsUnmatched: result.rowsUnmatched,
       warnings: result.warnings,
     });
   }
