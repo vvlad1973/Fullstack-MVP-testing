@@ -180,6 +180,36 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(storageMock.selectObservations.mock.calls.length).toBeGreaterThan(callsAfterFirst);
   });
 
+  it("отдаёт психометрический отчёт файлом", async () => {
+    const res = await request(makeApp())
+      .get("/api/analytics/psychometrics/test1/export")
+      .set("x-test-user", "a1");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("spreadsheetml");
+    expect(res.headers["content-disposition"]).toContain("psychometrics");
+  });
+
+  it("отдаёт матрицу ответов файлом", async () => {
+    const res = await request(makeApp())
+      .get("/api/analytics/psychometrics/test1/matrix")
+      .set("x-test-user", "a1");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-disposition"]).toContain("response_matrix");
+  });
+
+  it("выгрузка требует права на выгрузку, а не только на чтение", async () => {
+    // Файл уносят из системы — это отдельное действие, и право у него своё.
+    storageMock.getUserRoles.mockResolvedValue(["manager"]);
+
+    const res = await request(makeApp())
+      .get("/api/analytics/psychometrics/test1/export")
+      .set("x-test-user", "a1");
+
+    expect(res.status).toBe(403);
+  });
+
   it("снятие партии с учёта пересчитывает, а не отдаёт прежние числа", async () => {
     // Партия в ключе кэша именно поэтому: она меняет выборку, не трогая ни теста, ни его
     // содержания, и без неё экран после переключения выглядел бы сломанным.

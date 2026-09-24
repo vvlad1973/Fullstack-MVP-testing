@@ -15,6 +15,7 @@
  * читателя свой.
  */
 import { Router, type Request, type Response } from "express";
+import ExcelJS from "exceljs";
 
 import { config } from "../../config";
 import { logger } from "../../logger";
@@ -29,7 +30,14 @@ import {
   type PsychometricsContext,
   type QuestionInfo,
 } from "../../services/analytics/psychometrics";
+import {
+  itemsSheet,
+  matrixSheet,
+  testSheet,
+  type ExportContext,
+} from "../../services/analytics/psychometrics-export";
 import { loadTestScoringContext } from "../../services/effective-scoring";
+import { addAoaSheet, workbookToBuffer } from "../../utils/excel";
 import type { ObservationFilter, ObservationSource } from "../../services/analytics/observations";
 import { analyticsScope } from "./helpers";
 
@@ -140,6 +148,38 @@ async function buildGrader(testId: string): Promise<{
   };
 }
 
+/**
+ * Условия выборки из адреса — ОДИН разбор на все ручки психометрики.
+ *
+ * Экран, отчёт и матрица обязаны отбирать одинаково (FR-54b): выгрузка, собранная по другим
+ * условиям, чем показанные на экране, невоспроизводима и неоспорима.
+ */
+function readQuery(req: Request, testId: string): { filter: ObservationFilter; onlyFirst: boolean } {
+  const sources = listOf(req.query.source).filter((s): s is ObservationSource =>
+    (SOURCES as string[]).includes(s));
+  const groupIds = listOf(req.query.groupId);
+  const formIds = listOf(req.query.formId);
+  const snapshotIds = listOf(req.query.snapshotId);
+  const from = dateOf(req.query.from, "start");
+  const to = dateOf(req.query.to, "end");
+  // Умолчание — «только первая попытка» (FR-51): повторные попытки одного человека не
+  // независимы, и выключает это читатель осознанно, с предупреждением на экране.
+  const onlyFirst = String(req.query.firstAttemptOnly ?? "true").toLowerCase() !== "false";
+
+  return {
+    onlyFirst,
+    filter: {
+      testIds: [testId],
+      ...(groupIds.length ? { groupIds } : {}),
+      ...(formIds.length ? { formIds } : {}),
+      ...(snapshotIds.length ? { snapshotIds } : {}),
+      ...(sources.length ? { sources } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+    },
+  };
+}
+
 /** Проходной балл теста в долях; `null` — тест ничего не объявляет. */
 function cutRatioOf(rule: unknown): number | null {
   const parsed = rule as { type?: string; value?: number } | null;
@@ -158,26 +198,7 @@ router.get(
       const test = await storage.getTest(testId);
       if (!test) return res.status(404).json({ error: "Тест не найден" });
 
-      const sources = listOf(req.query.source).filter((s): s is ObservationSource =>
-        (SOURCES as string[]).includes(s));
-      const groupIds = listOf(req.query.groupId);
-      const formIds = listOf(req.query.formId);
-      const snapshotIds = listOf(req.query.snapshotId);
-      const from = dateOf(req.query.from, "start");
-      const to = dateOf(req.query.to, "end");
-      // Умолчание — «только первая попытка» (FR-51): повторные попытки одного человека не
-      // независимы, и выключает это читатель осознанно, с предупреждением на экране.
-      const onlyFirst = String(req.query.firstAttemptOnly ?? "true").toLowerCase() !== "false";
-
-      const filter: ObservationFilter = {
-        testIds: [testId],
-        ...(groupIds.length ? { groupIds } : {}),
-        ...(formIds.length ? { formIds } : {}),
-        ...(snapshotIds.length ? { snapshotIds } : {}),
-        ...(sources.length ? { sources } : {}),
-        ...(from ? { from } : {}),
-        ...(to ? { to } : {}),
-      };
+      const { filter, onlyFirst } = readQuery(req, testId);
 
       // Состав учитываемых партий — часть ключа: снятие партии с учёта меняет выборку, не
       // трогая ни теста, ни его содержания.
@@ -187,7 +208,7 @@ router.get(
         testId,
         version: test.version ?? 1,
         countedBatches,
-        filter: { ...filter, from: from?.toISOString(), to: to?.toISOString() },
+        filter: { ...filter, from: filter.from?.toISOString(), to: filter.to?.toISOString() },
         onlyFirst,
       });
 
@@ -213,6 +234,106 @@ router.get(
     } catch (error) {
       logger.error("Psychometrics error: " + (error as Error).message, "analytics");
       res.status(500).json({ error: "Не удалось посчитать психометрику" });
+    }
+  },
+);
+
+/**
+ * Собрать всё, что нужно выгрузке: наблюдения, расчёт и справочник текстов.
+ *
+ * Выгрузка берёт выборку ТЕМИ ЖЕ условиями, что экран (FR-54b): иначе файл невозможно ни
+ * повторить, ни сверить с тем, что человек видел, когда его заказывал.
+ */
+async function collectForExport(req: Request, testId: string) {
+  const { filter, onlyFirst } = readQuery(req, testId);
+  const scope = await analyticsScope(req);
+  const { grade, questionById } = await buildGrader(testId);
+  const matrix = await loadResponseMatrix(filter, scope, grade);
+  const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
+  const test = await storage.getTest(testId);
+
+  const ctx: ExportContext = {
+    testTitle: test?.title ?? testId,
+    conditions: describeFilter(filter),
+    firstAttemptOnly: onlyFirst,
+    generatedAt: new Date(),
+  };
+  const psychometrics = computePsychometrics(responses, {
+    questionById,
+    minObservations: config.analytics.minObservations,
+    cutRatio: cutRatioOf(test?.overallPassRuleJson),
+  });
+
+  return { ctx, psychometrics, responses, questionById };
+}
+
+/** Условия отбора словами — то же, что подписано на экране. */
+function describeFilter(filter: ObservationFilter): string {
+  const parts: string[] = [];
+  if (filter.groupIds?.length) parts.push(`группы: ${filter.groupIds.length}`);
+  if (filter.sources?.length) parts.push(`источники: ${filter.sources.join(", ")}`);
+  if (filter.formIds?.length) parts.push(`варианты: ${filter.formIds.length}`);
+  if (filter.snapshotIds?.length) parts.push(`версии публикации: ${filter.snapshotIds.length}`);
+  if (filter.from) parts.push(`с ${filter.from.toISOString().slice(0, 10)}`);
+  if (filter.to) parts.push(`по ${filter.to.toISOString().slice(0, 10)}`);
+  return parts.join("; ");
+}
+
+/** Отдать книгу файлом. */
+async function sendWorkbook(res: Response, workbook: ExcelJS.Workbook, name: string): Promise<void> {
+  const buffer = await workbookToBuffer(workbook);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(name)}"`);
+  res.send(buffer);
+}
+
+/** Имя файла: тест и дата, без символов, которые ломают выгрузку на чужой машине. */
+function fileName(prefix: string, title: string): string {
+  const safe = title.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_");
+  return `${prefix}_${safe}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+}
+
+// GET /api/analytics/psychometrics/:testId/export — психометрический отчёт (FR-53)
+router.get(
+  "/psychometrics/:testId/export",
+  // Отдельное право на выгрузку — как и у всякого файла, который уносят из системы.
+  requirePermission("analytics.export"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const testId = req.params.testId;
+      const { ctx, psychometrics, questionById } = await collectForExport(req, testId);
+
+      const prompts = new Map([...questionById].map(([id, info]) => [id, info.prompt]));
+      const workbook = new ExcelJS.Workbook();
+      addAoaSheet(workbook, "Задания", itemsSheet(ctx, psychometrics, prompts), [38, 60, 12, 12, 16, 16, 16, 14, 14, 16, 18, 40]);
+      addAoaSheet(workbook, "Тест", testSheet(ctx, psychometrics), [34, 22, 60]);
+
+      await sendWorkbook(res, workbook, fileName("psychometrics", ctx.testTitle));
+    } catch (error) {
+      logger.error("Psychometrics export error: " + (error as Error).message, "analytics");
+      res.status(500).json({ error: "Не удалось выгрузить психометрический отчёт" });
+    }
+  },
+);
+
+// GET /api/analytics/psychometrics/:testId/matrix — матрица ответов «участники × задания» (FR-54)
+router.get(
+  "/psychometrics/:testId/matrix",
+  requirePermission("analytics.export"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const testId = req.params.testId;
+      const { ctx, psychometrics, responses } = await collectForExport(req, testId);
+
+      const workbook = new ExcelJS.Workbook();
+      addAoaSheet(workbook, "Матрица ответов", matrixSheet(ctx, responses, psychometrics.sample));
+
+      await sendWorkbook(res, workbook, fileName("response_matrix", ctx.testTitle));
+    } catch (error) {
+      logger.error("Psychometrics matrix error: " + (error as Error).message, "analytics");
+      res.status(500).json({ error: "Не удалось выгрузить матрицу ответов" });
     }
   },
 );
