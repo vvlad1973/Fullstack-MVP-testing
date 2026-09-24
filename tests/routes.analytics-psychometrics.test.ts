@@ -20,6 +20,8 @@ const { storageMock } = vi.hoisted(() => ({
     getQuestionsByTopic: vi.fn().mockResolvedValue([]),
     getTestQuestionScoring: vi.fn().mockResolvedValue([]),
     getLmsImportBatches: vi.fn().mockResolvedValue([]),
+    getSlices: vi.fn().mockResolvedValue([]),
+    getQuestionsByIds: vi.fn().mockResolvedValue([]),
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),
     getUserTestGrants: vi.fn().mockResolvedValue([]),
     getTestGrantForUser: vi.fn().mockResolvedValue(undefined),
@@ -97,6 +99,8 @@ beforeEach(() => {
   storageMock.getQuestionsByTopic.mockResolvedValue(TOPIC_QUESTIONS);
   storageMock.getTestQuestionScoring.mockResolvedValue([]);
   storageMock.getLmsImportBatches.mockResolvedValue([]);
+  storageMock.getSlices.mockResolvedValue([]);
+  storageMock.getQuestionsByIds.mockResolvedValue(TOPIC_QUESTIONS);
   storageMock.getAttemptsByIds.mockResolvedValue(ATTEMPTS);
   storageMock.selectAnswersForAttempts.mockResolvedValue([]);
   storageMock.selectGroupsOfUsers.mockResolvedValue(new Map());
@@ -208,6 +212,38 @@ describe("GET /analytics/psychometrics/:testId", () => {
       .set("x-test-user", "a1");
 
     expect(res.status).toBe(403);
+  });
+
+  it("сравнение срезов считает психометрику по каждому срезу", async () => {
+    // Свой механизм сравнения трек не заводит: срезы те же, что у раздела «Аналитика»,
+    // меняется только содержимое таблиц (FR-04b, FR-04b1).
+    storageMock.getSlices.mockResolvedValue([
+      { id: "s1", name: "Розница", conditionsJson: { groupIds: ["g1"] } },
+      { id: "s2", name: "Опт", conditionsJson: { groupIds: ["g2"] } },
+    ]);
+
+    const res = await request(makeApp())
+      .get("/api/analytics/psychometrics/test1/slices?withWhole=1")
+      .set("x-test-user", "a1");
+
+    expect(res.status).toBe(200);
+    expect(res.body.slices.map((s: { name: string }) => s.name))
+      .toEqual(["Тест целиком", "Розница", "Опт"]);
+    expect(res.body.slices[0]).toHaveProperty("alpha");
+    expect(res.body.slices[0]).toHaveProperty("suspiciousCount");
+  });
+
+  it("срез отдаёт трудность ПО ЗАДАНИЯМ — иначе сравнивать нечего", async () => {
+    storageMock.getSlices.mockResolvedValue([
+      { id: "s1", name: "Розница", conditionsJson: { groupIds: ["g1"] } },
+    ]);
+
+    const res = await request(makeApp())
+      .get("/api/analytics/psychometrics/test1/slices?sliceId=s1")
+      .set("x-test-user", "a1");
+
+    expect(res.body.slices).toHaveLength(1);
+    expect(res.body.slices[0].items[0]).toMatchObject({ questionId: "q1" });
   });
 
   it("снятие партии с учёта пересчитывает, а не отдаёт прежние числа", async () => {

@@ -37,6 +37,7 @@ import {
     ScaleQualityPanel,
     type ScaleQualityRow,
 } from "@/features/analytics/test/scale-quality";
+import { PsychometricsComparePanel } from "@/features/analytics/test/psychometrics-compare-panel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -319,6 +320,13 @@ export default function TestAnalyticsPage() {
      * для всех строк таблицы заранее значило бы платить за сорок разборов ради одного.
      */
     const [breakdownId, setBreakdownId] = useState<string | null>(null);
+    /**
+     * PRD-66 FR-04b: режим вкладки — выборка целиком или сравнение срезов.
+     *
+     * Переключатель берётся у раздела «Аналитика» без изменений: один механизм обязан
+     * выглядеть одинаково на обоих экранах.
+     */
+    const [qualityMode, setQualityMode] = useState<"sample" | "compare">("sample");
     const { data: breakdown } = useQuery<ItemBreakdownView>({
         queryKey: [`/api/analytics/psychometrics/${testId}/items/${breakdownId}`],
         enabled: !!testId && !!breakdownId && activeTab === "quality",
@@ -678,11 +686,30 @@ export default function TestAnalyticsPage() {
                         label: "Качество заданий",
                         content: qualityLoading
                             ? <LoadingState message="Считаем психометрику..." />
+                            : qualityMode === "compare"
+                            ? (
+                                <Stack gap={4}>
+                                    <Cluster gap={1} align="center">
+                                        <Button variant="secondary" size="s" onClick={() => setQualityMode("sample")}>
+                                            К выборке целиком
+                                        </Button>
+                                    </Cluster>
+                                    <PsychometricsComparePanel
+                                        testId={testId!}
+                                        firstAttemptOnly={itemQuality?.firstAttemptOnly ?? true}
+                                    />
+                                </Stack>
+                            )
                             : breakdownId && breakdown
                                 ? <ItemBreakdownPanel view={breakdown} onBack={() => setBreakdownId(null)} />
                                 : itemQuality
                                     ? (
                                         <Stack gap={4}>
+                                            <Cluster gap={1} align="center">
+                                                <Button variant="secondary" size="s" onClick={() => setQualityMode("compare")}>
+                                                    Сравнить срезы
+                                                </Button>
+                                            </Cluster>
                                             <ItemQualityPanel
                                                 view={itemQuality}
                                                 exportHref={`/api/analytics/psychometrics/${testId}/export`}

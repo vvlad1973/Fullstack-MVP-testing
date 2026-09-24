@@ -241,6 +241,100 @@ router.get(
   },
 );
 
+/** Условия среза, приведённые к отбору наблюдений — ТОТ ЖЕ разбор, что у среза PRD-56. */
+function conditionsOf(raw: unknown): ObservationFilter {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  const list = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+  return {
+    ...(list(source.groupIds).length ? { groupIds: list(source.groupIds) } : {}),
+    ...(list(source.sources).length ? { sources: list(source.sources) as ObservationSource[] } : {}),
+    ...(list(source.formIds).length ? { formIds: list(source.formIds) } : {}),
+    ...(list(source.snapshotIds).length ? { snapshotIds: list(source.snapshotIds) } : {}),
+  };
+}
+
+// GET /api/analytics/psychometrics/:testId/slices — психометрика по сравниваемым срезам (FR-04b)
+//
+// Свой механизм сравнения трек НЕ заводит: режим, слоты и правила берутся у раздела
+// «Аналитика» (PRD-56 FR-07), меняется только СОДЕРЖИМОЕ таблиц. Один механизм обязан
+// выглядеть и считаться одинаково на обоих экранах, иначе автор учит его дважды.
+router.get(
+  "/psychometrics/:testId/slices",
+  requirePermission("analytics.read"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const testId = req.params.testId;
+      const test = await storage.getTest(testId);
+      if (!test) return res.status(404).json({ error: "Тест не найден" });
+
+      const requested = listOf(req.query.sliceId);
+      // Срезы принадлежат читателю: их видит тот, кто сохранил (PRD-56 FR-07b).
+      const saved = await storage.getSlices(req.currentUser?.id ?? "");
+      const sources = [
+        // «Тест целиком» — законный участник сравнения: без него срез не с чем сопоставить,
+        // кроме другого среза, а вопрос «а как у всех?» возникает первым.
+        ...(String(req.query.withWhole ?? "") === "1"
+          ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }]
+          : []),
+        ...saved.filter(slice => requested.length === 0 || requested.includes(slice.id)),
+      ];
+
+      const { onlyFirst } = readQuery(req, testId);
+      const scope = await analyticsScope(req);
+      const { grade, questionById } = await buildGrader(testId);
+      const ctx: PsychometricsContext = {
+        questionById,
+        minObservations: config.analytics.minObservations,
+        cutRatio: cutRatioOf(test.overallPassRuleJson),
+      };
+
+      const slices = [];
+      for (const slice of sources) {
+        // Тест рамки перебивает тест среза (PRD-56 FR-07e): он общий для всех сравниваемых.
+        const matrix = await loadResponseMatrix(
+          { ...conditionsOf(slice.conditionsJson), testIds: [testId] },
+          scope,
+          grade,
+        );
+        const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
+        const psychometrics = computePsychometrics(responses, ctx);
+
+        slices.push({
+          id: slice.id,
+          name: slice.name,
+          conditions: slice.conditionsJson,
+          alpha: typeof psychometrics.reliability === "string" ? null : psychometrics.reliability.alpha,
+          reliabilityGap: typeof psychometrics.reliability === "string" ? psychometrics.reliability : null,
+          sem: psychometrics.sem,
+          respondents: psychometrics.sample.respondents,
+          observations: psychometrics.sample.responses,
+          itemsCount: psychometrics.items.length,
+          // Счётная величина: разницу между срезами по ней НЕ считают (FR-04b2) — она
+          // говорит о размере группы, а не о качестве теста.
+          suspiciousCount: psychometrics.items.filter(item =>
+            item.flags.negativeDiscrimination || item.flags.atChanceLevel
+            || item.flags.tooHard || item.flags.tooEasy).length,
+          items: psychometrics.items.map(item => ({
+            questionId: item.questionId,
+            prompt: questionById.get(item.questionId)?.prompt ?? "",
+            difficulty: item.difficulty,
+            itemRest: item.itemRest,
+            observations: item.observations,
+          })),
+        });
+      }
+
+      res.json({ slices, firstAttemptOnly: onlyFirst });
+    } catch (error) {
+      logger.error("Psychometrics slices error: " + (error as Error).message, "analytics");
+      res.status(500).json({ error: "Не удалось посчитать психометрику по срезам" });
+    }
+  },
+);
+
 /** Подписи градаций задания-шкалы — их задаёт автор (PRD-26), придумывать нельзя. */
 function gradeLabelsOf(dataJson: unknown): string[] {
   const data = dataJson as { options?: unknown[]; labels?: unknown[]; min?: number; max?: number } | null;
