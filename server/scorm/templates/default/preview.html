@@ -14664,7 +14664,14 @@ function renderContentPage(page, contentTemplates) {
     if (!isRouterMode()) return false;
     if (typeof stopSectionTimer === "function") stopSectionTimer();
     var topicId = state.currentRouterTopic;
-    if (topicId && state.routerTopicStates[topicId] === "inProgress") {
+    // PRD-67 (FR-09): leaving a STARTED section under «Закрывать раздел при выходе» closes
+    // it — it goes back to the hub «Пройдена», not «Не начата». A section left before its
+    // first question was never opened, so it stays re-enterable as before.
+    if (typeof leaveOpenSection === "function") leaveOpenSection();
+    var closed = topicId && typeof isSectionClosedByLeave === "function" && isSectionClosedByLeave(topicId);
+    if (closed) {
+      state.routerTopicStates[topicId] = "completed";
+    } else if (topicId && state.routerTopicStates[topicId] === "inProgress") {
       delete state.routerTopicStates[topicId];
     }
     state.currentRouterTopic = null;
@@ -19121,7 +19128,9 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       // for a two-week budget.
       timeLimitLabel: formatMinutesHuman(i.timeLimitMinutes),
       maxAttempts: i.maxAttempts,
-      startPageContent: i.startPageContent || ""
+      startPageContent: i.startPageContent || "",
+      // Only when true: a test without the setting keeps exactly the context it had.
+      ...i.closesOnLeave === true ? { closesOnLeave: true } : {}
     };
     return { course, state };
   }
@@ -20164,12 +20173,22 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   // shared/flow/section-budget.ts
   var section_budget_exports = {};
   __export(section_budget_exports, {
+    EMPTY_GATE: () => EMPTY_GATE,
+    WHOLE_TEST_SECTION: () => WHOLE_TEST_SECTION,
+    closeSection: () => closeSection,
+    closesOnLeave: () => closesOnLeave,
     enterSection: () => enterSection,
+    isClosed: () => isClosed,
     isSpent: () => isSpent,
+    leaveSection: () => leaveSection,
+    lockedSections: () => lockedSections,
+    openSection: () => openSection,
     pauseAll: () => pauseAll,
+    readGate: () => readGate,
     remainingMs: () => remainingMs,
     remainingSeconds: () => remainingSeconds,
-    spentTopics: () => spentTopics
+    spentTopics: () => spentTopics,
+    testClosesOnLeave: () => testClosesOnLeave
   });
   function remainingMs(budget, activeMs) {
     if (!budget) return null;
@@ -20211,6 +20230,55 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       changed = true;
     }
     return changed ? next : budgets;
+  }
+  var WHOLE_TEST_SECTION = "__test__";
+  var EMPTY_GATE = Object.freeze({ open: null, closed: [] });
+  function readGate(raw) {
+    const g = raw;
+    if (!g || typeof g !== "object") return { open: null, closed: [] };
+    return {
+      open: typeof g.open === "string" ? g.open : null,
+      closed: Array.isArray(g.closed) ? g.closed.filter((id) => typeof id === "string") : []
+    };
+  }
+  function isClosed(gate, sectionId) {
+    return gate.closed.includes(sectionId);
+  }
+  function closesOnLeave(opts) {
+    var _a, _b;
+    if (!opts.enabled) return false;
+    return ((_a = opts.testLimitMinutes) != null ? _a : 0) > 0 || ((_b = opts.sectionLimitMinutes) != null ? _b : 0) > 0;
+  }
+  function testClosesOnLeave(opts) {
+    var _a;
+    if (!opts.enabled) return false;
+    if (((_a = opts.testLimitMinutes) != null ? _a : 0) > 0) return true;
+    return opts.sectionLimitMinutes.some((m) => (m != null ? m : 0) > 0);
+  }
+  function openSection(gate, sectionId) {
+    if (gate.open === sectionId || isClosed(gate, sectionId)) return gate;
+    return { open: sectionId, closed: gate.closed };
+  }
+  function closeSection(gate, budgets, sectionId) {
+    const nextGate = {
+      open: gate.open === sectionId ? null : gate.open,
+      closed: isClosed(gate, sectionId) ? gate.closed : [...gate.closed, sectionId]
+    };
+    const nextBudgets = budgets[sectionId] ? { ...budgets, [sectionId]: { remainingMs: 0, runningSince: null } } : budgets;
+    return { gate: nextGate, budgets: nextBudgets };
+  }
+  function leaveSection(gate, budgets, activeMs, closeOpen) {
+    const paused = pauseAll(budgets, activeMs);
+    if (!gate.open) return { gate, budgets: paused, closed: null };
+    if (!closeOpen) return { gate: { open: null, closed: gate.closed }, budgets: paused, closed: null };
+    const id = gate.open;
+    const done = closeSection(gate, paused, id);
+    return { ...done, closed: id };
+  }
+  function lockedSections(gate, budgets, activeMs) {
+    const out = spentTopics(budgets, activeMs);
+    for (const id of gate.closed) if (!out.includes(id)) out.push(id);
+    return out;
   }
 
   // shared/template/question-progress-context.ts
