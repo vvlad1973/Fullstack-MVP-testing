@@ -178,27 +178,51 @@ export function buildBeforeZone(
 }
 
 /**
- * The test-scope «После теста» zone, split at the `summary` boundary: pages
- * before it render ahead of the built-in results screen, pages after it are
- * deferred to {@link PageSequenceResult.postResultsPages}. The `summary` page
- * itself is not rendered — the results screen IS the score page.
+ * The node that splits the «После теста» zone: the test's «Итоги теста» row.
+ *
+ * Today it is the system row of kind `results`. It used to be an author-flowing page with the
+ * legacy `type: "summary"`, and the boundary was looked up by that type only — but a `results`
+ * row is a SYSTEM kind, which {@link contentPagesFor} filters out, so the boundary was never
+ * found and every page the author put after «Итоги теста» ran BEFORE the results screen. The
+ * legacy row is still honoured for structures saved before the system kind existed.
+ */
+function resultsBoundary(
+  contentPages: FlowContentPage[] | null | undefined,
+  afterPages: FlowContentPage[],
+): FlowContentPage | null {
+  const system = (contentPages || []).find((p) => p && p.kind === "results" && (p.topicId ?? null) === null);
+  if (system) return system;
+  return afterPages.find((p) => p.type === "summary") ?? null;
+}
+
+/**
+ * The test-scope «После теста» zone, split at «Итоги теста»: pages before it render
+ * ahead of the built-in results screen, pages after it are deferred to
+ * {@link PageSequenceResult.postResultsPages}. The boundary node itself is not
+ * rendered here — the results screen IS that node.
+ *
+ * The order is the one the editor draws the zone in («Структура», `afterCombined` in
+ * `start-pages-section.tsx`): the author pages plus the «Итоги теста» row, stable-sorted
+ * by `sortOrder`, so a tie keeps the author page ahead of the results. Deriving it any
+ * other way would let the run disagree with the structure the author arranged.
  */
 export function buildAfterZone(contentPages: FlowContentPage[] | null | undefined): {
   preResults: FlowItem[];
   postResultsPages: FlowContentPage[];
 } {
-  const preResults: FlowItem[] = [];
-  const postResultsPages: FlowContentPage[] = [];
-  let seenSummary = false;
-  for (const page of contentPagesFor(contentPages, null, "after")) {
-    if (page.type === "summary") {
-      seenSummary = true;
-      continue;
-    }
-    if (seenSummary) postResultsPages.push(page);
-    else preResults.push({ kind: "content", page, isRouter: false });
-  }
-  return { preResults, postResultsPages };
+  const afterPages = contentPagesFor(contentPages, null, "after");
+  const boundary = resultsBoundary(contentPages, afterPages);
+  const authorPages = afterPages.filter((p) => p !== boundary && p.type !== "summary");
+  const toItem = (page: FlowContentPage): FlowItem => ({ kind: "content", page, isRouter: false });
+  if (!boundary) return { preResults: authorPages.map(toItem), postResultsPages: [] };
+  // `Array.prototype.sort` is stable (ES2019): equal `sortOrder` keeps the input order,
+  // author pages first — exactly as the editor lists them.
+  const combined = [...authorPages, boundary].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const at = combined.indexOf(boundary);
+  return {
+    preResults: combined.slice(0, at).map(toItem),
+    postResultsPages: combined.slice(at + 1),
+  };
 }
 
 /**

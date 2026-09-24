@@ -235,6 +235,42 @@ describe("page-sequence — «После теста» summary boundary", () => {
     expect(postResultsPages.map((p) => p.id)).toEqual(["post-results"]);
   });
 
+  // «Итоги теста» — системная строка вида `results`. Её отфильтровывает contentPagesFor, и
+  // граница по одному лишь `type: "summary"` не находилась никогда: страница, поставленная
+  // автором после итогов, игралась ДО них (отладчик «Сертификации руководителей», 2026-09-24).
+  it("splits the zone at the «Итоги теста» system row, as the editor lists it", () => {
+    const { sequence, postResultsPages } = buildPageSequence({
+      flowMode: "linear_by_topics",
+      contentPages: [
+        page({ id: "results", kind: "results", type: "summary", position: "after", sortOrder: 7 }),
+        page({ id: "how-to-read", position: "after", sortOrder: 8 }),
+      ],
+      flatQuestions: [],
+    });
+    expect(ids(sequence)).toEqual([]);
+    expect(postResultsPages.map((p) => p.id)).toEqual(["how-to-read"]);
+  });
+
+  it("orders pages around the results row by sortOrder; a tie keeps the author page first", () => {
+    const zone = buildAfterZone([
+      page({ id: "post", position: "after", sortOrder: 5 }),
+      page({ id: "results", kind: "results", position: "after", sortOrder: 3 }),
+      page({ id: "tie", position: "after", sortOrder: 3 }),
+      page({ id: "pre", position: "after", sortOrder: 1 }),
+    ]);
+    expect(zone.preResults.map((i) => (i as any).page.id)).toEqual(["pre", "tie"]);
+    expect(zone.postResultsPages.map((p) => p.id)).toEqual(["post"]);
+  });
+
+  it("router mode plays only the pre-results part at the hub's «Завершить»", () => {
+    const zone = buildAfterZone([
+      page({ id: "results", kind: "results", position: "after", sortOrder: 1 }),
+      page({ id: "after-results", position: "after", sortOrder: 2 }),
+    ]);
+    expect(zone.preResults).toEqual([]);
+    expect(zone.postResultsPages.map((p) => p.id)).toEqual(["after-results"]);
+  });
+
   it("keeps the whole zone pre-results when no summary boundary exists", () => {
     const { sequence, postResultsPages } = buildPageSequence({
       flowMode: "linear_flat",
