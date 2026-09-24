@@ -199,6 +199,16 @@ describe("ItemQualityPanel", () => {
     expect(screen.getByText(/доля наблюдений пришла из импорта \(40 %\)/)).toBeTruthy();
   });
 
+  it("у теста, где все задания измерительные, вкладка показывает только шкалы (FR-52)", () => {
+    // Вскрыто приёмкой: таблица с восемью строками «мало данных · 0 из 30» и плитками с
+    // прочерками читается как поломка экрана, хотя всё в порядке — проверять просто нечего.
+    render(<ItemQualityPanel view={view({ measurementOnly: true })} />);
+
+    expect(screen.getByText("Тест измерительный")).toBeTruthy();
+    expect(screen.queryByText("Надёжность (альфа)")).toBeNull();
+    expect(screen.queryByText("Задания")).toBeNull();
+  });
+
   it("счётчик «под подозрением» считает задания с признаками, а не все подряд", () => {
     const clean = row({ questionId: "q1" });
     const broken = row({

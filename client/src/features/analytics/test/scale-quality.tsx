@@ -124,11 +124,12 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
         const columns = [
           {
             key: "item",
+            width: "38%",
             header: "Пункт",
             frozen: true,
             render: (row: ScaleItemRow) => (
               <Stack gap={1}>
-                <span>{row.prompt}</span>
+                <span className="tb-psy-prompt">{row.prompt}</span>
                 <Text variant="body-xs" tone="muted">
                   {row.observations} {pluralize(row.observations, "ответ", "ответа", "ответов")}
                 </Text>
@@ -137,6 +138,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
           },
           {
             key: "distribution",
+            width: "26%",
             header: "Распределение ответов",
             render: (row: ScaleItemRow) => (
               <GradeHistogram distribution={row.distribution} labels={row.gradeLabels} />
@@ -144,6 +146,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
           },
           {
             key: "itemRest",
+            width: "16%",
             header: (
               <Tooltip
                 content="Корреляция вклада пункта с вкладом остальных пунктов этой шкалы. Отрицательная означает, что пункт ведёт себя противоположно своей шкале."
@@ -157,6 +160,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
           },
           {
             key: "flag",
+            width: "20%",
             header: "Признак",
             render: (row: ScaleItemRow) => {
               if (row.againstScale) {

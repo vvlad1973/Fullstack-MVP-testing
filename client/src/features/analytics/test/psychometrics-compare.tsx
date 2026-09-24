@@ -173,7 +173,10 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
       key: "question",
       header: "Задание",
       frozen: true,
-      render: (row: { questionId: string; prompt: string }) => <span>{row.prompt}</span>,
+      width: "40%",
+      render: (row: { questionId: string; prompt: string }) => (
+        <span className="tb-psy-prompt">{row.prompt}</span>
+      ),
     },
     ...slices.map(slice => ({
       key: `slice-${slice.id}`,

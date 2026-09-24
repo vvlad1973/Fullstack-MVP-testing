@@ -142,23 +142,26 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
   const columns = [
     {
       key: "option",
+      width: "30%",
       header: "Вариант",
       frozen: true,
       render: (row: OptionRow) => (
         <Stack gap={1}>
-          <span>{row.label}</span>
+          <span className="tb-psy-prompt">{row.label}</span>
           {row.correct ? <Text variant="body-xs" tone="muted">верный ответ</Text> : null}
         </Stack>
       ),
     },
     {
       key: "share",
+      width: "10%",
       header: "Выбрали",
       numeric: true,
       render: (row: OptionRow) => <Text variant="body-s">{percent(row.share)}</Text>,
     },
     {
       key: "bottom",
+      width: "19%",
       header: <TermHeader
         term={`Слабые ${Math.round((groups?.share ?? 0.27) * 100)} %`}
         hint="Нижние 27 % участников по баллу за весь тест. Число — доля ИЗ ЭТОЙ ГРУППЫ, выбравшая вариант; колонка целиком даёт 100 %. Дистрактор работает, когда здесь больше, чем у сильных."
@@ -167,6 +170,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
     },
     {
       key: "top",
+      width: "19%",
       header: <TermHeader
         term={`Сильные ${Math.round((groups?.share ?? 0.27) * 100)} %`}
         hint="Верхние 27 % участников по баллу за весь тест. Число — доля ИЗ ЭТОЙ ГРУППЫ, выбравшая вариант; колонка целиком даёт 100 %. У верного ответа здесь должно быть больше, чем у слабых."
@@ -175,6 +179,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
     },
     {
       key: "rest",
+      width: "12%",
       header: <TermHeader
         term="Корреляция с остатком"
         hint="Корреляция выбора варианта с баллом за остальные задания. У верного ответа должна быть положительной, у дистрактора — отрицательной. Положительная у дистрактора значит, что его выбирают сильные: вариант частично верен либо ключ неверен."
@@ -184,6 +189,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
     },
     {
       key: "flag",
+      width: "10%",
       header: "Признак",
       render: (row: OptionRow) => {
         const flag = optionFlag(row);

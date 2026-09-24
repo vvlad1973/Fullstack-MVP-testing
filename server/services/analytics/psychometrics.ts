@@ -128,6 +128,19 @@ export interface TestPsychometrics {
 const TOO_HARD = 0.2;
 const TOO_EASY = 0.9;
 
+/**
+ * Насколько отрицательной должна быть дискриминативность, чтобы это был ПРИЗНАК, а не шум.
+ *
+ * Вскрыто приёмкой на синтетических данных: задание, которое решают 97 %, получило ярлык
+ * «Сильные ошибаются чаще» при r = −0,02 и D = 0,00. У задания без разброса корреляция
+ * болтается около нуля, и её знак не значит ничего — зато ярлык первого приоритета перекрыл
+ * осмысленное «Слишком лёгкое» и увёл автора чинить исправное задание.
+ *
+ * Формально FR-14 называет красным флагом любое `r < 0`; порог не отменяет правило, а отделяет
+ * направление от дрожания нуля.
+ */
+const NEGATIVE_DISCRIMINATION = -0.05;
+
 /** Сколько вариантов у задания: по ним считается вероятность случайного попадания. */
 function optionCountOf(question: QuestionInfo | undefined): number {
   const options = (question?.dataJson as { options?: unknown[] } | null)?.options;
@@ -241,7 +254,8 @@ export function computePsychometrics(
         // Достаточно ОДНОГО из двух показателей: они считаются по-разному и ловят разное, а
         // симптом у них один — сильные ошибаются чаще слабых (FR-16).
         negativeDiscrimination: coefficientEnough
-          && ((itemRest !== null && itemRest < 0) || (groups !== null && groups.index < 0)),
+          && ((itemRest !== null && itemRest <= NEGATIVE_DISCRIMINATION)
+            || (groups !== null && groups.index <= NEGATIVE_DISCRIMINATION)),
         atChanceLevel: coefficientEnough && corrected !== null && corrected <= 0,
       },
     });

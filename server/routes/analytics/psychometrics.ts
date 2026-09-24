@@ -272,6 +272,11 @@ router.get(
           items: psychometrics.items.map(item => ({ ...item, ...labels.get(item.questionId) })),
           observations: matrix.observations.length,
           firstAttemptOnly: onlyFirst,
+          // FR-52: тест, где ВСЕ задания измерительные. Трудности и дискриминации там нет по
+          // построению, и таблица с восемью строками «мало данных · 0 из 30» читается как
+          // поломка — вскрыто приёмкой на синтетических данных.
+          measurementOnly: psychometrics.items.length > 0
+            && psychometrics.items.every(item => item.observations === 0),
           // FR-39, FR-40: два повода к одному баннеру — неоднородная выдача и заметная доля
           // импорта, где исход бинарный, а редакция неизвестна.
           bias: {

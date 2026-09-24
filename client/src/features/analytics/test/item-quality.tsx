@@ -80,6 +80,8 @@ export interface ItemQualityView {
   firstAttemptOnly: boolean;
   /** Поводы к баннеру смещения (FR-39, FR-40); отсутствует у старых ответов ручки. */
   bias?: { unevenDelivery: boolean; importShare: number };
+  /** Все задания теста измерительные: трудности и дискриминации у него нет (FR-52). */
+  measurementOnly?: boolean;
 }
 
 export interface ItemQualityPanelProps {
@@ -254,6 +256,9 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
   const columns = [
     {
       key: "question",
+      // Ширины заданы долями НАМЕРЕННО: без них задание с абзацем текста растягивает первую
+      // колонку и вытесняет за край остальные — вскрыто приёмкой на синтетических данных.
+      width: "38%",
       header: "Задание",
       frozen: true,
       render: (row: ItemQualityRow) => (
@@ -262,7 +267,8 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
             {row.questionType
               ? <QuestionTypeIcon type={row.questionType as QuestionType} size={16} />
               : null}
-            <span>{row.prompt ?? row.questionId}</span>
+            {/* Текст задания переносится и не растягивает колонку: у задания бывает абзац. */}
+            <span className="tb-psy-prompt">{row.prompt ?? row.questionId}</span>
           </span>
           {row.topicName ? <Text variant="body-xs" tone="muted">{row.topicName}</Text> : null}
         </Stack>
@@ -270,6 +276,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
     },
     {
       key: "flag",
+      width: "26%",
       header: <TermHeader
         term="Признак"
         hint="Что не так с заданием. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
@@ -287,6 +294,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
     },
     {
       key: "difficulty",
+      width: "12%",
       header: <TermHeader
         term="Трудность"
         hint="Средняя доля набранного балла: 0 — не решил никто, 1 — решили все. Приемлемо 0,20 — 0,80; выше 0,90 задание ничего не отсеивает."
@@ -302,6 +310,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
     },
     {
       key: "itemRest",
+      width: "16%",
       header: <TermHeader
         term="Дискриминативность"
         hint="Отделяет ли задание сильных от слабых: корреляция балла за него с баллом за остальные задания формы. Хорошо от 0,30, отрицательная — почти всегда ошибка в ключе."
@@ -315,6 +324,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
     },
     {
       key: "observations",
+      width: "8%",
       header: <TermHeader
         term="n"
         hint="Сколько участников выборки видели это задание. Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100."
@@ -323,6 +333,24 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
       render: (row: ItemQualityRow) => <Text variant="body-s">{row.observations}</Text>,
     },
   ];
+
+  // FR-52: у теста, где все задания измерительные, показывать нечего, кроме раздела шкал.
+  // Плитки надёжности и таблица заданий с прочерками читались бы как поломка экрана.
+  if (view.measurementOnly) {
+    return (
+      <Card variant="outlined">
+        <CardBody>
+          <Stack gap={1}>
+            <Text variant="body-m" weight="semibold">Тест измерительный</Text>
+            <Text variant="body-s" tone="muted">
+              У заданий без эталона нет ни трудности, ни дискриминативности: проверять нечего.
+              Качество такого теста описывает раздел шкал ниже.
+            </Text>
+          </Stack>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Stack gap={4}>
