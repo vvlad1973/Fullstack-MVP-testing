@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
-import { ChevronLeft, RotateCcw } from "lucide-react";
+import { ChevronLeft, Lock, RotateCcw } from "lucide-react";
 import { Box, Button, Card, CardBody, CardHeader, Center, Cluster, ModalDialog, Stack, Text } from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingState } from "@/components/loading-state";
@@ -313,6 +313,12 @@ type RetakeGateState = {
   availableAt: string | null;
   daysUntil: number | null;
 };
+
+/**
+ * PRD-67: how long the «leaving closes it» / «section closed» notices stay. Two sentences
+ * the learner must actually read — the default five seconds is too short.
+ */
+const LEAVE_NOTICE_MS = 8000;
 
 /** Start-screen facts derived from one `/api/learner/tests` entry (component state shape). */
 type TestMetadata = {
@@ -787,14 +793,19 @@ export default function TakeTestPage() {
     const unit = leaveUnitOf(leaveTopicId);
     if (closedTopics.has(unit) || leaveWarnedRef.current.has(unit)) return;
     leaveWarnedRef.current.add(unit);
+    // Tone and wording follow approved/prd67-section-close-on-leave.html (state s-enter).
     toast(
       isFlatFlow
         ? {
+            variant: "warning",
+            duration: LEAVE_NOTICE_MS,
             title: "Выход из теста завершит попытку",
             description:
               "Если закрыть браузер или перезагрузить страницу, попытка будет завершена с данными ответами.",
           }
         : {
+            variant: "warning",
+            duration: LEAVE_NOTICE_MS,
             title: "Выход из раздела закроет его",
             description:
               "Если перейти дальше, вернуться к списку разделов или закрыть браузер, вернуться в этот раздел будет нельзя.",
@@ -2365,6 +2376,9 @@ export default function TakeTestPage() {
     // The server already froze every answer; this only hands the run in.
     if (reason === "test-closed") {
       toast({
+        variant: "info",
+        duration: LEAVE_NOTICE_MS,
+        icon: <Lock size={18} aria-hidden="true" />,
         title: "Попытка завершена",
         description: "Вы вышли из теста до завершения. Засчитаны ответы, данные до выхода.",
       });
@@ -2378,6 +2392,9 @@ export default function TakeTestPage() {
       // PRD-67 (FR-12): the learner came back into a section they had left.
       const topicName = flatQuestions.find((q) => q.topicId === expiredTopicId)?.topicName;
       toast({
+        variant: "info",
+        duration: LEAVE_NOTICE_MS,
+        icon: <Lock size={18} aria-hidden="true" />,
         title: topicName ? `Раздел «${topicName}» закрыт` : "Раздел закрыт",
         description: "Вы вышли из него до завершения. Ответы, данные до выхода, сохранены.",
       });
