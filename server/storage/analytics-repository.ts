@@ -448,6 +448,69 @@ export class AnalyticsRepository {
   }
 
   /**
+   * PRD-66 FR-06: ответы НАЗВАННЫХ прохождений из LMS — сырьё матрицы «респондент × задание».
+   *
+   * Отличается от {@link selectAnswersForTest} тем, по чему отбирает: тот читает ВСЕ ответы
+   * теста, а психометрика считает по выборке, которую уже задали фильтр экрана и срез. Читать
+   * весь тест и отсеивать лишнее в памяти значило бы тянуть из базы то, что заведомо не нужно,
+   * и — хуже — рисковать разойтись с выборкой прохождений на её же данных.
+   *
+   * Строка несёт `topic_id`: по нему ответ находит свой вариант выдачи в карте прохождения.
+   */
+  async selectAnswersForAttempts(attemptIds: string[]): Promise<TestAnswerRow[]> {
+    if (attemptIds.length === 0) return [];
+    const rows = await db
+      .select({
+        questionId: scormAnswers.questionId,
+        attemptId: scormAnswers.attemptId,
+        result: scormAnswers.result,
+        latencyMs: scormAnswers.latencyMs,
+        points: scormAnswers.points,
+        maxPoints: scormAnswers.maxPoints,
+        userAnswer: scormAnswers.userAnswerJson,
+        topicId: scormAnswers.topicId,
+        origin: scormAttempts.origin,
+      })
+      .from(scormAnswers)
+      .innerJoin(scormAttempts, eq(scormAttempts.id, scormAnswers.attemptId))
+      .where(inArray(scormAnswers.attemptId, attemptIds));
+
+    return rows.map(row => ({
+      questionId: row.questionId,
+      attemptId: row.attemptId,
+      result: (row.result ?? "incorrect") as TestAnswerRow["result"],
+      latencyMs: row.latencyMs ?? null,
+      points: row.points ?? null,
+      maxPoints: row.maxPoints ?? null,
+      userAnswer: row.userAnswer,
+      topicId: row.topicId ?? null,
+      origin: (row.origin ?? "telemetry") as ObservationSourceName,
+    }));
+  }
+
+  /**
+   * PRD-66 FR-08: членство НАЗВАННЫХ участников в группах, одним запросом.
+   *
+   * Группа — ось разбиения выборки, и спрашивать её по участнику отдельно значит выдать запрос
+   * на каждого человека в выборке: на тысяче прохождений это тысяча обращений к базе ради
+   * признака, который читается одним.
+   */
+  async selectGroupsOfUsers(userIds: string[]): Promise<Map<string, string[]>> {
+    const out = new Map<string, string[]>();
+    if (userIds.length === 0) return out;
+    const rows = await db
+      .select({ userId: userGroups.userId, groupId: userGroups.groupId })
+      .from(userGroups)
+      .where(inArray(userGroups.userId, userIds));
+    for (const row of rows) {
+      const list = out.get(row.userId);
+      if (list) list.push(row.groupId);
+      else out.set(row.userId, [row.groupId]);
+    }
+    return out;
+  }
+
+  /**
    * PRD-56 FR-21: значения шкал прохождений теста — ОБА источника одной выборкой.
    *
    * Хранятся они по-разному: веб пишет `result_json.scaleResults` записью с сырым значением и
@@ -512,6 +575,8 @@ export interface TestAnswerRow {
    * задания: у него нет эталона, и рассказать о нём можно только тем, ЧТО выбирали.
    */
   userAnswer: unknown;
+  /** Тема задания: по ней ответ находит свой вариант выдачи. `null` у старых строк. */
+  topicId?: string | null;
   origin: ObservationSourceName;
 }
 

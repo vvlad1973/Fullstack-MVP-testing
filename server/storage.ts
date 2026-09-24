@@ -299,6 +299,7 @@ export interface IStorage {
   createAttempt(attempt: InsertAttempt): Promise<Attempt>;
   getAttempt(id: string): Promise<Attempt | undefined>;
   updateAttempt(id: string, updates: Partial<Attempt>): Promise<Attempt | undefined>;
+  getAttemptsByIds(ids: string[]): Promise<Attempt[]>;
   getAttemptsByUser(userId: string): Promise<Attempt[]>;
   getAttemptsByUserAndTest(userId: string, testId: string): Promise<Attempt[]>;
   deleteAttemptsByUserAndTest(userId: string, testId: string): Promise<void>;
@@ -350,6 +351,8 @@ export interface IStorage {
   selectObservations(query: ObservationQuery): Promise<ObservationRows>;
   /** PRD-56 FR-25: ответы прохождений теста, пришедших из LMS. */
   selectAnswersForTest(testId: string): Promise<TestAnswerRow[]>;
+  selectAnswersForAttempts(attemptIds: string[]): Promise<TestAnswerRow[]>;
+  selectGroupsOfUsers(userIds: string[]): Promise<Map<string, string[]>>;
   /** PRD-56 FR-21: значения шкал прохождений теста — оба источника одной выборкой. */
   selectScaleValuesForTest(testId: string): Promise<ScaleValuesRow[]>;
   /** PRD-56 FR-07b: срезы — сохранённые наборы условий отбора. */
@@ -1068,6 +1071,10 @@ export class DatabaseStorage implements IStorage {
     return this.attemptsRepo.updateAttempt(id, updates);
   }
 
+  getAttemptsByIds(ids: string[]): Promise<Attempt[]> {
+    return this.attemptsRepo.getAttemptsByIds(ids);
+  }
+
   getAttemptsByUser(userId: string): Promise<Attempt[]> {
     return this.attemptsRepo.getAttemptsByUser(userId);
   }
@@ -1198,6 +1205,14 @@ export class DatabaseStorage implements IStorage {
 
   selectAnswersForTest(testId: string): Promise<TestAnswerRow[]> {
     return this.analyticsRepo.selectAnswersForTest(testId);
+  }
+
+  selectAnswersForAttempts(attemptIds: string[]): Promise<TestAnswerRow[]> {
+    return this.analyticsRepo.selectAnswersForAttempts(attemptIds);
+  }
+
+  selectGroupsOfUsers(userIds: string[]): Promise<Map<string, string[]>> {
+    return this.analyticsRepo.selectGroupsOfUsers(userIds);
   }
 
   getSlices(ownerId: string): Promise<AnalyticsSlice[]> {
