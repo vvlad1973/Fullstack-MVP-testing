@@ -123,6 +123,7 @@ const legacyState = JSON.stringify({
   timer: { limitMinutes: 30, baselineTotalSec: 120, sig: "unsigned-legacy" },
   retake: { lastCompletedDate: "2026-08-02" },
   sectionBudgets: { t1: { remainingMs: 420000 } },
+  sectionGate: { open: null, closed: ["t1"] },
 });
 
 describe("учёт попыток (maxAttempts)", () => {
@@ -261,7 +262,8 @@ describe("страж: приведение формата не теряет по
    * механизм, и ни один из них не упоминается в требованиях PRD-36 — поэтому список
    * держится здесь: миграция, собирающая новый объект, обязана перенести всё.
    */
-  const CARRIED = ["attemptsUsed", "timer", "retake", "sectionBudgets"];
+  // PRD-67: `sectionGate` — разделы, закрытые выходом; потеря открыла бы их снова.
+  const CARRIED = ["attemptsUsed", "timer", "retake", "sectionBudgets", "sectionGate"];
 
   it("каждое поле старого состояния доезжает до нового", () => {
     const migrated = RS.migrate(JSON.parse(legacyState), TEST_DATA_BASE);

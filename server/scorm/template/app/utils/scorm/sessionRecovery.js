@@ -3,20 +3,20 @@
 // Manages saving and restoring mid-test session progress.
 //
 // Design:
-//   - No timer  → save current question index + answers on every question advance
-//                 and restore on next load (user continues where they left off)
-//   - With timer → time is gone; cannot restore. Show last attempt result.
+//   - Save the current question index + answers on every question advance and restore
+//     them on the next load (the learner continues where they left off).
+//   - Timed tests resume too (PRD-20 5.12): the remaining time comes back from the
+//     active-time anchor, not from a fresh limit.
 //   - Adaptive   → mid-session state is too complex to restore. Show last attempt.
 //
 // PRD-4 v1.1 §3.2 (Phase 4f) — sectional recovery:
 //   - router_by_topics: completed sections + their results are persisted across
-//     SCO reload. In-progress sections are NOT restored (learner re-enters the
-//     section and re-runs questions); the router shows the previously-completed
-//     topics as «Пройдена». Section timers are not persisted — time passing
-//     while the SCO was closed is real-world unrecoverable, so re-entry to a
-//     timed section starts the timer fresh.
-//   - linear_by_topics: same conservative behaviour as before (no per-section
-//     checkpoint, only mid-question restore when no test timer is set).
+//     SCO reload, and PRD-20 (2e) resumes INSIDE an unfinished topic.
+//   - Section time is persisted too (`suspend_data.sectionBudgets`, timer.js): a
+//     re-entered section continues from its frozen remainder.
+//   - PRD-67: under «Закрывать раздел при выходе» a section the previous session broke
+//     off inside is CLOSED on load (timer.js closeInterruptedSectionOnLoad) and comes
+//     back «Пройдена»; a test without sections is handed in.
 //
 // currentSession stored inside suspend_data object:
 //   { attemptsUsed, attempts: [...], currentSession: { ... } | null }
@@ -250,10 +250,12 @@ function restoreRouterSession(session) {
   state.deliveredForms = session.f || {};
   // Drop in-progress topic — learner restarts that section.
   state.currentRouterTopic = null;
-  // Mark any in-progress topic as notStarted so it's re-enterable.
+  // Mark any in-progress topic as notStarted so it's re-enterable — unless the learner
+  // left it under «Закрывать раздел при выходе» (PRD-67): then it is done for good.
   Object.keys(state.routerTopicStates).forEach(function (tid) {
     if (state.routerTopicStates[tid] === 'inProgress') {
-      state.routerTopicStates[tid] = 'notStarted';
+      var closed = typeof isSectionClosedByLeave === 'function' && isSectionClosedByLeave(tid);
+      state.routerTopicStates[tid] = closed ? 'completed' : 'notStarted';
     }
   });
   console.log(

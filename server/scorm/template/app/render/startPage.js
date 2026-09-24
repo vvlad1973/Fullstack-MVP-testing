@@ -299,6 +299,8 @@ function startTest() {
     showToast('Попытки закончились', 'warn');
     return;
   }
+  // A new attempt starts with clean section budgets and no closed sections (PRD-67).
+  if (typeof resetSectionRunState === 'function') resetSectionRunState();
 
   // Send telemetry start
   Telemetry.start();
@@ -391,6 +393,8 @@ function restart() {
     showToast('Попытки закончились', 'warn');
     return;
   }
+  // A new attempt starts with clean section budgets and no closed sections (PRD-67).
+  if (typeof resetSectionRunState === 'function') resetSectionRunState();
 
   // ===== ЗАПУСК ТЕСТА =====
   if (typeof goToPageSequenceIndex === 'function') goToPageSequenceIndex(0);

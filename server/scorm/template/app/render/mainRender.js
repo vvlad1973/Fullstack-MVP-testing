@@ -49,6 +49,11 @@ function render() {
     // question is a no-op, so a plain redraw neither loses nor double-counts time.
     if (typeof TBQuestionTime !== 'undefined') TBQuestionTime.leave();
 
+    // PRD-67: every screen change passes here, so this is where a section is opened, left
+    // (and closed, when the test says so) or skipped as already closed. A redirect draws
+    // its own screen — this one must not be drawn over it.
+    if (typeof syncSectionLeaveGate === 'function' && syncSectionLeaveGate()) return;
+
     // Check for adaptive mode
     if (TEST_DATA.mode === 'adaptive' && state.adaptiveState) {
       renderAdaptive();

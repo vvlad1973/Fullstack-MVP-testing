@@ -408,7 +408,14 @@
     if (!isRouterMode()) return false;
     if (typeof stopSectionTimer === "function") stopSectionTimer();
     var topicId = state.currentRouterTopic;
-    if (topicId && state.routerTopicStates[topicId] === "inProgress") {
+    // PRD-67 (FR-09): leaving a STARTED section under «Закрывать раздел при выходе» closes
+    // it — it goes back to the hub «Пройдена», not «Не начата». A section left before its
+    // first question was never opened, so it stays re-enterable as before.
+    if (typeof leaveOpenSection === "function") leaveOpenSection();
+    var closed = topicId && typeof isSectionClosedByLeave === "function" && isSectionClosedByLeave(topicId);
+    if (closed) {
+      state.routerTopicStates[topicId] = "completed";
+    } else if (topicId && state.routerTopicStates[topicId] === "inProgress") {
       delete state.routerTopicStates[topicId];
     }
     state.currentRouterTopic = null;
