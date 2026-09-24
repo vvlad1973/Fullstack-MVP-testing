@@ -72,6 +72,7 @@ vi.mock("../template-content-screen", () => ({
     <div data-testid="content-screen">
       <span data-testid="cs-page">{props.page.id}</span>
       <button data-testid="cs-next" onClick={props.onNext}>{props.nextLabel ?? "Далее"}</button>
+      {props.onBack && <button data-testid="cs-back" onClick={props.onBack}>Назад</button>}
     </div>
   ),
 }));
@@ -262,6 +263,26 @@ describe("<ResultPage /> templated surface", () => {
     expect(screen.getByTestId("cs-next").textContent).toBe("Завершить тест");
     fireEvent.click(screen.getByTestId("cs-next"));
     expect(navigateSpy).toHaveBeenCalledWith("/learner");
+    vi.unstubAllGlobals();
+  });
+
+  it("«Назад» steps back through those pages and from the first one to the results screen", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ layout: "<div></div>" }) }));
+    queryState.value = {
+      isLoading: false,
+      error: null,
+      data: fullAttempt({ postResultsPages: [{ id: "how-to-read" }, { id: "contacts" }] }),
+    };
+    render(<ResultPage />);
+    fireEvent.click(screen.getByTestId("ts-next"));
+    await screen.findByTestId("content-screen");
+    fireEvent.click(screen.getByTestId("cs-next"));
+    expect(screen.getByTestId("cs-page").textContent).toBe("contacts");
+    fireEvent.click(screen.getByTestId("cs-back"));
+    expect(screen.getByTestId("cs-page").textContent).toBe("how-to-read");
+    fireEvent.click(screen.getByTestId("cs-back"));
+    expect(screen.getByTestId("template-screen")).toBeInTheDocument();
+    expect(navigateSpy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 

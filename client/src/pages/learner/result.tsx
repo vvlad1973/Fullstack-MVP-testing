@@ -219,6 +219,9 @@ function TemplateResultPage({ attempt }: { attempt: AttemptWithResult }) {
           // Последняя страница закрывает прохождение — той же подписью, что в пакете.
           nextLabel={last ? "Завершить тест" : undefined}
           onNext={() => (last ? navigate(finishTarget) : setPostIndex(postIndex + 1))}
+          // «Назад» идёт по цепочке этих страниц, а с первой — к экрану итогов, как в пакете
+          // (`prevPostResults`). Не в прохождение: попытка уже закончена.
+          onBack={() => setPostIndex(postIndex > 0 ? postIndex - 1 : null)}
         />
       </div>
     );
