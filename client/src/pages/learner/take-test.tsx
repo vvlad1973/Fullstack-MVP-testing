@@ -60,7 +60,9 @@ import {
   prevAccessibleIndex,
   nextAccessibleIndex,
   forceAdvanceTarget,
+  type SectionStopReason,
 } from "./use-section-timer";
+import { closesOnLeave, WHOLE_TEST_SECTION } from "@shared/flow/section-budget";
 import { t } from "@/lib/i18n";
 import { reportClientError } from "@/lib/report-error";
 import { useAuth } from "@/lib/auth";
@@ -699,6 +701,8 @@ export default function TakeTestPage() {
     showSectionResults: boolean;
     /** Авторское «когда отвечено всё, обзор не нужен» — правило в `review-gate`. */
     skipReviewWhenComplete: boolean;
+    /** PRD-67: leaving a started section with a time limit closes it. */
+    closeSectionOnLeave: boolean;
     answerCommitScope: "test" | "section";
   }>({
     allowReturnToUnanswered: false,
@@ -707,6 +711,7 @@ export default function TakeTestPage() {
     quickAdvance: true,
     showSectionResults: true,
     skipReviewWhenComplete: false,
+    closeSectionOnLeave: false,
     answerCommitScope: "test",
   });
   // PRD-34 (FR-01): настройки защиты текста задания. Как и navSettings, приходят с
@@ -724,14 +729,71 @@ export default function TakeTestPage() {
   // PRD-4 v1.1 §3.2 — per-topic (section) timer for the standard flow. The
   // expiry handler is invoked via a ref so it can read the freshest state
   // (lockedTopics / answers / currentIndex) without re-subscribing the hook.
-  const sectionExpireRef = useRef<(topicId: string) => void>(() => {});
-  const { sectionRemainingSeconds, lockedTopics } = useSectionTimer({
+  const sectionExpireRef = useRef<(topicId: string, reason: SectionStopReason) => void>(() => {});
+  const {
+    sectionRemainingSeconds,
+    lockedTopics,
+    closedTopics,
+    synced: sectionTimerSynced,
+  } = useSectionTimer({
     attemptId: attempt?.id ?? null,
     questions: flatQuestions,
     currentIndex,
-    enabled: testMode === "standard" && phase === "question" && flatQuestions.length > 0,
-    onExpire: (topicId) => sectionExpireRef.current(topicId),
+    // PRD-67: under «Закрывать раздел при выходе» the section-results screen and the router
+    // hub are past the section — the learner has left it. Without the setting both keep the
+    // old behaviour (the section clock is not stopped there).
+    enabled:
+      testMode === "standard" &&
+      phase === "question" &&
+      flatQuestions.length > 0 &&
+      !(navSettings.closeSectionOnLeave && (sectionResultView || showHub)),
+    onExpire: (topicId, reason) => sectionExpireRef.current(topicId, reason),
   });
+
+  // PRD-67: which unit a leave closes (the topic, or the whole test without sections) and
+  // whether the setting acts on it — the SAME rule the server applies (`closesOnLeave`).
+  const isFlatFlow = flowStructure.flowMode === "linear_flat";
+  const leaveUnitOf = (topicId: string): string => (isFlatFlow ? WHOLE_TEST_SECTION : topicId);
+  const leaveGuarded = (topicId: string): boolean => {
+    const ownLimit = isFlatFlow
+      ? flatQuestions.reduce((m, q) => Math.max(m, q.sectionTimeLimitMinutes ?? 0), 0)
+      : (flatQuestions.find((q) => q.topicId === topicId)?.sectionTimeLimitMinutes ?? 0);
+    return closesOnLeave({
+      enabled: navSettings.closeSectionOnLeave,
+      testLimitMinutes: timeLimitMinutes,
+      sectionLimitMinutes: ownLimit,
+    });
+  };
+  // The topic the learner is inside right now, as far as a leave is concerned.
+  const leaveTopicId =
+    testMode === "standard" && phase === "question" && !sectionResultView && !showHub
+      ? (flatQuestions[currentIndex]?.topicId ?? null)
+      : null;
+  const leaveWarnedRef = useRef<Set<string>>(new Set());
+
+  // PRD-67 (FR-11): warn once per unit, on its first question, that leaving closes it.
+  // Waits for the server's first answer: after a reload the section may ALREADY be
+  // closed, and «leaving will close it» followed by «it is closed» would contradict itself.
+  useEffect(() => {
+    if (!leaveTopicId || !sectionTimerSynced || !leaveGuarded(leaveTopicId)) return;
+    const unit = leaveUnitOf(leaveTopicId);
+    if (closedTopics.has(unit) || leaveWarnedRef.current.has(unit)) return;
+    leaveWarnedRef.current.add(unit);
+    toast(
+      isFlatFlow
+        ? {
+            title: "Выход из теста завершит попытку",
+            description:
+              "Если закрыть браузер или перезагрузить страницу, попытка будет завершена с данными ответами.",
+          }
+        : {
+            title: "Выход из раздела закроет его",
+            description:
+              "Если перейти дальше, вернуться к списку разделов или закрыть браузер, вернуться в этот раздел будет нельзя.",
+          },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaveTopicId, sectionTimerSynced, closedTopics]);
 
   // Tracks mount so the adaptive expiry retry loop stops after navigation away.
   const mountedRef = useRef(true);
@@ -1182,6 +1244,7 @@ export default function TakeTestPage() {
             : !(data.attempt.allowReturnToUnanswered ?? false),
         showSectionResults: data.attempt.showSectionResults ?? true,
         skipReviewWhenComplete: data.attempt.skipReviewWhenComplete ?? false,
+        closeSectionOnLeave: data.attempt.closeSectionOnLeave ?? false,
         answerCommitScope: data.attempt.answerCommitScope ?? "test",
       });
       setProtectionSettings({
@@ -1388,6 +1451,7 @@ export default function TakeTestPage() {
           : !(data.allowReturnToUnanswered ?? false),
       showSectionResults: data.showSectionResults ?? true,
       skipReviewWhenComplete: data.skipReviewWhenComplete ?? false,
+      closeSectionOnLeave: data.closeSectionOnLeave ?? false,
       answerCommitScope: data.answerCommitScope ?? "test",
     });
     setProtectionSettings({
@@ -2286,17 +2350,36 @@ export default function TakeTestPage() {
   // Section-timer expiry (PRD-4 v1.1 §3.2): the viewed topic ran out of time.
   // Force-advance past it to the next non-locked topic (or finish the test).
   // `lockedTopics` lags the just-expired topic by a tick, so union it in.
-  const handleSectionExpire = (expiredTopicId: string) => {
+  const handleSectionExpire = (expiredTopicId: string, reason: SectionStopReason = "time") => {
+    setStandardFeedbackShown(false);
+    setStandardAnswerResult(null);
+    // PRD-67: a test without sections was left — it is one section, so the attempt is over.
+    // The server already froze every answer; this only hands the run in.
+    if (reason === "test-closed") {
+      toast({
+        title: "Попытка завершена",
+        description: "Вы вышли из теста до завершения. Засчитаны ответы, данные до выхода.",
+      });
+      void forceFinishStandard();
+      return;
+    }
     const locked = new Set(lockedTopics);
     locked.add(expiredTopicId);
     const target = forceAdvanceTarget(flatQuestions, expiredTopicId, currentIndex, locked);
-    setStandardFeedbackShown(false);
-    setStandardAnswerResult(null);
-    toast({
-      variant: "destructive",
-      title: "Время темы истекло",
-      description: target === null ? "Завершаем тест" : "Переходим к следующей теме",
-    });
+    if (reason === "closed") {
+      // PRD-67 (FR-12): the learner came back into a section they had left.
+      const topicName = flatQuestions.find((q) => q.topicId === expiredTopicId)?.topicName;
+      toast({
+        title: topicName ? `Раздел «${topicName}» закрыт` : "Раздел закрыт",
+        description: "Вы вышли из него до завершения. Ответы, данные до выхода, сохранены.",
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Время темы истекло",
+        description: target === null ? "Завершаем тест" : "Переходим к следующей теме",
+      });
+    }
     if (target === null) {
       void forceFinishStandard();
     } else {
@@ -2703,8 +2786,12 @@ export default function TakeTestPage() {
   // wrapper with the SHARED hub markup in its page-content slot — the same cards,
   // classes and open/locked rules the SCORM package renders.
   if (showHub && contentTpl && hubPage) {
+    // PRD-67 (FR-09): a section closed by a leave is done — the hub shows it «Пройдена» and
+    // never reopens it, including after a reload that emptied the local hub state.
+    const hubTopicStates: Record<string, RouterTopicStatus | undefined> = { ...routerTopicStates };
+    for (const topicId of closedTopics) hubTopicStates[topicId] = "completed";
     const hubHubState = {
-      topicStates: routerTopicStates,
+      topicStates: hubTopicStates,
       sectionResults: routerSectionResults,
       // PRD-4 v1.1 §4.7: the SAME gating the package runs — resolved server-side by
       // `shared/flow/flow-policy` and delivered with the attempt. A hub built with
