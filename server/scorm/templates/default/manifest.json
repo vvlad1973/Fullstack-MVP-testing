@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -1530,7 +1530,7 @@
       "isDefault": true,
       "placeholders": [
         { "key": "title", "type": "text", "label": "Заголовок", "required": false },
-        { "key": "body", "type": "richText", "label": "Текст", "required": false }
+        { "key": "body", "type": "html", "label": "Текст", "required": false }
       ]
     }
 ,
