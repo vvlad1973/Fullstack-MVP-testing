@@ -113,6 +113,8 @@ function prd19RuntimeSettings(test: Test) {
     showSectionResults: test.showSectionResults ?? true,
     // Отсутствие в СТАРОМ снимке публикации = прежнее поведение, обзор показывается.
     skipReviewWhenComplete: test.skipReviewWhenComplete ?? false,
+    // PRD-67: absence in an OLD publication snapshot = the pre-PRD-67 freeze-on-leave.
+    closeSectionOnLeave: test.closeSectionOnLeave ?? false,
     // PRD-34 (FR-01, FR-05): настройки защиты. Отсутствие поля в СТАРОМ снимке
     // публикации читается как умолчание — тест, опубликованный до PRD-34, получает защиту.
     copyProtection: test.copyProtection ?? true,

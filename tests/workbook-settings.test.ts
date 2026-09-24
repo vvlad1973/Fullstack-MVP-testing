@@ -55,6 +55,7 @@ const ROUND_TRIP_SOURCE = {
   quickAdvance: true,
   showSectionResults: false,
   skipReviewWhenComplete: true,
+  closeSectionOnLeave: true,
   copyProtection: false,
   protectionWatermark: true,
   protectionHideOnBlur: false,
@@ -358,6 +359,8 @@ describe("реестр листа «Настройки»", () => {
       allowFreeSectionNavigation: true,
       showSectionResults: false,
       skipReviewWhenComplete: true,
+      // PRD-67: добавлен параметр листа; прежние книги без него настройку не трогают.
+      closeSectionOnLeave: true,
       copyProtection: false,
       protectionWatermark: true,
       protectionHideOnBlur: false,
