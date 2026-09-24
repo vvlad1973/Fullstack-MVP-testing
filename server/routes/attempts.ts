@@ -49,7 +49,12 @@ import type { ResultsBlockSettings } from "@shared/template/results-blocks";
 import type { ResultHeadings } from "@shared/template/result-context";
 import type { ChartKindSettings } from "@shared/template/scales-chart";
 import type { ReportInput, AdaptiveReportInput } from "@shared/report/report-html";
-import { pingSection } from "../services/section-timer";
+import {
+  pingSection,
+  buildLeavePolicy,
+  freezeLockedAnswers,
+  type LeavePolicy,
+} from "../services/section-timer";
 import { buildResultsNav, RESULTS_NAV_ACTIONS } from "@shared/template/results-nav";
 import { resolveSystemScreenDir, resolveTemplateDir } from "../services/template-dir";
 import {
@@ -129,6 +134,25 @@ function prd19RuntimeSettings(test: Test) {
       flowMode: resolveFlowPolicy(test.flowPolicyJson).mode,
     }),
   };
+}
+
+/**
+ * PRD-67: the attempt's leave policy — does leaving a section close it, and what unit a
+ * leave closes (the topic, or the whole test when it has no sections). Read from the SAME
+ * version the attempt plays: a snapshot published before the setting carries none and
+ * reads as «off», the pre-PRD-67 freeze.
+ */
+async function leavePolicyForAttempt(snapshotId: string | null, testId: string): Promise<LeavePolicy> {
+  const src = await dataSourceForAttempt(snapshotId);
+  const test = await src.getTest(testId);
+  if (!test) return buildLeavePolicy({ closeSectionOnLeave: false, testLimitMinutes: null, sectionLimits: new Map(), flat: false });
+  const sections = await src.getTestSections(testId);
+  return buildLeavePolicy({
+    closeSectionOnLeave: test.closeSectionOnLeave ?? false,
+    testLimitMinutes: test.timeLimitMinutes,
+    sectionLimits: new Map(sections.map((s) => [s.topicId, s.timeLimitMinutes])),
+    flat: resolveFlowPolicy(test.flowPolicyJson).mode === "linear_flat",
+  });
 }
 
 /**
@@ -1268,6 +1292,19 @@ router.post("/attempts/:attemptId/answer-adaptive", requirePermission("attempts.
       return res.status(400).json({ error: "Unexpected question ID" });
     }
 
+    // PRD-67 FR-10: a topic whose time ran out or that was closed by a leave takes no
+    // more answers. The client moves on via `expire-topic-adaptive`; this refuses a
+    // request that did not.
+    const timerLocked = freezeLockedAnswers(
+      { [questionId]: answer },
+      {},
+      [{ topicId: currentTopic.topicId, questionIds: [questionId] }],
+      attempt.sectionTimerJson,
+    );
+    if (!Object.prototype.hasOwnProperty.call(timerLocked, questionId)) {
+      return res.status(409).json({ error: "section_locked", topicId: currentTopic.topicId });
+    }
+
     const questions = await src.getQuestionsByIds([questionId]);
     const question = questions[0];
     if (!question) {
@@ -1590,15 +1627,24 @@ router.post("/attempts/:attemptId/section-timer", requirePermission("attempts.ta
     if (attempt.finishedAt) return res.status(400).json({ error: "Attempt already finished" });
 
     const topicId = typeof req.body?.topicId === "string" ? req.body.topicId : null;
+    // PRD-67: identity of the page run. A different one while a section is open is how
+    // the server learns the page was reloaded or reopened. Bounded so a forged body cannot
+    // bloat the attempt row.
+    const rawRunId = req.body?.runId;
+    const runId = typeof rawRunId === "string" && rawRunId.length > 0 && rawRunId.length <= 64
+      ? rawRunId
+      : null;
     // The limit comes from the TEST, never from the client: a forged body must not
     // be able to widen a section's budget.
-    let limitMinutes: number | null = null;
-    if (topicId) {
-      const sections = await storage.getTestSections(attempt.testId);
-      limitMinutes = sections.find((s) => s.topicId === topicId)?.timeLimitMinutes ?? null;
-    }
+    const sections = await storage.getTestSections(attempt.testId);
+    const limitMinutes = topicId
+      ? (sections.find((s) => s.topicId === topicId)?.timeLimitMinutes ?? null)
+      : null;
+    // PRD-67: the leave policy is read from the version the attempt plays (snapshot or
+    // live), like every other runtime setting of the attempt.
+    const policy = await leavePolicyForAttempt(attempt.snapshotId, attempt.testId);
 
-    const view = await pingSection(attempt.id, topicId, limitMinutes);
+    const view = await pingSection(attempt.id, topicId, limitMinutes, runId, policy);
     if (!view) return res.status(400).json({ error: "Attempt already finished" });
     res.json(view);
   } catch (error) {
@@ -1648,8 +1694,17 @@ router.post("/attempts/:attemptId/save-progress", requirePermission("attempts.ta
       updatedVariant.sectionPositions = sectionPositions;
     }
 
+    // PRD-67 FR-10: a locked section (time spent or closed by a leave) keeps the answers
+    // stored before the lock — the lock is enforced here, not only painted by the client.
+    const frozenAnswers = freezeLockedAnswers(
+      answers,
+      attempt.answersJson as Record<string, unknown> | null,
+      ((attempt.variantJson as TestVariant | null)?.sections ?? []),
+      attempt.sectionTimerJson,
+    );
+
     await storage.updateAttempt(attempt.id, {
-      answersJson: answers,
+      answersJson: frozenAnswers,
       variantJson: updatedVariant,
     });
 
@@ -1806,8 +1861,15 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const { answers } = req.body;
     const variant = attempt.variantJson as TestVariant;
+    // PRD-67 FR-10: grade the answers a locked section had BEFORE its lock, whatever the
+    // finishing request carries for it.
+    const answers = freezeLockedAnswers<Answer>(
+      req.body?.answers,
+      attempt.answersJson as Record<string, Answer> | null,
+      variant?.sections ?? [],
+      attempt.sectionTimerJson,
+    );
     // PRD-15 block B: grade against the pinned snapshot, not the live bank.
     const src = await dataSourceForAttempt(attempt.snapshotId);
     const test = await src.getTest(attempt.testId);
