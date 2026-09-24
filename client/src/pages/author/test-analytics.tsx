@@ -25,6 +25,10 @@ import {
     ScaleProfilePanel,
     type ScaleProfileView,
 } from "@/features/analytics/test/scale-profile";
+import {
+    ItemQualityPanel,
+    type ItemQualityView,
+} from "@/features/analytics/test/item-quality";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -286,6 +290,18 @@ export default function TestAnalyticsPage() {
     const { data: scaleProfile } = useQuery<ScaleAnalytics>({
         queryKey: [`/api/analytics/tests/${testId}/scales`],
         enabled: !!testId && activeTab === "scales",
+    });
+
+    /**
+     * PRD-66: психометрика — своим запросом и только на своей вкладке.
+     *
+     * Расчёт идёт по требованию и по всей выборке (порции у метрики нет: её нельзя посчитать
+     * по половине наблюдений), поэтому грузить его вместе с обзором значило бы платить за него
+     * каждому, кто открыл страницу.
+     */
+    const { data: itemQuality, isLoading: qualityLoading } = useQuery<ItemQualityView>({
+        queryKey: [`/api/analytics/psychometrics/${testId}`],
+        enabled: !!testId && activeTab === "quality",
     });
 
     // Функция экспорта в Excel
@@ -624,6 +640,23 @@ export default function TestAnalyticsPage() {
                 items={[
                     { id: "overview", label: "Обзор", content: overviewPanel },
                     { id: "questions", label: "Вопросы", content: questionsPanel },
+                    // PRD-66: пригодность задания как инструмента — отдельный вопрос от того,
+                    // что с ним происходит, и потому отдельная вкладка.
+                    {
+                        id: "quality",
+                        label: "Качество заданий",
+                        content: qualityLoading
+                            ? <LoadingState message="Считаем психометрику..." />
+                            : itemQuality
+                                ? (
+                                    <ItemQualityPanel
+                                        view={itemQuality}
+                                        exportHref={`/api/analytics/psychometrics/${testId}/export`}
+                                        matrixHref={`/api/analytics/psychometrics/${testId}/matrix`}
+                                    />
+                                )
+                                : <EmptyState title="Психометрика недоступна" description="Не удалось посчитать показатели по этому тесту" />,
+                    },
                     // PRD-56: «Уровни» отдельной вкладкой больше нет — они внутри «Выдачи».
                     { id: "delivery", label: "Выдача", content: deliveryPanel },
                     // Вкладка есть только у теста со шкалами: оцениваемому тесту без них она
