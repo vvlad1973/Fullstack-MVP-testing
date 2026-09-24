@@ -119,10 +119,22 @@ describe("buildSnapshot", () => {
     expect(s.status.alarm).toBe("boom");
   });
 
-  it("raises the calculation alarm when a scale/indicator formula errored", () => {
-    window.TBInspector = mockTB({ readPkg: vi.fn(() => ({ ...PKG, scaleErrors: [{ key: "k", message: "bad" }] })) });
+  it("names what could not be computed — the scale and the indicator, not just «ошибка»", () => {
+    window.TBInspector = mockTB({
+      readPkg: vi.fn(() => ({
+        ...PKG,
+        scaleErrors: [{ key: "leadership", message: "bad" }],
+        resultErrors: [{ name: "certification_passed", message: "bad" }],
+      })),
+    });
     const s = buildSnapshot(null, bridge({}), { protocolMode: "live", watchSource: "state" });
-    expect(s.status.alarm).toContain("Ошибка расчёта");
+    expect(s.status.alarm).toBe("Не рассчитано: шкала «leadership», показатель «certification_passed»");
+  });
+
+  it("keeps quiet when nothing failed — an empty diagnostics list is not an alarm", () => {
+    window.TBInspector = mockTB({ readPkg: vi.fn(() => ({ ...PKG, scaleErrors: [], resultErrors: [] })) });
+    const s = buildSnapshot(null, bridge({}), { protocolMode: "live", watchSource: "state" });
+    expect(s.status.alarm).toBeNull();
   });
 
   it("selects the cmi store as the watch source, nested into a uniform tree", () => {

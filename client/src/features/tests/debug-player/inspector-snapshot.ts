@@ -334,6 +334,25 @@ function watchObject(pkg: TBPkg | null, cmi: Record<string, string>, src: WatchS
 }
 
 /**
+ * What the run could NOT compute, named (PRD-18 §8: the badge must say WHICH scale or
+ * indicator stayed empty, not merely that something did).
+ *
+ * Only genuine failures reach here. A scale whose questions have not been delivered yet
+ * is not one of them: the engine stays silent while there is nothing to normalize, so a
+ * healthy test no longer meets the author with a red badge on the start screen.
+ */
+function buildAlarm(pkg: TBPkg): string | null {
+  if (pkg.engineError) return pkg.engineError;
+  const named = [
+    ...(pkg.scaleErrors || []).map((e) => `шкала «${e.key}»`),
+    ...(pkg.resultErrors || []).map((e) => `показатель «${e.name}»`),
+  ];
+  if (!named.length) return null;
+  const head = named.slice(0, 3).join(", ");
+  return `Не рассчитано: ${head}${named.length > 3 ? ` и ещё ${named.length - 3}` : ""}`;
+}
+
+/**
  * Build the immutable inspector snapshot for one tick.
  * @param iframeWin the package window (same-origin), or null before it loads
  * @param scorm the RTE mirror, or null before the shim is hosted
@@ -402,8 +421,7 @@ export function buildSnapshot(
     }
   }
   const completed = cmi["cmi.completion_status"] === "completed" || reachedEnd;
-  const errs = ((pkg && pkg.scaleErrors) || []).length + ((pkg && pkg.resultErrors) || []).length;
-  const alarm = pkg && pkg.engineError ? pkg.engineError : errs ? "Ошибка расчёта показателей или шкал" : null;
+  const alarm = pkg ? buildAlarm(pkg) : null;
 
   const attempts: { value: string; label: string }[] = [{ value: "live", label: "Текущая (live)" }];
   (TB.getSuspendAttempts(cmi) || []).forEach((a, i) => {
