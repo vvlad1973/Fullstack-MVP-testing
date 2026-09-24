@@ -367,6 +367,31 @@ describe("<LimitsPane /> — «Ограничения»", () => {
     expect(screen.queryByText(/Сейчас это/)).toBeNull();
   });
 
+  // PRD-67: переключатель действует только там, где есть что обходить, — при лимите.
+  describe("«Закрывать раздел при выходе» (PRD-67)", () => {
+    it("скрыт, когда лимитов нет совсем", () => {
+      render(<LimitsPane model={baseModel()} updateModel={vi.fn()} />);
+      expect(screen.queryByTestId("settings-close-section-on-leave-switch")).toBeNull();
+    });
+
+    it("виден при одном только общем лимите и включается", () => {
+      const updateModel = vi.fn();
+      const model = baseModel({ runtime: { ...baseModel().runtime, timeLimitMinutes: 60 } });
+      render(<LimitsPane model={model} updateModel={updateModel} />);
+      expect(screen.getByText(/Выключено — при выходе время замирает/)).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId("settings-close-section-on-leave-switch"));
+      expect(runUpdater(updateModel, model).runtime.closeSectionOnLeave).toBe(true);
+    });
+
+    it("во включённом виде объясняет, что считается выходом", () => {
+      const model = baseModel({
+        runtime: { ...baseModel().runtime, timeLimitMinutes: 60, closeSectionOnLeave: true },
+      });
+      render(<LimitsPane model={model} updateModel={vi.fn()} />);
+      expect(screen.getByText(/В тесте без разделов выход завершает попытку/)).toBeInTheDocument();
+    });
+  });
+
   it("переключает результат для LMS на последнюю попытку", () => {
     const updateModel = vi.fn();
     const model = baseModel();
