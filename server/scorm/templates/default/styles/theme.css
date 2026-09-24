@@ -557,6 +557,12 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
   font-size: var(--tb-answer-fs, 20px);
   font-weight: 400;
   line-height: 1.35;
+  /* A long single word (`Конфиденциальность`) cannot wrap by default: the text box
+     shrinks with its column (`min-width: 0`) and the word spills past it onto the
+     drag handle next to it. It breaks instead — by syllable where the page declares
+     `lang="ru"`, at any point as a last resort. */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 /* Typed answer (PRD-57 §6.5, §6.6). The field fills the column like every other answer
