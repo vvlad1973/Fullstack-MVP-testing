@@ -159,7 +159,14 @@ export function computeScalePsychometrics(
       const info = ctx.itemById.get(questionId);
       const own = scaleResponses.filter(r => r.itemId === questionId);
       const itemRest = itemRestCorrelation(questionId, forCorrelation);
-      const distribution = gradeDistribution(own, info?.gradeLabels.length ?? 0);
+      // У типа без выбранной градации (распределение баллов, ранжирование) гистограммы не
+      // существует: участник не выбирает вариант, а раскладывает баллы. Пустой массив, а НЕ
+      // массив нулей: нули рисуются столбиками нулевой высоты и читаются как «ответили мимо»
+      // при том, что ответы есть (вскрыто на стенде, опросник ведущего стиля).
+      const graded = own.filter(r => r.grade >= 0);
+      const distribution = graded.length === 0
+        ? []
+        : gradeDistribution(own, info?.gradeLabels.length ?? 0);
       const mirrored = alphaIfMirrored(scaleResponses, questionId);
 
       return {

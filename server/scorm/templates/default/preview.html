@@ -15062,6 +15062,7 @@ var TBTemplate = (() => {
     compileTemplate: () => compileTemplate,
     computeBreakdowns: () => computeBreakdowns,
     contentPagesFor: () => contentPagesFor,
+    createQuestionTime: () => createQuestionTime,
     declaredThemes: () => declaredThemes,
     distributesBudget: () => distributesBudget,
     dropOnPoolSlot: () => dropOnPoolSlot,
@@ -16584,6 +16585,50 @@ ${MASK}b${blocks.length - 1}${MASK}
       doc.removeEventListener("keydown", onKeydown);
       closeOverlay(root);
       (_a = root.querySelector(`#${OVERLAY_ID}`)) == null ? void 0 : _a.remove();
+    };
+  }
+
+  // shared/questions/question-time.ts
+  function createQuestionTime(now = Date.now) {
+    let closedTotals = {};
+    let openId = null;
+    let openAt = 0;
+    function openMs() {
+      if (openId === null) return 0;
+      const delta = now() - openAt;
+      return delta > 0 ? delta : 0;
+    }
+    function close() {
+      if (openId === null) return;
+      closedTotals[openId] = (closedTotals[openId] || 0) + openMs();
+      openId = null;
+      openAt = 0;
+    }
+    return {
+      show(id) {
+        if (!id) return;
+        if (openId === id) return;
+        close();
+        openId = id;
+        openAt = now();
+      },
+      leave() {
+        close();
+      },
+      totalMsFor(id) {
+        const closed = closedTotals[id] || 0;
+        return openId === id ? closed + openMs() : closed;
+      },
+      totals() {
+        const all = { ...closedTotals };
+        if (openId !== null) all[openId] = (all[openId] || 0) + openMs();
+        return all;
+      },
+      reset() {
+        closedTotals = {};
+        openId = null;
+        openAt = 0;
+      }
     };
   }
 

@@ -108,6 +108,44 @@ describe("computeScalePsychometrics", () => {
     expect(first.gradeLabels[0]).toBe("Никогда");
   });
 
+  it("у типа БЕЗ градаций распределения нет вовсе, а не нули (FR-30a)", () => {
+    // Распределение баллов (PRD-44): участник раскладывает баллы между утверждениями, и
+    // выбранной градации у такого ответа не существует. Массив нулей отдавать нельзя — на
+    // экране он рисуется столбиками нулевой высоты и читается как «все ответили мимо»,
+    // хотя ответы есть (вскрыто на стенде: опросник ведущего стиля).
+    const ctx: ScaleContext = {
+      measurements: ["a1", "a2"].flatMap(questionId =>
+        [0, 1, 2].map(option => ({
+          questionId,
+          scaleKey: "style",
+          sourceType: "option_allocation" as const,
+          sourceKey: String(option),
+          value: 1,
+          weight: 1,
+        }))),
+      scaleLabels: new Map([["style", "Вдохновляющий"]]),
+      itemById: new Map(["a1", "a2"].map(questionId => [questionId, {
+        questionId,
+        prompt: `Пункт ${questionId}`,
+        type: "allocation",
+        gradeLabels: ["Первое утверждение", "Второе утверждение", "Третье утверждение"],
+      }])),
+    };
+    // Ответ распределения баллов — раскладка «утверждение -> баллы», а не номер градации.
+    const responses = [["R1", 3], ["R2", 2], ["R3", 1]].flatMap(([respondentId, points]) => (
+      ["a1", "a2"].map(questionId => fact({
+        respondentId: respondentId as string,
+        questionId,
+        answer: { 0: points as number, 1: 4 - (points as number) },
+      }))
+    ));
+
+    const [scale] = computeScalePsychometrics(responses, ctx);
+
+    expect(scale.items[0].observations).toBeGreaterThan(0);
+    expect(scale.items[0].distribution).toEqual([]);
+  });
+
   it("мёртвый пункт опознаётся по форме распределения", () => {
     const flat: ResponseFact[] = [];
     for (const respondentId of ["R1", "R2", "R3", "R4", "R5"]) {
