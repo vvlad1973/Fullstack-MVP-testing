@@ -15,6 +15,7 @@ import {
   readGate,
   isClosed,
   closesOnLeave,
+  testClosesOnLeave,
   openSection,
   closeSection,
   leaveSection,
@@ -136,6 +137,13 @@ describe("PRD-67: закрытие раздела при выходе", () => {
     const left = leaveSection(EMPTY_GATE, EMPTY, 0, true);
     expect(left.closed).toBeNull();
     expect(left.gate).toBe(EMPTY_GATE);
+  });
+
+  it("тест под действием настройки: включена и есть хоть один лимит", () => {
+    expect(testClosesOnLeave({ enabled: true, testLimitMinutes: null, sectionLimitMinutes: [null, 0] })).toBe(false);
+    expect(testClosesOnLeave({ enabled: true, testLimitMinutes: null, sectionLimitMinutes: [null, 15] })).toBe(true);
+    expect(testClosesOnLeave({ enabled: true, testLimitMinutes: 60, sectionLimitMinutes: [] })).toBe(true);
+    expect(testClosesOnLeave({ enabled: false, testLimitMinutes: 60, sectionLimitMinutes: [15] })).toBe(false);
   });
 
   it("испорченное или прежнее состояние читается как «ничего не закрыто»", () => {

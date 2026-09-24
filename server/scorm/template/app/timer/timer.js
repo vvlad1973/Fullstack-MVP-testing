@@ -507,6 +507,23 @@ function leaveGuarded(unit) {
   });
 }
 
+/**
+ * Does the setting act on any part of this test? What the start screen reports as
+ * `course.closesOnLeave` — the same shared rule the web host uses.
+ */
+function packageClosesOnLeave() {
+  var api = sectionBudgetApi();
+  if (!api || typeof api.testClosesOnLeave !== 'function') return false;
+  var limits = [];
+  var sections = TEST_DATA.sections || [];
+  for (var i = 0; i < sections.length; i++) limits.push(sections[i].timeLimitMinutes);
+  return api.testClosesOnLeave({
+    enabled: closeOnLeaveEnabled(),
+    testLimitMinutes: TEST_DATA.timeLimitMinutes,
+    sectionLimitMinutes: limits
+  });
+}
+
 /** Read the open/closed sections from suspend_data (absent = nothing open, nothing closed). */
 function readSectionGate() {
   var api = sectionBudgetApi();

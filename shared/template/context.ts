@@ -59,6 +59,13 @@ export interface CtxCourse {
   maxAttempts?: number | null;
   /** Legacy intro text; migrated to a content page, normally empty (PRD-7 S10). */
   startPageContent?: string;
+  /**
+   * PRD-67 «Закрывать раздел при выходе»: true when leaving a started section closes it
+   * for good (in a test without sections — ends the attempt). Set on the start screen,
+   * so a layout can warn BEFORE the learner begins: `{{#if course.closesOnLeave}}`.
+   * The hosts already warn with their own notices; the shipped layouts do not print it.
+   */
+  closesOnLeave?: boolean;
 }
 
 /** A recommended course/event link for failed-topic guidance (SCORM-extra). */

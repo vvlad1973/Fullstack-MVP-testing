@@ -124,7 +124,9 @@ function buildScormStartContext() {
       timeLimitMinutes: TEST_DATA.timeLimitMinutes,
       maxAttempts: TEST_DATA.maxAttempts,
       // PRD-7 S10: startPageContent migrated to an intro content page; not shown here.
-      startPageContent: ''
+      startPageContent: '',
+      // PRD-67: `course.closesOnLeave` for a layout that warns before the start.
+      closesOnLeave: (typeof packageClosesOnLeave === 'function') ? packageClosesOnLeave() : false
     },
     maxAttempts: hasLimit ? TEST_DATA.maxAttempts : null,
     completedAttempts: used,

@@ -169,6 +169,20 @@ export function closesOnLeave(opts: {
 }
 
 /**
+ * Does the setting act on ANY part of this test? True when it is on and some limit exists
+ * — the test-wide one or a section's own. What the start screen tells the learner.
+ */
+export function testClosesOnLeave(opts: {
+  enabled: boolean;
+  testLimitMinutes: number | null | undefined;
+  sectionLimitMinutes: ReadonlyArray<number | null | undefined>;
+}): boolean {
+  if (!opts.enabled) return false;
+  if ((opts.testLimitMinutes ?? 0) > 0) return true;
+  return opts.sectionLimitMinutes.some((m) => (m ?? 0) > 0);
+}
+
+/**
  * Mark `sectionId` as the section the learner is in. A closed section is never reopened —
  * the gate comes back unchanged. Returns the SAME object when nothing changes.
  */

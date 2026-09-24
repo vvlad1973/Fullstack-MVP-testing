@@ -51,6 +51,12 @@ export interface StartInfo {
   timeLimitMinutes?: number | null;
   maxAttempts?: number | null;
   startPageContent?: string;
+  /**
+   * PRD-67: leaving a started section closes it (a test without sections: ends the
+   * attempt). The host resolves it with `testClosesOnLeave` — the setting is on AND some
+   * limit exists. Absent = false, how every host behaved before the setting.
+   */
+  closesOnLeave?: boolean;
 }
 
 /** Normalized start-screen facts (host adapts its own state into this). */
@@ -195,6 +201,8 @@ export function buildStartState(input: StartStateInput): StartRenderContext {
     timeLimitLabel: formatMinutesHuman(i.timeLimitMinutes),
     maxAttempts: i.maxAttempts,
     startPageContent: i.startPageContent || "",
+    // Only when true: a test without the setting keeps exactly the context it had.
+    ...(i.closesOnLeave === true ? { closesOnLeave: true } : {}),
   };
 
   return { course, state };

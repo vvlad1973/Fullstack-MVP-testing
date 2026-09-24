@@ -62,7 +62,7 @@ import {
   forceAdvanceTarget,
   type SectionStopReason,
 } from "./use-section-timer";
-import { closesOnLeave, WHOLE_TEST_SECTION } from "@shared/flow/section-budget";
+import { closesOnLeave, testClosesOnLeave, WHOLE_TEST_SECTION } from "@shared/flow/section-budget";
 import { t } from "@/lib/i18n";
 import { reportClientError } from "@/lib/report-error";
 import { useAuth } from "@/lib/auth";
@@ -336,6 +336,8 @@ type TestMetadata = {
   priorResult: { percent: number; passed: boolean | null; attemptNumber: number | null; maxAttempts: number | null } | null;
   /** Стартовый экран скрыт автором — попытка начинается без него (2026-09-20). */
   startHidden: boolean;
+  /** PRD-67: leaving a started section closes it (`course.closesOnLeave`). */
+  closesOnLeave: boolean;
 };
 
 /**
@@ -379,6 +381,12 @@ function buildTestMetadataFromListEntry(test: any): TestMetadata {
     priorResult: test.priorResult ?? null,
     // Сервер до этой правки поля не присылает — читается как «экран показывается».
     startHidden: test.startHidden === true,
+    // PRD-67: the SAME rule the runtime applies — the setting is on and some limit exists.
+    closesOnLeave: testClosesOnLeave({
+      enabled: test.closeSectionOnLeave === true,
+      testLimitMinutes: test.timeLimitMinutes,
+      sectionLimitMinutes: (test.sections ?? []).map((s: any) => s.timeLimitMinutes),
+    }),
   };
 }
 
@@ -2942,6 +2950,7 @@ export default function TakeTestPage() {
         timeLimitMinutes: testMetadata.timeLimitMinutes,
         maxAttempts: testMetadata.maxAttempts,
         startPageContent: testMetadata.startPageContent || "",
+        closesOnLeave: testMetadata.closesOnLeave,
       },
       maxAttempts: testMetadata.maxAttempts,
       completedAttempts: testMetadata.completedAttempts,
