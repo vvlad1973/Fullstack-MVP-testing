@@ -71,9 +71,18 @@ export interface Reliability {
  * @param values значения пунктов по респондентам
  * @returns коэффициент с составом выборки либо причина, по которой его нет
  */
-export function alphaOf(values: readonly ItemValue[]): Reliability | ReliabilityGap {
+/**
+ * Суммы баллов по ПОЛНЫМ наборам — то распределение, на котором стоят альфа, SEM и интервал.
+ *
+ * Вынесено отдельно, потому что правило «полный набор» нужно и там, где считается, скольких
+ * участников задел интервал у порога (FR-21a). Вторая реализация того же отбора разошлась бы с
+ * первой, и два числа на одном экране стали бы считаться по разным выборкам.
+ */
+function completeRows(values: readonly ItemValue[]): {
+  itemIds: string[];
+  rows: Array<Map<string, number>>;
+} {
   const itemIds = [...new Set(values.map(v => v.itemId))];
-  if (itemIds.length < 2) return "too-few-items";
 
   const byRespondent = new Map<string, Map<string, number>>();
   for (const entry of values) {
@@ -87,7 +96,32 @@ export function alphaOf(values: readonly ItemValue[]): Reliability | Reliability
 
   // Полные наборы, и только они: неполный респондент попал бы в дисперсию одних пунктов и не
   // попал в дисперсию других, а отношение таких дисперсий не значит ничего.
-  const complete = [...byRespondent.values()].filter(row => row.size === itemIds.length);
+  return { itemIds, rows: [...byRespondent.values()].filter(row => row.size === itemIds.length) };
+}
+
+/** Суммы баллов по наборам — то распределение, на котором стоят SEM и интервал. */
+function totalsOf(rows: ReadonlyArray<Map<string, number>>, itemIds: readonly string[]): number[] {
+  return rows.map(row => itemIds.reduce((sum, itemId) => sum + row.get(itemId)!, 0));
+}
+
+/**
+ * Скольких участников задел интервал ошибки вокруг проходного балла (FR-21a).
+ *
+ * Границы считаются ВНУТРИ: у участника ровно на границе исход определяется ошибкой измерения
+ * ничуть не меньше, чем у соседа внутри.
+ *
+ * @param values значения пунктов по респондентам
+ * @param band интервал вокруг порога
+ * @returns число участников с полным набором, чья сумма попала в интервал
+ */
+export function countWithinBand(values: readonly ItemValue[], band: CutScoreBand): number {
+  const { itemIds, rows } = completeRows(values);
+  return totalsOf(rows, itemIds).filter(total => total >= band.low && total <= band.high).length;
+}
+
+export function alphaOf(values: readonly ItemValue[]): Reliability | ReliabilityGap {
+  const { itemIds, rows: complete } = completeRows(values);
+  if (itemIds.length < 2) return "too-few-items";
   if (complete.length < 2) return "too-few-respondents";
 
   let sumOfItemVariances = 0;
@@ -96,7 +130,7 @@ export function alphaOf(values: readonly ItemValue[]): Reliability | Reliability
     sumOfItemVariances += variance(column)!;
   }
 
-  const totals = complete.map(row => itemIds.reduce((sum, itemId) => sum + row.get(itemId)!, 0));
+  const totals = totalsOf(complete, itemIds);
   const totalVariance = variance(totals)!;
   // Все набрали поровну — сравнивать разбросы не с чем. Ноль здесь был бы не «низкой
   // надёжностью», а делением на ноль, выданным за факт.

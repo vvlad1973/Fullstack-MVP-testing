@@ -23,6 +23,7 @@ import {
 } from "@shared/psychometrics/item-metrics";
 import {
   alphaOf,
+  countWithinBand,
   cutScoreBand,
   spearmanBrown,
   standardErrorOfMeasurement,
@@ -75,6 +76,14 @@ export interface ItemPsychometrics {
   questionId: string;
   /** Наблюдений, где задание было выдано и оценено. */
   observations: number;
+  /**
+   * FR-41: доля наблюдений задания, где оно НЕ ВЫДАВАЛОСЬ.
+   *
+   * Трудность считается по тем, кто задание видел, поэтому у выборки, собранной из импорта,
+   * эта доля и есть мера смещения `p`: чем она выше, тем меньше выборка под числом. Ноль —
+   * факт «видели все», а не отсутствие сведений.
+   */
+  missingShare: number;
   difficulty: number | null;
   /** Трудность с поправкой на угадывание; `null` — к этому типу неприменима (FR-17a). */
   correctedDifficulty: number | null;
@@ -111,8 +120,14 @@ export interface TestPsychometrics {
   reliability: Reliability | ReliabilityGap;
   /** Ошибка измерения в долях балла; `null` — надёжность не посчиталась. */
   sem: number | null;
-  /** Интервал вокруг проходного балла; `null` — порога нет либо ошибка не посчиталась. */
-  cutBand: CutScoreBand | null;
+  /**
+   * Интервал вокруг проходного балла; `null` — порога нет либо ошибка не посчиталась.
+   *
+   * `withinBand` (FR-21a) — скольких участников он фактически задел: «решение ненадёжно» без
+   * этого числа предупреждает ни о чём, потому что двое из шестидесяти и половина потока
+   * требуют разных действий.
+   */
+  cutBand: (CutScoreBand & { withinBand: number }) | null;
   /**
    * FR-22: во сколько раз изменить длину теста ради целевой надёжности и на сколько заданий
    * это выходит. `null` — надёжности нет, и удлинять нечего.
@@ -142,6 +157,17 @@ const TOO_EASY = 0.9;
  * чем 0,75 отличается от 0,85, пришлось бы на том же экране.
  */
 const TARGET_RELIABILITY = 0.8;
+
+/**
+ * Интервал у порога вместе с числом задетых участников (FR-21a).
+ *
+ * Считается по ТЕМ ЖЕ полным наборам, на которых стоит сама надёжность: у участника, видевшего
+ * не все задания, сумма меньше по построению, и сравнивать её с порогом значило бы записать его
+ * в сомнительные без основания.
+ */
+function bandWithCount(band: CutScoreBand, values: readonly ItemValue[]) {
+  return { ...band, withinBand: countWithinBand(values, band) };
+}
 
 /**
  * Прогноз длины теста ради целевой надёжности.
@@ -256,6 +282,21 @@ export function computePsychometrics(
     items.push({
       questionId,
       observations,
+      // FR-41: доля УЧАСТНИКОВ выборки, которым задание не досталось.
+      //
+      // Считать долю наблюдений с исходом `missing` нельзя: невыданное задание не порождает
+      // наблюдения вовсе — веб-адаптер перебирает ВЫДАННЫЙ состав, а выгрузка LMS не отличает
+      // «не выдано» от «нечего оценивать». Такая доля была бы нулём всегда и меру смещения не
+      // давала бы. Знаменатель — вся выборка, потому что смещение меряется относительно неё,
+      // а не относительно тех, кто задание видел.
+      // Обе стороны дроби считаются по ОДНОЙ совокупности — участникам выборки: человек,
+      // ответивший только на измерительные задания, в выборку не входит, и включать его в
+      // числитель значило бы вычитать из знаменателя то, чего в нём нет.
+      missingShare: ability.size === 0
+        ? 0
+        : (ability.size - facts.reduce((seen, f) => (
+          ability.has(f.respondentId!) ? seen.add(f.respondentId!) : seen
+        ), new Set<string>()).size) / ability.size,
       difficulty: p,
       correctedDifficulty: corrected,
       itemRest,
@@ -306,7 +347,7 @@ export function computePsychometrics(
     // Порог переводится в ту же единицу, что и суммарный балл расчёта: сумма долей баллов по
     // пунктам. Сравнивать интервал в долях с порогом в процентах — ошибка на два порядка.
     cutBand: sem !== null && ctx.cutRatio !== null && ctx.cutRatio !== undefined && typeof reliability !== "string"
-      ? cutScoreBand(ctx.cutRatio * reliability.items, sem)
+      ? bandWithCount(cutScoreBand(ctx.cutRatio * reliability.items, sem), values)
       : null,
     // FR-22: прогноз длины считается ВСЕГДА, когда есть надёжность, — и когда её не хватает,
     // и когда её с запасом. Второе не менее важно: это единственное число трека, которое

@@ -202,12 +202,23 @@ async function seedAttempt(
     /** Отпечатки редакций — обычно текущие, но у одного задания демо их два (FR-49). */
     hashes: Record<string, string>;
     latencies: Record<string, number>;
+    /**
+     * Индексы заданий, НЕ попавших в выдачу этому участнику.
+     *
+     * Без неравномерной выдачи доля невыданных равна нулю у всех заданий, и проверить FR-41
+     * не на чем: в жизни она появляется у случайного отбора из банка и у импорта выгрузок.
+     */
+    skip?: ReadonlySet<number>;
   },
 ): Promise<void> {
   const answers: Record<string, unknown> = {};
   const outcomes: Array<{ questionId: string; result: string; earned: number; possible: number }> = [];
+  const delivered = args.questions.filter((_question, at) => !args.skip?.has(at));
 
   args.questions.forEach((question, at) => {
+    // Задание, не попавшее в выдачу этому участнику, не даёт ни ответа, ни исхода: оно вне
+    // знаменателя трудности, и доля таких участников — мера смещения оценки (FR-41).
+    if (args.skip?.has(at)) return;
     const behaviour = args.behaviours[at](args.ability, args.index);
     answers[question.id] = behaviour.choice;
     outcomes.push({
@@ -233,7 +244,9 @@ async function seedAttempt(
         sections: [{
           topicId: args.topicId,
           topicName: args.topicName,
-          questionIds: args.questions.map(question => question.id),
+          // Состав ВЫДАЧИ, а не банка: психометрика читает именно его, и задание, которого
+          // здесь нет, участник не видел.
+          questionIds: delivered.map(question => question.id),
         }],
         psychoHashes: args.hashes,
         latencyMs: args.latencies,
@@ -335,6 +348,9 @@ async function seedGradedTest(pool: pg.Pool): Promise<string> {
     await seedAttempt(pool, {
       testId, topicId, topicName: `${MARK}: банк оцениваемого теста`,
       userId, questions, behaviours, ability, index,
+      // Третье задание выдаётся не всем — так бывает при случайном отборе из банка. Ради
+      // этого случая и написано FR-41: трудность у него посчитана на трети выборки.
+      skip: index % 3 === 0 ? undefined : new Set([2]),
       hashes: { ...currentHashes, [questions[7].id]: beforeEdit ? olderVersion : currentHashes[questions[7].id] },
       latencies: Object.fromEntries(questions.map((question, at) => [
         question.id,

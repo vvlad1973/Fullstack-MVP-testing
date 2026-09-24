@@ -45,6 +45,11 @@ export interface ItemQualityFlags {
 export interface ItemQualityRow {
   questionId: string;
   observations: number;
+  /**
+   * FR-41: доля наблюдений, где задание не выдавалось. Может отсутствовать у ответов ручки,
+   * выданных до этого требования.
+   */
+  missingShare?: number;
   difficulty: number | null;
   correctedDifficulty: number | null;
   itemRest: number | null;
@@ -74,7 +79,8 @@ export interface ItemQualityView {
    * нечего; поля может не быть вовсе у ответов ручки, выданных до этого требования.
    */
   lengthForecast?: { target: number; factor: number; itemsDelta: number } | null;
-  cutBand: { low: number; high: number; z: number } | null;
+  /** `withinBand` (FR-21a) — скольких участников интервал задел; может не быть у старых ответов. */
+  cutBand: { low: number; high: number; z: number; withinBand?: number } | null;
   sample: {
     respondents: number;
     responses: number;
@@ -103,6 +109,19 @@ const SOURCE_TITLE: Record<string, string> = {
   telemetry: "телеметрия LMS",
   import: "импорт выгрузок",
 };
+
+/**
+ * Доля наблюдений, где задание не выдавалось (FR-41), — или ничего.
+ *
+ * Молчит не только при нуле, но и при доле меньше процента: «не выдано 0 %» — строка, которая
+ * занимает место и не сообщает ничего. Требование про выборку из импорта, где эта доля
+ * исчисляется десятками процентов.
+ */
+function missingText(share: number | undefined): string | null {
+  if (share === undefined) return null;
+  const percent = Math.round(share * 100);
+  return percent < 1 ? null : `не выдано ${percent} %`;
+}
 
 /**
  * Прогноз длины словами (FR-22): чего не хватает или что можно снять.
@@ -256,6 +275,23 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
   const forecastText = forecastOf(view.lengthForecast);
 
   /**
+   * Скольких участников задел интервал у порога (FR-21a).
+   *
+   * Число берётся из расчёта, а не выводится из доли: «внутри интервала» — это про сумму
+   * баллов конкретного человека, и прикидка по проценту здесь была бы выдумкой.
+   */
+  const within = view.cutBand?.withinBand;
+  const affectedText = within === undefined
+    ? ""
+    : within === 0
+      ? "Пока в него не попал никто."
+      // Знаменатель — участники С ПОЛНЫМ НАБОРОМ, по которым считалась надёжность, а НЕ вся
+      // выборка: у видевшего не все задания сумма меньше по построению, и в интервал он не
+      // сравнивается. «16 из 60» при надёжности, посчитанной по двадцати, — разные выборки в
+      // одной фразе (вскрыто приёмкой).
+      : `Затронуто ${within} из ${reliability?.respondents ?? view.sample.respondents} ${pluralize(reliability?.respondents ?? view.sample.respondents, "участника", "участников", "участников")} с полным набором заданий.`;
+
+  /**
    * Поводы к баннеру смещения (FR-39, FR-40).
    *
    * Баннер один, поводов два, и каждый назван своими словами: «выдача неоднородна» и «заметная
@@ -320,9 +356,19 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
       // Трудность живёт при пороге наблюдений инстанса, а коэффициенты — при 30 и 100
       // (FR-38a). Поэтому у задания с дюжиной наблюдений она есть, а дискриминативности нет.
       render: (row: ItemQualityRow) => (
-        <Text variant="body-s" tone={row.difficultyConfidence === "insufficient" ? "muted" : undefined}>
-          {row.difficultyConfidence === "insufficient" ? "мало данных" : num(row.difficulty)}
-        </Text>
+        <Stack gap={1}>
+          <Text variant="body-s" tone={row.difficultyConfidence === "insufficient" ? "muted" : undefined}>
+            {row.difficultyConfidence === "insufficient" ? "мало данных" : num(row.difficulty)}
+          </Text>
+          {/*
+            FR-41: доля невыданных наблюдений — мера смещения трудности, поэтому стоит рядом
+            с ней, а не в своей колонке. Печатается только когда есть о чём говорить: у
+            веб-теста, выданного всем, столбец нулей ничего не сообщал бы, а место занял.
+          */}
+          {missingText(row.missingShare) ? (
+            <Text variant="body-xs" tone="subtle">{missingText(row.missingShare)}</Text>
+          ) : null}
+        </Stack>
       ),
     },
     {
@@ -437,7 +483,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
           variant="subtle"
           tone="warning"
           title="Проходной балл попадает внутрь интервала ошибки измерения"
-          description={`Интервал ${num(view.cutBand.low)} — ${num(view.cutBand.high)} в долях балла. Решение «сдал / не сдал» у участников внутри него определяется ошибкой измерения, а не подготовкой.`}
+          // FR-21a: сколько участников интервал задел ФАКТИЧЕСКИ. Без этого числа
+          // предупреждение ни о чём: двое из шестидесяти и половина потока требуют разных
+          // действий. Ноль тоже называется словами — молчание читалось бы как «не посчитали».
+          description={`Интервал ${num(view.cutBand.low)} — ${num(view.cutBand.high)} в долях балла. Решение «сдал / не сдал» у участников внутри него определяется ошибкой измерения, а не подготовкой. ${affectedText}`}
         />
       ) : null}
 

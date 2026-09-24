@@ -167,6 +167,53 @@ describe("computePsychometrics", () => {
     expect(computePsychometrics(RESPONSES, CTX).cutBand).toBeNull();
   });
 
+  it("считает, скольких участников задел интервал у порога (FR-21a)", () => {
+    // «Решение ненадёжно» без числа затронутых — предупреждение ни о чём: одно дело двое из
+    // шестидесяти, другое — половина потока.
+    const result = computePsychometrics(RESPONSES, { ...CTX, cutRatio: 0.7 });
+
+    expect(result.cutBand).not.toBeNull();
+    expect(result.cutBand!.withinBand).toBeGreaterThan(0);
+    expect(result.cutBand!.withinBand).toBeLessThanOrEqual(4);
+  });
+
+  it("доля тех, кому задание НЕ ДОСТАЛОСЬ, идёт рядом с трудностью (FR-41)", () => {
+    // У выборки из импорта это и есть мера смещения `p`: трудность считается по тем, кто
+    // задание видел, и чем меньше их доля, тем на меньшем стоит число.
+    //
+    // Считается по УЧАСТНИКАМ, а не по исходу `missing`: невыданное задание не порождает
+    // наблюдения вовсе — веб-адаптер перебирает выданный состав, а выгрузка LMS не отличает
+    // «не выдано» от «нечего оценивать». Доли «наблюдений со статусом missing» в данных не
+    // существует, и требование про неё дало бы ноль всегда.
+    const extra = [
+      fact({ respondentId: "E", questionId: "q2", scoreRatio: 1 }),
+      fact({ respondentId: "F", questionId: "q2", scoreRatio: 0 }),
+    ];
+
+    const q1 = computePsychometrics([...RESPONSES, ...extra], CTX).items
+      .find(i => i.questionId === "q1")!;
+
+    // Шесть участников в выборке, задание досталось четырём.
+    expect(q1.observations).toBe(4);
+    expect(q1.missingShare).toBeCloseTo(2 / 6, 12);
+  });
+
+  it("там, где выдали всем, доля невыданных — ноль, а не пустота", () => {
+    // Ноль здесь ФАКТ: задание видели все, и смещения нет. Прочерк читался бы как «неизвестно».
+    const q1 = computePsychometrics(RESPONSES, CTX).items.find(i => i.questionId === "q1")!;
+    expect(q1.missingShare).toBe(0);
+  });
+
+  it("измерительный ответ невыданным не считается: задание участник ВИДЕЛ", () => {
+    const withNeutral = [
+      ...RESPONSES,
+      fact({ respondentId: "E", questionId: "q1", outcome: "neutral", scoreRatio: null }),
+    ];
+
+    const q1 = computePsychometrics(withNeutral, CTX).items.find(i => i.questionId === "q1")!;
+    expect(q1.missingShare).toBe(0);
+  });
+
   it("говорит, на сколько заданий удлинить тест ради надёжности 0,80 (FR-22)", () => {
     // Альфа набора 2/3 при четырёх пунктах: множитель 0,8·(1−2/3) / ((2/3)·0,2) = 2, то есть
     // восемь пунктов вместо четырёх. Без этого числа автор знает только «надёжность низкая»,

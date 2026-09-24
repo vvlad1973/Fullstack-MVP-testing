@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   alphaOf,
+  countWithinBand,
   cutScoreBand,
   spearmanBrown,
   standardErrorOfMeasurement,
@@ -142,6 +143,41 @@ describe("cutScoreBand", () => {
 
   it("множитель ошибки задаётся явно", () => {
     expect(cutScoreBand(70, 5, 1).low).toBe(65);
+  });
+});
+
+describe("countWithinBand", () => {
+  /** Четыре участника с суммами 0, 1, 2 и 3 по трём пунктам. */
+  const VALUES = [
+    { respondentId: "A", itemId: "q1", value: 0 },
+    { respondentId: "A", itemId: "q2", value: 0 },
+    { respondentId: "A", itemId: "q3", value: 0 },
+    { respondentId: "B", itemId: "q1", value: 1 },
+    { respondentId: "B", itemId: "q2", value: 0 },
+    { respondentId: "B", itemId: "q3", value: 0 },
+    { respondentId: "C", itemId: "q1", value: 1 },
+    { respondentId: "C", itemId: "q2", value: 1 },
+    { respondentId: "C", itemId: "q3", value: 0 },
+    { respondentId: "D", itemId: "q1", value: 1 },
+    { respondentId: "D", itemId: "q2", value: 1 },
+    { respondentId: "D", itemId: "q3", value: 1 },
+  ];
+
+  it("считает участников, чей балл попал внутрь интервала (FR-21a)", () => {
+    // Две суммы из четырёх лежат между 0,5 и 2,5 — это и есть те, чей исход решает ошибка
+    // измерения, а не подготовка.
+    expect(countWithinBand(VALUES, { low: 0.5, high: 2.5, z: 1.96 })).toBe(2);
+  });
+
+  it("границы интервала считаются ВНУТРИ: на самой границе исход тоже ненадёжен", () => {
+    expect(countWithinBand(VALUES, { low: 1, high: 2, z: 1.96 })).toBe(2);
+  });
+
+  it("считает по ПОЛНЫМ наборам — тем же, на которых стоит сама надёжность", () => {
+    // У неполного участника сумма меньше просто потому, что он видел не все задания, и
+    // сравнивать её с порогом означало бы записать его в сомнительные без основания.
+    const partial = [...VALUES, { respondentId: "E", itemId: "q1", value: 1 }];
+    expect(countWithinBand(partial, { low: 0.5, high: 2.5, z: 1.96 })).toBe(2);
   });
 });
 
