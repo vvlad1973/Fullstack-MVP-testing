@@ -52,10 +52,12 @@ interface OptionSpec {
 interface QuestionSpec {
   id: string;
   prompt: string;
-  type: "single" | "scale";
+  type: "single" | "scale" | "allocation";
   options: OptionSpec[];
   /** Трудность, заявленная автором: против неё экран ставит наблюдаемую (FR-18). */
   declared: number | null;
+  /** Сколько баллов участник раскладывает между утверждениями; только у `allocation`. */
+  budget?: number;
 }
 
 /** Как участник отвечает на задание — зависит от его способности. */
@@ -63,12 +65,21 @@ type Behaviour = (ability: number, index: number) => { earned: number; possible:
 
 /** Текст задания и варианты в форме, которую хранит база. */
 function dataJsonOf(question: QuestionSpec): Record<string, unknown> {
-  return { options: question.options.map(option => option.text) };
+  const options = question.options.map(option => option.text);
+  // У распределения баллов рядом с утверждениями живёт бюджет: сколько всего баллов
+  // участник раскладывает и в каких пределах на одно утверждение (PRD-44 FR-02).
+  if (question.type === "allocation") {
+    return {
+      options,
+      allocation: { options, budget: question.budget ?? 10, minPerOption: 0, maxPerOption: question.budget ?? 10 },
+    };
+  }
+  return { options };
 }
 
 /** Эталон: индекс верного варианта; у измерительного задания эталона нет вовсе. */
 function correctJsonOf(question: QuestionSpec): Record<string, unknown> {
-  if (question.type === "scale") return {};
+  if (question.type === "scale" || question.type === "allocation") return {};
   const index = question.options.findIndex(option => option.correct);
   return index >= 0 ? { correctIndex: index } : {};
 }
@@ -381,14 +392,50 @@ async function seedScaleTest(pool: pg.Pool): Promise<string> {
     options: grades.map(text => ({ text })),
   }));
 
+  /**
+   * Два пункта, на которых экран сломался на боевом опроснике (выпуск 2.31.1).
+   *
+   * Первый — распределение баллов: выбранной градации у такого ответа НЕТ вовсе, и
+   * распределение по градациям для него не строится. Второй — обычный выбор, но варианты
+   * там не «Никогда / Часто», а целые предложения: подпись под столбиком растягивала
+   * колонку и выталкивала за горизонтальную прокрутку связь с остатком и признак.
+   *
+   * Оба случая живут в фикстуре именно поэтому: на коротких градациях шкалы Ликерта ни
+   * тот, ни другой не воспроизводится, и приёмка их не видит.
+   */
+  const styleStatements = [
+    "Я помогаю команде сфокусироваться на главном и довести цели до результата в срок",
+    "Я призываю коллег к открытому обсуждению проблем, чтобы снять напряжение",
+    "Я ищу узкие места в процессе и предлагаю, что именно поменять",
+  ];
+  const wordy: QuestionSpec[] = [
+    {
+      id: randomUUID(), type: "allocation", declared: null, budget: 6,
+      prompt: "Распределите шесть баллов между утверждениями по тому, как вы действуете чаще",
+      options: styleStatements.map(text => ({ text })),
+    },
+    {
+      id: randomUUID(), type: "single", declared: null,
+      prompt: "Что вас больше всего мотивирует в работе?",
+      options: [
+        { text: "Доброжелательный микроклимат в команде и ощущение общего дела" },
+        { text: "Достижение амбициозных результатов, превышающих ожидания клиентов" },
+        { text: "Порядок и предсказуемость в рабочих процессах" },
+      ],
+    },
+  ];
+  items.push(...wordy);
+
   const topicId = await seedTopic(pool, "банк измерительного теста", items);
   const testId = await seedTest(pool, "измерительный тест", topicId, items.length);
   const people = await seedPeople(pool, "scale");
 
-  // Две шкалы по четыре пункта: истощение и отстранённость.
+  // Две шкалы Ликерта по четыре пункта плюс третья — на пунктах с длинными вариантами.
+  const likert = items.slice(0, 8);
   const scales = [
-    { id: randomUUID(), key: "exhaustion", label: "Эмоциональное истощение", items: items.slice(0, 4) },
-    { id: randomUUID(), key: "detachment", label: "Отстранённость", items: items.slice(4) },
+    { id: randomUUID(), key: "exhaustion", label: "Эмоциональное истощение", items: likert.slice(0, 4) },
+    { id: randomUUID(), key: "detachment", label: "Отстранённость", items: likert.slice(4) },
+    { id: randomUUID(), key: "style", label: "Ведущий стиль", items: wordy },
   ];
   for (const [order, scale] of scales.entries()) {
     await pool.query(
@@ -397,12 +444,18 @@ async function seedScaleTest(pool: pg.Pool): Promise<string> {
       [scale.id, testId, scale.key, scale.label, order],
     );
     for (const item of scale.items) {
-      // Вклад градации равен её номеру: обратный пункт этим и портит шкалу — знак не перевёрнут.
-      for (let grade = 0; grade < grades.length; grade += 1) {
+      // Распределение баллов вкладывает в шкалу то, что НАЗНАЧИЛ участник, поэтому источник
+      // вклада у него свой (`option_allocation`), а не «автор задал число за градацию».
+      const sourceType = item.type === "allocation" ? "option_allocation" : "option";
+      const sources = item.type === "scale" ? grades.length : item.options.length;
+      for (let index = 0; index < sources; index += 1) {
         await pool.query(
           `INSERT INTO question_measurements (id, test_id, question_id, scale_id, source_type, source_key, value_json, weight)
-           VALUES ($1, $2, $3, $4, 'option', $5, $6, 1)`,
-          [randomUUID(), testId, item.id, scale.id, String(grade), JSON.stringify(grade)],
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 1)`,
+          // Вклад градации равен её номеру: обратный пункт этим и портит шкалу — знак не
+          // перевёрнут. У распределения число здесь — множитель к назначенным баллам.
+          [randomUUID(), testId, item.id, scale.id, sourceType, String(index),
+            JSON.stringify(item.type === "allocation" ? 1 : index)],
         );
       }
     }
@@ -415,11 +468,19 @@ async function seedScaleTest(pool: pg.Pool): Promise<string> {
     const outcomes: Array<{ questionId: string; result: string; earned: number; possible: number }> = [];
 
     items.forEach((item, at) => {
-      const reverse = at === 3;
-      const dead = at === 6;
-      // Обычный пункт следует уровню шкалы; обратный идёт против него; мёртвый стоит на месте.
-      const grade = dead ? 3 : reverse ? Math.round((1 - level) * 4) : Math.round(level * 4);
-      answers[item.id] = grade;
+      if (item.type === "allocation") {
+        // Раскладка «утверждение -> баллы»: сильнее выражен первый стиль у одних, второй у
+        // других. Ноль означает «рассмотрел и отверг», поэтому третьему достаётся остаток.
+        const first = 1 + (index % 5);
+        answers[item.id] = { 0: first, 1: 6 - first, 2: 0 };
+      } else if (item.type === "single") {
+        answers[item.id] = index % item.options.length;
+      } else {
+        const reverse = at === 3;
+        const dead = at === 6;
+        // Обычный пункт следует уровню шкалы; обратный идёт против него; мёртвый стоит на месте.
+        answers[item.id] = dead ? 3 : reverse ? Math.round((1 - level) * 4) : Math.round(level * 4);
+      }
       outcomes.push({ questionId: item.id, result: "pending", earned: 0, possible: 0 });
     });
 
