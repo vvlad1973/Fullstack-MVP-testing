@@ -485,17 +485,31 @@ async function seedMixedSourceTest(pool: pg.Pool): Promise<string> {
     });
   }
 
-  const batchId = randomUUID();
+  const imported = people.slice(webPeople.length);
+  // Две партии РАЗНОГО ВИДА: сырая выгрузка, где псевдоним считаем мы, и предобезличенная, где
+  // он пришёл готовым из чужого инструмента. Ключи участников в них несопоставимы, поэтому один
+  // человек может попасть в выборку дважды — случай FR-43, ради которого экран и предупреждает.
+  const rawBatchId = randomUUID();
+  const anonymizedBatchId = randomUUID();
+  const anonymizedFrom = imported.length - 6;
   await pool.query(
     `INSERT INTO lms_import_batches
        (id, test_id, file_name, file_hash, anonymized, source_anonymized, link_users, imported_by,
         rows_total, rows_created, rows_unmatched, counted)
      VALUES ($1, $2, $3, $4, true, false, false, $5, $6, $6, 2, true)`,
-    [batchId, testId, `${MARK}.xlsx`, randomUUID(), people[0], PEOPLE - webPeople.length],
+    [rawBatchId, testId, `${MARK}.xlsx`, randomUUID(), people[0], anonymizedFrom],
+  );
+  await pool.query(
+    `INSERT INTO lms_import_batches
+       (id, test_id, file_name, file_hash, anonymized, source_anonymized, link_users, imported_by,
+        rows_total, rows_created, rows_unmatched, counted)
+     VALUES ($1, $2, $3, $4, true, true, false, $5, $6, $6, 0, true)`,
+    [anonymizedBatchId, testId, `${MARK} (обезличенная).xlsx`, randomUUID(), people[0], 6],
   );
 
   // Импортированные прохождения: балла за задание выгрузка не даёт — только бинарный исход.
-  for (const [index] of people.slice(webPeople.length).entries()) {
+  for (const [index] of imported.entries()) {
+    const batchId = index < anonymizedFrom ? rawBatchId : anonymizedBatchId;
     const attemptId = randomUUID();
     const ability = index / 10;
     const startedAt = new Date(Date.UTC(2026, 8, 20 + (index % 5), 10, 0, 0));

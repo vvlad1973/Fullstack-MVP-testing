@@ -181,6 +181,25 @@ describe("ItemQualityPanel", () => {
     expect(screen.getByText(/в него не попал никто/)).toBeTruthy();
   });
 
+  it("предупреждает о смешении сырых и предобезличенных выгрузок (FR-43)", () => {
+    // Ключи участников в этих файлах считаются по-разному, один человек попадает в выборку
+    // дважды, и число респондентов завышено. Это не «ослабленные показатели», а прямая
+    // ошибка в составе выборки, поэтому баннер отдельный и тоном выше.
+    render(<ItemQualityPanel view={view({
+      bias: { unevenDelivery: false, importShare: 0.4, mixedAnonymity: true },
+    })} />);
+
+    expect(screen.getByText(/посчитаны дважды/i)).toBeTruthy();
+  });
+
+  it("без смешения такого баннера нет", () => {
+    render(<ItemQualityPanel view={view({
+      bias: { unevenDelivery: false, importShare: 0, mixedAnonymity: false },
+    })} />);
+
+    expect(screen.queryByText(/посчитаны дважды/i)).toBeNull();
+  });
+
   it("доля невыданных наблюдений стоит рядом с трудностью задания (FR-41)", () => {
     // У выборки из импорта это и есть мера смещения `p`: трудность посчитана по тем, кто
     // задание видел, и чем больше невыданных, тем меньше выборка под числом.

@@ -282,6 +282,13 @@ router.get(
           bias: {
             unevenDelivery: deliveryIsUneven(test.mode, sections),
             importShare,
+            // FR-43: среди УЧТЁННЫХ партий есть и сырые, и предобезличенные. Ключ участника в
+            // них считается по-разному — свой хеш против готового псевдонима чужого
+            // инструмента, — поэтому один человек получает два ключа, попадает в выборку
+            // дважды и завышает число респондентов. Снятая с учёта партия в счёт не идёт:
+            // её строк в числах нет вовсе.
+            mixedAnonymity: batches.some(b => b.counted && b.sourceAnonymized)
+              && batches.some(b => b.counted && !b.sourceAnonymized),
           },
         };
       });

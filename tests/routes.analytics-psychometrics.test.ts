@@ -123,6 +123,43 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(res.body.items[0]).toMatchObject({ questionId: "q1", declaredDifficulty: 40 });
   });
 
+  it("замечает смешение сырых и предобезличенных выгрузок (FR-43)", async () => {
+    // Ключи участников в этих файлах считаются по-разному: сырой хешируется нами, а
+    // предобезличенный несёт готовый псевдоним чужого инструмента. Один человек получает два
+    // ключа, считается дважды, и число респондентов завышено — молчать об этом нельзя.
+    storageMock.getLmsImportBatches.mockResolvedValue([
+      { id: "b1", testId: "test1", counted: true, sourceAnonymized: false },
+      { id: "b2", testId: "test1", counted: true, sourceAnonymized: true },
+    ]);
+
+    const res = await ask();
+
+    expect(res.body.bias.mixedAnonymity).toBe(true);
+  });
+
+  it("партия, снятая с учёта, в смешение не засчитывается (FR-12)", async () => {
+    // Снятая партия не участвует в числах вовсе, поэтому и двойного счёта от неё нет.
+    storageMock.getLmsImportBatches.mockResolvedValue([
+      { id: "b1", testId: "test1", counted: true, sourceAnonymized: false },
+      { id: "b2", testId: "test1", counted: false, sourceAnonymized: true },
+    ]);
+
+    const res = await ask();
+
+    expect(res.body.bias.mixedAnonymity).toBe(false);
+  });
+
+  it("выгрузки одного вида смешением не считаются", async () => {
+    storageMock.getLmsImportBatches.mockResolvedValue([
+      { id: "b1", testId: "test1", counted: true, sourceAnonymized: true },
+      { id: "b2", testId: "test1", counted: true, sourceAnonymized: true },
+    ]);
+
+    const res = await ask();
+
+    expect(res.body.bias.mixedAnonymity).toBe(false);
+  });
+
   it("доносит прогноз длины теста до экрана (FR-22)", async () => {
     // Движок считает его с самого Э3, но до FR-22 ручка его не отдавала, и на экране числа
     // не было вовсе. Поле обязано доезжать целиком: цель нужна, чтобы «ещё 25 заданий»
