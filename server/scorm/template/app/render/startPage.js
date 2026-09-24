@@ -124,7 +124,9 @@ function buildScormStartContext() {
       timeLimitMinutes: TEST_DATA.timeLimitMinutes,
       maxAttempts: TEST_DATA.maxAttempts,
       // PRD-7 S10: startPageContent migrated to an intro content page; not shown here.
-      startPageContent: ''
+      startPageContent: '',
+      // PRD-67: `course.closesOnLeave` for a layout that warns before the start.
+      closesOnLeave: (typeof packageClosesOnLeave === 'function') ? packageClosesOnLeave() : false
     },
     maxAttempts: hasLimit ? TEST_DATA.maxAttempts : null,
     completedAttempts: used,
@@ -299,6 +301,8 @@ function startTest() {
     showToast('Попытки закончились', 'warn');
     return;
   }
+  // A new attempt starts with clean section budgets and no closed sections (PRD-67).
+  if (typeof resetSectionRunState === 'function') resetSectionRunState();
 
   // Send telemetry start
   Telemetry.start();
@@ -391,6 +395,8 @@ function restart() {
     showToast('Попытки закончились', 'warn');
     return;
   }
+  // A new attempt starts with clean section budgets and no closed sections (PRD-67).
+  if (typeof resetSectionRunState === 'function') resetSectionRunState();
 
   // ===== ЗАПУСК ТЕСТА =====
   if (typeof goToPageSequenceIndex === 'function') goToPageSequenceIndex(0);

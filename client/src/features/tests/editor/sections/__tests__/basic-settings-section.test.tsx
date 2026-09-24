@@ -67,7 +67,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       webhookUrl: "",
       telemetryEnabled: false,
     },
-    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, quickAdvance: false, showSectionResults: true, skipReviewWhenComplete: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
+    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, quickAdvance: false, showSectionResults: true, skipReviewWhenComplete: false, closeSectionOnLeave: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     passRules: {
       decisionPolicy: "overall_only",
       overall: { type: "percent", value: 70 },
@@ -344,7 +344,7 @@ describe("<LimitsPane /> — «Ограничения»", () => {
 
   it("sets timeLimitMinutes back to null when input is cleared", () => {
     const updateModel = vi.fn();
-    const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const } });
+    const model = baseModel({ runtime: { timeLimitMinutes: 30, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, closeSectionOnLeave: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const } });
     render(<LimitsPane model={model} updateModel={updateModel} />);
     fireEvent.change(screen.getByTestId("settings-time-limit-input"), {
       target: { value: "" },
@@ -365,6 +365,31 @@ describe("<LimitsPane /> — «Ограничения»", () => {
     const model = baseModel({ runtime: { ...baseModel().runtime, timeLimitMinutes: 45 } });
     render(<LimitsPane model={model} updateModel={vi.fn()} />);
     expect(screen.queryByText(/Сейчас это/)).toBeNull();
+  });
+
+  // PRD-67: переключатель действует только там, где есть что обходить, — при лимите.
+  describe("«Закрывать раздел при выходе» (PRD-67)", () => {
+    it("скрыт, когда лимитов нет совсем", () => {
+      render(<LimitsPane model={baseModel()} updateModel={vi.fn()} />);
+      expect(screen.queryByTestId("settings-close-section-on-leave-switch")).toBeNull();
+    });
+
+    it("виден при одном только общем лимите и включается", () => {
+      const updateModel = vi.fn();
+      const model = baseModel({ runtime: { ...baseModel().runtime, timeLimitMinutes: 60 } });
+      render(<LimitsPane model={model} updateModel={updateModel} />);
+      expect(screen.getByText(/Выключено — при выходе время замирает/)).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId("settings-close-section-on-leave-switch"));
+      expect(runUpdater(updateModel, model).runtime.closeSectionOnLeave).toBe(true);
+    });
+
+    it("во включённом виде объясняет, что считается выходом", () => {
+      const model = baseModel({
+        runtime: { ...baseModel().runtime, timeLimitMinutes: 60, closeSectionOnLeave: true },
+      });
+      render(<LimitsPane model={model} updateModel={vi.fn()} />);
+      expect(screen.getByText(/В тесте без разделов выход завершает попытку/)).toBeInTheDocument();
+    });
   });
 
   it("переключает результат для LMS на последнюю попытку", () => {

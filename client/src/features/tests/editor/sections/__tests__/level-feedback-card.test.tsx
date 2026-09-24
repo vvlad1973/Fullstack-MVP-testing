@@ -70,7 +70,7 @@ function baseModel(over: Partial<TestEditorModel> = {}): TestEditorModel {
       allowAnswerChange: false,
       quickAdvance: false,
       showSectionResults: true,
-      skipReviewWhenComplete: false,
+      skipReviewWhenComplete: false, closeSectionOnLeave: false,
       copyProtection: true,
       protectionWatermark: false,
       protectionHideOnBlur: false,

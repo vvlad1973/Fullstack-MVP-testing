@@ -38,6 +38,8 @@ export interface ToastInput {
   variant?: ToastVariant;
   /** Auto-dismiss delay in ms; falls back to the provider default when omitted. */
   duration?: number;
+  /** Icon in place of the tone's default one (the DS toast accepts any node). */
+  icon?: React.ReactNode;
 }
 
 /** Handle returned by `toast()` for imperative dismissal. */
@@ -91,6 +93,7 @@ export function toast(input: ToastInput): ToastHandle {
     title: input.title,
     description: input.description,
     duration: input.duration,
+    ...(input.icon !== undefined ? { icon: input.icon } : {}),
   });
   const api = dsApi;
   return { id, dismiss: () => api.dismiss(id) };

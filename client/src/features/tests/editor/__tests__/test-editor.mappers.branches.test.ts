@@ -50,7 +50,7 @@ function makeModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       allowReturnToUnanswered: true,
       allowAnswerChange: false,
       showSectionResults: true,
-      skipReviewWhenComplete: false,
+      skipReviewWhenComplete: false, closeSectionOnLeave: false,
       quickAdvance: false,
     },
     passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },
@@ -521,7 +521,7 @@ describe("apiToEditorModel — runtime and scalar defaults", () => {
       allowReturnToUnanswered: true,
       allowAnswerChange: true,
       showSectionResults: false,
-      skipReviewWhenComplete: false,
+      skipReviewWhenComplete: false, closeSectionOnLeave: false,
       quickAdvance: false,
       showDifficultyLevel: false,
     });

@@ -8,9 +8,10 @@
  *
  *   - «Основное»          — title (required), description, mode toggle
  *                            (standard / adaptive), flowMode select
- *   - «Ограничения»       — timeLimitMinutes, maxAttempts, per-topic limits and
- *                            the retake block (PRD-6/31/40: cooldown + attempt
- *                            interval), which used to be a rail item of its own
+ *   - «Ограничения»       — timeLimitMinutes, maxAttempts, per-topic limits,
+ *                            closeSectionOnLeave (PRD-67) and the retake block
+ *                            (PRD-6/31/40: cooldown + attempt interval), which
+ *                            used to be a rail item of its own
  *   - «Интеграция»        — webhookUrl, telemetryEnabled
  *   - «Правила прохождения» — passDecisionPolicy + per-topic pass rules
  *   - «Адаптивный режим»   — adaptive levels editor (hidden when mode !== "adaptive")
@@ -615,6 +616,7 @@ export function LimitsPane({ model, updateModel }: SettingsSectionProps) {
           />
         </div>
         <PerTopicLimitsBlock model={model} updateModel={updateModel} />
+        <CloseSectionOnLeaveField model={model} updateModel={updateModel} />
       </FormSection>
 
       <FormSection title="Ограничения повторных попыток" stacked>
@@ -638,6 +640,45 @@ export function LimitsPane({ model, updateModel }: SettingsSectionProps) {
         <RetakeBlock model={model} updateModel={updateModel} />
       </FormSection>
     </>
+  );
+}
+
+// ─── PRD-67: «Закрывать раздел при выходе» ───────────────────────────────────
+
+/**
+ * PRD-67 switch, the last field of «Ограничения попытки» (wireframe
+ * `approved/prd67-section-close-on-leave.html`). It acts only where a clock could be
+ * dodged, so it is shown only when some limit exists: the test-wide one or the per-topic
+ * ones. Hiding it keeps the stored value — turning a limit back on brings it back as set.
+ */
+function CloseSectionOnLeaveField({ model, updateModel }: SettingsSectionProps) {
+  const hasTestLimit = (model.runtime.timeLimitMinutes ?? 0) > 0;
+  const hasTopicLimits = model.sections.some((s) => s.timeLimit.source !== "inherit_test");
+  if (!hasTestLimit && !hasTopicLimits) return null;
+  const on = model.runtime.closeSectionOnLeave;
+  return (
+    <div className="ou-formfield">
+      <label className="ou-switch-field">
+        <Switch
+          size="m"
+          checked={on}
+          aria-label="Закрывать раздел при выходе"
+          onChange={(e) => {
+            const checked = e.target.checked;
+            updateModel((m) => ({ ...m, runtime: { ...m.runtime, closeSectionOnLeave: checked } }));
+          }}
+          data-testid="settings-close-section-on-leave-switch"
+        />
+        <span className="ou-switch-field__text">
+          <span className="ou-switch-field__label">Закрывать раздел при выходе</span>
+          <span className="ou-switch-field__desc">
+            {on
+              ? "Если ученик покинул раздел — перешёл дальше, вернулся к списку разделов или закрыл браузер, — вернуться и дорешать нельзя. В тесте без разделов выход завершает попытку."
+              : "Выключено — при выходе время замирает, а по возвращении ученик продолжает с того же места."}
+          </span>
+        </span>
+      </label>
+    </div>
   );
 }
 

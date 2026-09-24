@@ -598,6 +598,7 @@ export const SETTING_PARAMS: SettingParam[] = [
   boolParam("Не показывать обзор, если отвечены все вопросы", (s) => s.skipReviewWhenComplete, "test", "skipReviewWhenComplete"),
   boolParam("Переходить к следующему вопросу сразу после ответа", (s) => s.quickAdvance, "test", "quickAdvance"),
   boolParam("Показывать итоги раздела", (s) => s.showSectionResults, "test", "showSectionResults"),
+  boolParam("Закрывать раздел при выходе", (s) => s.closeSectionOnLeave, "test", "closeSectionOnLeave"),
   boolParam("Защищать текст задания от копирования", (s) => s.copyProtection, "test", "copyProtection"),
   boolParam("Показывать водяной знак", (s) => s.protectionWatermark, "test", "protectionWatermark"),
   boolParam("Скрывать задание при уходе из окна", (s) => s.protectionHideOnBlur, "test", "protectionHideOnBlur"),

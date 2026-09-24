@@ -563,6 +563,8 @@ function restartAdaptive() {
 
   // Регистрация попытки в SCORM
   registerAttemptStart();
+  // A new attempt starts with clean section budgets and no closed sections (PRD-67).
+  if (typeof resetSectionRunState === 'function') resetSectionRunState();
 
   // Переинициализация адаптивного теста
   initAdaptiveTest();
