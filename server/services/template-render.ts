@@ -18,7 +18,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { buildResultContext, buildAdaptiveResultContext, type MeasuresSource } from "./result-context";
-import { buildTemplateCssVars, buildTemplateDataAttrs, type TemplateParamDef } from "@shared/template/params-css";
+import {
+  buildTemplateCssVars,
+  buildTemplateDataAttrs,
+  withParamDefaults,
+  type TemplateParamDef,
+} from "@shared/template/params-css";
 import { buildPaletteBridge } from "@shared/template/palette-bridge";
 import { baseParams, buildTemplateThemeCss, sceneThemeAttribute } from "@shared/template/theme-css";
 import { resolveThemeParams } from "@shared/template/theme-params";
@@ -196,8 +201,11 @@ function readFileSafe(p: string): string {
 /**
  * Read a template's manifest `params[]` (the CSS-var definitions) from its dir.
  * Empty on any read/parse failure — branding then simply falls back to theme.css.
+ *
+ * Exported for readers of the design params that render no screen (the scale analytics):
+ * they need the same manifest defaults the screen resolves its params with.
  */
-function readManifestParams(dir: string): TemplateParamDef[] {
+export function readManifestParams(dir: string): TemplateParamDef[] {
   return readBrandingManifest(dir).params ?? [];
 }
 
@@ -432,7 +440,14 @@ export function readScreenTemplate(
     // come from THIS resolution, not from a second one. A pinned palette contributes
     // its colours; under «Авто» there is no server-side answer to which palette the
     // browser will paint, so only the palette-independent params travel.
-    const params = { ...base, ...(dataTheme ? resolved.byTheme[dataTheme] ?? {} : {}) };
+    //
+    // What the author left untouched is filled from the manifest's `default` — the same
+    // fallback the CSS vars and data attributes above have always taken. Without it Core
+    // painted its own hard-coded choice while the editor showed the template's.
+    const params = withParamDefaults(
+      { ...base, ...(dataTheme ? resolved.byTheme[dataTheme] ?? {} : {}) },
+      manifest.params,
+    );
     return {
       layout,
       css: bridge ? `${css}\n${bridge}` : css,

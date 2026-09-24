@@ -48,7 +48,9 @@ export { buildResultContext, buildAdaptiveResultContext, buildSectionResultConte
 // harmless (a normalised asset keeps its address in `url`), but the block is still
 // normalised in exactly ONE place so the rule lives in a single copy.
 export { normalizeFeedback } from "./result-context";
-export { LEVEL_SCHEMES } from "./level-ramp";
+export { LEVEL_SCHEMES, rampFromParams } from "./level-ramp";
+// Окраска полос подтем: пакет разрешает её из тех же параметров оформления, что и веб.
+export { barFillFromParams } from "./bar-fill";
 export { parseScaleInterpretation, parseIndicatorInterpretation } from "../scales/interpretation";
 // PRD-18: the SINGLE standard result-aggregation + pass-rule engine shared by the
 // SCORM runtime (resultsPage.js) and the web grader (attempts.ts).
@@ -78,7 +80,7 @@ export { buildCourseSubtitle } from "./course-subtitle";
 // как выглядит двухнедельный бюджет («14 дней», а не «20160 мин» / «20160:00»).
 export { formatMinutesHuman, formatCountdown } from "./duration";
 export { buildTransitionContext } from "./transition-context";
-export { buildTemplateCssVars, buildTemplateDataAttrs, DEFAULT_PARAM_CSS_VARS } from "./params-css";
+export { buildTemplateCssVars, buildTemplateDataAttrs, DEFAULT_PARAM_CSS_VARS, withParamDefaults } from "./params-css";
 // Ревизия «Стандартный» на ui-kit: мост палитры теста в токены DS — оба хоста
 // выводят DS-акцент из --primary теста, поэтому ученические экраны на .ou-разметке
 // брендируются палитрой теста одинаково в вебе и в пакете.

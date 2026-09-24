@@ -32,7 +32,7 @@ import {
 // PRD-12 FR-6: content pages render on the web from the SAME structure rules and
 // the SAME assembler as the SCORM package — no web-only copy of either.
 import { TemplateContentScreen, type ContentScreenTemplate } from "./template-content-screen";
-import { buildPageSequence, contentPagesFor, type FlowContentPage } from "@shared/flow/page-sequence";
+import { buildAfterZone, buildPageSequence, contentPagesFor, type FlowContentPage } from "@shared/flow/page-sequence";
 import { shouldShowReview } from "@shared/flow/review-gate";
 import { isSystemScreenHidden } from "@shared/flow/page-sequence";
 import {
@@ -1890,9 +1890,12 @@ export default function TakeTestPage() {
   /** «Завершить» on the hub: the «После теста» zone, then submit. */
   const finishFromHub = () => {
     setShowHub(false);
+    // Только то, что стоит ДО «Итогов теста»: страницы за ними играются после экрана
+    // итогов (`buildAfterZone`, тем же правилом, что в пакете и в «Структуре»).
     const after = contentTpl && !afterZonePlayed
-      ? (contentPagesFor(flowStructure.contentPages, null, "after") as RenderableContentPage[])
-          .filter((p) => (p as { type?: string }).type !== "summary")
+      ? (buildAfterZone(flowStructure.contentPages).preResults
+          .map((item) => (item.kind === "content" ? item.page : null))
+          .filter(Boolean) as RenderableContentPage[])
       : [];
     if (after.length > 0) {
       setAfterZonePlayed(true);

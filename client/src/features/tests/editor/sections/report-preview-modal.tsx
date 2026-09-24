@@ -16,7 +16,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Banner, Button, ModalDialog, SegmentedControl, Tag } from "@skillum/ui-kit";
 import { TemplateScreen } from "@/components/template-screen";
-import { buildTemplateCssVars, buildTemplateDataAttrs } from "@shared/template/params-css";
+import { buildTemplateCssVars, buildTemplateDataAttrs, withParamDefaults } from "@shared/template/params-css";
+import { barFillFromParams } from "@shared/template/bar-fill";
 import { buildAdaptiveReportContext, buildReportContext } from "@shared/report/report-context";
 import { buildReportMeasures } from "@shared/report/report-measures";
 import {
@@ -151,12 +152,18 @@ export function ReportPreviewModal({
   );
 
   const context = useMemo(() => {
+    // Окраска полос подтем — из НЕсохранённых параметров оформления с умолчаниями манифеста,
+    // тем же правилом, что в выдаче: автор видит документ, который уйдёт слушателю.
+    const barFill = barFillFromParams(
+      withParamDefaults(params as Record<string, unknown>, bundle?.manifest.params),
+    );
     const test = {
       testName,
       sections,
       levelNames,
       ...(headings ? { headings } : {}),
       ...(breakdownDisplay ? { breakdownDisplay } : {}),
+      ...(barFill ? { barFill } : {}),
       ...(sectionGroups?.length ? { sectionGroups } : {}),
       // PRD-61 FR-23: вводный текст едет из РЕАЛЬНОГО теста — автор пишет его прямо перед
       // тем, как открыть это окно, и не увидеть его здесь значит проверять вёрстку вместо

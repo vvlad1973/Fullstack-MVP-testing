@@ -91,6 +91,39 @@ export function buildTemplateCssVars(
 }
 
 /**
+ * The effective params Core reads, with the manifest's `default` filling every key the
+ * test has not set.
+ *
+ * {@link buildTemplateCssVars} and {@link buildTemplateDataAttrs} have always fallen back to
+ * `def.default`, but the params Core reads ITSELF (the level scheme, the render kinds, the bar
+ * colouring) came straight from the stored settings — and those hold only what the author
+ * changed. So the editor showed the manifest default as the current value while Core painted
+ * its own hard-coded fallback, and a template had no way to choose the look of an untouched
+ * test. Resolving here closes that gap for every such param at once.
+ *
+ * Only a missing value is filled (`null` / `undefined`): an author's explicit choice always
+ * wins. Dotted keys (`progress.mode`) are skipped — they address nested settings through
+ * {@link resolvePath}, and writing a flat key with a dot in it would create a second, unread
+ * copy of the value.
+ *
+ * @param params Effective params of the test (may be empty).
+ * @param manifestParams The template manifest's `params[]`.
+ * @returns A new object; the input is not modified.
+ */
+export function withParamDefaults(
+  params: Record<string, unknown> | null | undefined,
+  manifestParams: TemplateParamDef[] | null | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...(params ?? {}) };
+  for (const def of manifestParams ?? []) {
+    if (!def || typeof def.key !== "string" || def.key.includes(".")) continue;
+    if (def.default === null || def.default === undefined) continue;
+    if (out[def.key] === null || out[def.key] === undefined) out[def.key] = def.default;
+  }
+  return out;
+}
+
+/**
  * Build a `{ "data-x": "value" }` map from the params that declare {@link
  * TemplateParamDef.dataAttr}. Both hosts put these on the scene root next to the CSS
  * vars, so a template can write `[data-brand-logo="b2b"] .logo { … }` — the one thing

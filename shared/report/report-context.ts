@@ -298,6 +298,8 @@ export function buildReportContext(input: ReportInput, opts: ReportContextOption
     // записи разреза (`breakdown` в `topicResults` — они приходят как есть, см. ниже), но
     // печатать их можно только с этим переключателем, который раньше сюда не доезжал.
     ...(input.breakdownDisplay ? { breakdownDisplay: input.breakdownDisplay } : {}),
+    // Окраска полос подтем — тем же приёмом: документ красит их так же, как экран.
+    ...(input.barFill ? { barFill: input.barFill } : {}),
     // PRD-50 FR-50: порог, по которому общий построитель решает, какие тексты подтем
     // читает слушатель. Передаётся ТЕМ ЖЕ приёмом, что настройки выше, и по той же
     // причине: без него правило теряет предмет сравнения и печатает всё написанное — то
@@ -446,6 +448,7 @@ export function buildAdaptiveReportContext(
     // скачали). Сами записи лежат в `input.result.breakdowns` и уходят построителю вместе
     // с результатом.
     ...(input.breakdownDisplay ? { breakdownDisplay: input.breakdownDisplay } : {}),
+    ...(input.barFill ? { barFill: input.barFill } : {}),
     // PRD-50 FR-50: порог отбора текстов подтем — по той же причине, что и в обычном
     // отчёте выше. Адаптивный экран его получает, и документ обязан отобрать то же самое.
     ...(input.overallPassRule ? { overallPassRule: input.overallPassRule } : {}),

@@ -62,6 +62,7 @@ import {
 import type { QuestionType } from "@shared/scales/engine";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
 import { resolveFlowPolicy } from "@shared/flow/flow-policy";
+import { buildAfterZone, type FlowContentPage } from "@shared/flow/page-sequence";
 import { isMeasurementOnly } from "@shared/questions/question-type";
 // PRD-50 FR-17: элементы разреза адаптивного прогона собирает хост — движок их вывести не может.
 import type { BreakdownItem } from "@shared/breakdown/types";
@@ -220,8 +221,36 @@ async function flowPayload(src: TestDataSource, test: Test) {
       settingsJson: p.settingsJson,
       autoAdvance: p.autoAdvance,
       autoAdvanceDelayMs: p.autoAdvanceDelayMs,
+      // «Экран есть, но ученику не выдаётся»: общее правило порядка (`contentPagesFor`)
+      // отбрасывает такие страницы, но только если признак до него доехал.
+      hidden: p.hidden === true,
     })),
   };
+}
+
+/**
+ * Страницы «После теста», стоящие ЗА «Итогами теста», — в той версии теста, которую
+ * выдали этой попытке.
+ *
+ * Отбирает их ТО ЖЕ общее правило, что строит прохождение (`buildAfterZone`), поэтому
+ * экран итогов предлагает «Далее» ровно тогда, когда пакет, и к тем же страницам. Раньше
+ * веб их не показывал вовсе: экран итогов живёт на своём маршруте, а прохождение с этими
+ * страницами к тому моменту уже закончено.
+ *
+ * @param attempt Попытка: тест и приколотый снимок.
+ * @returns Страницы в порядке показа; пусто, если их нет или структура не прочиталась.
+ */
+async function postResultsPagesForAttempt(attempt: { testId: string; snapshotId: string | null }) {
+  try {
+    const src = await dataSourceForAttempt(attempt.snapshotId);
+    const test = await src.getTest(attempt.testId);
+    if (!test) return [];
+    const flow = await flowPayload(src, test);
+    const pages = buildAfterZone(flow.contentPages as FlowContentPage[]).postResultsPages;
+    return pages as typeof flow.contentPages;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -2046,6 +2075,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
     // `variables`): у сборщика в нём не было `indicators`, и скачивание отчёта у теста
     // со шкалами или показателями падало.
     let measures: MeasuresInput | undefined;
+    let postResultsPages: Awaited<ReturnType<typeof postResultsPagesForAttempt>> = [];
     if (resultJson && Array.isArray(resultJson.topicResults)) {
       const templateId = ((test?.designSettingsJson as any)?.templateId as string) || "default";
       // Learner-facing render: never serve a non-active template, and when the
@@ -2111,6 +2141,9 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // block). «Скачать отчёт» is on now that the web host produces the report from
       // the SHARED generator (shared/report/*) — the same PDF the package hands out,
       // unless the author switched the report off for this test (`report.enabled`).
+      // Страницы «После теста» за «Итогами теста»: экран итогов ведёт к ним «Далее».
+      // Только у обычного итога — адаптивный экран пакета их тоже не предлагает.
+      if (resultJson.mode !== "adaptive") postResultsPages = await postResultsPagesForAttempt(attempt);
       if (render?.context && typeof render.context === "object") {
         const ctx = render.context as { result?: Record<string, unknown> };
         if (ctx.result) {
@@ -2120,7 +2153,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
             // Attempts alone — the adaptive footer re-runs the test rather than
             // offering a remedy, so a pass does not close it (see results-nav).
             canRetake,
-            hasPostPages: false,
+            hasPostPages: postResultsPages.length > 0,
             finishLabel: "К списку тестов",
           });
         }
@@ -2139,10 +2172,15 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // ТОТ ЖЕ сборщик, что рисует экран, и ему нужны те же два факта, которых нет в
       // результате попытки, — обратная связь теста и наличие порога. Отчёт строит
       // браузер, поэтому они едут с ВХОДОМ отчёта, а не параметром сборки.
+      //
+      // Материал дополняется параметрами оформления ЭТОГО экрана (`render.params`, уже с
+      // умолчаниями манифеста) — тем же правилом, что и измерения выше: окраску полос подтем
+      // документ обязан взять ту же, что у экрана, с которого его скачали.
+      const reportMaterial = material ? completeMeasuresSource(material, render?.params, resultJson) : material;
       report =
         resultJson.mode === "adaptive"
-          ? buildAdaptiveReportInput(resultJson, test?.title || "", reportMeta, material)
-          : buildReportInput(resultJson, test?.title || "", reportMeta, material);
+          ? buildAdaptiveReportInput(resultJson, test?.title || "", reportMeta, reportMaterial)
+          : buildReportInput(resultJson, test?.title || "", reportMeta, reportMaterial);
 
       // PRD-27 Фаза 2: страницу отчёта рисует МАКЕТ шаблона. Активный шаблон, не
       // объявивший нужного вида, отчёта не лишает: макет берётся из «Стандартного», а
@@ -2245,6 +2283,8 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // в отчёте; включает ли он диаграмму — решает СВОЙ переключатель варианта
       // отчёта, который лежит в `reportRender.values`.
       measures,
+      // Страницы «После теста» за «Итогами теста»: «Далее» экрана итогов ведёт к ним.
+      postResultsPages,
       attemptsInfo:
         maxAttempts !== null
           ? {
