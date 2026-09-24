@@ -487,7 +487,7 @@ function StatusBar({ snap }: { snap: InspectorSnapshot }) {
           <>
             <span className="dbg__bar-sep" />
             <div className="dbg__stat">
-              <span className="dbg__stat-lbl">Ошибка расчёта</span>
+              <span className="dbg__stat-lbl">Не рассчитано</span>
               <span className="dbg__stat-val"><Tag tone="error" size="s">{s.alarm}</Tag></span>
             </div>
           </>
