@@ -4,9 +4,10 @@
  * Окраска полос подтем: разрешение режима из параметров оформления и готовая заливка
  * «по доле».
  *
- * Главное свойство заливки — полоса шириной `p` показывает ЛЕВУЮ ЧАСТЬ рампы, растянутой
- * на всю дорожку: начинается неблагоприятным краем и кончается цветом рампы в точке `p`.
- * Отсюда проверки концов, а не только формы строки.
+ * Главное свойство заливки — полоса шириной `p` показывает ЛЕВУЮ ЧАСТЬ градиента, растянутого
+ * на всю дорожку: начинается неблагоприятным краем и кончается цветом в точке `p`. Переход —
+ * прямой, в RGB, как у CSS-градиента прежнего отчёта (решение владельца 2026-09-24), а не по
+ * дуге оттенка, как у зон уровней. Отсюда проверки концов и числа остановок.
  */
 import { describe, expect, it } from "vitest";
 import { barFillCss, barFillFromParams } from "../bar-fill";
@@ -18,8 +19,8 @@ const BRAND: LevelRamp = { favorable: "163.9 79.2% 47.1%", mid: null, unfavorabl
 /** Цветовые остановки заливки: `[цвет, позиция]`. */
 function stops(css: string): Array<[string, number]> {
   const body = css.replace(/^linear-gradient\(90deg, /, "").replace(/\)$/, "");
-  return body.split(/,\s*(?=hsl\()/).map((s) => {
-    const m = /^(hsl\([^)]*\)) ([\d.]+)%$/.exec(s.trim());
+  return body.split(/,\s*(?=rgb\()/).map((s) => {
+    const m = /^(rgb\([^)]*\)) ([\d.]+)%$/.exec(s.trim());
     if (!m) throw new Error("неразборная остановка: " + s);
     return [m[1], Number(m[2])];
   });
@@ -63,37 +64,39 @@ describe("barFillCss", () => {
     expect(barFillCss(BRAND, Number.NaN)).toBe("");
   });
 
-  it("полная полоса идёт от неблагоприятного края к благоприятному", () => {
-    const s = stops(barFillCss(BRAND, 100));
-    expect(s[0]).toEqual(["hsl(15.4, 100%, 53.5%)", 0]);
-    expect(s[s.length - 1]).toEqual(["hsl(163.9, 79.2%, 47.1%)", 100]);
+  it("полная полоса — прямой переход между цветами референса отчёта, без промежуточных точек", () => {
+    // #FF4F12 → #19D7A4: та же пара, что печатал report.css; ±1 на канал — округление тройки HSL.
+    expect(stops(barFillCss(BRAND, 100))).toEqual([
+      ["rgb(255, 79, 18)", 0],
+      ["rgb(25, 215, 164)", 100],
+    ]);
   });
 
-  it("короткая полоса — левая часть рампы: конец не благоприятный, а цвет рампы в точке доли", () => {
-    const full = stops(barFillCss(BRAND, 100));
-    const quarter = stops(barFillCss(BRAND, 25));
-    // Остановка 0.25 полной рампы и конец четвертной полосы — один и тот же цвет.
-    const atQuarter = full.find(([, pos]) => pos === 25)![0];
-    expect(quarter[quarter.length - 1]).toEqual([atQuarter, 100]);
-    expect(quarter[0]).toEqual(["hsl(15.4, 100%, 53.5%)", 0]);
+  it("короткая полоса — левая часть того же градиента: конец — цвет прямой линии в точке доли", () => {
+    // 25 % пути от (255, 79, 18) к (25, 215, 164) — ровно то, что браузер нарисовал бы на
+    // четверти полного градиента. Жёлтого и зелёного, которые дала бы дуга оттенка, нет.
+    expect(stops(barFillCss(BRAND, 25))).toEqual([
+      ["rgb(255, 79, 18)", 0],
+      ["rgb(197, 113, 54)", 100],
+    ]);
   });
 
-  it("позиции остановок отсчитываются от заливки и растут до 100 %", () => {
-    const s = stops(barFillCss(BRAND, 40));
-    const positions = s.map(([, pos]) => pos);
-    expect(positions).toEqual([...positions].sort((a, b) => a - b));
-    expect(positions[0]).toBe(0);
-    expect(positions[positions.length - 1]).toBe(100);
-  });
-
-  it("рампа с серединой получает остановку ровно в её точке", () => {
-    const s = stops(barFillCss(LEVEL_SCHEMES.traffic, 100));
-    expect(s).toContainEqual(["hsl(38, 92%, 50%)", 50]);
+  it("середина схемы — единственный излом, и остановкой становится только за ней", () => {
+    // Светофор: красный (0 84% 60%) → жёлтый (38 92% 50%) → зелёный (142 76% 36%).
+    const full = stops(barFillCss(LEVEL_SCHEMES.traffic, 100));
+    expect(full).toHaveLength(3);
+    expect(full[1][1]).toBe(50);
+    const beyond = stops(barFillCss(LEVEL_SCHEMES.traffic, 75));
+    expect(beyond[1][1]).toBe(66.7);
+    expect(stops(barFillCss(LEVEL_SCHEMES.traffic, 40))).toHaveLength(2);
   });
 
   it("испорченный цвет своей схемы не попадает в style: подставляется край светофора", () => {
     const css = barFillCss({ favorable: "red; background: url(x)", mid: "oops", unfavorable: BRAND.unfavorable }, 100);
     expect(css).not.toMatch(/url|red|oops/);
-    expect(stops(css)[stops(css).length - 1][0]).toBe("hsl(142, 76%, 36%)");
+    expect(stops(css)).toEqual([
+      ["rgb(255, 79, 18)", 0],
+      ["rgb(22, 162, 73)", 100],
+    ]);
   });
 });

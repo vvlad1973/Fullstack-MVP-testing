@@ -47,7 +47,7 @@ describe("окраска полос подтем", () => {
     );
     expect(row.passClass).toBe("");
     expect(row.passed).toBe(true);
-    expect(String(row.barFill)).toMatch(/^linear-gradient\(90deg, hsl\(0, 84%, 60%\) 0%, .* 100%\)$/);
+    expect(String(row.barFill)).toMatch(/^linear-gradient\(90deg, rgb\(239, \d+, \d+\) 0%, .* 100%\)$/);
   });
 
   it("«нейтральная»: ни вердикта, ни заливки", () => {
