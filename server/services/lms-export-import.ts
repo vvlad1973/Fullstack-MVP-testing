@@ -12,7 +12,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { participantKey } from "../utils/crypto";
 import { decodeLearnerResponse } from "@shared/lms-export/response-codec";
-import { hasBlanks } from "@shared/questions/question-type";
+import { hasBlanks, isMeasurementOnly } from "@shared/questions/question-type";
 import type { LmsExportBook } from "@shared/lms-export/parse";
 import type { IStorage } from "../storage";
 
@@ -119,7 +119,11 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
       answers: Object.keys(r.answers).map((questionId) => ({
         questionId,
         raw: r.answers[questionId],
-        result: r.results[questionId] || "neutral",
+        // PRD-66 FR-10a: пустая ячейка сюда и попадает пустой. Сведение её к `neutral`
+        // объявляло измерительным всё, чей исход файл не сообщил, — и невыданное задание
+        // в том числе. Решение, чем считать пустой исход, принимается ниже, где известен
+        // ТИП задания: у измерительного пустота законна, у оцениваемого это пробел.
+        result: r.results[questionId] ?? "",
         // Выгрузка даёт целые секунды, база хранит миллисекунды — как и живая телеметрия,
         // иначе два источника не сравнить одним запросом. Нет измерения — нет и числа;
         // отсутствие самой карты означает то же (выгрузка пакета, времени не мерившего).
@@ -223,6 +227,9 @@ export async function runImport(
     }
   }
   const unknownForms = new Set<string>();
+  // PRD-66 FR-10a: сколько взаимодействий пришло без исхода у ОЦЕНИВАЕМОГО задания. Не потеря
+  // сопоставления (задание найдено), а пробел в самом файле — и считается отдельно.
+  let resultsMissing = 0;
 
   let batchId: string | null = null;
   if (!dryRun) {
@@ -302,6 +309,16 @@ export async function runImport(
         // Вопроса нет в базе — записать ответ не во что: `scorm_answers` требует тип и текст
         // вопроса. Такая строка уже названа в предупреждении о чужих вопросах.
         if (!q) return [];
+        // PRD-66 FR-10a: `neutral` остаётся ТОЛЬКО за измерительным заданием — у него эталона
+        // нет вовсе, и пустой исход законен. У оцениваемого пустой исход значит, что файл его
+        // не сообщил: приписать «неверно» — выдумать ответ, которого могло не быть, приписать
+        // `neutral` — объявить измерительным то, что оценивается. Наблюдения нет, есть пробел,
+        // и партия о нём говорит.
+        const known = a.result === "correct" || a.result === "incorrect";
+        if (!known && !isMeasurementOnly({ type: q.type, correctJson: q.correctJson })) {
+          resultsMissing += 1;
+          return [];
+        }
         return [{
           id: randomUUID(),
           attemptId: id,
@@ -328,6 +345,11 @@ export async function runImport(
     );
   }
 
+  if (resultsMissing > 0) {
+    warnings.push(
+      `Взаимодействий без исхода у оцениваемых заданий: ${resultsMissing}. Наблюдениями они не стали — выгрузка не сообщила, верен ответ или нет.`,
+    );
+  }
   if (unknownForms.size > 0) {
     warnings.push(
       `Варианты выдачи не найдены в тесте (${[...unknownForms].join(", ")}): раздел мог быть переведён на случайную выдачу.`,

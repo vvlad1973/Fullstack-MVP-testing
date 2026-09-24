@@ -229,6 +229,34 @@ describe("runImport", () => {
     expect(res.warnings.join()).toContain("не из этого теста");
   });
 
+  it("у измерительного задания пустой исход остаётся нейтральным (PRD-66 FR-10a)", async () => {
+    // `allocation` эталона не имеет вовсе: ни верным, ни неверным его ответ быть не может.
+    const blank = { ...book, rows: [{ ...book.rows[0], results: { q1: "" } }] };
+    const s = storageStub();
+    await runImport(blank as never, ON, ctx, s as never);
+    expect(s.answers[0][0]).toMatchObject({ result: "neutral", isCorrect: null });
+  });
+
+  it("у оцениваемого задания пустой исход наблюдением не становится", async () => {
+    // Раньше пустая ячейка сводилась к `neutral` — и задание, исход которого файл не сообщил,
+    // выглядело измерительным. Приписать ему «неверно» значило бы выдумать ответ, которого
+    // участник мог и не дать; записать `neutral` — объявить измерительным то, что оценивается.
+    // Наблюдения нет, и партия об этом говорит.
+    const graded = {
+      ...book,
+      rows: [{ ...book.rows[0], answers: { q2: "1" }, results: { q2: "" } }],
+    };
+    const s = storageStub();
+    s.getQuestionsByIds = async (ids: string[]) =>
+      [{ id: "q2", type: "single", prompt: "Вопрос", topicId: "t1", correctJson: { correctIndex: 0 } }]
+        .filter((q) => ids.includes(q.id)) as never;
+
+    const res = await runImport({ ...graded, questionIds: ["q2"] } as never, ON, ctx, s as never);
+
+    expect(s.answers[0]).toHaveLength(0);
+    expect(res.warnings.join()).toContain("без исхода");
+  });
+
   it("пропущенная строка попадает в rowsSkipped", async () => {
     const noDate = { ...book, rows: [{ ...book.rows[0], moduleActivatedAt: "" }] };
     const res = await runImport(noDate as never, ON, ctx, storageStub() as never);

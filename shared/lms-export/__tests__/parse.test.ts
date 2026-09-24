@@ -76,6 +76,47 @@ describe("parseLmsExport", () => {
     expect(row.variables.lead_margin).toBe("6");
   });
 
+  it("невыданное задание в наблюдения не попадает вовсе (PRD-66 FR-10a)", () => {
+    // Пакет пишет взаимодействие только по ВЫДАННОМУ заданию, поэтому у невыданного пусты
+    // все четыре подколонки. Пустая ячейка результата, сведённая к «neutral», делала
+    // невыданное задание неотличимым от измерительного — и портила обе статистики разом:
+    // трудность считалась с лишним знаменателем, а измерительные пункты тонули в
+    // наблюдениях, которых не было.
+    const sheet = SHEET.map((r) => [...r]);
+    sheet[2][9] = "";
+    sheet[2][10] = "";
+    sheet[2][11] = "";
+    sheet[2][12] = "";
+
+    const [row] = parseLmsExport(sheet).rows;
+    const id = "80a5957f-cdc7-4490-b4c9-bcedcb973c26";
+    expect(row.answers).not.toHaveProperty(id);
+    expect(row.results).not.toHaveProperty(id);
+    expect(row.latencySeconds).not.toHaveProperty(id);
+  });
+
+  it("выданное и не отвеченное задание наблюдением остаётся", () => {
+    // Тип взаимодействия заполнен — значит задание показали. Пустой ответ здесь значит
+    // «выдано, отвечать не стали», и это данные, а не их отсутствие.
+    const sheet = SHEET.map((r) => [...r]);
+    sheet[2][11] = "";
+    sheet[2][12] = "";
+
+    const [row] = parseLmsExport(sheet).rows;
+    const id = "80a5957f-cdc7-4490-b4c9-bcedcb973c26";
+    expect(row.answers[id]).toBe("");
+    expect(row.results[id]).toBe("");
+  });
+
+  it("пустой блок шкалы и показателя тоже не выдумывает наблюдения", () => {
+    const sheet = SHEET.map((r) => [...r]);
+    for (let i = 13; i < 21; i += 1) sheet[2][i] = "";
+
+    const [row] = parseLmsExport(sheet).rows;
+    expect(row.scales).not.toHaveProperty("cel");
+    expect(row.variables).not.toHaveProperty("lead_margin");
+  });
+
   it("складывает неопознанные блоки отдельно, не роняя разбор", () => {
     const sheet = SHEET.map((r) => [...r]);
     sheet[0][9] = "topic_abc_level";
