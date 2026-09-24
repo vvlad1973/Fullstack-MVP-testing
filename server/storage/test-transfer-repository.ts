@@ -17,6 +17,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { freeTopicName, normalizeTopicName } from "@shared/topics/naming";
+import { computePsychoHash } from "@shared/questions/psycho-hash";
 import {
   tests,
   topics,
@@ -92,6 +93,28 @@ function insertable<T extends Record<string, unknown>>(row: T): Record<string, u
   return out;
 }
 
+/**
+ * A question row carrying the PRD-66 FR-09a content stamp.
+ *
+ * A package exported before the column existed brings no stamp, and a question written
+ * without one drops out of every psychometric statistic. Computing it from the content
+ * cannot diverge from the source installation: the same content yields the same
+ * fingerprint everywhere, so the two stay ONE observation series either way. A stamp
+ * that DID travel with the package is kept as it is.
+ */
+function stamped(row: Record<string, unknown>): Record<string, unknown> {
+  if (typeof row.psychoHash === "string" && row.psychoHash) return row;
+  return {
+    ...row,
+    psychoHash: computePsychoHash({
+      type: String(row.type ?? ""),
+      prompt: String(row.prompt ?? ""),
+      dataJson: row.dataJson,
+      correctJson: row.correctJson,
+    }),
+  };
+}
+
 export class TestTransferRepository {
   /**
    * Stores a planned graph. All ids in `content` are already the ones to be written
@@ -125,7 +148,7 @@ export class TestTransferRepository {
 
       const questionRows = Object.values(content.questionsByTopic ?? {})
         .flat()
-        .map((q) => insertable(q as unknown as Record<string, unknown>));
+        .map((q) => stamped(insertable(q as unknown as Record<string, unknown>)));
       if (questionRows.length) await tx.insert(questions).values(questionRows as never);
 
       const sectionRows = (content.sections ?? []).map((s) => insertable(s as unknown as Record<string, unknown>));

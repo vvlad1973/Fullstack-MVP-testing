@@ -268,6 +268,10 @@ export class TopicsRepository {
           feedbackCorrect: q.feedbackCorrect,
           feedbackIncorrect: q.feedbackIncorrect,
           contentHash: q.contentHash,
+          // PRD-66 FR-09a: nothing in the CONTENT changes here — unlike a single-question
+          // copy, the prompt is not suffixed — so the copy keeps the original's stamp and
+          // its answers stay in the same observation series.
+          psychoHash: q.psychoHash,
           tags: q.tags,
           createdBy: createdBy ?? null,
         }).returning();

@@ -328,6 +328,20 @@ export const questions = pgTable("questions", {
   feedbackCorrect: text("feedback_correct"),
   feedbackIncorrect: text("feedback_incorrect"),
   contentHash: text("content_hash"),
+  /**
+   * PRD-66 FR-09a: the fingerprint of the question's CONTENT, by which answers are
+   * grouped into an observation series. Written by the repository on every create and
+   * update (`shared/questions/psycho-hash`), never by a caller.
+   *
+   * A separate column from `content_hash` on purpose: that one is pinned by PRD-15
+   * (`test_question_scoring.pinned_content_hash` ties a per-test price to a revision),
+   * so changing how it is computed would mark every price override stale at once.
+   * The two answer different questions and must be free to diverge.
+   *
+   * Nullable: a row written before migration `0039` and not yet backfilled carries no
+   * stamp, and its earlier observations stay the series «версия неизвестна» (FR-09c).
+   */
+  psychoHash: text("psycho_hash"),
   // PRD-2 §8.2: tags feed result-variable aggregate formulas; chip input in the question card.
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
   // PRD-15 FR-01: creation audit. NULL = legacy row (destructive ops admin-only).
@@ -2128,6 +2142,20 @@ export const lmsImportBatches = pgTable("lms_import_batches", {
   rowsUpdated: integer("rows_updated").notNull().default(0),
   rowsSkipped: integer("rows_skipped").notNull().default(0),
   rowsLinked: integer("rows_linked").notNull().default(0),
+  /**
+   * PRD-66 FR-11: how many interactions of the file were NOT matched to a question of
+   * the test. A counter and not a warning line: the share of losses is what decides
+   * whether the batch may be counted at all, and a reader has to see it as a number
+   * beside the batch, not dig it out of the log.
+   */
+  rowsUnmatched: integer("rows_unmatched").notNull().default(0),
+  /**
+   * PRD-66 FR-12: whether the batch's passages take part in the statistics. Switching
+   * it off REMOVES the batch from the sample without deleting a row — a batch loaded
+   * from a damaged export stops distorting the figures, and the data stays in place
+   * for a second look. Default `true`: every batch already loaded keeps counting.
+   */
+  counted: boolean("counted").notNull().default(true),
   warningsJson: jsonb("warnings_json"),
 }, (table) => ({
   // Партии перечисляются по тесту, новые первыми.

@@ -114,6 +114,8 @@ CREATE TABLE "lms_import_batches" (
 	"rows_updated" integer DEFAULT 0 NOT NULL,
 	"rows_skipped" integer DEFAULT 0 NOT NULL,
 	"rows_linked" integer DEFAULT 0 NOT NULL,
+	"rows_unmatched" integer DEFAULT 0 NOT NULL,
+	"counted" boolean DEFAULT true NOT NULL,
 	"warnings_json" jsonb
 );
 
@@ -190,6 +192,7 @@ CREATE TABLE "questions" (
 	"feedback_correct" text,
 	"feedback_incorrect" text,
 	"content_hash" text,
+	"psycho_hash" text,
 	"tags" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_by" varchar(36)
 );
