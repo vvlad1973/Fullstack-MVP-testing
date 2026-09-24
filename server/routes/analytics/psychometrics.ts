@@ -37,6 +37,8 @@ import {
   testSheet,
   type ExportContext,
 } from "../../services/analytics/psychometrics-export";
+import { computeScalePsychometrics } from "../../services/analytics/scale-psychometrics";
+import { toMeasurementSpecs } from "../../services/scale-domain";
 import { loadTestScoringContext } from "../../services/effective-scoring";
 import { addAoaSheet, workbookToBuffer } from "../../utils/excel";
 import type { ObservationFilter, ObservationSource } from "../../services/analytics/observations";
@@ -235,6 +237,66 @@ router.get(
     } catch (error) {
       logger.error("Psychometrics error: " + (error as Error).message, "analytics");
       res.status(500).json({ error: "Не удалось посчитать психометрику" });
+    }
+  },
+);
+
+/** Подписи градаций задания-шкалы — их задаёт автор (PRD-26), придумывать нельзя. */
+function gradeLabelsOf(dataJson: unknown): string[] {
+  const data = dataJson as { options?: unknown[]; labels?: unknown[]; min?: number; max?: number } | null;
+  if (Array.isArray(data?.options)) {
+    return data.options.map(option =>
+      typeof option === "string" ? option : String((option as { text?: unknown })?.text ?? ""));
+  }
+  if (Array.isArray(data?.labels)) return data.labels.map(String);
+  // Шкала, заданная диапазоном: подписи — сами числа градаций.
+  if (typeof data?.min === "number" && typeof data?.max === "number" && data.max >= data.min) {
+    return Array.from({ length: data.max - data.min + 1 }, (_, i) => String(data.min! + i));
+  }
+  return [];
+}
+
+// GET /api/analytics/psychometrics/:testId/scales — психометрика измерительных шкал (FR-29)
+router.get(
+  "/psychometrics/:testId/scales",
+  requirePermission("analytics.read"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const testId = req.params.testId;
+      const test = await storage.getTest(testId);
+      if (!test) return res.status(404).json({ error: "Тест не найден" });
+
+      const { filter, onlyFirst } = readQuery(req, testId);
+      const scope = await analyticsScope(req);
+      const { grade } = await buildGrader(testId);
+      const matrix = await loadResponseMatrix(filter, scope, grade);
+      const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
+
+      const [scales, measurements] = await Promise.all([
+        storage.getScales(testId),
+        storage.getQuestionMeasurements(testId),
+      ]);
+      const questionIds = [...new Set(measurements.map(m => m.questionId))];
+      const questions = await storage.getQuestionsByIds(questionIds);
+
+      const result = computeScalePsychometrics(responses, {
+        // Единицы измерения переводятся ТЕМ ЖЕ построителем, что и в расчёте результата:
+        // вторая трансляция была бы вторым мнением о том, какая строка к какой шкале.
+        measurements: toMeasurementSpecs(measurements, scales),
+        scaleLabels: new Map(scales.map(scale => [scale.key, scale.label ?? scale.key])),
+        itemById: new Map(questions.map(question => [question.id, {
+          questionId: question.id,
+          prompt: question.prompt,
+          type: question.type,
+          gradeLabels: gradeLabelsOf(question.dataJson),
+        }])),
+      });
+
+      res.json({ scales: result, firstAttemptOnly: onlyFirst });
+    } catch (error) {
+      logger.error("Psychometrics scales error: " + (error as Error).message, "analytics");
+      res.status(500).json({ error: "Не удалось посчитать психометрику шкал" });
     }
   },
 );

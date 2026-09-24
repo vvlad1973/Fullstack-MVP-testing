@@ -33,6 +33,10 @@ import {
     ItemBreakdownPanel,
     type ItemBreakdownView,
 } from "@/features/analytics/test/item-breakdown";
+import {
+    ScaleQualityPanel,
+    type ScaleQualityRow,
+} from "@/features/analytics/test/scale-quality";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -318,6 +322,17 @@ export default function TestAnalyticsPage() {
     const { data: breakdown } = useQuery<ItemBreakdownView>({
         queryKey: [`/api/analytics/psychometrics/${testId}/items/${breakdownId}`],
         enabled: !!testId && !!breakdownId && activeTab === "quality",
+    });
+
+    /**
+     * PRD-66 FR-29: качество шкал — только у теста, где шкалы есть.
+     *
+     * У оцениваемого теста без них раздел сказать ничего не может, а пустой блок читается как
+     * поломка (FR-52).
+     */
+    const { data: scaleQuality } = useQuery<{ scales: ScaleQualityRow[] }>({
+        queryKey: [`/api/analytics/psychometrics/${testId}/scales`],
+        enabled: !!testId && activeTab === "quality" && !!analytics?.hasScales,
     });
 
     // Функция экспорта в Excel
@@ -667,12 +682,17 @@ export default function TestAnalyticsPage() {
                                 ? <ItemBreakdownPanel view={breakdown} onBack={() => setBreakdownId(null)} />
                                 : itemQuality
                                     ? (
-                                        <ItemQualityPanel
-                                            view={itemQuality}
-                                            exportHref={`/api/analytics/psychometrics/${testId}/export`}
-                                            matrixHref={`/api/analytics/psychometrics/${testId}/matrix`}
-                                            onOpenItem={setBreakdownId}
-                                        />
+                                        <Stack gap={4}>
+                                            <ItemQualityPanel
+                                                view={itemQuality}
+                                                exportHref={`/api/analytics/psychometrics/${testId}/export`}
+                                                matrixHref={`/api/analytics/psychometrics/${testId}/matrix`}
+                                                onOpenItem={setBreakdownId}
+                                            />
+                                            {scaleQuality?.scales.length
+                                                ? <ScaleQualityPanel scales={scaleQuality.scales} />
+                                                : null}
+                                        </Stack>
                                     )
                                     : <EmptyState title="Психометрика недоступна" description="Не удалось посчитать показатели по этому тесту" />,
                     },

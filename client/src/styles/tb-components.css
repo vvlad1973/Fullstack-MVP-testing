@@ -3162,3 +3162,30 @@
   background: var(--ou-accent-default);
   border-radius: var(--ou-radius-pill);
 }
+
+/* ─── PRD-66: мини-гистограмма распределения по градациям пункта шкалы ────────
+   Сетка в три ряда: столбики стоят в строке фиксированной высоты, подписи под
+   ними. Высота отсчитывается от общей шкалы 0 — 100 %, поэтому строки таблицы
+   сравнимы между собой, а мёртвый пункт виден мгновенно — один столбик почти
+   во всю высоту (FR-30a). Число столбиков задаётся инлайном: градаций у
+   вопроса бывает и четыре, и семь, и десять (FR-30b). */
+.tb-psy-hist {
+  display: grid;
+  grid-template-rows: 44px auto;
+  align-items: end;
+  justify-items: center;
+  gap: var(--ou-space-1);
+  min-width: 120px;
+}
+.tb-psy-hist__box { width: 100%; height: 100%; display: flex; align-items: flex-end; }
+.tb-psy-hist__bar {
+  width: 100%;
+  min-height: 2px;
+  background: var(--ou-accent-default);
+  border-radius: var(--ou-radius-s);
+}
+.tb-psy-hist__label {
+  color: var(--ou-fg-muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
