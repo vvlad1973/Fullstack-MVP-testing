@@ -27,6 +27,7 @@ import type {
 } from "@shared/template/result-context";
 import type { ReportInput, AdaptiveReportInput, ReportMeta } from "@shared/report/report-html";
 import { rampFromParams } from "@shared/template/level-ramp";
+import { barFillFromParams, type BarFillSetting } from "@shared/template/bar-fill";
 import { withResolvedScaleIcons } from "./scale-icons";
 import { parseIndicatorInterpretation, parseScaleInterpretation } from "@shared/scales/interpretation";
 import type { FeedbackBlock } from "@shared/scales/interpretation";
@@ -242,6 +243,19 @@ function labelOptions(
     ...(measures.design?.resultsBlockOrder ? { blockOrder: measures.design.resultsBlockOrder } : {}),
     templateBlockOrder: templateOrderForScreen(measures.templateBlockOrder, screen),
   };
+}
+
+/**
+ * Окраска полос подтем из параметров оформления этого экрана.
+ *
+ * Параметры приходят уже дополненными умолчаниями манифеста (`completeMeasuresSource` берёт
+ * их из того же разрешения, что и CSS экрана), поэтому шаблон решает, как выглядит тест, в
+ * котором автор ничего не трогал. Пустой объект для режима «по вердикту» — контекст тогда
+ * байт в байт прежний.
+ */
+function barFillOption(measures?: MeasuresSource): { barFill?: BarFillSetting } {
+  const barFill = barFillFromParams(measures?.params);
+  return barFill ? { barFill } : {};
 }
 
 // Рампа уровней теста собирается ОБЩЕЙ `rampFromParams` (`@shared/template/level-ramp`): по
@@ -501,6 +515,7 @@ export function buildResultContext(
       // column absent (every test predating this PRD) resolves to the builder's own
       // «hidden» default and prints no rows, whatever {@link TopicInput.breakdown} carries.
       breakdownDisplay: measures?.breakdownDisplayJson ?? null,
+      ...barFillOption(measures),
       // Вводный блок ЭКРАНА: у отчёта свой текст, и путать их нельзя — адресаты разные.
       ...(measures?.intro?.results ? { intro: measures.intro.results } : {}),
       ...(hasMeasures ? { measures: buildMeasuresInput(measures as MeasuresSource) } : {}),
@@ -539,6 +554,8 @@ function reportFeedbackMeta(measures?: MeasuresSource): Partial<ReportMeta> {
     // отчёт печатает полосы разреза ровно тогда же, когда их печатает экран, с
     // которого его скачали (§5.2).
     ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
+    // Окраска полос подтем — из тех же параметров оформления, что красят экран.
+    ...barFillOption(measures),
     // Заголовки итога — тем же приёмом: документ печатает ту же шапку, что экран.
     ...(measures?.resultHeadings ? { headings: measures.resultHeadings } : {}),
   };
@@ -714,6 +731,7 @@ export function buildAdaptiveResultContext(
       ...(hasMeasures ? { measures: buildMeasuresInput(measures as MeasuresSource) } : {}),
       // PRD-50 FR-13: настройка показа — тот же источник, что у обычного экрана.
       ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
+      ...barFillOption(measures),
       // PRD-49. Same wording, its OWN screen: the adaptive results screen may carry
       // per-screen defaults and, in the shipped manifest, a different sub-block list
       // (topics first, no score summary) — which is why the screen name is not shared.

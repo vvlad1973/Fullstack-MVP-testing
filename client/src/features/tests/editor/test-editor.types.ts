@@ -639,6 +639,11 @@ export type TestEditorModel = {
     // Обзор при полностью отвеченном объёме — авторское решение (см. `review-gate`).
     skipReviewWhenComplete: boolean;
     /**
+     * PRD-67: leaving a started section with a time limit (its own or the test's) closes
+     * it; in a test without sections leaving ends the attempt. Default off.
+     */
+    closeSectionOnLeave: boolean;
+    /**
      * Что SCORM-пакет отдаёт в LMS при нескольких попытках: лучшую по проценту или только
      * что завершённую. В вебе не применяется — внешней системы там нет. Умолчание `best`:
      * так ведут себя уже выданные пакеты.
@@ -769,6 +774,8 @@ export type TestSettingsPayload = {
   quickAdvance: boolean;
   showSectionResults: boolean;
   skipReviewWhenComplete: boolean;
+  // PRD-67: leaving a started section with a time limit closes it.
+  closeSectionOnLeave: boolean;
   lmsAttemptResult: "best" | "last";
   // PRD-34: настройки защиты текста задания.
   copyProtection: boolean;

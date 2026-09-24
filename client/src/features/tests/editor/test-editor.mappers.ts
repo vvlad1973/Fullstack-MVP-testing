@@ -108,6 +108,7 @@ export type ApiTestResponse = {
   quickAdvance?: boolean | null;
   showSectionResults?: boolean | null;
   skipReviewWhenComplete?: boolean | null;
+  closeSectionOnLeave?: boolean | null;
   lmsAttemptResult?: "best" | "last" | null;
   copyProtection?: boolean | null;
   protectionWatermark?: boolean | null;
@@ -1215,6 +1216,8 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       quickAdvance: false,
       showSectionResults: true,
       skipReviewWhenComplete: false,
+      // PRD-67: новый тест — выход из раздела лишь замораживает время.
+      closeSectionOnLeave: false,
       lmsAttemptResult: "last",
       // PRD-50 FR-13: новый тест — подытоги скрыты, как у любого теста без настройки.
       breakdownDisplay: DEFAULT_BREAKDOWN_DISPLAY,
@@ -1347,6 +1350,9 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
         typeof src.showSectionResults === "boolean" ? src.showSectionResults : true,
       skipReviewWhenComplete:
         typeof src.skipReviewWhenComplete === "boolean" ? src.skipReviewWhenComplete : false,
+      // PRD-67: a response without the column is a test that never closed sections.
+      closeSectionOnLeave:
+        typeof src.closeSectionOnLeave === "boolean" ? src.closeSectionOnLeave : false,
       // Поле пришло с сервера как есть. Его нет только у ответа, собранного до колонки:
       // такой тест вёл себя как «лучшая», и читать его иначе значило бы менять поведение
       // задним числом.
@@ -1445,6 +1451,7 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     quickAdvance: model.runtime.quickAdvance,
     showSectionResults: model.runtime.showSectionResults,
     skipReviewWhenComplete: model.runtime.skipReviewWhenComplete,
+    closeSectionOnLeave: model.runtime.closeSectionOnLeave,
     lmsAttemptResult: model.runtime.lmsAttemptResult,
     // PRD-50 FR-13: a draft persisted before this PRD carries no slice yet — resolves
     // to the same «Не показывать» the missing column has always meant.

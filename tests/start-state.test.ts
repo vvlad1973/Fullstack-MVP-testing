@@ -174,6 +174,20 @@ describe("buildStartState", () => {
     });
   });
 
+  describe("PRD-67: course.closesOnLeave", () => {
+    const base = { maxAttempts: null, completedAttempts: 0, hasCompletedResults: false, canStartNew: true };
+
+    it("есть в контексте, когда хост сообщил о настройке", () => {
+      const { course } = buildStartState({ info: { title: "Т", closesOnLeave: true }, ...base });
+      expect(course.closesOnLeave).toBe(true);
+    });
+
+    it("тест без настройки получает прежний контекст — без поля", () => {
+      const { course } = buildStartState({ info: { title: "Т" }, ...base });
+      expect("closesOnLeave" in course).toBe(false);
+    });
+  });
+
   describe("PRD-29 §6.7 на обложке — порог только у теста, который оценивает", () => {
     it("измерительный тест: «проходной балл» не показывается", () => {
       const { course } = buildStartState({

@@ -23,6 +23,7 @@ import type {
   ResultHeadings,
 } from "../template/result-context";
 import type { FeedbackBlock } from "../scales/interpretation";
+import type { BarFillSetting } from "../template/bar-fill";
 import type { IntroBlockLike } from "./report-intro";
 
 /** What the report prints besides the result itself. */
@@ -93,6 +94,16 @@ export interface ReportMeta {
    * `topicView`, which gates the rows on this flag first).
    */
   breakdownDisplay?: BreakdownDisplaySetting | null;
+  /**
+   * Окраска полос подтем (параметр оформления `breakdownBarFill`, разрешённый
+   * {@link module:shared/template/bar-fill barFillFromParams}) — тот же класс факта, что
+   * {@link breakdownDisplay}: свойство экрана итогов, которое документ обязан повторить
+   * (PRD-51 §5.2). Живёт во ВХОДЕ по той же причине: хост собирает вход там, где известны
+   * параметры оформления теста.
+   *
+   * Отсутствие = режим «по вердикту», то есть отчёт байт в байт прежний.
+   */
+  barFill?: BarFillSetting | null;
   /**
    * PRD-50 FR-50: общее проходное правило теста (`tests.overall_pass_rule_json`) — та
    * величина, с которой сравнивается доля БАЛЛОВ подтемы, когда решается, печатать ли её

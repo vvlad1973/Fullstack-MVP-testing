@@ -32,6 +32,7 @@ import { resolveBlockOrder, DEFAULT_BLOCK_ORDER, type ResultsBlockKey } from "./
 import { labelsTree } from "./labels";
 import { buildMeasureView, type CtxMeasureView, type RenderKind } from "./measure-view";
 import { richTextToHtml, type RichTextFormat } from "./rich-text";
+import { barFillCss, type BarFillSetting } from "./bar-fill";
 import { formatMinutesHuman } from "./duration";
 import { buildScalesChart, type ChartKindSettings } from "./scales-chart";
 import { buildScaleBars, type CtxScaleBars } from "./scale-bars";
@@ -777,6 +778,14 @@ export interface ResultContextOptions {
    */
   breakdownDisplay?: BreakdownDisplaySetting | null;
   /**
+   * How the breakdown bars are coloured (design param `breakdownBarFill`, resolved by
+   * {@link module:shared/template/bar-fill barFillFromParams}). Absent/`null` is the
+   * `verdict` mode — the byte-identical rows of a test built before the setting. Lives
+   * OUTSIDE {@link measures} for the same reason as {@link breakdownDisplay}: a control test
+   * has breakdown bars and no measurements.
+   */
+  barFill?: BarFillSetting | null;
+  /**
    * Whether the TEST declares a pass threshold at all (`tests.overall_pass_rule_json`
    * with a `type` other than `none`). It answers ONE question the builder cannot answer
    * from {@link ResultInput.passed}, which is a plain `boolean`: was a verdict actually
@@ -938,11 +947,17 @@ function breakdownRow(
   e: BreakdownEntry,
   display: BreakdownDisplaySetting,
   interpretations?: Record<string, InterpretationText> | null,
+  barFill?: BarFillSetting | null,
 ): CtxBreakdownRow {
   const showValue = display.visibility === "bar_and_value";
   const value = display.basis === "points" ? e.percentPoints : e.percentUnits;
   const passed = e.passed ?? null;
   const threshold = typeof e.thresholdPercent === "number" ? e.thresholdPercent : null;
+  // Окраска «по доле» и «нейтральная» снимают с полосы вердикт: класс исхода красит полосу
+  // в шаблоне, и рядом с заливкой по доле он спорил бы с ней на любом значении между порогом
+  // и серединой рампы. Сам исход (`passed`) остаётся — его читают не только полосы.
+  const verdictClass = barFill ? "" : passed === true ? "is-pass" : passed === false ? "is-fail" : "";
+  const fill = barFill?.mode === "share" ? barFillCss(barFill.ramp, Math.round(value)) : "";
   return {
     key: e.key,
     items: e.items,
@@ -961,7 +976,8 @@ function breakdownRow(
     // PRD-50 FR-54: исход ВЗЯТ у записи, а не вычислен здесь. Считать его в контексте значило
     // бы завести вторую правду о пороге и перекрашивать старые попытки при смене настроек.
     passed,
-    passClass: passed === true ? "is-pass" : passed === false ? "is-fail" : "",
+    passClass: verdictClass,
+    ...(fill ? { barFill: fill } : {}),
     ...(showValue && threshold !== null ? { requiredLabel: "Нужно " + Math.round(threshold) + " %" } : {}),
     // ТОЛКОВАНИЕ подтемы печатается только при включённом показе: настройка решает, а не
     // наличие текста. Автор может написать тексты заранее и не показывать их участнику.
@@ -1025,9 +1041,10 @@ function fillBreakdownBlock(
   breakdowns: readonly BreakdownEntry[] | null | undefined,
   display: BreakdownDisplaySetting | null | undefined,
   labels?: Record<string, string>,
+  barFill?: BarFillSetting | null,
 ): void {
   if (!display || !showsBreakdownBlock(display) || !breakdowns?.length) return;
-  result.breakdown = breakdowns.map((e) => breakdownRow(e, display));
+  result.breakdown = breakdowns.map((e) => breakdownRow(e, display, null, barFill));
 }
 
 /** Map a normalized topic to its presentational view (Core-prepared class + label). */
@@ -1036,6 +1053,7 @@ function topicView(
   withPoints: boolean,
   breakdownDisplay?: BreakdownDisplaySetting | null,
   labels?: Record<string, string>,
+  barFill?: BarFillSetting | null,
 ): CtxTopicResultView {
   const passed = t.passed;
   const view: CtxTopicResultView = {
@@ -1074,7 +1092,7 @@ function topicView(
   // questions.
   const display = breakdownDisplay;
   if (display && showsNestedBreakdown(display) && t.breakdown?.length) {
-    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, t.breakdownInterpretation));
+    view.breakdown = t.breakdown.map((e) => breakdownRow(e, display, t.breakdownInterpretation, barFill));
     // Несёт ли хоть одна полоса свой текст. Признак нужен РАСКЛАДКЕ: включённое толкование
     // разворачивает сетку колонок в список во всю ширину, и решить это построчно нельзя —
     // модификатор стоит на всей сетке. Считается здесь, потому что макет (подмножество
@@ -1258,7 +1276,7 @@ export function buildResultContext(
     .map((t) => ({
       groupKey: t.groupKey ?? null,
       passed: t.passed,
-      view: topicView(t, withTopicPoints, opts.breakdownDisplay, opts.labels),
+      view: topicView(t, withTopicPoints, opts.breakdownDisplay, opts.labels, opts.barFill),
     }));
   const result: CtxResult = {
     passed,
@@ -1301,7 +1319,7 @@ export function buildResultContext(
   }
   // PRD-50 FR-28: the summary block of the TEST scope — see {@link fillBreakdownBlock},
   // shared with the adaptive builder.
-  fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
+  fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels, opts.barFill);
   // Вводный блок — первым, до всего остального (см. `CtxResult.introHtml`). Разметку
   // строит ядро, поэтому правило одно и то же для экрана и для отчёта.
   //
@@ -1657,6 +1675,8 @@ export interface AdaptiveResultContextOptions {
    * would be worse than telling them what the mode can do.
    */
   breakdownDisplay?: BreakdownDisplaySetting | null;
+  /** Bar colouring of the summary block — see {@link ResultContextOptions.barFill}. */
+  barFill?: BarFillSetting | null;
   /**
    * PRD-49: resolved labels of THIS screen, same flat map the standard builder takes
    * ({@link ResultContextOptions.labels}). Absent = no `labels` key on the returned
@@ -1770,7 +1790,7 @@ export function buildAdaptiveResultContext(
   // PRD-50 FR-28: сводный блок разреза — ТОТ ЖЕ заполнитель, что у стандартного экрана.
   // Записи для адаптивной попытки считаются и хранятся давно (FR-17/FR-39), но до этого
   // этапа их никто не читал обратно: посчитанное молча не показывалось.
-  fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels);
+  fillBreakdownBlock(result, input.breakdowns, opts.breakdownDisplay, opts.labels, opts.barFill);
   // Вводный блок — первым, до уровней и измерений: правило общее для обоих режимов.
   //
   // PRD-61 FR-14b: адаптивный режим вердикта НЕ выносит — заголовков исхода у него нет (см.

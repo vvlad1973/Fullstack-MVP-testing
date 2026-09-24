@@ -65,7 +65,7 @@ function baseModel(sections: ReturnType<typeof section>[]): TestEditorModel {
       allowAnswerChange: false,
       quickAdvance: false,
       showSectionResults: true,
-      skipReviewWhenComplete: false,
+      skipReviewWhenComplete: false, closeSectionOnLeave: false,
       copyProtection: true,
       protectionWatermark: false,
       protectionHideOnBlur: false,

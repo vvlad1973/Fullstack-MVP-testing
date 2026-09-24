@@ -50,7 +50,12 @@ import type { ResultsBlockSettings } from "@shared/template/results-blocks";
 import type { ResultHeadings } from "@shared/template/result-context";
 import type { ChartKindSettings } from "@shared/template/scales-chart";
 import type { ReportInput, AdaptiveReportInput } from "@shared/report/report-html";
-import { pingSection } from "../services/section-timer";
+import {
+  pingSection,
+  buildLeavePolicy,
+  freezeLockedAnswers,
+  type LeavePolicy,
+} from "../services/section-timer";
 import { buildResultsNav, RESULTS_NAV_ACTIONS } from "@shared/template/results-nav";
 import { resolveSystemScreenDir, resolveTemplateDir } from "../services/template-dir";
 import {
@@ -63,6 +68,7 @@ import {
 import type { QuestionType } from "@shared/scales/engine";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
 import { resolveFlowPolicy } from "@shared/flow/flow-policy";
+import { buildAfterZone, type FlowContentPage } from "@shared/flow/page-sequence";
 import { isMeasurementOnly } from "@shared/questions/question-type";
 // PRD-50 FR-17: элементы разреза адаптивного прогона собирает хост — движок их вывести не может.
 import type { BreakdownItem } from "@shared/breakdown/types";
@@ -113,6 +119,8 @@ function prd19RuntimeSettings(test: Test) {
     showSectionResults: test.showSectionResults ?? true,
     // Отсутствие в СТАРОМ снимке публикации = прежнее поведение, обзор показывается.
     skipReviewWhenComplete: test.skipReviewWhenComplete ?? false,
+    // PRD-67: absence in an OLD publication snapshot = the pre-PRD-67 freeze-on-leave.
+    closeSectionOnLeave: test.closeSectionOnLeave ?? false,
     // PRD-34 (FR-01, FR-05): настройки защиты. Отсутствие поля в СТАРОМ снимке
     // публикации читается как умолчание — тест, опубликованный до PRD-34, получает защиту.
     copyProtection: test.copyProtection ?? true,
@@ -186,6 +194,25 @@ function reconcileStamps(
     reconciled[questionId] = now === undefined || now === stamp ? stamp : null;
   }
   return reconciled;
+}
+
+/**
+ * PRD-67: the attempt's leave policy — does leaving a section close it, and what unit a
+ * leave closes (the topic, or the whole test when it has no sections). Read from the SAME
+ * version the attempt plays: a snapshot published before the setting carries none and
+ * reads as «off», the pre-PRD-67 freeze.
+ */
+async function leavePolicyForAttempt(snapshotId: string | null, testId: string): Promise<LeavePolicy> {
+  const src = await dataSourceForAttempt(snapshotId);
+  const test = await src.getTest(testId);
+  if (!test) return buildLeavePolicy({ closeSectionOnLeave: false, testLimitMinutes: null, sectionLimits: new Map(), flat: false });
+  const sections = await src.getTestSections(testId);
+  return buildLeavePolicy({
+    closeSectionOnLeave: test.closeSectionOnLeave ?? false,
+    testLimitMinutes: test.timeLimitMinutes,
+    sectionLimits: new Map(sections.map((s) => [s.topicId, s.timeLimitMinutes])),
+    flat: resolveFlowPolicy(test.flowPolicyJson).mode === "linear_flat",
+  });
 }
 
 /**
@@ -280,8 +307,36 @@ async function flowPayload(src: TestDataSource, test: Test) {
       settingsJson: p.settingsJson,
       autoAdvance: p.autoAdvance,
       autoAdvanceDelayMs: p.autoAdvanceDelayMs,
+      // «Экран есть, но ученику не выдаётся»: общее правило порядка (`contentPagesFor`)
+      // отбрасывает такие страницы, но только если признак до него доехал.
+      hidden: p.hidden === true,
     })),
   };
+}
+
+/**
+ * Страницы «После теста», стоящие ЗА «Итогами теста», — в той версии теста, которую
+ * выдали этой попытке.
+ *
+ * Отбирает их ТО ЖЕ общее правило, что строит прохождение (`buildAfterZone`), поэтому
+ * экран итогов предлагает «Далее» ровно тогда, когда пакет, и к тем же страницам. Раньше
+ * веб их не показывал вовсе: экран итогов живёт на своём маршруте, а прохождение с этими
+ * страницами к тому моменту уже закончено.
+ *
+ * @param attempt Попытка: тест и приколотый снимок.
+ * @returns Страницы в порядке показа; пусто, если их нет или структура не прочиталась.
+ */
+async function postResultsPagesForAttempt(attempt: { testId: string; snapshotId: string | null }) {
+  try {
+    const src = await dataSourceForAttempt(attempt.snapshotId);
+    const test = await src.getTest(attempt.testId);
+    if (!test) return [];
+    const flow = await flowPayload(src, test);
+    const pages = buildAfterZone(flow.contentPages as FlowContentPage[]).postResultsPages;
+    return pages as typeof flow.contentPages;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -1301,6 +1356,19 @@ router.post("/attempts/:attemptId/answer-adaptive", requirePermission("attempts.
       return res.status(400).json({ error: "Unexpected question ID" });
     }
 
+    // PRD-67 FR-10: a topic whose time ran out or that was closed by a leave takes no
+    // more answers. The client moves on via `expire-topic-adaptive`; this refuses a
+    // request that did not.
+    const timerLocked = freezeLockedAnswers(
+      { [questionId]: answer },
+      {},
+      [{ topicId: currentTopic.topicId, questionIds: [questionId] }],
+      attempt.sectionTimerJson,
+    );
+    if (!Object.prototype.hasOwnProperty.call(timerLocked, questionId)) {
+      return res.status(409).json({ error: "section_locked", topicId: currentTopic.topicId });
+    }
+
     const questions = await src.getQuestionsByIds([questionId]);
     const question = questions[0];
     if (!question) {
@@ -1629,15 +1697,24 @@ router.post("/attempts/:attemptId/section-timer", requirePermission("attempts.ta
     if (attempt.finishedAt) return res.status(400).json({ error: "Attempt already finished" });
 
     const topicId = typeof req.body?.topicId === "string" ? req.body.topicId : null;
+    // PRD-67: identity of the page run. A different one while a section is open is how
+    // the server learns the page was reloaded or reopened. Bounded so a forged body cannot
+    // bloat the attempt row.
+    const rawRunId = req.body?.runId;
+    const runId = typeof rawRunId === "string" && rawRunId.length > 0 && rawRunId.length <= 64
+      ? rawRunId
+      : null;
     // The limit comes from the TEST, never from the client: a forged body must not
     // be able to widen a section's budget.
-    let limitMinutes: number | null = null;
-    if (topicId) {
-      const sections = await storage.getTestSections(attempt.testId);
-      limitMinutes = sections.find((s) => s.topicId === topicId)?.timeLimitMinutes ?? null;
-    }
+    const sections = await storage.getTestSections(attempt.testId);
+    const limitMinutes = topicId
+      ? (sections.find((s) => s.topicId === topicId)?.timeLimitMinutes ?? null)
+      : null;
+    // PRD-67: the leave policy is read from the version the attempt plays (snapshot or
+    // live), like every other runtime setting of the attempt.
+    const policy = await leavePolicyForAttempt(attempt.snapshotId, attempt.testId);
 
-    const view = await pingSection(attempt.id, topicId, limitMinutes);
+    const view = await pingSection(attempt.id, topicId, limitMinutes, runId, policy);
     if (!view) return res.status(400).json({ error: "Attempt already finished" });
     res.json(view);
   } catch (error) {
@@ -1694,8 +1771,17 @@ router.post("/attempts/:attemptId/save-progress", requirePermission("attempts.ta
       updatedVariant.sectionPositions = sectionPositions;
     }
 
+    // PRD-67 FR-10: a locked section (time spent or closed by a leave) keeps the answers
+    // stored before the lock — the lock is enforced here, not only painted by the client.
+    const frozenAnswers = freezeLockedAnswers(
+      answers,
+      attempt.answersJson as Record<string, unknown> | null,
+      ((attempt.variantJson as TestVariant | null)?.sections ?? []),
+      attempt.sectionTimerJson,
+    );
+
     await storage.updateAttempt(attempt.id, {
-      answersJson: answers,
+      answersJson: frozenAnswers,
       variantJson: updatedVariant,
     });
 
@@ -1852,8 +1938,15 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const { answers } = req.body;
     const variant = attempt.variantJson as TestVariant;
+    // PRD-67 FR-10: grade the answers a locked section had BEFORE its lock, whatever the
+    // finishing request carries for it.
+    const answers = freezeLockedAnswers<Answer>(
+      req.body?.answers,
+      attempt.answersJson as Record<string, Answer> | null,
+      variant?.sections ?? [],
+      attempt.sectionTimerJson,
+    );
     // PRD-15 block B: grade against the pinned snapshot, not the live bank.
     const src = await dataSourceForAttempt(attempt.snapshotId);
     const test = await src.getTest(attempt.testId);
@@ -2145,6 +2238,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
     // `variables`): у сборщика в нём не было `indicators`, и скачивание отчёта у теста
     // со шкалами или показателями падало.
     let measures: MeasuresInput | undefined;
+    let postResultsPages: Awaited<ReturnType<typeof postResultsPagesForAttempt>> = [];
     if (resultJson && Array.isArray(resultJson.topicResults)) {
       const templateId = ((test?.designSettingsJson as any)?.templateId as string) || "default";
       // Learner-facing render: never serve a non-active template, and when the
@@ -2210,6 +2304,9 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // block). «Скачать отчёт» is on now that the web host produces the report from
       // the SHARED generator (shared/report/*) — the same PDF the package hands out,
       // unless the author switched the report off for this test (`report.enabled`).
+      // Страницы «После теста» за «Итогами теста»: экран итогов ведёт к ним «Далее».
+      // Только у обычного итога — адаптивный экран пакета их тоже не предлагает.
+      if (resultJson.mode !== "adaptive") postResultsPages = await postResultsPagesForAttempt(attempt);
       if (render?.context && typeof render.context === "object") {
         const ctx = render.context as { result?: Record<string, unknown> };
         if (ctx.result) {
@@ -2219,7 +2316,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
             // Attempts alone — the adaptive footer re-runs the test rather than
             // offering a remedy, so a pass does not close it (see results-nav).
             canRetake,
-            hasPostPages: false,
+            hasPostPages: postResultsPages.length > 0,
             finishLabel: "К списку тестов",
           });
         }
@@ -2238,10 +2335,15 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // ТОТ ЖЕ сборщик, что рисует экран, и ему нужны те же два факта, которых нет в
       // результате попытки, — обратная связь теста и наличие порога. Отчёт строит
       // браузер, поэтому они едут с ВХОДОМ отчёта, а не параметром сборки.
+      //
+      // Материал дополняется параметрами оформления ЭТОГО экрана (`render.params`, уже с
+      // умолчаниями манифеста) — тем же правилом, что и измерения выше: окраску полос подтем
+      // документ обязан взять ту же, что у экрана, с которого его скачали.
+      const reportMaterial = material ? completeMeasuresSource(material, render?.params, resultJson) : material;
       report =
         resultJson.mode === "adaptive"
-          ? buildAdaptiveReportInput(resultJson, test?.title || "", reportMeta, material)
-          : buildReportInput(resultJson, test?.title || "", reportMeta, material);
+          ? buildAdaptiveReportInput(resultJson, test?.title || "", reportMeta, reportMaterial)
+          : buildReportInput(resultJson, test?.title || "", reportMeta, reportMaterial);
 
       // PRD-27 Фаза 2: страницу отчёта рисует МАКЕТ шаблона. Активный шаблон, не
       // объявивший нужного вида, отчёта не лишает: макет берётся из «Стандартного», а
@@ -2344,6 +2446,8 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // в отчёте; включает ли он диаграмму — решает СВОЙ переключатель варианта
       // отчёта, который лежит в `reportRender.values`.
       measures,
+      // Страницы «После теста» за «Итогами теста»: «Далее» экрана итогов ведёт к ним.
+      postResultsPages,
       attemptsInfo:
         maxAttempts !== null
           ? {

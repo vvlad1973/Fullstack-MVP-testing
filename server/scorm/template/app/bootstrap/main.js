@@ -90,6 +90,9 @@
       if (typeof bindQuestionInputClicksOnce === 'function') bindQuestionInputClicksOnce();
 
       // ===== ВОССТАНОВЛЕНИЕ СЕССИИ =====
+      // PRD-67: a section still open from the previous session is one the learner left by
+      // leaving the SCO — close it BEFORE anything is restored, so no path back reopens it.
+      if (typeof closeInterruptedSectionOnLoad === 'function') closeInterruptedSectionOnLoad();
       var recovery = determineRecovery();
       console.log('🔄 Recovery decision:', recovery.action);
 

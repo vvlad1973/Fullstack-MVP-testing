@@ -461,6 +461,7 @@ CREATE TABLE "tests" (
 	"allow_free_section_navigation" boolean DEFAULT false NOT NULL,
 	"quick_advance" boolean DEFAULT false NOT NULL,
 	"show_section_results" boolean DEFAULT true NOT NULL,
+	"close_section_on_leave" boolean DEFAULT false NOT NULL,
 	"lms_attempt_result" text DEFAULT 'last' NOT NULL,
 	"skip_review_when_complete" boolean DEFAULT false NOT NULL,
 	"copy_protection" boolean DEFAULT true NOT NULL,

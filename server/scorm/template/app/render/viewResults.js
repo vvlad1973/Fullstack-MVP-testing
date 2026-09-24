@@ -368,7 +368,26 @@ function resultsDesignParams() {
   for (key in themed) {
     if (Object.prototype.hasOwnProperty.call(themed, key)) out[key] = themed[key];
   }
+  // What the author left untouched takes the manifest's `default`, exactly as on the web
+  // (`readScreenTemplate`): the template decides the look of an untouched test.
+  if (manifest && typeof TB.withParamDefaults === 'function') return TB.withParamDefaults(out, manifest.params);
   return out;
+}
+
+/**
+ * Окраска полос подтем (`breakdownBarFill`), разрешённая из тех же параметров оформления,
+ * что и рампа уровней, — тем же общим правилом, что на вебе. `null` — режим «по вердикту»:
+ * опция тогда не передаётся, и контекст остаётся прежним.
+ *
+ * Одна функция на экран итогов, адаптивный экран и PDF: три копии разрешения означали бы
+ * три шанса покрасить одну полосу по-разному.
+ *
+ * @returns {object|null} Настройка для построителя или null.
+ */
+function resultsBarFill() {
+  var TB = (typeof window !== 'undefined') ? window.TBTemplate : null;
+  if (!TB || typeof TB.barFillFromParams !== 'function') return null;
+  return TB.barFillFromParams(resultsDesignParams());
 }
 
 /**
@@ -631,6 +650,8 @@ function renderViewResultsTemplated(app, results) {
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
   // byte-identical to what it was before this PRD.
   if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  var barFill = resultsBarFill();
+  if (barFill) opts.barFill = barFill;
   // Заголовки итога: их читает ТОТ ЖЕ построитель, что на вебе, — расхождение шапки между
   // хостами было бы расхождением в том, как тест называет свой результат.
   var headings = resultHeadingsOf();
@@ -748,6 +769,8 @@ function renderResultsTemplated(app, results) {
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
   // byte-identical to what it was before this PRD.
   if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  var barFill = resultsBarFill();
+  if (barFill) opts.barFill = barFill;
   // Заголовки итога: их читает ТОТ ЖЕ построитель, что на вебе, — расхождение шапки между
   // хостами было бы расхождением в том, как тест называет свой результат.
   var headings = resultHeadingsOf();

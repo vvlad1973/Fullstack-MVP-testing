@@ -1,5 +1,5 @@
 {
-  "id": "62ff0ac3-2e3b-48ae-bb67-f2259b3594af",
+  "id": "2cbc4c48-18fe-4bde-b814-3eb4d14247f0",
   "prevId": "973cd16e-1648-44da-a4b4-c5666af73663",
   "version": "7",
   "dialect": "postgresql",
@@ -865,20 +865,6 @@
           "notNull": true,
           "default": 0
         },
-        "rows_unmatched": {
-          "name": "rows_unmatched",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "counted": {
-          "name": "counted",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "warnings_json": {
           "name": "warnings_json",
           "type": "jsonb",
@@ -1550,12 +1536,6 @@
         },
         "content_hash": {
           "name": "content_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "psycho_hash": {
-          "name": "psycho_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -3719,6 +3699,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "close_section_on_leave": {
+          "name": "close_section_on_leave",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "lms_attempt_result": {
           "name": "lms_attempt_result",

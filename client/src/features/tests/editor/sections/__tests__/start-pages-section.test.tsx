@@ -116,7 +116,7 @@ function baseModel(overrides: Partial<TestEditorModel> = {}): TestEditorModel {
       webhookUrl: "",
       telemetryEnabled: false,
     },
-    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
+    runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: true, skipReviewWhenComplete: false, closeSectionOnLeave: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     passRules: { decisionPolicy: "overall_only", overall: { type: "percent", value: 70 }, byTopic: {} },
     sections: [],
     adaptive: { showDifficultyLevel: true, testSettings: { showDifficultyLevel: true }, topics: [] },
@@ -514,7 +514,7 @@ describe("<StructureSection /> — kind-aware layout", () => {
     renderSection(baseModel({
       flowMode: "linear_by_topics",
       sections: [buildSection({ topicId: "t1", topicName: "Тема А" })],
-      runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: false, skipReviewWhenComplete: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
+      runtime: { timeLimitMinutes: null, maxAttempts: null, showCorrectAnswers: false, allowReturnToUnanswered: true, allowFreeSectionNavigation: false, allowAnswerChange: false, showSectionResults: false, skipReviewWhenComplete: false, closeSectionOnLeave: false, quickAdvance: false, copyProtection: true, protectionWatermark: false, protectionHideOnBlur: false, lmsAttemptResult: "best" as const },
     }));
     await waitFor(() => expect(screen.getByTestId("structure-zone-topic-t1")).toBeInTheDocument());
     // Решение владельца 2026-09-20: выключенный экран НЕ исчезает из полотна — он

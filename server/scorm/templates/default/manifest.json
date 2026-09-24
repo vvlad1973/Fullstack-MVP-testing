@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.16.0",
+  "version": "1.18.1",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -247,6 +247,25 @@
         "gradient_bar": "Полоса-градусник"
       },
       "description": "Применяется там, где выполним; иначе откатывается на ближайший доступный."
+    },
+    {
+      "key": "breakdownBarFill",
+      "type": "select",
+      "label": "Окраска полос подтем",
+      "default": "verdict",
+      "group": "Итоги",
+      "section": "branding",
+      "options": [
+        "share",
+        "verdict",
+        "neutral"
+      ],
+      "optionLabels": {
+        "share": "По доле, градиентом",
+        "verdict": "По вердикту",
+        "neutral": "Нейтральная"
+      },
+      "description": "Как окрашиваются полосы подтем на экране итогов и в отчёте. «По доле» — градиент в цветах схемы уровней: чем выше доля, тем ближе к благоприятному краю. «По вердикту» — цвет пройденной или непройденной подтемы."
     }
   ],
   "labels": [
@@ -1511,7 +1530,7 @@
       "isDefault": true,
       "placeholders": [
         { "key": "title", "type": "text", "label": "Заголовок", "required": false },
-        { "key": "body", "type": "richText", "label": "Текст", "required": false }
+        { "key": "body", "type": "html", "label": "Текст", "required": false }
       ]
     }
 ,

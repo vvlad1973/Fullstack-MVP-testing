@@ -1,4 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState, type ComponentProps } from "react";
+import type { RenderableContentPage } from "@shared/template/content-page";
+import { TemplateContentScreen, type ContentScreenTemplate } from "./template-content-screen";
 import { useLocation, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
@@ -58,6 +60,12 @@ interface AttemptWithResult extends Attempt {
    * Отчёт собирается на клиенте, поэтому шкалы и радар печатаются из них.
    */
   measures?: MeasuresInput | null;
+  /**
+   * Страницы «После теста», стоящие за «Итогами теста», в порядке показа. Непусто —
+   * подвал итогов предлагает «Далее» (`result.nav.primaryAction`), и по нему страница
+   * показывает их тем же рендером, что и прохождение.
+   */
+  postResultsPages?: RenderableContentPage[];
 }
 
 export default function ResultPage() {
@@ -122,6 +130,36 @@ function TemplateResultPage({ attempt }: { attempt: AttemptWithResult }) {
   // Rasterizing takes a few seconds; a second click must not start a second export.
   const reportBusy = useRef(false);
   const render = attempt.render!;
+  const finishTarget = magicScoped ? `/learner/test/${attempt.testId}` : "/learner";
+  // Страницы за «Итогами теста»: номер показанной (`null` — показан экран итогов) и обёртка
+  // контентной страницы, которая грузится только когда ученик нажал «Далее».
+  const postPages = attempt.postResultsPages ?? [];
+  const [postIndex, setPostIndex] = useState<number | null>(null);
+  const [contentTpl, setContentTpl] = useState<ContentScreenTemplate | null>(null);
+
+  /**
+   * «Далее» с экрана итогов — к страницам «После теста» за итогами, как в пакете
+   * (`enterPostResults`). Обёртку не удалось получить — ученик не застревает на экране:
+   * прохождение закончено, и он уходит туда же, куда увёл бы «Завершить».
+   */
+  async function enterPostResults() {
+    if (postPages.length === 0) {
+      navigate(finishTarget);
+      return;
+    }
+    if (!contentTpl) {
+      try {
+        const res = await fetch(`/api/tests/${attempt.testId}/screen-template/content`, { credentials: "include" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setContentTpl((await res.json()) as ContentScreenTemplate);
+      } catch (e) {
+        toast({ variant: "destructive", title: "Не удалось открыть страницу", description: (e as Error).message });
+        navigate(finishTarget);
+        return;
+      }
+    }
+    setPostIndex(0);
+  }
   // «К списку тестов» is a WEB-only action, so it is the host that turns it on —
   // the same split as the start screen's `showBack`. It belongs to the scene's own
   // footer: rendered as host chrome under the scene it was a SECOND footer on the
@@ -166,6 +204,29 @@ function TemplateResultPage({ attempt }: { attempt: AttemptWithResult }) {
     }
   }
 
+  if (postIndex !== null && contentTpl && postPages[postIndex]) {
+    const last = postIndex >= postPages.length - 1;
+    return (
+      <div className="tbh-inset-screen tbh-col">
+        <TemplateContentScreen
+          className="tbh-fill"
+          page={postPages[postIndex]}
+          template={contentTpl}
+          courseTitle={attempt.testTitle}
+          // Точки последовательности считаются по этим страницам: у них сервер отдал
+          // `id` и свойства страницы, как и в прохождении.
+          allPages={postPages as ComponentProps<typeof TemplateContentScreen>["allPages"]}
+          // Последняя страница закрывает прохождение — той же подписью, что в пакете.
+          nextLabel={last ? "Завершить тест" : undefined}
+          onNext={() => (last ? navigate(finishTarget) : setPostIndex(postIndex + 1))}
+          // «Назад» идёт по цепочке этих страниц, а с первой — к экрану итогов, как в пакете
+          // (`prevPostResults`). Не в прохождение: попытка уже закончена.
+          onBack={() => setPostIndex(postIndex > 0 ? postIndex - 1 : null)}
+        />
+      </div>
+    );
+  }
+
   return (
     // Scene = the space the app shell left over (this route keeps the learner
     // navbar), so only `.tb-scene__body` scrolls and the footer sits on the bottom
@@ -204,8 +265,12 @@ function TemplateResultPage({ attempt }: { attempt: AttemptWithResult }) {
             navigate(`/learner/test/${attempt.testId}`);
             return;
           }
+          if (action === RESULTS_NAV_ACTIONS.next) {
+            void enterPostResults();
+            return;
+          }
           if (action === RESULTS_NAV_ACTIONS.finish || action === RESULTS_NAV_ACTIONS.back) {
-            navigate(magicScoped ? `/learner/test/${attempt.testId}` : "/learner");
+            navigate(finishTarget);
           }
         }}
       />

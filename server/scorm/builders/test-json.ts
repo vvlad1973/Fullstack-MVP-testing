@@ -340,6 +340,9 @@ export function buildTestJson(data: ExportData): string {
     // настройки не касался, остаётся байт-в-байт прежним.
     ...(data.test.lmsAttemptResult === "last" ? { lmsAttemptResult: "last" } : {}),
     skipReviewWhenComplete: data.test.skipReviewWhenComplete ?? false,
+    // PRD-67: baked ONLY when on — the runtime reads absence as the old freeze-on-leave, so
+    // the package of a test that never touched the setting stays byte-for-byte the same.
+    ...(data.test.closeSectionOnLeave ? { closeSectionOnLeave: true } : {}),
     // PRD-34 (FR-01, FR-26): настройки защиты для рантайма пакета. `protectionActive`
     // отдельным полем: в отладочном прогоне защита и скрытие выключены, а водяной знак
     // остаётся (FR-19, FR-25).

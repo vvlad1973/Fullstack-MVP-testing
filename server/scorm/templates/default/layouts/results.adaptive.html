@@ -192,7 +192,7 @@
         {{#each @root.result.breakdown}}
         <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
           <div class="tb-breakdown__name">{{ key }}</div>
-          <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+          <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;{{#if barFill}} background: {{ barFill }};{{/if}}"></span></div>
           {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
           {{#if requiredLabel}}<div class="tb-breakdown__req">{{ requiredLabel }}</div>{{/if}}
         </div>

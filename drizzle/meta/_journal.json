@@ -278,8 +278,15 @@
     {
       "idx": 39,
       "version": "7",
-      "when": 1790229614845,
-      "tag": "0039_prd66_psycho_observations",
+      "when": 1790269349428,
+      "tag": "0039_prd67_close_section_on_leave",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790279679668,
+      "tag": "0040_prd66_psycho_observations",
       "breakpoints": true
     }
   ]

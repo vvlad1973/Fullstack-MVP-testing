@@ -476,6 +476,9 @@ function renderAdaptiveResultsTemplated(app, result) {
   // PRD-50 FR-13: настройка показа, выпеченная в TEST_DATA только когда автор её включил —
   // тот же признак, что читает обычный экран (`viewResults.js`). Без неё блока нет.
   if (TEST_DATA.breakdownDisplay) adaptiveOpts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  // Окраска полос сводного блока — тем же правилом, что у обычного экрана (`viewResults.js`).
+  var adaptiveBarFill = (typeof resultsBarFill === 'function') ? resultsBarFill() : null;
+  if (adaptiveBarFill) adaptiveOpts.barFill = adaptiveBarFill;
   // PRD-49: заголовки блоков + порядок подблоков, для THIS screen — `results.adaptive`
   // carries its OWN composition (no score summary), declared by the manifest and baked
   // into `designSettings.templateBlockOrder['results.adaptive']`. Passing the standard
@@ -560,6 +563,8 @@ function restartAdaptive() {
 
   // Регистрация попытки в SCORM
   registerAttemptStart();
+  // A new attempt starts with clean section budgets and no closed sections (PRD-67).
+  if (typeof resetSectionRunState === 'function') resetSectionRunState();
 
   // Переинициализация адаптивного теста
   initAdaptiveTest();

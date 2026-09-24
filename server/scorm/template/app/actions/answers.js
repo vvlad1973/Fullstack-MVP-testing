@@ -1,7 +1,10 @@
-function showToast(message, kind) {
+function showToast(message, kind, durationMs) {
   // kind: 'warn' | 'info' | 'ok' (как раньше, можно использовать в className)
+  // durationMs (PRD-67): how long the notice stays; two-sentence notices need more
+  // than the default three seconds to be read.
   var id = 'center-toast';
   var existing = document.getElementById(id);
+  var showFor = (typeof durationMs === 'number' && durationMs > 0) ? durationMs : 3000;
 
   // если уже показано — обновим текст и перезапустим таймер
   if (existing) {
@@ -9,7 +12,9 @@ function showToast(message, kind) {
     existing.className = 'center-toast' + (kind ? (' ' + kind) : '');
     existing.style.display = 'flex';
     if (existing._timeout) clearTimeout(existing._timeout);
-    existing._timeout = setTimeout(hide, 3000);
+    // The hide() declared below belongs to THIS call, where `overlay` is still undefined —
+    // it would never hide a reused toast. Hide the existing element directly.
+    existing._timeout = setTimeout(function () { existing.style.display = 'none'; }, showFor);
     return;
   }
 
@@ -70,7 +75,7 @@ function showToast(message, kind) {
     }
   });
 
-  overlay._timeout = setTimeout(hide, 3000);
+  overlay._timeout = setTimeout(hide, showFor);
 }
 
 

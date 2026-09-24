@@ -664,6 +664,11 @@ export const tests = pgTable("tests", {
   // PRD-19 (FR-05a): show the section-results screen (optional system node, sectioned tests).
   // Default true; not applicable to linear_flat (no sections) — ignored by the runtime there.
   showSectionResults: boolean("show_section_results").notNull().default(true),
+  // PRD-67: leaving a started section with a time limit (its own or the test's) CLOSES it
+  // instead of freezing its clock — the frozen clock let a learner read a question, close
+  // the tab, look the answer up and come back. A test without sections is one section, so
+  // there leaving ends the attempt. Default false: every existing test keeps its behaviour.
+  closeSectionOnLeave: boolean("close_section_on_leave").notNull().default(false),
   // Какой результат SCORM-пакет отдаёт в LMS, когда попыток несколько: лучшую по проценту
   // или только что завершённую. Стандарт этого не решает — SCORM не предписывает LMS ничего
   // о хранении истории, и платформы (Moodle, Blackboard, Teachbase) держат выбор у себя,
@@ -954,8 +959,9 @@ export const attempts = pgTable("attempts", {
    * Section time budgets of THIS attempt (`shared/flow/section-budget`), kept
    * server-side on purpose: the remaining time of a section decides whether the
    * learner may keep answering, so it must not live where the learner can edit it
-   * (it used to sit in `localStorage`). Shape: `{ budgets, lastSeenAt, activeMs }`.
-   * NULL for attempts of tests without section limits.
+   * (it used to sit in `localStorage`). Shape: `{ budgets, lastSeenAt, activeMs }`
+   * plus the PRD-67 fields `{ runId, gate }` (page-run identity and open/closed
+   * sections). NULL for attempts of tests without section limits.
    */
   sectionTimerJson: jsonb("section_timer_json"),
   startedAt: timestamp("started_at").notNull(),
