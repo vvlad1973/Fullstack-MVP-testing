@@ -109,7 +109,6 @@ function collectLinks(pageRoot: Element): LinkBox[] {
   const pageRect = pageRoot.getBoundingClientRect();
   const links: LinkBox[] = [];
   const push = (url: string, rect: DOMRect | DOMRectReadOnly) => {
-    if (rect.width <= 0 || rect.height <= 0) return;
     links.push({
       url,
       x: rect.left - pageRect.left,
@@ -126,7 +125,11 @@ function collectLinks(pageRoot: Element): LinkBox[] {
   pageRoot.querySelectorAll("a[href]").forEach((anchor) => {
     const url = (anchor.getAttribute("href") ?? "").trim();
     if (!PDF_LINK_URL.test(url)) return;
-    for (const rect of Array.from(anchor.getClientRects())) push(url, rect);
+    // Пустые прямоугольники отбрасываются: у строчного элемента их дают стыки переноса, и
+    // область нулевого размера нажать всё равно нельзя.
+    for (const rect of Array.from(anchor.getClientRects())) {
+      if (rect.width > 0 && rect.height > 0) push(url, rect);
+    }
   });
   return links;
 }
