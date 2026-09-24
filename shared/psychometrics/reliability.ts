@@ -178,5 +178,8 @@ export function spearmanBrown(
 ): { factor: number; itemsDelta: number } | null {
   if (!(alpha > 0) || !(target > 0) || target >= 1 || items < 1) return null;
   const factor = (target * (1 - alpha)) / (alpha * (1 - target));
-  return { factor, itemsDelta: Math.ceil(items * factor) - items };
+  // Округление вверх — с допуском на шум последнего разряда: ровно двукратная длина выходит в
+  // двоичной дроби как 2,0000000000000004, и «добавить 4 задания» превращалось в «добавить 5».
+  // Совет автору нельзя брать из погрешности вычислений.
+  return { factor, itemsDelta: Math.ceil(items * factor - 1e-9) - items };
 }

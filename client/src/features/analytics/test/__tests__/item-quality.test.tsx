@@ -7,6 +7,7 @@
  * невычислимое место остаётся пустым, а не нулевым.
  */
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { ItemQualityPanel, type ItemQualityRow, type ItemQualityView } from "../item-quality";
@@ -41,6 +42,50 @@ function view(over: Partial<ItemQualityView> = {}): ItemQualityView {
     ...over,
   };
 }
+
+/**
+ * PRD-66 FR-22: прогноз Спирмена-Брауна — сколько заданий добавить или снять ради надёжности
+ * 0,80 (цель задана константой, решение владельца 2026-09-24).
+ *
+ * Прогноз живёт ПОДПИСЬЮ под надёжностью, а не своей плиткой: это совет к действию, а не
+ * измеренная величина, и в ряду метрик он читался бы как ещё одно измерение.
+ */
+describe("ItemQualityPanel — прогноз длины (FR-22)", () => {
+  it("говорит, сколько заданий добавить до целевой надёжности", () => {
+    render(<ItemQualityPanel view={view({
+      reliability: { alpha: 0.64, items: 20, respondents: 300, totalSd: 4.1, dichotomous: true },
+      lengthForecast: { target: 0.8, factor: 2.25, itemsDelta: 25 },
+    })} />);
+
+    expect(screen.getByText(/до 0,80 — ещё 25 заданий/)).toBeTruthy();
+  });
+
+  it("у теста надёжнее целевого говорит, сколько заданий МОЖНО СНЯТЬ", () => {
+    // Единственное число трека, которое разрешает сократить прогон участника: всё остальное
+    // на экране только добавляет автору работы.
+    render(<ItemQualityPanel view={view({
+      lengthForecast: { target: 0.8, factor: 0.44, itemsDelta: -22 },
+    })} />);
+
+    expect(screen.getByText(/22 задания можно снять/)).toBeTruthy();
+  });
+
+  it("без прогноза строки нет вовсе", () => {
+    render(<ItemQualityPanel view={view({ lengthForecast: null })} />);
+
+    expect(screen.queryByText(/можно снять/)).toBeNull();
+    expect(screen.queryByText(/до 0,80/)).toBeNull();
+  });
+
+  it("оговорка о качестве добавляемых заданий названа в «Терминах»", async () => {
+    // Прогноз исходит из того, что новые задания будут такими же, как нынешние. На практике
+    // они обычно хуже, поэтому число оптимистично, и умалчивать об этом нельзя.
+    render(<ItemQualityPanel view={view()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Термины" }));
+
+    expect(screen.getByText(/такого же качества/)).toBeTruthy();
+  });
+});
 
 describe("ItemQualityPanel", () => {
   it("называет величины ТЕРМИНАМИ, а не пересказом", () => {

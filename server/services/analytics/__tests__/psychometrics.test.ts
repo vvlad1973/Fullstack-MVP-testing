@@ -167,6 +167,42 @@ describe("computePsychometrics", () => {
     expect(computePsychometrics(RESPONSES, CTX).cutBand).toBeNull();
   });
 
+  it("говорит, на сколько заданий удлинить тест ради надёжности 0,80 (FR-22)", () => {
+    // Альфа набора 2/3 при четырёх пунктах: множитель 0,8·(1−2/3) / ((2/3)·0,2) = 2, то есть
+    // восемь пунктов вместо четырёх. Без этого числа автор знает только «надёжность низкая»,
+    // но не знает, это вопрос двух заданий или полной переделки теста.
+    const { lengthForecast } = computePsychometrics(RESPONSES, CTX);
+
+    expect(lengthForecast).not.toBeNull();
+    expect(lengthForecast!.target).toBe(0.8);
+    expect(lengthForecast!.factor).toBeCloseTo(2, 12);
+    expect(lengthForecast!.itemsDelta).toBe(4);
+  });
+
+  it("у теста надёжнее целевого прогноз говорит, сколько заданий МОЖНО СНЯТЬ", () => {
+    // Половина ценности требования именно здесь: всё остальное на экране показывает только
+    // проблемы, а это единственное число, которое разрешает сократить прогон участника.
+    const tight: ResponseFact[] = [];
+    for (let person = 0; person < 12; person += 1) {
+      for (let question = 0; question < 10; question += 1) {
+        // Способность решает всё: пункты согласованы почти идеально, альфа уходит к единице.
+        tight.push(fact({
+          respondentId: `R${person}`,
+          questionId: `q${question}`,
+          scoreRatio: person < 6 ? 0 : 1,
+        }));
+      }
+    }
+
+    const forecast = computePsychometrics(tight, CTX).lengthForecast!;
+    expect(forecast.itemsDelta).toBeLessThan(0);
+  });
+
+  it("без надёжности прогноза нет вовсе — удлинять нечего", () => {
+    // При альфе, которой нет, «добавьте столько же таких же» было бы советом ни о чём.
+    expect(computePsychometrics([], CTX).lengthForecast).toBeNull();
+  });
+
   it("рассказывает, на чём стоят числа: источники и доля неизвестных редакций", () => {
     const mixed = [
       ...RESPONSES,

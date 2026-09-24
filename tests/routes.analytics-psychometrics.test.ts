@@ -123,6 +123,18 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(res.body.items[0]).toMatchObject({ questionId: "q1", declaredDifficulty: 40 });
   });
 
+  it("доносит прогноз длины теста до экрана (FR-22)", async () => {
+    // Движок считает его с самого Э3, но до FR-22 ручка его не отдавала, и на экране числа
+    // не было вовсе. Поле обязано доезжать целиком: цель нужна, чтобы «ещё 25 заданий»
+    // что-то значило.
+    const res = await ask();
+
+    expect(res.body).toHaveProperty("lengthForecast");
+    if (res.body.lengthForecast !== null) {
+      expect(res.body.lengthForecast.target).toBe(0.8);
+    }
+  });
+
   it("по умолчанию берёт ТОЛЬКО первую попытку участника", async () => {
     // Повторная попытка не независима: человек помнит задания. Первая — верная, значит
     // трудность равна единице; учти ручка обе, вышло бы 0,5.

@@ -24,6 +24,7 @@ import {
 import {
   alphaOf,
   cutScoreBand,
+  spearmanBrown,
   standardErrorOfMeasurement,
   type CutScoreBand,
   type ItemValue,
@@ -112,6 +113,11 @@ export interface TestPsychometrics {
   sem: number | null;
   /** Интервал вокруг проходного балла; `null` — порога нет либо ошибка не посчиталась. */
   cutBand: CutScoreBand | null;
+  /**
+   * FR-22: во сколько раз изменить длину теста ради целевой надёжности и на сколько заданий
+   * это выходит. `null` — надёжности нет, и удлинять нечего.
+   */
+  lengthForecast: { target: number; factor: number; itemsDelta: number } | null;
   sample: {
     /** Респондентов в выборке. */
     respondents: number;
@@ -127,6 +133,27 @@ export interface TestPsychometrics {
 /** Пороги признаков трудности — из FR-13. */
 const TOO_HARD = 0.2;
 const TOO_EASY = 0.9;
+
+/**
+ * Целевая надёжность прогноза длины (FR-22) — 0,80, общепринятый ориентир для аттестации.
+ *
+ * Константа, а не настройка теста (решение владельца 2026-09-24): это число почти никто не
+ * меняет, и поле ради него добавило бы автору выбор, которого он не просил, — а объяснять,
+ * чем 0,75 отличается от 0,85, пришлось бы на том же экране.
+ */
+const TARGET_RELIABILITY = 0.8;
+
+/**
+ * Прогноз длины теста ради целевой надёжности.
+ *
+ * Отдельная обёртка над формулой нужна ради ОГОВОРКИ, которую иначе негде поставить: прогноз
+ * исходит из того, что добавленные задания будут такого же качества, что нынешние. На практике
+ * они обычно хуже, поэтому число оптимистично — и экран обязан это сказать.
+ */
+function forecastOf(alpha: number, items: number) {
+  const forecast = spearmanBrown(alpha, TARGET_RELIABILITY, items);
+  return forecast === null ? null : { target: TARGET_RELIABILITY, ...forecast };
+}
 
 /**
  * Насколько отрицательной должна быть дискриминативность, чтобы это был ПРИЗНАК, а не шум.
@@ -281,6 +308,12 @@ export function computePsychometrics(
     cutBand: sem !== null && ctx.cutRatio !== null && ctx.cutRatio !== undefined && typeof reliability !== "string"
       ? cutScoreBand(ctx.cutRatio * reliability.items, sem)
       : null,
+    // FR-22: прогноз длины считается ВСЕГДА, когда есть надёжность, — и когда её не хватает,
+    // и когда её с запасом. Второе не менее важно: это единственное число трека, которое
+    // разрешает СОКРАТИТЬ прогон участника, а не добавляет ему работы.
+    lengthForecast: typeof reliability === "string"
+      ? null
+      : forecastOf(reliability.alpha, reliability.items),
     sample: {
       respondents: ability.size,
       responses: identified.length,

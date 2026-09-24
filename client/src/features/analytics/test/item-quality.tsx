@@ -69,6 +69,11 @@ export interface ItemQualityView {
   items: ItemQualityRow[];
   reliability: ReliabilityView;
   sem: number | null;
+  /**
+   * FR-22: прогноз длины теста ради целевой надёжности. `null` — надёжности нет, и удлинять
+   * нечего; поля может не быть вовсе у ответов ручки, выданных до этого требования.
+   */
+  lengthForecast?: { target: number; factor: number; itemsDelta: number } | null;
   cutBand: { low: number; high: number; z: number } | null;
   sample: {
     respondents: number;
@@ -98,6 +103,23 @@ const SOURCE_TITLE: Record<string, string> = {
   telemetry: "телеметрия LMS",
   import: "импорт выгрузок",
 };
+
+/**
+ * Прогноз длины словами (FR-22): чего не хватает или что можно снять.
+ *
+ * Нулевая разница не печатается: «добавьте 0 заданий» — не совет, а шум. Целевая надёжность
+ * названа прямо в строке, потому что без неё «ещё 25 заданий» не значит ничего.
+ */
+function forecastOf(forecast: { target: number; itemsDelta: number } | null | undefined): string | null {
+  if (!forecast || forecast.itemsDelta === 0) return null;
+  const target = num(forecast.target);
+  if (forecast.itemsDelta > 0) {
+    const count = forecast.itemsDelta;
+    return `до ${target} — ещё ${count} ${pluralize(count, "задание", "задания", "заданий")}`;
+  }
+  const count = -forecast.itemsDelta;
+  return `надёжность выше цели ${target}: ${count} ${pluralize(count, "задание", "задания", "заданий")} можно снять`;
+}
 
 /** Оценка альфы словами — ориентиры FR-19. */
 function alphaVerdict(alpha: number): string {
@@ -231,6 +253,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
     .sort((a, b) => suspicionRank(a) - suspicionRank(b) || withinRank(a) - withinRank(b));
 
   const reliability = typeof view.reliability === "string" ? null : view.reliability;
+  const forecastText = forecastOf(view.lengthForecast);
 
   /**
    * Поводы к баннеру смещения (FR-39, FR-40).
@@ -359,6 +382,15 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
                   ? `${alphaVerdict(reliability.alpha)} · ${reliability.respondents} ${pluralize(reliability.respondents, "участник", "участника", "участников")}`
                   : RELIABILITY_GAP[view.reliability as string] ?? "посчитать не на чем"}
               </Text>
+              {/*
+                FR-22: прогноз длины — ПОДПИСЬЮ под надёжностью, а не своей плиткой. Это совет
+                к действию, а не измеренная величина, и в ряду метрик он читался бы как ещё
+                одно измерение. Оговорка «задания такого же качества» — в окне «Термины»:
+                в подписи из пяти слов ей места нет, а умолчать о ней нельзя.
+              */}
+              {forecastText ? (
+                <Text variant="body-xs" tone="subtle">{forecastText}</Text>
+              ) : null}
             </Stack>
           </CardBody>
         </Card>
@@ -523,6 +555,11 @@ const GLOSSARY: Array<{ term: string; what: string; marks: string }> = [
     term: "Надёжность (альфа Кронбаха)",
     what: "Насколько согласованно задания теста меряют одно и то же.",
     marks: "Приемлемо от 0,70, хорошо от 0,80. Выше 0,95 — подозрение на дубли заданий.",
+  },
+  {
+    term: "Прогноз длины теста",
+    what: "Сколько заданий нужно добавить или можно снять ради надёжности 0,80 (формула Спирмена-Брауна).",
+    marks: "Прогноз исходит из того, что добавленные задания будут такого же качества, что нынешние; на практике они обычно слабее, поэтому число оптимистичное. К случайной выдаче без общего ядра заданий он неприменим — там нет и самой надёжности.",
   },
   {
     term: "Ошибка измерения",
