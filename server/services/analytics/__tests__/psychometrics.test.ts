@@ -8,7 +8,12 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { computePsychometrics, firstAttemptOnly, type QuestionInfo } from "../psychometrics";
+import {
+  computeItemBreakdown,
+  computePsychometrics,
+  firstAttemptOnly,
+  type QuestionInfo,
+} from "../psychometrics";
 import type { ResponseFact } from "../response-matrix";
 
 /** Заготовка наблюдения: всё, что не названо, для расчёта безразлично. */
@@ -189,5 +194,66 @@ describe("firstAttemptOnly", () => {
 
   it("наблюдения без респондента отбрасывает — их попытки не сосчитать", () => {
     expect(firstAttemptOnly([fact({ respondentId: null as never, questionId: "q1" })])).toEqual([]);
+  });
+});
+
+describe("computeItemBreakdown", () => {
+  /** Восемь респондентов: верный вариант берут сильные, второй — слабые, четвёртый никто. */
+  const CHOICES: ResponseFact[] = [];
+  const rows: Array<[string, number, number]> = [
+    ["S1", 1, 0], ["S2", 1, 0], ["S3", 1, 0], ["S4", 1, 0],
+    ["W1", 0, 1], ["W2", 0, 1], ["W3", 0, 1], ["W4", 0, 2],
+  ];
+  for (const [respondentId, ratio, chosen] of rows) {
+    CHOICES.push(fact({ respondentId, questionId: "q1", scoreRatio: ratio, answer: chosen }));
+    // Второе задание задаёт порядок способностей: без него все респонденты равны.
+    CHOICES.push(fact({ respondentId, questionId: "q2", scoreRatio: ratio, answer: 0 }));
+  }
+
+  const CTX_4 = {
+    questionById: new Map([
+      ["q1", question("q1", { dataJson: { options: ["Верный", "Второй", "Третий", "Четвёртый"] } })],
+      ["q2", question("q2")],
+    ]),
+    minObservations: 10,
+  };
+
+  it("разбирает варианты ответа: частоты, крайние группы и связь с остатком", () => {
+    const breakdown = computeItemBreakdown(CHOICES, CTX_4, "q1", [0])!;
+
+    expect(breakdown.item.questionId).toBe("q1");
+    expect(breakdown.options).toHaveLength(4);
+    expect(breakdown.options![0]).toMatchObject({ label: "Верный", correct: true, share: 0.5 });
+    expect(breakdown.options![0].restCorrelation!).toBeGreaterThan(0);
+  });
+
+  it("мёртвый вариант и инвертированный называются признаками", () => {
+    const breakdown = computeItemBreakdown(CHOICES, CTX_4, "q1", [0])!;
+
+    // Четвёртый вариант не выбрал никто — он занимает место, не делая работы.
+    expect(breakdown.options![3]).toMatchObject({ share: 0, dead: true });
+    // Верный вариант признаков дистрактора не получает никогда.
+    expect(breakdown.options![0]).toMatchObject({ dead: false, inverted: false });
+  });
+
+  it("крайние группы отдаются числами, из которых сложен индекс", () => {
+    const breakdown = computeItemBreakdown(CHOICES, CTX_4, "q1", [0])!;
+
+    expect(breakdown.groups).toMatchObject({ size: 2, topDifficulty: 1, bottomDifficulty: 0 });
+  });
+
+  it("у задания, где вариантов нет, дистракторного разбора не бывает (FR-27)", () => {
+    // Сопоставление и ранжирование: там не варианты, а пары и порядок.
+    const matching = new Map(CTX_4.questionById);
+    matching.set("q1", question("q1", { type: "matching", dataJson: { left: ["a"], right: ["b"] } }));
+
+    const breakdown = computeItemBreakdown(CHOICES, { ...CTX_4, questionById: matching }, "q1", [])!;
+
+    expect(breakdown.options).toBeNull();
+    expect(breakdown.item.difficulty).toBe(0.5);
+  });
+
+  it("задания, которого нет в наблюдениях, разбирать нечего", () => {
+    expect(computeItemBreakdown(CHOICES, CTX_4, "q-unknown", [])).toBeNull();
   });
 });

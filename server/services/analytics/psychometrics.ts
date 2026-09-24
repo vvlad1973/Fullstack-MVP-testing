@@ -36,6 +36,11 @@ import {
   type ConfidenceLevel,
 } from "@shared/psychometrics/confidence";
 import {
+  analyseOptions,
+  flagsOf,
+  type ChoiceResponse,
+} from "@shared/psychometrics/distractors";
+import {
   rushedShare,
   summariseTiming,
   timingFlags,
@@ -255,5 +260,123 @@ export function computePsychometrics(
         ? 0
         : identified.filter(r => r.psychoHash === null).length / identified.length,
     },
+  };
+}
+
+/** Разбор ОДНОГО задания: то, что нужно его карточке. */
+export interface ItemBreakdown {
+  item: ItemPsychometrics;
+  /** Крайние группы по способности — то, из чего складывается индекс `D`. */
+  groups: { size: number; share: number; topDifficulty: number; bottomDifficulty: number } | null;
+  /**
+   * Варианты ответа с частотами и связью с остальным баллом; `null` — к типу задания
+   * дистракторный анализ не применяется (FR-27).
+   */
+  options: Array<{
+    index: number;
+    label: string;
+    correct: boolean;
+    share: number;
+    bottomShare: number | null;
+    topShare: number | null;
+    restCorrelation: number | null;
+    dead: boolean;
+    inverted: boolean;
+  }> | null;
+}
+
+/**
+ * Выбранные варианты ответа по индексам; `null` — ответ не про выбор варианта.
+ *
+ * Сопоставление, ранжирование и распределение баллов сюда не идут (FR-27): «вариантов» там нет,
+ * а есть пары, порядок и доли, и дистракторный анализ над ними бессмыслен.
+ */
+function chosenIndexes(type: string, answer: unknown): number[] | null {
+  if (type === "single") return typeof answer === "number" ? [answer] : [];
+  if (type === "multiple") {
+    return Array.isArray(answer) ? answer.filter((i): i is number => typeof i === "number") : [];
+  }
+  return null;
+}
+
+/** Подписи вариантов задания — то, что видел участник. */
+function optionLabels(dataJson: unknown): string[] {
+  const options = (dataJson as { options?: unknown[] } | null)?.options;
+  if (!Array.isArray(options)) return [];
+  return options.map(option =>
+    typeof option === "string" ? option : String((option as { text?: unknown })?.text ?? ""));
+}
+
+/**
+ * Собрать разбор задания (FR-24 — FR-26).
+ *
+ * Крайние группы здесь те же, что у индекса дискриминации: два разных деления выборки дали бы
+ * два разных ответа на вопрос «кто здесь сильный», и таблица вариантов перестала бы объяснять
+ * стоящее рядом число.
+ *
+ * @param responses наблюдения выборки
+ * @param ctx справочник заданий и пороги
+ * @param questionId задание
+ * @param correctIndexes индексы верных вариантов по эталону
+ */
+export function computeItemBreakdown(
+  responses: readonly ResponseFact[],
+  ctx: PsychometricsContext,
+  questionId: string,
+  correctIndexes: readonly number[],
+): ItemBreakdown | null {
+  const all = computePsychometrics(responses, ctx);
+  const item = all.items.find(row => row.questionId === questionId);
+  if (!item) return null;
+
+  const identified = responses.filter(r => r.respondentId !== null);
+  const graded: ItemResponse[] = identified.map(r => ({
+    respondentId: r.respondentId!,
+    itemId: r.questionId,
+    ratio: r.scoreRatio,
+  }));
+  const ability = abilities(graded);
+  const groups = discriminationIndex(questionId, graded, ability);
+
+  const question = ctx.questionById.get(questionId);
+  const labels = optionLabels(question?.dataJson);
+  const choices: ChoiceResponse[] = [];
+  let applicable = labels.length > 0;
+  for (const response of identified) {
+    if (response.questionId !== questionId) continue;
+    const chosen = chosenIndexes(question?.type ?? "", response.answer);
+    if (chosen === null) {
+      applicable = false;
+      break;
+    }
+    choices.push({ respondentId: response.respondentId!, chosen });
+  }
+
+  const analysis = applicable
+    ? analyseOptions(choices, correctIndexes, labels.length, ability)
+    : null;
+
+  return {
+    item,
+    groups: groups
+      ? {
+        size: groups.size,
+        share: groups.share,
+        topDifficulty: groups.topDifficulty,
+        bottomDifficulty: groups.bottomDifficulty,
+      }
+      : null,
+    options: analysis
+      ? analysis.options.map(option => ({
+        index: option.index,
+        label: labels[option.index] ?? `Вариант ${option.index + 1}`,
+        correct: option.correct,
+        share: option.share,
+        bottomShare: option.bottomShare,
+        topShare: option.topShare,
+        restCorrelation: option.restCorrelation,
+        ...flagsOf(option),
+      }))
+      : null,
   };
 }

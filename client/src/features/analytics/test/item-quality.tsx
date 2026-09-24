@@ -82,6 +82,8 @@ export interface ItemQualityPanelProps {
   /** Ссылки выгрузок: отчёт и матрица. Без них кнопки не рисуются. */
   exportHref?: string;
   matrixHref?: string;
+  /** Открыть разбор задания. Без обработчика строка никуда не ведёт. */
+  onOpenItem?: (questionId: string) => void;
 }
 
 /** Как источник наблюдений подписывается человеку. */
@@ -176,7 +178,7 @@ function TermHeader({ term, hint }: { term: string; hint: string }) {
 type View = "all" | "suspicious" | "thin";
 
 /** Вкладка «Качество заданий». */
-export function ItemQualityPanel({ view, exportHref, matrixHref }: ItemQualityPanelProps) {
+export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: ItemQualityPanelProps) {
   const [tab, setTab] = useState<View>("all");
   const [glossary, setGlossary] = useState(false);
 
@@ -364,6 +366,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref }: ItemQualityPa
             columns={columns}
             rows={rows}
             rowKey={row => row.questionId}
+            onRowClick={onOpenItem ? row => onOpenItem(row.questionId) : undefined}
             emptyMessage={tab === "suspicious"
               ? "Признаки не сошлись ни у одного задания"
               : tab === "thin"

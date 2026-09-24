@@ -25,6 +25,7 @@ import { storage } from "../../storage";
 import { outcomeFor } from "../../services/analytics/answer-outcome";
 import { loadResponseMatrix } from "../../services/analytics/response-matrix";
 import {
+  computeItemBreakdown,
   computePsychometrics,
   firstAttemptOnly,
   type PsychometricsContext,
@@ -234,6 +235,61 @@ router.get(
     } catch (error) {
       logger.error("Psychometrics error: " + (error as Error).message, "analytics");
       res.status(500).json({ error: "Не удалось посчитать психометрику" });
+    }
+  },
+);
+
+/** Индексы верных вариантов задания по его эталону. */
+function correctIndexesOf(correctJson: unknown): number[] {
+  const key = correctJson as { correctIndex?: unknown; correctIndices?: unknown } | null;
+  if (typeof key?.correctIndex === "number") return [key.correctIndex];
+  if (Array.isArray(key?.correctIndices)) {
+    return key.correctIndices.filter((i): i is number => typeof i === "number");
+  }
+  return [];
+}
+
+// GET /api/analytics/psychometrics/:testId/items/:questionId — разбор одного задания
+router.get(
+  "/psychometrics/:testId/items/:questionId",
+  requirePermission("analytics.read"),
+  requireTestScope("analytics", "testId"),
+  async (req: Request, res: Response) => {
+    try {
+      const { testId, questionId } = req.params;
+      const test = await storage.getTest(testId);
+      if (!test) return res.status(404).json({ error: "Тест не найден" });
+
+      const { filter, onlyFirst } = readQuery(req, testId);
+      const scope = await analyticsScope(req);
+      const { grade, questionById } = await buildGrader(testId);
+      const matrix = await loadResponseMatrix(filter, scope, grade);
+      const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
+
+      const [question] = await storage.getQuestionsByIds([questionId]);
+      const breakdown = computeItemBreakdown(
+        responses,
+        {
+          questionById,
+          minObservations: config.analytics.minObservations,
+          cutRatio: cutRatioOf(test.overallPassRuleJson),
+        },
+        questionId,
+        correctIndexesOf(question?.correctJson),
+      );
+      // Наблюдений за заданием нет вовсе — это не ошибка запроса, а пустая выборка: задание
+      // могли добавить вчера, и разбирать в нём пока нечего.
+      if (!breakdown) return res.json({ breakdown: null, questionId });
+
+      res.json({
+        ...breakdown,
+        questionId,
+        prompt: question?.prompt ?? questionById.get(questionId)?.prompt ?? "",
+        questionType: question?.type ?? questionById.get(questionId)?.type ?? "",
+      });
+    } catch (error) {
+      logger.error("Psychometrics item error: " + (error as Error).message, "analytics");
+      res.status(500).json({ error: "Не удалось посчитать разбор задания" });
     }
   },
 );

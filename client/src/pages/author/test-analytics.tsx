@@ -29,6 +29,10 @@ import {
     ItemQualityPanel,
     type ItemQualityView,
 } from "@/features/analytics/test/item-quality";
+import {
+    ItemBreakdownPanel,
+    type ItemBreakdownView,
+} from "@/features/analytics/test/item-breakdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -302,6 +306,18 @@ export default function TestAnalyticsPage() {
     const { data: itemQuality, isLoading: qualityLoading } = useQuery<ItemQualityView>({
         queryKey: [`/api/analytics/psychometrics/${testId}`],
         enabled: !!testId && activeTab === "quality",
+    });
+
+    /**
+     * PRD-66 FR-24: разбор одного задания — своим запросом и только когда его открыли.
+     *
+     * Дистракторный разбор требует ответов КАЖДОГО участника по этому заданию, и считать его
+     * для всех строк таблицы заранее значило бы платить за сорок разборов ради одного.
+     */
+    const [breakdownId, setBreakdownId] = useState<string | null>(null);
+    const { data: breakdown } = useQuery<ItemBreakdownView>({
+        queryKey: [`/api/analytics/psychometrics/${testId}/items/${breakdownId}`],
+        enabled: !!testId && !!breakdownId && activeTab === "quality",
     });
 
     // Функция экспорта в Excel
@@ -647,15 +663,18 @@ export default function TestAnalyticsPage() {
                         label: "Качество заданий",
                         content: qualityLoading
                             ? <LoadingState message="Считаем психометрику..." />
-                            : itemQuality
-                                ? (
-                                    <ItemQualityPanel
-                                        view={itemQuality}
-                                        exportHref={`/api/analytics/psychometrics/${testId}/export`}
-                                        matrixHref={`/api/analytics/psychometrics/${testId}/matrix`}
-                                    />
-                                )
-                                : <EmptyState title="Психометрика недоступна" description="Не удалось посчитать показатели по этому тесту" />,
+                            : breakdownId && breakdown
+                                ? <ItemBreakdownPanel view={breakdown} onBack={() => setBreakdownId(null)} />
+                                : itemQuality
+                                    ? (
+                                        <ItemQualityPanel
+                                            view={itemQuality}
+                                            exportHref={`/api/analytics/psychometrics/${testId}/export`}
+                                            matrixHref={`/api/analytics/psychometrics/${testId}/matrix`}
+                                            onOpenItem={setBreakdownId}
+                                        />
+                                    )
+                                    : <EmptyState title="Психометрика недоступна" description="Не удалось посчитать показатели по этому тесту" />,
                     },
                     // PRD-56: «Уровни» отдельной вкладкой больше нет — они внутри «Выдачи».
                     { id: "delivery", label: "Выдача", content: deliveryPanel },

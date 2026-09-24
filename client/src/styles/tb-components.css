@@ -3140,3 +3140,25 @@
 .tb-atom--code pre { margin: 0; }
 .tb-atom--formula,
 .tb-atom--blank { font-family: var(--ou-font-mono, monospace); font-size: 0.95em; }
+
+/* ─── PRD-66: дорожка доли в таблице вариантов ответа ────────────────────────
+   Значение стоит ПЕРЕД дорожкой и выровнено по правому краю фиксированной
+   ширины: так числа соседних строк читаются столбиком, а дорожки начинаются
+   на одной вертикали и сравниваются взглядом (FR-26a). Обе колонки — слабые и
+   сильные — используют один класс, поэтому их шкалы одной длины; цветом группы
+   НЕ различаются, различают их колонки и подписи (FR-26c). */
+.tb-psy-scale { display: flex; align-items: center; gap: var(--ou-space-2); }
+.tb-psy-scale__value { min-width: 44px; text-align: right; }
+.tb-psy-scale__track {
+  flex: 1;
+  height: var(--ou-space-2);
+  background: var(--ou-bg-muted);
+  border-radius: var(--ou-radius-pill);
+  overflow: hidden;
+}
+.tb-psy-scale__fill {
+  display: block;
+  height: 100%;
+  background: var(--ou-accent-default);
+  border-radius: var(--ou-radius-pill);
+}

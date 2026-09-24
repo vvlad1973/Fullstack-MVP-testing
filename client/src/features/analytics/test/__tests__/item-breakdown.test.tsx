@@ -1,0 +1,110 @@
+/**
+ * @module features/analytics/test/__tests__/item-breakdown
+ * @description PRD-66 FR-24 — FR-27: карточка разбора задания.
+ */
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { ItemBreakdownPanel, type ItemBreakdownView, type OptionRow } from "../item-breakdown";
+
+function option(over: Partial<OptionRow> & Pick<OptionRow, "index" | "label">): OptionRow {
+  return {
+    correct: false,
+    share: 0.2,
+    bottomShare: 0.3,
+    topShare: 0.1,
+    restCorrelation: -0.18,
+    dead: false,
+    inverted: false,
+    ...over,
+  };
+}
+
+function view(over: Partial<ItemBreakdownView> = {}): ItemBreakdownView {
+  return {
+    questionId: "q1",
+    prompt: "Какая мера относится к антикоррупционным?",
+    questionType: "single",
+    item: {
+      observations: 268,
+      difficulty: 0.41,
+      correctedDifficulty: 0.21,
+      itemRest: 0.34,
+      discrimination: 0.38,
+      declaredDifficulty: 60,
+      timing: { medianMs: 48_000, q1Ms: 31_000, q3Ms: 82_000, measured: 244 },
+    },
+    groups: { size: 72, share: 0.27, topDifficulty: 0.68, bottomDifficulty: 0.19 },
+    options: [
+      option({ index: 0, label: "Проверка контрагента", correct: true, share: 0.41, bottomShare: 0.19, topShare: 0.68, restCorrelation: 0.34 }),
+      option({ index: 1, label: "Согласование подарка", share: 0.34, bottomShare: 0.46, topShare: 0.21 }),
+      option({ index: 2, label: "Бумажный журнал", share: 0.01, bottomShare: 0.02, topShare: 0, restCorrelation: null, dead: true }),
+    ],
+    ...over,
+  };
+}
+
+describe("ItemBreakdownPanel", () => {
+  it("показывает величины задания плитками в одном ряду", () => {
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+
+    expect(screen.getByText("Трудность")).toBeTruthy();
+    expect(screen.getByText("С поправкой на угадывание")).toBeTruthy();
+    expect(screen.getByText("Дискриминативность (r)")).toBeTruthy();
+    expect(screen.getByText("Индекс дискриминации (D)")).toBeTruthy();
+    expect(screen.getByText("Время, медиана")).toBeTruthy();
+  });
+
+  it("плитка поправки не рисуется там, где поправка неприменима", () => {
+    // У сопоставления и ранжирования вероятность случайного попадания невычислима: пустая
+    // плитка читалась бы как «ноль», а это утверждение (FR-17a).
+    render(<ItemBreakdownPanel view={view({
+      item: { ...view().item, correctedDifficulty: null },
+    })} onBack={() => {}} />);
+
+    expect(screen.queryByText("С поправкой на угадывание")).toBeNull();
+  });
+
+  it("называет крайние группы их размером, а не «четвертями»", () => {
+    // 27 % — не четверть, и подменять число словом нельзя (FR-26).
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+
+    expect(screen.getByText(/Слабые 27 %/)).toBeTruthy();
+    expect(screen.getByText(/Сильные 27 %/)).toBeTruthy();
+  });
+
+  it("сравнивает замысел автора с наблюдением", () => {
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+    expect(screen.getByText("60 → 41")).toBeTruthy();
+  });
+
+  it("у задания без заявленной трудности сравнивать не с чем — плитки нет", () => {
+    // «Расхождения нет» и «сравнивать не с чем» — разные состояния (FR-18).
+    render(<ItemBreakdownPanel view={view({
+      item: { ...view().item, declaredDifficulty: null },
+    })} onBack={() => {}} />);
+
+    expect(screen.queryByText("Замысел и наблюдение")).toBeNull();
+  });
+
+  it("верный вариант и мёртвый дистрактор названы признаками", () => {
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+
+    expect(screen.getByText("Верный ответ")).toBeTruthy();
+    expect(screen.getByText("Мёртвый вариант")).toBeTruthy();
+  });
+
+  it("для типа без вариантов разбор не выдумывается (FR-27)", () => {
+    render(<ItemBreakdownPanel view={view({ options: null })} onBack={() => {}} />);
+
+    expect(screen.getByText(/разбор вариантов не применяется/)).toBeTruthy();
+    expect(screen.queryByText("Верный ответ")).toBeNull();
+  });
+
+  it("время печатается медианой и размахом, а не средним", () => {
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+
+    expect(screen.getByText("0:48")).toBeTruthy();
+    expect(screen.getByText(/половина ответов 0:31 — 1:22/)).toBeTruthy();
+  });
+});
