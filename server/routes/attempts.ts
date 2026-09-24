@@ -2139,10 +2139,15 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
       // ТОТ ЖЕ сборщик, что рисует экран, и ему нужны те же два факта, которых нет в
       // результате попытки, — обратная связь теста и наличие порога. Отчёт строит
       // браузер, поэтому они едут с ВХОДОМ отчёта, а не параметром сборки.
+      //
+      // Материал дополняется параметрами оформления ЭТОГО экрана (`render.params`, уже с
+      // умолчаниями манифеста) — тем же правилом, что и измерения выше: окраску полос подтем
+      // документ обязан взять ту же, что у экрана, с которого его скачали.
+      const reportMaterial = material ? completeMeasuresSource(material, render?.params, resultJson) : material;
       report =
         resultJson.mode === "adaptive"
-          ? buildAdaptiveReportInput(resultJson, test?.title || "", reportMeta, material)
-          : buildReportInput(resultJson, test?.title || "", reportMeta, material);
+          ? buildAdaptiveReportInput(resultJson, test?.title || "", reportMeta, reportMaterial)
+          : buildReportInput(resultJson, test?.title || "", reportMeta, reportMaterial);
 
       // PRD-27 Фаза 2: страницу отчёта рисует МАКЕТ шаблона. Активный шаблон, не
       // объявивший нужного вида, отчёта не лишает: макет берётся из «Стандартного», а

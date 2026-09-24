@@ -13,7 +13,7 @@
 пустой папки до загрузки. Разделы 1–16 — подробный справочник: к ним удобно
 возвращаться за деталями.
 
-**Статус:** актуально; соответствует спецификации формата версии 3.11.0 и эталонному шаблону
+**Статус:** актуально; соответствует спецификации формата версии 3.12.0 и эталонному шаблону
 «Стандартный». Учтены системные узлы раздела (`review`, `section-results`), варианты стартового
 экрана (`start.*` со свойством страницы `image`), страница отчёта о результатах
 (`report` / `report.adaptive`, §7.3a) с постраничной раскладкой и меткой `data-page-break`,
@@ -26,9 +26,9 @@
 документ отчёта из блоков (`kind: "report.block"`, `reportDocument`, §7.3b), толкование темы и
 подтемы (`interpretationHtml`, признаки раскладки `hasAside` и `hasBreakdownNotes`) и заголовки
 итога свойствами варианта «Итоги теста» (`headingDocument` / `headingPassed` / `headingFailed`),
-кликабельные в PDF ссылки `<a href>` авторского текста.
+кликабельные в PDF ссылки `<a href>` авторского текста, окраска полос подтем по выбору автора (`breakdownBarFill`, `barFill`).
 
-**Версия руководства:** 3.11.0 · **соответствует спецификации формата:** 3.11.0 ·
+**Версия руководства:** 3.12.0 · **соответствует спецификации формата:** 3.12.0 ·
 **дата актуализации:** 2026-09-24
 
 Руководство написано под конкретную версию спецификации (см. поле выше). При изменении
@@ -38,7 +38,7 @@
 Связанные документы:
 
 - [Платформа SCORM-шаблонов](../specs/spec-template-platform.md) — формальная
-  спецификация формата (источник истины), версия 3.11.0.
+  спецификация формата (источник истины), версия 3.12.0.
 
 Эталонный шаблон, на который опираются примеры ниже, лежит в репозитории:
 `server/scorm/templates/default/`. Он проходит валидацию и проверку
@@ -1383,7 +1383,8 @@ Placeholders варианта должны соответствовать мак
 | `showValue` | Печатать ли число рядом с полосой |
 | `valueLabel` | Готовая подпись значения («50 %»); пуста при `showValue: false` |
 | `passed` | Исход подтемы: `true` / `false` / `null` — порога у ключа не было |
-| `passClass` | Готовый модификатор строки: `is-pass`, `is-fail` или пустая строка |
+| `passClass` | Готовый модификатор строки: `is-pass`, `is-fail` или пустая строка. Пуст и при окраске «По доле» или «Нейтральная» |
+| `barFill` | Готовая заливка полосы (`linear-gradient(...)`); приходит только при окраске «По доле» и непустой полосе |
 | `requiredLabel` | Готовая надпись порога («Нужно 70 %»); поля НЕТ, когда порога нет или показ значения выключен |
 
 Числа лежат в строке всегда, даже когда поставляемые шаблоны рисуют одну полосу: без них вы не
@@ -1401,13 +1402,27 @@ Placeholders варианта должны соответствовать мак
 Надпись порога приезжает только там, где автор включил показ ЗНАЧЕНИЯ: цвет без числа и без
 причины читается как приговор.
 
+**Что кодирует цвет полосы, решает автор теста** (с 3.12.0). Объявите в манифесте параметр
+`breakdownBarFill` (тип `select`, группа «Итоги») со значениями `share`, `verdict` и
+`neutral`, и в редакторе появится пункт «Окраска полос подтем». `default` выберите сами: он
+и станет видом теста, в котором ничего не настраивали.
+
+- `verdict` — как раньше: строка несёт `passClass`, цвет задаёт ваш CSS.
+- `share` — `passClass` пуст, а `barFill` несёт готовый градиент по схеме уровней теста: от
+  неблагоприятного края до цвета в точке доли. Считать ничего не нужно, как и знать цвета.
+- `neutral` — ни класса, ни заливки: полоса вашего нейтрального цвета.
+
+Печатайте `barFill` в `style` полосы, ПОСЛЕ ширины, как в примере ниже. Инлайн-значение
+перебивает цвет заливки из вашего CSS, поэтому отдельных правил под режимы писать не нужно.
+Если параметр не объявлен, строка ведёт себя как при `verdict`.
+
 ```html
 {{#if breakdown}}
 <div class="tb-topic__breakdown">
   {{#each breakdown}}
   <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
     <div class="tb-breakdown__name">{{ key }}</div>
-    <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+    <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;{{#if barFill}} background: {{ barFill }};{{/if}}"></span></div>
     {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
     {{#if requiredLabel}}<div class="tb-breakdown__req">{{ requiredLabel }}</div>{{/if}}
   </div>
@@ -1471,7 +1486,7 @@ Placeholders варианта должны соответствовать мак
   {{#each @root.result.breakdown}}
   <div class="tb-breakdown__row" data-item="{{ key }}">
     <div class="tb-breakdown__name">{{ key }}</div>
-    <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+    <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;{{#if barFill}} background: {{ barFill }};{{/if}}"></span></div>
     {{#if showValue}}<div class="tb-breakdown__val">{{ valueLabel }}</div>{{/if}}
   </div>
   {{/each}}
@@ -1516,7 +1531,7 @@ Placeholders варианта должны соответствовать мак
       {{#each breakdown}}
       <div class="tb-breakdown__row {{ passClass }}" data-item="{{ key }}">
         <div class="tb-breakdown__name">{{ key }}</div>
-        <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;"></span></div>
+        <div class="tb-breakdown__bar"><span style="width: {{ barPercent }}%;{{#if barFill}} background: {{ barFill }};{{/if}}"></span></div>
         {{#if interpretationHtml}}<div class="tb-breakdown__note">{{& interpretationHtml }}</div>{{/if}}
       </div>
       {{/each}}

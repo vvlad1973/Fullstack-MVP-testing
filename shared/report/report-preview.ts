@@ -30,6 +30,7 @@ import type {
   ResultHeadings,
   TopicInput,
 } from "../template/result-context";
+import type { BarFillSetting } from "../template/bar-fill";
 
 /** Исход попытки, который показывает предпросмотр (FR-19). */
 export type ReportPreviewOutcome = "passed" | "failed";
@@ -66,6 +67,12 @@ export interface ReportPreviewTest {
    * документ, что уйдёт в PDF. Отсутствие = подытоги скрыты, как у теста без настройки.
    */
   breakdownDisplay?: BreakdownDisplaySetting;
+  /**
+   * Окраска полос подтем — из параметров оформления, которые автор правит в этом же окне
+   * настроек ({@link module:shared/template/bar-fill barFillFromParams}). Отсутствие =
+   * «по вердикту».
+   */
+  barFill?: BarFillSetting | null;
   /**
    * Группы тем теста (`tests.section_groups_json`).
    *
@@ -238,6 +245,7 @@ export function buildReportPreviewInput(
     attemptsCount: DEMO_ATTEMPTS,
     ...(test.headings ? { headings: test.headings } : {}),
     ...(test.breakdownDisplay ? { breakdownDisplay: test.breakdownDisplay } : {}),
+    ...(test.barFill ? { barFill: test.barFill } : {}),
     // PRD-61 FR-23: вводный блок отчёта. Текст исхода выберет построитель — по вердикту
     // образца, который задаёт переключатель окна.
     ...(resolveReportIntro(test.intro) ? { intro: resolveReportIntro(test.intro)! } : {}),
