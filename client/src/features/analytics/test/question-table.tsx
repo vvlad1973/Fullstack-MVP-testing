@@ -14,11 +14,11 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
-import { Ban } from "lucide-react";
+import { Ban, MoreHorizontal } from "lucide-react";
 
 import {
-  Banner, Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, ProgressBar,
-  SegmentedControl, Stack, Text,
+  Banner, Button, Card, CardBody, CardHeader, DataGrid, IconButton, Menu, MenuItem, MenuTrigger,
+  ModalDialog, ProgressBar, SegmentedControl, Stack, Text,
 } from "@skillum/ui-kit";
 
 import type { QuestionType } from "@shared/questions/question-type";
@@ -524,49 +524,61 @@ export function QuestionTable({
       sortable: true,
       render: (row: QuestionRow) => row.difficulty,
     }]),
+    // Действия строки — ПОД ТРОЕТОЧИЕМ, как в эскизе (prd66-item-quality, состояние
+    // wf-items). Двумя текстовыми кнопками они занимали 263 px — пятую часть таблицы, — и
+    // с приходом колонки «Дискриминативность» правая уезжала за горизонтальную прокрутку
+    // (вскрыто приёмкой в браузере). Доступные имена пунктов оставлены прежними: меняется
+    // способ добраться до действия, а не само действие.
     {
-      key: "delivery",
+      key: "rowActions",
       header: "",
       render: (row: QuestionRow) => {
-        if (!onDeliveryChange) return null;
-        return row.excludedFromDelivery ? (
-          <Button
-            variant="ghost"
-            size="s"
-            // Возврат ничего не отнимает и подтверждения не требует (FR-17b).
-            aria-label={`Вернуть в выдачу: ${row.questionPrompt}`}
-            onClick={() => onDeliveryChange(row.questionId, false)}
+        const canExclude = !!onDeliveryChange;
+        const canOpenRegistry = !!onOpenRegistry && row.correctPercent !== null;
+        if (!canExclude && !canOpenRegistry) return null;
+        return (
+          <MenuTrigger
+            placement="bottom-end"
+            trigger={
+              <IconButton
+                variant="ghost"
+                size="s"
+                aria-label={`Действия с заданием: ${row.questionPrompt}`}
+                icon={<MoreHorizontal size={16} aria-hidden="true" />}
+              />
+            }
           >
-            Вернуть в выдачу
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="s"
-            aria-label={`Исключить из выдачи: ${row.questionPrompt}`}
-            onClick={() => setPending(row)}
-          >
-            Исключить
-          </Button>
+            <Menu size="sm">
+              {canExclude && (row.excludedFromDelivery ? (
+                <MenuItem
+                  // Возврат ничего не отнимает и подтверждения не требует (FR-17b).
+                  aria-label={`Вернуть в выдачу: ${row.questionPrompt}`}
+                  onClick={() => onDeliveryChange!(row.questionId, false)}
+                >
+                  Вернуть в выдачу
+                </MenuItem>
+              ) : (
+                <MenuItem
+                  aria-label={`Исключить из выдачи: ${row.questionPrompt}`}
+                  onClick={() => setPending(row)}
+                >
+                  Исключить из выдачи
+                </MenuItem>
+              ))}
+              {canOpenRegistry && (
+                <MenuItem
+                  // Название задания — в доступном имени: в длинном списке пункт «Прохождения»
+                  // неотличим от соседних на слух.
+                  aria-label={`Прохождения с ошибкой: ${row.questionPrompt}`}
+                  onClick={() => onOpenRegistry!(row.questionId)}
+                >
+                  Прохождения с ошибкой
+                </MenuItem>
+              )}
+            </Menu>
+          </MenuTrigger>
         );
       },
-    },
-    {
-      key: "actions",
-      header: "",
-      render: (row: QuestionRow) => (onOpenRegistry && row.correctPercent !== null ? (
-        <Button
-          variant="ghost"
-          size="s"
-          // Название задания — в доступном имени, а не в подписи: подпись с полным условием
-          // растянула бы колонку на пол-экрана, а без названия кнопка в длинном списке
-          // неотличима от соседних на слух.
-          aria-label={`Прохождения с ошибкой: ${row.questionPrompt}`}
-          onClick={() => onOpenRegistry(row.questionId)}
-        >
-          Прохождения
-        </Button>
-      ) : null),
     },
   ];
 

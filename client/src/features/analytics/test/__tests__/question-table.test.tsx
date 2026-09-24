@@ -18,6 +18,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QuestionTable } from "../question-table";
 
+/**
+ * Открыть меню действий строки.
+ *
+ * Действия уехали под троеточие (эскиз prd66-item-quality, состояние wf-items): двумя
+ * кнопками они занимали четверть ширины таблицы и выталкивали правую за горизонтальную
+ * прокрутку. Сами пункты остались прежними и с прежними доступными именами.
+ */
+async function openRowMenu(prompt: string | RegExp): Promise<void> {
+  await userEvent.click(screen.getByRole("button", {
+    name: typeof prompt === "string" ? `Действия с заданием: ${prompt}` : prompt,
+  }));
+}
+
 const QUESTIONS = [
   {
     questionId: "q1", questionPrompt: "Какая мера относится к антикоррупционным?",
@@ -91,8 +104,9 @@ describe("QuestionTable", () => {
     const onOpenRegistry = vi.fn();
     render(<QuestionTable questions={QUESTIONS} onOpenRegistry={onOpenRegistry} />);
 
+    await openRowMenu(/Действия с заданием: Какая мера/);
     await userEvent.click(
-      screen.getByRole("button", { name: /Прохождения с ошибкой: Какая мера/ }),
+      screen.getByRole("menuitem", { name: /Прохождения с ошибкой: Какая мера/ }),
     );
 
     // FR-17: переход ведёт к тем, кто ошибся, — это и есть следующий шаг разбора задания.
@@ -231,7 +245,8 @@ describe("QuestionTable — исключение из выдачи", () => {
   it("спрашивает подтверждение и называет последствия числами", async () => {
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await openRowMenu(/Действия с заданием: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
     // FR-17b: окно говорит, сколько заданий останется в теме при её квоте выдачи, и что
     // опубликованная версия не меняется.
@@ -243,7 +258,8 @@ describe("QuestionTable — исключение из выдачи", () => {
     const onDeliveryChange = vi.fn();
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={onDeliveryChange} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await openRowMenu(/Действия с заданием: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
     await screen.findByText(/останется 11/i);
     await userEvent.click(screen.getByRole("button", { name: "Отмена" }));
 
@@ -254,7 +270,8 @@ describe("QuestionTable — исключение из выдачи", () => {
     const onDeliveryChange = vi.fn();
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={onDeliveryChange} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await openRowMenu(/Действия с заданием: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
     await screen.findByText(/останется 11/i);
     await userEvent.click(screen.getByRole("button", { name: "Исключить" }));
 
@@ -275,7 +292,8 @@ describe("QuestionTable — исключение из выдачи", () => {
     }));
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await openRowMenu(/Действия с заданием: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
     expect(await screen.findByText(/Подтема «Охрана труда»: нужно 3, останется 2/)).toBeTruthy();
   });
@@ -290,7 +308,8 @@ describe("QuestionTable — исключение из выдачи", () => {
     }));
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Исключить из выдачи: Какая мера/ }));
+    await openRowMenu(/Действия с заданием: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
     // Не «выполнено с предупреждением»: кнопка выключена, и сказано почему.
     expect(await screen.findByText(/выдачу собрать будет нельзя/i)).toBeTruthy();
@@ -307,7 +326,8 @@ describe("QuestionTable — исключение из выдачи", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /Вернуть в выдачу: Какая мера/ }));
+    await openRowMenu(/Действия с заданием: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Вернуть в выдачу: Какая мера/ }));
 
     expect(onDeliveryChange).toHaveBeenCalledWith("q1", false);
   });
