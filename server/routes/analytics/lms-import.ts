@@ -18,6 +18,7 @@ import { canReadTestAnalytics } from "../../services/test-access";
 import { detectLmsExport } from "../workbook";
 import { resolveTestByQuestionIds } from "../../services/lms-test-resolver";
 import { runImport } from "../../services/lms-export-import";
+import { resetPsychometricsCache } from "./psychometrics";
 
 const router = Router();
 
@@ -156,6 +157,9 @@ router.patch(
       }
 
       await storage.setLmsImportBatchCounted(req.params.id, counted);
+      // PRD-66 FR-57: выборка изменилась СЕЙЧАС. Кэш психометрики живёт минуту, и без сброса
+      // экран эту минуту показывал бы прежние числа после переключения.
+      resetPsychometricsCache(batch.testId);
       res.json({ ok: true, counted });
     } catch (error) {
       logger.error("LMS batch counted error: " + (error as Error).message, "analytics");

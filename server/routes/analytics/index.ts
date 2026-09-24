@@ -12,6 +12,7 @@ import attentionRouter from "./attention";
 import slicesRouter from "./slices";
 import exportRouter from "./export";
 import lmsImportRouter from "./lms-import";
+import psychometricsRouter from "./psychometrics";
 
 // Реэкспорт хелперов для использования в других модулях
 export {
@@ -46,6 +47,9 @@ router.use("/", deliveryRouter);
 
 // PRD-56 FR-21: вкладка «Шкалы» — GET /api/analytics/tests/:testId/scales
 router.use("/", scalesRouter);
+
+// PRD-66 FR-56: психометрика теста — GET /api/analytics/psychometrics/:testId
+router.use("/", psychometricsRouter);
 
 // PRD-56: реестр прохождений — GET /api/analytics/registry
 router.use("/", registryRouter);
