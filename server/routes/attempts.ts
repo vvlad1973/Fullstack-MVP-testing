@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { requirePermission } from "../middleware/auth";
 import { checkAnswer } from "../utils/check-answer";
 import { withEffectiveMaxLength } from "@shared/questions/short-answer";
+import { resolvePsychoHash } from "@shared/questions/psycho-hash";
 import {
   aggregateStandardResult,
   aggregateAdaptiveResult,
@@ -126,6 +127,46 @@ function prd19RuntimeSettings(test: Test) {
       flowMode: resolveFlowPolicy(test.flowPolicyJson).mode,
     }),
   };
+}
+
+/**
+ * PRD-66 FR-09b: карта «задание -> отпечаток редакции» по фактически выданному составу.
+ *
+ * Отпечаток берётся со строки задания, а если его там нет — считается по содержанию:
+ * снимок публикации, замороженный до появления колонки, и строка, не прошедшая засыпку,
+ * несут полное содержание, и терять на них серию наблюдений незачем.
+ */
+function stampsOfDelivery(questions: Question[]): Record<string, string> {
+  const stamps: Record<string, string> = {};
+  for (const question of questions) stamps[question.id] = resolvePsychoHash(question);
+  return stamps;
+}
+
+/**
+ * PRD-66 FR-09b: штампы выдачи, сверенные с редакцией на момент завершения.
+ *
+ * Расхождение значит, что задание правили ПОСРЕДИ прохождения. Такое наблюдение не
+ * принадлежит чисто ни одной редакции: приписать его новой — испортить её статистику
+ * ответами, которых по ней не давали; оставить за старой — сделать вид, что правки не
+ * было. Штамп становится `null`, и наблюдение уходит в серию «версия неизвестна»
+ * (FR-09c). Обе серии его теряют, и это честнее, чем приписать его одной из них.
+ *
+ * Попытка, начатая до появления штампа, его не выдумывает: что видел участник, никто не
+ * знает, и нынешняя редакция была бы догадкой, выданной за факт.
+ */
+function reconcileStamps(
+  delivered: Record<string, string | null> | undefined,
+  atFinish: Record<string, string>,
+): Record<string, string | null> | undefined {
+  if (!delivered) return undefined;
+  const reconciled: Record<string, string | null> = {};
+  for (const [questionId, stamp] of Object.entries(delivered)) {
+    const now = atFinish[questionId];
+    // Задание, которого к завершению уже нет (удалено из банка), сверить не с чем —
+    // штамп выдачи остаётся: он и есть то, что участник видел.
+    reconciled[questionId] = now === undefined || now === stamp ? stamp : null;
+  }
+  return reconciled;
 }
 
 /**
@@ -875,6 +916,10 @@ router.post("/tests/:testId/attempts/start", requirePermission("attempts.take"),
     }
 
     const allQuestions = await src.getQuestionsByIds(allQuestionIds);
+    // PRD-66 FR-09b: запоминаем, КАКУЮ РЕДАКЦИЮ заданий увидел участник. Именно здесь, а не в
+    // момент ответа: содержание веб отдаёт один раз, и правка задания посреди прохождения не
+    // меняет того, что уже на экране у отвечающего.
+    variant.psychoHashes = stampsOfDelivery(allQuestions);
 
     // The carried-over run is now superseded, and an abandoned row left behind would
     // both pile up orphans and give the resume lookup (`find(finishedAt === null)`) an
@@ -1247,6 +1292,9 @@ router.post("/attempts/:attemptId/answer-adaptive", requirePermission("attempts.
     const scoring = await loadTestScoringContext(test.id, src);
     const isCorrect = checkAnswer(question, answer, scoring.resolve(question).scoring) === 1;
     const updatedAnswers = { ...((attempt.answersJson as any) || {}), [questionId]: answer };
+    // PRD-66 FR-09b: в адаптивном прохождении задание выдаётся по одному и читается прямо
+    // здесь, поэтому штамп снимается в момент ответа — он и есть момент выдачи.
+    variant.psychoHashes = { ...(variant.psychoHashes || {}), [questionId]: resolvePsychoHash(question) };
 
     currentLevel.answeredQuestionIds.push(questionId);
     if (isCorrect) {
@@ -1805,9 +1853,14 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       recommendedAssets: { title: string; url: string }[];
       feedbackTexts: string[];
     }>[] = [];
+    // PRD-66 FR-09b: редакция заданий НА МОМЕНТ ЗАВЕРШЕНИЯ — для сверки с той, что была
+    // выдана. Собирается попутно: вопросы всё равно читаются здесь, отдельного запроса
+    // сверка не стоит.
+    const stampsAtFinish: Record<string, string> = {};
     for (const variantSection of variant.sections) {
       const section = sectionMap.get(variantSection.topicId);
       const questions = await src.getQuestionsByIds(variantSection.questionIds);
+      Object.assign(stampsAtFinish, stampsOfDelivery(questions));
       const courses = await src.getTopicCourses(variantSection.topicId);
       const events = await src.getTopicEvents(variantSection.topicId);
       // PRD-32: PDF attachments of the topic AND of this test's section over it — two
@@ -1971,9 +2024,14 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
       gradingComplete: agg.gradingComplete,
     };
 
+    // PRD-66 FR-09b: правка задания посреди прохождения обесценивает штамп выдачи —
+    // сверка отмечает это до того, как наблюдение уйдёт в статистику.
+    const reconciled = reconcileStamps(variant.psychoHashes, stampsAtFinish);
+
     await storage.updateAttempt(attempt.id, {
       answersJson: answers,
       resultJson: result,
+      ...(reconciled ? { variantJson: { ...variant, psychoHashes: reconciled } } : {}),
       finishedAt: new Date(),
     });
 

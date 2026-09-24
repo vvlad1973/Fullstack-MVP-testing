@@ -118,6 +118,20 @@ export function computePsychoHash(question: PsychoHashInput): string {
   return createHash("sha256").update(JSON.stringify(shape)).digest("hex");
 }
 
+/**
+ * The stamp of a question AS DELIVERED: the one stored on the row when it is there,
+ * computed from the content when it is not.
+ *
+ * The fallback is what keeps two legitimate cases out of the «версия неизвестна» bucket:
+ * a publication snapshot (PRD-15) frozen before the column existed, and a row not yet
+ * touched by the backfill. Both carry the full content, so the fingerprint is computable
+ * — and computing it cannot disagree with the stored one, since the same content always
+ * yields the same hash.
+ */
+export function resolvePsychoHash(question: PsychoHashInput & { psychoHash?: string | null }): string {
+  return question.psychoHash || computePsychoHash(question);
+}
+
 /** Everything in `dataJson` except the options already folded into pairs. */
 function stripOptions(dataJson: unknown): Canonical {
   if (!dataJson || typeof dataJson !== "object") return canonical(dataJson);
