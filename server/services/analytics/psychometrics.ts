@@ -263,9 +263,28 @@ export function computePsychometrics(
   };
 }
 
+/** Одна редакция содержания задания в выборке (FR-49). */
+export interface ItemVersion {
+  /** Отпечаток редакции; `null` — серия «версия неизвестна» (FR-09c). */
+  psychoHash: string | null;
+  observations: number;
+  difficulty: number | null;
+  /** Когда по этой редакции отвечали впервые и в последний раз — ею и различают версии. */
+  firstAt: string;
+  lastAt: string;
+}
+
 /** Разбор ОДНОГО задания: то, что нужно его карточке. */
 export interface ItemBreakdown {
   item: ItemPsychometrics;
+  /**
+   * Редакции содержания, встреченные в выборке, и объёмы по каждой (FR-49).
+   *
+   * Наблюдения разных редакций НЕ складываются: после правки это психометрически другое
+   * задание, и статистика начинается заново. Список нужен затем, чтобы автор мог ответить на
+   * главный вопрос после правки — стало ли задание лучше.
+   */
+  versions: ItemVersion[];
   /** Крайние группы по способности — то, из чего складывается индекс `D`. */
   groups: { size: number; share: number; topDifficulty: number; bottomDifficulty: number } | null;
   /**
@@ -324,7 +343,20 @@ export function computeItemBreakdown(
   ctx: PsychometricsContext,
   questionId: string,
   correctIndexes: readonly number[],
+  /**
+   * Редакция, на наблюдения которой считается карточка (FR-49a); `undefined` — все сразу.
+   *
+   * Выбор редакции — это смена ВЫБОРКИ, а не просмотр отдельного экрана: пересчитывается вся
+   * карточка, включая варианты ответа и время.
+   */
+  psychoHash?: string | null,
 ): ItemBreakdown | null {
+  const versions = versionsOf(responses, questionId);
+  // Отбор по редакции делается ДО расчёта: иначе плитки считались бы по всей выборке, а
+  // таблица версий обещала бы, что показана одна.
+  if (psychoHash !== undefined) {
+    responses = responses.filter(r => r.questionId !== questionId || r.psychoHash === psychoHash);
+  }
   const all = computePsychometrics(responses, ctx);
   const item = all.items.find(row => row.questionId === questionId);
   if (!item) return null;
@@ -358,6 +390,7 @@ export function computeItemBreakdown(
 
   return {
     item,
+    versions,
     groups: groups
       ? {
         size: groups.size,
@@ -379,4 +412,39 @@ export function computeItemBreakdown(
       }))
       : null,
   };
+}
+
+
+/**
+ * Редакции задания в выборке с объёмами (FR-49).
+ *
+ * Порядок — по последнему наблюдению, новые сверху: после правки автор смотрит на свежую
+ * серию, а прежняя нужна ему для сравнения, а не наоборот.
+ */
+function versionsOf(responses: readonly ResponseFact[], questionId: string): ItemVersion[] {
+  const byHash = new Map<string | null, ResponseFact[]>();
+  for (const response of responses) {
+    if (response.questionId !== questionId || response.respondentId === null) continue;
+    const list = byHash.get(response.psychoHash);
+    if (list) list.push(response);
+    else byHash.set(response.psychoHash, [response]);
+  }
+
+  const out: ItemVersion[] = [];
+  for (const [hash, facts] of byHash) {
+    const scored = facts.filter(f => f.scoreRatio !== null);
+    const times = facts.map(f => f.occurredAt.getTime());
+    out.push({
+      psychoHash: hash,
+      observations: scored.length,
+      difficulty: difficultyOf(scored.map(f => ({
+        respondentId: f.respondentId!,
+        itemId: questionId,
+        ratio: f.scoreRatio,
+      }))),
+      firstAt: new Date(Math.min(...times)).toISOString(),
+      lastAt: new Date(Math.max(...times)).toISOString(),
+    });
+  }
+  return out.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }

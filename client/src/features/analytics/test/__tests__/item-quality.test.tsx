@@ -138,6 +138,67 @@ describe("ItemQualityPanel", () => {
     expect(screen.queryByText("Матрица ответов")).toBeNull();
   });
 
+  it("список открывается самым тревожным: порядок по СИЛЕ подозрения (AC-02, FR-48)", () => {
+    // Испорченный ключ чинят первым, поэтому он и стоит первым — независимо от того, в каком
+    // порядке задания пришли с сервера.
+    const calm = row({ questionId: "calm" });
+    const easy = row({
+      questionId: "easy",
+      difficulty: 0.97,
+      flags: { tooHard: false, tooEasy: true, negativeDiscrimination: false, atChanceLevel: false },
+    });
+    const broken = row({
+      questionId: "broken",
+      itemRest: -0.3,
+      flags: { tooHard: false, tooEasy: false, negativeDiscrimination: true, atChanceLevel: false },
+    });
+    render(<ItemQualityPanel view={view({ items: [calm, easy, broken] })} />);
+
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("Сильные ошибаются чаще");
+  });
+
+  it("задание с малой выборкой стоит последним — признака нет не потому, что оно здорово", () => {
+    const thin = row({ questionId: "thin", observations: 12, coefficientConfidence: "insufficient" });
+    const easy = row({
+      questionId: "easy",
+      flags: { tooHard: false, tooEasy: true, negativeDiscrimination: false, atChanceLevel: false },
+    });
+    render(<ItemQualityPanel view={view({ items: [thin, easy] })} />);
+
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[rows.length - 1].textContent).toContain("Мало данных");
+  });
+
+  it("«мало данных» говорит, сколько собрано и сколько ЕЩЁ нужно (AC-05)", () => {
+    // Иначе признак не подсказывает действия: ждать ещё неделю или бросать задание вовсе.
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", observations: 12, coefficientConfidence: "insufficient" })],
+    })} />);
+
+    expect(screen.getByText(/12 из 30 · нужно ещё 18 наблюдений/)).toBeTruthy();
+  });
+
+  it("баннер смещения показывается при неоднородной выдаче (AC-06, FR-39)", () => {
+    render(<ItemQualityPanel view={view({ bias: { unevenDelivery: true, importShare: 0 } })} />);
+
+    expect(screen.getByText("Показатели дискриминации ослаблены")).toBeTruthy();
+    expect(screen.getByText(/Выдача неоднородна/)).toBeTruthy();
+  });
+
+  it("у теста с однородной выдачей баннера нет — он был бы ложной тревогой", () => {
+    render(<ItemQualityPanel view={view({ bias: { unevenDelivery: false, importShare: 0 } })} />);
+    expect(screen.queryByText("Показатели дискриминации ослаблены")).toBeNull();
+  });
+
+  it("тот же баннер поднимает заметная доля импорта (FR-40)", () => {
+    // Там бинарный исход вместо доли балла и неизвестная редакция — повод другой, и назван он
+    // своими словами.
+    render(<ItemQualityPanel view={view({ bias: { unevenDelivery: false, importShare: 0.4 } })} />);
+
+    expect(screen.getByText(/доля наблюдений пришла из импорта \(40 %\)/)).toBeTruthy();
+  });
+
   it("счётчик «под подозрением» считает задания с признаками, а не все подряд", () => {
     const clean = row({ questionId: "q1" });
     const broken = row({

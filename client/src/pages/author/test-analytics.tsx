@@ -320,6 +320,8 @@ export default function TestAnalyticsPage() {
      * для всех строк таблицы заранее значило бы платить за сорок разборов ради одного.
      */
     const [breakdownId, setBreakdownId] = useState<string | null>(null);
+    /** Выбранная редакция задания: `undefined` — все сразу, `null` — «версия неизвестна». */
+    const [breakdownVersion, setBreakdownVersion] = useState<string | null | undefined>(undefined);
     /**
      * PRD-66 FR-04b: режим вкладки — выборка целиком или сравнение срезов.
      *
@@ -328,7 +330,10 @@ export default function TestAnalyticsPage() {
      */
     const [qualityMode, setQualityMode] = useState<"sample" | "compare">("sample");
     const { data: breakdown } = useQuery<ItemBreakdownView>({
-        queryKey: [`/api/analytics/psychometrics/${testId}/items/${breakdownId}`],
+        queryKey: [
+            `/api/analytics/psychometrics/${testId}/items/${breakdownId}`
+            + (breakdownVersion === undefined ? "" : `?version=${encodeURIComponent(breakdownVersion ?? "")}`),
+        ],
         enabled: !!testId && !!breakdownId && activeTab === "quality",
     });
 
@@ -701,7 +706,14 @@ export default function TestAnalyticsPage() {
                                 </Stack>
                             )
                             : breakdownId && breakdown
-                                ? <ItemBreakdownPanel view={breakdown} onBack={() => setBreakdownId(null)} />
+                                ? (
+                                    <ItemBreakdownPanel
+                                        view={breakdown}
+                                        version={breakdownVersion}
+                                        onSelectVersion={setBreakdownVersion}
+                                        onBack={() => { setBreakdownId(null); setBreakdownVersion(undefined); }}
+                                    />
+                                )
                                 : itemQuality
                                     ? (
                                         <Stack gap={4}>

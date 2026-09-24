@@ -28,6 +28,9 @@ import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type
 import type { QuestionType } from "@shared/questions/question-type";
 import { pluralize } from "@/lib/i18n";
 
+/** Наблюдений, начиная с которых коэффициент вообще выводится (движок: COEFFICIENT_MIN). */
+const COEFFICIENT_MIN = 30;
+
 /** Уровень доверия к числу — то же, что считает движок. */
 type Confidence = "insufficient" | "tentative" | "reliable";
 
@@ -75,6 +78,8 @@ export interface ItemQualityView {
     unknownVersionShare: number;
   };
   firstAttemptOnly: boolean;
+  /** Поводы к баннеру смещения (FR-39, FR-40); отсутствует у старых ответов ручки. */
+  bias?: { unevenDelivery: boolean; importShare: number };
 }
 
 export interface ItemQualityPanelProps {
@@ -148,10 +153,13 @@ function flagOf(row: ItemQualityRow): { tone: "error" | "warning" | "info"; titl
     return { tone: "warning", title: "Тормозит прогон", detail: "время заметно выше медианы теста" };
   }
   if (row.coefficientConfidence === "insufficient") {
+    // Сколько СОБРАНО и сколько НУЖНО — оба числа, иначе «мало данных» не подсказывает
+    // действия: ждать ещё неделю или бросать задание вовсе (AC-05).
+    const needed = COEFFICIENT_MIN - row.observations;
     return {
       tone: "info",
       title: "Мало данных",
-      detail: `${row.observations} ${pluralize(row.observations, "наблюдение", "наблюдения", "наблюдений")}`,
+      detail: `${row.observations} из ${COEFFICIENT_MIN} · нужно ещё ${needed} ${pluralize(needed, "наблюдение", "наблюдения", "наблюдений")}`,
     };
   }
   return null;
@@ -161,6 +169,37 @@ function flagOf(row: ItemQualityRow): { tone: "error" | "warning" | "info"; titl
 function suspicious(row: ItemQualityRow): boolean {
   const flag = flagOf(row);
   return flag !== null && flag.tone !== "info";
+}
+
+/**
+ * Ранг признака — порядок FR-48: сначала прямые дефекты, потом эвристики, потом спокойные.
+ *
+ * Сортировка идёт по РАНГУ, а не по алфавиту ярлыков (FR-48a): «На уровне угадывания» стоит
+ * впереди «Слишком лёгкого» не потому, что буква раньше, а потому что чинят его первым.
+ * Задания с пометкой «мало данных» — последние в обоих направлениях: признака у них нет не
+ * потому, что они здоровы, а потому, что судить не на чем.
+ */
+function suspicionRank(row: ItemQualityRow): number {
+  if (row.coefficientConfidence === "insufficient") return 90;
+  if (row.flags.negativeDiscrimination) return 1;
+  if (row.flags.atChanceLevel) return 2;
+  if (row.timingFlags.rushed) return 3;
+  if (row.flags.tooHard) return 4;
+  if (row.flags.tooEasy) return 5;
+  if (row.timingFlags.slow) return 6;
+  return 50;
+}
+
+/**
+ * Внутри одного ранга — по величине, вызвавшей признак (FR-48a).
+ *
+ * У отрицательной дискриминации это сама дискриминативность: чем глубже минус, тем раньше
+ * строка. У прочих рангов — трудность, потому что именно она вызвала признак.
+ */
+function withinRank(row: ItemQualityRow): number {
+  if (row.flags.negativeDiscrimination) return row.itemRest ?? 0;
+  if (row.flags.atChanceLevel) return row.correctedDifficulty ?? 0;
+  return row.difficulty ?? 0;
 }
 
 /** Заголовок-термин с подсказкой: без значка подсказка невидима (FR-14b). */
@@ -186,12 +225,31 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
   const thinCount = view.items.filter(r => r.coefficientConfidence === "insufficient").length;
   const reliableCount = view.items.filter(r => r.coefficientConfidence === "reliable").length;
 
-  const rows = view.items.filter(row =>
-    tab === "all" ? true
-      : tab === "suspicious" ? suspicious(row)
-        : row.coefficientConfidence === "insufficient");
+  const rows = view.items
+    .filter(row =>
+      tab === "all" ? true
+        : tab === "suspicious" ? suspicious(row)
+          : row.coefficientConfidence === "insufficient")
+    // Порядок по умолчанию — сила подозрения (FR-48): список открывается тем, что чинят первым.
+    .slice()
+    .sort((a, b) => suspicionRank(a) - suspicionRank(b) || withinRank(a) - withinRank(b));
 
   const reliability = typeof view.reliability === "string" ? null : view.reliability;
+
+  /**
+   * Поводы к баннеру смещения (FR-39, FR-40).
+   *
+   * Баннер один, поводов два, и каждый назван своими словами: «выдача неоднородна» и «заметная
+   * доля наблюдений из импорта» чинятся по-разному, и склеить их в одну фразу значило бы
+   * оставить автора гадать, о чём речь.
+   */
+  const biasReasons: string[] = [];
+  if (view.bias?.unevenDelivery) {
+    biasReasons.push("Выдача неоднородна: участники видели разные наборы заданий, и корреляции считаются по пересекающимся, но разным выборкам.");
+  }
+  if ((view.bias?.importShare ?? 0) >= 0.2) {
+    biasReasons.push(`Заметная доля наблюдений пришла из импорта (${Math.round((view.bias?.importShare ?? 0) * 100)} %): там исход бинарный вместо доли балла, а редакция задания неизвестна.`);
+  }
 
   const columns = [
     {
@@ -310,6 +368,15 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
           </CardBody>
         </Card>
       </Grid>
+
+      {biasReasons.length > 0 ? (
+        <Banner
+          variant="subtle"
+          tone="info"
+          title="Показатели дискриминации ослаблены"
+          description={`${biasReasons.join(" ")} Числа остаются полезными для отбора подозрительных заданий, но сравнивать их с показателями теста, где выдача однородна, нельзя.`}
+        />
+      ) : null}
 
       {view.cutBand ? (
         <Banner

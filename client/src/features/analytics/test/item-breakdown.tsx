@@ -51,11 +51,26 @@ export interface ItemBreakdownView {
   };
   groups: { size: number; share: number; topDifficulty: number; bottomDifficulty: number } | null;
   options: OptionRow[] | null;
+  /** Редакции содержания, встреченные в выборке (FR-49). */
+  versions?: VersionRow[];
+}
+
+/** Строка таблицы редакций. */
+export interface VersionRow {
+  psychoHash: string | null;
+  observations: number;
+  difficulty: number | null;
+  firstAt: string;
+  lastAt: string;
 }
 
 export interface ItemBreakdownPanelProps {
   view: ItemBreakdownView;
   onBack: () => void;
+  /** Какая редакция показана: строка-отпечаток, `null` — «версия неизвестна», иначе все. */
+  version?: string | null;
+  /** Показать другую редакцию — это смена ВЫБОРКИ, а не отдельный экран (FR-49a). */
+  onSelectVersion?: (version: string | null | undefined) => void;
 }
 
 /** Число с запятой; прочерк там, где величины нет. */
@@ -115,8 +130,9 @@ function TermHeader({ term, hint }: { term: string; hint: string }) {
 }
 
 /** Карточка разбора задания. */
-export function ItemBreakdownPanel({ view, onBack }: ItemBreakdownPanelProps) {
+export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: ItemBreakdownPanelProps) {
   const { item, groups, options } = view;
+  const versions = view.versions ?? [];
 
   const columns = [
     {
@@ -188,7 +204,9 @@ export function ItemBreakdownPanel({ view, onBack }: ItemBreakdownPanelProps) {
         </Text>
       </Stack>
 
-      <Grid minItem="sm" gap={1}>
+      {/* FR-48b: СТРОГО три в ряд. Автоподбор давал на широком мониторе пять плиток и одну
+          на второй строке, а пары величин разъезжались по разным строкам. */}
+      <Grid cols={3} gap={1}>
         <Card variant="outlined">
           <CardBody>
             <Stack gap={1} align="center">
@@ -258,6 +276,79 @@ export function ItemBreakdownPanel({ view, onBack }: ItemBreakdownPanelProps) {
           </Card>
         ) : null}
       </Grid>
+
+      {versions.length > 1 && onSelectVersion ? (
+        <Card variant="outlined">
+          <CardHeader
+            title="Редакции содержания"
+            subtitle="Наблюдения разных редакций не складываются: после правки это психометрически другое задание"
+          />
+          <CardBody>
+            <DataGrid
+              columns={[
+                {
+                  key: "version",
+                  header: "Редакция",
+                  frozen: true,
+                  render: (row: VersionRow) => (
+                    <Stack gap={1}>
+                      <span>
+                        {row.psychoHash === null
+                          // FR-49b: серия, собранная до появления штампа, выбирается так же,
+                          // как остальные, — иначе эти наблюдения были бы недоступны вовсе.
+                          ? "Версия неизвестна"
+                          : `Редакция ${row.psychoHash.slice(0, 8)}`}
+                      </span>
+                      <Text variant="body-xs" tone="muted">
+                        {new Date(row.firstAt).toLocaleDateString("ru-RU")} — {new Date(row.lastAt).toLocaleDateString("ru-RU")}
+                      </Text>
+                    </Stack>
+                  ),
+                },
+                {
+                  key: "observations",
+                  header: "Наблюдений",
+                  numeric: true,
+                  render: (row: VersionRow) => <Text variant="body-s">{row.observations}</Text>,
+                },
+                {
+                  key: "difficulty",
+                  header: "Трудность",
+                  numeric: true,
+                  render: (row: VersionRow) => <Text variant="body-s">{num(row.difficulty)}</Text>,
+                },
+                {
+                  key: "action",
+                  header: "",
+                  render: (row: VersionRow) => {
+                    const shown = version !== undefined && version === row.psychoHash;
+                    return shown
+                      ? <Tag tone="success" size="s">Показана</Tag>
+                      : (
+                        <Button variant="ghost" size="s" onClick={() => onSelectVersion(row.psychoHash)}>
+                          Показать
+                        </Button>
+                      );
+                  },
+                },
+              ]}
+              rows={versions}
+              rowKey={row => row.psychoHash ?? "unknown"}
+              emptyMessage="Редакций в выборке нет"
+            />
+            {version !== undefined ? (
+              <Stack direction="row" gap={1} align="center">
+                <Button variant="ghost" size="s" onClick={() => onSelectVersion(undefined)}>
+                  Показать все редакции вместе
+                </Button>
+                <Text variant="body-xs" tone="muted">
+                  Числа карточки посчитаны по выбранной редакции
+                </Text>
+              </Stack>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
 
       {options ? (
         <Card variant="outlined">

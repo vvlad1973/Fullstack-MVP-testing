@@ -257,3 +257,82 @@ describe("computeItemBreakdown", () => {
     expect(computeItemBreakdown(CHOICES, CTX_4, "q-unknown", [])).toBeNull();
   });
 });
+
+describe("приёмка PRD-66 (AC-02 — AC-04)", () => {
+  /** Восемь респондентов: задание qX отвечено ПРОТИВ остальных — так выглядит испорченный ключ. */
+  const BROKEN: ResponseFact[] = [];
+  for (const [respondentId, a, b, x] of [
+    ["R1", 0, 0, 1], ["R2", 0, 0, 1], ["R3", 0, 1, 1], ["R4", 1, 0, 1],
+    ["R5", 1, 1, 0], ["R6", 1, 1, 0], ["R7", 1, 1, 0], ["R8", 1, 1, 0],
+  ] as Array<[string, number, number, number]>) {
+    BROKEN.push(fact({ respondentId, questionId: "qA", scoreRatio: a }));
+    BROKEN.push(fact({ respondentId, questionId: "qB", scoreRatio: b }));
+    BROKEN.push(fact({ respondentId, questionId: "qX", scoreRatio: x }));
+  }
+
+  const CTX_3 = {
+    questionById: new Map([
+      ["qA", question("qA")], ["qB", question("qB")], ["qX", question("qX")],
+    ]),
+    minObservations: 10,
+  };
+
+  it("AC-02: задание с испорченным ключом получает отрицательную дискриминацию", () => {
+    const qX = computePsychometrics(BROKEN, CTX_3).items.find(i => i.questionId === "qX")!;
+
+    expect(qX.itemRest!).toBeLessThan(0);
+    expect(qX.discrimination!).toBeLessThan(0);
+    expect(qX.flags.negativeDiscrimination).toBe(true);
+  });
+
+  it("AC-03: частичный кредит даёт трудность, отличную от правила «верно, если ровно 1»", () => {
+    // Старое правило `=== 1` объявило бы это задание полностью проваленным; доля балла даёт 0,5.
+    const partial: ResponseFact[] = [
+      fact({ respondentId: "A", questionId: "q1", scoreRatio: 0.5, score: 1, maxScore: 2 }),
+      fact({ respondentId: "B", questionId: "q1", scoreRatio: 0.5, score: 1, maxScore: 2 }),
+      fact({ respondentId: "A", questionId: "q2", scoreRatio: 1 }),
+      fact({ respondentId: "B", questionId: "q2", scoreRatio: 0 }),
+    ];
+    const q1 = computePsychometrics(partial, CTX).items.find(i => i.questionId === "q1")!;
+
+    expect(q1.difficulty).toBe(0.5);
+    // Доля «верных» по старому правилу была бы нулём: ни один ответ не набрал полный балл.
+    expect(q1.difficulty).not.toBe(0);
+  });
+
+  it("AC-04: правка содержания рвёт серию — редакции считаются порознь и обе видны", () => {
+    const mixed: ResponseFact[] = [
+      fact({ respondentId: "A", questionId: "q1", scoreRatio: 1, psychoHash: "v1", occurredAt: new Date("2026-08-01T10:00:00Z") }),
+      fact({ respondentId: "B", questionId: "q1", scoreRatio: 1, psychoHash: "v1", occurredAt: new Date("2026-08-02T10:00:00Z") }),
+      fact({ respondentId: "C", questionId: "q1", scoreRatio: 0, psychoHash: "v2", occurredAt: new Date("2026-09-01T10:00:00Z") }),
+      fact({ respondentId: "A", questionId: "q2", scoreRatio: 1, psychoHash: "v1" }),
+      fact({ respondentId: "B", questionId: "q2", scoreRatio: 0, psychoHash: "v1" }),
+      fact({ respondentId: "C", questionId: "q2", scoreRatio: 1, psychoHash: "v2" }),
+    ];
+
+    const all = computeItemBreakdown(mixed, CTX, "q1", [0])!;
+    expect(all.versions.map(v => v.psychoHash)).toEqual(["v2", "v1"]);
+    expect(all.versions.find(v => v.psychoHash === "v1")!.observations).toBe(2);
+
+    // Выбор редакции — это СМЕНА ВЫБОРКИ: числа карточки считаются по ней одной.
+    const onlyOld = computeItemBreakdown(mixed, CTX, "q1", [0], "v1")!;
+    expect(onlyOld.item.observations).toBe(2);
+    expect(onlyOld.item.difficulty).toBe(1);
+
+    const onlyNew = computeItemBreakdown(mixed, CTX, "q1", [0], "v2")!;
+    expect(onlyNew.item.observations).toBe(1);
+    expect(onlyNew.item.difficulty).toBe(0);
+  });
+
+  it("AC-04: серия «версия неизвестна» выбирается тем же действием (FR-49b)", () => {
+    const legacy: ResponseFact[] = [
+      fact({ respondentId: "A", questionId: "q1", scoreRatio: 1, psychoHash: null }),
+      fact({ respondentId: "B", questionId: "q1", scoreRatio: 0, psychoHash: "v1" }),
+    ];
+
+    const breakdown = computeItemBreakdown(legacy, CTX, "q1", [0], null)!;
+
+    expect(breakdown.item.observations).toBe(1);
+    expect(breakdown.versions.some(v => v.psychoHash === null)).toBe(true);
+  });
+});

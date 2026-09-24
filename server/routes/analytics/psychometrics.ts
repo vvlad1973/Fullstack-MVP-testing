@@ -183,6 +183,32 @@ function readQuery(req: Request, testId: string): { filter: ObservationFilter; o
   };
 }
 
+/**
+ * Неоднородна ли выдача теста (FR-39).
+ *
+ * Метрики дискриминации стоят на допущении, что люди отвечали на один и тот же набор. Случайный
+ * отбор, квоты по тегам (PRD-11) и адаптив это допущение ломают: каждый видит свой набор, и
+ * корреляции считаются по пересекающимся, но разным выборкам. Фиксированные варианты (PRD-17) и
+ * полная выдача банка его НЕ ломают — там набор один и тот же, и баннер был бы ложной тревогой.
+ *
+ * @param mode режим теста
+ * @param sections разделы теста с их правилами выдачи
+ */
+function deliveryIsUneven(
+  mode: string | null | undefined,
+  sections: ReadonlyArray<{ drawAll?: boolean | null; drawCount?: number | null; formSetJson?: unknown; drawBlueprintJson?: unknown }>,
+): boolean {
+  if (mode === "adaptive") return true;
+  return sections.some(section => {
+    // Раздел с набором форм выдаёт вариант целиком — набор у всех, кто получил эту форму, один.
+    if (section.formSetJson) return false;
+    if (section.drawAll) return false;
+    // Квоты по тегам: набор собирается по долям, и у двух участников он разный.
+    if (section.drawBlueprintJson) return true;
+    return (section.drawCount ?? 0) > 0;
+  });
+}
+
 /** Проходной балл теста в долях; `null` — тест ничего не объявляет. */
 function cutRatioOf(rule: unknown): number | null {
   const parsed = rule as { type?: string; value?: number } | null;
@@ -226,10 +252,22 @@ router.get(
           minObservations: config.analytics.minObservations,
           cutRatio: cutRatioOf(test.overallPassRuleJson),
         };
+        const psychometrics = computePsychometrics(responses, ctx);
+        const sections = await storage.getTestSections(testId);
+        const importShare = psychometrics.sample.responses === 0
+          ? 0
+          : (psychometrics.sample.bySource.import ?? 0) / psychometrics.sample.responses;
+
         return {
-          ...computePsychometrics(responses, ctx),
+          ...psychometrics,
           observations: matrix.observations.length,
           firstAttemptOnly: onlyFirst,
+          // FR-39, FR-40: два повода к одному баннеру — неоднородная выдача и заметная доля
+          // импорта, где исход бинарный, а редакция неизвестна.
+          bias: {
+            unevenDelivery: deliveryIsUneven(test.mode, sections),
+            importShare,
+          },
         };
       });
 
@@ -423,6 +461,9 @@ router.get(
       const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
 
       const [question] = await storage.getQuestionsByIds([questionId]);
+      // FR-49a: выбранная редакция — это СМЕНА ВЫБОРКИ, и приходит она параметром. Пустая
+      // строка означает серию «версия неизвестна» (FR-49b): её тоже можно посмотреть.
+      const version = typeof req.query.version === "string" ? req.query.version : undefined;
       const breakdown = computeItemBreakdown(
         responses,
         {
@@ -432,6 +473,7 @@ router.get(
         },
         questionId,
         correctIndexesOf(question?.correctJson),
+        version === undefined ? undefined : (version === "" ? null : version),
       );
       // Наблюдений за заданием нет вовсе — это не ошибка запроса, а пустая выборка: задание
       // могли добавить вчера, и разбирать в нём пока нечего.
