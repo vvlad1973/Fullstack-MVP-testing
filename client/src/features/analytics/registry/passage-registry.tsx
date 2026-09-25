@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Button, Card, CardBody, CardHeader, DataGrid, FilterBar, Input, Menu, MenuItem, MenuTrigger,
-  ModalDialog, Stack, Tag, Text,
+  ModalDialog, Select, Stack, Tag, Text,
   type SortDir,
 } from "@skillum/ui-kit";
 
@@ -127,6 +127,8 @@ export function PassageRegistry({
   const [saveOpen, setSaveOpen] = useState<"slice" | "filter" | null>(null);
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [sliceName, setSliceName] = useState("");
+  /** Тест, по которому сохраняется срез: спрашивается, когда в выборке их несколько. */
+  const [sliceTestId, setSliceTestId] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [rows, setRows] = useState<RegistryRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -265,11 +267,17 @@ export function PassageRegistry({
   const saveSelection = async (kind: "slice" | "filter") => {
     setSaveError(null);
     try {
+      // У СРЕЗА тест ровно один — выбранный в окне (решение владельца 2026-09-25, вариант Б).
+      // Прочие условия переносятся как есть: автор уже собрал их, и заставлять пересобирать
+      // отбор ради сужения по тесту незачем.
+      const conditions = kind === "slice"
+        ? { ...filter, testIds: [sliceTestId || filter.testIds[0]] }
+        : filter;
       const response = await fetch("/api/analytics/slices", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: sliceName.trim(), kind, conditions: filter }),
+        body: JSON.stringify({ name: sliceName.trim(), kind, conditions }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
@@ -348,16 +356,18 @@ export function PassageRegistry({
                 <Button
                   variant="ghost"
                   size="s"
-                  // СРЕЗ — ВЫБОРКА ОДНОГО ТЕСТА. Выборка по нескольким тестам срезом быть не
-                  // может: средние и пороги поверх разных тестов не значат ничего. Кнопка
-                  // выключена, а подсказка говорит, что с такой выборкой делать.
-                  disabled={filter.testIds.length !== 1}
-                  title={filter.testIds.length === 1
-                    ? undefined
-                    : filter.testIds.length === 0
-                      ? "Срез считается внутри одного теста: добавьте условие по тесту"
-                      : "В выборке несколько тестов: сохраните её фильтром"}
-                  onClick={() => setSaveOpen("slice")}
+                  // СРЕЗ — ВЫБОРКА ОДНОГО ТЕСТА. Когда в выборке их несколько, окно спросит,
+                  // по какому сохранять: условия автор уже набрал, и пересобирать отбор ради
+                  // сужения незачем. А вот когда теста нет вовсе, выбирать не из чего —
+                  // выборка охватывает все доступные тесты, и это уже не сужение.
+                  disabled={filter.testIds.length === 0}
+                  title={filter.testIds.length === 0
+                    ? "Срез считается внутри одного теста: добавьте условие по тесту"
+                    : undefined}
+                  onClick={() => {
+                    setSliceTestId(filter.testIds[0] ?? "");
+                    setSaveOpen("slice");
+                  }}
                 >
                   Сохранить как срез
                 </Button>
@@ -395,7 +405,7 @@ export function PassageRegistry({
           >
             <Stack gap={3}>
               <label htmlFor="slice-name">
-                <Text variant="body-s">Название среза</Text>
+                <Text variant="body-s">{saveOpen === "filter" ? "Название фильтра" : "Название среза"}</Text>
               </label>
               <Input
                 id="slice-name"
@@ -403,6 +413,29 @@ export function PassageRegistry({
                 onChange={event => setSliceName(event.target.value)}
                 placeholder="Например: Розница, не сдали"
               />
+              {/*
+                Тест спрашивается, только когда их в выборке несколько: при одном он уже
+                определён, и выбор из одного пункта — лишний вопрос. Список — ТОЛЬКО тесты
+                выборки: срез сужает уже отобранное, а не открывает каталог заново.
+              */}
+              {saveOpen === "slice" && filter.testIds.length > 1 ? (
+                <>
+                  <Select
+                    size="s"
+                    label="По какому тесту сохранить срез"
+                    value={sliceTestId}
+                    onChange={value => setSliceTestId(String(value))}
+                    options={filter.testIds.map(id => ({
+                      value: id,
+                      label: dictionaries.tests.find(test => test.id === id)?.title ?? id,
+                    }))}
+                  />
+                  <Text variant="body-xs" tone="muted">
+                    Прочие тесты в условия среза не войдут; остальной отбор — группы, источники,
+                    период — сохранится как есть.
+                  </Text>
+                </>
+              ) : null}
               <Text variant="body-xs" tone="muted">
                 Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —
                 завтра число может быть другим, потому что срез считается заново.

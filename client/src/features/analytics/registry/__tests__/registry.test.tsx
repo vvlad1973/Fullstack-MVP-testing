@@ -216,12 +216,50 @@ describe("PassageRegistry", () => {
 });
 
 describe("PassageRegistry — сохранение среза", () => {
-  it("не даёт сохранить СРЕЗ, когда в выборке несколько тестов", async () => {
-    // Срез — выборка ОДНОГО теста: средние и пороги поверх разных тестов не значат ничего
-    // (решение владельца 2026-09-25). Такую выборку сохраняют фильтром, и кнопка это говорит.
+  it("при нескольких тестах СПРАШИВАЕТ, по какому сохранять срез", async () => {
+    // Срез — выборка ОДНОГО теста (решение владельца 2026-09-25), но заставлять автора
+    // пересобирать отбор незачем: условия он уже набрал, не хватает только теста.
     render(
       <PassageRegistry
-        filter={{ testIds: ["t1", "t2"], groupIds: [], formIds: [], snapshotIds: [], sources: [], outcomes: [] }}
+        filter={{ testIds: ["t1", "t2"], groupIds: [], formIds: [], snapshotIds: [], sources: ["web"], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    await screen.findByText("Морозова Анна");
+    await userEvent.click(screen.getByRole("button", { name: /Сохранить как срез/ }));
+
+    // Выбор — только из тестов ВЫБОРКИ: срез сужает уже отобранное, а не открывает каталог.
+    expect(await screen.findByText(/по какому тесту/i)).toBeTruthy();
+    expect(screen.getByText(/прочие тесты в условия среза не войдут/i)).toBeTruthy();
+  });
+
+  it("срез сохраняется по ВЫБРАННОМУ тесту, прочие условия переносятся", async () => {
+    render(
+      <PassageRegistry
+        filter={{ testIds: ["t1", "t2"], groupIds: ["g1"], formIds: [], snapshotIds: [], sources: ["web"], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    await screen.findByText("Морозова Анна");
+    await userEvent.click(screen.getByRole("button", { name: /Сохранить как срез/ }));
+    await userEvent.type(screen.getByLabelText(/Название среза/i), "Розница по сертификации");
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/analytics/slices"));
+    const body = JSON.parse(String((call?.[1] as RequestInit | undefined)?.body ?? "{}"));
+    expect(body.kind).toBe("slice");
+    // Тест ровно один — выбранный; группы и источники остаются как были.
+    expect(body.conditions.testIds).toHaveLength(1);
+    expect(body.conditions.groupIds).toEqual(["g1"]);
+    expect(body.conditions.sources).toEqual(["web"]);
+  });
+
+  it("без теста в выборке срез сохранить нельзя: выбирать не из чего", async () => {
+    render(
+      <PassageRegistry
+        filter={{ testIds: [], groupIds: ["g1"], formIds: [], snapshotIds: [], sources: [], outcomes: [] }}
         onFilterChange={() => {}}
       />,
     );
