@@ -123,6 +123,22 @@ function optionFlag(option: OptionRow): { tone: "success" | "warning" | "error";
 }
 
 /** Заголовок-термин с подсказкой. */
+/**
+ * На сколько пунктов замысел может разойтись с наблюдением, не считаясь расхождением (FR-18a).
+ *
+ * Десять пунктов шкалы 0–100: автор ставит сложность на глаз, и разница в пять-семь пунктов —
+ * точность его оценки, а не находка.
+ */
+const INTENT_TOLERANCE = 10;
+
+/** Вывод о расхождении замысла и наблюдения словами (FR-18a). */
+function intentVerdict(declared: number, observed: number | null): string {
+  if (observed === null) return "наблюдения нет";
+  const gap = observed - declared;
+  if (Math.abs(gap) <= INTENT_TOLERANCE) return "расхождения нет";
+  return gap > 0 ? `труднее задуманного на ${gap}` : `легче задуманного на ${-gap}`;
+}
+
 function TermHeader({ term, hint }: { term: string; hint: string }) {
   return (
     <Tooltip content={hint} placement="bottom">
@@ -137,6 +153,10 @@ function TermHeader({ term, hint }: { term: string; hint: string }) {
 /** Карточка разбора задания. */
 export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: ItemBreakdownPanelProps) {
   const { item, groups, options } = view;
+  // FR-18a: наблюдение — в шкале автора (0 — легко, 100 — сложно). Трудность p растёт в
+  // обратную сторону (1 — решили все), и сравнивать их напрямую значило бы читать лёгкое
+  // задание как трудное.
+  const observedHardness = item.difficulty === null ? null : Math.round((1 - item.difficulty) * 100);
   const versions = view.versions ?? [];
 
   const columns = [
@@ -233,7 +253,14 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
               <Stack gap={1} align="center">
                 <Text variant="display-s" weight="bold">{num(item.correctedDifficulty)}</Text>
                 <Text variant="body-s" tone="muted">С поправкой на угадывание</Text>
-                <Text variant="body-xs" tone="subtle">ноль и ниже — на уровне случайного выбора</Text>
+                {/* Сколько вариантов и какой доли ждать от случайного выбора — как в эскизе. */}
+                {view.options?.length ? (
+                  <Text variant="body-xs" tone="subtle">
+                    {`${view.options.length} ${pluralize(view.options.length, "вариант", "варианта", "вариантов")}, ожидание ${num(1 / view.options.length)}`}
+                  </Text>
+                ) : null}
+                {/* FR-17b: ограничение модели сказано прямо, иначе число читают как точное. */}
+                <Text variant="body-xs" tone="subtle">модель «знает или угадывает»: частичное знание не учитывает</Text>
               </Stack>
             </CardBody>
           </Card>
@@ -265,10 +292,11 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
             <CardBody>
               <Stack gap={1} align="center">
                 <Text variant="display-s" weight="bold">
-                  {item.declaredDifficulty} → {item.difficulty === null ? "—" : Math.round(item.difficulty * 100)}
+                  {item.declaredDifficulty} → {observedHardness === null ? "—" : observedHardness}
                 </Text>
                 <Text variant="body-s" tone="muted">Замысел и наблюдение</Text>
-                <Text variant="body-xs" tone="subtle">заявлено автором → получилось у участников</Text>
+                {/* FR-18a: два числа и вывод о расхождении — без вывода плитка ничего не утверждает. */}
+                <Text variant="body-xs" tone="subtle">{intentVerdict(item.declaredDifficulty, observedHardness)}</Text>
               </Stack>
             </CardBody>
           </Card>

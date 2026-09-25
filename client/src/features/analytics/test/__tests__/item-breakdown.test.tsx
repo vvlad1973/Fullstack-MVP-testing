@@ -73,9 +73,33 @@ describe("ItemBreakdownPanel", () => {
     expect(screen.getByText(/Сильные 27 %/)).toBeTruthy();
   });
 
-  it("сравнивает замысел автора с наблюдением", () => {
+  it("сравнивает замысел автора с наблюдением в ОДНОЙ шкале и делает вывод (FR-18a)", () => {
+    // Автор задаёт сложность «0 — легко, 100 — сложно», а трудность p — доля решивших, где 1 —
+    // легко. Раньше рядом стояли «60 → 41», будто сравнимые числа; наблюдение переводится в шкалу
+    // автора: 100 × (1 − 0,41) = 59.
     render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
-    expect(screen.getByText("60 → 41")).toBeTruthy();
+    expect(screen.getByText("60 → 59")).toBeTruthy();
+    expect(screen.getByText("расхождения нет")).toBeTruthy();
+  });
+
+  it("задание оказалось легче задуманного — так и сказано", () => {
+    // «Как расшифровывается ЭДО?»: задумано лёгким (20), решают 97 %.
+    render(<ItemBreakdownPanel view={view({ item: { ...view().item, declaredDifficulty: 60, difficulty: 0.9 } })} onBack={() => {}} />);
+    expect(screen.getByText("60 → 10")).toBeTruthy();
+    expect(screen.getByText("легче задуманного на 50")).toBeTruthy();
+  });
+
+  it("задание оказалось труднее задуманного — так и сказано", () => {
+    render(<ItemBreakdownPanel view={view({ item: { ...view().item, declaredDifficulty: 20, difficulty: 0.4 } })} onBack={() => {}} />);
+    expect(screen.getByText("20 → 60")).toBeTruthy();
+    expect(screen.getByText("труднее задуманного на 40")).toBeTruthy();
+  });
+
+  it("поправка на угадывание называет число вариантов, ожидание и ограничение модели (FR-17b)", () => {
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+    expect(screen.getByText("3 варианта, ожидание 0,33")).toBeTruthy();
+    // Формула исходит из «знает или выбирает наугад» — частичного знания она не описывает.
+    expect(screen.getByText(/частичное знание не учитывает/)).toBeTruthy();
   });
 
   it("у задания без заявленной трудности сравнивать не с чем — плитки нет", () => {
