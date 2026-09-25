@@ -210,7 +210,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: Attentio
   }
 
   return (
-    <Stack gap={5}>
+    <Stack gap={4}>
       {filled.map(bucket => {
         const items = rows.filter(row => row.kind === bucket.kind);
         const total = counts?.[bucket.kind] ?? items.length;
@@ -228,8 +228,8 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: Attentio
                 {shown.map((row, index) => (
                   <div key={row.observationId ?? `${row.participantId}:${row.testId}`}>
                     {index > 0 && <Separator />}
-                    <Box padY={3}>
-                      <Stack direction="row" align="center" gap={3}>
+                    <Box padY={4}>
+                      <Stack direction="row" align="center" gap={4}>
                         <Stack gap={1} grow>
                           <Text variant="body-m" weight="medium">
                             {row.participant} · {row.testTitle}
