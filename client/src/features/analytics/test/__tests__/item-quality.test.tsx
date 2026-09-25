@@ -57,7 +57,7 @@ describe("ItemQualityPanel — прогноз длины (FR-22)", () => {
       lengthForecast: { target: 0.8, factor: 2.25, itemsDelta: 25 },
     })} />);
 
-    expect(screen.getByText(/до 0,80 — ещё 25 заданий/)).toBeTruthy();
+    expect(screen.getByText(/до 0,80 — ещё 25 вопросов/)).toBeTruthy();
   });
 
   it("у теста надёжнее целевого говорит, сколько заданий МОЖНО СНЯТЬ", () => {
@@ -67,7 +67,7 @@ describe("ItemQualityPanel — прогноз длины (FR-22)", () => {
       lengthForecast: { target: 0.8, factor: 0.44, itemsDelta: -22 },
     })} />);
 
-    expect(screen.getByText(/22 задания можно снять/)).toBeTruthy();
+    expect(screen.getByText(/22 вопроса можно снять/)).toBeTruthy();
   });
 
   it("без прогноза строки нет вовсе", () => {
@@ -304,7 +304,7 @@ describe("ItemQualityPanel", () => {
 
     expect(screen.getByText("Тест измерительный")).toBeTruthy();
     expect(screen.queryByText("Надёжность (альфа)")).toBeNull();
-    expect(screen.queryByText("Задания")).toBeNull();
+    expect(screen.queryByText("Вопросы")).toBeNull();
   });
 
   it("счётчик «под подозрением» считает задания с признаками, а не все подряд", () => {
@@ -497,7 +497,7 @@ describe("ItemQualityPanel — ориентировочные коэффицие
       })],
     })} />);
 
-    expect(screen.getByText("Слишком лёгкое")).toBeTruthy();
+    expect(screen.getByText("Слишком лёгкий")).toBeTruthy();
     expect(screen.queryByText(/ориентировочно/)).toBeNull();
   });
 
@@ -556,7 +556,7 @@ describe("ItemQualityPanel — данных мало на уровне тест�
     render(<ItemQualityPanel view={thinView()} />);
 
     expect(screen.getByText("Данных пока мало: собрано 18 прохождений")).toBeTruthy();
-    expect(screen.getByText(/Дискриминативность считается с 30 наблюдений на задание, надёжность теста — с 30 прохождений\. Трудность показывается с 10 наблюдений\./)).toBeTruthy();
+    expect(screen.getByText(/Дискриминативность считается с 30 наблюдений на вопрос, надёжность теста — с 30 прохождений\. Трудность показывается с 10 наблюдений\./)).toBeTruthy();
   });
 
   it("плиток нет: считать их не из чего", () => {
@@ -572,7 +572,7 @@ describe("ItemQualityPanel — данных мало на уровне тест�
     expect(screen.queryByText("Признак")).toBeNull();
     expect(screen.getByText("Нужно ещё 12 наблюдений")).toBeTruthy();
     expect(screen.getByText("Нужно ещё 19 наблюдений")).toBeTruthy();
-    expect(screen.getByText(/2 задания · накопление наблюдений/)).toBeTruthy();
+    expect(screen.getByText(/2 вопроса · накопление наблюдений/)).toBeTruthy();
   });
 
   it("с тридцати участников — обычная вкладка", () => {
@@ -595,7 +595,7 @@ describe("ItemQualityPanel — надёжность при неоднородн�
     })} />);
 
     expect(screen.getByText("0,78")).toBeTruthy();
-    expect(screen.getByText(/оценка по связям заданий · вариант из 20 заданий/)).toBeTruthy();
+    expect(screen.getByText(/оценка по связям вопросов · вариант из 20 вопросов/)).toBeTruthy();
     // Заголовок не должен противоречить подписи: это оценка, а не альфа полного набора.
     expect(screen.getByText("Надёжность (оценка)")).toBeTruthy();
     expect(screen.queryByText("Надёжность (альфа)")).toBeNull();
@@ -607,7 +607,7 @@ describe("ItemQualityPanel — надёжность при неоднородн�
       cutBand: { low: 3.84, high: 7.36, z: 1.96, withinBand: 129 },
     })} />);
 
-    expect(screen.getByText(/Затронуто 129 из 300 участников с вариантом из 8 заданий/)).toBeTruthy();
+    expect(screen.getByText(/Затронуто 129 из 300 участников с вариантом из 8 вопросов/)).toBeTruthy();
     expect(screen.queryByText(/с полным набором/)).toBeNull();
   });
 
@@ -617,7 +617,7 @@ describe("ItemQualityPanel — надёжность при неоднородн�
       coreReliability: { alpha: 0.71, items: 6, respondents: 486, totalSd: 1.2, dichotomous: true, method: "core" },
     })} />);
 
-    expect(screen.getByText(/по общему ядру из 6 заданий — 0,71/)).toBeTruthy();
+    expect(screen.getByText(/по общему ядру из 6 вопросов — 0,71/)).toBeTruthy();
   });
 
   it("основной альфой по ядру подписана и она", () => {
@@ -625,7 +625,7 @@ describe("ItemQualityPanel — надёжность при неоднородн�
       reliability: { alpha: 0.71, items: 6, respondents: 486, totalSd: 1.2, dichotomous: true, method: "core" },
     })} />);
 
-    expect(screen.getByText(/по общему ядру · 6 заданий/)).toBeTruthy();
+    expect(screen.getByText(/по общему ядру · 6 вопросов/)).toBeTruthy();
   });
 
   it("без пересечений — причина словами", () => {

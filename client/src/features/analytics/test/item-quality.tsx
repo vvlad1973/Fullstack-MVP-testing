@@ -169,15 +169,15 @@ function forecastOf(forecast: { target: number; itemsDelta: number } | null | un
   const target = num(forecast.target);
   if (forecast.itemsDelta > 0) {
     const count = forecast.itemsDelta;
-    return `до ${target} — ещё ${count} ${pluralize(count, "задание", "задания", "заданий")}`;
+    return `до ${target} — ещё ${count} ${pluralize(count, "вопрос", "вопроса", "вопросов")}`;
   }
   const count = -forecast.itemsDelta;
-  return `надёжность выше цели ${target}: ${count} ${pluralize(count, "задание", "задания", "заданий")} можно снять`;
+  return `надёжность выше цели ${target}: ${count} ${pluralize(count, "вопрос", "вопроса", "вопросов")} можно снять`;
 }
 
 /** Оценка альфы словами — ориентиры FR-19. */
 function alphaVerdict(alpha: number): string {
-  if (alpha >= 0.95) return "подозрение на дубли заданий";
+  if (alpha >= 0.95) return "подозрение на дубли вопросов";
   if (alpha >= 0.8) return "хорошо";
   if (alpha >= 0.7) return "приемлемо";
   return "ниже приемлемого";
@@ -185,11 +185,11 @@ function alphaVerdict(alpha: number): string {
 
 /** Почему надёжности нет — словами, а не пустой плиткой. */
 const RELIABILITY_GAP: Record<string, string> = {
-  "too-few-items": "в наборе меньше двух заданий",
+  "too-few-items": "в наборе меньше двух вопросов",
   "too-few-respondents": "меньше двух участников с полным набором",
   "no-variance": "все набрали поровну",
   // FR-20: полного набора нет и не будет, и пары заданий почти не пересекаются.
-  "random-delivery": "неприменимо к случайной выдаче: у участников разные наборы и мало общих пар заданий",
+  "random-delivery": "неприменимо к случайной выдаче: у участников разные наборы и мало общих пар вопросов",
 };
 
 /**
@@ -200,10 +200,10 @@ const RELIABILITY_GAP: Record<string, string> = {
  */
 function reliabilityCaption(reliability: Exclude<ReliabilityView, string>): string {
   if (reliability.method === "pairwise") {
-    return `${alphaVerdict(reliability.alpha)} · оценка по связям заданий · вариант из ${reliability.items} ${pluralize(reliability.items, "задания", "заданий", "заданий")}`;
+    return `${alphaVerdict(reliability.alpha)} · оценка по связям вопросов · вариант из ${reliability.items} ${pluralize(reliability.items, "вопроса", "вопросов", "вопросов")}`;
   }
   if (reliability.method === "core") {
-    return `${alphaVerdict(reliability.alpha)} · по общему ядру · ${reliability.items} ${pluralize(reliability.items, "задание", "задания", "заданий")}`;
+    return `${alphaVerdict(reliability.alpha)} · по общему ядру · ${reliability.items} ${pluralize(reliability.items, "вопрос", "вопроса", "вопросов")}`;
   }
   return `${alphaVerdict(reliability.alpha)} · ${reliability.respondents} ${pluralize(reliability.respondents, "участник", "участника", "участников")}`;
 }
@@ -276,13 +276,13 @@ function flagOf(row: ItemQualityRow, heuristic?: ReviewHeuristic): { tone: "erro
   const byHeuristic = heuristicFlag(heuristic);
   if (byHeuristic) return byHeuristic;
   if (row.timingFlags.rushed) {
-    return { tone: "warning", title: "Отвечают не читая", detail: "ответ быстрее, чем задание можно прочесть" };
+    return { tone: "warning", title: "Отвечают не читая", detail: "ответ быстрее, чем вопрос можно прочесть" };
   }
   if (row.flags.tooHard) {
-    return { tone: "warning", title: "Слишком трудное", detail: `трудность ${num(row.difficulty)}` };
+    return { tone: "warning", title: "Слишком трудный", detail: `трудность ${num(row.difficulty)}` };
   }
   if (row.flags.tooEasy) {
-    return { tone: "warning", title: "Слишком лёгкое", detail: `трудность ${num(row.difficulty)}` };
+    return { tone: "warning", title: "Слишком лёгкий", detail: `трудность ${num(row.difficulty)}` };
   }
   if (row.timingFlags.slow) {
     return { tone: "warning", title: "Тормозит прогон", detail: "время заметно выше медианы теста" };
@@ -458,8 +458,8 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       // FR-20: при оценке по связям заданий полного набора нет ни у кого, и сравниваются итоги
       // участников с вариантом той же длины.
       : `Затронуто ${within} из ${reliability?.respondents ?? view.sample.respondents} ${pluralize(reliability?.respondents ?? view.sample.respondents, "участника", "участников", "участников")} ${reliability?.method === "pairwise"
-        ? `с вариантом из ${reliability.items} ${pluralize(reliability.items, "задания", "заданий", "заданий")}`
-        : "с полным набором заданий"}.`;
+        ? `с вариантом из ${reliability.items} ${pluralize(reliability.items, "вопроса", "вопросов", "вопросов")}`
+        : "с полным набором вопросов"}.`;
 
   /**
    * Поводы к баннеру смещения (FR-39, FR-40).
@@ -470,10 +470,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
    */
   const biasReasons: string[] = [];
   if (view.bias?.unevenDelivery) {
-    biasReasons.push("Выдача неоднородна: участники видели разные наборы заданий, и корреляции считаются по пересекающимся, но разным выборкам.");
+    biasReasons.push("Выдача неоднородна: участники видели разные наборы вопросов, и корреляции считаются по пересекающимся, но разным выборкам.");
   }
   if ((view.bias?.importShare ?? 0) >= 0.2) {
-    biasReasons.push(`Заметная доля наблюдений пришла из импорта (${Math.round((view.bias?.importShare ?? 0) * 100)} %): там исход бинарный вместо доли балла, а редакция задания неизвестна.`);
+    biasReasons.push(`Заметная доля наблюдений пришла из импорта (${Math.round((view.bias?.importShare ?? 0) * 100)} %): там исход бинарный вместо доли балла, а редакция вопроса неизвестна.`);
   }
 
   const columns = [
@@ -482,7 +482,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       // Ширины заданы долями НАМЕРЕННО: без них задание с абзацем текста растягивает первую
       // колонку и вытесняет за край остальные — вскрыто приёмкой на синтетических данных.
       width: "38%",
-      header: "Задание",
+      header: "Вопрос",
       frozen: true,
       sortable: true,
       render: (row: ItemQualityRow) => (
@@ -507,7 +507,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
         ? "Состояние"
         : <TermHeader
           term="Признак"
-          hint="Что не так с заданием. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
+          hint="Что не так с вопросом. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
         />,
       render: (row: ItemQualityRow) => {
         const flag = flagOf(row, heuristics[row.questionId]);
@@ -554,7 +554,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       width: "12%",
       header: <TermHeader
         term="Трудность"
-        hint="Средняя доля набранного балла: 0 — не решил никто, 1 — решили все. Приемлемо 0,20 — 0,80; выше 0,90 задание ничего не отсеивает."
+        hint="Средняя доля набранного балла: 0 — не решил никто, 1 — решили все. Приемлемо 0,20 — 0,80; выше 0,90 вопрос ничего не отсеивает."
       />,
       numeric: true,
       // Трудность живёт при пороге наблюдений инстанса, а коэффициенты — при 30 и 100
@@ -581,7 +581,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       width: "16%",
       header: <TermHeader
         term="Дискриминативность"
-        hint="Отделяет ли задание сильных от слабых: корреляция балла за него с баллом за остальные задания формы. Хорошо от 0,30, отрицательная — почти всегда ошибка в ключе."
+        hint="Отделяет ли вопрос сильных от слабых: корреляция балла за него с баллом за остальные вопросы формы. Хорошо от 0,30, отрицательная — почти всегда ошибка в ключе."
       />,
       numeric: true,
       render: (row: ItemQualityRow) => (
@@ -596,7 +596,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       width: "8%",
       header: <TermHeader
         term="n"
-        hint="Сколько участников выборки видели это задание. Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100."
+        hint="Сколько участников выборки видели этот вопрос. Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100."
       />,
       numeric: true,
       render: (row: ItemQualityRow) => <Text variant="body-s">{row.observations}</Text>,
@@ -612,7 +612,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           <Stack gap={1}>
             <Text variant="body-m" weight="semibold">Тест измерительный</Text>
             <Text variant="body-s" tone="muted">
-              У заданий без эталона нет ни трудности, ни дискриминативности: проверять нечего.
+              У вопросов без эталона нет ни трудности, ни дискриминативности: проверять нечего.
               Качество такого теста описывает раздел шкал ниже.
             </Text>
           </Stack>
@@ -632,7 +632,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           variant="subtle"
           tone="warning"
           title="Посчитано по всем попыткам"
-          description="Повторные попытки одного участника не независимы: он учтён несколько раз, коэффициенты смещаются, а пороги достоверности достигаются раньше, чем на самом деле. Для отбора заданий считайте по первой попытке."
+          description="Повторные попытки одного участника не независимы: он учтён несколько раз, коэффициенты смещаются, а пороги достоверности достигаются раньше, чем на самом деле. Для отбора вопросов считайте по первой попытке."
           actions={onRestoreFirstAttempt
             // Вне режима `stacked` действие баннера рисуется голым текстом и не читается как
             // кнопка; эскиз ставит сюда вторичную кнопку — её классы и передаются.
@@ -645,7 +645,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           variant="subtle"
           tone="info"
           title={`Данных пока мало: собрано ${view.sample.respondents} ${pluralize(view.sample.respondents, "прохождение", "прохождения", "прохождений")}`}
-          description={`Дискриминативность считается с ${COEFFICIENT_MIN} наблюдений на задание, надёжность теста — с ${COEFFICIENT_MIN} прохождений.${view.minObservations ? ` Трудность показывается с ${view.minObservations} наблюдений.` : ""}`}
+          description={`Дискриминативность считается с ${COEFFICIENT_MIN} наблюдений на вопрос, надёжность теста — с ${COEFFICIENT_MIN} прохождений.${view.minObservations ? ` Трудность показывается с ${view.minObservations} наблюдений.` : ""}`}
         />
       ) : null}
       {/* FR-46: плитки с прочерками читались бы как поломка — пока данных мало, их нет. */}
@@ -667,7 +667,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
               {/* FR-20: альфа по общему ядру — рядом с оценкой, когда у теста есть такие задания. */}
               {view.coreReliability ? (
                 <Text variant="body-xs" tone="subtle">
-                  {`по общему ядру из ${view.coreReliability.items} ${pluralize(view.coreReliability.items, "задания", "заданий", "заданий")} — ${num(view.coreReliability.alpha)}`}
+                  {`по общему ядру из ${view.coreReliability.items} ${pluralize(view.coreReliability.items, "вопроса", "вопросов", "вопросов")} — ${num(view.coreReliability.alpha)}`}
                 </Text>
               ) : null}
               {/*
@@ -698,7 +698,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{suspiciousCount}</Text>
               <Text variant="body-s" tone="muted">Под подозрением</Text>
-              <Text variant="body-xs" tone="subtle">из {view.items.length} {pluralize(view.items.length, "задания", "заданий", "заданий")}</Text>
+              <Text variant="body-xs" tone="subtle">из {view.items.length} {pluralize(view.items.length, "вопроса", "вопросов", "вопросов")}</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -706,7 +706,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           <CardBody>
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{reliableCount}</Text>
-              <Text variant="body-s" tone="muted">Заданий с надёжной оценкой</Text>
+              <Text variant="body-s" tone="muted">Вопросов с надёжной оценкой</Text>
               <Text variant="body-xs" tone="subtle">n не меньше 100</Text>
             </Stack>
           </CardBody>
@@ -719,7 +719,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           variant="subtle"
           tone="info"
           title="Показатели дискриминации ослаблены"
-          description={`${biasReasons.join(" ")} Числа остаются полезными для отбора подозрительных заданий, но сравнивать их с показателями теста, где выдача однородна, нельзя.`}
+          description={`${biasReasons.join(" ")} Числа остаются полезными для отбора подозрительных вопросов, но сравнивать их с показателями теста, где выдача однородна, нельзя.`}
         />
       ) : null}
 
@@ -779,8 +779,8 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
 
       <Card variant="outlined">
         <CardHeader
-          title="Задания"
-          subtitle={`${view.items.length} ${pluralize(view.items.length, "задание", "задания", "заданий")} · ${thin ? "накопление наблюдений" : "отсортированы по силе подозрения"}`}
+          title="Вопросы"
+          subtitle={`${view.items.length} ${pluralize(view.items.length, "вопрос", "вопроса", "вопросов")} · ${thin ? "накопление наблюдений" : "отсортированы по силе подозрения"}`}
           // FR-46: пока данных мало, отбирать «под подозрением» не из чего — переключателя нет.
           trail={thin ? undefined : (
             <Stack direction="row" gap={1} align="center">
@@ -810,9 +810,9 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
             onSort={(key, dir) => { setSortColumn(key as SortColumn); setSortDir(dir); }}
             onRowClick={onOpenItem ? row => onOpenItem(row.questionId) : undefined}
             emptyMessage={tab === "suspicious"
-              ? "Признаки не сошлись ни у одного задания"
+              ? "Признаки не сошлись ни у одного вопроса"
               : tab === "thin"
-                ? "Данных хватает по всем заданиям"
+                ? "Данных хватает по всем вопросам"
                 : "Наблюдений пока нет"}
           />
         </CardBody>
@@ -845,17 +845,17 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
 const GLOSSARY: Array<{ term: string; what: string; marks: string }> = [
   {
     term: "Трудность (p)",
-    what: "Средняя доля набранного балла по заданию: 0 — не решил никто, 1 — решили все.",
-    marks: "Приемлемо 0,20 — 0,80. Ниже 0,20 задание слишком трудное, выше 0,90 — никого не отсеивает.",
+    what: "Средняя доля набранного балла по вопросу: 0 — не решил никто, 1 — решили все.",
+    marks: "Приемлемо 0,20 — 0,80. Ниже 0,20 вопрос слишком трудный, выше 0,90 — никого не отсеивает.",
   },
   {
     term: "Поправка на угадывание",
-    what: "Трудность за вычетом доли, которую даёт случайный выбор. Считается только для заданий с одним верным ответом.",
-    marks: "Ноль и ниже — задание неотличимо от подбрасывания монетки.",
+    what: "Трудность за вычетом доли, которую даёт случайный выбор. Считается только для вопросов с одним верным ответом.",
+    marks: "Ноль и ниже — вопрос неотличим от подбрасывания монетки.",
   },
   {
     term: "Дискриминативность (r)",
-    what: "Корреляция балла за задание с баллом за остальные задания формы: отделяет ли задание сильных от слабых.",
+    what: "Корреляция балла за вопрос с баллом за остальные вопросы формы: отделяет ли вопрос сильных от слабых.",
     marks: "Хорошо от 0,30, приемлемо от 0,20. Отрицательная — почти всегда ошибка в ключе или двусмысленность.",
   },
   {
@@ -870,13 +870,13 @@ const GLOSSARY: Array<{ term: string; what: string; marks: string }> = [
   },
   {
     term: "Надёжность (альфа Кронбаха)",
-    what: "Насколько согласованно задания теста меряют одно и то же.",
-    marks: "Приемлемо от 0,70, хорошо от 0,80. Выше 0,95 — подозрение на дубли заданий.",
+    what: "Насколько согласованно вопросы теста меряют одно и то же.",
+    marks: "Приемлемо от 0,70, хорошо от 0,80. Выше 0,95 — подозрение на дубли вопросов.",
   },
   {
     term: "Прогноз длины теста",
-    what: "Сколько заданий нужно добавить или можно снять ради надёжности 0,80 (формула Спирмена-Брауна).",
-    marks: "Прогноз исходит из того, что добавленные задания будут такого же качества, что нынешние; на практике они обычно слабее, поэтому число оптимистичное. К случайной выдаче без общего ядра заданий он неприменим — там нет и самой надёжности.",
+    what: "Сколько вопросов нужно добавить или можно снять ради надёжности 0,80 (формула Спирмена-Брауна).",
+    marks: "Прогноз исходит из того, что добавленные вопросы будут такого же качества, что нынешние; на практике они обычно слабее, поэтому число оптимистичное. К случайной выдаче без общего ядра вопросов он неприменим — там нет и самой надёжности.",
   },
   {
     term: "Ошибка измерения",
@@ -885,13 +885,13 @@ const GLOSSARY: Array<{ term: string; what: string; marks: string }> = [
   },
   {
     term: "Наблюдение и n",
-    what: "Одно наблюдение — ответ одного участника на одно задание; по умолчанию берётся первая завершённая попытка.",
+    what: "Одно наблюдение — ответ одного участника на один вопрос; по умолчанию берётся первая завершённая попытка.",
     marks: "Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100. Трудность показывается с 10.",
   },
   {
-    term: "Редакция задания",
+    term: "Редакция вопроса",
     what: "Отпечаток содержания: тип, текст, варианты и верный ответ. Правка любого из них создаёт новую редакцию.",
-    marks: "Наблюдения разных редакций не складываются: после правки это психометрически другое задание.",
+    marks: "Наблюдения разных редакций не складываются: после правки это психометрически другой вопрос.",
   },
 ];
 
@@ -902,7 +902,7 @@ function GlossaryDialog({ open, onClose }: { open: boolean; onClose: () => void 
       open={open}
       onClose={onClose}
       title="Термины психометрики"
-      description="Величины, которые считает вкладка «Качество заданий», и ориентиры к ним"
+      description="Величины, которые считает вкладка «Качество вопросов», и ориентиры к ним"
       size="m"
       footer={<Button variant="secondary" onClick={onClose}>Закрыть</Button>}
     >

@@ -191,7 +191,7 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Тест по финансам" })).toBeInTheDocument();
     expect(screen.getByText("8 завершённых прохождений · веб, телеметрия LMS и импортированные выгрузки"))
       .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Прохождения в реестре/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Прохождения теста/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Обновить" })).toBeInTheDocument();
     // PRD-54: загрузка выгрузки стоит рядом с экспортом (эскиз prd54-lms-import).
     expect(screen.getByRole("button", { name: /Загрузить выгрузку LMS/ })).toBeInTheDocument();
@@ -254,13 +254,13 @@ describe("<TestAnalyticsPage />", () => {
     // FR-23: один список на продукт, а не два. Вместо вкладки — переход в реестр, где тот же
     // список умеет фильтровать, догружать и вести в разбор.
     expect(screen.queryByRole("tab", { name: "Попытки" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Прохождения в реестре/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Прохождения теста/ })).toBeInTheDocument();
   });
 
   it("ведёт в реестр с фильтром по этому тесту", async () => {
     await renderLoaded();
 
-    const link = screen.getByRole("link", { name: /Прохождения в реестре/ });
+    const link = screen.getByRole("link", { name: /Прохождения теста/ });
     expect(link.getAttribute("href")).toContain("/author/analytics?testId=t1");
   });
 
@@ -293,7 +293,7 @@ describe("<TestAnalyticsPage />", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Вопросы" }));
 
     await waitFor(() => expect(screen.getByText("0,62")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /Разбор задания/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Разбор вопроса/ })).toBeInTheDocument();
   });
 
 
@@ -324,9 +324,9 @@ describe("<TestAnalyticsPage />", () => {
     });
     afterEach(() => window.history.replaceState(null, "", "/"));
 
-    it("расчёт «Качества заданий» идёт по отобранной выборке, а не по всему тесту", async () => {
+    it("расчёт «Качества вопросов» идёт по отобранной выборке, а не по всему тесту", async () => {
       await renderLoaded();
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
 
       // Без условий в запросе автор видел бы числа по всем прохождениям, выбрав одну группу.
       await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
@@ -338,7 +338,7 @@ describe("<TestAnalyticsPage />", () => {
 
     it("отчёт и матрица выгружаются по тем же условиям, что на экране", async () => {
       await renderLoaded();
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
 
       // Файл, собранный по другим условиям, чем показанные, невоспроизводим (FR-54b).
       const report = await screen.findByRole("link", { name: /Психометрический отчёт/ });
@@ -377,9 +377,9 @@ describe("<TestAnalyticsPage />", () => {
     const removeChip = (label: string) =>
       screen.getByText(label).closest(".ou-chip")!.querySelector("button[aria-label]") as HTMLElement;
 
-    it("по умолчанию включено и стоит чипом в строке фильтра «Качества заданий»", async () => {
+    it("по умолчанию включено и стоит чипом в строке фильтра «Качества вопросов»", async () => {
       await renderLoaded();
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
 
       expect(await screen.findByText("Только первая попытка")).toBeInTheDocument();
       expect(fetchMock).toHaveBeenCalledWith("/api/analytics/psychometrics/t1", expect.anything());
@@ -392,7 +392,7 @@ describe("<TestAnalyticsPage />", () => {
 
     it("снятие чипа пересчитывает по всем попыткам и предупреждает о зависимости наблюдений", async () => {
       await renderLoaded();
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
       await screen.findByText("Только первая попытка");
 
       fireEvent.click(removeChip("Только первая попытка"));
@@ -406,7 +406,7 @@ describe("<TestAnalyticsPage />", () => {
 
     it("кнопка в предупреждении возвращает первую попытку", async () => {
       await renderLoaded();
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
       await screen.findByText("Только первая попытка");
       fireEvent.click(removeChip("Только первая попытка"));
 
@@ -422,7 +422,7 @@ describe("<TestAnalyticsPage />", () => {
    * сравнение — кнопкой в строке фильтра, сам режим — одна карточка «Сравнение срезов», выход —
    * переключателем «Одна выборка / Сравнение» в её шапке.
    */
-  describe("сравнение срезов на «Качестве заданий» (PRD-66 FR-04b)", () => {
+  describe("сравнение срезов на «Качестве вопросов» (PRD-66 FR-04b)", () => {
     const slice = (id: string, name: string, respondents: number, conditions: Record<string, unknown>) => ({
       id, name, conditions, alpha: 0.8, reliabilityGap: null, sem: 2, respondents,
       observations: respondents * 10, itemsCount: 3, suspiciousCount: 1, items: [],
@@ -446,18 +446,18 @@ describe("<TestAnalyticsPage />", () => {
       });
     });
 
-    it("кнопка «Сравнить срезы» стоит в строке фильтра только на «Качестве заданий»", async () => {
+    it("кнопка «Сравнить срезы» стоит в строке фильтра только на «Качестве вопросов»", async () => {
       await renderLoaded();
       expect(screen.queryByRole("button", { name: /Сравнить срезы/ })).toBeNull();
 
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
       const button = await screen.findByRole("button", { name: /Сравнить срезы/ });
       expect(button.closest(".ou-filterbar")).not.toBeNull();
     });
 
     it("режим — одна карточка со слотами PRD-56 и выходом переключателем", async () => {
       await renderLoaded();
-      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
       fireEvent.click(await screen.findByRole("button", { name: /Сравнить срезы/ }));
 
       expect(await screen.findByText("Сравнение срезов")).toBeInTheDocument();

@@ -142,7 +142,7 @@ describe("AttentionQueue", () => {
 
     render(<AttentionQueue onOpenRegistry={onOpenRegistry} />);
 
-    await userEvent.click(await screen.findByRole("button", { name: /Показать все 12 в реестре/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Показать все 12/ }));
 
     expect(onOpenRegistry).toHaveBeenCalledWith(expect.objectContaining({ outcomes: ["failed"] }));
   });
@@ -232,7 +232,7 @@ describe("AttentionQueue — период", () => {
     const many = { ...DATA, items: Array.from({ length: 5 }, (_u, i) => ({ ...ITEMS[1], observationId: `f${i}`, participantId: `p${i}` })) as never };
     render(<AttentionQueue data={many} period="week" onPeriodChange={() => {}} onOpenRegistry={onOpenRegistry} />);
 
-    await userEvent.click(await screen.findByRole("button", { name: /Показать все 14 в реестре/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Показать все 14/ }));
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     expect(onOpenRegistry).toHaveBeenCalledWith(expect.objectContaining({ outcomes: ["failed"], from: since }));
   });

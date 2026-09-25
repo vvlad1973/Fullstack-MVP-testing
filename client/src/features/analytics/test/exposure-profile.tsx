@@ -22,6 +22,7 @@ import {
   Text,
 } from "@skillum/ui-kit";
 
+import { pluralize } from "@/lib/i18n";
 import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
 import type { QuestionType } from "@shared/questions/question-type";
 
@@ -55,7 +56,7 @@ export function ExposureProfile({ profile, topics, onTopicChange }: ExposureProf
   const columns = [
     {
       key: "question",
-      header: "Задание",
+      header: "Вопрос",
       frozen: true,
       render: (row: ExposureRowView) => (
         <Stack gap={1}>
@@ -81,7 +82,7 @@ export function ExposureProfile({ profile, topics, onTopicChange }: ExposureProf
     },
     {
       key: "bar",
-      header: "Доля прохождений с этим заданием",
+      header: "Доля прохождений с этим вопросом",
       render: (row: ExposureRowView) => (
         <ProgressBar value={row.sharePercent ?? 0} size="s" hideHeader />
       ),
@@ -105,8 +106,8 @@ export function ExposureProfile({ profile, topics, onTopicChange }: ExposureProf
 
   const subtitle = profile === null
     ? "У теста нет разделов: банк показывать не по чему"
-    : `${profile.bankSize} заданий в банке, на прохождение выдаётся ${profile.drawCount ?? "весь банк"}`
-      + ` · ${profile.attemptsInWindow} прохождений за окно наблюдения`;
+    : `${profile.bankSize} ${pluralize(profile.bankSize, "вопрос", "вопроса", "вопросов")} в банке, на прохождение выдаётся ${profile.drawCount ?? "весь банк"}`
+      + ` · ${profile.attemptsInWindow} ${pluralize(profile.attemptsInWindow, "прохождение", "прохождения", "прохождений")} за окно наблюдения`;
 
   return (
     <Card>
@@ -135,13 +136,15 @@ export function ExposureProfile({ profile, topics, onTopicChange }: ExposureProf
               columns={columns}
               rows={profile.rows}
               rowKey={row => row.questionId}
-              emptyMessage="Ни одно задание темы пока не выдавалось"
+              emptyMessage="Ни один вопрос темы пока не выдавался"
             />
             {/* Хвост свёрнут в одну строку: перечислять невыданные задания поштучно незачем,
                 а их ЧИСЛО и есть ответ на «сколько банка простаивает». */}
             {profile.neverDelivered > 0 && (
               <Text variant="body-s" tone="muted">
-                Ещё {profile.neverDelivered} заданий не выдавались ни разу
+                Ещё {profile.neverDelivered}{" "}
+                {pluralize(profile.neverDelivered, "вопрос не выдавался", "вопроса не выдавались", "вопросов не выдавались")}{" "}
+                ни разу
               </Text>
             )}
           </Stack>

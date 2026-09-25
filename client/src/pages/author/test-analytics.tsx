@@ -777,7 +777,7 @@ export default function TestAnalyticsPage() {
                     */}
                     <Link href={`/author/analytics?testId=${testId}`}>
                         <Button variant="secondary" size="s" trailingIcon={<ChevronRight size={16} />}>
-                            Прохождения в реестре
+                            Прохождения теста
                         </Button>
                     </Link>
                     <Button
@@ -824,7 +824,7 @@ export default function TestAnalyticsPage() {
                     // что с ним происходит, и потому отдельная вкладка.
                     {
                         id: "quality",
-                        label: "Качество заданий",
+                        label: "Качество вопросов",
                         content: underFilter(qualityLoading
                             ? <LoadingState message="Считаем психометрику..." />
                             : qualityMode === "compare"

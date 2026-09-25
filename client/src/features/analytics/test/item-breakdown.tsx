@@ -202,7 +202,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
       width: "12%",
       header: <TermHeader
         term="Корреляция с остатком"
-        hint="Корреляция выбора варианта с баллом за остальные задания. У верного ответа должна быть положительной, у дистрактора — отрицательной. Положительная у дистрактора значит, что его выбирают сильные: вариант частично верен либо ключ неверен."
+        hint="Корреляция выбора варианта с баллом за остальные вопросы. У верного ответа должна быть положительной, у дистрактора — отрицательной. Положительная у дистрактора значит, что его выбирают сильные: вариант частично верен либо ключ неверен."
       />,
       numeric: true,
       render: (row: OptionRow) => <Text variant="body-s">{num(row.restCorrelation)}</Text>,
@@ -222,7 +222,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
     <Stack gap={4}>
       <Stack gap={1} align="start">
         <Button variant="ghost" size="s" onClick={onBack} leadingIcon={<ArrowLeft size={14} />}>
-          Ко всем заданиям
+          Ко всем вопросам
         </Button>
         <Text variant="heading-l">
           {view.questionType
@@ -270,7 +270,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{num(item.itemRest)}</Text>
               <Text variant="body-s" tone="muted">Дискриминативность (r)</Text>
-              <Text variant="body-xs" tone="subtle">корреляция задание-остаток · хорошо от 0,30</Text>
+              <Text variant="body-xs" tone="subtle">корреляция вопрос-остаток · хорошо от 0,30</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -327,7 +327,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
               columns={columns}
               rows={options}
               rowKey={row => String(row.index)}
-              emptyMessage="Вариантов ответа у задания нет"
+              emptyMessage="Вариантов ответа у вопроса нет"
             />
           </CardBody>
         </Card>
@@ -336,7 +336,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
           <CardBody>
             {/* FR-27: у сопоставления и ранжирования «вариантов» нет — есть пары и порядок. */}
             <Text variant="body-s" tone="muted">
-              Для этого типа задания разбор вариантов не применяется: по нему работают трудность и
+              Для этого типа вопроса разбор вариантов не применяется: по нему работают трудность и
               дискриминативность.
             </Text>
           </CardBody>
@@ -348,7 +348,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
         <Card variant="outlined">
           <CardHeader
             title="Редакции содержания"
-            subtitle="Наблюдения разных редакций не складываются: после правки это психометрически другое задание"
+            subtitle="Наблюдения разных редакций не складываются: после правки это психометрически другой вопрос"
           />
           <CardBody>
             <DataGrid

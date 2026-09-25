@@ -23,9 +23,9 @@ import { useRegistryDictionaries } from "./use-dictionaries";
 /** Листы книги — те, что собирает `/api/export/excel`, названные как в продукте. */
 const SHEETS: Array<{ key: string; label: string; description: string }> = [
   { key: "attempts", label: "Прохождения", description: "Участник, тест, дата, результат, исход, источник, группа" },
-  { key: "answers", label: "Ответы по заданиям", description: "По одной строке на ответ, включая время на ответ там, где оно измерено" },
+  { key: "answers", label: "Ответы по вопросам", description: "По одной строке на ответ, включая время на ответ там, где оно измерено" },
   { key: "summary", label: "Сводка", description: "Итоги выборки одним листом" },
-  { key: "questionStats", label: "Статистика заданий", description: "Доля верных и объём выборки по каждому заданию" },
+  { key: "questionStats", label: "Статистика вопросов", description: "Доля верных и объём выборки по каждому вопросу" },
   { key: "levelStats", label: "Статистика уровней", description: "Только для адаптивных тестов в выборке" },
   { key: "recommendations", label: "Рекомендации", description: "Обратная связь по темам, как её видит участник" },
 ];

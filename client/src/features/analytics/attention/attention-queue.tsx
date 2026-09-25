@@ -305,7 +305,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data, period, on
                   size="s"
                   onClick={() => onOpenRegistry(withPeriod(bucket.conditions!))}
                 >
-                  Показать все {total} в реестре
+                  Показать все {total}
                 </Button>
               </CardBody>
             )}

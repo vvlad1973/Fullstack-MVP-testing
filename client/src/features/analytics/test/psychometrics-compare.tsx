@@ -114,7 +114,7 @@ const SUMMARY_ROWS: SummaryRow[] = [
   },
   {
     key: "suspicious",
-    label: "Заданий под подозрением",
+    label: "Вопросов под подозрением",
     comparable: false,
     valueOf: slice => slice.suspiciousCount,
     // Числом, без «из N»: число заданий у срезов одного теста одно, и «из 42» в каждой ячейке
@@ -182,7 +182,7 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
   const itemColumns = [
     {
       key: "question",
-      header: "Задание",
+      header: "Вопрос",
       frozen: true,
       width: "40%",
       render: (row: { questionId: string; prompt: string }) => (
@@ -227,12 +227,12 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
         emptyMessage="Сравнивать нечего"
       />
 
-      <Text variant="body-s" weight="medium">Трудность заданий</Text>
+      <Text variant="body-s" weight="medium">Трудность вопросов</Text>
       <DataGrid
         columns={itemColumns}
         rows={itemRows}
         rowKey={row => row.questionId}
-        emptyMessage="Заданий с наблюдениями нет"
+        emptyMessage="Вопросов с наблюдениями нет"
       />
     </>
   );

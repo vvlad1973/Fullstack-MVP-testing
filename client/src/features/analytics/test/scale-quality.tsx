@@ -86,7 +86,7 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
   if (distribution.length === 0) {
     return (
       <Tooltip
-        content="Участник не выбирает один вариант, а раскладывает ответ между утверждениями: градаций, по которым строится распределение, у такого задания нет."
+        content="Участник не выбирает один вариант, а раскладывает ответ между утверждениями: градаций, по которым строится распределение, у такого вопроса нет."
         placement="bottom"
       >
         <Text variant="body-xs" tone="muted">—</Text>

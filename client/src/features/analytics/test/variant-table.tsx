@@ -97,7 +97,7 @@ export function VariantTable({ sections }: VariantTableProps) {
       <CardHeader
         title="Варианты выдачи"
         subtitle={sections.length === 0
-          ? "Фиксированных вариантов в этом тесте нет: задания выдаются случайным набором"
+          ? "Фиксированных вариантов в этом тесте нет: вопросы выдаются случайным набором"
           : `${totalForms} форм набора · ${totalAttempts} прохождений · расхождение считается к доле сдавших по тесту`}
       />
       <CardBody>

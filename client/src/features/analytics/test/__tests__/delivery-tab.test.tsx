@@ -131,13 +131,13 @@ describe("ExposureProfile (FR-20)", () => {
   it("называет объём банка и квоту выдачи", () => {
     render(<ExposureProfile profile={PROFILE} topics={[]} onTopicChange={() => {}} />);
 
-    expect(screen.getByText(/14 заданий в банке, на прохождение выдаётся 6/)).toBeTruthy();
+    expect(screen.getByText(/14 вопросов в банке, на прохождение выдаётся 6/)).toBeTruthy();
   });
 
   it("хвост банка сворачивает в одну строку", () => {
     render(<ExposureProfile profile={PROFILE} topics={[]} onTopicChange={() => {}} />);
 
-    expect(screen.getByText(/Ещё 4 заданий не выдавались ни разу/)).toBeTruthy();
+    expect(screen.getByText(/Ещё 4 вопроса не выдавались ни разу/)).toBeTruthy();
   });
 
   it("исключённое задание метит перечёркнутым кругом, а не убирает", () => {

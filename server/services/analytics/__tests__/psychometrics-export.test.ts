@@ -89,7 +89,7 @@ describe("sampleHeader", () => {
 describe("itemsSheet", () => {
   it("даёт по строке на задание с величинами и признаками", () => {
     const rows = itemsSheet(CTX, PSYCHOMETRICS, new Map([["q1", "Первый"], ["q2", "Второй"]]));
-    const header = rows.find(row => row[0] === "Задание")!;
+    const header = rows.find(row => row[0] === "Вопрос")!;
     const q1 = rows.find(row => row[0] === "q1")!;
 
     expect(header).toContain("Трудность");
@@ -131,7 +131,7 @@ describe("testSheet", () => {
     const alpha = rows.find(row => row[0] === "Надёжность (альфа)")!;
 
     expect(alpha[1]).toBe("—");
-    expect(String(alpha[2])).toContain("меньше двух заданий");
+    expect(String(alpha[2])).toContain("меньше двух вопросов");
   });
 });
 

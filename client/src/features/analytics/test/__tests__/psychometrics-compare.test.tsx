@@ -55,7 +55,7 @@ describe("PsychometricsCompare", () => {
     // Разность счётчиков говорит о размере группы, а не о качестве теста.
     render(<PsychometricsCompare slices={TWO} />);
 
-    const row = screen.getByText("Заданий под подозрением").closest("tr")!;
+    const row = screen.getByText("Вопросов под подозрением").closest("tr")!;
     expect(within(row).getAllByText("—").length).toBeGreaterThan(0);
     expect(within(row).queryByText("−4")).toBeNull();
   });
@@ -72,7 +72,7 @@ describe("PsychometricsCompare", () => {
   it("сравнивает трудность ПО ЗАДАНИЯМ", () => {
     render(<PsychometricsCompare slices={TWO} />);
 
-    expect(screen.getByText("Трудность заданий")).toBeTruthy();
+    expect(screen.getByText("Трудность вопросов")).toBeTruthy();
     expect(screen.getByText("Первое задание")).toBeTruthy();
   });
 
@@ -107,10 +107,10 @@ describe("PsychometricsCompare", () => {
     expect(screen.queryByText("Участников в расчёте")).toBeNull();
   });
 
-  it("«Заданий под подозрением» — числом, без «из N»", () => {
+  it("«Вопросов под подозрением» — числом, без «из N»", () => {
     render(<PsychometricsCompare slices={TWO} />);
 
-    const row = screen.getByText("Заданий под подозрением").closest("tr")!;
+    const row = screen.getByText("Вопросов под подозрением").closest("tr")!;
     expect(within(row).getByText("5")).toBeTruthy();
     expect(within(row).queryByText(/из 42/)).toBeNull();
   });

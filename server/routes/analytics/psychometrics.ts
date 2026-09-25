@@ -564,7 +564,7 @@ router.get(
       });
     } catch (error) {
       logger.error("Psychometrics item error: " + (error as Error).message, "analytics");
-      res.status(500).json({ error: "Не удалось посчитать разбор задания" });
+      res.status(500).json({ error: "Не удалось посчитать разбор вопроса" });
     }
   },
 );
@@ -639,7 +639,7 @@ router.get(
 
       const prompts = new Map([...questionById].map(([id, info]) => [id, info.prompt]));
       const workbook = new ExcelJS.Workbook();
-      addAoaSheet(workbook, "Задания", itemsSheet(ctx, psychometrics, prompts), [38, 60, 12, 12, 16, 16, 16, 14, 14, 16, 18, 40]);
+      addAoaSheet(workbook, "Вопросы", itemsSheet(ctx, psychometrics, prompts), [38, 60, 12, 12, 16, 16, 16, 14, 14, 16, 18, 40]);
       addAoaSheet(workbook, "Тест", testSheet(ctx, psychometrics), [34, 22, 60]);
 
       await sendWorkbook(res, workbook, fileName("psychometrics", ctx.testTitle));

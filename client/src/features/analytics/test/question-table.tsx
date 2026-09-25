@@ -482,7 +482,7 @@ export function QuestionTable({
             <Button
               variant="ghost"
               size="s"
-              aria-label={`Разбор задания: ${row.questionPrompt}`}
+              aria-label={`Разбор вопроса: ${row.questionPrompt}`}
               onClick={() => onOpenQuality(row.questionId)}
             >
               {num(psycho.itemRest)}

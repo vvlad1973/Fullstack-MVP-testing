@@ -201,7 +201,7 @@ describe("QuestionTable — психометрика в строке (PRD-66)", 
     render(<QuestionTable questions={QUESTIONS} psychometrics={PSYCHO} onOpenQuality={onOpenQuality} />);
 
     // FR-03: без перехода новая вкладка осталась бы складом, куда никто не заходит.
-    await userEvent.click(screen.getByRole("button", { name: /Разбор задания: Какая мера/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Разбор вопроса: Какая мера/ }));
 
     expect(onOpenQuality).toHaveBeenCalledWith("q1");
   });
