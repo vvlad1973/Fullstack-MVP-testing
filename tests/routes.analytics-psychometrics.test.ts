@@ -123,6 +123,12 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(res.body.items[0]).toMatchObject({ questionId: "q1", declaredDifficulty: 40 });
   });
 
+  it("отдаёт порог наблюдений трудности — экран «данных мало» называет его (FR-46)", async () => {
+    const res = await ask();
+    expect(typeof res.body.minObservations).toBe("number");
+    expect(res.body.minObservations).toBeGreaterThan(0);
+  });
+
   describe("несопоставленные взаимодействия рядом с n (FR-11)", () => {
     const BATCHES = [
       { id: "b1", testId: "test1", counted: true, groupId: "g1", rowsUnmatched: 7 },

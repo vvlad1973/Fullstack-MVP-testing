@@ -534,3 +534,52 @@ describe("ItemQualityPanel — несопоставленные взаимоде
     expect(screen.queryByText(/не сопоставлено/)).toBeNull();
   });
 });
+
+/**
+ * PRD-66 FR-46: вкладка показывается всегда, но при малой выборке вместо чисел — сколько
+ * собрано и сколько нужно (эскиз prd66-item-quality, состояние «данных мало»).
+ */
+describe("ItemQualityPanel — данных мало на уровне теста (FR-46)", () => {
+  const THIN_SAMPLE = { respondents: 18, responses: 180, bySource: { web: 18 }, unknownVersionShare: 0 };
+  const thinView = () => view({
+    sample: THIN_SAMPLE,
+    reliability: "too-few-respondents",
+    sem: null,
+    minObservations: 10,
+    items: [
+      row({ questionId: "q1", prompt: "Вопрос 1", observations: 18, coefficientConfidence: "insufficient" }),
+      row({ questionId: "q2", prompt: "Вопрос 2", observations: 11, coefficientConfidence: "insufficient" }),
+    ],
+  });
+
+  it("говорит, сколько собрано и с чего начинаются числа", () => {
+    render(<ItemQualityPanel view={thinView()} />);
+
+    expect(screen.getByText("Данных пока мало: собрано 18 прохождений")).toBeTruthy();
+    expect(screen.getByText(/Дискриминативность считается с 30 наблюдений на задание, надёжность теста — с 30 прохождений\. Трудность показывается с 10 наблюдений\./)).toBeTruthy();
+  });
+
+  it("плиток нет: считать их не из чего", () => {
+    render(<ItemQualityPanel view={thinView()} />);
+    expect(screen.queryByText("Надёжность (альфа)")).toBeNull();
+    expect(screen.queryByText("Ошибка измерения")).toBeNull();
+  });
+
+  it("колонка «Признак» становится «Состояние» и говорит, сколько добрать", () => {
+    render(<ItemQualityPanel view={thinView()} />);
+
+    expect(screen.getByText("Состояние")).toBeTruthy();
+    expect(screen.queryByText("Признак")).toBeNull();
+    expect(screen.getByText("Нужно ещё 12 наблюдений")).toBeTruthy();
+    expect(screen.getByText("Нужно ещё 19 наблюдений")).toBeTruthy();
+    expect(screen.getByText(/2 задания · накопление наблюдений/)).toBeTruthy();
+  });
+
+  it("с тридцати участников — обычная вкладка", () => {
+    render(<ItemQualityPanel view={view({ sample: { ...THIN_SAMPLE, respondents: 30 } })} />);
+
+    expect(screen.queryByText(/Данных пока мало/)).toBeNull();
+    expect(screen.getByText("Надёжность (альфа)")).toBeTruthy();
+    expect(screen.getByText("Признак")).toBeTruthy();
+  });
+});

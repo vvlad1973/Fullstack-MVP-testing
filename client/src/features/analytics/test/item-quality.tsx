@@ -93,6 +93,11 @@ export interface ItemQualityView {
    * Может отсутствовать у ответов ручки до этого требования.
    */
   unmatched?: number;
+  /**
+   * Порог наблюдений инстанса для трудности (FR-38a, `analytics.minObservations`). Нужен
+   * состоянию «данных мало»: там сказано, с чего трудность начинает показываться.
+   */
+  minObservations?: number;
   /** Поводы к баннеру смещения (FR-39, FR-40); отсутствует у старых ответов ручки. */
   /**
    * Поводы усомниться в числах. `mixedAnonymity` (FR-43) — в выборке соседствуют `external_id`
@@ -399,6 +404,12 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
 
   const reliability = typeof view.reliability === "string" ? null : view.reliability;
   const forecastText = forecastOf(view.lengthForecast);
+  /**
+   * FR-46: данных мало на уровне ТЕСТА — участников меньше, чем нужно коэффициентам. Вкладка
+   * всё равно показывается, но вместо плиток и признаков говорит, сколько собрано и сколько
+   * добрать: плитки с прочерками читались бы как поломка.
+   */
+  const thin = view.sample.respondents < COEFFICIENT_MIN;
 
   /**
    * Скольких участников задел интервал у порога (FR-21a).
@@ -458,12 +469,25 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       key: "flag",
       sortable: true,
       width: "26%",
-      header: <TermHeader
-        term="Признак"
-        hint="Что не так с заданием. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
-      />,
+      // FR-46: пока данных мало, колонка говорит не о симптоме, а о том, сколько добрать.
+      header: thin
+        ? "Состояние"
+        : <TermHeader
+          term="Признак"
+          hint="Что не так с заданием. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
+        />,
       render: (row: ItemQualityRow) => {
         const flag = flagOf(row, heuristics[row.questionId]);
+        if (thin && (!flag || flag.tone === "info")) {
+          const needed = Math.max(0, COEFFICIENT_MIN - row.observations);
+          return (
+            <Text variant="body-xs" tone="muted">
+              {needed > 0
+                ? `Нужно ещё ${needed} ${pluralize(needed, "наблюдение", "наблюдения", "наблюдений")}`
+                : "—"}
+            </Text>
+          );
+        }
         // FR-38: коэффициент на 30–99 наблюдениях — ориентировочный. Без метки «0,26» на сорока
         // наблюдениях и на четырёхстах выглядели бы одинаково.
         const tentative = row.coefficientConfidence === "tentative";
@@ -583,6 +607,16 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
             : undefined}
         />
       ) : null}
+      {thin ? (
+        <Banner
+          variant="subtle"
+          tone="info"
+          title={`Данных пока мало: собрано ${view.sample.respondents} ${pluralize(view.sample.respondents, "прохождение", "прохождения", "прохождений")}`}
+          description={`Дискриминативность считается с ${COEFFICIENT_MIN} наблюдений на задание, надёжность теста — с ${COEFFICIENT_MIN} прохождений.${view.minObservations ? ` Трудность показывается с ${view.minObservations} наблюдений.` : ""}`}
+        />
+      ) : null}
+      {/* FR-46: плитки с прочерками читались бы как поломка — пока данных мало, их нет. */}
+      {thin ? null : (
       <Grid minItem="sm" gap={1}>
         <Card variant="outlined">
           <CardBody>
@@ -636,8 +670,9 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           </CardBody>
         </Card>
       </Grid>
+      )}
 
-      {biasReasons.length > 0 ? (
+      {!thin && biasReasons.length > 0 ? (
         <Banner
           variant="subtle"
           tone="info"
@@ -661,7 +696,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
         />
       ) : null}
 
-      {view.cutBand ? (
+      {!thin && view.cutBand ? (
         <Banner
           variant="subtle"
           tone="warning"
@@ -703,8 +738,9 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       <Card variant="outlined">
         <CardHeader
           title="Задания"
-          subtitle={`${view.items.length} ${pluralize(view.items.length, "задание", "задания", "заданий")} · отсортированы по силе подозрения`}
-          trail={
+          subtitle={`${view.items.length} ${pluralize(view.items.length, "задание", "задания", "заданий")} · ${thin ? "накопление наблюдений" : "отсортированы по силе подозрения"}`}
+          // FR-46: пока данных мало, отбирать «под подозрением» не из чего — переключателя нет.
+          trail={thin ? undefined : (
             <Stack direction="row" gap={1} align="center">
               <Button variant="ghost" size="s" onClick={() => setGlossary(true)} leadingIcon={<Info size={14} />}>
                 Термины
@@ -720,7 +756,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
                 ]}
               />
             </Stack>
-          }
+          )}
         />
         <CardBody>
           <DataGrid
