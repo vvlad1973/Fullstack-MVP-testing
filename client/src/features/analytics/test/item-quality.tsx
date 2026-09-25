@@ -106,6 +106,11 @@ export interface ItemQualityPanelProps {
   matrixHref?: string;
   /** Открыть разбор задания. Без обработчика строка никуда не ведёт. */
   onOpenItem?: (questionId: string) => void;
+  /**
+   * PRD-66 FR-51: вернуть расчёт по первой попытке. Кнопка стоит в предупреждении «Посчитано по
+   * всем попыткам» — это и есть путь назад после снятия чипа в строке фильтра.
+   */
+  onRestoreFirstAttempt?: () => void;
 }
 
 /** Как источник наблюдений подписывается человеку. */
@@ -259,7 +264,7 @@ function TermHeader({ term, hint }: { term: string; hint: string }) {
 type View = "all" | "suspicious" | "thin";
 
 /** Вкладка «Качество заданий». */
-export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: ItemQualityPanelProps) {
+export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onRestoreFirstAttempt }: ItemQualityPanelProps) {
   const [tab, setTab] = useState<View>("all");
   const [glossary, setGlossary] = useState(false);
 
@@ -422,6 +427,23 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
 
   return (
     <Stack gap={4}>
+      {/*
+        FR-51: по всем попыткам считать можно, но осознанно. Повторная попытка того же человека —
+        не второй участник, и предупреждение стоит первым, над числами, которые оно касается.
+      */}
+      {view.firstAttemptOnly === false ? (
+        <Banner
+          variant="subtle"
+          tone="warning"
+          title="Посчитано по всем попыткам"
+          description="Повторные попытки одного участника не независимы: он учтён несколько раз, коэффициенты смещаются, а пороги достоверности достигаются раньше, чем на самом деле. Для отбора заданий считайте по первой попытке."
+          actions={onRestoreFirstAttempt
+            // Вне режима `stacked` действие баннера рисуется голым текстом и не читается как
+            // кнопка; эскиз ставит сюда вторичную кнопку — её классы и передаются.
+            ? [{ label: "Вернуть: только первая попытка", onClick: onRestoreFirstAttempt, className: "ou-btn ou-btn--secondary ou-btn--s" }]
+            : undefined}
+        />
+      ) : null}
       <Grid minItem="sm" gap={1}>
         <Card variant="outlined">
           <CardBody>
@@ -528,7 +550,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem }: I
                 редакция неизвестна — {Math.round(view.sample.unknownVersionShare * 100)} %
               </Tag>
             ) : null}
-            <Tag tone="neutral" size="s">
+            <Tag tone={view.firstAttemptOnly ? "neutral" : "warning"} size="s">
               {view.firstAttemptOnly ? "только первая попытка" : "все попытки"}
             </Tag>
           </Stack>

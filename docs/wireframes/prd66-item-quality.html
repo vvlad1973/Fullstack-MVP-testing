@@ -225,6 +225,7 @@
       <span class="wf-nav-title">Качество заданий:</span>
       <button type="button" class="active" onclick="showState(this, 'quality')">данных достаточно</button>
       <button type="button" onclick="showState(this, 'quality-thin')">данных мало</button>
+      <button type="button" onclick="showState(this, 'all-attempts')">все попытки</button>
       <button type="button" onclick="showState(this, 'item')">карточка задания</button>
       <button type="button" onclick="showState(this, 'compare')">сравнение срезов</button>
       <button type="button" onclick="showState(this, 'glossary')">глоссарий</button>
@@ -395,6 +396,54 @@
     </div>
 
     <!-- ════════════════ Качество заданий: данных мало ════════════════ -->
+    <!-- ДЕЛЬТА FR-51 (2026-09-25): чип «Только первая попытка» снят. Путь назад — кнопка в
+         предупреждении: условия «первая попытка» нет в общем окне фильтра PRD-56, оно действует
+         только на этой вкладке. Таблица заданий ниже — как в состоянии «данных достаточно». -->
+    <div id="wf-all-attempts" class="wf-state" data-tab="quality">
+      <div class="ou-shell">
+        <div class="ou-shell__side" data-wf-side></div>
+        <header class="ou-shell__header" data-wf-header></header>
+        <main class="ou-shell__main">
+          <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--ai-start ou-stack--gap-4" data-wf-head></div>
+          <div class="ou-tabs ou-tabs--underline ou-tabs--m" data-wf-tabs></div>
+          <div class="ou-filterbar">
+            <div class="ou-filterbar__row">
+              <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog"><span>Фильтр</span><span class="ou-chip__count">1</span></button>
+              <button type="button" class="ou-btn ou-btn--ghost ou-btn--s ou-filterbar__saved"><span>Сохранённые</span></button>
+              <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(null, 'compare')"><span>Сравнить срезы</span><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-chevron-right" /></svg></span></button>
+            </div>
+            <div class="ou-filterbar__applied">
+              <span class="ou-chip ou-chip--s ou-chip--removable"><button type="button" class="ou-chip__action" aria-pressed="false">Источник: веб и телеметрия LMS</button><button type="button" class="ou-chip__close" aria-label="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg></button></span>
+              <button type="button" class="ou-btn ou-btn--ghost ou-btn--s ou-filterbar__reset"><span>Сбросить фильтры</span></button>
+            </div>
+          </div>
+
+          <div class="ou-banner ou-banner--warning ou-banner--subtle" role="status">
+            <span class="ou-banner__ico"><svg width="18" height="18"><use href="#i-warn" /></svg></span>
+            <div class="ou-banner__body">
+              <p class="ou-banner__title">Посчитано по всем попыткам</p>
+              <p class="ou-banner__desc">Повторные попытки одного участника не независимы: он учтён несколько раз, коэффициенты смещаются, а пороги достоверности достигаются раньше, чем на самом деле. Для отбора заданий считайте по первой попытке.</p>
+            </div>
+            <div class="ou-banner__actions">
+              <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(null, 'quality')"><span>Вернуть: только первая попытка</span></button>
+            </div>
+          </div>
+
+          <section class="ou-card ou-card--outlined">
+            <div class="ou-card__body ou-stack ou-stack--gap-4">
+              <div class="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
+                <span class="ou-text ou-text--body-s ou-text--w-semibold">Выборка:</span>
+                <span class="ou-tag ou-tag--neutral ou-tag--s">веб — 263</span>
+                <span class="ou-tag ou-tag--neutral ou-tag--s">телеметрия LMS — 301</span>
+                <span class="ou-tag ou-tag--neutral ou-tag--s">импорт выгрузок — 32</span>
+                <span class="ou-tag ou-tag--warning ou-tag--s">все попытки</span>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
     <div id="wf-quality-thin" class="wf-state" data-tab="quality">
       <div class="ou-shell">
         <div class="ou-shell__side" data-wf-side></div>

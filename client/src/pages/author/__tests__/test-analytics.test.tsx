@@ -327,6 +327,75 @@ describe("<TestAnalyticsPage />", () => {
     });
   });
 
+  describe("«только первая попытка» (PRD-66 FR-51)", () => {
+    /** Расчёт психометрики с одним заданием; режим попыток сервер возвращает тем, что спросили. */
+    const bodyFor = (url: string) => ({
+      items: [{
+        questionId: "q1", observations: 40, difficulty: 0.62, correctedDifficulty: null,
+        itemRest: 0.31, discrimination: null, declaredDifficulty: null,
+        difficultyConfidence: "reliable", coefficientConfidence: "reliable",
+        flags: { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false },
+        timingFlags: { rushed: false, slow: false },
+      }],
+      reliability: "too-few-items", sem: null, cutBand: null,
+      sample: { respondents: 40, responses: 40, bySource: { web: 40 }, unknownVersionShare: 0 },
+      firstAttemptOnly: !url.includes("firstAttemptOnly=false"),
+    });
+
+    beforeEach(() => {
+      fetchMock.mockImplementation(async (input: string) => {
+        const url = String(input);
+        const path = url.split("?")[0];
+        const body = path === "/api/analytics/psychometrics/t1" ? bodyFor(url)
+          : path === "/api/analytics/tests/t1" ? state.analyticsBody : [];
+        return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+      });
+    });
+
+    /** Кнопка снятия чипа с этой подписью. */
+    const removeChip = (label: string) =>
+      screen.getByText(label).closest(".ou-chip")!.querySelector("button[aria-label]") as HTMLElement;
+
+    it("по умолчанию включено и стоит чипом в строке фильтра «Качества заданий»", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+
+      expect(await screen.findByText("Только первая попытка")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith("/api/analytics/psychometrics/t1", expect.anything());
+    });
+
+    it("на «Обзоре» чипа нет: там считаются все попытки", async () => {
+      await renderLoaded();
+      expect(screen.queryByText("Только первая попытка")).toBeNull();
+    });
+
+    it("снятие чипа пересчитывает по всем попыткам и предупреждает о зависимости наблюдений", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      await screen.findByText("Только первая попытка");
+
+      fireEvent.click(removeChip("Только первая попытка"));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "/api/analytics/psychometrics/t1?firstAttemptOnly=false", expect.anything(),
+      ));
+      expect(await screen.findByText("Посчитано по всем попыткам")).toBeInTheDocument();
+      expect(screen.queryByText("Только первая попытка")).toBeNull();
+    });
+
+    it("кнопка в предупреждении возвращает первую попытку", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      await screen.findByText("Только первая попытка");
+      fireEvent.click(removeChip("Только первая попытка"));
+
+      fireEvent.click(await screen.findByRole("button", { name: "Вернуть: только первая попытка" }));
+
+      expect(await screen.findByText("Только первая попытка")).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText("Посчитано по всем попыткам")).toBeNull());
+    });
+  });
+
   it("exports to Excel via the header action", async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("button", { name: /Экспорт Excel/ }));

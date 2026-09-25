@@ -218,6 +218,14 @@ interface DeliveryAnalytics {
  * nothing, so its average result and pass rate are `null` — «неприменимо», not «ноль».
  * The dash is the same answer `formatDuration` has always given for a missing duration.
  */
+/**
+ * Ключ чипа «Только первая попытка» в строке фильтра (PRD-66 FR-51).
+ *
+ * Без двоеточия намеренно: ключи условий фильтра имеют вид «вид:значение», и этот с ними не
+ * совпадёт ни при каком значении.
+ */
+const FIRST_ATTEMPT_CHIP = "first-attempt-only";
+
 function formatPercent(percent: number | null): string {
     return percent === null ? "—" : `${percent.toFixed(1)}%`;
 }
@@ -264,6 +272,14 @@ export default function TestAnalyticsPage() {
 
     const filterSearch = filterToSearch({ ...filter, testIds: [] });
     /**
+     * PRD-66 FR-51: психометрика по умолчанию считает только первую попытку каждого участника —
+     * повторные попытки того же человека не независимы. Условие живёт здесь, а не в общем фильтре
+     * PRD-56: там оно действовало бы и на «Обзор», где считаются все попытки.
+     */
+    const [firstAttemptOnly, setFirstAttemptOnly] = useState(true);
+    /** Чип «Только первая попытка» — только там, где он что-то значит: у психометрики. */
+    const showsAttemptChip = firstAttemptOnly && (activeTab === "quality" || activeTab === "questions");
+    /**
      * Адрес ручки психометрики с условиями экрана (PRD-66 FR-04a, FR-54b).
      *
      * Выборку «Качества заданий» задаёт тот же фильтр, что у «Обзора»: без условий в адресе
@@ -276,6 +292,8 @@ export default function TestAnalyticsPage() {
      */
     const psychometricsUrl = (path: string, extra: Record<string, string> = {}): string => {
         const params = new URLSearchParams(filterSearch.replace(/^\?/, ""));
+        // Умолчание сервера — первая попытка; параметр нужен только для отказа от неё.
+        if (!firstAttemptOnly) params.set("firstAttemptOnly", "false");
         for (const [name, value] of Object.entries(extra)) params.set(name, value);
         const search = params.toString();
         return search ? `${path}?${search}` : path;
@@ -644,15 +662,21 @@ export default function TestAnalyticsPage() {
               задан страницей (эскиз prd56-test-analytics.html, шаблон wf-filter-tpl).
             */}
             <FilterBar
-                count={countConditions({ ...filter, testIds: [] })}
-                applied={describeConditions(
-                  { ...filter, testIds: [] },
-                  { ...dictionaries, ...testDictionary },
-                )}
+                count={countConditions({ ...filter, testIds: [] }) + (showsAttemptChip ? 1 : 0)}
+                applied={[
+                    ...describeConditions(
+                      { ...filter, testIds: [] },
+                      { ...dictionaries, ...testDictionary },
+                    ),
+                    // FR-51: снимается крестиком; путь назад — кнопка в предупреждении вкладки.
+                    ...(showsAttemptChip ? [{ id: FIRST_ATTEMPT_CHIP, label: "Только первая попытка" }] : []),
+                ]}
                 onOpenFilter={() => setFilterOpen(true)}
                 onRemove={(id: string) => {
                     const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
-                    if (kind === "group") {
+                    if (id === FIRST_ATTEMPT_CHIP) {
+                        setFirstAttemptOnly(false);
+                    } else if (kind === "group") {
                         setFilter({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
                     } else if (kind === "source") {
                         setFilter({ ...filter, sources: filter.sources.filter(x => x !== value) });
@@ -666,7 +690,8 @@ export default function TestAnalyticsPage() {
                         setFilter({ ...filter, from: undefined, to: undefined });
                     }
                 }}
-                onReset={() => setFilter(EMPTY_FILTER)}
+                // Сброс возвращает умолчания — а умолчание психометрики «первая попытка».
+                onReset={() => { setFilter(EMPTY_FILTER); setFirstAttemptOnly(true); }}
                 resetLabel="Сбросить фильтры"
             />
 
@@ -752,7 +777,7 @@ export default function TestAnalyticsPage() {
                                     </Cluster>
                                     <PsychometricsComparePanel
                                         testId={testId!}
-                                        firstAttemptOnly={itemQuality?.firstAttemptOnly ?? true}
+                                        firstAttemptOnly={firstAttemptOnly}
                                     />
                                 </Stack>
                             )
@@ -778,6 +803,7 @@ export default function TestAnalyticsPage() {
                                                 exportHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/export`)}
                                                 matrixHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/matrix`)}
                                                 onOpenItem={setBreakdownId}
+                                                onRestoreFirstAttempt={() => setFirstAttemptOnly(true)}
                                             />
                                             {scaleQuality?.scales.length
                                                 ? <ScaleQualityPanel scales={scaleQuality.scales} />
