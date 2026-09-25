@@ -95,6 +95,8 @@ export interface QuestionTableProps {
   onDeliveryChange?: (questionId: string, excluded: boolean) => void;
   /** Тест, у которого спрашиваются последствия исключения. */
   testId?: string;
+  /** Завершённых прохождений — объём, по которому считана таблица (эскиз: подзаголовок). */
+  passages?: number;
   /**
    * PRD-66 FR-02, FR-03: трудность и дискриминативность задания, посчитанные движком
    * психометрики.
@@ -148,7 +150,7 @@ function issueText(issue: DeliveryIssue): string {
     return `Подтема «${issue.tag}»: нужно ${issue.requested}, останется ${issue.available}`;
   }
   if (issue.kind === "pool_shortfall") {
-    return `Заданий в теме: нужно ${issue.required}, останется ${issue.available}`;
+    return `Вопросов в теме: нужно ${issue.required}, останется ${issue.available}`;
   }
   return "Выдача этого раздела перестанет собираться";
 }
@@ -232,7 +234,7 @@ function spreadLabel(
 
 export function QuestionTable({
   questions, onOpenRegistry, onDeliveryChange, testId, measurement, minObservations = 0,
-  psychometrics, onOpenQuality,
+  psychometrics, onOpenQuality, passages,
 }: QuestionTableProps) {
   const [view, setView] = useState<View>("all");
   const [sortKey, setSortKey] = useState(measurement ? "answers" : "difficulty");
@@ -351,7 +353,9 @@ export function QuestionTable({
   const columns = [
     {
       key: "question",
-      header: "Задание",
+      // Вкладка «Вопросы» говорит «вопрос», как в эскизе и как в теме, откуда вопрос пришёл;
+      // «задание» — термин психометрики и живёт на вкладке «Качество заданий» (PRD-66).
+      header: "Вопрос",
       frozen: true,
       // У опросника колонка ограничена: рядом с ней стоит разброс ответов, и текст вопроса,
       // растянувший её по себе, вытолкнул бы за край экрана всё, что правее.
@@ -499,7 +503,9 @@ export function QuestionTable({
     // вопрос вкладки «Выдача», где профиль банка и стоит (FR-20).
     ...(measurement ? [] : [{
       key: "exposure",
-      header: "Выдаётся",
+      // «Экспозиция» — как в эскизе и в пояснении под таблицей: то же слово, что у профиля
+      // банка на вкладке «Выдача» (PRD-55).
+      header: "Экспозиция",
       numeric: true,
       sortable: true,
       render: (row: QuestionRow) => percent(row.exposurePercent),
@@ -543,7 +549,7 @@ export function QuestionTable({
               <IconButton
                 variant="ghost"
                 size="s"
-                aria-label={`Действия с заданием: ${row.questionPrompt}`}
+                aria-label={`Действия с вопросом: ${row.questionPrompt}`}
                 icon={<MoreHorizontal size={16} aria-hidden="true" />}
               />
             }
@@ -595,7 +601,7 @@ export function QuestionTable({
           tone="info"
           size="sm"
           title="Колонка «Доля верных» заменена трудностью"
-          description="Трудность считается долей набранного балла. У заданий с точной оценкой число прежнее, у заданий с частичным кредитом — выше."
+          description="Трудность считается долей набранного балла. У вопросов с точной оценкой число прежнее, у вопросов с частичным кредитом — выше."
           actions={[{ label: "Больше не показывать", onClick: hideNotice }]}
         />
       ) : null}
@@ -603,7 +609,7 @@ export function QuestionTable({
       <Card>
       <CardHeader
         title="Вопросы теста"
-        subtitle={`${questions.length} ${pluralize(questions.length, "задание", "задания", "заданий")} в выдаче · доля пропусков считается по веб-прохождениям: состав выданной формы пакет не сообщает`}
+        subtitle={`${questions.length} ${pluralize(questions.length, "вопрос", "вопроса", "вопросов")} в выдаче${excludedRows.length > 0 ? `, ${excludedRows.length} ${pluralize(excludedRows.length, "исключён", "исключено", "исключено")} из выдачи` : ""}${passages !== undefined ? ` · ${passages} ${pluralize(passages, "прохождение", "прохождения", "прохождений")}` : ""} · доля пропусков считается по веб-прохождениям: состав выданной формы пакет не сообщает`}
         trail={
           <SegmentedControl
             size="s"
@@ -626,10 +632,10 @@ export function QuestionTable({
           sortDir={sortDir}
           onSort={(key, dir) => { setSortKey(key); setSortDir(dir); }}
           emptyMessage={view === "review"
-            ? "Признаки проблем не сошлись ни у одного задания: чинить нечего"
+            ? "Признаки проблем не сошлись ни у одного вопроса: чинить нечего"
             : view === "excluded"
               ? "Из выдачи ничего не исключено"
-              : "Заданий в выдаче пока нет"}
+              : "Вопросов в выдаче пока нет"}
         />
         {/*
           PRD-66 FR-04, FR-38a: два порога сосуществуют в одной строке, и экран обязан
@@ -655,7 +661,7 @@ export function QuestionTable({
         open={pending !== null}
         onClose={() => setPending(null)}
         size="s"
-        title="Исключить задание из выдачи?"
+        title="Исключить вопрос из выдачи?"
         description={pending?.questionPrompt}
         footer={
           <>
@@ -676,11 +682,11 @@ export function QuestionTable({
       >
         <Stack gap={3}>
           {impact === null ? (
-            <Text tone="muted">Считаем, сколько заданий останется в теме…</Text>
+            <Text tone="muted">Считаем, сколько вопросов останется в теме…</Text>
           ) : (
             <>
               <Text>
-                В теме «{impact.topicName}» останется {impact.remaining} заданий, а выдавать
+                В теме «{impact.topicName}» останется {impact.remaining} {pluralize(impact.remaining, "вопрос", "вопроса", "вопросов")}, а выдавать
                 нужно {impact.drawCount}.
               </Text>
               {!impact.allowed && (
@@ -690,7 +696,7 @@ export function QuestionTable({
                     <Text key={index} variant="body-s" tone="error">{issueText(issue)}</Text>
                   ))}
                   <Text variant="body-s" tone="muted">
-                    Уменьшите число выдаваемых заданий или добавьте новые в тему.
+                    Уменьшите число выдаваемых вопросов или добавьте новые в тему.
                   </Text>
                 </Stack>
               )}
@@ -698,7 +704,7 @@ export function QuestionTable({
           )}
           <Text variant="body-s" tone="muted">
             Опубликованная версия не меняется: пока тест не опубликован заново, и веб, и
-            выгруженный пакет SCORM продолжают выдавать это задание по снимку.
+            выгруженный пакет SCORM продолжают выдавать этот вопрос по снимку.
           </Text>
         </Stack>
       </ModalDialog>
@@ -712,7 +718,7 @@ export function QuestionTable({
         open={reading !== null}
         onClose={() => setReading(null)}
         size="l"
-        title="Ответы на задание"
+        title="Ответы на вопрос"
         description={reading?.questionPrompt}
         footer={
           <>
@@ -737,7 +743,7 @@ export function QuestionTable({
           {answers === null ? (
             <Text tone="muted">Читаем ответы…</Text>
           ) : answers.length === 0 ? (
-            <Text tone="muted">На это задание пока никто не ответил</Text>
+            <Text tone="muted">На этот вопрос пока никто не ответил</Text>
           ) : (
             answers.map(row => (
               <Stack key={`${row.attemptId}-${row.length}`} gap={1} className="ou-grid__cell-wrap">

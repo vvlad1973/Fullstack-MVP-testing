@@ -487,6 +487,7 @@ export default function TestAnalyticsPage() {
         <QuestionTable
             questions={questionStats}
             testId={testId ?? undefined}
+            passages={summary.completedAttempts}
             // FR-22: измерительным тест считается по ФАКТУ — прохождения есть, а оценённых
             // среди них нет ни одного. Объявленный проходной балл признаком не годится:
             // опросник нередко несёт его по умолчанию, ничего при этом не оценивая, и тест
@@ -511,7 +512,7 @@ export default function TestAnalyticsPage() {
                 );
                 if (!response.ok) {
                     const data = await response.json().catch(() => ({})) as { error?: string };
-                    alert(data.error ?? "Не удалось изменить состояние задания");
+                    alert(data.error ?? "Не удалось изменить состояние вопроса");
                     return;
                 }
                 await queryClient.invalidateQueries({ queryKey: [`/api/analytics/tests/${testId}`] });

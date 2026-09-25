@@ -27,7 +27,7 @@ import { QuestionTable } from "../question-table";
  */
 async function openRowMenu(prompt: string | RegExp): Promise<void> {
   await userEvent.click(screen.getByRole("button", {
-    name: typeof prompt === "string" ? `Действия с заданием: ${prompt}` : prompt,
+    name: typeof prompt === "string" ? `Действия с вопросом: ${prompt}` : prompt,
   }));
 }
 
@@ -104,7 +104,7 @@ describe("QuestionTable", () => {
     const onOpenRegistry = vi.fn();
     render(<QuestionTable questions={QUESTIONS} onOpenRegistry={onOpenRegistry} />);
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(
       screen.getByRole("menuitem", { name: /Прохождения с ошибкой: Какая мера/ }),
     );
@@ -143,6 +143,28 @@ describe("QuestionTable", () => {
  * Числа приходят из ТОГО ЖЕ расчёта, что питает вкладку «Качество заданий»: считать трудность
  * второй раз здесь значило бы завести второй источник правды о ней.
  */
+/**
+ * Задачи 4.1 и 4.2 плана сверки: вкладка «Вопросы» говорит «вопрос», как эскиз
+ * prd56-test-analytics; «задание» — термин психометрики и остаётся на «Качестве заданий».
+ */
+describe("QuestionTable — термины вкладки «Вопросы»", () => {
+  it("колонки «Вопрос» и «Экспозиция»", () => {
+    render(<QuestionTable questions={QUESTIONS} />);
+
+    expect(screen.getByText("Вопрос")).toBeTruthy();
+    expect(screen.getByText("Экспозиция")).toBeTruthy();
+    expect(screen.queryByText("Задание")).toBeNull();
+    expect(screen.queryByText("Выдаётся")).toBeNull();
+  });
+
+  it("подзаголовок считает вопросы и прохождения", () => {
+    render(<QuestionTable questions={QUESTIONS} passages={486} />);
+
+    expect(screen.getByText(new RegExp(`^${QUESTIONS.length} вопрос`))).toBeTruthy();
+    expect(screen.getByText(/· 486 прохождений/)).toBeTruthy();
+  });
+});
+
 describe("QuestionTable — психометрика в строке (PRD-66)", () => {
   const PSYCHO = {
     q1: { difficulty: 0.41, itemRest: 0.34, observations: 60, coefficientConfidence: "reliable" as const },
@@ -245,7 +267,7 @@ describe("QuestionTable — исключение из выдачи", () => {
   it("спрашивает подтверждение и называет последствия числами", async () => {
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
     // FR-17b: окно говорит, сколько заданий останется в теме при её квоте выдачи, и что
@@ -258,7 +280,7 @@ describe("QuestionTable — исключение из выдачи", () => {
     const onDeliveryChange = vi.fn();
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={onDeliveryChange} />);
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
     await screen.findByText(/останется 11/i);
     await userEvent.click(screen.getByRole("button", { name: "Отмена" }));
@@ -270,7 +292,7 @@ describe("QuestionTable — исключение из выдачи", () => {
     const onDeliveryChange = vi.fn();
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={onDeliveryChange} />);
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
     await screen.findByText(/останется 11/i);
     await userEvent.click(screen.getByRole("button", { name: "Исключить" }));
@@ -292,7 +314,7 @@ describe("QuestionTable — исключение из выдачи", () => {
     }));
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
     expect(await screen.findByText(/Подтема «Охрана труда»: нужно 3, останется 2/)).toBeTruthy();
@@ -308,7 +330,7 @@ describe("QuestionTable — исключение из выдачи", () => {
     }));
     render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
     // Не «выполнено с предупреждением»: кнопка выключена, и сказано почему.
@@ -326,7 +348,7 @@ describe("QuestionTable — исключение из выдачи", () => {
       />,
     );
 
-    await openRowMenu(/Действия с заданием: Какая мера/);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Вернуть в выдачу: Какая мера/ }));
 
     expect(onDeliveryChange).toHaveBeenCalledWith("q1", false);
@@ -380,7 +402,7 @@ describe("QuestionTable — измерительный тест", () => {
     render(<QuestionTable questions={SURVEY} measurement minObservations={10} />);
 
     expect(screen.queryByText("Трудность")).toBeNull();
-    expect(screen.queryByText("Выдаётся")).toBeNull();
+    expect(screen.queryByText("Экспозиция")).toBeNull();
     expect(screen.getByText("Ответов")).toBeTruthy();
   });
 
