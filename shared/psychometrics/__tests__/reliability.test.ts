@@ -21,6 +21,7 @@ import {
   alphaOf,
   countWithinBand,
   cutScoreBand,
+  pairwiseReliability,
   spearmanBrown,
   standardErrorOfMeasurement,
   type ItemValue,
@@ -209,5 +210,66 @@ describe("spearmanBrown", () => {
     expect(spearmanBrown(0, 0.8, 10)).toBeNull();
     expect(spearmanBrown(-0.2, 0.8, 10)).toBeNull();
     expect(spearmanBrown(0.6, 1, 10)).toBeNull();
+  });
+});
+
+/**
+ * PRD-66 FR-20: оценка надёжности по связям заданий — для выдачи, где у участников разные наборы.
+ *
+ * Средняя корреляция по парам (каждая пара — по тем, кому досталось и то и другое) и пересчёт
+ * по Спирмену-Брауну на длину варианта: `L·r̄ / (1 + (L−1)·r̄)`.
+ */
+describe("pairwiseReliability", () => {
+  /**
+   * Банк из шести заданий, каждый участник видит три подряд по кругу: полного набора нет ни у
+   * кого, но каждая соседняя пара встречается у многих. Ответ определяется способностью, и все
+   * задания меряют одно и то же.
+   */
+  function rotating(respondents: number): ItemValue[] {
+    const out: ItemValue[] = [];
+    for (let i = 0; i < respondents; i += 1) {
+      const ability = (i % 10) / 9;
+      for (let k = 0; k < 3; k += 1) {
+        const item = (i + k) % 6;
+        // Задание тем труднее, чем больше номер: разброс по заданиям не нулевой.
+        out.push({ respondentId: `R${i}`, itemId: `q${item}`, value: ability > item / 6 ? 1 : 0 });
+      }
+    }
+    return out;
+  }
+
+  it("строит оценку без полных наборов и называет длину варианта", () => {
+    const result = pairwiseReliability(rotating(120));
+    expect(typeof result).not.toBe("string");
+    const reliability = result as Exclude<typeof result, string>;
+    expect(reliability.method).toBe("pairwise");
+    expect(reliability.items).toBe(3);
+    expect(reliability.alpha).toBeGreaterThan(0);
+    expect(reliability.alpha).toBeLessThan(1);
+    expect(reliability.pairs).toBeGreaterThan(0);
+  });
+
+  it("совпадает с формулой Спирмена-Брауна от средней корреляции", () => {
+    // Три задания, идеально согласованные у всех, кто их видел: r̄ = 1 → надёжность 1.
+    const values: ItemValue[] = [];
+    for (let i = 0; i < 20; i += 1) {
+      const v = i % 2;
+      values.push(
+        { respondentId: `R${i}`, itemId: "a", value: v },
+        { respondentId: `R${i}`, itemId: "b", value: v },
+        { respondentId: `R${i}`, itemId: "c", value: v },
+      );
+    }
+    const reliability = pairwiseReliability(values) as Exclude<ReturnType<typeof pairwiseReliability>, string>;
+    expect(reliability.alpha).toBeCloseTo(1, 10);
+  });
+
+  it("без пар с достаточным пересечением — причина, а не число", () => {
+    // Каждый видит свои задания: пары не встречаются вовсе.
+    const disjoint: ItemValue[] = ["A", "B", "C", "D"].flatMap((r, i) => [
+      { respondentId: r, itemId: `x${i}`, value: 1 },
+      { respondentId: r, itemId: `y${i}`, value: 0 },
+    ]);
+    expect(pairwiseReliability(disjoint)).toBe("random-delivery");
   });
 });

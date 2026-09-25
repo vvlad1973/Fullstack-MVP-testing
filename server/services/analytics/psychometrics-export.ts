@@ -122,19 +122,37 @@ export function testSheet(ctx: ExportContext, psychometrics: TestPsychometrics):
       "too-few-items": "в наборе меньше двух заданий",
       "too-few-respondents": "меньше двух респондентов с полным набором заданий",
       "no-variance": "все участники набрали поровну — сравнивать разбросы не с чем",
+      "random-delivery": "неприменимо к случайной выдаче: у участников разные наборы, и пар заданий с достаточным пересечением слишком мало (FR-20)",
     };
     rows.push(["Надёжность (альфа)", "—", reason[psychometrics.reliability] ?? psychometrics.reliability]);
     return rows;
   }
 
   const reliability = psychometrics.reliability;
-  rows.push(["Надёжность (альфа)", num(reliability.alpha), "внутренняя согласованность заданий"]);
-  rows.push(["Заданий в расчёте", reliability.items, ""]);
-  rows.push([
-    "Респондентов в расчёте",
-    reliability.respondents,
-    "только полные наборы: разброс суммы и разбросы пунктов считаются на одной выборке",
-  ]);
+  // FR-20: при неоднородной выдаче число — оценка по связям заданий либо альфа по общему ядру;
+  // в файле это названо так же прямо, как на экране.
+  if (reliability.method === "pairwise") {
+    rows.push(["Надёжность (оценка по связям заданий)", num(reliability.alpha),
+      `средняя корреляция по ${reliability.pairs ?? 0} парам заданий, пересчитанная по Спирмену-Брауну на вариант из ${reliability.items} заданий`]);
+    rows.push(["Заданий в варианте", reliability.items, ""]);
+    rows.push(["Респондентов в расчёте", reliability.respondents, "все участники выборки: каждая пара — по тем, кому досталось и то и другое"]);
+  } else {
+    rows.push([
+      reliability.method === "core" ? "Надёжность (альфа по общему ядру)" : "Надёжность (альфа)",
+      num(reliability.alpha),
+      reliability.method === "core" ? "задания, которые видели все участники выборки" : "внутренняя согласованность заданий",
+    ]);
+    rows.push(["Заданий в расчёте", reliability.items, ""]);
+    rows.push([
+      "Респондентов в расчёте",
+      reliability.respondents,
+      "только полные наборы: разброс суммы и разбросы пунктов считаются на одной выборке",
+    ]);
+  }
+  if (psychometrics.coreReliability) {
+    rows.push(["Альфа по общему ядру", num(psychometrics.coreReliability.alpha),
+      `${psychometrics.coreReliability.items} заданий, которые видели все участники выборки`]);
+  }
   rows.push([
     "Дихотомический набор",
     reliability.dichotomous ? "да" : "нет",

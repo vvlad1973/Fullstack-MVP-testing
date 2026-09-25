@@ -23,8 +23,10 @@ import {
 } from "@shared/psychometrics/item-metrics";
 import {
   alphaOf,
+  coreReliability,
   countWithinBand,
   cutScoreBand,
+  pairwiseReliability,
   spearmanBrown,
   standardErrorOfMeasurement,
   type CutScoreBand,
@@ -69,6 +71,11 @@ export interface PsychometricsContext {
   minObservations: number;
   /** Проходной балл теста в долях, если он объявлен: по нему строится интервал у порога. */
   cutRatio?: number | null;
+  /**
+   * FR-20: выдача неоднородна (случайный отбор, квоты, адаптив) — у участников разные наборы, и
+   * надёжность считается оценкой по связям заданий, а не альфой полного набора.
+   */
+  unevenDelivery?: boolean;
 }
 
 /** Психометрика ОДНОГО задания. */
@@ -118,6 +125,11 @@ export interface TestPsychometrics {
   items: ItemPsychometrics[];
   /** Коэффициент надёжности либо причина, по которой его нет. */
   reliability: Reliability | ReliabilityGap;
+  /**
+   * FR-20: альфа по общему ядру — рядом с оценкой по связям заданий, когда у неоднородной
+   * выдачи есть задания, которые видели все. `null` — ядра нет либо выдача однородна.
+   */
+  coreReliability: Reliability | null;
   /** Ошибка измерения в долях балла; `null` — надёжность не посчиталась. */
   sem: number | null;
   /**
@@ -165,8 +177,8 @@ const TARGET_RELIABILITY = 0.8;
  * не все задания, сумма меньше по построению, и сравнивать её с порогом значило бы записать его
  * в сомнительные без основания.
  */
-function bandWithCount(band: CutScoreBand, values: readonly ItemValue[]) {
-  return { ...band, withinBand: countWithinBand(values, band) };
+function bandWithCount(band: CutScoreBand, values: readonly ItemValue[], variantLength?: number) {
+  return { ...band, withinBand: countWithinBand(values, band, variantLength) };
 }
 
 /**
@@ -332,7 +344,24 @@ export function computePsychometrics(
   const values: ItemValue[] = graded
     .filter(r => r.ratio !== null)
     .map(r => ({ respondentId: r.respondentId, itemId: r.itemId, value: r.ratio! }));
-  const reliability = alphaOf(values);
+  // FR-20: при неоднородной выдаче полного набора нет ни у кого, и альфа по нему не считается.
+  // Основное число — оценка по связям заданий; альфа по общему ядру, если оно есть, идёт рядом,
+  // а основной становится, только когда оценку по связям строить не на чем.
+  let reliability: Reliability | ReliabilityGap;
+  let core: Reliability | null = null;
+  if (ctx.unevenDelivery) {
+    const byPairs = pairwiseReliability(values);
+    const byCore = coreReliability(values);
+    const coreValue = byCore !== null && typeof byCore !== "string" ? byCore : null;
+    if (typeof byPairs !== "string") {
+      reliability = byPairs;
+      core = coreValue;
+    } else {
+      reliability = coreValue ?? byPairs;
+    }
+  } else {
+    reliability = alphaOf(values);
+  }
   const sem = typeof reliability === "string"
     ? null
     : standardErrorOfMeasurement(reliability.totalSd, reliability.alpha);
@@ -343,11 +372,16 @@ export function computePsychometrics(
   return {
     items: items.sort((a, b) => a.questionId.localeCompare(b.questionId)),
     reliability,
+    coreReliability: core,
     sem,
     // Порог переводится в ту же единицу, что и суммарный балл расчёта: сумма долей баллов по
     // пунктам. Сравнивать интервал в долях с порогом в процентах — ошибка на два порядка.
     cutBand: sem !== null && ctx.cutRatio !== null && ctx.cutRatio !== undefined && typeof reliability !== "string"
-      ? bandWithCount(cutScoreBand(ctx.cutRatio * reliability.items, sem), values)
+      ? bandWithCount(
+        cutScoreBand(ctx.cutRatio * reliability.items, sem),
+        values,
+        reliability.method === "pairwise" ? reliability.items : undefined,
+      )
       : null,
     // FR-22: прогноз длины считается ВСЕГДА, когда есть надёжность, — и когда её не хватает,
     // и когда её с запасом. Второе не менее важно: это единственное число трека, которое

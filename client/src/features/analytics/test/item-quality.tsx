@@ -67,13 +67,23 @@ export interface ItemQualityRow {
 
 /** Надёжность теста либо причина, по которой её нет. */
 export type ReliabilityView =
-  | { alpha: number; items: number; respondents: number; totalSd: number; dichotomous: boolean }
-  | "too-few-items" | "too-few-respondents" | "no-variance";
+  | {
+    alpha: number; items: number; respondents: number; totalSd: number; dichotomous: boolean;
+    /**
+     * FR-20: способ расчёта — полный набор, общее ядро или оценка по связям заданий
+     * (неоднородная выдача). Отсутствует у ответов ручки до этого требования — это полный набор.
+     */
+    method?: "full" | "core" | "pairwise";
+    pairs?: number;
+  }
+  | "too-few-items" | "too-few-respondents" | "no-variance" | "random-delivery";
 
 export interface ItemQualityView {
   items: ItemQualityRow[];
   reliability: ReliabilityView;
   sem: number | null;
+  /** FR-20: альфа по общему ядру рядом с оценкой по связям заданий; `null` — ядра нет. */
+  coreReliability?: Exclude<ReliabilityView, string> | null;
   /**
    * FR-22: прогноз длины теста ради целевой надёжности. `null` — надёжности нет, и удлинять
    * нечего; поля может не быть вовсе у ответов ручки, выданных до этого требования.
@@ -178,7 +188,25 @@ const RELIABILITY_GAP: Record<string, string> = {
   "too-few-items": "в наборе меньше двух заданий",
   "too-few-respondents": "меньше двух участников с полным набором",
   "no-variance": "все набрали поровну",
+  // FR-20: полного набора нет и не будет, и пары заданий почти не пересекаются.
+  "random-delivery": "неприменимо к случайной выдаче: у участников разные наборы и мало общих пар заданий",
 };
+
+/**
+ * Подпись под числом надёжности: как оно посчитано и на скольких (FR-20).
+ *
+ * Оценка по связям заданий — не альфа полного набора, и выдавать её за альфу нельзя: подпись
+ * называет способ и длину варианта, для которой число верно.
+ */
+function reliabilityCaption(reliability: Exclude<ReliabilityView, string>): string {
+  if (reliability.method === "pairwise") {
+    return `${alphaVerdict(reliability.alpha)} · оценка по связям заданий · вариант из ${reliability.items} ${pluralize(reliability.items, "задания", "заданий", "заданий")}`;
+  }
+  if (reliability.method === "core") {
+    return `${alphaVerdict(reliability.alpha)} · по общему ядру · ${reliability.items} ${pluralize(reliability.items, "задание", "задания", "заданий")}`;
+  }
+  return `${alphaVerdict(reliability.alpha)} · ${reliability.respondents} ${pluralize(reliability.respondents, "участник", "участника", "участников")}`;
+}
 
 /**
  * Эвристики PRD-56 «Требуют ревизии» одного задания и числа, которые их вызвали (FR-05).
@@ -625,9 +653,15 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
               <Text variant="body-s" tone="muted">Надёжность (альфа)</Text>
               <Text variant="body-xs" tone="subtle">
                 {reliability
-                  ? `${alphaVerdict(reliability.alpha)} · ${reliability.respondents} ${pluralize(reliability.respondents, "участник", "участника", "участников")}`
+                  ? reliabilityCaption(reliability)
                   : RELIABILITY_GAP[view.reliability as string] ?? "посчитать не на чем"}
               </Text>
+              {/* FR-20: альфа по общему ядру — рядом с оценкой, когда у теста есть такие задания. */}
+              {view.coreReliability ? (
+                <Text variant="body-xs" tone="subtle">
+                  {`по общему ядру из ${view.coreReliability.items} ${pluralize(view.coreReliability.items, "задания", "заданий", "заданий")} — ${num(view.coreReliability.alpha)}`}
+                </Text>
+              ) : null}
               {/*
                 FR-22: прогноз длины — ПОДПИСЬЮ под надёжностью, а не своей плиткой. Это совет
                 к действию, а не измеренная величина, и в ряду метрик он читался бы как ещё

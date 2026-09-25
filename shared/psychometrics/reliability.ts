@@ -24,7 +24,7 @@
  * меньше общего `n`, чем чаще пункты пропускали.
  */
 
-import { standardDeviation, variance } from "./stats";
+import { pearson, standardDeviation, variance } from "./stats";
 
 /** Значение одного пункта у одного респондента — вход расчёта надёжности. */
 export interface ItemValue {
@@ -41,7 +41,18 @@ export type ReliabilityGap =
   /** Респондентов с полным набором меньше двух: разброса нет. */
   | "too-few-respondents"
   /** Разброс суммы нулевой: все набрали поровну, и сравнивать не с чем. */
-  | "no-variance";
+  | "no-variance"
+  /**
+   * FR-20: у участников разные наборы, и пар заданий с достаточным пересечением слишком мало —
+   * ни полного набора, ни оценки по связям заданий построить не на чем.
+   */
+  | "random-delivery";
+
+/**
+ * Как посчитана надёжность (FR-20): по полному набору, по общему ядру или оценкой по связям
+ * заданий. На экране это разные подписи: оценка — не то же самое, что альфа полного набора.
+ */
+export type ReliabilityMethod = "full" | "core" | "pairwise";
 
 export interface Reliability {
   alpha: number;
@@ -63,6 +74,107 @@ export interface Reliability {
    * считать её отдельно значило бы завести второй источник одного и того же числа.
    */
   dichotomous: boolean;
+  /** Способ расчёта; отсутствует у результатов, посчитанных до FR-20, — это полный набор. */
+  method?: ReliabilityMethod;
+  /** Для оценки по связям заданий: сколько пар вошло в среднюю корреляцию. */
+  pairs?: number;
+}
+
+/**
+ * Сколько участников должно было получить ОБА задания пары, чтобы её корреляция вошла в
+ * среднюю. Меньше пяти — корреляция по двум-трём точкам, шум, а не связь.
+ */
+const MIN_PAIR_OVERLAP = 5;
+
+/**
+ * Сколько пар нужно, чтобы средняя корреляция что-то значила. Одна-две пары — это свойство
+ * этих заданий, а не банка.
+ */
+const MIN_PAIRS = 3;
+
+/**
+ * Оценка надёжности по связям заданий — для выдачи, где у участников разные наборы (FR-20).
+ *
+ * Для каждой пары заданий корреляция считается по тем, кому досталось и то и другое; средняя
+ * по парам (взвешенная числом таких участников) — это средняя связь заданий банка `r̄`. Её
+ * формула Спирмена-Брауна пересчитывает в надёжность варианта той длины, которую получает
+ * участник:
+ *
+ * ```text
+ * rel = L * r̄ / (1 + (L - 1) * r̄)
+ * ```
+ *
+ * Это стандартный приём для выдачи «каждому — часть банка»: полного набора нет ни у кого, но
+ * пар, встретившихся вместе, много, и средняя по ним устойчива. Число — ОЦЕНКА: оно исходит из
+ * того, что задания банка взаимозаменяемы, и подписывается на экране именно так.
+ *
+ * @param values значения пунктов по респондентам
+ * @returns оценка с длиной варианта и числом пар либо причина, по которой её нет
+ */
+export function pairwiseReliability(values: readonly ItemValue[]): Reliability | ReliabilityGap {
+  const byRespondent = new Map<string, Map<string, number>>();
+  for (const entry of values) {
+    let row = byRespondent.get(entry.respondentId);
+    if (!row) {
+      row = new Map<string, number>();
+      byRespondent.set(entry.respondentId, row);
+    }
+    row.set(entry.itemId, entry.value);
+  }
+  const rows = [...byRespondent.values()];
+  const itemIds = [...new Set(values.map(v => v.itemId))];
+
+  let weightedSum = 0;
+  let weight = 0;
+  let pairs = 0;
+  for (let i = 0; i < itemIds.length; i += 1) {
+    for (let j = i + 1; j < itemIds.length; j += 1) {
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (const row of rows) {
+        const x = row.get(itemIds[i]);
+        const y = row.get(itemIds[j]);
+        if (x !== undefined && y !== undefined) {
+          xs.push(x);
+          ys.push(y);
+        }
+      }
+      if (xs.length < MIN_PAIR_OVERLAP) continue;
+      // Пара, где одно из заданий у всех решено одинаково, связи не показывает — пропускаем.
+      const r = pearson(xs, ys);
+      if (r === null) continue;
+      weightedSum += r * xs.length;
+      weight += xs.length;
+      pairs += 1;
+    }
+  }
+  if (pairs < MIN_PAIRS) return "random-delivery";
+
+  const meanR = weightedSum / weight;
+  // Длина варианта — сколько заданий обычно получает участник (медиана): для неё и нужна
+  // надёжность, а не для банка целиком.
+  const lengths = rows.map(row => row.size).sort((a, b) => a - b);
+  const length = lengths[Math.floor(lengths.length / 2)];
+  const denominator = 1 + (length - 1) * meanR;
+  if (!(denominator > 0)) return "no-variance";
+
+  // Разброс суммы — по участникам с вариантом этой длины: SEM и интервал у порога живут в той
+  // же шкале, что и итог участника.
+  const totals = rows
+    .filter(row => row.size === length)
+    .map(row => [...row.values()].reduce((sum, value) => sum + value, 0));
+  const totalSd = standardDeviation(totals);
+  if (totalSd === null) return "no-variance";
+
+  return {
+    alpha: (length * meanR) / denominator,
+    items: length,
+    respondents: rows.length,
+    totalSd,
+    dichotomous: values.every(v => v.value === 0 || v.value === 1),
+    method: "pairwise",
+    pairs,
+  };
 }
 
 /**
@@ -112,11 +224,47 @@ function totalsOf(rows: ReadonlyArray<Map<string, number>>, itemIds: readonly st
  *
  * @param values значения пунктов по респондентам
  * @param band интервал вокруг порога
- * @returns число участников с полным набором, чья сумма попала в интервал
+ * @param variantLength для оценки по связям заданий (FR-20): считать участников с вариантом
+ *   этой длины, а не с полным набором — полного набора при случайной выдаче нет ни у кого
+ * @returns число участников, чья сумма попала в интервал
  */
-export function countWithinBand(values: readonly ItemValue[], band: CutScoreBand): number {
+export function countWithinBand(values: readonly ItemValue[], band: CutScoreBand, variantLength?: number): number {
+  if (variantLength !== undefined) {
+    const totals = new Map<string, { size: number; sum: number }>();
+    for (const entry of values) {
+      const acc = totals.get(entry.respondentId) ?? { size: 0, sum: 0 };
+      acc.size += 1;
+      acc.sum += entry.value;
+      totals.set(entry.respondentId, acc);
+    }
+    return [...totals.values()]
+      .filter(t => t.size === variantLength && t.sum >= band.low && t.sum <= band.high).length;
+  }
   const { itemIds, rows } = completeRows(values);
   return totalsOf(rows, itemIds).filter(total => total >= band.low && total <= band.high).length;
+}
+
+/**
+ * Альфа по общему ядру — заданиям, которые видели ВСЕ участники выборки (FR-20).
+ *
+ * При случайной выдаче полного набора нет, но у теста может быть фиксированная часть; на ней
+ * классическая альфа законна. `null` — ядра нет (меньше двух общих заданий).
+ *
+ * @param values значения пунктов по респондентам
+ */
+export function coreReliability(values: readonly ItemValue[]): Reliability | ReliabilityGap | null {
+  const seenBy = new Map<string, Set<string>>();
+  const respondents = new Set<string>();
+  for (const entry of values) {
+    respondents.add(entry.respondentId);
+    const set = seenBy.get(entry.itemId) ?? new Set<string>();
+    set.add(entry.respondentId);
+    seenBy.set(entry.itemId, set);
+  }
+  const core = new Set([...seenBy].filter(([, who]) => who.size === respondents.size).map(([itemId]) => itemId));
+  if (core.size < 2) return null;
+  const result = alphaOf(values.filter(v => core.has(v.itemId)));
+  return typeof result === "string" ? result : { ...result, method: "core" };
 }
 
 export function alphaOf(values: readonly ItemValue[]): Reliability | ReliabilityGap {

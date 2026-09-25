@@ -296,13 +296,15 @@ router.get(
         const matrix = await loadResponseMatrix(filter, scope, grade);
         const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
 
+        const sections = await storage.getTestSections(testId);
         const ctx: PsychometricsContext = {
           questionById,
           minObservations: config.analytics.minObservations,
           cutRatio: cutRatioOf(test.overallPassRuleJson),
+          // FR-20: при неоднородной выдаче надёжность — оценка по связям заданий.
+          unevenDelivery: deliveryIsUneven(test.mode, sections),
         };
         const psychometrics = computePsychometrics(responses, ctx);
-        const sections = await storage.getTestSections(testId);
         const importShare = psychometrics.sample.responses === 0
           ? 0
           : (psychometrics.sample.bySource.import ?? 0) / psychometrics.sample.responses;
@@ -400,6 +402,8 @@ router.get(
         questionById,
         minObservations: config.analytics.minObservations,
         cutRatio: cutRatioOf(test.overallPassRuleJson),
+        // FR-20: срезы считаются тем же способом, что и выборка целиком.
+        unevenDelivery: deliveryIsUneven(test.mode, await storage.getTestSections(testId)),
       };
 
       const slices = [];
@@ -589,6 +593,8 @@ async function collectForExport(req: Request, testId: string) {
     questionById,
     minObservations: config.analytics.minObservations,
     cutRatio: cutRatioOf(test?.overallPassRuleJson),
+    // FR-20: выгрузка считает надёжность тем же способом, что экран.
+    unevenDelivery: deliveryIsUneven(test?.mode, await storage.getTestSections(testId)),
   });
 
   return { ctx, psychometrics, responses, questionById };

@@ -583,3 +583,40 @@ describe("ItemQualityPanel — данных мало на уровне тест�
     expect(screen.getByText("Признак")).toBeTruthy();
   });
 });
+
+/**
+ * PRD-66 FR-20: при случайной выдаче надёжность — оценка по связям заданий; альфа по общему
+ * ядру — рядом, когда оно есть. Способ расчёта назван прямо: оценка — не альфа полного набора.
+ */
+describe("ItemQualityPanel — надёжность при неоднородной выдаче (FR-20)", () => {
+  it("оценка по связям заданий подписана как оценка, с длиной варианта", () => {
+    render(<ItemQualityPanel view={view({
+      reliability: { alpha: 0.78, items: 20, respondents: 486, totalSd: 3.1, dichotomous: true, method: "pairwise", pairs: 1200 },
+    })} />);
+
+    expect(screen.getByText("0,78")).toBeTruthy();
+    expect(screen.getByText(/оценка по связям заданий · вариант из 20 заданий/)).toBeTruthy();
+  });
+
+  it("альфа по ядру стоит рядом с оценкой", () => {
+    render(<ItemQualityPanel view={view({
+      reliability: { alpha: 0.78, items: 20, respondents: 486, totalSd: 3.1, dichotomous: true, method: "pairwise", pairs: 1200 },
+      coreReliability: { alpha: 0.71, items: 6, respondents: 486, totalSd: 1.2, dichotomous: true, method: "core" },
+    })} />);
+
+    expect(screen.getByText(/по общему ядру из 6 заданий — 0,71/)).toBeTruthy();
+  });
+
+  it("основной альфой по ядру подписана и она", () => {
+    render(<ItemQualityPanel view={view({
+      reliability: { alpha: 0.71, items: 6, respondents: 486, totalSd: 1.2, dichotomous: true, method: "core" },
+    })} />);
+
+    expect(screen.getByText(/по общему ядру · 6 заданий/)).toBeTruthy();
+  });
+
+  it("без пересечений — причина словами", () => {
+    render(<ItemQualityPanel view={view({ reliability: "random-delivery", sem: null })} />);
+    expect(screen.getByText(/неприменимо к случайной выдаче/)).toBeTruthy();
+  });
+});

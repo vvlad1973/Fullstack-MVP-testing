@@ -458,3 +458,73 @@ describe("приёмка PRD-66 (AC-02 — AC-04)", () => {
     expect(breakdown.versions.some(v => v.psychoHash === null)).toBe(true);
   });
 });
+
+/**
+ * PRD-66 FR-20: надёжность требует общего набора заданий. При случайной выдаче альфа считается
+ * на общем ядре — заданиях, которые видели все, — а без ядра выводится причина, а не число.
+ */
+describe("computePsychometrics — надёжность при неоднородной выдаче (FR-20)", () => {
+  /**
+   * Каждый видит ядро q1–q3 и одно своё задание из хвоста: полного набора нет ни у кого, и
+   * без ядра альфа не посчиталась бы вовсе.
+   */
+  const withCore: ResponseFact[] = [];
+  for (const [respondentId, q1, q2, q3, tail] of [
+    ["A", 1, 1, 1, "t1"], ["B", 1, 1, 0, "t2"], ["C", 1, 0, 0, "t3"], ["D", 0, 0, 0, "t4"],
+  ] as Array<[string, number, number, number, string]>) {
+    withCore.push(fact({ respondentId, questionId: "q1", scoreRatio: q1 }));
+    withCore.push(fact({ respondentId, questionId: "q2", scoreRatio: q2 }));
+    withCore.push(fact({ respondentId, questionId: "q3", scoreRatio: q3 }));
+    withCore.push(fact({ respondentId, questionId: tail, scoreRatio: 1 }));
+  }
+
+  it("без оценки по связям, но с общим ядром — альфа по ядру становится основной", () => {
+    // Четыре участника: пары заданий встречаются слишком редко для оценки по связям, а ядро
+    // q1–q3 видели все — на нём классическая альфа законна.
+    const result = computePsychometrics(withCore, { ...CTX, unevenDelivery: true });
+
+    expect(typeof result.reliability).not.toBe("string");
+    const reliability = result.reliability as Exclude<typeof result.reliability, string>;
+    expect(reliability.items).toBe(3);
+    expect(reliability.method).toBe("core");
+  });
+
+  it("при случайной выдаче основное число — оценка по связям заданий, ядро — рядом", () => {
+    // Банк из восьми: ядро q1–q2 у всех и по три задания хвоста по кругу. Ответ задан
+    // способностью, так что задания меряют одно и то же.
+    const facts: ResponseFact[] = [];
+    for (let i = 0; i < 120; i += 1) {
+      const ability = (i % 10) / 9;
+      const seen = ["q1", "q2", ...[0, 1, 2].map(k => `t${(i + k) % 6}`)];
+      seen.forEach((questionId, n) => {
+        facts.push(fact({ respondentId: `R${i}`, questionId, scoreRatio: ability > (n % 5) / 5 ? 1 : 0 }));
+      });
+    }
+    const result = computePsychometrics(facts, { ...CTX, unevenDelivery: true });
+    const reliability = result.reliability as Exclude<typeof result.reliability, string>;
+
+    expect(reliability.method).toBe("pairwise");
+    expect(reliability.items).toBe(5);
+    expect(result.coreReliability?.method).toBe("core");
+    expect(result.coreReliability?.items).toBe(2);
+  });
+
+  it("без общего ядра — «неприменимо к случайной выдаче», а не «мало участников»", () => {
+    // У каждого свой набор без пересечения: «меньше двух участников с полным набором» звучало бы
+    // как «наберите ещё», хотя набирать бесполезно — полного набора не будет никогда.
+    const disjoint = ["A", "B", "C", "D"].flatMap((respondentId, i) => [
+      fact({ respondentId, questionId: `x${i}`, scoreRatio: 1 }),
+      fact({ respondentId, questionId: `y${i}`, scoreRatio: 0 }),
+    ]);
+
+    expect(computePsychometrics(disjoint, { ...CTX, unevenDelivery: true }).reliability).toBe("random-delivery");
+  });
+
+  it("при однородной выдаче всё как прежде: весь набор, без пометки ядра", () => {
+    const result = computePsychometrics(RESPONSES, { ...CTX, unevenDelivery: false });
+    const reliability = result.reliability as Exclude<typeof result.reliability, string>;
+    expect(reliability.items).toBe(4);
+    expect(reliability.method ?? "full").toBe("full");
+    expect(result.coreReliability).toBeNull();
+  });
+});
