@@ -16,10 +16,13 @@
  * РАЗНИЦА НЕ ТОЛКУЕТСЯ КАК ПРОВЕРКА ЗАДАНИЯ НА СПРАВЕДЛИВОСТЬ К ГРУППЕ (FR-04c): она смешивает
  * разную подготовку срезов и разное поведение задания, и таблица их не разделяет. Поэтому
  * колонка даёт число и НЕ называет его причину, а слова DIF на экране нет.
+ *
+ * Эскиз: docs/wireframes/prd66-item-quality.html, состояние `compare`. Таблицы стоят внутри
+ * карточки «Сравнение срезов» под слотами, заголовками — строки текста, а не свои карточки;
+ * под именем среза в заголовке колонки — число прохождений в расчёте: имя даёт автор, а
+ * объём решает, насколько числу в колонке можно верить.
  */
-import {
-  Card, CardBody, CardHeader, DataGrid, Stack, Text,
-} from "@skillum/ui-kit";
+import { DataGrid, Stack, Text } from "@skillum/ui-kit";
 
 import { pluralize } from "@/lib/i18n";
 
@@ -27,9 +30,12 @@ import { pluralize } from "@/lib/i18n";
 export interface PsychometricsSlice {
   id: string;
   name: string;
+  /** Условия отбора среза — их показывают слоты (PRD-56 FR-07f). */
+  conditions: Record<string, unknown>;
   alpha: number | null;
   reliabilityGap: string | null;
   sem: number | null;
+  /** Прохождений в расчёте: после режима попыток, а не до него. */
   respondents: number;
   observations: number;
   itemsCount: number;
@@ -52,6 +58,21 @@ function num(value: number | null, digits = 2): string {
   return value === null ? "—" : value.toFixed(digits).replace(".", ",");
 }
 
+/** «214 прохождений» — объём среза в том виде, в каком он стоит в слоте и в заголовке. */
+export function passagesLabel(count: number): string {
+  return `${count} ${pluralize(count, "прохождение", "прохождения", "прохождений")}`;
+}
+
+/** Заголовок колонки среза: имя и под ним объём, как в эскизе. */
+function SliceHead({ slice }: { slice: PsychometricsSlice }) {
+  return (
+    <Stack gap={1}>
+      <span>{slice.name}</span>
+      <Text variant="body-xs" tone="muted" weight="regular">{passagesLabel(slice.respondents)}</Text>
+    </Stack>
+  );
+}
+
 /** Разница со знаком — читается как направление, а не как модуль. */
 function delta(value: number | null): string {
   if (value === null) return "—";
@@ -66,8 +87,7 @@ interface SummaryRow {
   /**
    * Сопоставимая величина: у неё разницу считать МОЖНО.
    *
-   * Счётные строки (участники, наблюдения, число заданий под подозрением) сопоставимыми не
-   * считаются: их разность — про размер группы, а не про качество теста.
+   * Счётные строки (число заданий под подозрением) сопоставимыми не считаются: их разность — про размер группы, а не про качество теста.
    */
   comparable: boolean;
   valueOf: (slice: PsychometricsSlice) => number | null;
@@ -97,13 +117,8 @@ const SUMMARY_ROWS: SummaryRow[] = [
     label: "Заданий под подозрением",
     comparable: false,
     valueOf: slice => slice.suspiciousCount,
-    format: (value, slice) => `${value ?? 0} из ${slice.itemsCount}`,
-  },
-  {
-    key: "respondents",
-    label: "Участников в расчёте",
-    comparable: false,
-    valueOf: slice => slice.respondents,
+    // Числом, без «из N»: число заданий у срезов одного теста одно, и «из 42» в каждой ячейке
+    // повторяло бы одно и то же. Объём среза стоит в заголовке колонки.
     format: value => String(value ?? 0),
   },
 ];
@@ -112,13 +127,9 @@ const SUMMARY_ROWS: SummaryRow[] = [
 export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
   if (slices.length < 2) {
     return (
-      <Card variant="outlined">
-        <CardBody>
-          <Text variant="body-s" tone="muted">
-            Для сравнения нужны хотя бы два среза.
-          </Text>
-        </CardBody>
-      </Card>
+      <Text variant="body-s" tone="muted">
+        Для сравнения нужны хотя бы два среза.
+      </Text>
     );
   }
 
@@ -135,7 +146,7 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
     },
     ...slices.map(slice => ({
       key: `slice-${slice.id}`,
-      header: slice.name,
+      header: <SliceHead slice={slice} />,
       numeric: true,
       render: (row: SummaryRow) => (
         <Text variant="body-s">{row.format(row.valueOf(slice), slice)}</Text>
@@ -180,7 +191,7 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
     },
     ...slices.map(slice => ({
       key: `slice-${slice.id}`,
-      header: slice.name,
+      header: <SliceHead slice={slice} />,
       numeric: true,
       render: (row: { questionId: string }) => (
         <Text variant="body-s">{num(difficultyOf(slice, row.questionId))}</Text>
@@ -204,36 +215,25 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
   ];
 
   return (
-    <Stack gap={4}>
-      <Card variant="outlined">
-        <CardHeader
-          title="Надёжность и ошибка измерения"
-          subtitle={`${slices.length} ${pluralize(slices.length, "срез", "среза", "срезов")}${pairwise ? "" : " · разница считается только при двух срезах"}`}
-        />
-        <CardBody>
-          <DataGrid
-            columns={summaryColumns}
-            rows={SUMMARY_ROWS}
-            rowKey={row => row.key}
-            emptyMessage="Сравнивать нечего"
-          />
-        </CardBody>
-      </Card>
+    <>
+      <Text variant="body-s" weight="medium">Надёжность и ошибка измерения</Text>
+      {!pairwise && (
+        <Text variant="body-xs" tone="muted">Разница считается только при двух срезах</Text>
+      )}
+      <DataGrid
+        columns={summaryColumns}
+        rows={SUMMARY_ROWS}
+        rowKey={row => row.key}
+        emptyMessage="Сравнивать нечего"
+      />
 
-      <Card variant="outlined">
-        <CardHeader
-          title="Трудность по заданиям"
-          subtitle="Задание, не попавшее в выдачу среза, отмечено прочерком"
-        />
-        <CardBody>
-          <DataGrid
-            columns={itemColumns}
-            rows={itemRows}
-            rowKey={row => row.questionId}
-            emptyMessage="Заданий с наблюдениями нет"
-          />
-        </CardBody>
-      </Card>
-    </Stack>
+      <Text variant="body-s" weight="medium">Трудность заданий</Text>
+      <DataGrid
+        columns={itemColumns}
+        rows={itemRows}
+        rowKey={row => row.questionId}
+        emptyMessage="Заданий с наблюдениями нет"
+      />
+    </>
   );
 }

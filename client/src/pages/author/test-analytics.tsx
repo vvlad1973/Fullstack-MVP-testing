@@ -82,6 +82,7 @@ import {
     Layers,
     FileSpreadsheet,
     Upload,
+    ChevronRight,
 } from "lucide-react";
 
 // Types
@@ -689,6 +690,19 @@ export default function TestAnalyticsPage() {
                     // FR-51: снимается крестиком; путь назад — кнопка в предупреждении вкладки.
                     ...(showsAttemptChip ? [{ id: FIRST_ATTEMPT_CHIP, label: "Только первая попытка" }] : []),
                 ]}
+                // FR-04b, эскиз: вход в сравнение срезов — рядом с фильтром, потому что
+                // сравнение и есть несколько фильтров рядом. Только на «Качестве заданий» и
+                // только вне режима: внутри него выход — переключатель в шапке карточки.
+                actions={activeTab === "quality" && qualityMode === "sample" ? (
+                    <Button
+                        variant="ghost"
+                        size="s"
+                        trailingIcon={<ChevronRight size={14} />}
+                        onClick={() => { setBreakdownId(null); setQualityMode("compare"); }}
+                    >
+                        Сравнить срезы
+                    </Button>
+                ) : undefined}
                 onOpenFilter={() => setFilterOpen(true)}
                 onRemove={(id: string) => {
                     const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
@@ -787,17 +801,13 @@ export default function TestAnalyticsPage() {
                             ? <LoadingState message="Считаем психометрику..." />
                             : qualityMode === "compare"
                             ? (
-                                <Stack gap={4}>
-                                    <Cluster gap={1} align="center">
-                                        <Button variant="secondary" size="s" onClick={() => setQualityMode("sample")}>
-                                            К выборке целиком
-                                        </Button>
-                                    </Cluster>
-                                    <PsychometricsComparePanel
-                                        testId={testId!}
-                                        firstAttemptOnly={firstAttemptOnly}
-                                    />
-                                </Stack>
+                                // FR-04b, эскиз: режим — одна карточка, выход из него —
+                                // переключатель «Одна выборка / Сравнение» в её шапке.
+                                <PsychometricsComparePanel
+                                    testId={testId!}
+                                    firstAttemptOnly={firstAttemptOnly}
+                                    onExit={() => setQualityMode("sample")}
+                                />
                             )
                             : breakdownId && breakdown
                                 ? (
@@ -811,11 +821,6 @@ export default function TestAnalyticsPage() {
                                 : itemQuality
                                     ? (
                                         <Stack gap={4}>
-                                            <Cluster gap={1} align="center">
-                                                <Button variant="secondary" size="s" onClick={() => setQualityMode("compare")}>
-                                                    Сравнить срезы
-                                                </Button>
-                                            </Cluster>
                                             <ItemQualityPanel
                                                 view={itemQuality}
                                                 exportHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/export`)}

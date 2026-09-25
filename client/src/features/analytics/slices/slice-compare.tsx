@@ -12,15 +12,13 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  Accordion, AccordionItem, Box, Button, EmptyState, Select, Stack, Text,
-} from "@skillum/ui-kit";
+import { Button, EmptyState, Stack, Text } from "@skillum/ui-kit";
 
-import { RegistryFilterDialog } from "../registry/filter-dialog";
 import { conditionsToFilter, describeConditions } from "../registry/filter-state";
 import { useRegistryDictionaries } from "../registry/use-dictionaries";
 
 import type { SliceRow, SliceTopic } from "./slice-list";
+import { SliceSlots } from "./slice-slots";
 
 export interface SliceCompareProps {
   /** Тест — общее условие сравнения (FR-07e): он один для всех сравниваемых срезов. */
@@ -34,14 +32,6 @@ export interface SliceCompareProps {
    */
   adhoc?: Record<string, unknown> | null;
 }
-
-/**
- * Сколько срезов можно сравнивать.
- *
- * Предел содержательный, а не вёрсточный: пятая колонка перестаёт читаться, а «сравнить все
- * группы разом» — это разбиение по оси (список срезов), а не сравнение (FR-07g).
- */
-const MAX_SLICES = 4;
 
 /** Сколько условий видно в подписи столбца до свёртки в «ещё N» (FR-07f). */
 const VISIBLE_CONDITIONS = 2;
@@ -156,8 +146,6 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
   /** Слоты сравнения: по одному на срез, пустой слот — «не выбран» (эскиз, состояние compare). */
   const [slots, setSlots] = useState<Array<string | null>>([null]);
   const [failed, setFailed] = useState(false);
-  /** Срез, у которого открыта правка условий (FR-07b). */
-  const [editing, setEditing] = useState<SliceRow | null>(null);
   /** Счётчик перезагрузок: правка условий меняет числа, и список надо пересчитать. */
   const [reloads, setReloads] = useState(0);
   /** Названия тестов и групп — чтобы условие читалось, а не значилось кодом. */
@@ -241,100 +229,14 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
   return (
     <Stack gap={4}>
       {/* Слоты сравниваемых срезов: выбор, условия и снятие (FR-07f, FR-07g). */}
-      <Stack direction="row" gap={4} wrap align="start">
-        {slots.map((id, index) => {
-          const slice = id === null ? undefined : available.find(item => item.id === id);
-          const conditions = id === null ? [] : conditionsOf.get(id) ?? [];
-          const taken = new Set(slots.filter((value): value is string => value !== null && value !== id));
-
-          return (
-            <Stack key={index} gap={3}>
-              <Stack direction="row" gap={2} align="center">
-                <Text variant="body-s" weight="medium">{`Срез ${index + 1}`}</Text>
-                {slice && (
-                  <Text variant="body-xs" tone="muted">
-                    {`${slice.completed} завершённых`}
-                  </Text>
-                )}
-              </Stack>
-
-              <Select
-                size="s"
-                label="Сохранённый срез"
-                value={id ?? ""}
-                onChange={value => setSlots(prev => prev.map((item, at) =>
-                  (at === index ? (String(value) === "" ? null : String(value)) : item)))}
-                options={[
-                  { value: "", label: "— не выбран —" },
-                  ...available
-                    .filter(item => !taken.has(item.id))
-                    .map(item => ({ value: item.id, label: item.name })),
-                ]}
-              />
-
-              {slice && (
-                <Accordion>
-                  <AccordionItem
-                    value={`conditions-${index}`}
-                    title={`Условия отбора · ${conditions.length}`}
-                  >
-                    <Stack gap={2}>
-                      {conditions.length === 0 ? (
-                        // Срез без условий — это «тест целиком» (FR-07a), и сказать об этом
-                        // надо словом: пустой список читается как незагрузившийся.
-                        <Text variant="body-xs" tone="muted">без условий — тест целиком</Text>
-                      ) : conditions.map(condition => (
-                        <Text key={condition.id} variant="body-xs">{condition.label}</Text>
-                      ))}
-                    </Stack>
-                  </AccordionItem>
-                </Accordion>
-              )}
-
-              {slice && (
-                <Stack direction="row" gap={2}>
-                  {/* Править можно СОХРАНЁННЫЙ срез: «тест целиком» условий не имеет вовсе, а
-                      набранный отбор правится там, где набран, — в фильтре реестра. */}
-                  {slice.id !== "whole" && slice.id !== "adhoc" && (
-                    <Button variant="secondary" size="s" onClick={() => setEditing(slice)}>
-                      Изменить условия
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="s"
-                    onClick={() => setSlots(prev => (prev.length === 1
-                      ? [null]
-                      : prev.filter((_, at) => at !== index)))}
-                  >
-                    Убрать
-                  </Button>
-                </Stack>
-              )}
-            </Stack>
-          );
-        })}
-
-        {/* FR-07g: на четвёртом срезе плитка ВЫКЛЮЧАЕТСЯ, а не исчезает. Исчезнувшая читается
-            как «больше срезов нет», выключенная с подписью объясняет, почему пятого не будет. */}
-        <Box pad={4} border="dashed" radius="l">
-          <Stack gap={1}>
-            <Button
-              variant="secondary"
-              size="s"
-              disabled={slots.length >= MAX_SLICES}
-              onClick={() => setSlots(prev => [...prev, null])}
-            >
-              + Добавить срез
-            </Button>
-            <Text variant="body-xs" tone="muted">
-              {slots.length >= MAX_SLICES
-                ? "Сравнивают не больше четырёх срезов: пятая колонка перестаёт читаться, а «сравнить все группы разом» — это разбиение по оси, а не сравнение."
-                : "до четырёх срезов"}
-            </Text>
-          </Stack>
-        </Box>
-      </Stack>
+      <SliceSlots
+        slots={slots}
+        onSlotsChange={setSlots}
+        available={available}
+        conditionsOf={conditionsOf}
+        countLabel={slice => `${slice.completed} завершённых`}
+        onConditionsSaved={() => setReloads(value => value + 1)}
+      />
 
       {selected.length === 0 ? (
         // Срезов может не быть вовсе: тогда сравнивать нечего, и экран обязан сказать, где их
@@ -448,37 +350,6 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
           </Stack>
         </>
       )}
-
-      {/* Правка условий среза — той же формой отбора, что в реестре (FR-07b): двух языков
-          условий в продукте нет, и заводить второй ради правки было бы худшим из решений. */}
-      <RegistryFilterDialog
-        open={editing !== null}
-        filter={conditionsToFilter(editing?.conditions ?? {})}
-        hideTest
-        onClose={() => setEditing(null)}
-        onApply={async next => {
-          const target = editing;
-          setEditing(null);
-          if (!target) return;
-          await fetch(`/api/analytics/slices/${target.id}`, {
-            method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              conditions: {
-                groupIds: next.groupIds,
-                sources: next.sources,
-                outcomes: next.outcomes,
-                ...(next.from ? { from: next.from } : {}),
-                ...(next.to ? { to: next.to } : {}),
-              },
-            }),
-          });
-          // Срез хранит УСЛОВИЯ и пересчитывается при открытии (FR-07d): после правки числа
-          // другие, и список надо перечитать, а не поправить на месте.
-          setReloads(value => value + 1);
-        }}
-      />
     </Stack>
   );
 }

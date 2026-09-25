@@ -396,6 +396,63 @@ describe("<TestAnalyticsPage />", () => {
     });
   });
 
+  /**
+   * Задачи 3.1 — 3.3 плана сверки, эскиз prd66-item-quality (состояние compare): вход в
+   * сравнение — кнопкой в строке фильтра, сам режим — одна карточка «Сравнение срезов», выход —
+   * переключателем «Одна выборка / Сравнение» в её шапке.
+   */
+  describe("сравнение срезов на «Качестве заданий» (PRD-66 FR-04b)", () => {
+    const slice = (id: string, name: string, respondents: number, conditions: Record<string, unknown>) => ({
+      id, name, conditions, alpha: 0.8, reliabilityGap: null, sem: 2, respondents,
+      observations: respondents * 10, itemsCount: 3, suspiciousCount: 1, items: [],
+    });
+
+    beforeEach(() => {
+      fetchMock.mockImplementation(async (input: string) => {
+        const path = String(input).split("?")[0];
+        const body = path === "/api/analytics/psychometrics/t1/slices"
+          ? { slices: [
+            slice("whole", "Тест целиком", 486, {}),
+            slice("s1", "Офис", 272, { sources: ["web"], groupIds: ["g1"] }),
+          ] }
+          : path === "/api/analytics/psychometrics/t1" ? {
+            items: [], reliability: "too-few-items", sem: null, cutBand: null,
+            sample: { respondents: 40, responses: 40, bySource: { web: 40 }, unknownVersionShare: 0 },
+            firstAttemptOnly: true,
+          }
+            : path === "/api/analytics/tests/t1" ? state.analyticsBody : [];
+        return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+      });
+    });
+
+    it("кнопка «Сравнить срезы» стоит в строке фильтра только на «Качестве заданий»", async () => {
+      await renderLoaded();
+      expect(screen.queryByRole("button", { name: /Сравнить срезы/ })).toBeNull();
+
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      const button = await screen.findByRole("button", { name: /Сравнить срезы/ });
+      expect(button.closest(".ou-filterbar")).not.toBeNull();
+    });
+
+    it("режим — одна карточка со слотами PRD-56 и выходом переключателем", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+      fireEvent.click(await screen.findByRole("button", { name: /Сравнить срезы/ }));
+
+      expect(await screen.findByText("Сравнение срезов")).toBeInTheDocument();
+      // Внутри режима вход не нужен: выход — переключатель в шапке карточки.
+      expect(screen.queryByRole("button", { name: /Сравнить срезы/ })).toBeNull();
+      expect(await screen.findByText("486 прохождений")).toBeInTheDocument();
+      expect(screen.getByText("Условия отбора · 0")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "+ Добавить срез" })).toBeInTheDocument();
+      expect(screen.getByText("до четырёх срезов")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Одна выборка" }));
+      await waitFor(() => expect(screen.queryByText("Сравнение срезов")).toBeNull());
+      expect(screen.getByRole("button", { name: /Сравнить срезы/ })).toBeInTheDocument();
+    });
+  });
+
   it("exports to Excel via the header action", async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("button", { name: /Экспорт Excel/ }));

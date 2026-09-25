@@ -13,6 +13,7 @@ import { PsychometricsCompare, type PsychometricsSlice } from "../psychometrics-
 
 function slice(over: Partial<PsychometricsSlice> & Pick<PsychometricsSlice, "id" | "name">): PsychometricsSlice {
   return {
+    conditions: {},
     alpha: 0.84,
     reliabilityGap: null,
     sem: 2.1,
@@ -65,13 +66,13 @@ describe("PsychometricsCompare", () => {
     render(<PsychometricsCompare slices={[...TWO, slice({ id: "s3", name: "Сервис" })]} />);
 
     expect(screen.queryByText("Разница")).toBeNull();
-    expect(screen.getByText(/разница считается только при двух срезах/)).toBeTruthy();
+    expect(screen.getByText(/Разница считается только при двух срезах/)).toBeTruthy();
   });
 
   it("сравнивает трудность ПО ЗАДАНИЯМ", () => {
     render(<PsychometricsCompare slices={TWO} />);
 
-    expect(screen.getByText("Трудность по заданиям")).toBeTruthy();
+    expect(screen.getByText("Трудность заданий")).toBeTruthy();
     expect(screen.getByText("Первое задание")).toBeTruthy();
   });
 
@@ -91,6 +92,27 @@ describe("PsychometricsCompare", () => {
     render(<PsychometricsCompare slices={[TWO[0], thin]} />);
 
     expect(screen.getByText("не посчитана")).toBeTruthy();
+  });
+
+  // Эскиз prd66-item-quality, состояние compare (задача 3.4 плана сверки).
+  it("под именем среза в заголовке колонки — число прохождений в расчёте", () => {
+    render(<PsychometricsCompare slices={[TWO[0], slice({ id: "s2", name: "Опт", respondents: 272 })]} />);
+
+    expect(screen.getAllByText("120 прохождений").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("272 прохождения").length).toBeGreaterThan(0);
+  });
+
+  it("строки «Участников в расчёте» нет: объём стоит в заголовке колонки", () => {
+    render(<PsychometricsCompare slices={TWO} />);
+    expect(screen.queryByText("Участников в расчёте")).toBeNull();
+  });
+
+  it("«Заданий под подозрением» — числом, без «из N»", () => {
+    render(<PsychometricsCompare slices={TWO} />);
+
+    const row = screen.getByText("Заданий под подозрением").closest("tr")!;
+    expect(within(row).getByText("5")).toBeTruthy();
+    expect(within(row).queryByText(/из 42/)).toBeNull();
   });
 
   it("одного среза для сравнения мало — так и говорит", () => {
