@@ -139,6 +139,24 @@ export function participantKey(name: string, org: string, unit: string, position
   return createHmac("sha256", secret).update(material).digest("hex");
 }
 
+/** Вид `external_id`, который даёт {@link participantKey}: 64 шестнадцатеричных знака в нижнем регистре. */
+const OWN_EXTERNAL_ID = /^[0-9a-f]{64}$/;
+
+/**
+ * Похож ли `external_id` на построенный НАШИМ алгоритмом (PRD-66 FR-43).
+ *
+ * Скрипт обезличивания обязан выдавать ровно то же, что {@link participantKey} (PRD-54 BR-54-22),
+ * поэтому значение другого вида — `ext-1`, табельный номер, UUID, тот же хеш в верхнем регистре —
+ * ЗАВЕДОМО построено иначе. Обратное неверно: чужой HMAC-SHA256 с другим секретом тоже даст 64
+ * знака, и такой случай этой проверкой не ловится — это её осознанное слепое пятно.
+ *
+ * @param key значение `participant_key` импортированного прохождения
+ * @returns `true`, если вид совпадает с нашим
+ */
+export function hasOwnExternalIdFormat(key: string): boolean {
+  return OWN_EXTERNAL_ID.test(key);
+}
+
 /**
  * True when a stored hash is a legacy bcrypt value (`$2a$`/`$2b$`/`$2y$`) rather
  * than the current scrypt format (`scrypt$…`). Callers use it to route verification

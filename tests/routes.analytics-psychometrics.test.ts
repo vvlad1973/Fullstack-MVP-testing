@@ -123,41 +123,76 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(res.body.items[0]).toMatchObject({ questionId: "q1", declaredDifficulty: 40 });
   });
 
-  it("замечает смешение сырых и предобезличенных выгрузок (FR-43)", async () => {
-    // Ключи участников в этих файлах считаются по-разному: сырой хешируется нами, а
-    // предобезличенный несёт готовый псевдоним чужого инструмента. Один человек получает два
-    // ключа, считается дважды, и число респондентов завышено — молчать об этом нельзя.
-    storageMock.getLmsImportBatches.mockResolvedValue([
-      { id: "b1", testId: "test1", counted: true, sourceAnonymized: false },
-      { id: "b2", testId: "test1", counted: true, sourceAnonymized: true },
-    ]);
+  describe("ключи участников, построенные разными алгоритмами (FR-43)", () => {
+    /** `external_id` нашего вида: 64 шестнадцатеричных знака в нижнем регистре. */
+    const OWN = (n: number) => String(n).repeat(64).slice(0, 64);
 
-    const res = await ask();
+    /**
+     * Выборка из прохождений LMS с заданными ключами.
+     *
+     * @param keys ключ участника либо пара «ключ, источник»; по умолчанию источник — импорт
+     */
+    function importedWith(keys: Array<string | [string, "import" | "telemetry"]>) {
+      const lms = keys.map((entry, i) => {
+        const [participantKey, origin] = typeof entry === "string" ? [entry, "import"] : entry;
+        return {
+          id: `l${i}`, packageId: null, testId: "test1", origin, userId: null,
+          participantKey, groupId: null, lmsUserName: null, lmsUserId: null,
+          resultPercent: null, resultPassed: null, maxPoints: null, totalPoints: null,
+          startedAt: new Date("2026-09-01T10:00:00Z"), finishedAt: new Date("2026-09-01T10:00:00Z"),
+        };
+      });
+      storageMock.selectObservations.mockResolvedValue({
+        web: [], lms, order: lms.map(r => ({ id: r.id, source: r.origin })), total: lms.length,
+      });
+    }
 
-    expect(res.body.bias.mixedAnonymity).toBe(true);
-  });
+    it("ключ нашего вида рядом с заведомо чужим — это смешение", async () => {
+      // Чужой вид значит чужой алгоритм: один человек мог получить в двух файлах два ключа,
+      // считается дважды, и число респондентов завышено — молчать об этом нельзя.
+      importedWith([OWN(1), "ext-1"]);
 
-  it("партия, снятая с учёта, в смешение не засчитывается (FR-12)", async () => {
-    // Снятая партия не участвует в числах вовсе, поэтому и двойного счёта от неё нет.
-    storageMock.getLmsImportBatches.mockResolvedValue([
-      { id: "b1", testId: "test1", counted: true, sourceAnonymized: false },
-      { id: "b2", testId: "test1", counted: false, sourceAnonymized: true },
-    ]);
+      const res = await ask();
 
-    const res = await ask();
+      expect(res.body.bias.mixedAnonymity).toBe(true);
+    });
 
-    expect(res.body.bias.mixedAnonymity).toBe(false);
-  });
+    it("файлы с колонкой external_id и без неё при одном алгоритме смешением НЕ считаются", async () => {
+      // Скрипт обезличивания и импорт считают ключ одинаково (PRD-54 BR-54-22): это законное
+      // сочетание, и прежний признак по флажку партии давал здесь ложную тревогу.
+      importedWith([OWN(1), OWN(2)]);
 
-  it("выгрузки одного вида смешением не считаются", async () => {
-    storageMock.getLmsImportBatches.mockResolvedValue([
-      { id: "b1", testId: "test1", counted: true, sourceAnonymized: true },
-      { id: "b2", testId: "test1", counted: true, sourceAnonymized: true },
-    ]);
+      const res = await ask();
 
-    const res = await ask();
+      expect(res.body.bias.mixedAnonymity).toBe(false);
+    });
 
-    expect(res.body.bias.mixedAnonymity).toBe(false);
+    it("одни чужие ключи смешением не считаются: алгоритм у них один", async () => {
+      importedWith(["ext-1", "ext-2"]);
+
+      const res = await ask();
+
+      expect(res.body.bias.mixedAnonymity).toBe(false);
+    });
+
+    it("тот же хеш в верхнем регистре — уже чужой вид", async () => {
+      // Сравнение ключей точное: `ABC…` и `abc…` — два разных участника.
+      importedWith(["a".repeat(64), "A".repeat(64)]);
+
+      const res = await ask();
+
+      expect(res.body.bias.mixedAnonymity).toBe(true);
+    });
+
+    it("телеметрия в признаке не участвует", async () => {
+      // У телеметрии своя идентичность (`learner_id`), `external_id` она не несёт.
+      // Ключ нашего вида у импорта и «чужой» у телеметрии смешения не дают.
+      importedWith([OWN(1), ["whatever", "telemetry"]]);
+
+      const res = await ask();
+
+      expect(res.body.bias.mixedAnonymity).toBe(false);
+    });
   });
 
   it("доносит прогноз длины теста до экрана (FR-22)", async () => {

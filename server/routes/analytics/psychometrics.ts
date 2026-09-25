@@ -41,6 +41,7 @@ import { computeScalePsychometrics } from "../../services/analytics/scale-psycho
 import { toMeasurementSpecs } from "../../services/scale-domain";
 import { loadTestScoringContext } from "../../services/effective-scoring";
 import { addAoaSheet, workbookToBuffer } from "../../utils/excel";
+import { hasOwnExternalIdFormat } from "../../utils/crypto";
 import type { ObservationFilter, ObservationSource } from "../../services/analytics/observations";
 import { analyticsScope } from "./helpers";
 
@@ -209,6 +210,32 @@ function deliveryIsUneven(
   });
 }
 
+/**
+ * Смешаны ли в выборке `external_id`, построенные РАЗНЫМИ алгоритмами (PRD-66 FR-43).
+ *
+ * Один человек попадает в выборку дважды, только если его ключи в двух файлах построены
+ * по-разному. Смешение файлов с колонкой `external_id` и без неё само по себе этого НЕ значит:
+ * скрипт обезличивания и импорт считают ключ одним алгоритмом (PRD-54 BR-54-22). Поэтому признак —
+ * соседство ключей нашего вида и ключей заведомо чужого вида среди импортированных наблюдений.
+ * Смотрится сама выборка, а не флажки партий: снятые с учёта партии в неё уже не попали, а фильтр
+ * по группе или периоду может убрать одну из сторон смешения.
+ *
+ * @param observations наблюдения выборки
+ */
+function mixesKeyAlgorithms(
+  observations: ReadonlyArray<{ source: string; participantKey: string | null }>,
+): boolean {
+  let own = false;
+  let foreign = false;
+  for (const observation of observations) {
+    if (observation.source !== "import" || !observation.participantKey) continue;
+    if (hasOwnExternalIdFormat(observation.participantKey)) own = true;
+    else foreign = true;
+    if (own && foreign) return true;
+  }
+  return false;
+}
+
 /** Проходной балл теста в долях; `null` — тест ничего не объявляет. */
 function cutRatioOf(rule: unknown): number | null {
   const parsed = rule as { type?: string; value?: number } | null;
@@ -282,13 +309,10 @@ router.get(
           bias: {
             unevenDelivery: deliveryIsUneven(test.mode, sections),
             importShare,
-            // FR-43: среди УЧТЁННЫХ партий есть и сырые, и предобезличенные. Ключ участника в
-            // них считается по-разному — свой хеш против готового псевдонима чужого
-            // инструмента, — поэтому один человек получает два ключа, попадает в выборку
-            // дважды и завышает число респондентов. Снятая с учёта партия в счёт не идёт:
-            // её строк в числах нет вовсе.
-            mixedAnonymity: batches.some(b => b.counted && b.sourceAnonymized)
-              && batches.some(b => b.counted && !b.sourceAnonymized),
+            // FR-43: в выборке соседствуют `external_id` нашего вида и заведомо чужого — один
+            // человек мог получить два ключа и завысить число респондентов. Имя поля осталось
+            // прежним, чтобы не трогать контракт ответа ради одного названия.
+            mixedAnonymity: mixesKeyAlgorithms(matrix.observations),
           },
         };
       });
