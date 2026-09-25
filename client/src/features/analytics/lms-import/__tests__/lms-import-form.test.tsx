@@ -100,6 +100,59 @@ describe("<LmsImportForm /> — учёт загрузки в расчётах (P
   });
 });
 
+describe("<LmsImportForm /> — окно до выбора файла (эскиз prd54-lms-import, состояние «в окне»)", () => {
+  function renderEmpty(props: { fixedTestId?: string; onCancel?: () => void } = {}) {
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <LmsImportForm {...props} />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("до файла видна вся форма: загрузчик, группа, связывание и кнопки", async () => {
+    renderEmpty({ fixedTestId: "t1", onCancel: () => {} });
+
+    expect(screen.getByText("Перетащите файл .xlsx или выберите")).toBeInTheDocument();
+    expect(screen.getByText("Группа")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Связать с пользователями по ключу/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Отмена" })).toBeInTheDocument();
+    // Проверять и импортировать нечего, пока файла нет.
+    expect(screen.getByRole("button", { name: "Проверить" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Импортировать" })).toBeDisabled();
+  });
+
+  it("на странице теста загрузки видны сразу — переключить учёт можно, ничего не загружая", async () => {
+    renderEmpty({ fixedTestId: "t1" });
+
+    expect(await screen.findAllByRole("checkbox", { name: "В расчётах" })).toHaveLength(2);
+    expect(screen.getByText("Загрузки этого теста")).toBeInTheDocument();
+  });
+
+  it("где тест определяется по файлу, списка до файла нет: показывать нечего", () => {
+    renderEmpty();
+
+    expect(screen.queryByText("Загрузки этого теста")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/lms-import/batches/"), expect.anything());
+  });
+
+  it("«Отмена» закрывает окно у хоста", () => {
+    const onCancel = vi.fn();
+    renderEmpty({ fixedTestId: "t1", onCancel });
+
+    fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("в окне кнопки стоят последними, под списком загрузок — как подвал окна", async () => {
+    renderEmpty({ fixedTestId: "t1", onCancel: () => {} });
+    await screen.findAllByRole("checkbox", { name: "В расчётах" });
+
+    const list = screen.getByText("Загрузки этого теста");
+    const importButton = screen.getByRole("button", { name: "Импортировать" });
+    expect(list.compareDocumentPosition(importButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe("<LmsImportForm /> — план загрузки", () => {
   it("счётчики плана читаются как прогноз в одной форме", async () => {
     renderForm();

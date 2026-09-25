@@ -96,6 +96,12 @@ export interface LmsImportFormProps {
    * СВОЙ: форма чужое состояние не чистит, и без этого «Загрузить ещё» ничего бы не меняло.
    */
   onReset?: () => void;
+  /**
+   * Закрыть окно, в котором открыта форма. Задан — значит, форма живёт в `ModalDialog`: тогда
+   * внизу появляется «Отмена», а кнопки идут последними, под списком загрузок, как подвал окна
+   * в эскизе. Встроенная форма экрана «Импорт» его не передаёт.
+   */
+  onCancel?: () => void;
 }
 
 /** Килобайты файла для подписи под именем. */
@@ -121,7 +127,7 @@ function plural(n: number, forms: [string, string, string]): string {
   return `${n} ${forms[2]}`;
 }
 
-export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestId, onDone, onReset }: LmsImportFormProps) {
+export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestId, onDone, onReset, onCancel }: LmsImportFormProps) {
   const { toast } = useToast();
 
   const [ownFile, setOwnFile] = useState<File | null>(null);
@@ -137,11 +143,17 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
   const inspect = hostInspect ?? ownInspect;
   const testId = inspect?.testId ?? null;
   const mismatch = !!fixedTestId && !!testId && fixedTestId !== testId;
+  /**
+   * Чьи загрузки показывать. Тест, заданный страницей, известен ДО выбора файла: снять загрузку
+   * с учёта (PRD-66 FR-12) можно, ничего не загружая. Где тест определяется по файлу, до файла
+   * списка нет — показывать нечего.
+   */
+  const batchesTestId = testId ?? fixedTestId ?? null;
 
   const groups = useQuery<Array<{ id: string; name: string }>>({ queryKey: ["/api/groups"] });
   const batches = useQuery<Batch[]>({
-    queryKey: [`/api/analytics/lms-import/batches/${testId}`],
-    enabled: !!testId && !mismatch,
+    queryKey: [`/api/analytics/lms-import/batches/${batchesTestId}`],
+    enabled: !!batchesTestId && !mismatch,
   });
 
   /** Тело запроса: и сухой прогон, и импорт отправляют одно и то же. */
@@ -237,29 +249,29 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     onReset?.();
   }
 
-  // ── Пусто: собственный загрузчик ─────────────────────────────────────────
-  if (!file) {
-    return (
-      <FileUploader
-        accept=".xlsx"
-        onFiles={(files) => {
-          const f = files[0];
-          if (!f) return;
-          setOwnFile(f);
-          inspectMut.mutate(f);
-        }}
-      >
-        <span className="ou-uploader__icon" aria-hidden="true"><Upload size={24} /></span>
-        <span className="ou-uploader__title">Перетащите файл .xlsx или выберите</span>
-        <span className="ou-uploader__sub">
-          {fixedTestId ? "Только выгрузка отчёта LMS этого теста" : "Выгрузка отчёта LMS — вид определяется автоматически"}
-        </span>
-        <Button variant="secondary" size="s" type="button" tabIndex={-1}>Выбрать файл</Button>
-      </FileUploader>
-    );
-  }
+  // ── Пусто: собственный загрузчик на месте строки файла ───────────────────
+  // Остальная форма видна и до файла (эскиз, состояние «в окне»): человек сразу видит, что его
+  // ждёт, а на странице теста — ещё и загрузки, которые можно снять с учёта.
+  const uploader = (
+    <FileUploader
+      accept=".xlsx"
+      onFiles={(files) => {
+        const f = files[0];
+        if (!f) return;
+        setOwnFile(f);
+        inspectMut.mutate(f);
+      }}
+    >
+      <span className="ou-uploader__icon" aria-hidden="true"><Upload size={24} /></span>
+      <span className="ou-uploader__title">Перетащите файл .xlsx или выберите</span>
+      <span className="ou-uploader__sub">
+        {fixedTestId ? "Только выгрузка отчёта LMS этого теста" : "Выгрузка отчёта LMS — вид определяется автоматически"}
+      </span>
+      <Button variant="secondary" size="s" type="button" tabIndex={-1}>Выбрать файл</Button>
+    </FileUploader>
+  );
 
-  const fileRow = (
+  const fileRow = file && (
     <FileItem
       name={file.name}
       meta={plan || done ? "запись ещё не выполнена" : `выгрузка отчёта LMS · ${inspect ? plural(inspect.rows, ["строка", "строки", "строк"]) : "…"} · ${formatKb(file.size)}`}
@@ -343,9 +355,41 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     ...(groups.data ?? []).map((g) => ({ value: g.id, label: g.name })),
   ];
 
+  /**
+   * «Проверить» и «Импортировать». Без файла проверять нечего, поэтому обе заблокированы. В окне
+   * (задан `onCancel`) к ним добавляется «Отмена», а весь блок встаёт последним — под список
+   * загрузок, как подвал окна в эскизе; на встроенном экране «Импорт» он стоит перед списком.
+   */
+  const actions = (
+    <Cluster justify="end" gap={2}>
+      {onCancel ? (
+        <Button variant="ghost" onClick={onCancel} disabled={runMut.isPending}>Отмена</Button>
+      ) : null}
+      <Button
+        variant="secondary"
+        onClick={() => dryMut.mutate()}
+        loading={dryMut.isPending}
+        disabled={!file || runMut.isPending || (group === NEW_GROUP && !newGroupName.trim())}
+        title={!file ? "Сначала выберите файл" : undefined}
+      >
+        Проверить
+      </Button>
+      {/* «Импортировать» до проверки заблокирована намеренно: план — единственное место, где
+          предупреждения видны ДО записи, и пропустить его значит записать вслепую. */}
+      <Button
+        onClick={() => runMut.mutate()}
+        loading={runMut.isPending}
+        disabled={!plan || (group === NEW_GROUP && !newGroupName.trim())}
+        title={!file ? "Сначала выберите файл" : !plan ? "Сначала проверьте файл" : undefined}
+      >
+        Импортировать
+      </Button>
+    </Cluster>
+  );
+
   return (
     <Stack gap={3}>
-      {fileRow}
+      {file ? fileRow : uploader}
 
       {inspect && (
         <Banner
@@ -420,28 +464,9 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
         <Banner tone="error" title="Проверка не выполнена" description={(dryMut.error as Error).message} />
       )}
 
-      <Cluster justify="end" gap={2}>
-        <Button
-          variant="secondary"
-          onClick={() => dryMut.mutate()}
-          loading={dryMut.isPending}
-          disabled={runMut.isPending || (group === NEW_GROUP && !newGroupName.trim())}
-        >
-          Проверить
-        </Button>
-        {/* «Импортировать» до проверки заблокирована намеренно: план — единственное место, где
-            предупреждения видны ДО записи, и пропустить его значит записать вслепую. */}
-        <Button
-          onClick={() => runMut.mutate()}
-          loading={runMut.isPending}
-          disabled={!plan || (group === NEW_GROUP && !newGroupName.trim())}
-          title={!plan ? "Сначала проверьте файл" : undefined}
-        >
-          Импортировать
-        </Button>
-      </Cluster>
+      {onCancel ? null : actions}
 
-      {testId && (
+      {batchesTestId && (
         <Stack gap={2}>
           <Text variant="body-s" weight="medium">Загрузки этого теста</Text>
           {(batches.data ?? []).length === 0 ? (
@@ -486,6 +511,8 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
           )}
         </Stack>
       )}
+
+      {onCancel ? actions : null}
     </Stack>
   );
 }

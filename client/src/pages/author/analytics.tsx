@@ -1342,7 +1342,7 @@ export default function AnalyticsPage() {
         title="Загрузка выгрузки LMS"
         description="Тест определяется по самому файлу"
       >
-        <LmsImportForm onDone={() => window.location.reload()} />
+        <LmsImportForm onDone={() => window.location.reload()} onCancel={() => setLmsImportOpen(false)} />
       </ModalDialog>
 
       {/* Табы */}

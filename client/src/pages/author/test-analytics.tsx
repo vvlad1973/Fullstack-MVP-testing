@@ -634,6 +634,7 @@ export default function TestAnalyticsPage() {
                 <LmsImportForm
                     fixedTestId={testId}
                     onDone={() => invalidateAnalytics(queryClient)}
+                    onCancel={() => setLmsImportOpen(false)}
                 />
             </ModalDialog>
 
