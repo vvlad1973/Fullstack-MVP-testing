@@ -371,7 +371,7 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
             <Tag tone="success" variant="outline" size="s">Добавится: {plan.rowsCreated}</Tag>
             <Tag variant="outline" size="s">Обновится: {plan.rowsUpdated}</Tag>
             <Tag tone={plan.rowsSkipped > 0 ? "warning" : undefined} variant="outline" size="s">
-              Пропустится: {plan.rowsSkipped}
+              Будет пропущено: {plan.rowsSkipped}
             </Tag>
             <Tag variant="outline" size="s">Свяжется: {plan.rowsLinked}</Tag>
           </Cluster>
