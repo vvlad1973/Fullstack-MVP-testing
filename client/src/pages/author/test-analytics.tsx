@@ -10,7 +10,7 @@
  * `features/analytics/test/*`, здесь остаётся только сборка и запросы: данные «Выдачи» и
  * «Шкал» грузятся своими ручками и ТОЛЬКО на своей вкладке.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { PassTrend } from "@/features/analytics/test/pass-trend";
 import { ScoreDistribution } from "@/features/analytics/test/score-distribution";
 import { QuestionTable } from "@/features/analytics/test/question-table";
@@ -51,7 +51,6 @@ import {
     EmptyState,
     FilterBar,
     Grid,
-    IconButton,
     ModalDialog,
     Stack,
     Tabs,
@@ -59,6 +58,7 @@ import {
     Text,
 } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
+import { pluralize } from "@/lib/i18n";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
 import { RegistryFilterDialog } from "@/features/analytics/registry/filter-dialog";
 import {
@@ -72,17 +72,12 @@ import { useRegistryDictionaries, useTestDictionary } from "@/features/analytics
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import {
     ArrowLeft,
-    Users,
-    Target,
-    Clock,
-    TrendingUp,
-    BarChart3,
-    FileText,
     HelpCircle,
     Layers,
     FileSpreadsheet,
     Upload,
     ChevronRight,
+    RefreshCw,
 } from "lucide-react";
 
 // Types
@@ -110,6 +105,8 @@ interface TestAnalytics {
          */
         avgPercent: number | null;
         avgDuration: number | null;
+        /** Медиана длительности, секунды: плитка «Время, медиана» (эскиз обзора). */
+        medianDuration?: number | null;
         passRate: number | null;
         avgScore: number | null;
         maxScore: number;
@@ -227,8 +224,28 @@ interface DeliveryAnalytics {
  */
 const FIRST_ATTEMPT_CHIP = "first-attempt-only";
 
-function formatPercent(percent: number | null): string {
-    return percent === null ? "—" : `${percent.toFixed(1)}%`;
+/** Процент на плитке обзора — целым, как в эскизе: «79 %». */
+function tilePercent(percent: number | null): string {
+    return percent === null ? "—" : `${Math.round(percent)} %`;
+}
+
+/** Названия источников для подзаголовка шапки. */
+const SOURCE_NAMES: Record<string, string> = {
+    web: "веб",
+    telemetry: "телеметрия LMS",
+    import: "импортированные выгрузки",
+};
+
+/**
+ * Источники, по которым посчитана страница, — словами, как в эскизе: «веб, телеметрия LMS и
+ * импортированные выгрузки». Отбор по источнику сужает перечень, а не прячет его.
+ */
+function sourcesLabel(sources: readonly string[]): string {
+    const names = (sources.length ? sources : ["web", "telemetry", "import"])
+        .map(source => SOURCE_NAMES[source] ?? source);
+    return names.length > 1
+        ? `${names.slice(0, -1).join(", ")} и ${names[names.length - 1]}`
+        : names[0];
 }
 
 function formatDuration(seconds: number | null): string {
@@ -461,8 +478,43 @@ export default function TestAnalyticsPage() {
      */
     const thresholdPercent = analytics.thresholdPercent ?? null;
 
+    /**
+     * Плитки сводки — на «Обзоре», а не над вкладками (эскиз prd56-test-analytics, состояние
+     * overview; план сверки, 5.1). Над вкладками они стояли на каждой из них, и на «Качестве
+     * заданий» к ним добавлялись свои четыре: девять чисел подряд, из которых половина к вкладке
+     * отношения не имеет. Четыре однородные величины, время — медианой: среднее тянут
+     * брошенные и забытые открытыми вкладки.
+     */
+    const summaryTiles: Array<{ value: string; label: string; hint?: string }> = [
+        { value: String(summary.completedAttempts), label: "Прохождений" },
+        {
+            value: tilePercent(summary.passRate),
+            label: "Сдали",
+            ...(summary.passRate === null ? { hint: "вердикт не выносится" } : {}),
+        },
+        {
+            value: tilePercent(summary.avgPercent),
+            label: "Средний результат",
+            ...(summary.avgPercent === null ? { hint: "тест не оценивает ответы" } : {}),
+        },
+        { value: formatDuration(summary.medianDuration ?? null), label: "Время, медиана" },
+    ];
+
     const overviewPanel = (
         <Stack gap={5}>
+            <Grid minItem="sm" gap={1}>
+                {summaryTiles.map(tile => (
+                    <Card key={tile.label} variant="outlined">
+                        <CardBody>
+                            <Stack gap={1} align="center">
+                                <Text variant="display-s" weight="bold">{tile.value}</Text>
+                                <Text variant="body-s" tone="muted">{tile.label}</Text>
+                                {tile.hint ? <Text variant="body-xs" tone="subtle">{tile.hint}</Text> : null}
+                            </Stack>
+                        </CardBody>
+                    </Card>
+                ))}
+            </Grid>
             {/*
               PRD-56 FR-13, FR-13a, FR-14: три блока обзора, и каждый отвечает на свой вопрос —
               как результаты легли относительно порога, где тяжёлые темы и что меняется со
@@ -619,35 +671,103 @@ export default function TestAnalyticsPage() {
         </Stack>
     );
 
+    /**
+     * PRD-56 FR-13, FR-31: один фильтр на экран, и стоит он ПОД вкладками, над их содержимым
+     * (эскизы prd56-test-analytics и prd66-item-quality: шапка, вкладки, фильтр). Всё, что
+     * ниже, посчитано по отобранному. Условия те же, что в реестре, минус тест: он задан
+     * страницей.
+     */
+    const filterBar = (
+        <FilterBar
+            count={countConditions({ ...filter, testIds: [] }) + (showsAttemptChip ? 1 : 0)}
+            applied={[
+                ...describeConditions(
+                  { ...filter, testIds: [] },
+                  { ...dictionaries, ...testDictionary },
+                ),
+                // FR-51: снимается крестиком; путь назад — кнопка в предупреждении вкладки.
+                ...(showsAttemptChip ? [{ id: FIRST_ATTEMPT_CHIP, label: "Только первая попытка" }] : []),
+            ]}
+            // FR-04b, эскиз: вход в сравнение срезов — рядом с фильтром, потому что
+            // сравнение и есть несколько фильтров рядом. Только на «Качестве заданий» и
+            // только вне режима: внутри него выход — переключатель в шапке карточки.
+            actions={activeTab === "quality" && qualityMode === "sample" ? (
+                <Button
+                    variant="ghost"
+                    size="s"
+                    trailingIcon={<ChevronRight size={14} />}
+                    onClick={() => { setBreakdownId(null); setQualityMode("compare"); }}
+                >
+                    Сравнить срезы
+                </Button>
+            ) : undefined}
+            onOpenFilter={() => setFilterOpen(true)}
+            onRemove={(id: string) => {
+                const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
+                if (id === FIRST_ATTEMPT_CHIP) {
+                    setFirstAttemptOnly(false);
+                } else if (kind === "group") {
+                    setFilter({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
+                } else if (kind === "source") {
+                    setFilter({ ...filter, sources: filter.sources.filter(x => x !== value) });
+                } else if (kind === "outcome") {
+                    setFilter({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
+                } else if (kind === "form") {
+                    setFilter({ ...filter, formIds: filter.formIds.filter(x => x !== value) });
+                } else if (kind === "snapshot") {
+                    setFilter({ ...filter, snapshotIds: filter.snapshotIds.filter(x => x !== value) });
+                } else if (id === "period") {
+                    setFilter({ ...filter, from: undefined, to: undefined });
+                }
+            }}
+            // Сброс возвращает умолчания — а умолчание психометрики «первая попытка».
+            onReset={() => { setFilter(EMPTY_FILTER); setFirstAttemptOnly(true); }}
+            resetLabel="Сбросить фильтры"
+        />
+    );
+
+    /** Содержимое вкладки под общим фильтром. */
+    const underFilter = (content: ReactNode) => (
+        <Stack gap={4}>
+            {filterBar}
+            {content}
+        </Stack>
+    );
+
     return (
         <Stack gap={6}>
-            {/* Header */}
-            <Cluster justify="between">
-                <Cluster gap={4}>
+            {/*
+              Шапка по эскизу (prd56-test-analytics, шаблон wf-head-tpl): возврат к тестам над
+              названием, под ним — объём и источники, по которым посчитана страница. Справа
+              кнопки PRD-54 (эскиз prd54-lms-import ставит загрузку рядом с экспортом), затем
+              переход в реестр и «Обновить».
+            */}
+            {/* Кнопки держатся справа, как в эскизе: при нехватке места переносится подзаголовок и
+                сами кнопки — вторым рядом справа, а не под название. */}
+            <Cluster justify="between" align="start" wrap={false}>
+                <Stack gap={1} align="start">
                     <Link href="/author/tests">
-                        <IconButton variant="ghost" aria-label="Назад к тестам" icon={<ArrowLeft size={20} />} />
+                        <Button variant="ghost" size="s" leadingIcon={<ArrowLeft size={16} />}>
+                            Все тесты
+                        </Button>
                     </Link>
-                    <Stack gap={1}>
-                        <Text as="h1" variant="display-s" weight="semibold">{analytics.testTitle}</Text>
-                        <Cluster gap={2}>
-                            <Text tone="muted">Аналитика</Text>
-                            <Tag tone={analytics.testMode === "adaptive" ? "accent" : "neutral"}>
-                                {analytics.testMode === "adaptive" ? "Адаптивный" : "Стандартный"}
-                            </Tag>
-                        </Cluster>
-                    </Stack>
-                </Cluster>
-                <Cluster gap={2}>
+                    <Text as="h1" variant="heading-l">{analytics.testTitle}</Text>
+                    <Text tone="muted">
+                        {`${summary.completedAttempts} ${pluralize(summary.completedAttempts, "завершённое прохождение", "завершённых прохождения", "завершённых прохождений")} · ${sourcesLabel(filter.sources)}`}
+                    </Text>
+                </Stack>
+                <Cluster gap={2} justify="end">
                     {/* PRD-54: третья точка входа. Тест здесь ЗАДАН страницей, поэтому файл
                         чужого теста форма отвергнет — см. `fixedTestId`. */}
                     <Button
                         variant="secondary"
+                        size="s"
                         leadingIcon={<Upload size={16} />}
                         onClick={() => setLmsImportOpen(true)}
                     >
                         Загрузить выгрузку LMS
                     </Button>
-                    <Button onClick={handleExportExcel} variant="secondary" leadingIcon={<FileSpreadsheet size={16} />}>
+                    <Button onClick={handleExportExcel} variant="secondary" size="s" leadingIcon={<FileSpreadsheet size={16} />}>
                         Экспорт Excel
                     </Button>
                     {/*
@@ -656,10 +776,18 @@ export default function TestAnalyticsPage() {
                       Два списка на продукт означали бы два ответа на вопрос «кто проходил».
                     */}
                     <Link href={`/author/analytics?testId=${testId}`}>
-                        <Button variant="secondary" size="s" leadingIcon={<FileText size={16} />}>
+                        <Button variant="secondary" size="s" trailingIcon={<ChevronRight size={16} />}>
                             Прохождения в реестре
                         </Button>
                     </Link>
+                    <Button
+                        variant="ghost"
+                        size="s"
+                        leadingIcon={<RefreshCw size={16} />}
+                        onClick={() => invalidateAnalytics(queryClient)}
+                    >
+                        Обновить
+                    </Button>
                 </Cluster>
             </Cluster>
 
@@ -676,58 +804,6 @@ export default function TestAnalyticsPage() {
                 />
             </ModalDialog>
 
-            {/*
-              PRD-56 FR-13, FR-31: один фильтр на экран, и он стоит НАД плитками — всё, что
-              ниже, посчитано по отобранному. Условия те же, что в реестре, минус тест: он
-              задан страницей (эскиз prd56-test-analytics.html, шаблон wf-filter-tpl).
-            */}
-            <FilterBar
-                count={countConditions({ ...filter, testIds: [] }) + (showsAttemptChip ? 1 : 0)}
-                applied={[
-                    ...describeConditions(
-                      { ...filter, testIds: [] },
-                      { ...dictionaries, ...testDictionary },
-                    ),
-                    // FR-51: снимается крестиком; путь назад — кнопка в предупреждении вкладки.
-                    ...(showsAttemptChip ? [{ id: FIRST_ATTEMPT_CHIP, label: "Только первая попытка" }] : []),
-                ]}
-                // FR-04b, эскиз: вход в сравнение срезов — рядом с фильтром, потому что
-                // сравнение и есть несколько фильтров рядом. Только на «Качестве заданий» и
-                // только вне режима: внутри него выход — переключатель в шапке карточки.
-                actions={activeTab === "quality" && qualityMode === "sample" ? (
-                    <Button
-                        variant="ghost"
-                        size="s"
-                        trailingIcon={<ChevronRight size={14} />}
-                        onClick={() => { setBreakdownId(null); setQualityMode("compare"); }}
-                    >
-                        Сравнить срезы
-                    </Button>
-                ) : undefined}
-                onOpenFilter={() => setFilterOpen(true)}
-                onRemove={(id: string) => {
-                    const [kind, value] = [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)];
-                    if (id === FIRST_ATTEMPT_CHIP) {
-                        setFirstAttemptOnly(false);
-                    } else if (kind === "group") {
-                        setFilter({ ...filter, groupIds: filter.groupIds.filter(x => x !== value) });
-                    } else if (kind === "source") {
-                        setFilter({ ...filter, sources: filter.sources.filter(x => x !== value) });
-                    } else if (kind === "outcome") {
-                        setFilter({ ...filter, outcomes: filter.outcomes.filter(x => x !== value) });
-                    } else if (kind === "form") {
-                        setFilter({ ...filter, formIds: filter.formIds.filter(x => x !== value) });
-                    } else if (kind === "snapshot") {
-                        setFilter({ ...filter, snapshotIds: filter.snapshotIds.filter(x => x !== value) });
-                    } else if (id === "period") {
-                        setFilter({ ...filter, from: undefined, to: undefined });
-                    }
-                }}
-                // Сброс возвращает умолчания — а умолчание психометрики «первая попытка».
-                onReset={() => { setFilter(EMPTY_FILTER); setFirstAttemptOnly(true); }}
-                resetLabel="Сбросить фильтры"
-            />
-
             <RegistryFilterDialog
                 open={filterOpen}
                 filter={filter}
@@ -737,68 +813,19 @@ export default function TestAnalyticsPage() {
                 onClose={() => setFilterOpen(false)}
             />
 
-            {/* Summary Cards */}
-            <Grid minItem="sm" gap={1}>
-                <Card>
-                    <CardHeader title="Попытки" trail={<Users size={16} color="var(--ou-fg-muted)" />} />
-                    <CardBody>
-                        <Text variant="display-s" weight="bold">{summary.completedAttempts}</Text>
-                        <Text as="p" variant="body-xs" tone="muted">{summary.uniqueUsers} уникальных пользователей</Text>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader title="Средний балл" trail={<TrendingUp size={16} color="var(--ou-fg-muted)" />} />
-                    <CardBody>
-                        <Text variant="display-s" weight="bold">{formatPercent(summary.avgPercent)}</Text>
-                        <Text as="p" variant="body-xs" tone="muted">
-                            {summary.avgScore === null
-                                ? "тест не оценивает ответы"
-                                : `${summary.avgScore.toFixed(1)} из ${summary.maxScore} баллов`}
-                        </Text>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader title="Прохождение" trail={<Target size={16} color="var(--ou-fg-muted)" />} />
-                    <CardBody>
-                        <Text variant="display-s" weight="bold">{formatPercent(summary.passRate)}</Text>
-                        <Text as="p" variant="body-xs" tone="muted">
-                            {summary.passRate === null ? "вердикт не выносится" : "успешно сдали тест"}
-                        </Text>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader title="Среднее время" trail={<Clock size={16} color="var(--ou-fg-muted)" />} />
-                    <CardBody>
-                        <Text variant="display-s" weight="bold">{formatDuration(summary.avgDuration)}</Text>
-                        <Text as="p" variant="body-xs" tone="muted">на прохождение</Text>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader title="Всего" trail={<BarChart3 size={16} color="var(--ou-fg-muted)" />} />
-                    <CardBody>
-                        <Text variant="display-s" weight="bold">{summary.totalAttempts}</Text>
-                        <Text as="p" variant="body-xs" tone="muted">{summary.totalAttempts - summary.completedAttempts} незавершённых</Text>
-                    </CardBody>
-                </Card>
-            </Grid>
-
             {/* Tabs */}
             <Tabs
                 value={activeTab}
                 onChange={setActiveTab}
                 items={[
-                    { id: "overview", label: "Обзор", content: overviewPanel },
-                    { id: "questions", label: "Вопросы", content: questionsPanel },
+                    { id: "overview", label: "Обзор", content: underFilter(overviewPanel) },
+                    { id: "questions", label: "Вопросы", content: underFilter(questionsPanel) },
                     // PRD-66: пригодность задания как инструмента — отдельный вопрос от того,
                     // что с ним происходит, и потому отдельная вкладка.
                     {
                         id: "quality",
                         label: "Качество заданий",
-                        content: qualityLoading
+                        content: underFilter(qualityLoading
                             ? <LoadingState message="Считаем психометрику..." />
                             : qualityMode === "compare"
                             ? (
@@ -835,17 +862,17 @@ export default function TestAnalyticsPage() {
                                                 : null}
                                         </Stack>
                                     )
-                                    : <EmptyState title="Психометрика недоступна" description="Не удалось посчитать показатели по этому тесту" />,
+                                    : <EmptyState title="Психометрика недоступна" description="Не удалось посчитать показатели по этому тесту" />),
                     },
                     // PRD-56: «Уровни» отдельной вкладкой больше нет — они внутри «Выдачи».
-                    { id: "delivery", label: "Выдача", content: deliveryPanel },
+                    { id: "delivery", label: "Выдача", content: underFilter(deliveryPanel) },
                     // Вкладка есть только у теста со шкалами: оцениваемому тесту без них она
                     // сказать ничего не может, а пустая вкладка читается как поломка.
                     ...(analytics.hasScales
                         ? [{
                             id: "scales",
                             label: "Шкалы",
-                            content: (
+                            content: underFilter(
                                 <ScaleProfilePanel
                                     scales={scaleProfile?.scales ?? []}
                                     observations={scaleProfile?.observations ?? 0}

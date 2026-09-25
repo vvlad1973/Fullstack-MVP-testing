@@ -39,7 +39,7 @@ import TestAnalyticsPage from "../test-analytics";
 
 const baseSummary = () => ({
   totalAttempts: 10, completedAttempts: 8, uniqueUsers: 6,
-  avgPercent: 72.5, avgDuration: 615, passRate: 60, avgScore: 14, maxScore: 20,
+  avgPercent: 72.5, avgDuration: 615, medianDuration: 540, passRate: 60, avgScore: 14, maxScore: 20,
 });
 
 const standardAnalytics = () => ({
@@ -184,18 +184,39 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByRole("button", { name: /Назад к тестам/ })).toBeInTheDocument();
   });
 
-  it("renders the header, standard-mode tag and the summary KPI cards", async () => {
+  // План сверки, 5.1: каркас по эскизам prd56-test-analytics и prd66-item-quality.
+  it("шапка по эскизу: «Все тесты», название, объём и источники, реестр и «Обновить»", async () => {
     await renderLoaded();
-    expect(screen.getByText("Аналитика")).toBeInTheDocument();
-    expect(screen.getByText("Стандартный")).toBeInTheDocument();
-    expect(screen.getAllByText("Попытки").length).toBeGreaterThan(0);
-    for (const label of ["Средний балл", "Прохождение", "Среднее время", "Всего"]) {
+    expect(screen.getByRole("button", { name: "Все тесты" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Тест по финансам" })).toBeInTheDocument();
+    expect(screen.getByText("8 завершённых прохождений · веб, телеметрия LMS и импортированные выгрузки"))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Прохождения в реестре/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Обновить" })).toBeInTheDocument();
+    // PRD-54: загрузка выгрузки стоит рядом с экспортом (эскиз prd54-lms-import).
+    expect(screen.getByRole("button", { name: /Загрузить выгрузку LMS/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Экспорт Excel/ })).toBeInTheDocument();
+  });
+
+  it("четыре плитки сводки — на «Обзоре», время медианой", async () => {
+    await renderLoaded();
+    for (const label of ["Прохождений", "Сдали", "Средний результат", "Время, медиана"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    // Derived footnotes.
-    expect(screen.getByText("6 уникальных пользователей")).toBeInTheDocument();
-    expect(screen.getByText(/из 20 баллов/)).toBeInTheDocument();
-    expect(screen.getByText("2 незавершённых")).toBeInTheDocument();
+    expect(screen.getByText("60 %")).toBeInTheDocument();
+    expect(screen.getByText("73 %")).toBeInTheDocument();
+    expect(screen.getByText("9:00")).toBeInTheDocument();
+  });
+
+  it("на других вкладках плиток сводки нет, а фильтр стоит под вкладками", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByRole("tab", { name: "Вопросы" }));
+
+    await waitFor(() => expect(screen.queryByText("Средний результат")).toBeNull());
+    const filter = document.querySelector(".ou-filterbar")!;
+    const tablist = screen.getByRole("tablist");
+    // Фильтр идёт ПОСЛЕ списка вкладок в порядке документа.
+    expect(tablist.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("renders the overview: charts and per-topic stats", async () => {
@@ -214,14 +235,14 @@ describe("<TestAnalyticsPage />", () => {
   });
 
   it("falls back to empty states across the overview when there is no data", async () => {
-    state.analyticsBody = { ...emptyAnalytics(), summary: { ...baseSummary(), avgDuration: null, completedAttempts: 0 } };
+    state.analyticsBody = { ...emptyAnalytics(), summary: { ...baseSummary(), avgDuration: null, medianDuration: null, completedAttempts: 0 } };
     await renderLoaded();
     // Пустые блоки говорят, ЧЕГО нет, а не «нет данных» вообще: по первому понятно, что
     // прохождений не было, по второму — что читателю думать.
     expect(screen.getAllByText(/Прохождений пока нет/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Разрезов по темам пока нет/)).toBeInTheDocument();
     expect(screen.getByText(/динамику строить не из чего/)).toBeInTheDocument();
-    // avgDuration null → «—» in the KPI card.
+    // medianDuration null → «—» на плитке «Время, медиана».
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
@@ -459,12 +480,11 @@ describe("<TestAnalyticsPage />", () => {
     expect(window.open).toHaveBeenCalledWith("/api/analytics/tests/t1/export/excel", "_blank");
   });
 
-  it("renders the adaptive dashboard: tag, levels inside «Выдача» and per-level stats", async () => {
+  it("renders the adaptive dashboard: levels inside «Выдача» and per-level stats", async () => {
     // PRD-56: отдельной вкладки «Уровни» больше нет — статистика по уровням переехала в
     // «Выдачу», рядом с вариантами и версиями: она о том же, об устройстве выдачи.
     state.analyticsBody = adaptiveAnalytics();
     await renderLoaded();
-    expect(screen.getByText("Адаптивный")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Уровни" })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Выдача" }));
     await waitFor(() => expect(screen.getByText("Базовый")).toBeInTheDocument());
