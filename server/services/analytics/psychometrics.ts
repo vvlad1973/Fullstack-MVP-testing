@@ -135,8 +135,17 @@ export interface TestPsychometrics {
    * выдачи есть задания, которые видели все. `null` — ядра нет либо выдача однородна.
    */
   coreReliability: Reliability | null;
-  /** Ошибка измерения в долях балла; `null` — надёжность не посчиталась. */
+  /**
+   * Ошибка измерения в единицах расчёта — сумме долей балла по вопросам; `null` — надёжность не
+   * посчиталась. На экран идёт `semPercent`.
+   */
   sem: number | null;
+  /**
+   * Та же ошибка в процентных пунктах результата (план сверки 5.3): «4,2 п.п.» автор сопоставляет
+   * с порогом в процентах, а сумма долей по вопросам ему ничего не говорит — она зависит от длины
+   * варианта. Делитель — число вопросов, по которым считалась надёжность.
+   */
+  semPercent: number | null;
   /**
    * Интервал вокруг проходного балла; `null` — порога нет либо ошибка не посчиталась.
    *
@@ -144,7 +153,19 @@ export interface TestPsychometrics {
    * этого числа предупреждает ни о чём, потому что двое из шестидесяти и половина потока
    * требуют разных действий.
    */
-  cutBand: (CutScoreBand & { withinBand: number }) | null;
+  cutBand: (CutScoreBand & {
+    withinBand: number;
+    /** Порог и границы интервала в процентах результата — то, что читает экран. */
+    cutPercent: number;
+    lowPercent: number;
+    highPercent: number;
+  }) | null;
+  /**
+   * Прогноз длины для надёжности 0,90 — строгой планки для решения «сдал / не сдал» (эскиз:
+   * баннер у порога). `null` — порога или надёжности нет. Прогноз плитки (`lengthForecast`) —
+   * до 0,80, общего ориентира; у порога нужна планка выше, потому что решение касается человека.
+   */
+  cutForecast: { target: number; factor: number; itemsDelta: number } | null;
   /**
    * FR-22: во сколько раз изменить длину теста ради целевой надёжности и на сколько заданий
    * это выходит. `null` — надёжности нет, и удлинять нечего.
@@ -175,6 +196,9 @@ const TOO_EASY = 0.9;
  */
 const TARGET_RELIABILITY = 0.8;
 
+/** Надёжность, которой добиваются, когда по тесту выносят решение о человеке (баннер порога). */
+const CUT_TARGET_RELIABILITY = 0.9;
+
 /**
  * Интервал у порога вместе с числом задетых участников (FR-21a).
  *
@@ -187,15 +211,28 @@ function bandWithCount(band: CutScoreBand, values: readonly ItemValue[], variant
 }
 
 /**
+ * Порог и интервал — ещё и в процентах результата: экран сопоставляет их с порогом теста,
+ * заданным в процентах, а не с суммой долей по вопросам.
+ */
+function withPercents<T extends CutScoreBand>(band: T, cutRatio: number, items: number) {
+  return {
+    ...band,
+    cutPercent: cutRatio * 100,
+    lowPercent: (band.low / items) * 100,
+    highPercent: (band.high / items) * 100,
+  };
+}
+
+/**
  * Прогноз длины теста ради целевой надёжности.
  *
  * Отдельная обёртка над формулой нужна ради ОГОВОРКИ, которую иначе негде поставить: прогноз
  * исходит из того, что добавленные задания будут такого же качества, что нынешние. На практике
  * они обычно хуже, поэтому число оптимистично — и экран обязан это сказать.
  */
-function forecastOf(alpha: number, items: number) {
-  const forecast = spearmanBrown(alpha, TARGET_RELIABILITY, items);
-  return forecast === null ? null : { target: TARGET_RELIABILITY, ...forecast };
+function forecastOf(alpha: number, items: number, target = TARGET_RELIABILITY) {
+  const forecast = spearmanBrown(alpha, target, items);
+  return forecast === null ? null : { target, ...forecast };
 }
 
 /**
@@ -403,14 +440,24 @@ export function computePsychometrics(
     reliability,
     coreReliability: core,
     sem,
+    semPercent: sem === null || typeof reliability === "string" || reliability.items === 0
+      ? null
+      : (sem / reliability.items) * 100,
     // Порог переводится в ту же единицу, что и суммарный балл расчёта: сумма долей баллов по
     // пунктам. Сравнивать интервал в долях с порогом в процентах — ошибка на два порядка.
     cutBand: sem !== null && ctx.cutRatio !== null && ctx.cutRatio !== undefined && typeof reliability !== "string"
-      ? bandWithCount(
-        cutScoreBand(ctx.cutRatio * reliability.items, sem),
-        values,
-        reliability.method === "pairwise" ? reliability.items : undefined,
+      ? withPercents(
+        bandWithCount(
+          cutScoreBand(ctx.cutRatio * reliability.items, sem),
+          values,
+          reliability.method === "pairwise" ? reliability.items : undefined,
+        ),
+        ctx.cutRatio,
+        reliability.items,
       )
+      : null,
+    cutForecast: ctx.cutRatio !== null && ctx.cutRatio !== undefined && typeof reliability !== "string"
+      ? forecastOf(reliability.alpha, reliability.items, CUT_TARGET_RELIABILITY)
       : null,
     // FR-22: прогноз длины считается ВСЕГДА, когда есть надёжность, — и когда её не хватает,
     // и когда её с запасом. Второе не менее важно: это единственное число трека, которое

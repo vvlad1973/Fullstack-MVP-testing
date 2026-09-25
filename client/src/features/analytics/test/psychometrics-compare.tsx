@@ -74,10 +74,10 @@ function SliceHead({ slice }: { slice: PsychometricsSlice }) {
 }
 
 /** Разница со знаком — читается как направление, а не как модуль. */
-function delta(value: number | null): string {
+function delta(value: number | null, digits = 2, unit = ""): string {
   if (value === null) return "—";
   const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  return `${sign}${Math.abs(value).toFixed(2).replace(".", ",")}`;
+  return `${sign}${Math.abs(value).toFixed(digits).replace(".", ",")}${unit}`;
 }
 
 /** Строка сводной таблицы: показатель, значения по срезам и признак сопоставимости. */
@@ -92,6 +92,8 @@ interface SummaryRow {
   comparable: boolean;
   valueOf: (slice: PsychometricsSlice) => number | null;
   format: (value: number | null, slice: PsychometricsSlice) => string;
+  /** Разница строки со своей единицей: у ошибки измерения — процентные пункты. */
+  formatDelta?: (value: number) => string;
 }
 
 const SUMMARY_ROWS: SummaryRow[] = [
@@ -109,8 +111,10 @@ const SUMMARY_ROWS: SummaryRow[] = [
     key: "sem",
     label: "Ошибка измерения",
     comparable: true,
+    // Процентные пункты результата, как на плитке одной выборки (эскиз: «4,8 п.п.»).
     valueOf: slice => slice.sem,
-    format: value => num(value),
+    format: value => (value === null ? "—" : `${num(value, 1)} п.п.`),
+    formatDelta: value => delta(value, 1, " п.п."),
   },
   {
     key: "suspicious",
@@ -163,7 +167,7 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
           const first = row.valueOf(slices[0]);
           const second = row.valueOf(slices[1]);
           if (first === null || second === null) return <Text variant="body-s" tone="muted">—</Text>;
-          return <Text variant="body-s">{delta(first - second)}</Text>;
+          return <Text variant="body-s">{row.formatDelta ? row.formatDelta(first - second) : delta(first - second)}</Text>;
         },
       }]
       : []),

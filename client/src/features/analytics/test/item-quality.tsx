@@ -92,6 +92,12 @@ export interface ItemQualityView {
   items: ItemQualityRow[];
   reliability: ReliabilityView;
   sem: number | null;
+  /**
+   * Ошибка измерения в процентных пунктах результата — её и показывает плитка (план сверки 5.3).
+   * Может не быть у ответов ручки прежнего выпуска: тогда плитка говорит прочерк, а не печатает
+   * сумму долей под видом процента.
+   */
+  semPercent?: number | null;
   /** FR-20: альфа по общему ядру рядом с оценкой по связям заданий; `null` — ядра нет. */
   coreReliability?: Exclude<ReliabilityView, string> | null;
   /**
@@ -100,7 +106,18 @@ export interface ItemQualityView {
    */
   lengthForecast?: { target: number; factor: number; itemsDelta: number } | null;
   /** `withinBand` (FR-21a) — скольких участников интервал задел; может не быть у старых ответов. */
-  cutBand: { low: number; high: number; z: number; withinBand?: number } | null;
+  cutBand: {
+    low: number;
+    high: number;
+    z: number;
+    withinBand?: number;
+    /** Порог и границы интервала в процентах результата (план сверки 5.3). */
+    cutPercent?: number;
+    lowPercent?: number;
+    highPercent?: number;
+  } | null;
+  /** Сколько вопросов нужно для надёжности 0,90 — строгой планки решения о человеке. */
+  cutForecast?: { target: number; factor: number; itemsDelta: number } | null;
   sample: {
     respondents: number;
     responses: number;
@@ -197,6 +214,12 @@ function forecastOf(forecast: { target: number; itemsDelta: number } | null | un
   return `надёжность выше цели ${target}: ${count} ${pluralize(count, "вопрос", "вопроса", "вопросов")} можно снять`;
 }
 
+/** Процент для текста баннера: «70 %», «65,8 %» — десятая, только когда она есть. */
+function percentText(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1).replace(".", ",");
+}
+
 /** Оценка альфы словами — ориентиры FR-19. */
 function alphaVerdict(alpha: number): string {
   if (alpha >= 0.95) return "подозрение на дубли вопросов";
@@ -227,7 +250,8 @@ function reliabilityCaption(reliability: Exclude<ReliabilityView, string>): stri
   if (reliability.method === "core") {
     return `${alphaVerdict(reliability.alpha)} · по общему ядру · ${reliability.items} ${pluralize(reliability.items, "вопрос", "вопроса", "вопросов")}`;
   }
-  return `${alphaVerdict(reliability.alpha)} · ${reliability.respondents} ${pluralize(reliability.respondents, "участник", "участника", "участников")}`;
+  // Эскиз: «хорошо · 486 прохождений» — число тех, по чьим итогам посчитана надёжность.
+  return `${alphaVerdict(reliability.alpha)} · ${reliability.respondents} ${pluralize(reliability.respondents, "прохождение", "прохождения", "прохождений")}`;
 }
 
 /**
@@ -501,19 +525,26 @@ export function ItemQualityPanel({
    * баллов конкретного человека, и прикидка по проценту здесь была бы выдумкой.
    */
   const within = view.cutBand?.withinBand;
+  // Знаменатель — участники, по чьим итогам посчитана надёжность (полный набор или вариант той
+  // же длины при оценке по связям), а НЕ вся выборка: у видевшего не все вопросы сумма меньше
+  // по построению, и в интервал он не сравнивается (вскрыто приёмкой).
+  const bandBase = reliability?.respondents ?? view.sample.respondents;
   const affectedText = within === undefined
     ? ""
     : within === 0
       ? "Пока в него не попал никто."
-      // Знаменатель — участники С ПОЛНЫМ НАБОРОМ, по которым считалась надёжность, а НЕ вся
-      // выборка: у видевшего не все задания сумма меньше по построению, и в интервал он не
-      // сравнивается. «16 из 60» при надёжности, посчитанной по двадцати, — разные выборки в
-      // одной фразе (вскрыто приёмкой).
-      // FR-20: при оценке по связям заданий полного набора нет ни у кого, и сравниваются итоги
-      // участников с вариантом той же длины.
-      : `Затронуто ${within} из ${reliability?.respondents ?? view.sample.respondents} ${pluralize(reliability?.respondents ?? view.sample.respondents, "участника", "участников", "участников")} ${reliability?.method === "pairwise"
-        ? `с вариантом из ${reliability.items} ${pluralize(reliability.items, "вопроса", "вопросов", "вопросов")}`
-        : "с полным набором вопросов"}.`;
+      : `Внутри интервала ${within} ${pluralize(within, "участник", "участника", "участников")}${bandBase > 0 ? ` (${Math.round((within / bandBase) * 100)} %)` : ""}.`;
+  /**
+   * Что делать (эскиз): сколько вопросов нужно для надёжности 0,90. Лечится ненадёжное решение
+   * не порогом, а длиной теста; уже достаточно надёжному тесту совет не нужен.
+   */
+  const cutForecastText = reliability && view.cutForecast && view.cutForecast.itemsDelta > 0
+    ? ` Для альфы ${num(view.cutForecast.target)} нужно ${reliability.items + view.cutForecast.itemsDelta} ${pluralize(reliability.items + view.cutForecast.itemsDelta, "вопрос", "вопроса", "вопросов")} вместо ${reliability.items}.`
+    : "";
+  const cutBandText = view.cutBand && view.cutBand.cutPercent !== undefined
+    && view.cutBand.lowPercent !== undefined && view.cutBand.highPercent !== undefined
+    ? `Порог ${percentText(view.cutBand.cutPercent)} %, интервал ${percentText(view.cutBand.lowPercent)} — ${percentText(view.cutBand.highPercent)} %.`
+    : "";
 
   /**
    * Поводы к баннеру смещения (FR-39, FR-40).
@@ -761,9 +792,13 @@ export function ItemQualityPanel({
         <Card variant="outlined">
           <CardBody>
             <Stack gap={1} align="center">
-              <Text variant="display-s" weight="bold">{num(view.sem)}</Text>
+              {/* Процентные пункты результата (эскиз: «4,2 п.п.»): сумма долей балла по
+                  вопросам зависит от длины варианта и автору ничего не говорит. */}
+              <Text variant="display-s" weight="bold">
+                {view.semPercent === null || view.semPercent === undefined ? "—" : `${num(view.semPercent, 1)} п.п.`}
+              </Text>
               <Text variant="body-s" tone="muted"><TermHint term="Ошибка измерения" hint={HINTS.sem} /></Text>
-              <Text variant="body-xs" tone="subtle">в долях балла</Text>
+              <Text variant="body-xs" tone="subtle">интервал вокруг балла</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -820,7 +855,9 @@ export function ItemQualityPanel({
           // FR-21a: сколько участников интервал задел ФАКТИЧЕСКИ. Без этого числа
           // предупреждение ни о чём: двое из шестидесяти и половина потока требуют разных
           // действий. Ноль тоже называется словами — молчание читалось бы как «не посчитали».
-          description={`Интервал ${num(view.cutBand.low)} — ${num(view.cutBand.high)} в долях балла. Решение «сдал / не сдал» у участников внутри него определяется ошибкой измерения, а не подготовкой. ${affectedText}`}
+          // Эскиз: порог, интервал в процентах, сколько участников задето и какая это доля,
+          // и сколько вопросов нужно для надёжности 0,90.
+          description={`${cutBandText} ${affectedText}${cutForecastText}`.trim()}
         />
       ) : null}
 

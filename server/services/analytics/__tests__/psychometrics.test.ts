@@ -231,6 +231,29 @@ describe("computePsychometrics", () => {
     expect(result.cutBand!.low).toBeCloseTo(2.8 - 1.96 * result.sem!, 9);
   });
 
+  it("отдаёт ошибку и интервал ещё и в процентах результата (план сверки 5.3)", () => {
+    // Четыре пункта: 1 доля балла суммы = 25 п.п. результата.
+    const result = computePsychometrics(RESPONSES, { ...CTX, cutRatio: 0.7 });
+    expect(result.semPercent).toBeCloseTo((result.sem! / 4) * 100, 9);
+    expect(result.cutBand!.cutPercent).toBeCloseTo(70, 9);
+    expect(result.cutBand!.lowPercent).toBeCloseTo((result.cutBand!.low / 4) * 100, 9);
+    expect(result.cutBand!.highPercent).toBeCloseTo((result.cutBand!.high / 4) * 100, 9);
+  });
+
+  it("прогноз у порога — для надёжности 0,90, у плитки — для 0,80", () => {
+    const result = computePsychometrics(RESPONSES, { ...CTX, cutRatio: 0.7 });
+    expect(result.cutForecast!.target).toBe(0.9);
+    expect(result.lengthForecast!.target).toBe(0.8);
+    // При альфе 2/3 до 0,90 нужно удлинить больше, чем до 0,80.
+    expect(result.cutForecast!.itemsDelta).toBeGreaterThan(result.lengthForecast!.itemsDelta);
+  });
+
+  it("без проходного балла нет ни интервала, ни прогноза у порога", () => {
+    const result = computePsychometrics(RESPONSES, CTX);
+    expect(result.cutBand).toBeNull();
+    expect(result.cutForecast).toBeNull();
+  });
+
   it("без проходного балла интервала нет — его не из чего строить", () => {
     expect(computePsychometrics(RESPONSES, CTX).cutBand).toBeNull();
   });

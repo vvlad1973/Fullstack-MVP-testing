@@ -170,7 +170,44 @@ describe("ItemQualityPanel", () => {
 
     // Знаменатель — участники с ПОЛНЫМ набором, по которым считалась надёжность, а не вся
     // выборка: при неравномерной выдаче это разные числа, и смешивать их в одной фразе нельзя.
-    expect(screen.getByText(/Затронуто 37 из 486 участников с полным набором/)).toBeTruthy();
+    expect(screen.getByText(/Внутри интервала 37 участников \(8 %\)\./)).toBeTruthy();
+  });
+
+  // План сверки 5.3, эскиз prd66-item-quality (состояние quality).
+  it("баннер называет порог и интервал в процентах и сколько вопросов нужно для альфы 0,90", () => {
+    render(<ItemQualityPanel view={view({
+      cutBand: {
+        low: 27.6, high: 31.2, z: 1.96, withinBand: 38,
+        cutPercent: 70, lowPercent: 65.8, highPercent: 74.2,
+      },
+      cutForecast: { target: 0.9, factor: 1.47, itemsDelta: 20 },
+    })} />);
+
+    expect(screen.getByText(
+      "Порог 70 %, интервал 65,8 — 74,2 %. Внутри интервала 38 участников (8 %). Для альфы 0,90 нужно 62 вопроса вместо 42.",
+    )).toBeTruthy();
+  });
+
+  it("тесту, которому надёжности уже хватает, совет про длину не даёт", () => {
+    render(<ItemQualityPanel view={view({
+      cutBand: { low: 27.6, high: 31.2, z: 1.96, withinBand: 3, cutPercent: 70, lowPercent: 65.8, highPercent: 74.2 },
+      cutForecast: { target: 0.9, factor: 0.8, itemsDelta: -8 },
+    })} />);
+
+    expect(screen.queryByText(/Для альфы 0,90/)).toBeNull();
+  });
+
+  it("ошибка измерения — в процентных пунктах, с подписью «интервал вокруг балла»", () => {
+    render(<ItemQualityPanel view={view({ sem: 1.76, semPercent: 4.19 })} />);
+
+    expect(screen.getByText("4,2 п.п.")).toBeTruthy();
+    expect(screen.getByText("интервал вокруг балла")).toBeTruthy();
+    expect(screen.queryByText("в долях балла")).toBeNull();
+  });
+
+  it("подпись надёжности считает прохождения", () => {
+    render(<ItemQualityPanel view={view()} />);
+    expect(screen.getByText("хорошо · 486 прохождений")).toBeTruthy();
   });
 
   it("никого не задело — так и говорит, а не молчит", () => {
@@ -607,7 +644,8 @@ describe("ItemQualityPanel — надёжность при неоднородн�
       cutBand: { low: 3.84, high: 7.36, z: 1.96, withinBand: 129 },
     })} />);
 
-    expect(screen.getByText(/Затронуто 129 из 300 участников с вариантом из 8 вопросов/)).toBeTruthy();
+    // Доля — от участников с вариантом той же длины (300), а не от всей выборки.
+    expect(screen.getByText(/Внутри интервала 129 участников \(43 %\)\./)).toBeTruthy();
     expect(screen.queryByText(/с полным набором/)).toBeNull();
   });
 

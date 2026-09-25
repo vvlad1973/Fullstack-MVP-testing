@@ -160,12 +160,24 @@ export function testSheet(ctx: ExportContext, psychometrics: TestPsychometrics):
     reliability.dichotomous ? "альфа здесь совпадает с KR-20" : "",
   ]);
   rows.push(["Стандартное отклонение суммы", num(reliability.totalSd), ""]);
-  rows.push(["Ошибка измерения (SEM)", num(psychometrics.sem), "в долях балла"]);
+  // Методисту нужны обе единицы: сумма долей балла — чтобы сверить расчёт по формуле, процентные
+  // пункты — чтобы сопоставить с порогом теста, как это делает экран.
+  rows.push(["Ошибка измерения (SEM)", num(psychometrics.sem), "в сумме долей балла по вопросам"]);
+  rows.push([
+    "Ошибка измерения, п.п.",
+    num(psychometrics.semPercent),
+    "в процентных пунктах результата: SEM, делённая на число вопросов расчёта",
+  ]);
   if (psychometrics.cutBand) {
     rows.push([
       "Интервал вокруг проходного балла",
       `${psychometrics.cutBand.low.toFixed(2)} — ${psychometrics.cutBand.high.toFixed(2)}`,
-      `множитель ошибки ${psychometrics.cutBand.z}`,
+      `в сумме долей балла; множитель ошибки ${psychometrics.cutBand.z}`,
+    ]);
+    rows.push([
+      "Интервал вокруг проходного балла, %",
+      `${psychometrics.cutBand.lowPercent.toFixed(1)} — ${psychometrics.cutBand.highPercent.toFixed(1)}`,
+      `порог ${psychometrics.cutBand.cutPercent.toFixed(1)} %`,
     ]);
   }
   return rows;

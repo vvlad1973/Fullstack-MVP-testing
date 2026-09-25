@@ -423,7 +423,10 @@ router.get(
           conditions: slice.conditionsJson,
           alpha: typeof psychometrics.reliability === "string" ? null : psychometrics.reliability.alpha,
           reliabilityGap: typeof psychometrics.reliability === "string" ? psychometrics.reliability : null,
-          sem: psychometrics.sem,
+          // Ошибка измерения — в процентных пунктах результата, как на плитке одной выборки:
+          // сумма долей по вопросам зависит от длины варианта, и срезы с разной длиной по ней
+          // несравнимы (план сверки 5.3).
+          sem: psychometrics.semPercent,
           respondents: psychometrics.sample.respondents,
           observations: psychometrics.sample.responses,
           itemsCount: psychometrics.items.length,
