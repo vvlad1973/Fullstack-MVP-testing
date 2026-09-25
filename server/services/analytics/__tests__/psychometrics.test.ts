@@ -351,6 +351,9 @@ describe("computePsychometrics", () => {
 
     expect(sample.respondents).toBe(5);
     expect(sample.bySource).toEqual({ web: 16, import: 1 });
+    // План сверки 5.4: строка «Выборка» считает прохождения, и в сумме они — прохождения расчёта.
+    // Четыре веб-прохождения по четыре ответа и одно импортированное: 16 наблюдений — 4 прохождения.
+    expect(sample.passagesBySource).toEqual({ web: 4, import: 1 });
     expect(sample.unknownVersionShare).toBeCloseTo(1 / 17, 12);
   });
 

@@ -178,6 +178,12 @@ export interface TestPsychometrics {
     responses: number;
     /** Сколько наблюдений пришло из каждого источника — на чём стоят числа (FR-42). */
     bySource: Record<string, number>;
+    /**
+     * Прохождений из каждого источника — то, что показывает строка «Выборка» (план сверки 5.4).
+     * Наблюдения там читались как прохождения: «веб — 26» рядом с «20 прохождений» у надёжности
+     * были двумя разными единицами в одной строке. Сумма совпадает с числом прохождений расчёта.
+     */
+    passagesBySource: Record<string, number>;
     /** Доля наблюдений с неизвестной редакцией задания (FR-09c): мера огрубления серий. */
     unknownVersionShare: number;
   };
@@ -434,6 +440,13 @@ export function computePsychometrics(
 
   const bySource: Record<string, number> = {};
   for (const response of identified) bySource[response.source] = (bySource[response.source] ?? 0) + 1;
+  const passagesBySource: Record<string, number> = {};
+  const passagesSeen = new Set<string>();
+  for (const response of identified) {
+    if (passagesSeen.has(response.observationId)) continue;
+    passagesSeen.add(response.observationId);
+    passagesBySource[response.source] = (passagesBySource[response.source] ?? 0) + 1;
+  }
 
   return {
     items: items.sort((a, b) => a.questionId.localeCompare(b.questionId)),
@@ -469,6 +482,7 @@ export function computePsychometrics(
       respondents: ability.size,
       responses: identified.length,
       bySource,
+      passagesBySource,
       unknownVersionShare: identified.length === 0
         ? 0
         : identified.filter(r => r.psychoHash === null).length / identified.length,

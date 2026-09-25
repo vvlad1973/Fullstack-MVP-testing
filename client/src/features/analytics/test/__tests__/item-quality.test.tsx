@@ -155,7 +155,28 @@ describe("ItemQualityPanel", () => {
 
     expect(screen.getByText(/веб — 210/)).toBeTruthy();
     expect(screen.getByText(/телеметрия LMS — 244/)).toBeTruthy();
-    expect(screen.getByText("только первая попытка")).toBeTruthy();
+    // Умолчание «первая попытка» уже стоит чипом в строке фильтра: второй раз тегом не говорится.
+    expect(screen.queryByText("только первая попытка")).toBeNull();
+  });
+
+  it("по всем попыткам предупреждает тегом «все попытки»", () => {
+    render(<ItemQualityPanel view={view({ firstAttemptOnly: false })} />);
+    expect(screen.getAllByText("все попытки").length).toBeGreaterThan(0);
+  });
+
+  // План сверки 5.4: единица строки — прохождения, как в эскизе и в подписи надёжности.
+  it("состав выборки — в прохождениях, без слова «наблюдений»", () => {
+    render(<ItemQualityPanel view={view({
+      sample: {
+        respondents: 486, responses: 9000, bySource: { web: 4000, telemetry: 5000 },
+        passagesBySource: { web: 210, telemetry: 276 }, unknownVersionShare: 0,
+      },
+    })} />);
+
+    expect(screen.getByText("веб — 210")).toBeTruthy();
+    expect(screen.getByText("телеметрия LMS — 276")).toBeTruthy();
+    const strip = screen.getByText("Выборка:").parentElement!;
+    expect(within(strip).queryByText(/наблюдени/)).toBeNull();
   });
 
   it("предупреждает, когда проходной балл попал внутрь интервала ошибки", () => {
@@ -253,12 +274,13 @@ describe("ItemQualityPanel", () => {
     expect(screen.queryByText(/не выдано/)).toBeNull();
   });
 
-  it("доля наблюдений с неизвестной редакцией выводится рядом с составом выборки", () => {
+  // Решение владельца 2026-09-25: пометка FR-09c живёт в «Версиях содержания» разбора вопроса.
+  it("в строке выборки тега «редакция неизвестна» нет", () => {
     render(<ItemQualityPanel view={view({
       sample: { respondents: 10, responses: 100, bySource: { import: 100 }, unknownVersionShare: 0.42 },
     })} />);
 
-    expect(screen.getByText(/редакция неизвестна — 42 %/)).toBeTruthy();
+    expect(screen.queryByText(/редакция неизвестна/)).toBeNull();
   });
 
   it("кнопки выгрузок ведут на свои ручки", () => {

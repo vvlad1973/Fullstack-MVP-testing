@@ -122,6 +122,8 @@ export interface ItemQualityView {
     respondents: number;
     responses: number;
     bySource: Record<string, number>;
+    /** Прохождений из каждого источника (план сверки 5.4); нет у ответов прежнего выпуска. */
+    passagesBySource?: Record<string, number>;
     unknownVersionShare: number;
   };
   firstAttemptOnly: boolean;
@@ -865,25 +867,30 @@ export function ItemQualityPanel({
         <CardBody>
           <Stack direction="row" gap={1} align="center" wrap>
             <Text variant="body-s" weight="semibold">Выборка:</Text>
-            {/* Числа здесь — НАБЛЮДЕНИЯ (ответы), а не прохождения: «веб — 26» рядом с
-                «Попытки 10» читалось как двадцать шесть прохождений (вскрыто приёмкой). */}
-            {Object.entries(view.sample.bySource).map(([source, count]) => (
-              <Tag key={source} tone="neutral" size="s">
-                {SOURCE_TITLE[source] ?? source} — {count} {pluralize(count, "наблюдение", "наблюдения", "наблюдений")}
-              </Tag>
-            ))}
-            {view.sample.unknownVersionShare > 0 ? (
-              <Tag tone="warning" size="s">
-                редакция неизвестна — {Math.round(view.sample.unknownVersionShare * 100)} %
-              </Tag>
-            ) : null}
+            {/*
+              Числа — ПРОХОЖДЕНИЯ, как в эскизе («веб — 210»): в сумме они дают то же число, что
+              подпись надёжности, и строка читается одной единицей (план сверки 5.4). Пока ручка
+              прежнего выпуска их не отдаёт, стоят наблюдения — и названы наблюдениями, чтобы
+              ответы не выдавали себя за прохождения (вскрыто приёмкой).
+              Тега «редакция неизвестна» здесь нет (решение владельца 2026-09-25): пометка FR-09c
+              живёт в «Версиях содержания» разбора вопроса (FR-49b), где с ней работают.
+            */}
+            {view.sample.passagesBySource
+              ? Object.entries(view.sample.passagesBySource).map(([source, count]) => (
+                <Tag key={source} tone="neutral" size="s">{SOURCE_TITLE[source] ?? source} — {count}</Tag>
+              ))
+              : Object.entries(view.sample.bySource).map(([source, count]) => (
+                <Tag key={source} tone="neutral" size="s">
+                  {SOURCE_TITLE[source] ?? source} — {count} {pluralize(count, "наблюдение", "наблюдения", "наблюдений")}
+                </Tag>
+              ))}
             {/* FR-11: потеря выборки видна рядом с n, а не только в протоколе загрузки. */}
             {view.unmatched ? (
               <Tag tone="warning" size="s">не сопоставлено — {view.unmatched}</Tag>
             ) : null}
-            <Tag tone={view.firstAttemptOnly ? "neutral" : "warning"} size="s">
-              {view.firstAttemptOnly ? "только первая попытка" : "все попытки"}
-            </Tag>
+            {/* «Только первая попытка» — умолчание, и оно уже стоит чипом в строке фильтра; тег
+                нужен только в обратном случае, как предупреждение (эскиз, дельта FR-51). */}
+            {view.firstAttemptOnly ? null : <Tag tone="warning" size="s">все попытки</Tag>}
           </Stack>
         </CardBody>
       </Card>
