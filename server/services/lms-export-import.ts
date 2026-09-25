@@ -43,6 +43,9 @@ export interface PlannedRow {
   lookupKey: string;
   lmsUserName: string | null;
   lmsUserOrg: string | null;
+  /** Подразделение и должность: входят в псевдоним, поэтому хранятся рядом с прохождением. */
+  lmsUserUnit: string | null;
+  lmsUserPosition: string | null;
   startedAt: Date;
   finishedAt: Date;
   resultPassed: boolean | null;
@@ -100,13 +103,19 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
     // идентификаторами того инструмента, которым файл готовили (PRD-54 раздел 4, режим 3).
     const key = opts.sourceAnonymized
       ? r.participantName
-      : participantKey(r.participantName, r.participantCode, r.org);
+      : participantKey(r.participantName, r.org, r.unit, r.position);
 
     rows.push({
       participantKey: key,
       lookupKey: r.participantCode || r.participantName,
       lmsUserName: opts.anonymize ? null : r.participantName,
       lmsUserOrg: opts.anonymize ? null : r.org,
+      // Отдел и должность хранятся ВСЕГДА, даже при обезличивании: они входят в псевдоним, и
+      // без них разъезд ключей после перевода человека нечем объяснить. Персональными данными
+      // они не являются — это свойства позиции, а не личности, и без имени рядом никого не
+      // опознают.
+      lmsUserUnit: r.unit || null,
+      lmsUserPosition: r.position || null,
       // Дата активации модуля идёт и в начало, и в конец: других дат о самом прохождении файл не
       // даёт, а без `finishedAt` строка выпала бы из аналитики, которая отбирает завершённые
       // попытки. Цена — неизвестная длительность, и разбор попытки подписывает источник явно.
@@ -300,6 +309,8 @@ export async function runImport(
       userId,
       lmsUserName: row.lmsUserName,
       lmsUserOrg: row.lmsUserOrg,
+      lmsUserUnit: row.lmsUserUnit,
+      lmsUserPosition: row.lmsUserPosition,
       startedAt: row.startedAt,
       finishedAt: row.finishedAt,
       lastActivityAt: row.finishedAt,

@@ -2345,6 +2345,17 @@ export const scormAttempts = pgTable("scorm_attempts", {
   lmsUserName: text("lms_user_name"),
   lmsUserEmail: text("lms_user_email"),
   lmsUserOrg: text("lms_user_org"),
+  /**
+   * Подразделение и должность участника из выгрузки (решение владельца 2026-09-25).
+   *
+   * Они входят в псевдоним, и потому их приходится хранить рядом: должность и отдел человека
+   * МЕНЯЮТСЯ, а значит после перевода он получит другой ключ и разъедется на двух участников.
+   * Пока поля лежат при прохождении, такой разъезд ВИДЕН — два ключа с одним именем и разными
+   * отделами читаются как перевод либо как тёзки, и решает это человек. Без них разъезд был бы
+   * молчаливым.
+   */
+  lmsUserUnit: text("lms_user_unit"),
+  lmsUserPosition: text("lms_user_position"),
 
   // Временные метки
   startedAt: timestamp("started_at").notNull(),

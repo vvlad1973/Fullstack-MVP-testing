@@ -33,6 +33,14 @@ export interface LmsExportRow {
   participantName: string;
   participantCode: string;
   org: string;
+  /**
+   * Подразделение и должность участника (колонки 4 и 5 выгрузки).
+   *
+   * Читаются с 2026-09-25, потому что вошли в псевдоним: табельный код в реальных выгрузках
+   * пуст, а организация одна на всех — тёзок различают именно отдел и должность.
+   */
+  unit: string;
+  position: string;
   courseActivatedAt: string;
   moduleActivatedAt: string;
   passed: boolean | null;
@@ -152,6 +160,8 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       participantName: cell(raw, 0),
       participantCode: cell(raw, 1),
       org: cell(raw, 2),
+      unit: cell(raw, 3),
+      position: cell(raw, 4),
       courseActivatedAt: cell(raw, 5),
       moduleActivatedAt: cell(raw, 6),
       passed: cell(raw, 7) === "" ? null : cell(raw, 7) === "Пройден",

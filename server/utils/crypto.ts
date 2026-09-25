@@ -115,15 +115,27 @@ const PARTICIPANT_KEY_SEPARATOR = "\u0000";
  * Части склеиваются ЧЕРЕЗ РАЗДЕЛИТЕЛЬ, а не встык. Встык «Иванов» + «Ивк1» и «ИвановИв» + «к1»
  * дают одну строку и один ключ — два разных человека слились бы в одного молча.
  *
+ * СОСТАВ ПОЛЕЙ (решение владельца 2026-09-25): ФИО, организация, подразделение и должность.
+ * Табельный код в него НЕ входит — в реальных выгрузках он пуст, а поле, которое то есть, то
+ * нет, разводит одного человека на два ключа. Организация одна на всю выгрузку и тёзок не
+ * различает; различают отдел и должность, поэтому они и взяты.
+ *
+ * ЦЕНА ЭТОГО ВЫБОРА, принятая осознанно: должность и отдел МЕНЯЮТСЯ, и после перевода человек
+ * получит другой ключ. Разъезд не прячется: оба поля хранятся рядом с прохождением
+ * (`scorm_attempts.lms_user_unit`, `lms_user_position`), и два ключа с одним именем и разными
+ * отделами читаются как перевод либо как тёзки — разбирает это человек, а не система молча.
+ *
  * @param name ФИО из колонки «Пользователь»
- * @param code значение колонки «Код» (может быть пустым)
  * @param org значение колонки «Организация» (может быть пустым)
+ * @param unit значение колонки «Подразделение» (может быть пустым)
+ * @param position значение колонки «Должность» (может быть пустым)
  * @returns 64 шестнадцатеричных знака
  */
-export function participantKey(name: string, code: string, org: string): string {
+export function participantKey(name: string, org: string, unit: string, position: string): string {
   const norm = (v: string) => String(v ?? "").trim().toLowerCase();
   const secret = (config.encryption.password || "dev-default-key") + "|prd54:participant";
-  const material = [norm(name), norm(code), norm(org)].join(PARTICIPANT_KEY_SEPARATOR);
+  const material = [norm(name), norm(org), norm(unit), norm(position)]
+    .join(PARTICIPANT_KEY_SEPARATOR);
   return createHmac("sha256", secret).update(material).digest("hex");
 }
 

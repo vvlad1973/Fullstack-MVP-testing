@@ -33,6 +33,9 @@ export interface ImportedAttemptInput {
   userId: string | null;
   lmsUserName: string | null;
   lmsUserOrg: string | null;
+  /** Подразделение и должность: входят в псевдоним, поэтому хранятся рядом с прохождением. */
+  lmsUserUnit: string | null;
+  lmsUserPosition: string | null;
   startedAt: Date;
   finishedAt: Date;
   lastActivityAt: Date;
