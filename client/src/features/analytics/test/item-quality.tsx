@@ -20,7 +20,7 @@ import { useState } from "react";
 
 import {
   Banner, Button, Card, CardBody, CardFooter, CardHeader, DataGrid, Grid, ModalDialog,
-  SegmentedControl, Stack, Tag, Text, Tooltip,
+  SegmentedControl, Stack, Tag, Text, Tooltip, type SortDir,
 } from "@skillum/ui-kit";
 import { Download, Info } from "lucide-react";
 
@@ -275,11 +275,14 @@ function suspicious(row: ItemQualityRow, heuristic?: ReviewHeuristic): boolean {
  * Задания с пометкой «мало данных» — последние в обоих направлениях: признака у них нет не
  * потому, что они здоровы, а потому, что судить не на чем.
  */
+/** Ранг задания «мало данных» без эвристики: последние в любом порядке (FR-48a). */
+const THIN_RANK = 90;
+
 function suspicionRank(row: ItemQualityRow, heuristic?: ReviewHeuristic): number {
   const hasHeuristic = heuristicFlag(heuristic) !== null;
   // Эвристика поднимает задание и на малой выборке (FR-05): «мало данных» — последними, только
   // когда сказать о задании больше нечего.
-  if (row.coefficientConfidence === "insufficient") return hasHeuristic ? 3 : 90;
+  if (row.coefficientConfidence === "insufficient") return hasHeuristic ? 3 : THIN_RANK;
   if (row.flags.negativeDiscrimination) return 1;
   if (row.flags.atChanceLevel) return 2;
   if (hasHeuristic) return 3;
@@ -318,10 +321,64 @@ function TermHeader({ term, hint }: { term: string; hint: string }) {
 
 type View = "all" | "suspicious" | "thin";
 
+/** Колонки, по которым сортируется таблица заданий (FR-48a). */
+type SortColumn = "question" | "flag" | "difficulty" | "itemRest" | "observations";
+
+/**
+ * Числовое значение колонки для сортировки; `null` — показывать нечего («мало данных» или
+ * невычислимо). Такие строки идут последними в обоих направлениях: пустое не меньше и не
+ * больше числа, оно просто не сравнивается.
+ */
+function sortNumber(row: ItemQualityRow, column: SortColumn): number | null {
+  if (column === "difficulty") return row.difficultyConfidence === "insufficient" ? null : row.difficulty;
+  if (column === "itemRest") return row.coefficientConfidence === "insufficient" ? null : row.itemRest;
+  if (column === "observations") return row.observations;
+  return null;
+}
+
+/**
+ * Сравнение двух строк таблицы для выбранной колонки и направления (FR-48a).
+ *
+ * «Признак» сортируется по рангу подозрения (FR-48), а не по алфавиту ярлыков; обратное
+ * направление ведёт от спокойных заданий к самым тревожным. Задания «мало данных» без
+ * эвристики — последними в обоих направлениях: признака у них нет не потому, что они здоровы.
+ */
+function compareRows(
+  a: ItemQualityRow,
+  b: ItemQualityRow,
+  column: SortColumn,
+  dir: SortDir,
+  heuristics: Record<string, ReviewHeuristic>,
+): number {
+  const sign = dir === "asc" ? 1 : -1;
+  if (column === "flag") {
+    const rankA = suspicionRank(a, heuristics[a.questionId]);
+    const rankB = suspicionRank(b, heuristics[b.questionId]);
+    const lastA = rankA === THIN_RANK;
+    const lastB = rankB === THIN_RANK;
+    if (lastA !== lastB) return lastA ? 1 : -1;
+    return sign * (rankA - rankB
+      || withinRank(a, heuristics[a.questionId]) - withinRank(b, heuristics[b.questionId]));
+  }
+  if (column === "question") {
+    return sign * (a.prompt ?? a.questionId).localeCompare(b.prompt ?? b.questionId, "ru");
+  }
+  const valueA = sortNumber(a, column);
+  const valueB = sortNumber(b, column);
+  if (valueA === null || valueB === null) {
+    if (valueA === valueB) return 0;
+    return valueA === null ? 1 : -1;
+  }
+  return sign * (valueA - valueB);
+}
+
 /** Вкладка «Качество заданий». */
 export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onRestoreFirstAttempt, heuristics = {} }: ItemQualityPanelProps) {
   const [tab, setTab] = useState<View>("all");
   const [glossary, setGlossary] = useState(false);
+  // Порядок по умолчанию — сила подозрения (FR-48): список открывается тем, что чинят первым.
+  const [sortColumn, setSortColumn] = useState<SortColumn>("flag");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const suspiciousCount = view.items.filter(r => suspicious(r, heuristics[r.questionId])).length;
   const thinCount = view.items.filter(r => r.coefficientConfidence === "insufficient").length;
@@ -332,10 +389,8 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       tab === "all" ? true
         : tab === "suspicious" ? suspicious(row, heuristics[row.questionId])
           : row.coefficientConfidence === "insufficient")
-    // Порядок по умолчанию — сила подозрения (FR-48): список открывается тем, что чинят первым.
     .slice()
-    .sort((a, b) => suspicionRank(a, heuristics[a.questionId]) - suspicionRank(b, heuristics[b.questionId])
-      || withinRank(a, heuristics[a.questionId]) - withinRank(b, heuristics[b.questionId]));
+    .sort((a, b) => compareRows(a, b, sortColumn, sortDir, heuristics));
 
   const reliability = typeof view.reliability === "string" ? null : view.reliability;
   const forecastText = forecastOf(view.lengthForecast);
@@ -380,6 +435,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       width: "38%",
       header: "Задание",
       frozen: true,
+      sortable: true,
       render: (row: ItemQualityRow) => (
         <Stack gap={1}>
           <span className="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
@@ -395,6 +451,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     },
     {
       key: "flag",
+      sortable: true,
       width: "26%",
       header: <TermHeader
         term="Признак"
@@ -413,6 +470,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     },
     {
       key: "difficulty",
+      sortable: true,
       width: "12%",
       header: <TermHeader
         term="Трудность"
@@ -439,6 +497,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     },
     {
       key: "itemRest",
+      sortable: true,
       width: "16%",
       header: <TermHeader
         term="Дискриминативность"
@@ -453,6 +512,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     },
     {
       key: "observations",
+      sortable: true,
       width: "8%",
       header: <TermHeader
         term="n"
@@ -640,6 +700,9 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
             columns={columns}
             rows={rows}
             rowKey={row => row.questionId}
+            sortKey={sortColumn}
+            sortDir={sortDir}
+            onSort={(key, dir) => { setSortColumn(key as SortColumn); setSortDir(dir); }}
             onRowClick={onOpenItem ? row => onOpenItem(row.questionId) : undefined}
             emptyMessage={tab === "suspicious"
               ? "Признаки не сошлись ни у одного задания"

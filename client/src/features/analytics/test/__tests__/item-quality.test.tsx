@@ -398,3 +398,63 @@ describe("ItemQualityPanel — эвристики «Требуют ревизи�
     expect(within(tile).getByText("1")).toBeTruthy();
   });
 });
+
+/**
+ * PRD-66 FR-48a: колонки таблицы заданий сортируются, «Признак» — по рангу подозрения.
+ *
+ * Без этого порядок по умолчанию невозвратен: стоит отсортировать по n, и вернуться к «сначала
+ * самое тревожное» нечем. «Мало данных» — последними в обоих направлениях.
+ */
+describe("ItemQualityPanel — сортировка колонок (FR-48a)", () => {
+  const NEG = { tooHard: false, tooEasy: false, negativeDiscrimination: true, atChanceLevel: false };
+  const HARD = { tooHard: true, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false };
+  const items = [
+    row({ questionId: "a", prompt: "Вопрос А", difficulty: 0.9, observations: 300 }),
+    row({ questionId: "b", prompt: "Вопрос Б", difficulty: 0.1, observations: 120, flags: HARD }),
+    row({ questionId: "c", prompt: "Вопрос В", difficulty: 0.5, observations: 200, itemRest: -0.3, flags: NEG }),
+    row({ questionId: "d", prompt: "Вопрос Г", difficulty: null, observations: 5, itemRest: null, coefficientConfidence: "insufficient" }),
+  ];
+  const order = () => screen.getAllByText(/^Вопрос [А-Г]$/).map((el) => el.textContent);
+  /** Щелчок по заголовку колонки: он и переключает направление. */
+  const clickHeader = async (title: string) => {
+    const header = screen.getAllByText(title).find((el) => el.closest(".ou-grid__th")) as HTMLElement;
+    await userEvent.click(header);
+  };
+
+  it("по умолчанию — по силе подозрения, «мало данных» в конце", () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+    expect(order()).toEqual(["Вопрос В", "Вопрос Б", "Вопрос А", "Вопрос Г"]);
+  });
+
+  it("все пять колонок помечены сортируемыми", () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+    expect(document.querySelectorAll(".ou-grid__th.is-sortable")).toHaveLength(5);
+  });
+
+  it("трудность сортируется по значению, пустое — последним в обоих направлениях", async () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+
+    await clickHeader("Трудность");
+    expect(order()).toEqual(["Вопрос Б", "Вопрос В", "Вопрос А", "Вопрос Г"]);
+    await clickHeader("Трудность");
+    expect(order()).toEqual(["Вопрос А", "Вопрос В", "Вопрос Б", "Вопрос Г"]);
+  });
+
+  it("n сортируется по числу наблюдений", async () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+
+    await clickHeader("n");
+    expect(order()).toEqual(["Вопрос Г", "Вопрос Б", "Вопрос В", "Вопрос А"]);
+  });
+
+  it("«Признак» возвращает порядок подозрения, обратное направление — от спокойных к тревожным", async () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+    await clickHeader("n");
+
+    await clickHeader("Признак");
+    expect(order()).toEqual(["Вопрос В", "Вопрос Б", "Вопрос А", "Вопрос Г"]);
+    await clickHeader("Признак");
+    // «Мало данных» остаётся последним и здесь: признака у задания нет не потому, что оно здорово.
+    expect(order()).toEqual(["Вопрос А", "Вопрос Б", "Вопрос В", "Вопрос Г"]);
+  });
+});
