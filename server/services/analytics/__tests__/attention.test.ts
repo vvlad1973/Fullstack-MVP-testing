@@ -213,3 +213,56 @@ describe("buildAttentionQueue", () => {
     expect(queue[0].startedAt).toEqual(hoursAgo(100));
   });
 });
+
+/**
+ * Период вкладки (решение владельца 2026-09-25): за неделю, месяц, квартал.
+ *
+ * Каждая корзина режет по СВОЕЙ дате: просроченное назначение — по сроку, остальные — по
+ * последней попытке. Без периода вкладка копила неудачи за всё время.
+ */
+describe("buildAttentionQueue — период", () => {
+  const since = hoursAgo(24 * 30);
+
+  it("старая неудача за период не попадает", () => {
+    const queue = buildAttentionQueue(input({
+      since,
+      observations: [
+        observation({ id: "fresh", participantId: "u1", startedAt: hoursAgo(24 * 5) }),
+        observation({ id: "old", participantId: "u2", userId: "u2", participant: "Сафин Ильдар", startedAt: hoursAgo(24 * 60) }),
+      ],
+    }));
+
+    expect(queue.map(item => item.observationId)).toEqual(["fresh"]);
+  });
+
+  it("просроченное назначение режется по сроку, а не по дате выдачи", () => {
+    const queue = buildAttentionQueue(input({
+      since,
+      assignments: [
+        { id: "a1", testId: "test1", userId: "u1", dueDate: hoursAgo(24 * 10) },
+        { id: "a2", testId: "test1", userId: "u2", dueDate: hoursAgo(24 * 90) },
+      ],
+    }));
+
+    expect(queue.map(item => item.participantId)).toEqual(["u1"]);
+  });
+
+  it("брошенная попытка режется по началу попытки", () => {
+    const queue = buildAttentionQueue(input({
+      since,
+      observations: [
+        observation({ id: "recent", outcome: "incomplete", finishedAt: null, startedAt: hoursAgo(24 * 3) }),
+        observation({ id: "ancient", participantId: "u2", userId: "u2", outcome: "incomplete", finishedAt: null, startedAt: hoursAgo(24 * 45) }),
+      ],
+    }));
+
+    expect(queue.map(item => item.observationId)).toEqual(["recent"]);
+  });
+
+  it("без периода — всё, как прежде", () => {
+    const queue = buildAttentionQueue(input({
+      observations: [observation({ startedAt: hoursAgo(24 * 400) })],
+    }));
+    expect(queue).toHaveLength(1);
+  });
+});

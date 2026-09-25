@@ -148,3 +148,38 @@ describe("GET /api/analytics/attention", () => {
     expect(res.body.counts).toEqual({ overdue: 0, failed: 0, abandoned: 0, exhausted: 0 });
   });
 });
+
+/** Период вкладки (решение владельца 2026-09-25): по умолчанию месяц. */
+describe("GET /api/analytics/attention — период", () => {
+  const assignments = [
+    { id: "a1", testId: "test1", userId: "u2", groupId: null, dueDate: daysAgo(3) },
+    { id: "a2", testId: "test1", userId: "u1", groupId: null, dueDate: daysAgo(20) },
+    { id: "a3", testId: "test1", userId: "u3", groupId: null, dueDate: daysAgo(60) },
+  ];
+
+  it("по умолчанию — за месяц: срок два месяца назад не попадает", async () => {
+    storageMock.getAllAssignments.mockResolvedValue(assignments);
+    const res = await ask();
+    expect(res.body.period).toBe("month");
+    expect(res.body.counts.overdue).toBe(2);
+  });
+
+  it("за неделю — только свежие дела", async () => {
+    storageMock.getAllAssignments.mockResolvedValue(assignments);
+    const res = await request(makeApp()).get("/api/analytics/attention?period=week").set("x-test-user", "a1");
+    expect(res.body.period).toBe("week");
+    expect(res.body.counts.overdue).toBe(1);
+  });
+
+  it("за квартал — все три", async () => {
+    storageMock.getAllAssignments.mockResolvedValue(assignments);
+    const res = await request(makeApp()).get("/api/analytics/attention?period=quarter").set("x-test-user", "a1");
+    expect(res.body.counts.overdue).toBe(3);
+  });
+
+  it("неизвестный период — умолчание, а не ошибка", async () => {
+    storageMock.getAllAssignments.mockResolvedValue(assignments);
+    const res = await request(makeApp()).get("/api/analytics/attention?period=year").set("x-test-user", "a1");
+    expect(res.body.period).toBe("month");
+  });
+});

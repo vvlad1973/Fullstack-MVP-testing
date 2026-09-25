@@ -82,6 +82,9 @@
          и в строках раскрытия, и в таблицах сравнения. */
       .wf-gap__row--tag { padding-left: var(--ou-space-6); }
       .wf-gap__row { display: grid; grid-template-columns: var(--wf-size-220) 1fr var(--wf-size-160) var(--wf-size-90); align-items: center; gap: var(--ou-space-3); }
+      /* Модульная сетка 4 px (1x / 4x / 6x): каркас задаёт 20 px между блоками и 32 px от краёв —
+         обе величины вне сетки, поэтому в состоянии «Требует внимания» они перекрыты явно. */
+      #wf-attention .ou-shell__main { gap: var(--ou-space-4); padding-inline: var(--ou-space-6); }
     </style>
 
     <style data-wf-template-overrides>
@@ -166,7 +169,7 @@
     <template id="wf-head-tpl">
       <div class="ou-stack ou-stack--gap-1">
         <h1 class="ou-text ou-text--heading-l">Аналитика</h1>
-        <p class="ou-text ou-text--body-m ou-text--tone-muted">Что происходит с людьми и процессом: прохождения, срезы и очередь внимания</p>
+        <p class="ou-text ou-text--body-m ou-text--tone-muted">Что происходит с людьми и процессом: прохождения, срезы и дела, требующие внимания</p>
       </div>
       <div class="ou-stack ou-stack--row ou-stack--gap-2">
         <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-upload" /></svg></span><span>Загрузить выгрузку LMS</span></button>
@@ -1778,18 +1781,29 @@
           <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--ai-start ou-stack--gap-4" data-wf-head></div>
           <div class="ou-tabs ou-tabs--underline ou-tabs--m" data-wf-tabs></div>
 
-          <div class="ou-stack ou-stack--gap-5" role="tabpanel">
+          <!-- ДЕЛЬТА 2026-09-25 (решение владельца): период вкладки. Каждая карточка режет по своей
+               дате — срок назначения, последняя попытка, начало брошенной попытки; по умолчанию
+               «За месяц». Бейдж на вкладке считает по выбранному периоду. -->
+          <div>
+            <div class="ou-seg ou-seg--s" role="group" aria-label="Период">
+              <button type="button" class="ou-seg__item" aria-pressed="false"><span>За неделю</span></button>
+              <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span>За месяц</span></button>
+              <button type="button" class="ou-seg__item" aria-pressed="false"><span>За квартал</span></button>
+            </div>
+          </div>
+
+          <div class="ou-stack ou-stack--gap-4" role="tabpanel">
             <section class="ou-card ou-card--outlined">
               <header class="ou-card__header">
                 <div class="ou-card__heading">
                   <h2 class="ou-card__title">Не начали к сроку</h2>
-                  <p class="ou-card__subtitle">9 назначений · срок истёк, попытка не начиналась</p>
+                  <p class="ou-card__subtitle">9 назначений за месяц · срок истёк, попытка не начиналась</p>
                 </div>
                 <div class="ou-card__trail"><span class="ou-tag ou-tag--warning ou-tag--s">9</span></div>
               </header>
               <div class="ou-card__body">
                 <div class="ou-stack ou-stack--gap-0">
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Ильин Роман · Сертификация руководителей</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">Срок 05.09.2026 · просрочено на 8 дней · Отдел продаж</span>
@@ -1797,7 +1811,7 @@
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Открыть назначение</span></button>
                   </div>
                   <div class="ou-separator ou-separator--horizontal" role="separator"></div>
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Савельева Дина · Охрана труда</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">Срок 08.09.2026 · просрочено на 5 дней · Розница</span>
@@ -1805,7 +1819,7 @@
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Открыть назначение</span></button>
                   </div>
                   <div class="ou-separator ou-separator--horizontal" role="separator"></div>
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Панов Егор · Охрана труда</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">Срок 11.09.2026 · просрочено на 2 дня · Логистика</span>
@@ -1813,7 +1827,7 @@
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Открыть назначение</span></button>
                   </div>
                 </div>
-                <p class="ou-text ou-text--body-xs ou-text--tone-muted">Назначения без срока в очередь не попадают.</p>
+                <p class="ou-text ou-text--body-xs ou-text--tone-muted">Назначения без срока сюда не попадают.</p>
               </div>
               <div class="ou-card__footer">
                 <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Показать все 9</span><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-chevron-right" /></svg></span></button>
@@ -1824,13 +1838,13 @@
               <header class="ou-card__header">
                 <div class="ou-card__heading">
                   <h2 class="ou-card__title">Не сдали</h2>
-                  <p class="ou-card__subtitle">14 прохождений за 30 дней · попытки ещё остались</p>
+                  <p class="ou-card__subtitle">14 прохождений за месяц · попытки ещё остались</p>
                 </div>
                 <div class="ou-card__trail"><span class="ou-tag ou-tag--error ou-tag--s">14</span></div>
               </header>
               <div class="ou-card__body">
                 <div class="ou-stack ou-stack--gap-0">
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Гаврилов Сергей · Сертификация руководителей</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">58 % при пороге 70 % · попытка 3 из 3 · 08.09.2026 · слабее всего «Право и комплаенс»</span>
@@ -1838,7 +1852,7 @@
                     <a class="ou-btn ou-btn--ghost ou-btn--s ou-link-reset" href="analytics-attempt-details.html"><span>Разбор прохождения</span></a>
                   </div>
                   <div class="ou-separator ou-separator--horizontal" role="separator"></div>
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Белкина Ольга · Сертификация руководителей</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">61 % при пороге 70 % · попытка 1 из 3 · 05.09.2026 · слабее всего «Управление командой»</span>
@@ -1846,7 +1860,7 @@
                     <a class="ou-btn ou-btn--ghost ou-btn--s ou-link-reset" href="analytics-attempt-details.html"><span>Разбор прохождения</span></a>
                   </div>
                   <div class="ou-separator ou-separator--horizontal" role="separator"></div>
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Зуева Полина · Сертификация руководителей</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">49 % при пороге 70 % · попытка 1 из 3 · 29.08.2026 · слабее всего «Право и комплаенс»</span>
@@ -1864,13 +1878,13 @@
               <header class="ou-card__header">
                 <div class="ou-card__heading">
                   <h2 class="ou-card__title">Брошенные попытки</h2>
-                  <p class="ou-card__subtitle">6 попыток · начаты и не завершены больше двух суток назад</p>
+                  <p class="ou-card__subtitle">6 попыток за месяц · начаты и не завершены больше двух суток назад</p>
                 </div>
                 <div class="ou-card__trail"><span class="ou-tag ou-tag--warning ou-tag--s">6</span></div>
               </header>
               <div class="ou-card__body">
                 <div class="ou-stack ou-stack--gap-0">
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Кузнецов Павел · Охрана труда</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">Начата 10.09.2026 09:12 · отвечено 4 задания из 20 · веб</span>
@@ -1878,7 +1892,7 @@
                     <a class="ou-btn ou-btn--ghost ou-btn--s ou-link-reset" href="analytics-attempt-details.html"><span>Разбор прохождения</span></a>
                   </div>
                   <div class="ou-separator ou-separator--horizontal" role="separator"></div>
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Юрченко Ника · Сертификация руководителей</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">Начата 09.09.2026 18:44 · отвечено 11 заданий из 30 · LMS</span>
@@ -1896,13 +1910,13 @@
               <header class="ou-card__header">
                 <div class="ou-card__heading">
                   <h2 class="ou-card__title">Исчерпан лимит попыток</h2>
-                  <p class="ou-card__subtitle">2 участника · лимит исчерпан, тест не сдан</p>
+                  <p class="ou-card__subtitle">2 участника за месяц · лимит исчерпан, тест не сдан</p>
                 </div>
                 <div class="ou-card__trail"><span class="ou-tag ou-tag--error ou-tag--s">2</span></div>
               </header>
               <div class="ou-card__body">
                 <div class="ou-stack ou-stack--gap-0">
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Гаврилов Сергей · Сертификация руководителей</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">3 попытки из 3 · лучший результат 62 % при пороге 70 %</span>
@@ -1910,7 +1924,7 @@
                     <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span>Дать попытку</span></button>
                   </div>
                   <div class="ou-separator ou-separator--horizontal" role="separator"></div>
-                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-3 ou-box--pady-3">
+                  <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-4 ou-box--pady-4">
                     <div class="ou-stack ou-stack--gap-1 ou-grow">
                       <span class="ou-text ou-text--body-m ou-text--w-medium">Мирошник Илья · Охрана труда</span>
                       <span class="ou-text ou-text--body-xs ou-text--tone-muted">2 попытки из 2 · лучший результат 55 % при пороге 60 %</span>

@@ -13,10 +13,15 @@
 import { useEffect, useState } from "react";
 
 import {
-  Box, Button, Card, CardBody, CardHeader, Separator, Stack, Tag, Text,
+  Box, Button, Card, CardBody, CardHeader, SegmentedControl, Separator, Stack, Tag, Text,
 } from "@skillum/ui-kit";
 
 import { pluralize } from "@/lib/i18n";
+import {
+  ATTENTION_PERIOD_LABEL,
+  attentionPeriodStart,
+  type AttentionPeriod,
+} from "@shared/analytics/attention-period";
 
 /** Вид дела. Совпадает с `AttentionKind` сервера. */
 export type AttentionKind = "overdue" | "failed" | "abandoned" | "exhausted";
@@ -50,7 +55,21 @@ export interface AttentionQueueProps {
    * запрашивает: второй запрос за теми же данными был бы лишним.
    */
   data?: AttentionData;
+  /**
+   * Период вкладки (решение владельца 2026-09-25). Задан вместе с `onPeriodChange` — над
+   * карточками стоит переключатель «За неделю / За месяц / За квартал», а подписи называют
+   * период. Сам период держит страница: по нему же считается бейдж на вкладке.
+   */
+  period?: AttentionPeriod;
+  onPeriodChange?: (period: AttentionPeriod) => void;
 }
+
+/** Пункты переключателя периода — в порядке длительности. */
+const PERIOD_ITEMS: Array<{ value: AttentionPeriod; label: string }> = [
+  { value: "week", label: "За неделю" },
+  { value: "month", label: "За месяц" },
+  { value: "quarter", label: "За квартал" },
+];
 
 /** Ответ `GET /api/analytics/attention`. */
 export interface AttentionData {
@@ -155,7 +174,7 @@ function details(row: AttentionRow): string {
   return parts.join(" · ");
 }
 
-export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: AttentionQueueProps) {
+export function AttentionQueue({ onOpenPassage, onOpenRegistry, data, period, onPeriodChange }: AttentionQueueProps) {
   const [rows, setRows] = useState<AttentionRow[]>(data?.items ?? []);
   const [counts, setCounts] = useState<Record<AttentionKind, number> | null>(data?.counts ?? null);
   const [loading, setLoading] = useState(!data);
@@ -192,25 +211,50 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: Attentio
   }, [data]);
 
   if (failed) {
-    return <Text tone="error">Не удалось загрузить очередь. Обновите страницу.</Text>;
+    return <Text tone="error">Не удалось загрузить дела. Обновите страницу.</Text>;
   }
 
-  if (loading) return <Text tone="muted">Собираем очередь…</Text>;
+  if (loading) return <Text tone="muted">Собираем дела…</Text>;
 
   const filled = BUCKETS.filter(bucket => rows.some(row => row.kind === bucket.kind));
+  // Период — в подписи карточки: «14 прохождений за месяц». Без периода подпись прежняя.
+  const periodLabel = period ? ` ${ATTENTION_PERIOD_LABEL[period]}` : "";
+  /**
+   * Условия перехода в реестр — с НАЧАЛОМ периода: иначе в реестре оказалось бы больше строк,
+   * чем обещала карточка.
+   */
+  const withPeriod = (conditions: Record<string, unknown>) => (period
+    ? { ...conditions, from: attentionPeriodStart(period, new Date()).toISOString().slice(0, 10) }
+    : conditions);
+  // Переключатель виден и при пустой вкладке: пусто за неделю — повод посмотреть за квартал.
+  const switcher = period && onPeriodChange ? (
+    <div>
+      <SegmentedControl
+        size="s"
+        aria-label="Период"
+        value={period}
+        onChange={value => onPeriodChange(value as AttentionPeriod)}
+        items={PERIOD_ITEMS}
+      />
+    </div>
+  ) : null;
 
   if (filled.length === 0) {
     return (
-      <Card>
-        <CardBody>
-          <Text tone="muted">Дел нет: никто не просрочил срок, не бросил попытку и не исчерпал лимит.</Text>
-        </CardBody>
-      </Card>
+      <Stack gap={4}>
+        {switcher}
+        <Card>
+          <CardBody>
+            <Text tone="muted">Дел нет: никто не просрочил срок, не бросил попытку и не исчерпал лимит.</Text>
+          </CardBody>
+        </Card>
+      </Stack>
     );
   }
 
   return (
     <Stack gap={4}>
+      {switcher}
       {filled.map(bucket => {
         const items = rows.filter(row => row.kind === bucket.kind);
         const total = counts?.[bucket.kind] ?? items.length;
@@ -220,7 +264,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: Attentio
           <Card key={bucket.kind}>
             <CardHeader
               title={bucket.title}
-              subtitle={`${total} ${pluralize(total, ...bucket.unit)} · ${bucket.note}`}
+              subtitle={`${total} ${pluralize(total, ...bucket.unit)}${periodLabel} · ${bucket.note}`}
               trail={<Tag tone={bucket.tone} size="s">{total}</Tag>}
             />
             <CardBody>
@@ -249,7 +293,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: Attentio
 
               {bucket.kind === "overdue" && (
                 <Text variant="body-xs" tone="muted">
-                  Назначения без срока в очередь не попадают.
+                  Назначения без срока сюда не попадают.
                 </Text>
               )}
             </CardBody>
@@ -259,7 +303,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: Attentio
                 <Button
                   variant="ghost"
                   size="s"
-                  onClick={() => onOpenRegistry(bucket.conditions!)}
+                  onClick={() => onOpenRegistry(withPeriod(bucket.conditions!))}
                 >
                   Показать все {total} в реестре
                 </Button>

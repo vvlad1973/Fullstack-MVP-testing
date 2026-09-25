@@ -6,6 +6,7 @@
  * попытки и исчерпавших лимит. Правила отбора живут в сервисе — здесь только сбор данных и
  * область видимости читателя.
  */
+import { attentionPeriodStart, parseAttentionPeriod } from "@shared/analytics/attention-period";
 import { Router, type Request, type Response } from "express";
 
 import { logger } from "../../logger";
@@ -35,6 +36,8 @@ async function namesOf(userIds: string[]): Promise<Map<string, string>> {
 router.get("/attention", requirePermission("analytics.read"), async (req: Request, res: Response) => {
   try {
     const scope = await analyticsScope(req);
+    const now = new Date();
+    const period = parseAttentionPeriod(req.query.period);
 
     const [{ rows: observations }, assignments, tests] = await Promise.all([
       // Очередь смотрит на ВСЕ прохождения области видимости: лимит здесь неуместен —
@@ -68,7 +71,9 @@ router.get("/attention", requirePermission("analytics.read"), async (req: Reques
       observations,
       attemptLimits,
       participantNames,
-      now: new Date(),
+      now,
+      // Период вкладки (неделя, месяц, квартал): без него вкладка копила дела за всё время.
+      since: attentionPeriodStart(period, now),
     });
 
     const titles = new Map(visible.map(test => [test.id, test.title]));
@@ -85,6 +90,7 @@ router.get("/attention", requirePermission("analytics.read"), async (req: Reques
     }));
 
     res.json({
+      period,
       counts: countAttention(items),
       items: items.map((item: AttentionItem) => ({
         ...item,

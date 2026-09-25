@@ -172,7 +172,7 @@ describe("AttentionQueue", () => {
 
     render(<AttentionQueue />);
 
-    expect(await screen.findByText(/Не удалось загрузить очередь/i)).toBeTruthy();
+    expect(await screen.findByText(/Не удалось загрузить дела/i)).toBeTruthy();
   });
 });
 
@@ -198,5 +198,53 @@ describe("AttentionQueue — подписи корзин", () => {
 
     expect(await screen.findByText("Не сдали")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/** Период вкладки (решение владельца 2026-09-25, эскиз prd56-analytics-section). */
+describe("AttentionQueue — период", () => {
+  const DATA = { items: ITEMS as never, counts: { overdue: 9, failed: 14, abandoned: 6, exhausted: 2 } };
+
+  it("переключатель «За неделю / За месяц / За квартал», выбран текущий", async () => {
+    render(<AttentionQueue data={DATA} period="month" onPeriodChange={() => {}} />);
+
+    for (const label of ["За неделю", "За месяц", "За квартал"]) {
+      expect(await screen.findByRole("button", { name: label })).toBeTruthy();
+    }
+    expect(screen.getByRole("button", { name: "За месяц" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("смена периода уходит странице", async () => {
+    const onPeriodChange = vi.fn();
+    render(<AttentionQueue data={DATA} period="month" onPeriodChange={onPeriodChange} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "За неделю" }));
+    expect(onPeriodChange).toHaveBeenCalledWith("week");
+  });
+
+  it("подпись карточки называет период", async () => {
+    render(<AttentionQueue data={DATA} period="quarter" onPeriodChange={() => {}} />);
+    expect(await screen.findByText("14 прохождений за квартал · попытки ещё остались")).toBeTruthy();
+  });
+
+  it("переход в реестр несёт начало периода: число в реестре совпадёт с карточкой", async () => {
+    const onOpenRegistry = vi.fn();
+    const many = { ...DATA, items: Array.from({ length: 5 }, (_u, i) => ({ ...ITEMS[1], observationId: `f${i}`, participantId: `p${i}` })) as never };
+    render(<AttentionQueue data={many} period="week" onPeriodChange={() => {}} onOpenRegistry={onOpenRegistry} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /Показать все 14 в реестре/ }));
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    expect(onOpenRegistry).toHaveBeenCalledWith(expect.objectContaining({ outcomes: ["failed"], from: since }));
+  });
+
+  it("переключатель виден и при пустой вкладке — чтобы расширить период", async () => {
+    render(<AttentionQueue data={{ items: [], counts: { overdue: 0, failed: 0, abandoned: 0, exhausted: 0 } }} period="week" onPeriodChange={() => {}} />);
+    expect(await screen.findByRole("button", { name: "За квартал" })).toBeTruthy();
+  });
+
+  it("в тексте нет слова «очередь»: в интерфейсе его нет", async () => {
+    render(<AttentionQueue data={DATA} period="month" onPeriodChange={() => {}} />);
+    expect(await screen.findByText("Назначения без срока сюда не попадают.")).toBeTruthy();
+    expect(screen.queryByText(/очеред/i)).toBeNull();
   });
 });

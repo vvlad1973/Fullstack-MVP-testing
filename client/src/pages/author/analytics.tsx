@@ -25,6 +25,7 @@ import {
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { SlicesTab } from "@/features/analytics/slices/slices-tab";
 import { AttentionQueue, type AttentionData, type AttentionRow } from "@/features/analytics/attention/attention-queue";
+import { DEFAULT_ATTENTION_PERIOD, type AttentionPeriod } from "@shared/analytics/attention-period";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
@@ -1111,7 +1112,11 @@ export default function AnalyticsPage() {
    * вкладке (эскиз prd56-analytics-section), и видно его должно быть до того, как её открыли.
    * Вкладка получает те же данные и второй раз их не запрашивает.
    */
-  const { data: attentionData } = useQuery<AttentionData>({ queryKey: ["/api/analytics/attention"] });
+  // Период вкладки (решение владельца 2026-09-25): бейдж считает по нему же.
+  const [attentionPeriod, setAttentionPeriod] = useState<AttentionPeriod>(DEFAULT_ATTENTION_PERIOD);
+  const { data: attentionData } = useQuery<AttentionData>({
+    queryKey: [`/api/analytics/attention?period=${attentionPeriod}`],
+  });
   const attentionTotal = attentionData
     ? Object.values(attentionData.counts).reduce((sum, count) => sum + count, 0)
     : null;
@@ -1441,6 +1446,8 @@ export default function AnalyticsPage() {
             content: (
               <AttentionQueue
                 data={attentionData}
+                period={attentionPeriod}
+                onPeriodChange={setAttentionPeriod}
                 onOpenPassage={handleOpenAttentionPassage}
                 onOpenRegistry={handleOpenSliceInRegistry}
               />

@@ -73,6 +73,11 @@ export interface AttentionInput {
   /** Имя участника по идентификатору — для позиций, у которых прохождения ещё нет. */
   participantNames: ReadonlyMap<string, string>;
   now: Date;
+  /**
+   * Начало периода вкладки (за неделю, месяц, квартал). Каждая корзина режет по СВОЕЙ дате:
+   * просроченное назначение — по сроку, остальные — по последней попытке. Нет — за всё время.
+   */
+  since?: Date;
 }
 
 /**
@@ -107,7 +112,7 @@ function byParticipantAndTest(observations: Observation[]): Map<string, Observat
  * разных корзинах.
  */
 export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
-  const { assignments, observations, attemptLimits, participantNames, now } = input;
+  const { assignments, observations, attemptLimits, participantNames, now, since } = input;
   const items: AttentionItem[] = [];
   const groups = byParticipantAndTest(observations);
 
@@ -115,6 +120,8 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
     // FR-10a: назначение без срока в очередь не попадает — без даты «просрочено» вывести
     // не из чего, а умолчание вроде «через месяц» показало бы человеку придуманную тревогу.
     if (!assignment.dueDate || assignment.dueDate > now) continue;
+    // Период: срок истёк раньше начала периода — дело за его пределами.
+    if (since && assignment.dueDate < since) continue;
     if (!assignment.userId) continue;
     if ((groups.get(`${assignment.testId}:${assignment.userId}`)?.length ?? 0) > 0) continue;
 
@@ -129,6 +136,9 @@ export function buildAttentionQueue(input: AttentionInput): AttentionItem[] {
 
   for (const list of groups.values()) {
     const latest = list[0];
+    // Период: последняя попытка раньше его начала — дело за его пределами. Режется именно
+    // последняя: по ней участник и попадает в корзину.
+    if (since && latest.startedAt < since) continue;
     const limit = latest.testId ? attemptLimits.get(latest.testId) ?? null : null;
     // Порядковый номер последней попытки: список отсортирован новыми вперёд, поэтому счёт
     // ведётся от его длины. Незавершённые считаются тоже — человек их потратил.
