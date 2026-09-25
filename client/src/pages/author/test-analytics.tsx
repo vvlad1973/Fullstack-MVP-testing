@@ -262,6 +262,23 @@ export default function TestAnalyticsPage() {
     const queryClient = useQueryClient();
 
     const filterSearch = filterToSearch({ ...filter, testIds: [] });
+    /**
+     * Адрес ручки психометрики с условиями экрана (PRD-66 FR-04a, FR-54b).
+     *
+     * Выборку «Качества заданий» задаёт тот же фильтр, что у «Обзора»: без условий в адресе
+     * автор выбирал группу, а числа считались по всем прохождениям теста. Выгрузки идут по тем же
+     * условиям — файл, собранный иначе, чем показано на экране, невоспроизводим. Условие исхода
+     * сервер психометрики не читает, как и сервер обзора.
+     *
+     * @param path путь ручки без параметров
+     * @param extra собственные параметры ручки поверх условий экрана
+     */
+    const psychometricsUrl = (path: string, extra: Record<string, string> = {}): string => {
+        const params = new URLSearchParams(filterSearch.replace(/^\?/, ""));
+        for (const [name, value] of Object.entries(extra)) params.set(name, value);
+        const search = params.toString();
+        return search ? `${path}?${search}` : path;
+    };
 
     const { data: analytics, isLoading: analyticsLoading } = useQuery<TestAnalytics>({
         queryKey: [`/api/analytics/tests/${testId}`, filterSearch],
@@ -309,7 +326,7 @@ export default function TestAnalyticsPage() {
      * каждому, кто открыл страницу.
      */
     const { data: itemQuality, isLoading: qualityLoading } = useQuery<ItemQualityView>({
-        queryKey: [`/api/analytics/psychometrics/${testId}`],
+        queryKey: [psychometricsUrl(`/api/analytics/psychometrics/${testId}`)],
         // PRD-66 FR-02, FR-03: те же числа стоят в строке таблицы «Вопросы», поэтому расчёт
         // нужен и там. Ключ запроса ОДИН на обе вкладки: переход между ними не платит за
         // второй расчёт, а колонка и карточка не могут разойтись в числах.
@@ -352,10 +369,10 @@ export default function TestAnalyticsPage() {
      */
     const [qualityMode, setQualityMode] = useState<"sample" | "compare">("sample");
     const { data: breakdown } = useQuery<ItemBreakdownView>({
-        queryKey: [
-            `/api/analytics/psychometrics/${testId}/items/${breakdownId}`
-            + (breakdownVersion === undefined ? "" : `?version=${encodeURIComponent(breakdownVersion ?? "")}`),
-        ],
+        queryKey: [psychometricsUrl(
+            `/api/analytics/psychometrics/${testId}/items/${breakdownId}`,
+            breakdownVersion === undefined ? {} : { version: breakdownVersion ?? "" },
+        )],
         enabled: !!testId && !!breakdownId && activeTab === "quality",
     });
 
@@ -366,7 +383,7 @@ export default function TestAnalyticsPage() {
      * поломка (FR-52).
      */
     const { data: scaleQuality } = useQuery<{ scales: ScaleQualityRow[] }>({
-        queryKey: [`/api/analytics/psychometrics/${testId}/scales`],
+        queryKey: [psychometricsUrl(`/api/analytics/psychometrics/${testId}/scales`)],
         enabled: !!testId && activeTab === "quality" && !!analytics?.hasScales,
     });
 
@@ -756,8 +773,8 @@ export default function TestAnalyticsPage() {
                                             </Cluster>
                                             <ItemQualityPanel
                                                 view={itemQuality}
-                                                exportHref={`/api/analytics/psychometrics/${testId}/export`}
-                                                matrixHref={`/api/analytics/psychometrics/${testId}/matrix`}
+                                                exportHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/export`)}
+                                                matrixHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/matrix`)}
                                                 onOpenItem={setBreakdownId}
                                             />
                                             {scaleQuality?.scales.length

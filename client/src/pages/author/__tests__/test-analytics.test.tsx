@@ -277,6 +277,56 @@ describe("<TestAnalyticsPage />", () => {
 
 
 
+  describe("фильтр экрана доходит до психометрики (PRD-66 FR-04a, FR-54b)", () => {
+    beforeEach(() => {
+      // Условия экрана живут в адресе: с них и начинается страница.
+      window.history.replaceState(null, "", "/author/tests/t1/analytics?groupId=g1&source=import");
+      state.psychometricsBody = {
+        items: [{
+          questionId: "q1", observations: 40, difficulty: 0.62, correctedDifficulty: null,
+          itemRest: 0.31, discrimination: null, declaredDifficulty: null,
+          difficultyConfidence: "reliable", coefficientConfidence: "reliable",
+          flags: { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false },
+          timingFlags: { rushed: false, slow: false },
+        }],
+        reliability: "too-few-items", sem: null, cutBand: null,
+        sample: { respondents: 40, responses: 40, bySource: { import: 40 }, unknownVersionShare: 0 },
+        firstAttemptOnly: true,
+      };
+      // Ответы — по пути БЕЗ условий: сами условия проверяет каждый тест.
+      fetchMock.mockImplementation(async (input: string) => {
+        const path = String(input).split("?")[0];
+        const body = path === "/api/analytics/psychometrics/t1" ? state.psychometricsBody
+          : path === "/api/analytics/tests/t1" ? state.analyticsBody : [];
+        return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+      });
+    });
+    afterEach(() => window.history.replaceState(null, "", "/"));
+
+    it("расчёт «Качества заданий» идёт по отобранной выборке, а не по всему тесту", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+
+      // Без условий в запросе автор видел бы числа по всем прохождениям, выбрав одну группу.
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "/api/analytics/psychometrics/t1?groupId=g1&source=import",
+        expect.anything(),
+      ));
+      expect(fetchMock).not.toHaveBeenCalledWith("/api/analytics/psychometrics/t1", expect.anything());
+    });
+
+    it("отчёт и матрица выгружаются по тем же условиям, что на экране", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество заданий" }));
+
+      // Файл, собранный по другим условиям, чем показанные, невоспроизводим (FR-54b).
+      const report = await screen.findByRole("link", { name: /Психометрический отчёт/ });
+      expect(report.getAttribute("href")).toBe("/api/analytics/psychometrics/t1/export?groupId=g1&source=import");
+      expect(screen.getByRole("link", { name: /Матрица ответов/ }).getAttribute("href"))
+        .toBe("/api/analytics/psychometrics/t1/matrix?groupId=g1&source=import");
+    });
+  });
+
   it("exports to Excel via the header action", async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("button", { name: /Экспорт Excel/ }));
