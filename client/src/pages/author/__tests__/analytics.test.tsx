@@ -71,16 +71,6 @@ const attention = () => ({
   counts: { overdue: 0, failed: 1, abandoned: 0, exhausted: 0 },
 });
 
-const exportFilters = () => ({
-  tests: [
-    { id: "test1", title: "Тест по финансам", mode: "standard", hasWebAttempts: true, hasLmsAttempts: true },
-    { id: "test2", title: "Адаптивный тест", mode: "adaptive", hasWebAttempts: true, hasLmsAttempts: false },
-  ],
-  users: [{ id: "u1", username: "Иван Петров", source: "web", email: "ivan@test.ru" }],
-  groups: [{ id: "g1", name: "Группа А", userCount: 1, userIds: ["u1"] }],
-  scormPackages: [],
-});
-
 const webDetail = () => ({
   attemptId: "a1",
   userId: "u1",
@@ -144,7 +134,6 @@ const lmsDetail = () => ({
 
 type State = {
   tests: { id: string; title: string }[];
-  filters: ReturnType<typeof exportFilters>;
   webDetail: ReturnType<typeof webDetail>;
   lmsDetail: ReturnType<typeof lmsDetail>;
   registry: ReturnType<typeof registry>;
@@ -158,7 +147,6 @@ let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   state = {
     tests: [{ id: "test1", title: "Тест по финансам" }],
-    filters: exportFilters(),
     webDetail: webDetail(),
     lmsDetail: lmsDetail(),
     registry: registry(),
@@ -179,7 +167,6 @@ beforeEach(() => {
     if (u.startsWith("/api/analytics/slices")) return ok(state.slices);
     if (u.startsWith("/api/analytics/attention")) return ok(state.attention);
     if (u === "/api/tests") return ok(state.tests);
-    if (u.startsWith("/api/export/filters")) return ok(state.filters);
     if (u.startsWith("/api/analytics/scorm-attempts/")) return ok(state.lmsDetail);
     if (u.startsWith("/api/analytics/attempts/")) return ok(state.webDetail);
     if (u.startsWith("/api/export/excel")) return ok({ done: true });
@@ -266,10 +253,10 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     expect(called.some(url => url.includes("/api/analytics/summary"))).toBe(false);
   });
 
-  it("даёт четыре вкладки: реестр, срезы, очередь дел и экспорт", async () => {
+  it("даёт три вкладки: реестр, срезы и дела, требующие внимания", async () => {
     await renderLoaded();
 
-    for (const name of [/Прохождения/, "Срезы", /Требует внимания/, "Экспорт"]) {
+    for (const name of [/Прохождения/, "Срезы", /Требует внимания/]) {
       expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     }
   });
@@ -461,72 +448,11 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
   });
 
-  it("drives the export filter controls: select-all, search, groups, users", async () => {
+  it("отдельной вкладки «Экспорт» нет: выгрузка — кнопкой в реестре (FR-04)", async () => {
+    // Решение владельца 2026-09-25 (вариант «б»): «только лучшая попытка» переехала в окно
+    // выгрузки реестра, вкладка со своим набором галочек снята.
     await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Экспорт" }));
-    await screen.findByRole("button", { name: /Создать отчёт/ });
-
-    // Select-all users, then select-all groups (which clears users), then a
-    // single group toggle — exercises handleSelectAllUsers/Groups + handleGroupToggle.
-    fireEvent.click(screen.getByRole("button", { name: "Выбрать всех" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Выбрать все" })[1]);
-    fireEvent.click(screen.getByLabelText(/Группа А/));
-    // Select-all tests.
-    fireEvent.click(screen.getAllByRole("button", { name: "Выбрать все" })[0]);
-    await waitFor(() => expect(screen.getByText("Тесты (2 выбрано)")).toBeInTheDocument());
-    // Search boxes across all three lists.
-    fireEvent.change(screen.getByPlaceholderText("Поиск тестов..."), { target: { value: "Адапт" } });
-    fireEvent.change(screen.getByPlaceholderText("Поиск тестов..."), { target: { value: "" } });
-    fireEvent.change(screen.getByPlaceholderText("Поиск групп..."), { target: { value: "А" } });
-    fireEvent.change(screen.getByPlaceholderText("Поиск пользователей..."), { target: { value: "Иван" } });
-    // Best-attempt toggle + a sheet toggle.
-    fireEvent.click(screen.getByLabelText("Только лучшая попытка каждого пользователя"));
-    fireEvent.click(screen.getByLabelText("Сводка"));
-    expect(screen.getByRole("button", { name: /Создать отчёт/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Экспорт" })).toBeNull();
   });
 
-  it("reveals the adaptive best-attempt criterion and exports to the LMS workbook", async () => {
-    await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Экспорт" }));
-    await screen.findByRole("button", { name: /Создать отчёт/ });
-
-    // Switch test-mode to adaptive → only the adaptive test remains.
-    openSelectByLabel("Режим тестов");
-    fireEvent.click(within(screen.getByRole("listbox")).getByText("Адаптивные"));
-    fireEvent.click(await screen.findByLabelText("Адаптивный тест"));
-
-    // Best-attempt on + an adaptive test selected → the criterion Select appears.
-    fireEvent.click(screen.getByLabelText("Только лучшая попытка каждого пользователя"));
-    openSelectByLabel("Критерий лучшей попытки (для адаптивных)");
-    fireEvent.click(within(screen.getByRole("listbox")).getByText("По сумме уровней"));
-
-    // Source → LMS-only, then export hits the LMS workbook endpoint.
-    openSelectByLabel("Источник данных");
-    fireEvent.click(within(screen.getByRole("listbox")).getByText("Только LMS"));
-    fireEvent.click(screen.getByRole("button", { name: /Создать отчёт/ }));
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.some((c) => String(c[0]).startsWith("/api/export/excel-lms"))).toBe(true),
-    );
-  });
-
-  it("runs the export tab: loads filters, gates the button, and posts to Excel", async () => {
-    await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Экспорт" }));
-    // Wait for the filters feed to load (the button lives in the loaded body).
-    const exportBtn = await screen.findByRole("button", { name: /Создать отчёт/ });
-    expect(screen.getByText("Экспорт отчёта")).toBeInTheDocument();
-
-    // Without a selected test the export button is disabled.
-    expect(exportBtn).toBeDisabled();
-
-    // Select a test → counter updates and the button enables.
-    fireEvent.click(screen.getByLabelText("Тест по финансам"));
-    await waitFor(() => expect(screen.getByText("Тесты (1 выбрано)")).toBeInTheDocument());
-    expect(exportBtn).not.toBeDisabled();
-
-    fireEvent.click(exportBtn);
-    await waitFor(() =>
-      expect(fetchMock.mock.calls.some((c) => String(c[0]).startsWith("/api/export/excel"))).toBe(true),
-    );
-  });
 });

@@ -2,8 +2,10 @@
  * @module pages/author/analytics
  * @description Analytics for the author: the passage registry (web, LMS telemetry and
  * imported exports in one list), slices of those passages within a single test, the
- * «needs attention» queue and the configurable Excel export, plus the attempt-details
- * window every list opens into.
+ * «needs attention» cases, plus the attempt-details window every list opens into. The Excel
+ * export is the registry button (FR-04); the separate «Export» tab was removed on 2026-09-25,
+ * its only rule without a registry equivalent — best attempt per participant — moved into the
+ * export dialog.
  *
  * PRD-56 FR-12 removed the «overview» tab: an average score or pass rate computed ACROSS
  * tests mixes different thresholds, scales and populations, so the number could not be
@@ -35,15 +37,10 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   Cluster,
-  FormGroup,
   Grid,
-  Input,
   ModalDialog,
   ProgressBar,
-  ScrollArea,
-  Select,
   Separator,
   Stack,
   Tabs,
@@ -54,10 +51,8 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
-  FileSpreadsheet,
   Globe,
   Server,
-  Download,
   Clock,
   XCircle,
   HelpCircle,
@@ -166,33 +161,6 @@ interface AttemptDetail {
   achievedLevels?: AchievedLevel[];
   trajectory?: { action: string; levelName: string; message: string }[];
   source: "web" | "lms";
-}
-
-interface ExportFilters {
-  tests: { id: string; title: string; mode: string; hasWebAttempts: boolean; hasLmsAttempts: boolean }[];
-  users: { id: string; username: string; source?: "web" | "lms"; email?: string }[];
-  groups: { id: string; name: string; userCount: number; userIds: string[] }[];
-  scormPackages?: { id: string; testId: string; testTitle: string }[];
-}
-
-interface ExportConfig {
-  source: "all" | "web" | "lms";
-  testIds: string[];
-  userIds: string[];
-  groupIds: string[];
-  dateFrom: string;
-  dateTo: string;
-  testMode: "all" | "standard" | "adaptive";
-  bestAttemptOnly: boolean;
-  bestAttemptCriteria: "percent" | "level_sum" | "level_count";
-  includeSheets: {
-    summary: boolean;
-    attempts: boolean;
-    answers: boolean;
-    questionStats: boolean;
-    levelStats: boolean;
-    recommendations: boolean;
-  };
 }
 
 // ============================================
@@ -783,322 +751,6 @@ function AttemptDetailsDialog({
 // Секция статистики по темам
 
 // ============================================
-// Секция экспорта
-// ============================================
-
-function ExportSection() {
-  const [isExporting, setIsExporting] = useState(false);
-
-  const { data: filters, isLoading: filtersLoading } = useQuery<ExportFilters>({
-    queryKey: ["/api/export/filters"],
-  });
-
-  const [config, setConfig] = useState<ExportConfig>({
-    source: "all",
-    testIds: [],
-    userIds: [],
-    groupIds: [],
-    dateFrom: "",
-    dateTo: "",
-    testMode: "all",
-    bestAttemptOnly: false,
-    bestAttemptCriteria: "percent",
-    includeSheets: {
-      summary: true,
-      attempts: true,
-      answers: true,
-      questionStats: true,
-      levelStats: true,
-      recommendations: true,
-    },
-  });
-
-  const [testSearch, setTestSearch] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-  const [groupSearch, setGroupSearch] = useState("");
-
-  const handleTestToggle = (testId: string) => {
-    setConfig(prev => ({
-      ...prev,
-      testIds: prev.testIds.includes(testId)
-        ? prev.testIds.filter(id => id !== testId)
-        : [...prev.testIds, testId],
-    }));
-  };
-
-  const handleSelectAllTests = () => {
-    if (!filters) return;
-    let testsToSelect = filters.tests;
-    if (config.testMode === "standard") testsToSelect = testsToSelect.filter(t => t.mode !== "adaptive");
-    else if (config.testMode === "adaptive") testsToSelect = testsToSelect.filter(t => t.mode === "adaptive");
-    if (testSearch) testsToSelect = testsToSelect.filter(t => t.title.toLowerCase().includes(testSearch.toLowerCase()));
-    const allSelected = testsToSelect.every(t => config.testIds.includes(t.id));
-    setConfig(prev => ({ ...prev, testIds: allSelected ? [] : testsToSelect.map(t => t.id) }));
-  };
-
-  const handleUserToggle = (userId: string) => {
-    setConfig(prev => ({
-      ...prev,
-      userIds: prev.userIds.includes(userId) ? prev.userIds.filter(id => id !== userId) : [...prev.userIds, userId],
-    }));
-  };
-
-  const handleSelectAllUsers = () => {
-    if (!filters) return;
-    let usersToSelect = filters.users;
-    if (userSearch) usersToSelect = usersToSelect.filter(u => u.username.toLowerCase().includes(userSearch.toLowerCase()));
-    const allSelected = usersToSelect.every(u => config.userIds.includes(u.id));
-    setConfig(prev => ({ ...prev, userIds: allSelected ? [] : usersToSelect.map(u => u.id) }));
-  };
-
-  const handleGroupToggle = (groupId: string) => {
-    setConfig(prev => {
-      const newGroupIds = prev.groupIds.includes(groupId) ? prev.groupIds.filter(id => id !== groupId) : [...prev.groupIds, groupId];
-      return { ...prev, groupIds: newGroupIds, userIds: [] };
-    });
-  };
-
-  const handleSelectAllGroups = () => {
-    if (!filters) return;
-    let groupsToSelect = filters.groups;
-    if (groupSearch) groupsToSelect = groupsToSelect.filter(g => g.name.toLowerCase().includes(groupSearch.toLowerCase()));
-    const allSelected = groupsToSelect.every(g => config.groupIds.includes(g.id));
-    setConfig(prev => ({ ...prev, groupIds: allSelected ? [] : groupsToSelect.map(g => g.id), userIds: [] }));
-  };
-
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  };
-
-  const handleExport = async () => {
-    if (config.testIds.length === 0) { alert("Выберите хотя бы один тест"); return; }
-    setIsExporting(true);
-    try {
-      if (config.source === "lms") {
-        const response = await fetch("/api/export/excel-lms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config), credentials: "include" });
-        if (!response.ok) throw new Error("LMS export failed");
-        downloadBlob(await response.blob(), `analytics_lms_${new Date().toISOString().split("T")[0]}.xlsx`);
-      } else {
-        const response = await fetch("/api/export/excel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config), credentials: "include" });
-        if (!response.ok) throw new Error("Export failed");
-        downloadBlob(await response.blob(), `analytics_${config.source}_${new Date().toISOString().split("T")[0]}.xlsx`);
-      }
-    } catch (error) {
-      alert("Ошибка при создании отчёта");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const filteredTests = filters?.tests.filter(test => {
-    if (config.source === "web" && !test.hasWebAttempts) return false;
-    if (config.source === "lms" && !test.hasLmsAttempts) return false;
-    if (config.testMode === "standard" && test.mode === "adaptive") return false;
-    if (config.testMode === "adaptive" && test.mode !== "adaptive") return false;
-    if (testSearch && !test.title.toLowerCase().includes(testSearch.toLowerCase())) return false;
-    return true;
-  }) || [];
-
-  const groupUserIds = new Set<string>();
-  if (config.groupIds.length > 0 && filters?.groups) {
-    for (const groupId of config.groupIds) {
-      const group = filters.groups.find(g => g.id === groupId);
-      if (group) group.userIds.forEach(id => groupUserIds.add(id));
-    }
-  }
-
-  const filteredUsers = filters?.users.filter(user => {
-    if (config.source === "web" && user.source === "lms") return false;
-    if (config.source === "lms" && user.source === "web") return false;
-    if (config.source !== "lms" && config.groupIds.length > 0 && !groupUserIds.has(user.id)) return false;
-    if (userSearch && !user.username.toLowerCase().includes(userSearch.toLowerCase())) return false;
-    return true;
-  }) || [];
-
-  const filteredGroups = filters?.groups.filter(group => {
-    if (groupSearch && !group.name.toLowerCase().includes(groupSearch.toLowerCase())) return false;
-    return true;
-  }) || [];
-
-  const hasAdaptiveSelected = config.testIds.some(id => filters?.tests.find(t => t.id === id)?.mode === "adaptive");
-
-  const sheetOptions: { key: keyof ExportConfig["includeSheets"]; label: string; adaptive?: boolean }[] = [
-    { key: "summary", label: "Сводка" },
-    { key: "attempts", label: "Попытки" },
-    { key: "answers", label: "Ответы" },
-    { key: "questionStats", label: "Статистика вопросов" },
-    { key: "levelStats", label: "Статистика уровней", adaptive: true },
-    { key: "recommendations", label: "Рекомендации", adaptive: true },
-  ];
-
-  return (
-    <Card>
-      <CardHeader title={<Cluster gap={2}><FileSpreadsheet size={20} />Экспорт отчёта</Cluster>} />
-      <CardBody>
-        {filtersLoading ? (
-          <LoadingState message="Загрузка фильтров..." />
-        ) : (
-          <Stack gap={6}>
-            <FormGroup columns="two">
-              <Select<"all" | "web" | "lms">
-                label="Источник данных"
-                fullWidth
-                value={config.source}
-                onChange={(v) => setConfig(prev => ({ ...prev, source: v }))}
-                options={[
-                  { value: "all", label: "Все источники" },
-                  { value: "web", label: "Только Web" },
-                  { value: "lms", label: "Только LMS" },
-                ]}
-              />
-              <Select<"all" | "standard" | "adaptive">
-                label="Режим тестов"
-                fullWidth
-                value={config.testMode}
-                onChange={(v) => setConfig(prev => ({ ...prev, testMode: v, testIds: [] }))}
-                options={[
-                  { value: "all", label: "Все тесты" },
-                  { value: "standard", label: "Стандартные" },
-                  { value: "adaptive", label: "Адаптивные" },
-                ]}
-              />
-            </FormGroup>
-
-            <Stack gap={2}>
-              <Cluster justify="between">
-                <Text variant="body-s" weight="medium">Тесты ({config.testIds.length} выбрано)</Text>
-                <Button variant="ghost" size="s" onClick={handleSelectAllTests}>
-                  {filteredTests.every(t => config.testIds.includes(t.id)) && filteredTests.length > 0 ? "Снять все" : "Выбрать все"}
-                </Button>
-              </Cluster>
-              <Input placeholder="Поиск тестов..." value={testSearch} onChange={(e) => setTestSearch(e.target.value)} fullWidth />
-              <Box border radius="l" pad={2}>
-                <ScrollArea maxH="sm">
-                  <Stack gap={1}>
-                    {filteredTests.map((test) => (
-                      <Cluster key={test.id} justify="between" gap={2}>
-                        <Checkbox label={test.title} checked={config.testIds.includes(test.id)} onChange={() => handleTestToggle(test.id)} />
-                        <Tag variant="outline" size="s">{test.mode === "adaptive" ? "Адапт." : "Станд."}</Tag>
-                      </Cluster>
-                    ))}
-                    {filteredTests.length === 0 && <Text align="center" variant="body-s" tone="muted">Нет тестов</Text>}
-                  </Stack>
-                </ScrollArea>
-              </Box>
-            </Stack>
-
-            <FormGroup columns="two">
-              <Input label="Дата от" type="date" fullWidth value={config.dateFrom} onChange={(e) => setConfig(prev => ({ ...prev, dateFrom: e.target.value }))} />
-              <Input label="Дата до" type="date" fullWidth value={config.dateTo} onChange={(e) => setConfig(prev => ({ ...prev, dateTo: e.target.value }))} />
-            </FormGroup>
-
-            {config.source !== "lms" && filters?.groups && filters.groups.length > 0 && (
-              <Stack gap={2}>
-                <Cluster justify="between">
-                  <Text variant="body-s" weight="medium">Группы ({config.groupIds.length > 0 ? config.groupIds.length : "все"})</Text>
-                  <Button variant="ghost" size="s" onClick={handleSelectAllGroups}>
-                    {filteredGroups.every(g => config.groupIds.includes(g.id)) && filteredGroups.length > 0 ? "Снять все" : "Выбрать все"}
-                  </Button>
-                </Cluster>
-                <Input placeholder="Поиск групп..." value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} fullWidth />
-                <Box border radius="l" pad={2}>
-                  <ScrollArea maxH="xs">
-                    <Stack gap={1}>
-                      {filteredGroups.map((group) => (
-                        <Checkbox
-                          key={group.id}
-                          label={<>{group.name} <Text variant="body-xs" tone="muted">({group.userCount})</Text></>}
-                          checked={config.groupIds.includes(group.id)}
-                          onChange={() => handleGroupToggle(group.id)}
-                        />
-                      ))}
-                    </Stack>
-                  </ScrollArea>
-                </Box>
-              </Stack>
-            )}
-
-            <Stack gap={2}>
-              <Cluster justify="between">
-                <Text variant="body-s" weight="medium">Пользователи ({config.userIds.length > 0 ? config.userIds.length : "все"})</Text>
-                <Button variant="ghost" size="s" onClick={handleSelectAllUsers}>
-                  {filteredUsers.every(u => config.userIds.includes(u.id)) && filteredUsers.length > 0 ? "Снять всех" : "Выбрать всех"}
-                </Button>
-              </Cluster>
-              <Input placeholder="Поиск пользователей..." value={userSearch} onChange={(e) => setUserSearch(e.target.value)} fullWidth />
-              <Box border radius="l" pad={2}>
-                <ScrollArea maxH="xs">
-                  <Stack gap={1}>
-                    {filteredUsers.map((user) => (
-                      <Checkbox key={user.id} label={user.username} checked={config.userIds.includes(user.id)} onChange={() => handleUserToggle(user.id)} />
-                    ))}
-                    {filteredUsers.length === 0 && <Text align="center" variant="body-s" tone="muted">Нет пользователей</Text>}
-                  </Stack>
-                </ScrollArea>
-              </Box>
-            </Stack>
-
-            <Box pad={4} surface="muted" radius="l">
-              <Stack gap={3}>
-                <Checkbox
-                  label="Только лучшая попытка каждого пользователя"
-                  checked={config.bestAttemptOnly}
-                  onChange={(e) => setConfig(prev => ({ ...prev, bestAttemptOnly: e.target.checked }))}
-                />
-                {config.bestAttemptOnly && hasAdaptiveSelected && (
-                  <Select<"percent" | "level_sum" | "level_count">
-                    label="Критерий лучшей попытки (для адаптивных)"
-                    fullWidth
-                    value={config.bestAttemptCriteria}
-                    onChange={(v) => setConfig(prev => ({ ...prev, bestAttemptCriteria: v }))}
-                    options={[
-                      { value: "percent", label: "По проценту" },
-                      { value: "level_sum", label: "По сумме уровней" },
-                      { value: "level_count", label: "По количеству уровней" },
-                    ]}
-                  />
-                )}
-              </Stack>
-            </Box>
-
-            <Stack gap={2}>
-              <Text variant="body-s" weight="medium">Листы в отчёте</Text>
-              <Grid minItem="sm" gap={3}>
-                {sheetOptions.map(({ key, label, adaptive }) => (
-                  <Checkbox
-                    key={key}
-                    label={<>{label}{adaptive && <Text variant="body-xs" tone="muted"> (адапт.)</Text>}</>}
-                    checked={config.includeSheets[key]}
-                    onChange={(e) => setConfig(prev => ({ ...prev, includeSheets: { ...prev.includeSheets, [key]: e.target.checked } }))}
-                  />
-                ))}
-              </Grid>
-            </Stack>
-
-            <Button
-              fullWidth
-              onClick={handleExport}
-              disabled={isExporting || config.testIds.length === 0}
-              leadingIcon={isExporting ? undefined : <Download size={16} />}
-              loading={isExporting}
-            >
-              {isExporting ? "Создание отчёта..." : "Создать отчёт"}
-            </Button>
-          </Stack>
-        )}
-      </CardBody>
-    </Card>
-  );
-}
-
-// ============================================
 // Главный компонент
 // ============================================
 
@@ -1452,11 +1104,6 @@ export default function AnalyticsPage() {
                 onOpenRegistry={handleOpenSliceInRegistry}
               />
             ),
-          },
-          {
-            id: "export",
-            label: "Экспорт",
-            content: <ExportSection />,
           },
         ]}
       />

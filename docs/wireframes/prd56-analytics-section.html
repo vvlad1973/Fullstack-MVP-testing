@@ -668,6 +668,20 @@
                 <label class="ou-check ou-check--s"><input type="checkbox" class="ou-check__input" /><span class="ou-check__box"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l2 2 4-5" /></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Шкалы и показатели</span><span class="ou-check__desc">Только для измерительных тестов в выборке</span></span></label>
                 <label class="ou-check ou-check--s"><input type="checkbox" class="ou-check__input" /><span class="ou-check__box"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l2 2 4-5" /></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Разрезы по темам</span><span class="ou-check__desc">Подытоги по ключам разреза, как на экране результата</span></span></label>
               </div>
+              <!-- ДЕЛЬТА 2026-09-25 (решение владельца, вариант «б» задачи 2.2): «только лучшая попытка»
+                   переезжает из снятой вкладки «Экспорт». Это правило ОТБОРА строк книги, поэтому
+                   стоит отдельной группой после листов; критерий виден, только когда галочка стоит. -->
+              <div class="ou-stack ou-stack--gap-1">
+                <label class="ou-check ou-check--s"><input type="checkbox" class="ou-check__input" checked /><span class="ou-check__box"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l2 2 4-5" /></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Только лучшая попытка участника</span><span class="ou-check__desc">Из нескольких попыток одного человека по тесту в книгу идёт одна — лучшая</span></span></label>
+                <div class="ou-select ou-field--s">
+                  <label class="ou-field__lbl" for="wf-best-criteria">Лучшая — по</label>
+                  <button type="button" class="ou-field__box ou-select__trigger" id="wf-best-criteria" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="ou-select__value">Проценту результата</span>
+                    <svg class="ou-select__chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                  </button>
+                  <p class="ou-field__msg">Ещё: сумме уровней, числу уровней — для адаптивных тестов</p>
+                </div>
+              </div>
             </div>
           </div>
           <footer class="ou-modal__foot">

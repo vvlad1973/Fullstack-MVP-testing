@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from "react";
 
-import { Banner, Button, Checkbox, ModalDialog, Stack, Text } from "@skillum/ui-kit";
+import { Banner, Button, Checkbox, ModalDialog, Select, Stack, Text } from "@skillum/ui-kit";
 
 import {
   countConditions,
@@ -30,6 +30,15 @@ const SHEETS: Array<{ key: string; label: string; description: string }> = [
   { key: "recommendations", label: "Рекомендации", description: "Обратная связь по темам, как её видит участник" },
 ];
 
+/** По какому признаку попытка считается лучшей — те же критерии, что умеет `/api/export/excel`. */
+type BestAttemptCriteria = "percent" | "level_sum" | "level_count";
+
+const BEST_CRITERIA: Array<{ value: BestAttemptCriteria; label: string }> = [
+  { value: "percent", label: "Проценту результата" },
+  { value: "level_sum", label: "Сумме уровней" },
+  { value: "level_count", label: "Числу уровней" },
+];
+
 export interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
@@ -43,6 +52,13 @@ export function ExportDialog({ open, onClose, filter }: ExportDialogProps) {
     attempts: true, answers: true, summary: true,
     questionStats: false, levelStats: false, recommendations: false,
   });
+  /**
+   * «Только лучшая попытка участника» — правило ОТБОРА строк книги (решение владельца 2026-09-25):
+   * переехало сюда из снятой вкладки «Экспорт», иначе отчёт «по лучшему результату каждого»
+   * собрать было бы нечем.
+   */
+  const [bestOnly, setBestOnly] = useState(false);
+  const [bestCriteria, setBestCriteria] = useState<BestAttemptCriteria>("percent");
   const [total, setTotal] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -92,6 +108,8 @@ export function ExportDialog({ open, onClose, filter }: ExportDialogProps) {
           dateFrom: filter.from ?? "",
           dateTo: filter.to ?? "",
           includeSheets: sheets,
+          bestAttemptOnly: bestOnly,
+          bestAttemptCriteria: bestCriteria,
         }),
       });
       if (!response.ok) {
@@ -146,8 +164,8 @@ export function ExportDialog({ open, onClose, filter }: ExportDialogProps) {
             : conditions.map(condition => condition.label).join(" · ")}
         />
 
-        {/* Листы книги — единственное, что здесь выбирают: это её содержание, а не состав. */}
-        <Stack gap={2}>
+        {/* Листы книги — их содержание. Родственные пункты — 1x сетки (4 px). */}
+        <Stack gap={1}>
           {SHEETS.map(sheet => (
             <Checkbox
               key={sheet.key}
@@ -158,6 +176,27 @@ export function ExportDialog({ open, onClose, filter }: ExportDialogProps) {
               description={sheet.description}
             />
           ))}
+        </Stack>
+
+        {/* Отдельной группой после листов: это не лист, а правило отбора строк. */}
+        <Stack gap={1}>
+          <Checkbox
+            size="s"
+            checked={bestOnly}
+            onChange={event => setBestOnly(event.target.checked)}
+            label="Только лучшая попытка участника"
+            description="Из нескольких попыток одного человека по тесту в книгу идёт одна — лучшая"
+          />
+          {bestOnly ? (
+            <Select<BestAttemptCriteria>
+              size="s"
+              label="Лучшая — по"
+              hint="Сумма и число уровней — для адаптивных тестов"
+              value={bestCriteria}
+              onChange={setBestCriteria}
+              options={BEST_CRITERIA}
+            />
+          ) : null}
         </Stack>
 
         {failed && <Text tone="error">{failed}</Text>}
