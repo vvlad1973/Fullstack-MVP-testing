@@ -454,7 +454,11 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       // выборка: у видевшего не все задания сумма меньше по построению, и в интервал он не
       // сравнивается. «16 из 60» при надёжности, посчитанной по двадцати, — разные выборки в
       // одной фразе (вскрыто приёмкой).
-      : `Затронуто ${within} из ${reliability?.respondents ?? view.sample.respondents} ${pluralize(reliability?.respondents ?? view.sample.respondents, "участника", "участников", "участников")} с полным набором заданий.`;
+      // FR-20: при оценке по связям заданий полного набора нет ни у кого, и сравниваются итоги
+      // участников с вариантом той же длины.
+      : `Затронуто ${within} из ${reliability?.respondents ?? view.sample.respondents} ${pluralize(reliability?.respondents ?? view.sample.respondents, "участника", "участников", "участников")} ${reliability?.method === "pairwise"
+        ? `с вариантом из ${reliability.items} ${pluralize(reliability.items, "задания", "заданий", "заданий")}`
+        : "с полным набором заданий"}.`;
 
   /**
    * Поводы к баннеру смещения (FR-39, FR-40).
@@ -650,7 +654,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           <CardBody>
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{reliability ? num(reliability.alpha) : "—"}</Text>
-              <Text variant="body-s" tone="muted">Надёжность (альфа)</Text>
+              {/* FR-20: оценка по связям заданий — не альфа полного набора, и заголовок это говорит. */}
+              <Text variant="body-s" tone="muted">
+                {reliability?.method === "pairwise" ? "Надёжность (оценка)" : "Надёжность (альфа)"}
+              </Text>
               <Text variant="body-xs" tone="subtle">
                 {reliability
                   ? reliabilityCaption(reliability)

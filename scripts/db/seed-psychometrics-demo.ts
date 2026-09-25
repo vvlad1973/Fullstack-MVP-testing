@@ -15,6 +15,9 @@
  *    вкладом (работает против шкалы), мёртвый пункт и нормальные.
  * 3. «Смешанный источник» — те же задания, но часть прохождений пришла импортом, с партией:
  *    на нём проверяются баннер смещения по доле импорта и снятие партии с учёта.
+ * 4. «Случайная выдача» — банк из двадцати заданий, у каждого из трёхсот участников вариант из
+ *    восьми: два задания ядра и случайный добор. Полного набора нет ни у кого — на нём видна
+ *    оценка надёжности по связям заданий и альфа по ядру (FR-20).
  *
  * ДАННЫЕ СИНТЕТИЧЕСКИЕ И ПОМЕЧЕНЫ. Всё, что скрипт создаёт, несёт префикс «PRD-66 демо», и
  * `--drop` убирает это подчистую: дев-база общая, и мусор в ней виден каждой сессии.
@@ -25,6 +28,7 @@
  * Usage:
  *   npm run psycho:demo         — создать
  *   npm run psycho:demo -- --drop — убрать
+ *   npm run psycho:demo -- --random-only — пересоздать только тест со случайной выдачей
  */
 
 import { randomUUID } from "node:crypto";
@@ -112,6 +116,11 @@ async function main(): Promise<void> {
   try {
     if (process.argv.includes("--drop")) {
       await drop(pool);
+    } else if (process.argv.includes("--random-only")) {
+      // Только тест со случайной выдачей: остальные демо-тесты и их идентификаторы не трогаются —
+      // дев-база общая, и другие сессии могут прямо сейчас принимать на них свои правки.
+      await dropRandomDraw(pool);
+      console.log(`[psycho-demo] случайная выдача:   ${await seedRandomDrawTest(pool)}`);
     } else {
       await seed(pool);
     }
@@ -143,10 +152,27 @@ async function drop(pool: pg.Pool): Promise<void> {
   console.log(`[psycho-demo] убрано тестов: ${tests.length}, участников: ${rowCount}`);
 }
 
+/** Убрать только тест со случайной выдачей, его тему и участников (ключ `--random-only`). */
+async function dropRandomDraw(pool: pg.Pool): Promise<void> {
+  const { rows: tests } = await pool.query<{ id: string }>(
+    "SELECT id FROM tests WHERE title = $1", [`${MARK}: случайная выдача`],
+  );
+  for (const test of tests) {
+    await pool.query("DELETE FROM attempts WHERE test_id = $1", [test.id]);
+    await pool.query("DELETE FROM test_sections WHERE test_id = $1", [test.id]);
+    await pool.query("DELETE FROM tests WHERE id = $1", [test.id]);
+  }
+  await pool.query(
+    "DELETE FROM questions WHERE topic_id IN (SELECT id FROM topics WHERE name = $1)", [`${MARK}: банк случайной выдачи`],
+  );
+  await pool.query("DELETE FROM topics WHERE name = $1", [`${MARK}: банк случайной выдачи`]);
+  await pool.query("DELETE FROM users WHERE email LIKE 'random-%@prd66-demo.local'");
+}
+
 /** Завести участников демо: у каждого своя способность, заданная его номером. */
-async function seedPeople(pool: pg.Pool, prefix: string): Promise<string[]> {
+async function seedPeople(pool: pg.Pool, prefix: string, count = PEOPLE): Promise<string[]> {
   const ids: string[] = [];
-  for (let i = 0; i < PEOPLE; i += 1) {
+  for (let i = 0; i < count; i += 1) {
     const id = randomUUID();
     ids.push(id);
     await pool.query(
@@ -181,8 +207,15 @@ async function seedTopic(pool: pg.Pool, name: string, questions: QuestionSpec[])
   return topicId;
 }
 
-/** Завести тест с одним разделом, выдающим всю тему. */
-async function seedTest(pool: pg.Pool, title: string, topicId: string, questionCount: number): Promise<string> {
+/**
+ * Завести тест с одним разделом.
+ *
+ * @param drawAll `true` — раздел выдаёт всю тему; `false` — случайный отбор `questionCount`
+ *   заданий из банка (неоднородная выдача, FR-20)
+ */
+async function seedTest(
+  pool: pg.Pool, title: string, topicId: string, questionCount: number, drawAll = true,
+): Promise<string> {
   const testId = randomUUID();
   await pool.query(
     `INSERT INTO tests (id, title, description, overall_pass_rule_json, default_question_points)
@@ -192,8 +225,8 @@ async function seedTest(pool: pg.Pool, title: string, topicId: string, questionC
   );
   await pool.query(
     `INSERT INTO test_sections (id, test_id, topic_id, draw_count, draw_all, sort_order)
-     VALUES ($1, $2, $3, $4, true, 0)`,
-    [randomUUID(), testId, topicId, questionCount],
+     VALUES ($1, $2, $3, $4, $5, 0)`,
+    [randomUUID(), testId, topicId, questionCount, drawAll],
   );
   return testId;
 }
@@ -604,7 +637,78 @@ async function seedMixedSourceTest(pool: pg.Pool): Promise<string> {
   return testId;
 }
 
-/** Завести все три демо-теста. */
+/** Участников теста со случайной выдачей: пары заданий должны встречаться вместе у многих. */
+const RANDOM_DRAW_PEOPLE = 300;
+/** Банк теста со случайной выдачей и длина варианта. */
+const RANDOM_BANK = 20;
+const RANDOM_VARIANT = 8;
+/** Задания ядра: их получают все, остальное добирается случайно (FR-20, альфа по ядру). */
+const RANDOM_CORE = 2;
+
+/**
+ * Генератор псевдослучайных чисел с зерном: демо обязано давать одни и те же числа при каждом
+ * запуске, иначе приёмку не повторить и не сверить с прошлой.
+ */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 2 ** 32;
+  };
+}
+
+/**
+ * Демо-тест 4: случайная выдача из банка — для оценки надёжности по связям заданий (FR-20).
+ *
+ * Полного набора нет ни у кого: каждый получает ядро и случайный добор. Классическая альфа здесь
+ * не считается, и именно на этом тесте видно, что экран показывает оценку по связям заданий и
+ * альфу по ядру, а не «мало участников с полным набором».
+ */
+async function seedRandomDrawTest(pool: pg.Pool): Promise<string> {
+  const topics = ["охрана труда", "документооборот", "комплаенс", "управление"];
+  const questions: QuestionSpec[] = Array.from({ length: RANDOM_BANK }, (_unused, i) => ({
+    id: randomUUID(), type: "single" as const, declared: 30 + (i % 5) * 10,
+    prompt: `Задание банка № ${i + 1} (${topics[i % topics.length]}): выберите верное утверждение`,
+    options: options("Верное утверждение", "Правдоподобная ошибка", "Частая ошибка", "Отвлекающий вариант"),
+  }));
+
+  // Трудность задания растёт с номером; ответ зависит от способности и доли случайности —
+  // задания меряют одно и то же, но не одинаково.
+  const noise = seededRandom(66);
+  const behaviours: Behaviour[] = questions.map((_q, at) => {
+    const threshold = 0.15 + (at / RANDOM_BANK) * 0.7;
+    return (ability) => {
+      const correct = ability + (noise() - 0.5) * 0.4 >= threshold;
+      return { earned: correct ? 1 : 0, possible: 1, choice: correct ? 0 : 1 + (at % 3) };
+    };
+  });
+
+  const topicId = await seedTopic(pool, "банк случайной выдачи", questions);
+  const testId = await seedTest(pool, "случайная выдача", topicId, RANDOM_VARIANT, false);
+  const people = await seedPeople(pool, "random", RANDOM_DRAW_PEOPLE);
+  const hashes = Object.fromEntries(questions.map(q => [q.id, hashOf(q)]));
+  const draw = seededRandom(2026);
+
+  for (const [index, userId] of people.entries()) {
+    // Ядро — первые задания банка, остальное — случайный добор без повторов.
+    const tail = Array.from({ length: RANDOM_BANK - RANDOM_CORE }, (_u, k) => k + RANDOM_CORE)
+      .map(at => ({ at, key: draw() }))
+      .sort((a, b) => a.key - b.key)
+      .slice(0, RANDOM_VARIANT - RANDOM_CORE)
+      .map(entry => entry.at);
+    const delivered = new Set([...Array.from({ length: RANDOM_CORE }, (_u, k) => k), ...tail]);
+    const skip = new Set(questions.map((_q, at) => at).filter(at => !delivered.has(at)));
+
+    await seedAttempt(pool, {
+      testId, topicId, topicName: `${MARK}: банк случайной выдачи`,
+      userId, questions, behaviours, ability: index / (RANDOM_DRAW_PEOPLE - 1), index, hashes, skip,
+      latencies: Object.fromEntries(questions.map((q, at) => [q.id, 12000 + at * 1000])),
+    });
+  }
+  return testId;
+}
+
+/** Завести все демо-тесты. */
 async function seed(pool: pg.Pool): Promise<void> {
   // Повторный запуск не копит дубли: демо — это состояние, а не журнал.
   await drop(pool);
@@ -612,11 +716,13 @@ async function seed(pool: pg.Pool): Promise<void> {
   const graded = await seedGradedTest(pool);
   const scales = await seedScaleTest(pool);
   const mixed = await seedMixedSourceTest(pool);
+  const randomDraw = await seedRandomDrawTest(pool);
 
   console.log(`[psycho-demo] оцениваемый тест:   ${graded}`);
   console.log(`[psycho-demo] измерительный тест: ${scales}`);
   console.log(`[psycho-demo] смешанный источник: ${mixed}`);
-  console.log(`[psycho-demo] участников: ${PEOPLE * 3}; убрать всё: npm run psycho:demo -- --drop`);
+  console.log(`[psycho-demo] случайная выдача:   ${randomDraw}`);
+  console.log(`[psycho-demo] участников: ${PEOPLE * 3 + RANDOM_DRAW_PEOPLE}; убрать всё: npm run psycho:demo -- --drop`);
 }
 
 main().then(

@@ -596,6 +596,19 @@ describe("ItemQualityPanel — надёжность при неоднородн�
 
     expect(screen.getByText("0,78")).toBeTruthy();
     expect(screen.getByText(/оценка по связям заданий · вариант из 20 заданий/)).toBeTruthy();
+    // Заголовок не должен противоречить подписи: это оценка, а не альфа полного набора.
+    expect(screen.getByText("Надёжность (оценка)")).toBeTruthy();
+    expect(screen.queryByText("Надёжность (альфа)")).toBeNull();
+  });
+
+  it("интервал у порога при оценке считает участников по варианту, а не по полному набору", () => {
+    render(<ItemQualityPanel view={view({
+      reliability: { alpha: 0.89, items: 8, respondents: 300, totalSd: 3.1, dichotomous: true, method: "pairwise", pairs: 190 },
+      cutBand: { low: 3.84, high: 7.36, z: 1.96, withinBand: 129 },
+    })} />);
+
+    expect(screen.getByText(/Затронуто 129 из 300 участников с вариантом из 8 заданий/)).toBeTruthy();
+    expect(screen.queryByText(/с полным набором/)).toBeNull();
   });
 
   it("альфа по ядру стоит рядом с оценкой", () => {
