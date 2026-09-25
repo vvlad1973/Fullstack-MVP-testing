@@ -109,6 +109,22 @@ describe("itemsSheet", () => {
     const q2 = rows.find(row => row[0] === "q2")!;
     expect(q2[7]).toBe("—");
   });
+
+  it("слабую дискриминативность называет тем же симптомом, что и экран", () => {
+    // Решение владельца 2026-09-25: 0 ≤ r < 0,20 — «Сильные и слабые отвечают одинаково».
+    // Флаг подставлен руками: здесь проверяется подпись листа, а не расчёт движка.
+    const weak = {
+      ...PSYCHOMETRICS,
+      items: PSYCHOMETRICS.items.map(item => item.questionId === "q1"
+        ? { ...item, flags: { ...item.flags, weakDiscrimination: true } }
+        : item),
+    };
+    const rows = itemsSheet(CTX, weak, new Map());
+    const header = rows.find(row => row[0] === "Вопрос")!;
+    const q1 = rows.find(row => row[0] === "q1")!;
+
+    expect(q1[header.indexOf("Признаки")]).toBe("сильные и слабые отвечают одинаково");
+  });
 });
 
 describe("testSheet", () => {

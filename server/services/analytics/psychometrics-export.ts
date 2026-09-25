@@ -86,6 +86,7 @@ export function itemsSheet(
     const flags = [
       item.flags.negativeDiscrimination ? "сильные ошибаются чаще" : "",
       item.flags.atChanceLevel ? "на уровне угадывания" : "",
+      item.flags.weakDiscrimination ? "сильные и слабые отвечают одинаково" : "",
       item.flags.tooHard ? "слишком трудный" : "",
       item.flags.tooEasy ? "слишком лёгкий" : "",
       item.timingFlags.rushed ? "отвечают не читая" : "",

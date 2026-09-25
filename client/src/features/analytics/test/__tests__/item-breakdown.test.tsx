@@ -55,6 +55,24 @@ describe("ItemBreakdownPanel", () => {
     expect(screen.getByText("Время, медиана")).toBeTruthy();
   });
 
+  it("подписи плиток и заголовки вариантов несут подсказки; «Признак» стал «Качеством варианта» (FR-14b)", () => {
+    render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
+
+    for (const term of [
+      "Трудность", "С поправкой на угадывание", "Дискриминативность (r)", "Индекс дискриминации (D)",
+      "Замысел и наблюдение", "Время, медиана",
+      "Выбрали", "Слабые 27 %", "Сильные 27 %", "Корреляция с остатком", "Качество варианта",
+    ]) {
+      const label = screen.getByText(term);
+      const tip = label.closest(".ou-tip");
+      expect(tip, term).not.toBeNull();
+      expect(tip!.querySelector(".ou-tip__bubble")?.textContent, term).toBeTruthy();
+      // Значок — псевдоэлемент термина и держится при последнем слове (см. term-hint.tsx).
+      expect(label.classList.contains("tb-term-hint__term"), term).toBe(true);
+    }
+    expect(screen.queryByText("Признак")).toBeNull();
+  });
+
   it("плитка поправки не рисуется там, где поправка неприменима", () => {
     // У сопоставления и ранжирования вероятность случайного попадания невычислима: пустая
     // плитка читалась бы как «ноль», а это утверждение (FR-17a).
@@ -153,5 +171,23 @@ describe("ItemBreakdownPanel — порядок блоков (FR-49)", () => {
     const options = screen.getByText("Варианты ответа");
     const versionsTitle = screen.getByText(/Редакции содержания|Версии содержания/);
     expect(options.compareDocumentPosition(versionsTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("заголовки таблицы версий — как в эскизе, с подсказками (FR-14b)", () => {
+    render(<ItemBreakdownPanel
+      view={view({ versions } as never)}
+      onBack={() => {}}
+      onSelectVersion={() => {}}
+    />);
+
+    expect(screen.getByText("Версии содержания")).toBeTruthy();
+    for (const term of ["Редакция", "n", "Статистика карточки"]) {
+      expect(screen.getByText(term).closest(".ou-tip"), term).not.toBeNull();
+    }
+    // «Трудность» есть и в плитке, и в заголовке версий — подсказка у обеих.
+    for (const label of screen.getAllByText("Трудность")) {
+      expect(label.closest(".ou-tip")).not.toBeNull();
+    }
+    expect(screen.queryByText("Наблюдений")).toBeNull();
   });
 });

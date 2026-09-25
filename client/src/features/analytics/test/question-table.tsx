@@ -14,18 +14,36 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
-import { Ban, MoreHorizontal } from "lucide-react";
+import { Ban } from "lucide-react";
+import { useLocation } from "wouter";
 
 import {
-  Banner, Button, Card, CardBody, CardHeader, DataGrid, IconButton, Menu, MenuItem, MenuTrigger,
-  ModalDialog, ProgressBar, SegmentedControl, Stack, Text,
+  Banner, Button, Card, CardBody, CardHeader, DataGrid, ModalDialog, ProgressBar,
+  SegmentedControl, Stack, Text,
 } from "@skillum/ui-kit";
 
 import type { QuestionType } from "@shared/questions/question-type";
+import { questionInTopicHref } from "@/features/content/question-link";
 import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
 import { pluralize } from "@/lib/i18n";
 
-import { COEFFICIENT_MIN, num } from "./psychometrics-format";
+import { DeliveryExclusionDialog, type ExclusionTarget } from "./delivery-exclusion-dialog";
+import { COEFFICIENT_MIN, DIFFICULTY_HINT, ITEM_REST_HINT, num } from "./psychometrics-format";
+import { QuestionRowMenu } from "./question-row-menu";
+import { TermHint } from "./term-hint";
+
+/**
+ * Толкования терминов в заголовках колонок (FR-14b) — дословно из эскиза prd66-item-quality,
+ * состояние wf-items. Трудность и дискриминативность толкуются теми же словами, что на вкладке
+ * «Качество вопросов» (`psychometrics-format`): одна величина на двух экранах не объясняется
+ * двумя способами.
+ */
+const HINTS = {
+  skip: "Доля показов, в которых на вопрос не ответили. Считается по веб-прохождениям: состав выданной формы пакет SCORM не сообщает.",
+  exposure: "Доля прохождений, в которые попал вопрос. Высокая экспозиция при малом банке — ответ быстро становится известен.",
+  latency: "Типичное время на вопрос: половина участников отвечает быстрее, половина — дольше. Медиана не зависит от брошенных и забытых открытыми вкладок.",
+  declared: "Трудность, которую автор заявил при создании вопроса: 0 — легко, 100 — сложно. Сравнивается с наблюдаемой в разборе вопроса.",
+} as const;
 
 /** Признак ревизии — то, что отдаёт `GET /api/analytics/tests/:testId`. */
 export interface ReviewFlagView {
@@ -121,40 +139,6 @@ export interface QuestionPsychometrics {
   coefficientConfidence: "insufficient" | "tentative" | "reliable";
 }
 
-/** Почему выдачу собрать нельзя — находка проверки выполнимости. */
-interface DeliveryIssue {
-  kind: string;
-  tag?: string;
-  requested?: number;
-  available?: number;
-  required?: number;
-}
-
-/** Последствия исключения — то, что отдаёт `GET .../delivery-impact` (FR-17b). */
-interface DeliveryImpact {
-  topicName: string;
-  remaining: number;
-  drawCount: number;
-  allowed: boolean;
-  findings?: Array<{ topicName: string; issues: DeliveryIssue[] }>;
-}
-
-/**
- * Причина отказа словами.
- *
- * «Выдачу собрать нельзя» без причины оставляет автора гадать, что чинить: не хватает заданий
- * вообще или проседает квота одного тега — это разные починки.
- */
-function issueText(issue: DeliveryIssue): string {
-  if (issue.kind === "quota_shortfall") {
-    return `Подтема «${issue.tag}»: нужно ${issue.requested}, останется ${issue.available}`;
-  }
-  if (issue.kind === "pool_shortfall") {
-    return `Вопросов в теме: нужно ${issue.required}, останется ${issue.available}`;
-  }
-  return "Выдача этого раздела перестанет собираться";
-}
-
 type View = "all" | "review" | "excluded";
 type SortDir = "asc" | "desc";
 
@@ -239,9 +223,9 @@ export function QuestionTable({
   const [view, setView] = useState<View>("all");
   const [sortKey, setSortKey] = useState(measurement ? "answers" : "difficulty");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  /** Задание, для которого открыто окно подтверждения исключения. */
-  const [pending, setPending] = useState<QuestionRow | null>(null);
-  const [impact, setImpact] = useState<DeliveryImpact | null>(null);
+  /** Вопрос, для которого открыто окно подтверждения исключения. */
+  const [pending, setPending] = useState<ExclusionTarget | null>(null);
+  const [, navigate] = useLocation();
   /** Задание, ответы которого открыты списком (FR-32). */
   const [reading, setReading] = useState<QuestionRow | null>(null);
   const [answers, setAnswers] = useState<AnswerRow[] | null>(null);
@@ -291,31 +275,15 @@ export function QuestionTable({
     [questions],
   );
 
-  // Последствия спрашиваются у сервера при открытии окна: считать остаток пула на клиенте
-  // значило бы завести вторую копию правил выдачи, которая однажды разойдётся с первой.
-  useEffect(() => {
-    if (!pending) {
-      setImpact(null);
-      return;
-    }
-    let alive = true;
-    void (async () => {
-      try {
-        const response = await fetch(
-          `/api/analytics/tests/${testId}/questions/${pending.questionId}/delivery-impact`,
-          { credentials: "include" },
-        );
-        if (!response.ok) throw new Error(String(response.status));
-        const data = await response.json() as DeliveryImpact;
-        if (alive) setImpact(data);
-      } catch {
-        // Вслепую окно подтверждения не спрашивает: без последствий кнопка остаётся
-        // выключенной, а читателю сказано, что считаем.
-        if (alive) setImpact(null);
-      }
-    })();
-    return () => { alive = false; };
-  }, [pending, testId]);
+  /**
+   * Фиксированная раскладка с долями колонок эскиза (prd66-item-quality, состояние wf-items):
+   * 24 / 11 / 17 / 10 / 11 / 12 / 11 / 4 %. При `table-layout: auto` доли — лишь пожелание, и
+   * заголовки-термины со значком подсказки распирали таблицу до горизонтальной прокрутки
+   * («Замысел» уезжал за край, приёмка 5.2). Только для обычного набора колонок: у опросника и
+   * у теста с письменными ответами свой состав, и там раскладка прежняя.
+   */
+  const fixedLayout = !measurement && !hasWrittenAnswers;
+  const share = (width: string) => (fixedLayout ? { width } : {});
 
   // FR-32: сами ответы приходят отдельным запросом и только по открытию окна — свободный
   // текст участника не грузится вместе с таблицей, где его никто не просил.
@@ -359,13 +327,13 @@ export function QuestionTable({
       frozen: true,
       // У опросника колонка ограничена: рядом с ней стоит разброс ответов, и текст вопроса,
       // растянувший её по себе, вытолкнул бы за край экрана всё, что правее.
-      ...(measurement ? { width: "40%" } : {}),
+      ...(measurement ? { width: "40%" } : share("24%")),
       render: (row: QuestionRow) => (
         // Текст задания переносится, иначе строка вопроса распирает столбец по себе: ячейки
         // стола по умолчанию не переносятся, и это верно для чисел, но не для предложения.
         // `tb-psy-question` держит НИЖНИЙ предел ширины: с приходом колонки
         // «Дискриминативность» условие сжималось в столбик по три слова (PRD-66, приёмка).
-        <Stack gap={1} className={`ou-grid__cell-wrap${measurement ? "" : " tb-psy-question"}`}>
+        <Stack gap={1} className={`ou-grid__cell-wrap${measurement || fixedLayout ? "" : " tb-psy-question"}`}>
           <Stack direction="row" gap={2} align="center">
             <QuestionTypeIcon type={row.questionType as QuestionType} />
             {/*
@@ -457,8 +425,10 @@ export function QuestionTable({
       // колонки значило бы закрепить неверное число рядом с верным.
       {
         key: "difficulty",
-        header: "Трудность",
+        ...share("11%"),
+        header: <TermHint term="Трудность" hint={DIFFICULTY_HINT} align="end" />,
         numeric: true,
+        align: "right" as const,
         sortable: true,
         render: (row: QuestionRow) => num(psychometrics?.[row.questionId]?.difficulty ?? null),
       },
@@ -466,8 +436,10 @@ export function QuestionTable({
       // иначе новая вкладка становится складом, куда никто не заходит.
       {
         key: "itemRest",
-        header: "Дискриминативность",
+        ...share("17%"),
+        header: <TermHint term="Дискриминативность" hint={ITEM_REST_HINT} align="end" />,
         numeric: true,
+        align: "right" as const,
         sortable: true,
         render: (row: QuestionRow) => {
           const psycho = psychometrics?.[row.questionId];
@@ -493,8 +465,10 @@ export function QuestionTable({
     ]),
     {
       key: "skip",
-      header: "Пропуски",
+      ...share("10%"),
+      header: <TermHint term="Пропуски" hint={HINTS.skip} align="end" />,
       numeric: true,
+      align: "right" as const,
       sortable: true,
       render: (row: QuestionRow) => percent(row.skipShare),
     },
@@ -503,17 +477,21 @@ export function QuestionTable({
     // вопрос вкладки «Выдача», где профиль банка и стоит (FR-20).
     ...(measurement ? [] : [{
       key: "exposure",
+      ...share("11%"),
       // «Экспозиция» — как в эскизе и в пояснении под таблицей: то же слово, что у профиля
       // банка на вкладке «Выдача» (PRD-55).
-      header: "Экспозиция",
+      header: <TermHint term="Экспозиция" hint={HINTS.exposure} align="end" />,
       numeric: true,
+      align: "right" as const,
       sortable: true,
       render: (row: QuestionRow) => percent(row.exposurePercent),
     }]),
     {
       key: "latency",
-      header: "Время, медиана",
+      ...share("12%"),
+      header: <TermHint term="Время, медиана" hint={HINTS.latency} align="end" />,
       numeric: true,
+      align: "right" as const,
       sortable: true,
       render: (row: QuestionRow) => duration(row.latencyMedianMs),
     },
@@ -525,66 +503,37 @@ export function QuestionTable({
     // заявленная автором величина — это именно замысел, а не измерение.
     ...(measurement ? [] : [{
       key: "declared",
-      header: "Замысел",
+      ...share("11%"),
+      header: <TermHint term="Замысел" hint={HINTS.declared} align="end" />,
       numeric: true,
+      align: "right" as const,
       sortable: true,
       render: (row: QuestionRow) => row.difficulty,
     }]),
     // Действия строки — ПОД ТРОЕТОЧИЕМ, как в эскизе (prd66-item-quality, состояние
     // wf-items). Двумя текстовыми кнопками они занимали 263 px — пятую часть таблицы, — и
     // с приходом колонки «Дискриминативность» правая уезжала за горизонтальную прокрутку
-    // (вскрыто приёмкой в браузере). Доступные имена пунктов оставлены прежними: меняется
-    // способ добраться до действия, а не само действие.
+    // (вскрыто приёмкой в браузере). Порядок пунктов — как в эскизе prd56-test-analytics:
+    // сначала куда перейти, потом что сделать с выдачей.
     {
       key: "rowActions",
+      ...share("4%"),
       header: "",
-      render: (row: QuestionRow) => {
-        const canExclude = !!onDeliveryChange;
-        const canOpenRegistry = !!onOpenRegistry && row.correctPercent !== null;
-        if (!canExclude && !canOpenRegistry) return null;
-        return (
-          <MenuTrigger
-            placement="bottom-end"
-            trigger={
-              <IconButton
-                variant="ghost"
-                size="s"
-                aria-label={`Действия с вопросом: ${row.questionPrompt}`}
-                icon={<MoreHorizontal size={16} aria-hidden="true" />}
-              />
-            }
-          >
-            <Menu size="sm">
-              {canExclude && (row.excludedFromDelivery ? (
-                <MenuItem
-                  // Возврат ничего не отнимает и подтверждения не требует (FR-17b).
-                  aria-label={`Вернуть в выдачу: ${row.questionPrompt}`}
-                  onClick={() => onDeliveryChange!(row.questionId, false)}
-                >
-                  Вернуть в выдачу
-                </MenuItem>
-              ) : (
-                <MenuItem
-                  aria-label={`Исключить из выдачи: ${row.questionPrompt}`}
-                  onClick={() => setPending(row)}
-                >
-                  Исключить из выдачи
-                </MenuItem>
-              ))}
-              {canOpenRegistry && (
-                <MenuItem
-                  // Название задания — в доступном имени: в длинном списке пункт «Прохождения»
-                  // неотличим от соседних на слух.
-                  aria-label={`Прохождения с ошибкой: ${row.questionPrompt}`}
-                  onClick={() => onOpenRegistry!(row.questionId)}
-                >
-                  Прохождения с ошибкой
-                </MenuItem>
-              )}
-            </Menu>
-          </MenuTrigger>
-        );
-      },
+      render: (row: QuestionRow) => (
+        <QuestionRowMenu
+          prompt={row.questionPrompt}
+          onOpenQuality={onOpenQuality ? () => onOpenQuality(row.questionId) : undefined}
+          onOpenInTopic={() => navigate(questionInTopicHref(row.questionId))}
+          onOpenRegistry={onOpenRegistry && row.correctPercent !== null
+            ? () => onOpenRegistry(row.questionId)
+            : undefined}
+          excluded={row.excludedFromDelivery}
+          onExclude={onDeliveryChange
+            ? () => setPending({ questionId: row.questionId, prompt: row.questionPrompt })
+            : undefined}
+          onRestore={onDeliveryChange ? () => onDeliveryChange(row.questionId, false) : undefined}
+        />
+      ),
     },
   ];
 
@@ -625,6 +574,7 @@ export function QuestionTable({
       />
       <CardBody>
         <DataGrid
+          className={fixedLayout ? "tb-psy-grid" : undefined}
           columns={columns}
           rows={rows}
           rowKey={row => row.questionId}
@@ -652,62 +602,13 @@ export function QuestionTable({
         ) : null}
       </CardBody>
 
-      {/*
-        FR-17b: исключение подтверждается отдельным окном, и окно называет последствия числами.
-        Невыполнимая выдача ЗАПРЕЩАЕТ действие, а не сопровождает его предупреждением: тест,
-        который нельзя собрать, ломается у участника на старте попытки.
-      */}
-      <ModalDialog
-        open={pending !== null}
+      {/* FR-17b: исключение подтверждается отдельным окном — тем же, что у «Качества вопросов». */}
+      <DeliveryExclusionDialog
+        target={pending}
+        testId={testId}
         onClose={() => setPending(null)}
-        size="s"
-        title="Исключить вопрос из выдачи?"
-        description={pending?.questionPrompt}
-        footer={
-          <>
-            <Button variant="ghost" size="m" onClick={() => setPending(null)}>Отмена</Button>
-            <Button
-              variant="primary"
-              size="m"
-              disabled={!impact?.allowed}
-              onClick={() => {
-                if (pending && onDeliveryChange) onDeliveryChange(pending.questionId, true);
-                setPending(null);
-              }}
-            >
-              Исключить
-            </Button>
-          </>
-        }
-      >
-        <Stack gap={3}>
-          {impact === null ? (
-            <Text tone="muted">Считаем, сколько вопросов останется в теме…</Text>
-          ) : (
-            <>
-              <Text>
-                В теме «{impact.topicName}» останется {impact.remaining} {pluralize(impact.remaining, "вопрос", "вопроса", "вопросов")}, а выдавать
-                нужно {impact.drawCount}.
-              </Text>
-              {!impact.allowed && (
-                <Stack gap={1}>
-                  <Text tone="error">Выдачу собрать будет нельзя:</Text>
-                  {(impact.findings ?? []).flatMap(finding => finding.issues).map((issue, index) => (
-                    <Text key={index} variant="body-s" tone="error">{issueText(issue)}</Text>
-                  ))}
-                  <Text variant="body-s" tone="muted">
-                    Уменьшите число выдаваемых вопросов или добавьте новые в тему.
-                  </Text>
-                </Stack>
-              )}
-            </>
-          )}
-          <Text variant="body-s" tone="muted">
-            Опубликованная версия не меняется: пока тест не опубликован заново, и веб, и
-            выгруженный пакет SCORM продолжают выдавать этот вопрос по снимку.
-          </Text>
-        </Stack>
-      </ModalDialog>
+        onConfirm={questionId => onDeliveryChange?.(questionId, true)}
+      />
 
       {/*
         PRD-57 FR-32: сами работы — списком, с выгрузкой. Отдельного экрана трек не заводит:

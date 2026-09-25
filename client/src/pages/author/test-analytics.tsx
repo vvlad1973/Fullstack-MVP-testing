@@ -530,6 +530,49 @@ export default function TestAnalyticsPage() {
         </Stack>
     );
 
+    /**
+     * PRD-56 FR-17a: исключить вопрос из выдачи или вернуть его. Один обработчик на две таблицы —
+     * «Вопросы» и «Качество вопросов»: действие одно, и расходиться ему негде.
+     *
+     * Состояние меняется там же, где видно. Отказ сервера (выдачу собрать нельзя) показывается
+     * как есть: он и есть ответ на вопрос «почему нельзя». После успеха перечитываются и
+     * статистика вопросов (там живёт признак «исключён»), и психометрика теста.
+     */
+    const changeDelivery = async (questionId: string, excluded: boolean) => {
+        const response = await fetch(
+            `/api/analytics/tests/${testId}/questions/${questionId}/delivery`,
+            {
+                method: "PUT",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ excluded }),
+            },
+        );
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({})) as { error?: string };
+            alert(data.error ?? "Не удалось изменить состояние вопроса");
+            return;
+        }
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: [`/api/analytics/tests/${testId}`] }),
+            queryClient.invalidateQueries({
+                predicate: query => {
+                    const head = query.queryKey[0];
+                    const base = `/api/analytics/psychometrics/${testId}`;
+                    return typeof head === "string"
+                        && (head === base || head.startsWith(`${base}/`) || head.startsWith(`${base}?`));
+                },
+            }),
+        ]);
+    };
+
+    /** Какие вопросы исключены из выдачи — меню «Качества вопросов» предлагает их вернуть. */
+    const excludedFromDelivery = Object.fromEntries(
+        questionStats
+            .filter(question => question.excludedFromDelivery)
+            .map(question => [question.questionId, true]),
+    );
+
     const questionsPanel = (
         /*
           PRD-56 FR-15 - FR-17: одна таблица вместо карточек. Карточки не сравнивались между
@@ -550,25 +593,7 @@ export default function TestAnalyticsPage() {
             // успел ли кто-то пройти тест.
             measurement={summary.completedAttempts > 0 && summary.gradedAttempts === 0}
             minObservations={analytics.minObservations}
-            onDeliveryChange={async (questionId, excluded) => {
-                // FR-17a: состояние меняется там же, где видно. Отказ сервера (выдачу собрать
-                // нельзя) показывается как есть: он и есть ответ на вопрос «почему нельзя».
-                const response = await fetch(
-                    `/api/analytics/tests/${testId}/questions/${questionId}/delivery`,
-                    {
-                        method: "PUT",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ excluded }),
-                    },
-                );
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({})) as { error?: string };
-                    alert(data.error ?? "Не удалось изменить состояние вопроса");
-                    return;
-                }
-                await queryClient.invalidateQueries({ queryKey: [`/api/analytics/tests/${testId}`] });
-            }}
+            onDeliveryChange={changeDelivery}
             onOpenRegistry={questionId => {
                 // FR-17: переход в реестр к прохождениям, где на задании ошиблись. Условия
                 // отбора живут в адресе реестра (FR-03), поэтому это обычная ссылка.
@@ -854,6 +879,9 @@ export default function TestAnalyticsPage() {
                                                 exportHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/export`)}
                                                 matrixHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/matrix`)}
                                                 onOpenItem={setBreakdownId}
+                                                testId={testId ?? undefined}
+                                                onDeliveryChange={changeDelivery}
+                                                excluded={excludedFromDelivery}
                                                 onRestoreFirstAttempt={() => setFirstAttemptOnly(true)}
                                                 heuristics={reviewHeuristics}
                                             />

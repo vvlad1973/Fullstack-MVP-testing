@@ -126,8 +126,76 @@ describe("computePsychometrics", () => {
 
     expect(items.every(item => item.coefficientConfidence === "insufficient")).toBe(true);
     expect(items.some(item =>
-      item.flags.negativeDiscrimination || item.flags.atChanceLevel
+      item.flags.negativeDiscrimination || item.flags.atChanceLevel || item.flags.weakDiscrimination
       || item.flags.tooHard || item.flags.tooEasy)).toBe(false);
+  });
+
+  describe("«Сильные и слабые отвечают одинаково» (FR-14, решение владельца 2026-09-25)", () => {
+    /**
+     * Сорок участников и вопросы разного качества: три ступеньки по способности, чередование
+     * без связи с баллом (r = 0), редкий верный ответ со связью (r ≈ 0,35), вопрос, который
+     * сильные решают всегда, и обратный вопрос. Набор тот же, на котором пороги сверены руками.
+     */
+    const SHAPES: Record<string, (ability: number, index: number) => number> = {
+      s1: a => (a > 0.5 ? 1 : 0),
+      s2: a => (a > 0.3 ? 1 : 0),
+      s3: a => (a > 0.7 ? 1 : 0),
+      flat: (_a, i) => i % 2,
+      fine: (_a, i) => (i % 3 === 0 ? 1 : 0),
+      linked: (a, i) => (i % 3 === 0 || a > 0.85 ? 1 : 0),
+      inverse: a => (a < 0.5 ? 1 : 0),
+    };
+    const set = bigSet((a, i) => Object.fromEntries(
+      Object.entries(SHAPES).map(([id, shape]) => [id, shape(a, i)]),
+    ));
+    const ctx = {
+      questionById: new Map(Object.keys(SHAPES).map(id => [id, question(id, { type: "multiple" })])),
+      minObservations: 10,
+    };
+    const items = computePsychometrics(set, ctx).items;
+    const byId = (id: string) => items.find(item => item.questionId === id)!;
+
+    it("ставится при 0 ≤ r < 0,20", () => {
+      const flat = byId("flat");
+      expect(flat.itemRest).toBeGreaterThanOrEqual(0);
+      expect(flat.itemRest).toBeLessThan(0.2);
+      expect(flat.flags.weakDiscrimination).toBe(true);
+    });
+
+    it("не ставится при r от 0,20 — это уже приемлемая дискриминативность", () => {
+      const fine = byId("fine");
+      expect(fine.itemRest).toBeGreaterThanOrEqual(0.2);
+      expect(fine.flags.weakDiscrimination).toBe(false);
+    });
+
+    it("отрицательная r остаётся «Сильные ошибаются чаще» и дважды не метится", () => {
+      const inverse = byId("inverse");
+      expect(inverse.flags.negativeDiscrimination).toBe(true);
+      expect(inverse.flags.weakDiscrimination).toBe(false);
+    });
+
+    it("у вопроса крайней трудности не ставится: причина — трудность, а не различение", () => {
+      // Вопрос, который решают почти все: r около нуля по построению, баллы у всех одинаковы.
+      // Ярлык про различение стоит в ранге выше и вытеснил бы «Слишком лёгкий».
+      const easy = bigSet((a, i) => ({ q1: i % 20 === 0 ? 0 : 1, q2: a > 0.5 ? 1 : 0, q3: a > 0.3 ? 1 : 0 }));
+      const item = computePsychometrics(easy, CTX).items.find(i => i.questionId === "q1")!;
+      expect(item.flags.tooEasy).toBe(true);
+      expect(item.itemRest).toBeLessThan(0.2);
+      expect(item.flags.weakDiscrimination).toBe(false);
+    });
+
+    it("на выборке, которой экран не верит, не ставится вовсе", () => {
+      // Двенадцать наблюдений: коэффициент не выводится, и признак по нему — тоже.
+      const twelve: ResponseFact[] = [];
+      for (let i = 0; i < 12; i += 1) {
+        twelve.push(fact({ respondentId: `R${i}`, questionId: "q1", scoreRatio: i % 2 }));
+        twelve.push(fact({ respondentId: `R${i}`, questionId: "q2", scoreRatio: i < 6 ? 1 : 0 }));
+        twelve.push(fact({ respondentId: `R${i}`, questionId: "q3", scoreRatio: i < 4 ? 1 : 0 }));
+      }
+      const item = computePsychometrics(twelve, CTX).items.find(i => i.questionId === "q1")!;
+      expect(item.coefficientConfidence).toBe("insufficient");
+      expect(item.flags.weakDiscrimination).toBe(false);
+    });
   });
 
   it("к трудности и к коэффициентам применяются РАЗНЫЕ пороги (FR-38a)", () => {

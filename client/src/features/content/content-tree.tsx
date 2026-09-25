@@ -19,13 +19,19 @@
  * deletes/moves pass the PRD-15 content guard. Matches the approved wireframe
  * docs/wireframes/approved/content-bank-explorer.html.
  *
+ * Deep link `?questionId=<id>` (see {@link module:features/content/question-link}):
+ * analytics diagnoses a question, but the fix happens in its topic. Once the data
+ * is loaded the tree expands the question's folder path and topic, scrolls the row
+ * into view and opens the same {@link QuestionEditorDrawer} the ⋯ «Редактировать»
+ * action opens. It acts once and then strips the param from the address.
+ *
  * Performance: the per-topic filtered question lists are memoized (one pass per
  * data/filter change, not per render); free-text search is debounced; filters
  * apply in a batch on «Применить» (the tree does not re-filter on each facet
  * toggle). Row virtualization is a planned follow-up for very large banks. See
  * docs/PLAN_content_axis_implementation.md.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
@@ -88,6 +94,7 @@ import {
   type ContentFilterValue,
   type MediaBucket,
 } from "@/features/content/content-filters";
+import { questionFromSearch, searchWithoutQuestion } from "@/features/content/question-link";
 
 /** Open ⋯-menu (one at a time across the whole tree). */
 type OpenMenu = { kind: "folder" | "topic" | "question"; id: string } | null;
@@ -355,6 +362,54 @@ export function ContentTree() {
     return () => document.removeEventListener("click", close);
   }, [menu, fabOpen]);
 
+  // Deep link from analytics: `?questionId=<id>`. Analytics only diagnoses a
+  // question («сильные ошибаются чаще»); the author fixes it here, in its topic.
+  // Read once on mount; handled once the tree data has loaded, then the param is
+  // stripped so a reload / «Назад» does not reopen a drawer the author closed.
+  const [linkedQuestionId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : questionFromSearch(window.location.search),
+  );
+  const linkHandled = useRef(false);
+  const [scrollToQuestionId, setScrollToQuestionId] = useState<string | null>(null);
+  const dataLoading = loadingFolders || loadingTopics || loadingQuestions;
+  useEffect(() => {
+    if (!linkedQuestionId || linkHandled.current || dataLoading) return;
+    linkHandled.current = true;
+    window.history.replaceState(
+      window.history.state,
+      "",
+      window.location.pathname + searchWithoutQuestion(window.location.search) + window.location.hash,
+    );
+    const q = questions.find((x) => x.id === linkedQuestionId);
+    if (!q) {
+      // Deleted, or outside this author's topic scope: say so, do not block.
+      toast({ title: "Вопрос не найден", description: "Он удалён или недоступен вам." });
+      return;
+    }
+    // Expand the folder path (folders start open, but the user may have collapsed
+    // some) and the question's topic — filters are untouched: on a fresh
+    // navigation they are empty, so the row is visible.
+    const topic = topics.find((tp) => tp.id === q.topicId);
+    const ancestors = new Set<string>();
+    const parentOf = new Map(folders.map((f) => [f.id, f.parentId ?? null] as const));
+    for (let fid = topic?.folderId ?? null; fid && !ancestors.has(fid); fid = parentOf.get(fid) ?? null) ancestors.add(fid);
+    if (ancestors.size > 0) {
+      setCollapsedFolders((prev) => new Set(Array.from(prev).filter((id) => !ancestors.has(id))));
+    }
+    setExpandedTopics((prev) => new Set(prev).add(q.topicId));
+    setScrollToQuestionId(q.id);
+    setEditorTarget({ question: q });
+  }, [linkedQuestionId, dataLoading, questions, topics, folders, toast]);
+
+  // Scroll the linked question's row into view once it has rendered.
+  useEffect(() => {
+    if (!scrollToQuestionId) return;
+    const row = Array.from(document.querySelectorAll<HTMLElement>("[data-question-id]"))
+      .find((el) => el.dataset.questionId === scrollToQuestionId);
+    row?.scrollIntoView?.({ block: "center" });
+    setScrollToQuestionId(null);
+  }, [scrollToQuestionId]);
+
   const questionsByTopic = useMemo(() => {
     const map = new Map<string, Question[]>();
     for (const q of questions) {
@@ -549,7 +604,7 @@ export function ContentTree() {
     const isSel = selected.has(q.id);
     const qOpen = expandedQuestions.has(q.id);
     rows.push(
-      <div key={`q-${q.id}`} className={`ct-row ct-row--q ${depthClass(depth)}${isSel ? " is-selected" : ""}${qOpen ? " is-open" : ""}`} onClick={() => toggleQuestion(q.id)} role="button" tabIndex={0}>
+      <div key={`q-${q.id}`} data-question-id={q.id} className={`ct-row ct-row--q ${depthClass(depth)}${isSel ? " is-selected" : ""}${qOpen ? " is-open" : ""}`} onClick={() => toggleQuestion(q.id)} role="button" tabIndex={0}>
         <div className="ct-name">
           <span className="ct-qcheck" onClick={(e) => e.stopPropagation()}>
             <Checkbox checked={isSel} onChange={() => toggleSelected(q.id)} aria-label={t.content.selectQuestion} />
@@ -640,7 +695,7 @@ export function ContentTree() {
     }
   }
 
-  const isLoading = loadingFolders || loadingTopics || loadingQuestions;
+  const isLoading = dataLoading;
   const activeCount = filterCount(filter);
 
   return (

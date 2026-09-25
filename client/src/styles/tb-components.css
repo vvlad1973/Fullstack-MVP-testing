@@ -3225,3 +3225,52 @@
      строки вместо восьми, а действия остаются видимыми целиком. */
   min-width: 36ch;
 }
+
+/* ─── PRD-66 FR-14b: заголовок-термин с подсказкой (`TermHint`) ──────────────
+   Жалоба владельца 2026-09-25: у числовой колонки текст заголовка стоял слева,
+   значок подсказки — у правого края, а числа — справа, и заголовок читался
+   оторванным от своей колонки. Правила — как в эскизе prd66-item-quality
+   (`.ou-grid__th .ou-tip`, `.wf-tip-end`, `.wf-tip-wide`), но на метке
+   `tb-term-hint`, а не на всех подсказках продукта.
+   - Значок — псевдоэлемент самого термина: неразрывный пробел (ТЕКСТ) и иконка
+     маской. Перенос не отрывает текстовый символ от слова, поэтому значок всегда
+     при последнем слове. Отдельный элемент `svg` так не работал: сброс стилей
+     делает его блочным, а соединитель U+2060 перед блоком браузер не соблюдает
+     (вскрыто приёмкой 5.2 — значок стоял под заголовком, отдельно от термина).
+   - Шапка таблицы дизайн-системы не переносится (`nowrap`): длинный термин
+     распирал колонку и включал горизонтальную прокрутку. Заголовку с термином
+     перенос по словам разрешён.
+   - Стрелка сортировки не сжимается: в узкой колонке переносится текст, а не
+     пропадает стрелка.
+   - Пузырёк позиционируется от строчного якоря и без явной ширины сжимается до
+     ширины заголовка; у числовой колонки (обёртка `ou-text--end`) он прижат к
+     правому краю, иначе уходит за край таблицы. */
+.tb-term-hint .ou-tip__bubble--wrap { width: 240px; }
+.tb-term-hint__term::after {
+  content: "\00a0";
+  padding-right: 12px;
+  background-color: var(--ou-fg-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4M12 8h.01'/%3E%3C/svg%3E") no-repeat right center / 12px 12px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4M12 8h.01'/%3E%3C/svg%3E") no-repeat right center / 12px 12px;
+}
+.ou-grid__th:has(.tb-term-hint) { white-space: normal; }
+.ou-grid__th .tb-term-hint { display: inline; }
+.ou-grid__th > svg { flex-shrink: 0; }
+.ou-grid__th .ou-text--end .tb-term-hint[data-placement="bottom"] .ou-tip__bubble {
+  left: auto;
+  right: 0;
+  --ou-tip-tx: 0;
+}
+
+/* ─── PRD-66: таблица «Качество вопросов» — фиксированная раскладка ───────────
+   Колонка «n» уезжала за горизонтальную прокрутку: при `table-layout: auto`
+   доли в процентах лишь пожелание, и признак с подписью растягивал свою
+   колонку. Фиксированная раскладка делит ширину по долям эскиза (32 / 26 / 13 /
+   17 / 8 / 4 %), содержимое ячеек переносится по словам. Отступы шапки чуть
+   уже умолчания: иначе «Дискриминативность» со значком и стрелкой не влезает
+   в свои 17 % на экране шириной 1400 px. */
+.tb-psy-grid .ou-grid__table { table-layout: fixed; }
+.tb-psy-grid .ou-grid__th { padding-inline: var(--ou-space-2); gap: var(--ou-space-1); }
+.tb-psy-grid tbody td { white-space: normal; overflow-wrap: anywhere; }
+/* Меню строки: колонка в 4 % уже кнопки с умолчательными отступами ячейки. */
+.tb-psy-grid tbody td:has(> .tb-rowmenu) { padding-inline: var(--ou-space-1); text-align: center; }

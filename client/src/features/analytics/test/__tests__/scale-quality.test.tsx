@@ -33,12 +33,45 @@ function scale(over: Partial<ScaleQualityRow> = {}): ScaleQualityRow {
 }
 
 describe("ScaleQualityPanel", () => {
-  it("печатает согласованность шкалы с составом расчёта", () => {
+  it("сводка «Шкалы методики» печатает согласованность шкалы с составом расчёта", () => {
     render(<ScaleQualityPanel scales={[scale()]} />);
 
+    expect(screen.getByText("Шкалы методики")).toBeTruthy();
     expect(screen.getByText("Эмоциональное истощение")).toBeTruthy();
-    expect(screen.getByText(/Согласованность 0,81/)).toBeTruthy();
-    expect(screen.getByText(/9 пунктов/)).toBeTruthy();
+    expect(screen.getByText("0,81")).toBeTruthy();
+    expect(screen.getByText("9")).toBeTruthy();
+    expect(screen.getByText("Хорошо")).toBeTruthy();
+    expect(screen.getByText("Пункты шкалы «Эмоциональное истощение»")).toBeTruthy();
+  });
+
+  it("альфа ниже порога — вывод называет порог и пункты против шкалы", () => {
+    render(<ScaleQualityPanel scales={[scale({
+      reliability: { alpha: 0.64, items: 5, respondents: 120, totalSd: 4, dichotomous: false },
+      items: [item({ questionId: "s3", prompt: "Обратный пункт", itemRest: -0.44, againstScale: true })],
+    })]} />);
+
+    expect(screen.getByText("Ниже приемлемого")).toBeTruthy();
+    expect(screen.getByText("порог 0,70; 1 пункт против шкалы")).toBeTruthy();
+  });
+
+  it("заголовки называют термины по эскизу и несут подсказки (FR-14b)", () => {
+    const { container } = render(<ScaleQualityPanel scales={[scale()]} />);
+
+    for (const term of [
+      "Пунктов", "Альфа Кронбаха", "n", "Вывод по шкале",
+      "Корреляция с остатком шкалы", "Распределение ответов", "Качество пункта",
+    ]) {
+      const label = screen.getByText(term);
+      const tip = label.closest(".ou-tip");
+      expect(tip, term).not.toBeNull();
+      expect(tip!.querySelector(".ou-tip__bubble")?.textContent, term).toBeTruthy();
+      // Значок — псевдоэлемент термина и держится при последнем слове (см. term-hint.tsx).
+      expect(label.classList.contains("tb-term-hint__term"), term).toBe(true);
+    }
+    expect(screen.queryByText("Признак")).toBeNull();
+    expect(screen.queryByText("Связь с остатком шкалы")).toBeNull();
+    // Подсказка распределения перечисляет градации самого вопроса.
+    expect(container.textContent).toContain("Доли участников по градациям ответа этого вопроса: Никогда, Редко, Иногда, Часто, Всегда.");
   });
 
   it("причину отсутствия согласованности называет словами", () => {

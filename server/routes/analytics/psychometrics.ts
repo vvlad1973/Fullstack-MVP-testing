@@ -431,6 +431,7 @@ router.get(
           // говорит о размере группы, а не о качестве теста.
           suspiciousCount: psychometrics.items.filter(item =>
             item.flags.negativeDiscrimination || item.flags.atChanceLevel
+            || item.flags.weakDiscrimination
             || item.flags.tooHard || item.flags.tooEasy).length,
           items: psychometrics.items.map(item => ({
             questionId: item.questionId,

@@ -20,15 +20,20 @@ import { useState } from "react";
 
 import {
   Banner, Button, Card, CardBody, CardFooter, CardHeader, DataGrid, Grid, ModalDialog,
-  SegmentedControl, Stack, Tag, Text, Tooltip, type SortDir,
+  SegmentedControl, Stack, Tag, Text, type SortDir,
 } from "@skillum/ui-kit";
 import { Download, Info } from "lucide-react";
+import { useLocation } from "wouter";
 
+import { questionInTopicHref } from "@/features/content/question-link";
 import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
 import type { QuestionType } from "@shared/questions/question-type";
 import { pluralize } from "@/lib/i18n";
 
-import { COEFFICIENT_MIN, num } from "./psychometrics-format";
+import { DeliveryExclusionDialog, type ExclusionTarget } from "./delivery-exclusion-dialog";
+import { COEFFICIENT_MIN, DIFFICULTY_HINT, ITEM_REST_HINT, num } from "./psychometrics-format";
+import { QuestionRowMenu } from "./question-row-menu";
+import { TermHint } from "./term-hint";
 
 /** Уровень доверия к числу — то же, что считает движок. */
 type Confidence = "insufficient" | "tentative" | "reliable";
@@ -39,6 +44,11 @@ export interface ItemQualityFlags {
   tooEasy: boolean;
   negativeDiscrimination: boolean;
   atChanceLevel: boolean;
+  /**
+   * `0 <= r < 0.20` на достаточной выборке: «Сильные и слабые отвечают одинаково». Может
+   * отсутствовать у ответов ручки до этого признака (решение владельца 2026-09-25).
+   */
+  weakDiscrimination?: boolean;
 }
 
 /** Строка вкладки — задание с его психометрикой. */
@@ -124,8 +134,20 @@ export interface ItemQualityPanelProps {
   /** Ссылки выгрузок: отчёт и матрица. Без них кнопки не рисуются. */
   exportHref?: string;
   matrixHref?: string;
-  /** Открыть разбор задания. Без обработчика строка никуда не ведёт. */
+  /** Открыть разбор вопроса — пункт «Разбор вопроса» меню строки. Без обработчика его нет. */
   onOpenItem?: (questionId: string) => void;
+  /**
+   * PRD-56 FR-17a: исключить вопрос из выдачи или вернуть его — тем же путём, что на вкладке
+   * «Вопросы». Без обработчика пунктов выдачи в меню нет.
+   */
+  onDeliveryChange?: (questionId: string, excluded: boolean) => void;
+  /** Тест, у которого окно исключения спрашивает последствия (FR-17b). */
+  testId?: string;
+  /**
+   * Какие вопросы уже исключены из выдачи: по ним меню предлагает «Вернуть в выдачу». Состояние
+   * выдачи живёт в статистике вопросов «Обзора», а не в психометрике.
+   */
+  excluded?: Record<string, boolean>;
   /**
    * PRD-66 FR-51: вернуть расчёт по первой попытке. Кнопка стоит в предупреждении «Посчитано по
    * всем попыткам» — это и есть путь назад после снятия чипа в строке фильтра.
@@ -275,6 +297,10 @@ function flagOf(row: ItemQualityRow, heuristic?: ReviewHeuristic): { tone: "erro
   // вместо «мало данных»: там это единственное, что можно сказать о задании.
   const byHeuristic = heuristicFlag(heuristic);
   if (byHeuristic) return byHeuristic;
+  if (row.flags.weakDiscrimination) {
+    // FR-16a: имя — симптом, а не «Низкая дискриминативность»; числа — подписью, как в эскизе.
+    return { tone: "warning", title: "Сильные и слабые отвечают одинаково", detail: discriminationDetail(row) };
+  }
   if (row.timingFlags.rushed) {
     return { tone: "warning", title: "Отвечают не читая", detail: "ответ быстрее, чем вопрос можно прочесть" };
   }
@@ -300,7 +326,22 @@ function flagOf(row: ItemQualityRow, heuristic?: ReviewHeuristic): { tone: "erro
   return null;
 }
 
-/** Есть ли у задания хоть один признак — по нему считается «под подозрением». */
+/**
+ * Числа дискриминативности подписью: `r = 0,11, D = 0,08`. Индекса крайних групп может не быть
+ * (групп не собралось) — тогда подпись называет только `r`, а не печатает прочерк.
+ */
+function discriminationDetail(row: ItemQualityRow): string {
+  return row.discrimination === null
+    ? `r = ${num(row.itemRest)}`
+    : `r = ${num(row.itemRest)}, D = ${num(row.discrimination)}`;
+}
+
+/**
+ * Есть ли у задания хоть один признак — по нему считается «под подозрением».
+ *
+ * Одна функция на плитку, счётчик переключателя и сам отбор: три места, считающие по-своему,
+ * разошлись бы на первом же новом признаке.
+ */
 function suspicious(row: ItemQualityRow, heuristic?: ReviewHeuristic): boolean {
   const flag = flagOf(row, heuristic);
   return flag !== null && flag.tone !== "info";
@@ -325,10 +366,13 @@ function suspicionRank(row: ItemQualityRow, heuristic?: ReviewHeuristic): number
   if (row.flags.negativeDiscrimination) return 1;
   if (row.flags.atChanceLevel) return 2;
   if (hasHeuristic) return 3;
-  if (row.timingFlags.rushed) return 4;
-  if (row.flags.tooHard) return 5;
-  if (row.flags.tooEasy) return 6;
-  if (row.timingFlags.slow) return 7;
+  // Решение владельца 2026-09-25: слабая дискриминативность — сразу за эвристиками PRD-56 и
+  // перед признаками времени и трудности.
+  if (row.flags.weakDiscrimination) return 4;
+  if (row.timingFlags.rushed) return 5;
+  if (row.flags.tooHard) return 6;
+  if (row.flags.tooEasy) return 7;
+  if (row.timingFlags.slow) return 8;
   return 50;
 }
 
@@ -343,20 +387,24 @@ function withinRank(row: ItemQualityRow, heuristic?: ReviewHeuristic): number {
   if (row.flags.atChanceLevel) return row.correctedDifficulty ?? 0;
   // У эвристики признак вызвала доля верных: чем она ниже, тем раньше строка.
   if (heuristicFlag(heuristic)) return (heuristic?.correctPercent ?? 0) / 100;
+  // У слабой дискриминативности признак вызвала `r`: чем она ближе к нулю, тем раньше строка.
+  if (row.flags.weakDiscrimination) return row.itemRest ?? 0;
   return row.difficulty ?? 0;
 }
 
-/** Заголовок-термин с подсказкой: без значка подсказка невидима (FR-14b). */
-function TermHeader({ term, hint }: { term: string; hint: string }) {
-  return (
-    <Tooltip content={hint} placement="bottom">
-      <span className="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
-        {term}
-        <Info size={12} aria-hidden />
-      </span>
-    </Tooltip>
-  );
-}
+/**
+ * Толкования терминов вкладки (FR-14b) — дословно из эскиза prd66-item-quality, состояния
+ * wf-quality и wf-quality-thin. Трудность и дискриминативность — общие с вкладкой «Вопросы».
+ */
+const HINTS = {
+  flag: "Что не так с вопросом — по числам этой же строки; пусто, если по ним всё в порядке. Сортировка — по силе подозрения, от прямых дефектов к спокойным вопросам.",
+  state: "Сколько наблюдений собрано и сколько ещё нужно: коэффициенты вопроса считаются с 30 наблюдений. До порога признака у вопроса нет — не потому, что он здоров.",
+  observations: "Сколько участников выборки видели этот вопрос. Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100.",
+  alpha: "Насколько согласованно вопросы теста меряют одно и то же. От 0,70 — приемлемо, от 0,80 — хорошо; ниже итоговый балл заметно зависит от случая.",
+  sem: "На сколько процентных пунктов балл участника может отклониться от его истинного уровня. Интервал вокруг балла — ±1,96 ошибки: в нём с вероятностью 95 % лежит истинный уровень.",
+  suspicious: "Сколько вопросов получили отметку в колонке «Что не так». Их стоит проверить первыми.",
+  reliable: "Сколько вопросов набрали 100 наблюдений и больше: их коэффициенты устойчивы. У остальных числа ориентировочные или ещё не считаются.",
+} as const;
 
 type View = "all" | "suspicious" | "thin";
 
@@ -378,7 +426,7 @@ function sortNumber(row: ItemQualityRow, column: SortColumn): number | null {
 /**
  * Сравнение двух строк таблицы для выбранной колонки и направления (FR-48a).
  *
- * «Признак» сортируется по рангу подозрения (FR-48), а не по алфавиту ярлыков; обратное
+ * «Что не так» сортируется по рангу подозрения (FR-48), а не по алфавиту ярлыков; обратное
  * направление ведёт от спокойных заданий к самым тревожным. Задания «мало данных» без
  * эвристики — последними в обоих направлениях: признака у них нет не потому, что они здоровы.
  */
@@ -412,9 +460,15 @@ function compareRows(
 }
 
 /** Вкладка «Качество заданий». */
-export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onRestoreFirstAttempt, heuristics = {} }: ItemQualityPanelProps) {
+export function ItemQualityPanel({
+  view, exportHref, matrixHref, onOpenItem, onRestoreFirstAttempt, heuristics = {},
+  onDeliveryChange, testId, excluded = {},
+}: ItemQualityPanelProps) {
   const [tab, setTab] = useState<View>("all");
   const [glossary, setGlossary] = useState(false);
+  /** Вопрос, для которого открыто окно подтверждения исключения (FR-17b). */
+  const [pending, setPending] = useState<ExclusionTarget | null>(null);
+  const [, navigate] = useLocation();
   // Порядок по умолчанию — сила подозрения (FR-48): список открывается тем, что чинят первым.
   const [sortColumn, setSortColumn] = useState<SortColumn>("flag");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -481,7 +535,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       key: "question",
       // Ширины заданы долями НАМЕРЕННО: без них задание с абзацем текста растягивает первую
       // колонку и вытесняет за край остальные — вскрыто приёмкой на синтетических данных.
-      width: "38%",
+      width: thin ? "34%" : "32%",
       header: "Вопрос",
       frozen: true,
       sortable: true,
@@ -501,14 +555,11 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     {
       key: "flag",
       sortable: true,
-      width: "26%",
+      width: thin ? "27%" : "26%",
       // FR-46: пока данных мало, колонка говорит не о симптоме, а о том, сколько добрать.
       header: thin
-        ? "Состояние"
-        : <TermHeader
-          term="Признак"
-          hint="Что не так с вопросом. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
-        />,
+        ? <TermHint term="Состояние" hint={HINTS.state} />
+        : <TermHint term="Что не так" hint={HINTS.flag} />,
       render: (row: ItemQualityRow) => {
         const flag = flagOf(row, heuristics[row.questionId]);
         if (thin && (!flag || flag.tone === "info")) {
@@ -537,9 +588,9 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
         }
         // Признак главнее оговорки, но оговорка не теряется — там, где признак стоит на
         // КОЭФФИЦИЕНТЕ. Трудность и признаки по ней правилу FR-38 не подчиняются (FR-38a).
-        const coefficientFlag = row.flags.negativeDiscrimination;
+        const coefficientFlag = row.flags.negativeDiscrimination || !!row.flags.weakDiscrimination;
         return (
-          <Stack gap={1} align="start">
+          <Stack gap={1} align="start" className="ou-grid__cell-wrap">
             <Tag tone={flag.tone} size="s">{flag.title}</Tag>
             <Text variant="body-xs" tone="muted">
               {tentative && coefficientFlag ? `${flag.detail} · ориентировочно, ${observed}` : flag.detail}
@@ -551,12 +602,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     {
       key: "difficulty",
       sortable: true,
-      width: "12%",
-      header: <TermHeader
-        term="Трудность"
-        hint="Средняя доля набранного балла: 0 — не решил никто, 1 — решили все. Приемлемо 0,20 — 0,80; выше 0,90 вопрос ничего не отсеивает."
-      />,
+      width: thin ? "15%" : "13%",
+      header: <TermHint term="Трудность" hint={DIFFICULTY_HINT} align="end" />,
       numeric: true,
+      align: "right" as const,
       // Трудность живёт при пороге наблюдений инстанса, а коэффициенты — при 30 и 100
       // (FR-38a). Поэтому у задания с дюжиной наблюдений она есть, а дискриминативности нет.
       render: (row: ItemQualityRow) => (
@@ -578,12 +627,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     {
       key: "itemRest",
       sortable: true,
-      width: "16%",
-      header: <TermHeader
-        term="Дискриминативность"
-        hint="Отделяет ли вопрос сильных от слабых: корреляция балла за него с баллом за остальные вопросы формы. Хорошо от 0,30, отрицательная — почти всегда ошибка в ключе."
-      />,
+      width: thin ? "18%" : "17%",
+      header: <TermHint term="Дискриминативность" hint={ITEM_REST_HINT} align="end" />,
       numeric: true,
+      align: "right" as const,
       render: (row: ItemQualityRow) => (
         <Text variant="body-s" tone={row.coefficientConfidence === "insufficient" ? "muted" : undefined}>
           {row.coefficientConfidence === "insufficient" ? "мало данных" : num(row.itemRest)}
@@ -593,14 +640,38 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
     {
       key: "observations",
       sortable: true,
-      width: "8%",
-      header: <TermHeader
-        term="n"
-        hint="Сколько участников выборки видели этот вопрос. Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100."
-      />,
+      // Доли колонок — из эскиза (colgroup): 32 / 26 / 13 / 17 / 8 / 4 %, а пока данных мало и
+      // меню нет — 34 / 27 / 15 / 18 / 6 %. При фиксированной раскладке (`tb-psy-grid`) они и
+      // есть ширины: «n» больше не уезжает за горизонтальную прокрутку.
+      width: thin ? "6%" : "8%",
+      header: <TermHint term="n" hint={HINTS.observations} align="end" />,
       numeric: true,
+      align: "right" as const,
       render: (row: ItemQualityRow) => <Text variant="body-s">{row.observations}</Text>,
     },
+    // Действия строки — меню «⋯», а не щелчок по строке (эскиз, состояние wf-quality): у вопроса
+    // несколько действий, и щелчок по строке обещал бы одно. Пока данных мало, колонки нет —
+    // как в эскизе wf-quality-thin: разбирать вопрос без коэффициентов не по чему.
+    ...(thin ? [] : [{
+      key: "rowActions",
+      width: "4%",
+      header: "",
+      render: (row: ItemQualityRow) => {
+        const prompt = row.prompt ?? row.questionId;
+        return (
+          <QuestionRowMenu
+            prompt={prompt}
+            onOpenQuality={onOpenItem ? () => onOpenItem(row.questionId) : undefined}
+            onOpenInTopic={() => navigate(questionInTopicHref(row.questionId))}
+            excluded={!!excluded[row.questionId]}
+            onExclude={onDeliveryChange
+              ? () => setPending({ questionId: row.questionId, prompt })
+              : undefined}
+            onRestore={onDeliveryChange ? () => onDeliveryChange(row.questionId, false) : undefined}
+          />
+        );
+      },
+    }]),
   ];
 
   // FR-52: у теста, где все задания измерительные, показывать нечего, кроме раздела шкал.
@@ -657,7 +728,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
               <Text variant="display-s" weight="bold">{reliability ? num(reliability.alpha) : "—"}</Text>
               {/* FR-20: оценка по связям заданий — не альфа полного набора, и заголовок это говорит. */}
               <Text variant="body-s" tone="muted">
-                {reliability?.method === "pairwise" ? "Надёжность (оценка)" : "Надёжность (альфа)"}
+                <TermHint
+                  term={reliability?.method === "pairwise" ? "Надёжность (оценка)" : "Надёжность (альфа)"}
+                  hint={HINTS.alpha}
+                />
               </Text>
               <Text variant="body-xs" tone="subtle">
                 {reliability
@@ -688,7 +762,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           <CardBody>
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{num(view.sem)}</Text>
-              <Text variant="body-s" tone="muted">Ошибка измерения</Text>
+              <Text variant="body-s" tone="muted"><TermHint term="Ошибка измерения" hint={HINTS.sem} /></Text>
               <Text variant="body-xs" tone="subtle">в долях балла</Text>
             </Stack>
           </CardBody>
@@ -697,7 +771,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           <CardBody>
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{suspiciousCount}</Text>
-              <Text variant="body-s" tone="muted">Под подозрением</Text>
+              <Text variant="body-s" tone="muted"><TermHint term="Под подозрением" hint={HINTS.suspicious} /></Text>
               <Text variant="body-xs" tone="subtle">из {view.items.length} {pluralize(view.items.length, "вопроса", "вопросов", "вопросов")}</Text>
             </Stack>
           </CardBody>
@@ -706,7 +780,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
           <CardBody>
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{reliableCount}</Text>
-              <Text variant="body-s" tone="muted">Вопросов с надёжной оценкой</Text>
+              <Text variant="body-s" tone="muted"><TermHint term="Вопросов с надёжной оценкой" hint={HINTS.reliable} /></Text>
               <Text variant="body-xs" tone="subtle">n не меньше 100</Text>
             </Stack>
           </CardBody>
@@ -802,13 +876,13 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
         />
         <CardBody>
           <DataGrid
+            className="tb-psy-grid"
             columns={columns}
             rows={rows}
             rowKey={row => row.questionId}
             sortKey={sortColumn}
             sortDir={sortDir}
             onSort={(key, dir) => { setSortColumn(key as SortColumn); setSortDir(dir); }}
-            onRowClick={onOpenItem ? row => onOpenItem(row.questionId) : undefined}
             emptyMessage={tab === "suspicious"
               ? "Признаки не сошлись ни у одного вопроса"
               : tab === "thin"
@@ -837,6 +911,13 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       </Card>
 
       <GlossaryDialog open={glossary} onClose={() => setGlossary(false)} />
+      {/* FR-17b: то же окно подтверждения, что у вкладки «Вопросы». */}
+      <DeliveryExclusionDialog
+        target={pending}
+        testId={testId}
+        onClose={() => setPending(null)}
+        onConfirm={questionId => onDeliveryChange?.(questionId, true)}
+      />
     </Stack>
   );
 }

@@ -29,7 +29,12 @@ vi.mock("@/features/content-protection/content-impact-dialog", () => ({
   ContentImpactDialog: () => null,
 }));
 vi.mock("@/features/questions/question-editor-drawer", () => ({
-  QuestionEditorDrawer: ({ open }: { open: boolean }) => (open ? <div data-testid="mock-question-editor" /> : null),
+  QuestionEditorDrawer: ({ open, question, onClose }: { open: boolean; question: { id: string } | null; onClose: () => void }) =>
+    (open ? (
+      <div data-testid="mock-question-editor" data-question={question?.id ?? ""}>
+        <button type="button" data-testid="mock-question-editor-close" onClick={onClose} />
+      </div>
+    ) : null),
 }));
 vi.mock("@/features/topics/topic-drawer", () => ({
   TopicDrawer: ({ target }: { target: unknown }) => (target ? <div data-testid="mock-topic-drawer" /> : null),
@@ -404,6 +409,84 @@ describe("<ContentTree /> — filters & search", () => {
     await waitFor(() => expect(screen.getByText("Что такое акция?")).toBeInTheDocument());
     expect(screen.getByText(/Показано\s+1\s+совпадение/)).toBeInTheDocument();
     expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
+  });
+});
+
+// ── Deep link from analytics: `?questionId=<id>` ──────────────────────────
+// «Открыть вопрос в теме» in analytics lands here; the tree must reveal the
+// question and open its editor once, then drop the param from the address.
+describe("<ContentTree /> — ссылка на вопрос из аналитики", () => {
+  const scrollSpy = vi.fn();
+  let origScroll: typeof Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    origScroll = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    scrollSpy.mockClear();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = origScroll;
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("раскрывает тему, прокручивает к вопросу, открывает его редактор и убирает параметр", async () => {
+    window.history.replaceState(null, "", "/author/content?questionId=q2&keep=1");
+    renderTree();
+    const editor = await screen.findByTestId("mock-question-editor");
+    expect(editor.getAttribute("data-question")).toBe("q2");
+    // The topic is expanded, so the question row is in the tree.
+    expect(screen.getByText("Выберите верные утверждения")).toBeInTheDocument();
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
+    expect((scrollSpy.mock.contexts[0] as HTMLElement).dataset.questionId).toBe("q2");
+    // Only our param goes; the rest of the query survives.
+    expect(window.location.pathname).toBe("/author/content");
+    expect(window.location.search).toBe("?keep=1");
+    expect(toastSpy).not.toHaveBeenCalled();
+  });
+
+  it("раскрывает свёрнутый путь папок до вопроса", async () => {
+    // t3 lives in f2 ⊂ f1; folders start open, but the path must be walked all the way.
+    const deep = {
+      folders,
+      topics: [...topics, { id: "t3", name: "Прогнозы", folderId: "f2", ownerId: "u1", visibility: "shared" }],
+      questions: [...questions, { id: "q9", topicId: "t3", type: "single", prompt: "Глубокий вопрос", difficulty: null, tags: [], mediaType: null, createdBy: "u1" }],
+    };
+    window.history.replaceState(null, "", "/author/content?questionId=q9");
+    renderTree(deep);
+    expect((await screen.findByTestId("mock-question-editor")).getAttribute("data-question")).toBe("q9");
+    expect(screen.getByText("Глубокий вопрос")).toBeInTheDocument();
+    expect(window.location.search).toBe("");
+  });
+
+  it("не открывает редактор повторно после закрытия", async () => {
+    window.history.replaceState(null, "", "/author/content?questionId=q1");
+    renderTree();
+    await screen.findByTestId("mock-question-editor");
+    fireEvent.click(screen.getByTestId("mock-question-editor-close"));
+    expect(screen.queryByTestId("mock-question-editor")).not.toBeInTheDocument();
+    // Further renders (e.g. the tree reacting to a click) must not reopen it.
+    fireEvent.click(screen.getByText("Инвестиции"));
+    expect(screen.getByText("Что такое акция?")).toBeInTheDocument();
+    expect(screen.queryByTestId("mock-question-editor")).not.toBeInTheDocument();
+    expect(window.location.search).toBe("");
+  });
+
+  it("неизвестный вопрос: без падения и без редактора, только ненавязчивое уведомление", async () => {
+    window.history.replaceState(null, "", "/author/content?questionId=nope");
+    renderTree();
+    await waitFor(() => expect(screen.getByText("Финансы")).toBeInTheDocument());
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledTimes(1));
+    expect(toastSpy.mock.calls[0][0]).toMatchObject({ title: "Вопрос не найден" });
+    expect(toastSpy.mock.calls[0][0].variant).toBeUndefined();
+    expect(screen.queryByTestId("mock-question-editor")).not.toBeInTheDocument();
+    expect(window.location.search).toBe("");
+  });
+
+  it("без параметра ничего не открывает", async () => {
+    window.history.replaceState(null, "", "/author/content");
+    renderTree();
+    await waitFor(() => expect(screen.getByText("Финансы")).toBeInTheDocument());
+    expect(screen.queryByTestId("mock-question-editor")).not.toBeInTheDocument();
+    expect(toastSpy).not.toHaveBeenCalled();
   });
 });
 

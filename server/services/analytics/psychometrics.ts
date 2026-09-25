@@ -118,6 +118,11 @@ export interface ItemFlags {
   negativeDiscrimination: boolean;
   /** Скорректированная трудность на уровне случайного попадания. */
   atChanceLevel: boolean;
+  /**
+   * `0 <= r < 0.20`: вопрос почти не отделяет сильных от слабых — «Сильные и слабые отвечают
+   * одинаково». Отрицательная `r` сюда не попадает: у неё свой признак первого приоритета.
+   */
+  weakDiscrimination: boolean;
 }
 
 /** Психометрика теста целиком. */
@@ -206,6 +211,15 @@ function forecastOf(alpha: number, items: number) {
  */
 const NEGATIVE_DISCRIMINATION = -0.05;
 
+/**
+ * Нижняя граница приемлемой дискриминативности — из FR-14: `r >= 0.20` приемлемо.
+ *
+ * Ниже неё, но не в минусе, вопрос почти не отделяет сильных от слабых: признак «Сильные и
+ * слабые отвечают одинаково» (решение владельца 2026-09-25). Отрицательная `r` остаётся
+ * признаком «Сильные ошибаются чаще» и дважды не метится.
+ */
+const WEAK_DISCRIMINATION = 0.2;
+
 /** Сколько вариантов у задания: по ним считается вероятность случайного попадания. */
 function optionCountOf(question: QuestionInfo | undefined): number {
   const options = (question?.dataJson as { options?: unknown[] } | null)?.options;
@@ -290,6 +304,13 @@ export function computePsychometrics(
     const coefficientConfidenceLevel = coefficientConfidence(observations);
     const descriptiveEnough = difficultyConfidenceLevel !== "insufficient";
     const coefficientEnough = coefficientConfidenceLevel !== "insufficient";
+    const tooHard = descriptiveEnough && p !== null && p < TOO_HARD;
+    const tooEasy = descriptiveEnough && p !== null && p > TOO_EASY;
+    // Достаточно ОДНОГО из двух показателей: они считаются по-разному и ловят разное, а
+    // симптом у них один — сильные ошибаются чаще слабых (FR-16).
+    const negativeDiscrimination = coefficientEnough
+      && ((itemRest !== null && itemRest <= NEGATIVE_DISCRIMINATION)
+        || (groups !== null && groups.index <= NEGATIVE_DISCRIMINATION));
 
     items.push({
       questionId,
@@ -329,14 +350,22 @@ export function computePsychometrics(
       // дискриминации и угадывания — при пороге КОЭФФИЦИЕНТОВ: каждый при том пороге, по
       // которому посчитана вызвавшая его величина.
       flags: {
-        tooHard: descriptiveEnough && p !== null && p < TOO_HARD,
-        tooEasy: descriptiveEnough && p !== null && p > TOO_EASY,
-        // Достаточно ОДНОГО из двух показателей: они считаются по-разному и ловят разное, а
-        // симптом у них один — сильные ошибаются чаще слабых (FR-16).
-        negativeDiscrimination: coefficientEnough
-          && ((itemRest !== null && itemRest <= NEGATIVE_DISCRIMINATION)
-            || (groups !== null && groups.index <= NEGATIVE_DISCRIMINATION)),
+        tooHard,
+        tooEasy,
+        negativeDiscrimination,
         atChanceLevel: coefficientEnough && corrected !== null && corrected <= 0,
+        // Слабая дискриминативность — только по `r` и только в неотрицательной зоне: минус уже
+        // назван «Сильные ошибаются чаще», и два ярлыка на один симптом спорили бы друг с другом.
+        // У вопроса крайней трудности `r` близка к нулю ПО ПОСТРОЕНИЮ: баллы почти у всех
+        // одинаковы, различать нечем. Там причина — трудность, и ярлык про различение, стоящий
+        // в ранге выше, вытеснил бы настоящий диагноз «Слишком трудный / лёгкий».
+        weakDiscrimination: coefficientEnough
+          && !negativeDiscrimination
+          && !tooHard
+          && !tooEasy
+          && itemRest !== null
+          && itemRest >= 0
+          && itemRest < WEAK_DISCRIMINATION,
       },
     });
   }

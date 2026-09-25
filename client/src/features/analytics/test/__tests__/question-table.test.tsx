@@ -466,3 +466,82 @@ describe("QuestionTable — написанные ответы (PRD-57)", () => {
     expect(screen.getByRole("button", { name: "Выгрузить в Excel" })).toBeTruthy();
   });
 });
+
+/**
+ * PRD-66 FR-14b: у каждого термина в заголовке — значок и толкование, дословно из эскиза
+ * prd66-item-quality (состояние wf-items). Числовые заголовки стоят справа, над числами.
+ */
+describe("QuestionTable — подсказки терминов (FR-14b)", () => {
+  const HINTS: Array<[string, string]> = [
+    ["Трудность", "Средняя доля набранного балла: 0 — не решил никто, 1 — решили все. Приемлемо 0,20 — 0,80; выше 0,90 вопрос ничего не отсеивает."],
+    ["Дискриминативность", "Отделяет ли вопрос сильных от слабых: корреляция балла за него с баллом за остальные вопросы формы. Хорошо от 0,30, отрицательная — почти всегда ошибка в ключе."],
+    ["Пропуски", "Доля показов, в которых на вопрос не ответили. Считается по веб-прохождениям: состав выданной формы пакет SCORM не сообщает."],
+    ["Экспозиция", "Доля прохождений, в которые попал вопрос. Высокая экспозиция при малом банке — ответ быстро становится известен."],
+    ["Время, медиана", "Типичное время на вопрос: половина участников отвечает быстрее, половина — дольше. Медиана не зависит от брошенных и забытых открытыми вкладок."],
+    ["Замысел", "Трудность, которую автор заявил при создании вопроса: 0 — легко, 100 — сложно. Сравнивается с наблюдаемой в разборе вопроса."],
+  ];
+
+  it.each(HINTS)("«%s» — со значком и толкованием", (term, hint) => {
+    render(<QuestionTable questions={QUESTIONS} />);
+
+    const trigger = screen.getByText(hint).closest(".tb-term-hint") as HTMLElement;
+    expect(trigger).toBeTruthy();
+    expect(within(trigger).getByText(term)).toBeTruthy();
+    // Значок — псевдоэлемент термина (см. term-hint.tsx): держится при последнем слове.
+    expect(trigger.querySelector(".tb-term-hint__term")).toBeTruthy();
+    expect(trigger.getAttribute("tabindex")).toBe("0");
+    // Числовая колонка: заголовок справа, над числами.
+    expect(trigger.closest(".ou-text--end")).toBeTruthy();
+  });
+});
+
+/**
+ * Меню строки — как в эскизе prd56-test-analytics: «Открыть вопрос в теме», прохождения с
+ * ошибкой, выдача; и вход в разбор, когда вкладка качества его принимает.
+ */
+describe("QuestionTable — меню строки", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  it("«Открыть вопрос в теме» ведёт в раздел «Темы и вопросы» на этот вопрос", async () => {
+    render(<QuestionTable questions={QUESTIONS} />);
+
+    await openRowMenu(/Действия с вопросом: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Открыть вопрос в теме: Какая мера/ }));
+
+    expect(window.location.pathname).toBe("/author/content");
+    expect(window.location.search).toBe("?questionId=q1");
+  });
+
+  it("«Разбор вопроса» есть, когда разбор можно открыть, и открывает его", async () => {
+    const onOpenQuality = vi.fn();
+    render(<QuestionTable questions={QUESTIONS} onOpenQuality={onOpenQuality} />);
+
+    await openRowMenu(/Действия с вопросом: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Разбор вопроса: Какая мера/ }));
+
+    expect(onOpenQuality).toHaveBeenCalledWith("q1");
+  });
+
+  it("без входа в разбор пункта нет", async () => {
+    render(<QuestionTable questions={QUESTIONS} />);
+
+    await openRowMenu(/Действия с вопросом: Какая мера/);
+    expect(screen.queryByRole("menuitem", { name: /Разбор вопроса/ })).toBeNull();
+  });
+
+  it("порядок пунктов — как в эскизе: разбор, тема, прохождения, выдача", async () => {
+    render(
+      <QuestionTable
+        questions={QUESTIONS}
+        onOpenQuality={vi.fn()}
+        onOpenRegistry={vi.fn()}
+        onDeliveryChange={vi.fn()}
+      />,
+    );
+
+    await openRowMenu(/Действия с вопросом: Какая мера/);
+    expect(screen.getAllByRole("menuitem").map(item => item.textContent)).toEqual([
+      "Разбор вопроса", "Открыть вопрос в теме", "Прохождения с ошибкой", "Исключить из выдачи…",
+    ]);
+  });
+});

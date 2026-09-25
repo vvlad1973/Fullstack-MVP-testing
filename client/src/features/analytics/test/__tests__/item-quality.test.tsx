@@ -8,7 +8,7 @@
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ItemQualityPanel, type ItemQualityRow, type ItemQualityView } from "../item-quality";
 
@@ -447,13 +447,13 @@ describe("ItemQualityPanel — сортировка колонок (FR-48a)", ()
     expect(order()).toEqual(["Вопрос Г", "Вопрос Б", "Вопрос В", "Вопрос А"]);
   });
 
-  it("«Признак» возвращает порядок подозрения, обратное направление — от спокойных к тревожным", async () => {
+  it("«Что не так» возвращает порядок подозрения, обратное направление — от спокойных к тревожным", async () => {
     render(<ItemQualityPanel view={view({ items })} />);
     await clickHeader("n");
 
-    await clickHeader("Признак");
+    await clickHeader("Что не так");
     expect(order()).toEqual(["Вопрос В", "Вопрос Б", "Вопрос А", "Вопрос Г"]);
-    await clickHeader("Признак");
+    await clickHeader("Что не так");
     // «Мало данных» остаётся последним и здесь: признака у задания нет не потому, что оно здорово.
     expect(order()).toEqual(["Вопрос А", "Вопрос Б", "Вопрос В", "Вопрос Г"]);
   });
@@ -565,11 +565,11 @@ describe("ItemQualityPanel — данных мало на уровне тест�
     expect(screen.queryByText("Ошибка измерения")).toBeNull();
   });
 
-  it("колонка «Признак» становится «Состояние» и говорит, сколько добрать", () => {
+  it("колонка «Что не так» становится «Состояние» и говорит, сколько добрать", () => {
     render(<ItemQualityPanel view={thinView()} />);
 
     expect(screen.getByText("Состояние")).toBeTruthy();
-    expect(screen.queryByText("Признак")).toBeNull();
+    expect(screen.queryByText("Что не так")).toBeNull();
     expect(screen.getByText("Нужно ещё 12 наблюдений")).toBeTruthy();
     expect(screen.getByText("Нужно ещё 19 наблюдений")).toBeTruthy();
     expect(screen.getByText(/2 вопроса · накопление наблюдений/)).toBeTruthy();
@@ -580,7 +580,7 @@ describe("ItemQualityPanel — данных мало на уровне тест�
 
     expect(screen.queryByText(/Данных пока мало/)).toBeNull();
     expect(screen.getByText("Надёжность (альфа)")).toBeTruthy();
-    expect(screen.getByText("Признак")).toBeTruthy();
+    expect(screen.getByText("Что не так")).toBeTruthy();
   });
 });
 
@@ -647,5 +647,258 @@ describe("ItemQualityPanel — отрицательная дискриминат
     expect(screen.getByText("Сильные ошибаются чаще")).toBeTruthy();
     // Формулировка — дословно из спеки: причина-догадка и числа, на которых она стоит.
     expect(screen.getByText(/^вероятна ошибка в ключе: r = .?0,21, D = .?0,14$/)).toBeTruthy();
+  });
+});
+
+/** Флаги без признаков — основа, поверх которой тест включает нужный. */
+const NO_FLAGS = { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false, weakDiscrimination: false };
+
+/**
+ * Решение владельца 2026-09-25: `0 ≤ r < 0,20` на достаточной выборке — признак «Сильные и
+ * слабые отвечают одинаково». Имя — симптом (FR-16a), числа — подписью, как в эскизе
+ * prd66-item-quality (состояние wf-quality). Ранг — сразу за эвристиками PRD-56.
+ */
+describe("ItemQualityPanel — «Сильные и слабые отвечают одинаково»", () => {
+  const WEAK = { ...NO_FLAGS, weakDiscrimination: true };
+
+  it("ставит ярлык-симптом с числами r и D под ним", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", itemRest: 0.11, discrimination: 0.08, flags: WEAK })],
+    })} />);
+
+    expect(screen.getByText("Сильные и слабые отвечают одинаково")).toBeTruthy();
+    expect(screen.getByText("r = 0,11, D = 0,08")).toBeTruthy();
+  });
+
+  it("без индекса крайних групп подпись называет только r, без прочерка", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", itemRest: 0.11, discrimination: null, flags: WEAK })],
+    })} />);
+
+    expect(screen.getByText("r = 0,11")).toBeTruthy();
+  });
+
+  it("порядок FR-48: дефекты, эвристика, слабая дискриминативность, время и трудность", () => {
+    const HEURISTIC = { kinds: ["hard-and-frequent"], exposurePercent: 82, correctPercent: 41, latencyMedianMs: 30_000 };
+    render(<ItemQualityPanel
+      view={view({ items: [
+        row({ questionId: "slow", prompt: "Вопрос тормозит", timingFlags: { rushed: false, slow: true } }),
+        row({ questionId: "easy", prompt: "Вопрос лёгкий", flags: { ...NO_FLAGS, tooEasy: true } }),
+        row({ questionId: "hard", prompt: "Вопрос трудный", flags: { ...NO_FLAGS, tooHard: true } }),
+        row({ questionId: "rushed", prompt: "Вопрос не читают", timingFlags: { rushed: true, slow: false } }),
+        row({ questionId: "weak", prompt: "Вопрос одинаково", itemRest: 0.11, flags: WEAK }),
+        row({ questionId: "heur", prompt: "Вопрос эвристика" }),
+        row({ questionId: "chance", prompt: "Вопрос угадывание", flags: { ...NO_FLAGS, atChanceLevel: true } }),
+        row({ questionId: "neg", prompt: "Вопрос ключ", itemRest: -0.2, flags: { ...NO_FLAGS, negativeDiscrimination: true } }),
+      ] })}
+      heuristics={{ heur: HEURISTIC }}
+    />);
+
+    expect(screen.getAllByText(/^Вопрос /).map(el => el.textContent)).toEqual([
+      "Вопрос ключ", "Вопрос угадывание", "Вопрос эвристика", "Вопрос одинаково",
+      "Вопрос не читают", "Вопрос трудный", "Вопрос лёгкий", "Вопрос тормозит",
+    ]);
+  });
+
+  it("внутри ранга — от r ближе к нулю", () => {
+    render(<ItemQualityPanel view={view({ items: [
+      row({ questionId: "a", prompt: "Вопрос 0,18", itemRest: 0.18, flags: WEAK }),
+      row({ questionId: "b", prompt: "Вопрос 0,02", itemRest: 0.02, flags: WEAK }),
+    ] })} />);
+
+    expect(screen.getAllByText(/^Вопрос /).map(el => el.textContent)).toEqual(["Вопрос 0,02", "Вопрос 0,18"]);
+  });
+
+  it("плитка, счётчик переключателя и отбор «Под подозрением» считают его одинаково", async () => {
+    render(<ItemQualityPanel view={view({ items: [
+      row({ questionId: "q1", prompt: "Вопрос спокойный" }),
+      row({ questionId: "q2", prompt: "Вопрос одинаково", itemRest: 0.11, flags: WEAK }),
+    ] })} />);
+
+    const tile = screen.getAllByText("Под подозрением")
+      .map((el) => el.closest(".ou-card"))
+      .find((card): card is HTMLElement => !!card && !card.querySelector("table")) as HTMLElement;
+    expect(within(tile).getByText("1")).toBeTruthy();
+
+    const segment = screen.getByRole("button", { name: /Под подозрением/ });
+    expect(segment.textContent).toContain("1");
+
+    await userEvent.click(segment);
+    expect(screen.getAllByText(/^Вопрос /).map(el => el.textContent)).toEqual(["Вопрос одинаково"]);
+  });
+
+  it("на ориентировочной выборке оговорка идёт в подпись: признак стоит на коэффициенте", () => {
+    render(<ItemQualityPanel view={view({ items: [
+      row({ questionId: "q1", observations: 44, coefficientConfidence: "tentative", itemRest: 0.11, discrimination: 0.08, flags: WEAK }),
+    ] })} />);
+
+    expect(screen.getByText(/r = 0,11, D = 0,08 · ориентировочно, 44 наблюдения/)).toBeTruthy();
+  });
+});
+
+/**
+ * Найти подсказку термина (FR-14b): текст из эскиза стоит в пузырьке, а пузырёк — у триггера с
+ * самим термином и значком. Триггер доступен с клавиатуры.
+ */
+function expectHint(term: string, hint: string): void {
+  const trigger = screen.getAllByText(hint)
+    .map(bubble => bubble.closest(".tb-term-hint") as HTMLElement | null)
+    .find(el => !!el && within(el).queryByText(term) !== null);
+  expect(trigger, `подсказка у «${term}»`).toBeTruthy();
+  // Значок — псевдоэлемент термина (см. term-hint.tsx): держится при последнем слове.
+  expect(trigger!.querySelector(".tb-term-hint__term")).toBeTruthy();
+  expect(trigger!.getAttribute("tabindex")).toBe("0");
+}
+
+describe("ItemQualityPanel — подсказки терминов (FR-14b)", () => {
+  it("у каждого заголовка и каждой плитки — толкование дословно из эскиза", () => {
+    render(<ItemQualityPanel view={view()} />);
+
+    expectHint("Что не так", "Что не так с вопросом — по числам этой же строки; пусто, если по ним всё в порядке. Сортировка — по силе подозрения, от прямых дефектов к спокойным вопросам.");
+    expectHint("Трудность", "Средняя доля набранного балла: 0 — не решил никто, 1 — решили все. Приемлемо 0,20 — 0,80; выше 0,90 вопрос ничего не отсеивает.");
+    expectHint("Дискриминативность", "Отделяет ли вопрос сильных от слабых: корреляция балла за него с баллом за остальные вопросы формы. Хорошо от 0,30, отрицательная — почти всегда ошибка в ключе.");
+    expectHint("n", "Сколько участников выборки видели этот вопрос. Коэффициенты считаются с 30 наблюдений, надёжными становятся со 100.");
+    expectHint("Надёжность (альфа)", "Насколько согласованно вопросы теста меряют одно и то же. От 0,70 — приемлемо, от 0,80 — хорошо; ниже итоговый балл заметно зависит от случая.");
+    expectHint("Ошибка измерения", "На сколько процентных пунктов балл участника может отклониться от его истинного уровня. Интервал вокруг балла — ±1,96 ошибки: в нём с вероятностью 95 % лежит истинный уровень.");
+    expectHint("Под подозрением", "Сколько вопросов получили отметку в колонке «Что не так». Их стоит проверить первыми.");
+    expectHint("Вопросов с надёжной оценкой", "Сколько вопросов набрали 100 наблюдений и больше: их коэффициенты устойчивы. У остальных числа ориентировочные или ещё не считаются.");
+  });
+
+  it("при малой выборке у «Состояния» своё толкование", () => {
+    render(<ItemQualityPanel view={view({
+      sample: { respondents: 18, responses: 180, bySource: { web: 18 }, unknownVersionShare: 0 },
+      items: [row({ questionId: "q1", observations: 18, coefficientConfidence: "insufficient" })],
+    })} />);
+
+    expectHint("Состояние", "Сколько наблюдений собрано и сколько ещё нужно: коэффициенты вопроса считаются с 30 наблюдений. До порога признака у вопроса нет — не потому, что он здоров.");
+  });
+
+  it("заголовки числовых колонок стоят справа, над числами", () => {
+    render(<ItemQualityPanel view={view()} />);
+
+    for (const term of ["Трудность", "Дискриминативность", "n"]) {
+      const header = screen.getAllByText(term).find(el => el.closest(".ou-grid__th"))!;
+      expect(header.closest(".ou-text--end"), term).toBeTruthy();
+    }
+    const flagHeader = screen.getAllByText("Что не так").find(el => el.closest(".ou-grid__th"))!;
+    expect(flagHeader.closest(".ou-text--end")).toBeNull();
+  });
+});
+
+describe("ItemQualityPanel — таблица", () => {
+  it("«мало данных» — приглушённым тоном, как в эскизе", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", observations: 12, coefficientConfidence: "insufficient" })],
+    })} />);
+
+    expect(screen.getByText("мало данных").className).toContain("ou-text--tone-muted");
+  });
+
+  it("подвала «Показано N из M» нет: список приходит целиком", () => {
+    render(<ItemQualityPanel view={view({ items: [row({ questionId: "q1" }), row({ questionId: "q2" })] })} />);
+
+    expect(screen.queryByText(/Показано/)).toBeNull();
+    expect(document.querySelector(".ou-grid__footer")).toBeNull();
+  });
+
+  it("раскладка фиксированная: таблица помечена и колонок шесть, с меню", () => {
+    render(<ItemQualityPanel view={view()} />);
+
+    expect(document.querySelector(".ou-grid.tb-psy-grid")).toBeTruthy();
+    expect(screen.getAllByRole("columnheader")).toHaveLength(6);
+  });
+});
+
+/**
+ * Действия строки — меню «⋯» (эскиз prd66-item-quality, состояние wf-quality), а не щелчок по
+ * строке: у вопроса несколько действий, и щелчок обещал бы одно.
+ */
+describe("ItemQualityPanel — меню строки", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ topicName: "Право и комплаенс", remaining: 11, drawCount: 10, allowed: true }),
+    }));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
+  });
+
+  const one = () => view({ items: [row({ questionId: "q1", prompt: "Вопрос про ключ" })] });
+  const openMenu = () => userEvent.click(screen.getByRole("button", { name: "Действия с вопросом: Вопрос про ключ" }));
+
+  it("щелчок по строке никуда не ведёт — строка не кликабельная", async () => {
+    const onOpenItem = vi.fn();
+    render(<ItemQualityPanel view={one()} onOpenItem={onOpenItem} />);
+
+    await userEvent.click(screen.getByText("Вопрос про ключ"));
+    expect(onOpenItem).not.toHaveBeenCalled();
+    expect(document.querySelector("tr.is-clickable")).toBeNull();
+  });
+
+  it("пункты — как в эскизе: разбор, переход в тему, исключение", async () => {
+    render(<ItemQualityPanel view={one()} testId="t1" onOpenItem={vi.fn()} onDeliveryChange={vi.fn()} />);
+    await openMenu();
+
+    expect(screen.getAllByRole("menuitem").map(item => item.textContent)).toEqual([
+      "Разбор вопроса", "Открыть вопрос в теме", "Исключить из выдачи…",
+    ]);
+  });
+
+  it("«Разбор вопроса» открывает разбор", async () => {
+    const onOpenItem = vi.fn();
+    render(<ItemQualityPanel view={one()} onOpenItem={onOpenItem} />);
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Разбор вопроса: Вопрос про ключ" }));
+
+    expect(onOpenItem).toHaveBeenCalledWith("q1");
+  });
+
+  it("«Открыть вопрос в теме» ведёт в раздел «Темы и вопросы» на этот вопрос", async () => {
+    render(<ItemQualityPanel view={one()} />);
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Открыть вопрос в теме: Вопрос про ключ" }));
+
+    expect(window.location.pathname).toBe("/author/content");
+    expect(window.location.search).toBe("?questionId=q1");
+  });
+
+  it("исключение — через то же окно подтверждения, что на вкладке «Вопросы»", async () => {
+    const onDeliveryChange = vi.fn();
+    render(<ItemQualityPanel view={one()} testId="t1" onDeliveryChange={onDeliveryChange} />);
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Исключить из выдачи: Вопрос про ключ" }));
+
+    expect(await screen.findByText(/останется 11/i)).toBeTruthy();
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/analytics/tests/t1/questions/q1/delivery-impact", expect.anything());
+    await userEvent.click(screen.getByRole("button", { name: "Исключить" }));
+
+    expect(onDeliveryChange).toHaveBeenCalledWith("q1", true);
+  });
+
+  it("исключённый вопрос возвращается в выдачу без подтверждения", async () => {
+    const onDeliveryChange = vi.fn();
+    render(<ItemQualityPanel view={one()} onDeliveryChange={onDeliveryChange} excluded={{ q1: true }} />);
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Вернуть в выдачу: Вопрос про ключ" }));
+
+    expect(onDeliveryChange).toHaveBeenCalledWith("q1", false);
+  });
+
+  it("без обработчика выдачи пунктов выдачи нет", async () => {
+    render(<ItemQualityPanel view={one()} />);
+    await openMenu();
+
+    expect(screen.queryByRole("menuitem", { name: /из выдачи|в выдачу/ })).toBeNull();
+  });
+
+  it("пока данных мало, колонки меню нет — как в эскизе wf-quality-thin", () => {
+    render(<ItemQualityPanel view={view({
+      sample: { respondents: 18, responses: 180, bySource: { web: 18 }, unknownVersionShare: 0 },
+      items: [row({ questionId: "q1", prompt: "Вопрос про ключ", observations: 18, coefficientConfidence: "insufficient" })],
+    })} />);
+
+    expect(screen.queryByRole("button", { name: /Действия с вопросом/ })).toBeNull();
   });
 });

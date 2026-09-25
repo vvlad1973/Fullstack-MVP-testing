@@ -37,9 +37,17 @@ const { storageMock } = vi.hoisted(() => ({
 
 vi.mock("../server/storage", () => ({ storage: storageMock }));
 vi.mock("../server/db", () => ({ db: {} }));
+// Расчёт идёт настоящий; обёртка нужна одному тесту, которому признаки проще подставить, чем
+// собрать выборку из тридцати участников ради порога коэффициентов.
+vi.mock("../server/services/analytics/psychometrics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../server/services/analytics/psychometrics")>();
+  return { ...actual, computePsychometrics: vi.fn(actual.computePsychometrics) };
+});
 
 // eslint-disable-next-line import/first -- must import AFTER vi.mock
 import psychometricsRouter, { resetPsychometricsCache } from "../server/routes/analytics/psychometrics";
+// eslint-disable-next-line import/first -- must import AFTER vi.mock
+import { computePsychometrics } from "../server/services/analytics/psychometrics";
 
 const TEST = {
   id: "test1", title: "Сертификация", mode: "standard", version: 3,
@@ -357,6 +365,31 @@ describe("GET /analytics/psychometrics/:testId", () => {
       .toEqual(["Тест целиком", "Розница", "Опт"]);
     expect(res.body.slices[0]).toHaveProperty("alpha");
     expect(res.body.slices[0]).toHaveProperty("suspiciousCount");
+  });
+
+  it("«под подозрением» среза считает и слабую дискриминативность", async () => {
+    // Счётчик перечисляет признаки поимённо: новый признак, забытый в перечне, развёл бы число
+    // среза с плиткой вкладки «Качество вопросов».
+    storageMock.getSlices.mockResolvedValue([
+      { id: "s1", name: "Розница", conditionsJson: { groupIds: ["g1"] } },
+    ]);
+    const actual = await vi.importActual<typeof import("../server/services/analytics/psychometrics")>(
+      "../server/services/analytics/psychometrics",
+    );
+    vi.mocked(computePsychometrics).mockImplementationOnce((responses, ctx) => {
+      const real = actual.computePsychometrics(responses, ctx);
+      return {
+        ...real,
+        items: real.items.map(item => ({ ...item, flags: { ...item.flags, weakDiscrimination: true } })),
+      };
+    });
+
+    const res = await request(makeApp())
+      .get("/api/analytics/psychometrics/test1/slices?sliceId=s1")
+      .set("x-test-user", "a1");
+
+    expect(res.status).toBe(200);
+    expect(res.body.slices[0].suspiciousCount).toBe(1);
   });
 
   it("срез отдаёт трудность ПО ЗАДАНИЯМ — иначе сравнивать нечего", async () => {
