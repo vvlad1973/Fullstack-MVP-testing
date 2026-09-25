@@ -3,7 +3,7 @@
  * @description Импорт выгрузки отчёта LMS в общие с телеметрией таблицы (PRD-54).
  *
  * Модуль делится надвое намеренно. {@link buildImportPlan} — чистая функция без базы и
- * ввода-вывода, поэтому три режима обезличивания проверяются тестом без подготовки хранилища.
+ * ввода-вывода, поэтому режимы обезличивания проверяются тестом без подготовки хранилища.
  * {@link runImport} добавляет к плану только запись и связывание.
  *
  * Числа берутся ИЗ ФАЙЛА и не пересчитываются (PRD-54 решение 2): пакет мог быть собран под более
@@ -29,22 +29,25 @@ function blankIdsOf(question: { type: string; correctJson?: unknown }): string[]
   return key.blanks.map((blank) => String(blank?.id ?? ""));
 }
 
-/** Режимы одной загрузки. Обезличивание и связывание независимы — см. раздел 8.5 спеки. */
+/**
+ * Режимы одной загрузки. Обезличивание и связывание независимы — см. раздел 8.5 спеки.
+ *
+ * Признака «файл уже обезличен» здесь нет: готовил ли файл внешний обезличиватель, видно по самой
+ * книге — по колонке `external_id` (PRD-54 раздел 4).
+ */
 export interface ImportOptions {
   anonymize: boolean;
-  sourceAnonymized: boolean;
   linkUsers: boolean;
 }
 
 /** Одна строка выгрузки, приведённая к тому, что пишется в базу. */
 export interface PlannedRow {
-  participantKey: string;
   /**
-   * Идентификатор для сверки с `users.external_key`; `null` — сверять не с чем. В базу НЕ пишется.
-   *
-   * ФИО сюда не попадает НИКОГДА (PRD-54 решение 1): при пустом «Коде» ключа просто нет.
+   * `external_id` участника: из колонки файла либо вычисленный при импорте ТЕМ ЖЕ алгоритмом, что
+   * у внешнего обезличивателя (BR-54-22). Пишется в `participant_key` и сверяется с
+   * `users.external_key` — ключ у участника один.
    */
-  lookupKey: string | null;
+  participantKey: string;
   /**
    * Идентификатор обучающегося в LMS, если внешний обезличиватель добавил его колонкой
    * (BR-54-32). В базу не пишется: он нужен только чтобы найти учётную запись.
@@ -52,7 +55,7 @@ export interface PlannedRow {
   learnerId: string | null;
   lmsUserName: string | null;
   lmsUserOrg: string | null;
-  /** Подразделение и должность: входят в псевдоним, поэтому хранятся рядом с прохождением. */
+  /** Подразделение и должность: входят в `external_id`, поэтому хранятся рядом с прохождением. */
   lmsUserUnit: string | null;
   lmsUserPosition: string | null;
   startedAt: Date;
@@ -108,23 +111,18 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
       continue;
     }
     const at = new Date(r.moduleActivatedAt);
-    // Предобезличенный файл уже несёт псевдоним — повторное хеширование разорвало бы связь с
-    // идентификаторами того инструмента, которым файл готовили (PRD-54 раздел 4, режим 3).
-    const key = opts.sourceAnonymized
-      ? r.participantName
-      : participantKey(r.participantName, r.org, r.unit, r.position);
+    // `external_id` из файла берётся как есть: повторное хеширование разорвало бы связь с тем,
+    // что посчитал внешний обезличиватель. Нет колонки — импорт считает его сам ТЕМ ЖЕ
+    // алгоритмом, поэтому один человек получает одно значение, кто бы его ни вычислил.
+    const key = r.externalId || participantKey(r.participantName, r.org, r.unit, r.position);
 
     rows.push({
       participantKey: key,
-      // Сверяется «Код», а при пустом — ничего: подставить ФИО значило бы связывать по имени,
-      // что запрещено (PRD-54 решение 1). Исключение — предобезличенный файл: в колонке
-      // участника там лежит хеш внешнего обезличивателя, а не имя, и это законный ключ.
-      lookupKey: r.participantCode || (opts.sourceAnonymized ? r.participantName || null : null),
       learnerId: r.learnerId || null,
       lmsUserName: opts.anonymize ? null : r.participantName,
       lmsUserOrg: opts.anonymize ? null : r.org,
-      // Отдел и должность хранятся ВСЕГДА, даже при обезличивании: они входят в псевдоним, и
-      // без них разъезд ключей после перевода человека нечем объяснить. Персональными данными
+      // Отдел и должность хранятся ВСЕГДА, даже при обезличивании: они входят в `external_id`,
+      // и без них разъезд ключей после перевода человека нечем объяснить. Персональными данными
       // они не являются — это свойства позиции, а не личности, и без имени рядом никого не
       // опознают.
       lmsUserUnit: r.unit || null,
@@ -273,7 +271,9 @@ export async function runImport(
       // Хеш СОДЕРЖИМОГО, а не имени: тот же файл под другим именем — тот же файл.
       fileHash: createHash("sha256").update(ctx.fileBuffer).digest("hex"),
       anonymized: opts.anonymize,
-      sourceAnonymized: opts.sourceAnonymized,
+      // Колонка прежнего флажка теперь значит «файл пришёл с `external_id`»: признак берётся из
+      // книги, а не со слов загрузившего.
+      sourceAnonymized: book.hasExternalId === true,
       linkUsers: opts.linkUsers,
       importedBy: ctx.userId,
     });
@@ -285,16 +285,14 @@ export async function runImport(
   let rowsLinked = 0;
 
   for (const row of plan.rows) {
-    // Связь ищется по ИСХОДНОМУ идентификатору, но в базу он не попадает: остаются
-    // `participant_key` и `user_id` (PRD-54 раздел 8.5).
     // ПОРЯДОК СВЯЗЫВАНИЯ (BR-54-33): сначала идентификатор обучающегося в LMS, если внешний
-    // обезличиватель положил его в файл отдельной колонкой (BR-54-32), затем табельный код
-    // против внешнего ключа. Первый путь точнее: `learner_id` выдаёт сама LMS, и он не зависит
-    // ни от того, заполнен ли код, ни от того, как его нормализовали.
+    // обезличиватель положил его в файл отдельной колонкой (BR-54-32), затем `external_id`
+    // против внешнего ключа пользователя. `learner_id` в базу не попадает: он нужен только
+    // чтобы найти учётную запись (PRD-54 раздел 8.5).
     let userId: string | null = null;
     if (opts.linkUsers) {
       const user = (row.learnerId ? await storage.getUserByLmsLearnerId(row.learnerId) : undefined)
-        ?? (row.lookupKey ? await storage.getUserByExternalKey(row.lookupKey) : undefined);
+        ?? await storage.getUserByExternalKey(row.participantKey);
       if (user) {
         userId = user.id;
         rowsLinked += 1;

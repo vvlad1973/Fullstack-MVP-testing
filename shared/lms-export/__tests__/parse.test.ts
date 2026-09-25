@@ -118,6 +118,57 @@ describe("parseLmsExport", () => {
     expect(parseLmsExport(sheet).rows[0].learnerId).toBe("u-4471");
   });
 
+  it.each(LEARNER_POSITIONS)("находит external_id %s и разбирает лист как исходный", (_, at) => {
+    const sheet = withLearnerAt(at);
+    sheet[0][at] = "external_id";
+    const book = parseLmsExport(sheet);
+
+    expect(looksLikeLmsExport(sheet)).toBe(true);
+    expect(book.hasExternalId).toBe(true);
+    expect(book.rows[0].externalId).toBe("u-4471");
+    expect(book.rows[0].learnerId).toBe("");
+    expect({ ...book, hasExternalId: false, rows: [{ ...book.rows[0], externalId: "" }] })
+      .toEqual(parseLmsExport(SHEET));
+  });
+
+  it("external_id и learner_id вместе, в разных местах листа", () => {
+    // Две вырезаемые колонки: смещение второй после вырезания первой разбор считать не должен.
+    const sheet = withLearnerAt(SHEET[0].length);
+    const insert = (row: string[], value: string) => [value, ...row];
+    const both = [insert(sheet[0], "external_id"), insert(sheet[1], ""), insert(sheet[2], "ext-1")];
+    const book = parseLmsExport(both);
+
+    expect(book.rows[0].externalId).toBe("ext-1");
+    expect(book.rows[0].learnerId).toBe("u-4471");
+    expect(book.rows[0].participantName).toBe("Контента Контроль");
+    expect(book.questionIds).toEqual(["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]);
+  });
+
+  it("вырезание колонки не сдвигает разреженные строки", () => {
+    // exceljs отдаёт пустые ячейки ДЫРАМИ массива, а не пустыми строками. `filter` дыры
+    // пропускает, и вторая строка шапки съезжала влево — лист переставал опознаваться. Нашлось
+    // приёмкой на настоящем файле: плотные массивы тестов этого не видели.
+    const sparse = (row: string[]) => {
+      const out: string[] = new Array(row.length);
+      row.forEach((v, i) => { if (v !== "") out[i] = v; });
+      return out;
+    };
+    const sheet = withLearnerAt(3).map(sparse);
+    sheet[0][3] = "external_id";
+
+    expect(looksLikeLmsExport(sheet)).toBe(true);
+    const book = parseLmsExport(sheet);
+    expect(book.rows[0].externalId).toBe("u-4471");
+    expect(book.rows[0].moduleActivatedAt).toBe("2026-09-09T13:39:00.000Z");
+    expect(book.questionIds).toEqual(["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]);
+  });
+
+  it("без колонки external_id признак ложный, а значение пустое", () => {
+    const book = parseLmsExport(SHEET);
+    expect(book.hasExternalId).toBe(false);
+    expect(book.rows[0].externalId).toBe("");
+  });
+
   it("без такой колонки идентификатор пуст, а не выдуман", () => {
     expect(parseLmsExport(SHEET).rows[0].learnerId).toBe("");
   });

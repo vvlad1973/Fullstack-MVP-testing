@@ -84,7 +84,6 @@ async function handleUpload(req: Request, res: Response, dryRun: boolean) {
     book,
     {
       anonymize: config.analytics.lmsImport.anonymizeParticipants,
-      sourceAnonymized: flag(req.body?.sourceAnonymized),
       linkUsers: flag(req.body?.linkUsers),
     },
     {

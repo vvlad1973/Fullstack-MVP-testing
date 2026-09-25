@@ -26,50 +26,61 @@ const BLOCK_COLUMNS = [0, 1, 2, 3];
 const SERVICE = 9;
 
 /**
- * Заголовок колонки с идентификатором обучающегося, которую МОЖЕТ добавить внешний
- * обезличиватель (PRD-54 BR-54-32).
+ * Заголовки колонок, которые МОЖЕТ добавить внешний обезличиватель (PRD-54 раздел 4.2).
  *
- * Технический, а не человекочитаемый: колонку ставит скрипт, а не человек, и по техническому
- * имени её ни с чем не спутать при переводе шапки.
+ * `external_id` — обезличенный идентификатор участника, `learner_id` — идентификатор обучающегося
+ * в LMS (BR-54-32). Технические, а не человекочитаемые: колонки ставит скрипт, а не человек, и по
+ * техническому имени их ни с чем не спутать при переводе шапки.
  */
-const LEARNER_ID_HEADER = "learner_id";
+const EXTRA_HEADERS = { externalId: "external_id", learnerId: "learner_id" } as const;
+type ExtraColumn = keyof typeof EXTRA_HEADERS;
 
 /**
- * Где стоит колонка `learner_id`, если обезличиватель её добавил; иначе `null`.
+ * Где стоит колонка с заголовком `header`; иначе `null`.
  *
  * Место НЕ ЗАДАНО: колонку ищут по заголовку в любой из двух строк шапки и в любом месте листа —
  * в начале, среди служебных, между блоками или в конце. Скрипт обезличивания пишет не человек из
  * нашей команды, и привязка к позиции превратила бы его любую вольность в молча испорченный файл.
  * При нескольких таких колонках берётся первая.
  */
-function learnerIdColumn(sheet: string[][]): number | null {
+function columnOf(sheet: string[][], header: string): number | null {
   const [head = [], sub = []] = sheet;
   const width = Math.max(head.length, sub.length);
   for (let i = 0; i < width; i += 1) {
-    if (cell(head, i).toLowerCase() === LEARNER_ID_HEADER || cell(sub, i).toLowerCase() === LEARNER_ID_HEADER) {
-      return i;
-    }
+    if (cell(head, i).toLowerCase() === header || cell(sub, i).toLowerCase() === header) return i;
   }
   return null;
 }
 
 /**
- * Лист без колонки `learner_id` и сами её значения по строкам.
+ * Лист без дописанных обезличивателем колонок и сами их значения по строкам.
  *
- * Колонка ВЫРЕЗАЕТСЯ из каждой строки, после чего лист имеет ровно форму исходной выгрузки LMS:
- * служебные поля и блоки взаимодействий читаются по своим обычным местам, где бы колонка ни
- * стояла. Пересчитывать смещения под каждое возможное место было бы хрупко — одно забытое
+ * Колонки ВЫРЕЗАЮТСЯ из каждой строки, после чего лист имеет ровно форму исходной выгрузки LMS:
+ * служебные поля и блоки взаимодействий читаются по своим обычным местам, где бы колонки ни
+ * стояли. Пересчитывать смещения под каждое возможное место было бы хрупко — одно забытое
  * смещение, и разбор поехал бы молча.
  *
  * @param sheet лист как массив строк
- * @returns лист исходной формы и значения `learner_id` по индексам строк (пусто — колонки нет)
+ * @returns лист исходной формы и значения колонок по индексам строк (пусто — колонки нет)
  */
-function extractLearnerIds(sheet: string[][]): { sheet: string[][]; learnerIds: string[] } {
-  const at = learnerIdColumn(sheet);
-  if (at === null) return { sheet, learnerIds: sheet.map(() => "") };
+function extractExtraColumns(sheet: string[][]): {
+  sheet: string[][];
+  extra: Record<ExtraColumn, string[]>;
+  present: Record<ExtraColumn, boolean>;
+} {
+  const at = {} as Record<ExtraColumn, number | null>;
+  for (const key of Object.keys(EXTRA_HEADERS) as ExtraColumn[]) at[key] = columnOf(sheet, EXTRA_HEADERS[key]);
+  const cut = new Set(Object.values(at).filter((i): i is number => i !== null));
+  const valuesOf = (i: number | null) => sheet.map((row) => (i === null ? "" : cell(row, i)));
   return {
-    sheet: sheet.map((row) => (row ?? []).filter((_, i) => i !== at)),
-    learnerIds: sheet.map((row) => cell(row, at)),
+    // `Array.from` уплотняет строку ДО вырезания: exceljs отдаёт пустые ячейки дырами разреженного
+    // массива, а `filter` дыры пропускает — строка съехала бы влево на число пустых ячеек, и шапка
+    // перестала бы опознаваться.
+    sheet: cut.size === 0
+      ? sheet
+      : sheet.map((row) => Array.from(row ?? [], (v) => v ?? "").filter((_, i) => !cut.has(i))),
+    extra: { externalId: valuesOf(at.externalId), learnerId: valuesOf(at.learnerId) },
+    present: { externalId: at.externalId !== null, learnerId: at.learnerId !== null },
   };
 }
 /** Подписи подколонок блока — по ним лист и опознаётся. */
@@ -94,6 +105,11 @@ export interface LmsExportRow {
    * пустая строка — колонки в файле нет. По нему импорт связывает прохождение напрямую.
    */
   learnerId: string;
+  /**
+   * Обезличенный идентификатор участника из колонки `external_id` (PRD-54 раздел 4); пустая
+   * строка — колонки нет или ячейка пуста, и импорт вычислит его сам тем же алгоритмом.
+   */
+  externalId: string;
   courseActivatedAt: string;
   moduleActivatedAt: string;
   passed: boolean | null;
@@ -147,6 +163,8 @@ export interface LmsExportBook {
   variableNames: string[];
   /** Идентификаторы блоков, которые импорт не разбирает (например, `topic_*`). */
   unknownColumns: string[];
+  /** Есть ли в файле колонка `external_id` — то есть готовил ли его внешний обезличиватель. */
+  hasExternalId: boolean;
   rows: LmsExportRow[];
 }
 
@@ -162,8 +180,8 @@ function cell(row: string[] | undefined, i: number): string {
  * может оказаться в произвольной книге.
  */
 export function looksLikeLmsExport(input: string[][]): boolean {
-  // Дописанная обезличивателем колонка `learner_id` опознанию не мешает, где бы она ни стояла.
-  const [head = [], sub = []] = extractLearnerIds(input).sheet;
+  // Дописанные обезличивателем колонки опознанию не мешают, где бы они ни стояли.
+  const [head = [], sub = []] = extractExtraColumns(input).sheet;
   if (head.length < SERVICE + BLOCK) return false;
   const firstBlock = SUBHEADERS.every((label, i) => cell(sub, SERVICE + i) === label);
   if (!firstBlock) return false;
@@ -181,8 +199,8 @@ export function looksLikeLmsExport(input: string[][]): boolean {
  * @returns состав колонок и разобранные строки
  */
 export function parseLmsExport(input: string[][]): LmsExportBook {
-  // BR-54-32: колонка `learner_id` вырезается до разбора — дальше лист исходной формы.
-  const { sheet, learnerIds } = extractLearnerIds(input);
+  // Колонки `external_id` и `learner_id` вырезаются до разбора — дальше лист исходной формы.
+  const { sheet, extra, present } = extractExtraColumns(input);
   const head = sheet[0] ?? [];
   const blocks: Array<{ at: number; id: string }> = [];
   for (let i = SERVICE; i < head.length; i += BLOCK) {
@@ -223,7 +241,8 @@ export function parseLmsExport(input: string[][]): LmsExportBook {
       passed: cell(raw, 7) === "" ? null : cell(raw, 7) === "Пройден",
       points: cell(raw, 8) === "" ? null : Number(cell(raw, 8)),
       // BR-54-32: идентификатор обучающегося, если его дописал внешний обезличиватель.
-      learnerId: learnerIds[r],
+      learnerId: extra.learnerId[r],
+      externalId: extra.externalId[r],
       answers: {},
       results: {},
       latencySeconds: {},
@@ -274,5 +293,5 @@ export function parseLmsExport(input: string[][]): LmsExportBook {
     rows.push(row);
   }
 
-  return { questionIds, scaleKeys, variableNames, unknownColumns, rows };
+  return { questionIds, scaleKeys, variableNames, unknownColumns, hasExternalId: present.externalId, rows };
 }

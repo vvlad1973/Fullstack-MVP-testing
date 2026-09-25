@@ -8,7 +8,9 @@
  *
  * Запуск:
  *   npx tsx scripts/db/import-lms-export.ts <файл.xlsx> --user <userId> [--group <groupId>]
- *     [--link-users] [--source-anonymized] [--dry-run]
+ *     [--link-users] [--dry-run]
+ *
+ * Готовил ли файл внешний обезличиватель, скрипт видит сам — по колонке `external_id`.
  *
  * Без `--dry-run` скрипт ПИШЕТ в базу. Повторный запуск на том же файле безопасен: импорт
  * идемпотентен по ключу (тест, участник, дата активации модуля).
@@ -87,14 +89,13 @@ async function main(): Promise<void> {
   console.log(`шкалы: ${book.scaleKeys.join(", ") || "—"} | показатели: ${book.variableNames.join(", ") || "—"}`);
   console.log(`режим: ${dryRun ? "СУХОЙ ПРОГОН (ничего не пишется)" : "ЗАПИСЬ"}`);
   console.log(`обезличивание: ${config.analytics.lmsImport.anonymizeParticipants ? "вкл" : "выкл"}` +
-    ` | предобезличен: ${flag("source-anonymized") ? "да" : "нет"}` +
+    ` | external_id в файле: ${book.hasExternalId ? "да" : "нет, вычисляется"}` +
     ` | связывание: ${flag("link-users") ? "вкл" : "выкл"}`);
 
   const result = await runImport(
     book,
     {
       anonymize: config.analytics.lmsImport.anonymizeParticipants,
-      sourceAnonymized: flag("source-anonymized"),
       linkUsers: flag("link-users"),
     },
     {

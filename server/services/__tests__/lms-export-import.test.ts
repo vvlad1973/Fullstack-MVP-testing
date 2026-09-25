@@ -1,6 +1,6 @@
 /**
  * @module server/services/__tests__/lms-export-import
- * @description PRD-54 разделы 4 и 8: план импорта, три режима обезличивания, связывание и запись.
+ * @description PRD-54 разделы 4 и 8: план импорта, источники `external_id`, связывание и запись.
  */
 import { describe, it, expect } from "vitest";
 import { buildImportPlan, runImport } from "../lms-export-import";
@@ -27,18 +27,25 @@ const book = {
   }],
 };
 
-const OFF = { anonymize: false, sourceAnonymized: false, linkUsers: false };
-const ON = { anonymize: true, sourceAnonymized: false, linkUsers: false };
+const OFF = { anonymize: false, linkUsers: false };
+const ON = { anonymize: true, linkUsers: false };
+
+/** Та же книга, но файл готовил внешний обезличиватель: у строки есть `external_id`. */
+const withExternal = (externalId: string) => ({
+  ...book,
+  hasExternalId: true,
+  rows: [{ ...book.rows[0], externalId }],
+});
 
 describe("buildImportPlan", () => {
-  it("обезличивает: ФИО в план не попадает, псевдоним есть", () => {
+  it("обезличивает: ФИО в план не попадает, external_id вычислен", () => {
     const plan = buildImportPlan(book as never, ON);
     expect(plan.rows[0].participantKey).toMatch(/^[0-9a-f]{64}$/);
     expect(plan.rows[0].lmsUserName).toBeNull();
     expect(plan.rows[0].lmsUserOrg).toBeNull();
   });
 
-  it("без обезличивания псевдоним считается ТОТ ЖЕ, но ФИО сохраняется", () => {
+  it("без обезличивания external_id вычисляется ТОТ ЖЕ, но ФИО сохраняется", () => {
     // Ключ не зависит от режима намеренно: иначе переключение параметра порвало бы связь с уже
     // загруженными строками того же человека.
     const on = buildImportPlan(book as never, ON);
@@ -48,9 +55,14 @@ describe("buildImportPlan", () => {
     expect(off.rows[0].lmsUserOrg).toBe("ПАО");
   });
 
-  it("предобезличенный файл не хешируется повторно", () => {
-    const plan = buildImportPlan(book as never, { ...ON, sourceAnonymized: true });
-    expect(plan.rows[0].participantKey).toBe("Иванов Иван");
+  it("external_id из файла берётся как есть и повторно не хешируется", () => {
+    const plan = buildImportPlan(withExternal("9f86d081884c7d65") as never, ON);
+    expect(plan.rows[0].participantKey).toBe("9f86d081884c7d65");
+  });
+
+  it("пустая ячейка external_id равна отсутствию колонки: значение вычисляется", () => {
+    const computed = buildImportPlan(book as never, ON).rows[0].participantKey;
+    expect(buildImportPlan(withExternal("") as never, ON).rows[0].participantKey).toBe(computed);
   });
 
   it("предупреждает о сочетании обезличивания и связывания", () => {
@@ -86,19 +98,11 @@ describe("buildImportPlan", () => {
     expect(buildImportPlan(withUnknown as never, ON).warnings.join()).toContain("topic_abc_level");
   });
 
-  it("ключ для сверки берётся из «Кода», а при пустом его нет вовсе — ФИО не подставляется", () => {
-    // Сверка по имени запрещена (PRD-54 решение 1): пустой «Код» значит «сверять не с чем».
-    expect(buildImportPlan(book as never, ON).rows[0].lookupKey).toBeNull();
-    expect(buildImportPlan(book as never, OFF).rows[0].lookupKey).toBeNull();
+  it("колонка «Код» в external_id не входит", () => {
+    // В реальных выгрузках она пуста, а поле, которое то есть, то нет, развело бы человека надвое.
     const withCode = { ...book, rows: [{ ...book.rows[0], participantCode: "AB-12" }] };
-    expect(buildImportPlan(withCode as never, ON).rows[0].lookupKey).toBe("AB-12");
-  });
-
-  it("у предобезличенного файла ключ — хеш из колонки участника", () => {
-    // Там в колонке лежит идентификатор внешнего обезличивателя, а не имя (PRD-54 §8.5).
-    const hashed = { ...book, rows: [{ ...book.rows[0], participantName: "9f86d081884c7d65" }] };
-    const plan = buildImportPlan(hashed as never, { ...ON, sourceAnonymized: true });
-    expect(plan.rows[0].lookupKey).toBe("9f86d081884c7d65");
+    expect(buildImportPlan(withCode as never, ON).rows[0].participantKey)
+      .toBe(buildImportPlan(book as never, ON).rows[0].participantKey);
   });
 
   it("шкалы, показатели и ответы переносятся как есть", () => {
@@ -163,25 +167,45 @@ const ctx = {
 };
 
 describe("runImport", () => {
-  it("связывает по «Коду» против внешнего ключа, когда флажок включён", async () => {
-    const withCode = { ...book, rows: [{ ...book.rows[0], participantCode: "К-12" }] };
-    const s = storageStub({ "к-12": "user-7" });
-    const res = await runImport(withCode as never, { ...ON, linkUsers: true }, ctx, s as never);
+  it("связывает по external_id из файла против внешнего ключа (BR-54-26)", async () => {
+    const s = storageStub({ "9f86d081884c7d65": "user-7" });
+    const res = await runImport(withExternal("9F86D081884C7D65") as never, { ...ON, linkUsers: true }, ctx, s as never);
     expect(res.rowsLinked).toBe(1);
     expect((s.attempts[0] as { userId: string }).userId).toBe("user-7");
   });
 
-  it("НЕ связывает по ФИО, даже когда оно совпало с чьим-то внешним ключом", async () => {
-    // Кто-то вписал ФИО во внешний ключ — связь по имени всё равно запрещена (решение 1).
-    const s = storageStub({ "иванов иван": "user-7" });
-    const res = await runImport(book as never, { ...OFF, linkUsers: true }, ctx, s as never);
+  it("связывает и по ВЫЧИСЛЕННОМУ external_id: алгоритм тот же, что у скрипта", async () => {
+    // Заказчик считает ключи своих сотрудников тем же скриптом и грузит их в `external_key` —
+    // значит, и строка сырого файла, для которой ключ посчитал импорт, находит своего человека.
+    const computed = buildImportPlan(book as never, ON).rows[0].participantKey;
+    const s = storageStub({ [computed]: "user-7" });
+    const res = await runImport(book as never, { ...ON, linkUsers: true }, ctx, s as never);
+    expect(res.rowsLinked).toBe(1);
+    expect((s.attempts[0] as { userId: string }).userId).toBe("user-7");
+  });
+
+  it("НЕ связывает по ФИО и «Коду», даже когда они совпали с чьим-то внешним ключом", async () => {
+    // Кто-то вписал ФИО или табельный номер во внешний ключ — сверяется только `external_id`.
+    const withCode = { ...book, rows: [{ ...book.rows[0], participantCode: "К-12" }] };
+    const s = storageStub({ "иванов иван": "user-7", "к-12": "user-8" });
+    const res = await runImport(withCode as never, { ...OFF, linkUsers: true }, ctx, s as never);
     expect(res.rowsLinked).toBe(0);
     expect((s.attempts[0] as { userId: string | null }).userId).toBeNull();
   });
 
+  it("партия помнит, пришёл ли файл с external_id", async () => {
+    const plain = storageStub();
+    await runImport(book as never, ON, ctx, plain as never);
+    expect(plain.batches[0]).toMatchObject({ sourceAnonymized: false });
+
+    const external = storageStub();
+    await runImport(withExternal("abc") as never, ON, ctx, external as never);
+    expect(external.batches[0]).toMatchObject({ sourceAnonymized: true });
+  });
+
   it("связывает по learner_id, когда обезличиватель дописал колонку (BR-54-32)", async () => {
-    // Идентификатор выдаёт сама LMS, поэтому он точнее табельного кода и не зависит от того,
-    // заполнен ли тот вообще.
+    // Идентификатор выдаёт сама LMS, поэтому связь по нему не зависит от того, каким
+    // алгоритмом построен `external_id`.
     const withLearner = { ...book, rows: [{ ...book.rows[0], learnerId: "u-4471" }] };
     const s = storageStub({}, { "u-4471": "user-9" });
 
@@ -192,27 +216,27 @@ describe("runImport", () => {
   });
 
   it("learner_id идёт ПЕРЕД внешним ключом (BR-54-33)", async () => {
-    // Оба пути ведут к разным людям — значит видно, какой сработал первым. Порядок не
-    // случайный: `learner_id` точный, код — то, что кто-то однажды ввёл руками.
-    const withLearner = { ...book, rows: [{ ...book.rows[0], learnerId: "u-4471", participantCode: "К-12" }] };
-    const s = storageStub({ "к-12": "user-code" }, { "u-4471": "user-learner" });
+    // Оба пути ведут к разным людям — значит видно, какой сработал первым.
+    const both = { ...withExternal("ext-1"), rows: [{ ...withExternal("ext-1").rows[0], learnerId: "u-4471" }] };
+    const s = storageStub({ "ext-1": "user-external" }, { "u-4471": "user-learner" });
 
-    await runImport(withLearner as never, { ...ON, linkUsers: true }, ctx, s as never);
+    await runImport(both as never, { ...ON, linkUsers: true }, ctx, s as never);
 
     expect((s.attempts[0] as { userId: string }).userId).toBe("user-learner");
   });
 
   it("без совпадения по learner_id падает на внешний ключ", async () => {
-    const withLearner = { ...book, rows: [{ ...book.rows[0], learnerId: "чужой", participantCode: "К-12" }] };
-    const s = storageStub({ "к-12": "user-code" }, {});
+    const both = { ...withExternal("ext-1"), rows: [{ ...withExternal("ext-1").rows[0], learnerId: "чужой" }] };
+    const s = storageStub({ "ext-1": "user-external" }, {});
 
-    await runImport(withLearner as never, { ...ON, linkUsers: true }, ctx, s as never);
+    await runImport(both as never, { ...ON, linkUsers: true }, ctx, s as never);
 
-    expect((s.attempts[0] as { userId: string }).userId).toBe("user-code");
+    expect((s.attempts[0] as { userId: string }).userId).toBe("user-external");
   });
 
   it("не связывает, когда флажок выключен", async () => {
-    const s = storageStub({ "иванов иван": "user-7" });
+    // Ключ совпадает — значит, без связи строку оставил именно выключенный флажок.
+    const s = storageStub({ [buildImportPlan(book as never, ON).rows[0].participantKey]: "user-7" });
     const res = await runImport(book as never, ON, ctx, s as never);
     expect(res.rowsLinked).toBe(0);
     expect((s.attempts[0] as { userId: string | null }).userId).toBeNull();

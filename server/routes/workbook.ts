@@ -140,9 +140,6 @@ router.post(
           scaleKeys: lms.scaleKeys,
           variableNames: lms.variableNames,
           unknownColumns: lms.unknownColumns,
-          // Подсказка для флажка «данные уже обезличены»: кириллица с пробелом в колонке участника
-          // выглядит как ФИО, а не как хеш. Это ПОДСКАЗКА, а не решение — решает человек.
-          looksPersonal: lms.rows.some((r) => /[А-Яа-яЁё]\s/.test(r.participantName)),
         });
       }
 

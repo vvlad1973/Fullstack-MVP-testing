@@ -16,12 +16,14 @@
     Отличие третьей точки содержательное: тест уже задан страницей, и файл ЧУЖОГО теста
     отвергается — состояние «mismatch».
 
-    Состояния (15):
+    Состояния (14):
       путь      — empty → detected → new-group → plan → busy → done;
       отказы    — not-recognized (файл не распознан), no-test (тест по вопросам не найден),
                   mismatch (чужой тест; только там, где тест задан страницей), failed (сбой записи);
-      предупреждения — anon-mismatch (отмечено «обезличено», а в колонке ФИО),
-                  duplicate (тот же файл уже грузили), skipped (строки без даты пропущены);
+      предупреждения — duplicate (тот же файл уже грузили), skipped (строки без даты пропущены);
+
+    Флажка «Данные уже обезличены» нет (решение владельца 2026-09-25): обезличенный файл узнаётся
+    по колонке external_id, и вместе с флажком ушло состояние anon-mismatch.
       загрузки  — batches, batches-empty;
       хост      — modal (та же форма в окне обеих страниц аналитики).
     -->
@@ -98,7 +100,6 @@
       <button type="button" onclick="impState(this, 'failed')">сбой записи</button>
       <span class="wf-nav-sep"></span>
       <span class="wf-nav-title">Предупреждения:</span>
-      <button type="button" onclick="impState(this, 'anon-mismatch')">мнимое обезличивание</button>
       <button type="button" onclick="impState(this, 'duplicate')">файл повторный</button>
       <button type="button" onclick="impState(this, 'skipped')">строки пропущены</button>
       <span class="wf-nav-sep"></span>
@@ -160,14 +161,6 @@
                   </div>
 
                   <div class="ou-check-group wf-mt-4">
-                    <label class="ou-check ou-check--s">
-                      <input class="ou-check__input" type="checkbox" />
-                      <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-                      <span class="ou-check__text">
-                        <span class="ou-check__lbl">Данные уже обезличены</span>
-                        <span class="ou-check__desc">В колонке участника не ФИО, а идентификатор от внешнего инструмента. Повторно он не хешируется.</span>
-                      </span>
-                    </label>
                     <label class="ou-check ou-check--s">
                       <input class="ou-check__input" type="checkbox" />
                       <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
@@ -304,33 +297,6 @@
                   </div>
                   <div class="wf-card-foot">
                     <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" onclick="impState(null, 'empty')">Выбрать другой файл</button>
-                  </div>
-                </div>
-
-                <!-- флажок «уже обезличены» расходится с содержимым колонки -->
-                <div id="imp-anon-mismatch" class="wf-imp">
-                  <div class="ou-file">
-                    <span class="ou-file__thumb ou-file__thumb--xls" aria-hidden="true">XLS</span>
-                    <div class="ou-file__main"><span class="ou-file__name">7684237229762827328-1.xlsx</span><span class="ou-file__meta">запись ещё не выполнена</span></div>
-                    <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
-                  </div>
-                  <div class="ou-check-group wf-mt-3">
-                    <label class="ou-check ou-check--s">
-                      <input class="ou-check__input" type="checkbox" checked />
-                      <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-                      <span class="ou-check__text"><span class="ou-check__lbl">Данные уже обезличены</span></span>
-                    </label>
-                  </div>
-                  <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
-                    <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
-                    <div class="ou-banner__body">
-                      <p class="ou-banner__title">Похоже, данные всё-таки не обезличены</p>
-                      <p class="ou-banner__desc">Отмечено «уже обезличены», но в колонке участника кириллица с пробелами — так выглядит ФИО, а не идентификатор. Снимите флажок, иначе имена попадут в базу как есть.</p>
-                    </div>
-                  </div>
-                  <div class="wf-card-foot">
-                    <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" onclick="impState(null, 'plan')">Проверить</button>
-                    <button type="button" class="ou-btn ou-btn--primary ou-btn--m" disabled aria-disabled="true" title="Сначала проверьте файл">Импортировать</button>
                   </div>
                 </div>
 
@@ -494,11 +460,6 @@
                 <label class="ou-check ou-check--s">
                   <input class="ou-check__input" type="checkbox" />
                   <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-                  <span class="ou-check__text"><span class="ou-check__lbl">Данные уже обезличены</span></span>
-                </label>
-                <label class="ou-check ou-check--s">
-                  <input class="ou-check__input" type="checkbox" />
-                  <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                   <span class="ou-check__text"><span class="ou-check__lbl">Связать с пользователями по ключу</span></span>
                 </label>
               </div>
@@ -526,8 +487,8 @@
               <tr><td>Тест</td><td>Определяется ИЗ ФАЙЛА по <code>q_&lt;uuid&gt;</code> и показывается подтверждением, а не списком</td><td>Ручной выбор открыл бы запись не в тот тест</td></tr>
               <tr><td>Чужой тест</td><td>Только там, где тест задан страницей: несовпадение даёт <code>422</code> с названиями ОБОИХ тестов, «Импортировать» заблокирован</td><td>Состояние «чужой тест»</td></tr>
               <tr><td>Группа</td><td>Список существующих + «＋ Создать новую группу» + явный пункт «Без группы»</td><td>Метка на прохождении; разрез для психометрики</td></tr>
-              <tr><td>«Данные уже обезличены»</td><td>Идентификатор берётся как есть и НЕ хешируется повторно</td><td>Сухой прогон предупредит, если в колонке похоже на ФИО</td></tr>
-              <tr><td>«Связать по ключу»</td><td>Сверка с <code>users.external_key</code>; несовпадение — не ошибка</td><td>Вместе с обезличиванием даёт предупреждение</td></tr>
+              <tr><td>Обезличенный файл</td><td>Узнаётся по колонке <code>external_id</code> в любом месте листа, флажка нет; без колонки <code>external_id</code> вычисляется при импорте тем же алгоритмом</td><td>Спрашивать человека о том, что видно из файла, незачем</td></tr>
+              <tr><td>«Связать по ключу»</td><td>Сначала <code>learner_id</code> против <code>users.lms_learner_id</code>, затем <code>external_id</code> против <code>users.external_key</code>; несовпадение — не ошибка</td><td>Вместе с обезличиванием даёт предупреждение</td></tr>
               <tr><td>«Проверить»</td><td><code>POST /api/analytics/lms-import?dryRun=true</code> — план и предупреждения без записи</td><td>«Импортировать» до проверки заблокирован</td></tr>
               <tr><td>«Импортировать»</td><td>Тот же эндпоинт без <code>dryRun</code>; после успеха гасится кеш аналитики</td><td>Цифры на странице обновляются без перезагрузки</td></tr>
               <tr><td>Повторная загрузка</td><td>Обновляет по ключу (тест + участник + дата активации модуля), дублей не создаёт</td><td>Ею же проставляется позднее связывание</td></tr>

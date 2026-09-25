@@ -47,8 +47,6 @@ export interface LmsInspectResult {
   scaleKeys: string[];
   variableNames: string[];
   unknownColumns: string[];
-  /** Подсказка: колонка участника похожа на ФИО, а не на идентификатор. */
-  looksPersonal?: boolean;
 }
 
 /** Счётчики и протокол одного прогона — общие у сухого и настоящего. */
@@ -127,7 +125,6 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
   const [notRecognized, setNotRecognized] = useState(false);
   const [group, setGroup] = useState<string>(NO_GROUP);
   const [newGroupName, setNewGroupName] = useState("");
-  const [sourceAnonymized, setSourceAnonymized] = useState(false);
   const [linkUsers, setLinkUsers] = useState(false);
   const [plan, setPlan] = useState<ImportOutcome | null>(null);
   const [done, setDone] = useState<ImportOutcome | null>(null);
@@ -150,7 +147,6 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     if (fixedTestId) fd.append("fixedTestId", fixedTestId);
     if (group !== NO_GROUP && group !== NEW_GROUP) fd.append("groupId", group);
     if (group === NEW_GROUP) fd.append("newGroupName", newGroupName);
-    fd.append("sourceAnonymized", String(sourceAnonymized));
     fd.append("linkUsers", String(linkUsers));
     return fd;
   }
@@ -359,22 +355,8 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
         />
       )}
 
-      <Checkbox
-        label="Данные уже обезличены"
-        description="В колонке участника не ФИО, а идентификатор от внешнего инструмента. Повторно он не хешируется."
-        checked={sourceAnonymized}
-        onChange={(e) => setSourceAnonymized(e.target.checked)}
-        disabled={runMut.isPending}
-      />
-      {sourceAnonymized && inspect?.looksPersonal && (
-        <Banner
-          tone="warning"
-          icon={<AlertTriangle size={16} />}
-          title="Похоже, данные всё-таки не обезличены"
-          description="В колонке участника кириллица с пробелами — так выглядит ФИО, а не идентификатор. Снимите флажок, иначе имена попадут в базу как есть."
-        />
-      )}
-
+      {/* Флажка «данные уже обезличены» нет: обезличенный файл узнаётся по колонке
+          `external_id`, и спрашивать человека о том, что видно из самого файла, незачем. */}
       <Checkbox
         label="Связать с пользователями по ключу"
         description="Совпадение с внешним ключом пользователя свяжет прохождение с ним."
