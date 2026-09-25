@@ -23,6 +23,7 @@ const { storageMock } = vi.hoisted(() => ({
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),
     getUserTestGrants: vi.fn().mockResolvedValue([]),
     selectObservations: vi.fn(),
+    selectAttemptOrder: vi.fn(),
   },
 }));
 
@@ -54,6 +55,7 @@ const ask = (query = "") =>
 beforeEach(() => {
   vi.clearAllMocks();
   storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
+  storageMock.selectAttemptOrder.mockResolvedValue([]);
   storageMock.getUserRoles.mockResolvedValue(["administrator"]);
   storageMock.getUser.mockResolvedValue({ id: "u1", name: "Морозова Анна", email: "a@b.c" });
   storageMock.getTest.mockResolvedValue(TEST);
@@ -98,6 +100,30 @@ describe("GET /api/analytics/registry", () => {
     const row = res.body.rows.find((r: { id: string }) => r.id === "lms-1");
     expect(row.participant).toBe("Участник 7f3a9c");
     expect(row.source).toBe("import");
+  });
+
+  it("нумерует попытки ИМПОРТИРОВАННОГО участника по его псевдониму", async () => {
+    // Выгрузка LMS не приносит истории, но несколько её строк одного псевдонима по одному
+    // тесту — это и есть история: записи связываются ключом и выстраиваются по датам.
+    storageMock.selectAttemptOrder.mockResolvedValue([
+      { id: "lms-1", testId: "test1", participantId: "7f3a9c21", startedAt: new Date("2026-09-10T09:00:00Z") },
+      { id: "lms-0", testId: "test1", participantId: "7f3a9c21", startedAt: new Date("2026-08-01T09:00:00Z") },
+    ]);
+
+    const res = await ask();
+
+    // Более ранняя — первая, видимая строка — вторая; порядок задаёт дата, а не порядок строк.
+    expect(res.body.rows.find((row: { id: string }) => row.id === "lms-1").attemptNumber).toBe(2);
+  });
+
+  it("не выдумывает номер там, где участник не опознан", async () => {
+    // Ни учётной записи, ни псевдонима — связать прохождения не с чем, и «первая попытка»
+    // стала бы утверждением без основания.
+    storageMock.selectAttemptOrder.mockResolvedValue([]);
+
+    const res = await ask();
+
+    expect(res.body.rows.every((row: { attemptNumber: number | null }) => row.attemptNumber === null)).toBe(true);
   });
 
   it("отдаёт общее число рядом с порцией", async () => {
