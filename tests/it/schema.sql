@@ -29,6 +29,7 @@ CREATE TABLE "adaptive_topic_settings" (
 CREATE TABLE "analytics_slices" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
+	"kind" text DEFAULT 'slice' NOT NULL,
 	"test_id" varchar(36),
 	"conditions_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_by" varchar(36) NOT NULL,
@@ -291,6 +292,8 @@ CREATE TABLE "scorm_attempts" (
 	"lms_user_name" text,
 	"lms_user_email" text,
 	"lms_user_org" text,
+	"lms_user_unit" text,
+	"lms_user_position" text,
 	"started_at" timestamp NOT NULL,
 	"finished_at" timestamp,
 	"last_activity_at" timestamp NOT NULL,
@@ -531,6 +534,10 @@ CREATE TABLE "users" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"created_by" varchar(36),
 	"external_key" text,
+	"lms_learner_id" text,
+	"organization" text,
+	"unit" text,
+	"position" text,
 	CONSTRAINT "users_email_hash_unique" UNIQUE("email_hash")
 );
 
