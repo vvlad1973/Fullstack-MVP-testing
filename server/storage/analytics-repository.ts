@@ -495,6 +495,70 @@ export class AnalyticsRepository {
    * на каждого человека в выборке: на тысяче прохождений это тысяча обращений к базе ради
    * признака, который читается одним.
    */
+  /**
+   * PRD-56 FR-02: КАКАЯ ЭТО ПОПЫТКА участника по этому тесту.
+   *
+   * Номер нельзя посчитать по странице реестра: на ней видны не все попытки человека, и
+   * вторая строка сверху вполне может быть его четвёртым заходом. Поэтому спрашиваются ВСЕ
+   * прохождения участников страницы по тестам страницы — узкий набор, но полный по каждому
+   * человеку.
+   *
+   * Оба источника идут одной выборкой и сортируются вместе: попытка в вебе и попытка в LMS —
+   * попытки ОДНОГО человека, и нумеровать их порознь значило бы выдать две «первые».
+   *
+   * Участник опознаётся как в наблюдениях: учётной записью, а при её отсутствии —
+   * псевдонимом импорта. Строка без того и другого не нумеруется вовсе: сказать, какая это
+   * попытка и чья, не из чего.
+   */
+  async selectAttemptOrder(
+    testIds: string[],
+    userIds: string[],
+    participantKeys: string[],
+  ): Promise<Array<{ id: string; testId: string | null; participantId: string; startedAt: Date | null }>> {
+    if (testIds.length === 0 || (userIds.length === 0 && participantKeys.length === 0)) return [];
+
+    const web = userIds.length === 0 ? [] : await db
+      .select({
+        id: attempts.id,
+        testId: attempts.testId,
+        participantId: attempts.userId,
+        startedAt: attempts.startedAt,
+      })
+      .from(attempts)
+      .where(and(inArray(attempts.testId, testIds), inArray(attempts.userId, userIds)));
+
+    const lms = await db
+      .select({
+        id: scormAttempts.id,
+        testId: scormAttempts.testId,
+        userId: scormAttempts.userId,
+        participantKey: scormAttempts.participantKey,
+        startedAt: scormAttempts.startedAt,
+      })
+      .from(scormAttempts)
+      .where(and(
+        inArray(scormAttempts.testId, testIds),
+        or(
+          userIds.length ? inArray(scormAttempts.userId, userIds) : sql`false`,
+          participantKeys.length ? inArray(scormAttempts.participantKey, participantKeys) : sql`false`,
+        ),
+      ));
+
+    type OrderRow = { id: string; testId: string | null; participantId: string; startedAt: Date | null };
+    const all: Array<OrderRow | null> = [
+      ...web.map(row => (row.participantId
+        ? { id: row.id, testId: row.testId, participantId: row.participantId, startedAt: row.startedAt }
+        : null)),
+      ...lms.map(row => {
+        const participantId = row.userId ?? row.participantKey;
+        return participantId
+          ? { id: row.id, testId: row.testId, participantId, startedAt: row.startedAt }
+          : null;
+      }),
+    ];
+    return all.filter((row): row is OrderRow => row !== null);
+  }
+
   async selectGroupsOfUsers(userIds: string[]): Promise<Map<string, string[]>> {
     const out = new Map<string, string[]>();
     if (userIds.length === 0) return out;

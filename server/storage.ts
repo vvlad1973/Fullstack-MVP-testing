@@ -353,6 +353,8 @@ export interface IStorage {
   selectAnswersForTest(testId: string): Promise<TestAnswerRow[]>;
   selectAnswersForAttempts(attemptIds: string[]): Promise<TestAnswerRow[]>;
   selectGroupsOfUsers(userIds: string[]): Promise<Map<string, string[]>>;
+  /** PRD-56 FR-02: все прохождения участников по тестам — для номера попытки в реестре. */
+  selectAttemptOrder(testIds: string[], userIds: string[], participantKeys: string[]): Promise<Array<{ id: string; testId: string | null; participantId: string; startedAt: Date | null }>>;
   /** PRD-56 FR-21: значения шкал прохождений теста — оба источника одной выборкой. */
   selectScaleValuesForTest(testId: string): Promise<ScaleValuesRow[]>;
   /** PRD-56 FR-07b: срезы — сохранённые наборы условий отбора. */
@@ -1209,6 +1211,10 @@ export class DatabaseStorage implements IStorage {
 
   selectAnswersForAttempts(attemptIds: string[]): Promise<TestAnswerRow[]> {
     return this.analyticsRepo.selectAnswersForAttempts(attemptIds);
+  }
+
+  selectAttemptOrder(testIds: string[], userIds: string[], participantKeys: string[]) {
+    return this.analyticsRepo.selectAttemptOrder(testIds, userIds, participantKeys);
   }
 
   selectGroupsOfUsers(userIds: string[]): Promise<Map<string, string[]>> {

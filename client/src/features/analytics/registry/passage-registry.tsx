@@ -34,6 +34,13 @@ import {
 
 /** Строка реестра — то, что отдаёт `GET /api/analytics/registry`. */
 export interface RegistryRow {
+  /**
+   * Какая это попытка участника по этому тесту (FR-02); `null` — вычислить не из чего.
+   *
+   * Считается по человеку и тесту, а НЕ по видимой странице и не по фильтру: «вторая
+   * попытка» — свойство прохождения, а не выборки, в которую оно попало.
+   */
+  attemptNumber?: number | null;
   id: string;
   participant: string;
   participantKey: string | null;
@@ -219,6 +226,20 @@ export function PassageRegistry({
     },
     { key: "test", header: "Тест", sortable: true, render: (row: RegistryRow) => row.testTitle },
     { key: "date", header: "Дата", sortable: true, render: (row: RegistryRow) => formatMoment(row.startedAt) },
+    {
+      key: "attempt",
+      header: "Попытка",
+      numeric: true,
+      // FR-02: какая это попытка участника по этому тесту. Без неё строка «45 %» не отвечает
+      // на вопрос, первый это заход или четвёртый после трёх провалов, — а прочтение
+      // результата от этого меняется целиком.
+      //
+      // Прочерк, а не единица: у импортированного прохождения истории участника может не быть
+      // вовсе, и «первая попытка» стала бы утверждением, которого мы не знаем.
+      render: (row: RegistryRow) => (row.attemptNumber === null || row.attemptNumber === undefined
+        ? <Text variant="body-s" tone="muted">—</Text>
+        : row.attemptNumber),
+    },
     {
       key: "result",
       sortable: true,

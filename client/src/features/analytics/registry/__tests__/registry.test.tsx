@@ -7,7 +7,7 @@
  * условия ничего не подошло. Разметку рисуют компоненты ui-kit — их поведение здесь не
  * переспрашивается.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -216,6 +216,30 @@ describe("PassageRegistry", () => {
 });
 
 describe("PassageRegistry — сохранение среза", () => {
+  it("показывает НОМЕР ПОПЫТКИ, а где его нет — прочерк", async () => {
+    // Строка «45 %» не отвечает на вопрос, первый это заход или четвёртый после трёх
+    // провалов. У импортированного прохождения истории участника может не быть вовсе, и
+    // «первая попытка» стала бы утверждением, которого мы не знаем (FR-02).
+    fetchMock.mockResolvedValue(page([
+      { ...ROW, id: "a1", attemptNumber: 3 },
+      { ...ROW, id: "a2", participant: "Участник импорта", attemptNumber: null },
+    ], 2));
+
+    render(
+      <PassageRegistry
+        filter={{ testIds: [], groupIds: [], formIds: [], snapshotIds: [], sources: [], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    await screen.findByText("Участник импорта");
+    expect(screen.getByText("Попытка")).toBeTruthy();
+    const withNumber = screen.getAllByRole("row")[1];
+    expect(within(withNumber).getByText("3")).toBeTruthy();
+    const withoutNumber = screen.getAllByRole("row")[2];
+    expect(within(withoutNumber).getAllByText("—").length).toBeGreaterThan(0);
+  });
+
   it("при нескольких тестах СПРАШИВАЕТ, по какому сохранять срез", async () => {
     // Срез — выборка ОДНОГО теста (решение владельца 2026-09-25), но заставлять автора
     // пересобирать отбор незачем: условия он уже набрал, не хватает только теста.

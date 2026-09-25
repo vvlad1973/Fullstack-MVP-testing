@@ -109,6 +109,48 @@ async function groupsOfPage(
   return out;
 }
 
+/**
+ * Номер попытки для строк страницы (FR-02).
+ *
+ * Нумерация идёт ПО ЧЕЛОВЕКУ И ТЕСТУ и не зависит от фильтра: «вторая попытка» — свойство
+ * прохождения, а не выборки, в которую оно попало. Считать её по видимой странице нельзя —
+ * там не все попытки человека, — поэтому по участникам и тестам страницы спрашиваются все их
+ * прохождения.
+ *
+ * Прохождение без даты начала номера не получает: порядок задаёт именно она, и ставить такую
+ * строку в ряд наугад значило бы объявить кого-то первым без основания.
+ */
+async function attemptOrdinals(
+  rows: ReadonlyArray<{ id: string; testId: string | null; userId: string | null; participantKey: string | null }>,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const testIds = [...new Set(rows.map(r => r.testId).filter((id): id is string => !!id))];
+  const userIds = [...new Set(rows.map(r => r.userId).filter((id): id is string => !!id))];
+  const keys = [...new Set(rows.map(r => r.participantKey).filter((key): key is string => !!key))];
+  if (testIds.length === 0) return out;
+
+  try {
+    const all = await storage.selectAttemptOrder(testIds, userIds, keys);
+    const byParticipantTest = new Map<string, Array<{ id: string; startedAt: Date | null }>>();
+    for (const row of all) {
+      if (!row.startedAt) continue;
+      const key = `${row.participantId}\u0000${row.testId ?? ""}`;
+      const list = byParticipantTest.get(key) ?? [];
+      list.push({ id: row.id, startedAt: row.startedAt });
+      byParticipantTest.set(key, list);
+    }
+    for (const list of byParticipantTest.values()) {
+      list.sort((a, b) => (a.startedAt?.getTime() ?? 0) - (b.startedAt?.getTime() ?? 0));
+      list.forEach((item, index) => out.set(item.id, index + 1));
+    }
+  } catch (error) {
+    // Номер — подспорье, а не смысл реестра: без него таблица остаётся полезной, и ронять
+    // её из-за него незачем.
+    logger.warn("Номера попыток не посчитаны — " + (error as Error).message);
+  }
+  return out;
+}
+
 // GET /api/analytics/registry — порция прохождений и общее их число
 router.get("/registry", requirePermission("analytics.read"), async (req: Request, res: Response) => {
   try {
@@ -163,6 +205,7 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
     );
 
     const groups = await groupsOfPage(page.rows);
+    const ordinals = await attemptOrdinals(page.rows);
 
     res.json({
       rows: page.rows.map(row => ({
@@ -182,6 +225,10 @@ router.get("/registry", requirePermission("analytics.read"), async (req: Request
         source: row.source,
         groupId: row.groupId,
         groups: groups.get(row.id) ?? [],
+        // FR-02: какая это попытка участника по этому тесту. `null` — вычислить не из чего
+        // (участник не опознан либо дата начала неизвестна): «первая» была бы утверждением,
+        // которого мы не знаем.
+        attemptNumber: ordinals.get(row.id) ?? null,
       })),
       total: page.total,
       limit,
