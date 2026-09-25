@@ -322,3 +322,79 @@ describe("ItemQualityPanel", () => {
     expect(within(tile as HTMLElement).getByText("1")).toBeTruthy();
   });
 });
+
+/**
+ * PRD-66 FR-05, FR-48: эвристики PRD-56 «Требуют ревизии» — признаками таблицы качества.
+ *
+ * Они идут сразу за прямыми дефектами (отрицательная дискриминация, угадывание) и перед прочими
+ * признаками, а на малой выборке — вместо «мало данных»: там они единственное, что можно сказать.
+ */
+describe("ItemQualityPanel — эвристики «Требуют ревизии» (FR-05, FR-48)", () => {
+  const HARD_AND_FREQUENT = { kinds: ["hard-and-frequent"], exposurePercent: 82, correctPercent: 41, latencyMedianMs: 30_000 };
+  const FAST_AND_WRONG = { kinds: ["fast-and-wrong"], exposurePercent: 40, correctPercent: 30, latencyMedianMs: 4_000 };
+
+  /** Строки таблицы сверху вниз — по тексту вопроса. */
+  const order = () => screen.getAllByText(/^Вопрос /).map((el) => el.textContent);
+
+  it("«Заезжено и трудно» — с числами показов и верных, как в эскизе", () => {
+    render(<ItemQualityPanel
+      view={view({ items: [row({ questionId: "q1", prompt: "Вопрос 1" })] })}
+      heuristics={{ q1: HARD_AND_FREQUENT }}
+    />);
+
+    expect(screen.getByText("Заезжено и трудно")).toBeTruthy();
+    expect(screen.getByText("82 % показов, 41 % верных")).toBeTruthy();
+  });
+
+  it("«Слишком быстрые ответы» — с медианой времени и долей верных", () => {
+    render(<ItemQualityPanel
+      view={view({ items: [row({ questionId: "q1", prompt: "Вопрос 1" })] })}
+      heuristics={{ q1: FAST_AND_WRONG }}
+    />);
+
+    expect(screen.getByText("Слишком быстрые ответы")).toBeTruthy();
+    expect(screen.getByText("медиана 4 с при 30 % верных")).toBeTruthy();
+  });
+
+  it("порядок: отрицательная дискриминация, эвристика, прочие признаки", () => {
+    render(<ItemQualityPanel
+      view={view({ items: [
+        row({ questionId: "q-hard", prompt: "Вопрос трудный", flags: { tooHard: true, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false } }),
+        row({ questionId: "q-heur", prompt: "Вопрос эвристика" }),
+        row({ questionId: "q-neg", prompt: "Вопрос ключ", itemRest: -0.2, flags: { tooHard: false, tooEasy: false, negativeDiscrimination: true, atChanceLevel: false } }),
+      ] })}
+      heuristics={{ "q-heur": HARD_AND_FREQUENT }}
+    />);
+
+    expect(order()).toEqual(["Вопрос ключ", "Вопрос эвристика", "Вопрос трудный"]);
+  });
+
+  it("на малой выборке эвристика стоит вместо «мало данных» и поднимает задание вверх", () => {
+    render(<ItemQualityPanel
+      view={view({ items: [
+        row({ questionId: "q-ok", prompt: "Вопрос спокойный" }),
+        row({ questionId: "q-thin", prompt: "Вопрос мало", observations: 12, coefficientConfidence: "insufficient" }),
+      ] })}
+      heuristics={{ "q-thin": HARD_AND_FREQUENT }}
+    />);
+
+    // «Мало данных» есть и в переключателе вида таблицы — смотрим строку задания.
+    const thinRow = screen.getByText("Вопрос мало").closest("tr") as HTMLElement;
+    expect(within(thinRow).getByText("Заезжено и трудно")).toBeTruthy();
+    expect(within(thinRow).queryByText("Мало данных")).toBeNull();
+    expect(order()).toEqual(["Вопрос мало", "Вопрос спокойный"]);
+  });
+
+  it("эвристика считается в «под подозрением»", () => {
+    render(<ItemQualityPanel
+      view={view({ items: [row({ questionId: "q1", prompt: "Вопрос 1" }), row({ questionId: "q2", prompt: "Вопрос 2" })] })}
+      heuristics={{ q2: HARD_AND_FREQUENT }}
+    />);
+
+    // «Под подозрением» есть и в переключателе вида таблицы — берём плитку.
+    const tile = screen.getAllByText("Под подозрением")
+      .map((el) => el.closest(".ou-card"))
+      .find((card): card is HTMLElement => !!card && !card.querySelector("table")) as HTMLElement;
+    expect(within(tile).getByText("1")).toBeTruthy();
+  });
+});

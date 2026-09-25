@@ -111,6 +111,11 @@ export interface ItemQualityPanelProps {
    * всем попыткам» — это и есть путь назад после снятия чипа в строке фильтра.
    */
   onRestoreFirstAttempt?: () => void;
+  /**
+   * PRD-66 FR-05, FR-48: эвристики PRD-56 «Требуют ревизии» по идентификатору задания. Без них
+   * таблица знает только психометрические признаки.
+   */
+  heuristics?: Record<string, ReviewHeuristic>;
 }
 
 /** Как источник наблюдений подписывается человеку. */
@@ -166,13 +171,53 @@ const RELIABILITY_GAP: Record<string, string> = {
 };
 
 /**
+ * Эвристики PRD-56 «Требуют ревизии» одного задания и числа, которые их вызвали (FR-05).
+ *
+ * Приходят из статистики вопросов «Обзора» (`questionStats`): эвристики считает PRD-56, и
+ * второй копии их правил здесь нет.
+ */
+export interface ReviewHeuristic {
+  /** Виды сработавших эвристик: `hard-and-frequent`, `fast-and-wrong`. */
+  kinds: string[];
+  exposurePercent: number | null;
+  correctPercent: number | null;
+  latencyMedianMs: number | null;
+}
+
+/** Процент без десятых — как в подписях PRD-56. */
+function wholePercent(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value)} %`;
+}
+
+/** Признак-эвристика словами и числами; подписи — из эскизов PRD-66 и PRD-56. */
+function heuristicFlag(heuristic: ReviewHeuristic | undefined): { tone: "warning"; title: string; detail: string } | null {
+  if (!heuristic) return null;
+  if (heuristic.kinds.includes("hard-and-frequent")) {
+    return {
+      tone: "warning",
+      title: "Заезжено и трудно",
+      detail: `${wholePercent(heuristic.exposurePercent)} показов, ${wholePercent(heuristic.correctPercent)} верных`,
+    };
+  }
+  if (heuristic.kinds.includes("fast-and-wrong")) {
+    const latency = heuristic.latencyMedianMs === null ? "—" : `${Math.round(heuristic.latencyMedianMs / 1000)} с`;
+    return {
+      tone: "warning",
+      title: "Слишком быстрые ответы",
+      detail: `медиана ${latency} при ${wholePercent(heuristic.correctPercent)} верных`,
+    };
+  }
+  return null;
+}
+
+/**
  * Признак задания: заголовок-симптом и числа, которые его вызвали (FR-50).
  *
  * Порядок проверок — это и есть «сила подозрения»: прямой дефект вперёд, спокойное задание в
  * конец. Первым идёт отрицательная дискриминативность: сильные, ошибающиеся чаще слабых, почти
  * всегда означают испорченный ключ, и это чинят раньше всего остального.
  */
-function flagOf(row: ItemQualityRow): { tone: "error" | "warning" | "info"; title: string; detail: string } | null {
+function flagOf(row: ItemQualityRow, heuristic?: ReviewHeuristic): { tone: "error" | "warning" | "info"; title: string; detail: string } | null {
   if (row.flags.negativeDiscrimination) {
     return {
       tone: "error",
@@ -187,6 +232,10 @@ function flagOf(row: ItemQualityRow): { tone: "error" | "warning" | "info"; titl
       detail: `с поправкой ${num(row.correctedDifficulty)}`,
     };
   }
+  // FR-05, FR-48: эвристики PRD-56 — сразу за прямыми дефектами. На малой выборке они стоят
+  // вместо «мало данных»: там это единственное, что можно сказать о задании.
+  const byHeuristic = heuristicFlag(heuristic);
+  if (byHeuristic) return byHeuristic;
   if (row.timingFlags.rushed) {
     return { tone: "warning", title: "Отвечают не читая", detail: "ответ быстрее, чем задание можно прочесть" };
   }
@@ -213,8 +262,8 @@ function flagOf(row: ItemQualityRow): { tone: "error" | "warning" | "info"; titl
 }
 
 /** Есть ли у задания хоть один признак — по нему считается «под подозрением». */
-function suspicious(row: ItemQualityRow): boolean {
-  const flag = flagOf(row);
+function suspicious(row: ItemQualityRow, heuristic?: ReviewHeuristic): boolean {
+  const flag = flagOf(row, heuristic);
   return flag !== null && flag.tone !== "info";
 }
 
@@ -226,14 +275,18 @@ function suspicious(row: ItemQualityRow): boolean {
  * Задания с пометкой «мало данных» — последние в обоих направлениях: признака у них нет не
  * потому, что они здоровы, а потому, что судить не на чем.
  */
-function suspicionRank(row: ItemQualityRow): number {
-  if (row.coefficientConfidence === "insufficient") return 90;
+function suspicionRank(row: ItemQualityRow, heuristic?: ReviewHeuristic): number {
+  const hasHeuristic = heuristicFlag(heuristic) !== null;
+  // Эвристика поднимает задание и на малой выборке (FR-05): «мало данных» — последними, только
+  // когда сказать о задании больше нечего.
+  if (row.coefficientConfidence === "insufficient") return hasHeuristic ? 3 : 90;
   if (row.flags.negativeDiscrimination) return 1;
   if (row.flags.atChanceLevel) return 2;
-  if (row.timingFlags.rushed) return 3;
-  if (row.flags.tooHard) return 4;
-  if (row.flags.tooEasy) return 5;
-  if (row.timingFlags.slow) return 6;
+  if (hasHeuristic) return 3;
+  if (row.timingFlags.rushed) return 4;
+  if (row.flags.tooHard) return 5;
+  if (row.flags.tooEasy) return 6;
+  if (row.timingFlags.slow) return 7;
   return 50;
 }
 
@@ -243,9 +296,11 @@ function suspicionRank(row: ItemQualityRow): number {
  * У отрицательной дискриминации это сама дискриминативность: чем глубже минус, тем раньше
  * строка. У прочих рангов — трудность, потому что именно она вызвала признак.
  */
-function withinRank(row: ItemQualityRow): number {
+function withinRank(row: ItemQualityRow, heuristic?: ReviewHeuristic): number {
   if (row.flags.negativeDiscrimination) return row.itemRest ?? 0;
   if (row.flags.atChanceLevel) return row.correctedDifficulty ?? 0;
+  // У эвристики признак вызвала доля верных: чем она ниже, тем раньше строка.
+  if (heuristicFlag(heuristic)) return (heuristic?.correctPercent ?? 0) / 100;
   return row.difficulty ?? 0;
 }
 
@@ -264,22 +319,23 @@ function TermHeader({ term, hint }: { term: string; hint: string }) {
 type View = "all" | "suspicious" | "thin";
 
 /** Вкладка «Качество заданий». */
-export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onRestoreFirstAttempt }: ItemQualityPanelProps) {
+export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onRestoreFirstAttempt, heuristics = {} }: ItemQualityPanelProps) {
   const [tab, setTab] = useState<View>("all");
   const [glossary, setGlossary] = useState(false);
 
-  const suspiciousCount = view.items.filter(suspicious).length;
+  const suspiciousCount = view.items.filter(r => suspicious(r, heuristics[r.questionId])).length;
   const thinCount = view.items.filter(r => r.coefficientConfidence === "insufficient").length;
   const reliableCount = view.items.filter(r => r.coefficientConfidence === "reliable").length;
 
   const rows = view.items
     .filter(row =>
       tab === "all" ? true
-        : tab === "suspicious" ? suspicious(row)
+        : tab === "suspicious" ? suspicious(row, heuristics[row.questionId])
           : row.coefficientConfidence === "insufficient")
     // Порядок по умолчанию — сила подозрения (FR-48): список открывается тем, что чинят первым.
     .slice()
-    .sort((a, b) => suspicionRank(a) - suspicionRank(b) || withinRank(a) - withinRank(b));
+    .sort((a, b) => suspicionRank(a, heuristics[a.questionId]) - suspicionRank(b, heuristics[b.questionId])
+      || withinRank(a, heuristics[a.questionId]) - withinRank(b, heuristics[b.questionId]));
 
   const reliability = typeof view.reliability === "string" ? null : view.reliability;
   const forecastText = forecastOf(view.lengthForecast);
@@ -345,7 +401,7 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
         hint="Что не так с заданием. Признак ставится по числам этой же строки: он называет симптом, а причину оставляет автору."
       />,
       render: (row: ItemQualityRow) => {
-        const flag = flagOf(row);
+        const flag = flagOf(row, heuristics[row.questionId]);
         if (!flag) return <Text variant="body-xs" tone="muted">—</Text>;
         return (
           <Stack gap={1}>

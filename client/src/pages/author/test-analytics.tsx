@@ -372,6 +372,24 @@ export default function TestAnalyticsPage() {
     }, [itemQuality]);
 
     /**
+     * PRD-66 FR-05, FR-48: эвристики PRD-56 «Требуют ревизии» для таблицы качества.
+     *
+     * Их считает ответ «Обзора» (`questionStats[].reviewFlags`), он уже загружен страницей, и
+     * вторую копию правил психометрика не заводит. В карту попадают только задания, где эвристика
+     * сработала.
+     */
+    const reviewHeuristics = useMemo(() => Object.fromEntries(
+        (analytics?.questionStats ?? [])
+            .filter(question => question.reviewFlags.length > 0)
+            .map(question => [question.questionId, {
+                kinds: question.reviewFlags.map(flag => flag.kind),
+                exposurePercent: question.exposurePercent ?? null,
+                correctPercent: question.correctPercent ?? null,
+                latencyMedianMs: question.latencyMedianMs ?? null,
+            }]),
+    ), [analytics]);
+
+    /**
      * PRD-66 FR-24: разбор одного задания — своим запросом и только когда его открыли.
      *
      * Дистракторный разбор требует ответов КАЖДОГО участника по этому заданию, и считать его
@@ -804,6 +822,7 @@ export default function TestAnalyticsPage() {
                                                 matrixHref={psychometricsUrl(`/api/analytics/psychometrics/${testId}/matrix`)}
                                                 onOpenItem={setBreakdownId}
                                                 onRestoreFirstAttempt={() => setFirstAttemptOnly(true)}
+                                                heuristics={reviewHeuristics}
                                             />
                                             {scaleQuality?.scales.length
                                                 ? <ScaleQualityPanel scales={scaleQuality.scales} />
