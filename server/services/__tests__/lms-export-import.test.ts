@@ -86,10 +86,19 @@ describe("buildImportPlan", () => {
     expect(buildImportPlan(withUnknown as never, ON).warnings.join()).toContain("topic_abc_level");
   });
 
-  it("ключ для сверки берётся из «Кода», а при пустом — из «Пользователя»", () => {
-    expect(buildImportPlan(book as never, ON).rows[0].lookupKey).toBe("Иванов Иван");
+  it("ключ для сверки берётся из «Кода», а при пустом его нет вовсе — ФИО не подставляется", () => {
+    // Сверка по имени запрещена (PRD-54 решение 1): пустой «Код» значит «сверять не с чем».
+    expect(buildImportPlan(book as never, ON).rows[0].lookupKey).toBeNull();
+    expect(buildImportPlan(book as never, OFF).rows[0].lookupKey).toBeNull();
     const withCode = { ...book, rows: [{ ...book.rows[0], participantCode: "AB-12" }] };
     expect(buildImportPlan(withCode as never, ON).rows[0].lookupKey).toBe("AB-12");
+  });
+
+  it("у предобезличенного файла ключ — хеш из колонки участника", () => {
+    // Там в колонке лежит идентификатор внешнего обезличивателя, а не имя (PRD-54 §8.5).
+    const hashed = { ...book, rows: [{ ...book.rows[0], participantName: "9f86d081884c7d65" }] };
+    const plan = buildImportPlan(hashed as never, { ...ON, sourceAnonymized: true });
+    expect(plan.rows[0].lookupKey).toBe("9f86d081884c7d65");
   });
 
   it("шкалы, показатели и ответы переносятся как есть", () => {
@@ -154,11 +163,20 @@ const ctx = {
 };
 
 describe("runImport", () => {
-  it("связывает по внешнему ключу, когда флажок включён", async () => {
-    const s = storageStub({ "иванов иван": "user-7" });
-    const res = await runImport(book as never, { ...ON, linkUsers: true }, ctx, s as never);
+  it("связывает по «Коду» против внешнего ключа, когда флажок включён", async () => {
+    const withCode = { ...book, rows: [{ ...book.rows[0], participantCode: "К-12" }] };
+    const s = storageStub({ "к-12": "user-7" });
+    const res = await runImport(withCode as never, { ...ON, linkUsers: true }, ctx, s as never);
     expect(res.rowsLinked).toBe(1);
     expect((s.attempts[0] as { userId: string }).userId).toBe("user-7");
+  });
+
+  it("НЕ связывает по ФИО, даже когда оно совпало с чьим-то внешним ключом", async () => {
+    // Кто-то вписал ФИО во внешний ключ — связь по имени всё равно запрещена (решение 1).
+    const s = storageStub({ "иванов иван": "user-7" });
+    const res = await runImport(book as never, { ...OFF, linkUsers: true }, ctx, s as never);
+    expect(res.rowsLinked).toBe(0);
+    expect((s.attempts[0] as { userId: string | null }).userId).toBeNull();
   });
 
   it("связывает по learner_id, когда обезличиватель дописал колонку (BR-54-32)", async () => {

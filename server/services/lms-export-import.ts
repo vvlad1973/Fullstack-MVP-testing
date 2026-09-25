@@ -39,8 +39,12 @@ export interface ImportOptions {
 /** Одна строка выгрузки, приведённая к тому, что пишется в базу. */
 export interface PlannedRow {
   participantKey: string;
-  /** Идентификатор для сверки с `users.external_key`. В базу НЕ пишется. */
-  lookupKey: string;
+  /**
+   * Идентификатор для сверки с `users.external_key`; `null` — сверять не с чем. В базу НЕ пишется.
+   *
+   * ФИО сюда не попадает НИКОГДА (PRD-54 решение 1): при пустом «Коде» ключа просто нет.
+   */
+  lookupKey: string | null;
   /**
    * Идентификатор обучающегося в LMS, если внешний обезличиватель добавил его колонкой
    * (BR-54-32). В базу не пишется: он нужен только чтобы найти учётную запись.
@@ -112,7 +116,10 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
 
     rows.push({
       participantKey: key,
-      lookupKey: r.participantCode || r.participantName,
+      // Сверяется «Код», а при пустом — ничего: подставить ФИО значило бы связывать по имени,
+      // что запрещено (PRD-54 решение 1). Исключение — предобезличенный файл: в колонке
+      // участника там лежит хеш внешнего обезличивателя, а не имя, и это законный ключ.
+      lookupKey: r.participantCode || (opts.sourceAnonymized ? r.participantName || null : null),
       learnerId: r.learnerId || null,
       lmsUserName: opts.anonymize ? null : r.participantName,
       lmsUserOrg: opts.anonymize ? null : r.org,
@@ -287,7 +294,7 @@ export async function runImport(
     let userId: string | null = null;
     if (opts.linkUsers) {
       const user = (row.learnerId ? await storage.getUserByLmsLearnerId(row.learnerId) : undefined)
-        ?? await storage.getUserByExternalKey(row.lookupKey);
+        ?? (row.lookupKey ? await storage.getUserByExternalKey(row.lookupKey) : undefined);
       if (user) {
         userId = user.id;
         rowsLinked += 1;
