@@ -38,6 +38,7 @@ import {
     type ScaleQualityRow,
 } from "@/features/analytics/test/scale-quality";
 import { PsychometricsComparePanel } from "@/features/analytics/test/psychometrics-compare-panel";
+import { invalidateAnalytics } from "@/features/analytics/invalidate-analytics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import {
@@ -632,7 +633,7 @@ export default function TestAnalyticsPage() {
             >
                 <LmsImportForm
                     fixedTestId={testId}
-                    onDone={() => queryClient.invalidateQueries({ queryKey: ["/api/analytics"] })}
+                    onDone={() => invalidateAnalytics(queryClient)}
                 />
             </ModalDialog>
 

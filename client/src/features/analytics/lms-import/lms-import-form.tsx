@@ -26,11 +26,13 @@ import {
   Select,
   Spinner,
   Stack,
+  Switch,
   Tag,
   Text,
 } from "@skillum/ui-kit";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { invalidateAnalytics } from "../invalidate-analytics";
 
 /** Сентинелы списка групп — по образцу `NEW_TEST = "__new__"` со страницы «Импорт». */
 const NO_GROUP = "__none__";
@@ -68,6 +70,8 @@ interface Batch {
   rowsCreated: number;
   rowsUpdated: number;
   rowsLinked: number;
+  /** PRD-66 FR-12: учитывается ли загрузка в расчётах. Снятая остаётся в базе целиком. */
+  counted: boolean;
 }
 
 export interface LmsImportFormProps {
@@ -184,7 +188,7 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     onSuccess: (res) => {
       setDone(res);
       // Цифры на странице, с которой форму открыли, должны обновиться без перезагрузки.
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      invalidateAnalytics(queryClient);
       batches.refetch();
       onDone?.();
     },
@@ -196,7 +200,28 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     },
     onSuccess: () => {
       toast({ title: "Загрузка откачена" });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      invalidateAnalytics(queryClient);
+      batches.refetch();
+    },
+    onError: (e: Error) => toast({ variant: "destructive", title: "Ошибка", description: e.message }),
+  });
+  /**
+   * PRD-66 FR-12: снять загрузку с учёта или вернуть. Решение обратимое, поэтому без
+   * подтверждения — в отличие от отката рядом, который удаляет строки навсегда.
+   */
+  const countedMut = useMutation({
+    mutationFn: async ({ id, counted }: { id: string; counted: boolean }) => {
+      const res = await fetch(`/api/analytics/lms-import/batches/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counted }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Не удалось изменить учёт загрузки");
+    },
+    onSuccess: () => {
+      // Выборка изменилась: числа аналитики на странице-хозяине обязаны пересчитаться.
+      invalidateAnalytics(queryClient);
       batches.refetch();
     },
     onError: (e: Error) => toast({ variant: "destructive", title: "Ошибка", description: e.message }),
@@ -368,12 +393,12 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
       {plan && (
         <Stack gap={2}>
           <Cluster gap={2} wrap>
-            <Tag tone="success" variant="outline" size="s">Добавится: {plan.rowsCreated}</Tag>
-            <Tag variant="outline" size="s">Обновится: {plan.rowsUpdated}</Tag>
+            <Tag tone="success" variant="outline" size="s">Будет добавлено: {plan.rowsCreated}</Tag>
+            <Tag variant="outline" size="s">Будет обновлено: {plan.rowsUpdated}</Tag>
             <Tag tone={plan.rowsSkipped > 0 ? "warning" : undefined} variant="outline" size="s">
               Будет пропущено: {plan.rowsSkipped}
             </Tag>
-            <Tag variant="outline" size="s">Свяжется: {plan.rowsLinked}</Tag>
+            <Tag variant="outline" size="s">Будет связано: {plan.rowsLinked}</Tag>
           </Cluster>
           {plan.warnings.map((w) => (
             <Banner key={w} tone="warning" icon={<AlertTriangle size={16} />} description={w} />
@@ -427,13 +452,25 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
           ) : (
             <Stack gap={1}>
               {(batches.data ?? []).map((b) => (
-                <Cluster key={b.id} gap={3} justify="between">
-                  <Stack gap={0}>
+                // Строка не переносится: в узком окне аналитики переключатель и откат иначе
+                // уезжали на отдельные строки и у соседних загрузок вставали по-разному. Переносится
+                // только текст — он и растягивается.
+                <Cluster key={b.id} gap={3} wrap={false}>
+                  <Stack gap={0} grow>
                     <Text variant="body-s" weight="medium">{b.fileName}</Text>
                     <Text variant="body-xs" tone="muted">
                       {new Date(b.importedAt).toLocaleString("ru-RU")} · добавлено {b.rowsCreated}, обновлено {b.rowsUpdated}
+                      {/* Выключенный переключатель в списке легко не заметить — говорим словами. */}
+                      {b.counted ? null : " · не учитывается в расчётах — данные сохранены"}
                     </Text>
                   </Stack>
+                  <Switch
+                    size="s"
+                    label="В расчётах"
+                    checked={b.counted}
+                    onChange={(e) => countedMut.mutate({ id: b.id, counted: e.target.checked })}
+                    disabled={countedMut.isPending}
+                  />
                   <Button
                     variant="ghost"
                     size="s"

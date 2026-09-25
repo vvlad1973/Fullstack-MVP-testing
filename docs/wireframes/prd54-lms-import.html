@@ -21,12 +21,13 @@
       отказы    — not-recognized (файл не распознан), no-test (тест по вопросам не найден),
                   mismatch (чужой тест; только там, где тест задан страницей), failed (сбой записи);
       предупреждения — duplicate (тот же файл уже грузили), skipped (строки без даты пропущены);
+      загрузки  — batches, batches-empty;
+      хост      — modal (та же форма в окне обеих страниц аналитики).
 
     Флажка «Данные уже обезличены» нет (решение владельца 2026-09-25): обезличенный файл узнаётся
     по колонке external_id, и вместе с флажком ушло состояние anon-mismatch.
-      загрузки  — batches, batches-empty;
-      хост      — modal (та же форма в окне обеих страниц аналитики).
     -->
+
     <title>PRD-54 — Загрузка выгрузки LMS</title>
     <link rel="stylesheet" href="/docs/wireframes/ds/skillum-ds.css" />
     <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
@@ -212,10 +213,10 @@
                   </div>
 
                   <ul class="wf-plan">
-                    <li class="wf-plan__row"><span class="wf-plan__name">Добавится</span><span class="ou-tag ou-tag--success ou-tag--outline">+2</span></li>
-                    <li class="wf-plan__row"><span class="wf-plan__name">Обновится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">1</span></li>
-                    <li class="wf-plan__row"><span class="wf-plan__name">Пропустится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
-                    <li class="wf-plan__row"><span class="wf-plan__name">Свяжется с пользователями</span><span class="ou-tag ou-tag--neutral ou-tag--outline">1</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет добавлено</span><span class="ou-tag ou-tag--success ou-tag--outline">+2</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет обновлено</span><span class="ou-tag ou-tag--neutral ou-tag--outline">1</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет пропущено</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет связано с пользователями</span><span class="ou-tag ou-tag--neutral ou-tag--outline">1</span></li>
                   </ul>
 
                   <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
@@ -308,8 +309,8 @@
                     <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
                   </div>
                   <ul class="wf-plan">
-                    <li class="wf-plan__row"><span class="wf-plan__name">Добавится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
-                    <li class="wf-plan__row"><span class="wf-plan__name">Обновится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">3</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет добавлено</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет обновлено</span><span class="ou-tag ou-tag--neutral ou-tag--outline">3</span></li>
                   </ul>
                   <div class="ou-banner ou-banner--info ou-banner--subtle wf-mt-3" role="status">
                     <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-check-circle" /></svg></span>
@@ -332,9 +333,9 @@
                     <div class="ou-file__actions"><button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Убрать файл" onclick="impState(null, 'empty')"><svg width="14" height="14"><use href="#i-x" /></svg></button></div>
                   </div>
                   <ul class="wf-plan">
-                    <li class="wf-plan__row"><span class="wf-plan__name">Добавится</span><span class="ou-tag ou-tag--success ou-tag--outline">+16</span></li>
-                    <li class="wf-plan__row"><span class="wf-plan__name">Обновится</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
-                    <li class="wf-plan__row"><span class="wf-plan__name">Пропустится</span><span class="ou-tag ou-tag--warning ou-tag--outline">2</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет добавлено</span><span class="ou-tag ou-tag--success ou-tag--outline">+16</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет обновлено</span><span class="ou-tag ou-tag--neutral ou-tag--outline">0</span></li>
+                    <li class="wf-plan__row"><span class="wf-plan__name">Будет пропущено</span><span class="ou-tag ou-tag--warning ou-tag--outline">2</span></li>
                   </ul>
                   <div class="ou-banner ou-banner--warning ou-banner--subtle wf-mt-3" role="status">
                     <span class="ou-banner__ico" aria-hidden="true"><svg width="14" height="14"><use href="#i-alert" /></svg></span>
@@ -402,7 +403,7 @@
                   </div>
                 </div>
 
-                <!-- список загрузок -->
+                <!-- список загрузок; ДЕЛЬТА PRD-66 FR-12: переключатель «В расчётах» у каждой загрузки -->
                 <div id="imp-batches" class="wf-imp">
                   <div class="wf-batch">
                     <div class="wf-batch__main">
@@ -410,14 +411,22 @@
                       <span class="wf-batch__meta">11.09.2026, 23:40 · Приёмка · группа «Поток сентябрь 2026»</span>
                     </div>
                     <span class="ou-tag ou-tag--neutral ou-tag--outline">3 строки</span>
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">В расчётах</span></span>
+                    </label>
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="14" height="14"><use href="#i-trash" /></svg> Откатить</button>
                   </div>
                   <div class="wf-batch">
                     <div class="wf-batch__main">
                       <span class="wf-batch__name">выгрузка-август.xlsx</span>
-                      <span class="wf-batch__meta">14.08.2026, 10:12 · Приёмка · без группы</span>
+                      <span class="wf-batch__meta">14.08.2026, 10:12 · Приёмка · без группы · не учитывается в расчётах — данные сохранены</span>
                     </div>
                     <span class="ou-tag ou-tag--neutral ou-tag--outline">18 строк</span>
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--s" role="switch" aria-checked="false"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">В расчётах</span></span>
+                    </label>
                     <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><svg width="14" height="14"><use href="#i-trash" /></svg> Откатить</button>
                   </div>
                 </div>
@@ -493,6 +502,7 @@
               <tr><td>«Импортировать»</td><td>Тот же эндпоинт без <code>dryRun</code>; после успеха гасится кеш аналитики</td><td>Цифры на странице обновляются без перезагрузки</td></tr>
               <tr><td>Повторная загрузка</td><td>Обновляет по ключу (тест + участник + дата активации модуля), дублей не создаёт</td><td>Ею же проставляется позднее связывание</td></tr>
               <tr><td>Загрузки и откат</td><td><code>GET /api/analytics/lms-import/batches/:testId</code>, <code>DELETE .../batches/:id</code></td><td>Откат удаляет строки партии целиком</td></tr>
+              <tr><td>«В расчётах» (PRD-66 FR-12, дельта 2026-09-25)</td><td><code>PATCH .../batches/:id</code> с <code>counted</code>; действует сразу, без подтверждения; у снятой загрузки в подписи «не учитывается в расчётах — данные сохранены»</td><td>Обратимое решение рядом с необратимым откатом: сомнительную выгрузку убирают из чисел, не теряя данных</td></tr>
               <tr><td>Право</td><td><code>analytics.import</code> + область теста</td><td>Выдаётся тем же ролям, что <code>analytics.export</code></td></tr>
             </tbody>
           </table>
