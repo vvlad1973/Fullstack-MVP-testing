@@ -28,9 +28,27 @@ const SHEET: string[][] = [
   ],
 ];
 
+/**
+ * Тот же лист, но с колонкой `learner_id`, которую дописал внешний обезличиватель (BR-54-32).
+ *
+ * Колонка стоит СРАЗУ ПОСЛЕ служебных: вставленная в начало, она сдвинула бы ФИО, даты и баллы,
+ * читаемые по своим местам, и разбор поехал бы молча на всём файле.
+ */
+const SHEET_WITH_LEARNER: string[][] = [
+  [...SHEET[0].slice(0, 9), "learner_id", ...SHEET[0].slice(9)],
+  [...SHEET[1].slice(0, 9), "", ...SHEET[1].slice(9)],
+  [...SHEET[2].slice(0, 9), "u-4471", ...SHEET[2].slice(9)],
+];
+
 describe("looksLikeLmsExport", () => {
   it("узнаёт выгрузку по четвёрке подколонок и префиксам", () => {
     expect(looksLikeLmsExport(SHEET)).toBe(true);
+  });
+
+  it("узнаёт выгрузку и с дописанной колонкой learner_id", () => {
+    // Ширина служебной части вычисляется, а не задана числом: иначе блоки взаимодействий
+    // искались бы на колонку левее и лист не опознался бы вовсе.
+    expect(looksLikeLmsExport(SHEET_WITH_LEARNER)).toBe(true);
   });
 
   it("не принимает книгу теста за выгрузку", () => {
@@ -44,6 +62,23 @@ describe("parseLmsExport", () => {
     expect(book.questionIds).toEqual(["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]);
     expect(book.scaleKeys).toEqual(["cel"]);
     expect(book.variableNames).toEqual(["lead_margin"]);
+  });
+
+  it("читает learner_id и НЕ сдвигает остальные поля", () => {
+    // Главная опасность дописанной колонки — молчаливый сдвиг: баллы прочитались бы как статус,
+    // а первый блок взаимодействий — как служебное поле.
+    const [row] = parseLmsExport(SHEET_WITH_LEARNER).rows;
+
+    expect(row.learnerId).toBe("u-4471");
+    expect(row.participantName).toBe("Контента Контроль");
+    expect(row.moduleActivatedAt).toBe("2026-09-09T13:39:00.000Z");
+    expect(row.passed).toBe(true);
+    expect(parseLmsExport(SHEET_WITH_LEARNER).questionIds)
+      .toEqual(["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]);
+  });
+
+  it("без такой колонки идентификатор пуст, а не выдуман", () => {
+    expect(parseLmsExport(SHEET).rows[0].learnerId).toBe("");
   });
 
   it("читает служебные поля строки", () => {

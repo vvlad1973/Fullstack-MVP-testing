@@ -41,6 +41,11 @@ export interface PlannedRow {
   participantKey: string;
   /** Идентификатор для сверки с `users.external_key`. В базу НЕ пишется. */
   lookupKey: string;
+  /**
+   * Идентификатор обучающегося в LMS, если внешний обезличиватель добавил его колонкой
+   * (BR-54-32). В базу не пишется: он нужен только чтобы найти учётную запись.
+   */
+  learnerId: string | null;
   lmsUserName: string | null;
   lmsUserOrg: string | null;
   /** Подразделение и должность: входят в псевдоним, поэтому хранятся рядом с прохождением. */
@@ -108,6 +113,7 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
     rows.push({
       participantKey: key,
       lookupKey: r.participantCode || r.participantName,
+      learnerId: r.learnerId || null,
       lmsUserName: opts.anonymize ? null : r.participantName,
       lmsUserOrg: opts.anonymize ? null : r.org,
       // Отдел и должность хранятся ВСЕГДА, даже при обезличивании: они входят в псевдоним, и
@@ -274,9 +280,14 @@ export async function runImport(
   for (const row of plan.rows) {
     // Связь ищется по ИСХОДНОМУ идентификатору, но в базу он не попадает: остаются
     // `participant_key` и `user_id` (PRD-54 раздел 8.5).
+    // ПОРЯДОК СВЯЗЫВАНИЯ (BR-54-33): сначала идентификатор обучающегося в LMS, если внешний
+    // обезличиватель положил его в файл отдельной колонкой (BR-54-32), затем табельный код
+    // против внешнего ключа. Первый путь точнее: `learner_id` выдаёт сама LMS, и он не зависит
+    // ни от того, заполнен ли код, ни от того, как его нормализовали.
     let userId: string | null = null;
     if (opts.linkUsers) {
-      const user = await storage.getUserByExternalKey(row.lookupKey);
+      const user = (row.learnerId ? await storage.getUserByLmsLearnerId(row.learnerId) : undefined)
+        ?? await storage.getUserByExternalKey(row.lookupKey);
       if (user) {
         userId = user.id;
         rowsLinked += 1;

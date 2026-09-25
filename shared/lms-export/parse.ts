@@ -22,8 +22,39 @@ import { parseExportSeconds } from "./duration";
 const BLOCK = 4;
 /** Смещения подколонок блока: тип, продолжительность, результат, полученный ответ. */
 const BLOCK_COLUMNS = [0, 1, 2, 3];
-/** Число служебных колонок перед первым блоком. */
-const SERVICE = 9;
+/** Число служебных колонок перед первым блоком у ИСХОДНОЙ выгрузки LMS. */
+const SERVICE_BASE = 9;
+
+/**
+ * Заголовок колонки с идентификатором обучающегося, которую МОЖЕТ добавить внешний
+ * обезличиватель (PRD-54 BR-54-32).
+ *
+ * Технический, а не человекочитаемый: колонку ставит скрипт, а не человек, и по техническому
+ * имени её ни с чем не спутать при переводе шапки.
+ */
+const LEARNER_ID_HEADER = "learner_id";
+
+/**
+ * Сколько служебных колонок у ЭТОГО листа.
+ *
+ * Обезличиватель вправе дописать `learner_id` — тогда блоки взаимодействий начинаются на колонку
+ * правее, и разметка, считанная от жёсткой девятки, разъехалась бы на всём файле. Поэтому ширина
+ * служебной части вычисляется, а не задаётся числом.
+ */
+function serviceWidth(head: string[]): number {
+  return learnerIdColumn(head) === null ? SERVICE_BASE : SERVICE_BASE + 1;
+}
+
+/**
+ * Где стоит колонка `learner_id`, если обезличиватель её добавил; иначе `null`.
+ *
+ * Место ровно одно — СРАЗУ ПОСЛЕ девяти служебных, перед первым блоком. Требование жёсткое
+ * намеренно: вставленная в начало, она сдвинула бы ФИО, код, организацию и все даты, которые
+ * читаются по своим местам, и разбор поехал бы молча на всём файле.
+ */
+function learnerIdColumn(head: string[]): number | null {
+  return cell(head, SERVICE_BASE).trim().toLowerCase() === LEARNER_ID_HEADER ? SERVICE_BASE : null;
+}
 /** Подписи подколонок блока — по ним лист и опознаётся. */
 const SUBHEADERS = ["Тип", "Продолжительность (сек.)", "Результат", "Полученный ответ"];
 /** Префикс служебных блоков пакета: не вопрос, не шкала, не показатель. */
@@ -41,6 +72,11 @@ export interface LmsExportRow {
    */
   unit: string;
   position: string;
+  /**
+   * Идентификатор обучающегося в LMS, если его дописал внешний обезличиватель (BR-54-32);
+   * пустая строка — колонки в файле нет. По нему импорт связывает прохождение напрямую.
+   */
+  learnerId: string;
   courseActivatedAt: string;
   moduleActivatedAt: string;
   passed: boolean | null;
@@ -110,6 +146,7 @@ function cell(row: string[] | undefined, i: number): string {
  */
 export function looksLikeLmsExport(sheet: string[][]): boolean {
   const [head = [], sub = []] = sheet;
+  const SERVICE = serviceWidth(head);
   if (head.length < SERVICE + BLOCK) return false;
   const firstBlock = SUBHEADERS.every((label, i) => cell(sub, SERVICE + i) === label);
   if (!firstBlock) return false;
@@ -128,6 +165,9 @@ export function looksLikeLmsExport(sheet: string[][]): boolean {
  */
 export function parseLmsExport(sheet: string[][]): LmsExportBook {
   const head = sheet[0] ?? [];
+  // Ширина служебной части зависит от того, дописал ли обезличиватель `learner_id`.
+  const SERVICE = serviceWidth(head);
+  const learnerAt = learnerIdColumn(head);
   const blocks: Array<{ at: number; id: string }> = [];
   for (let i = SERVICE; i < head.length; i += BLOCK) {
     const id = cell(head, i);
@@ -166,6 +206,8 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       moduleActivatedAt: cell(raw, 6),
       passed: cell(raw, 7) === "" ? null : cell(raw, 7) === "Пройден",
       points: cell(raw, 8) === "" ? null : Number(cell(raw, 8)),
+      // BR-54-32: идентификатор обучающегося, если его дописал внешний обезличиватель.
+      learnerId: learnerAt === null ? "" : cell(raw, learnerAt),
       answers: {},
       results: {},
       latencySeconds: {},

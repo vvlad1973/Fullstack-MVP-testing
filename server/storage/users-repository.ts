@@ -59,6 +59,25 @@ export class UsersRepository {
    * @param key значение ключа из файла
    * @returns пользователь или `undefined`; пустой ключ никогда ни с кем не совпадает
    */
+  /**
+   * Пользователь по идентификатору обучающегося в LMS (PRD-54 BR-54-31).
+   *
+   * Им связывается ТЕЛЕМЕТРИЯ: `cmi.learner_id` — единственное, чем рантайм LMS опознаёт
+   * человека, и он устойчив — не меняется ни при переводе в другой отдел, ни при смене секрета
+   * инстанса. Сравнение без учёта регистра по той же причине, что у внешнего ключа: значение
+   * приходит из чужой системы, и разница в регистре смысла не несёт, а сопоставление ломает.
+   */
+  async getUserByLmsLearnerId(learnerId: string): Promise<User | undefined> {
+    const normalized = String(learnerId ?? "").trim().toLowerCase();
+    if (normalized === "") return undefined;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.lmsLearnerId}) = ${normalized}`)
+      .limit(1);
+    return user || undefined;
+  }
+
   async getUserByExternalKey(key: string): Promise<User | undefined> {
     const normalized = String(key ?? "").trim().toLowerCase();
     if (normalized === "") return undefined;

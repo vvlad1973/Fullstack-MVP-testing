@@ -48,6 +48,24 @@ async function resolveSnapshotId(testId: string | null, version: unknown): Promi
  * объект, массив или значения не-строки — значит вариантов нет. Пустая карта пишется как
  * `null`: у теста без вариантов их и правда нет.
  */
+/**
+ * Учётная запись по идентификатору обучающегося в LMS (PRD-54 BR-54-31, BR-54-33).
+ *
+ * `null` — совпадения нет либо идентификатор не пришёл: прохождение остаётся несвязанным, как
+ * было до этой работы. Ошибка поиска тоже даёт `null`: телеметрия — поток из чужой LMS, и ронять
+ * приём прохождения из-за недоступной сверки нельзя, данные о нём важнее связи с человеком.
+ */
+async function linkedUserId(learnerId: unknown): Promise<string | null> {
+  if (typeof learnerId !== "string" || !learnerId.trim()) return null;
+  try {
+    const user = await storage.getUserByLmsLearnerId(learnerId);
+    return user?.id ?? null;
+  } catch (error) {
+    logger.warn("Связывание прохождения по learner_id не выполнено — " + (error as Error).message, "scorm");
+    return null;
+  }
+}
+
 function readDeliveredForms(raw: unknown): Record<string, string> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
 
@@ -199,6 +217,15 @@ router.post("/scorm-telemetry/start", async (req: Request, res: Response) => {
         packageId: pkg.id,
         sessionId,
         attemptNumber,
+        // PRD-54 BR-54-31: прохождение связывается с учётной записью по идентификатору
+        // обучающегося в LMS. До этого телеметрия не связывалась ВООБЩЕ: один человек,
+        // прошедший тест в LMS и попавший в выгрузку, считался двумя участниками, и номер
+        // попытки их не склеивал — связывать было нечем.
+        //
+        // Псевдоним здесь не считается и считаться не может: подразделения и должности
+        // рантайм LMS не сообщает, а `learner_id` строго лучше — он не меняется ни при
+        // переводе человека, ни при смене секрета инстанса.
+        userId: await linkedUserId(data?.lmsUserId),
         lmsUserId: data?.lmsUserId || null,
         lmsUserName: data?.lmsUserName || null,
         lmsUserEmail: data?.lmsUserEmail || null,

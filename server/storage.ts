@@ -105,6 +105,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   /** PRD-54: поиск по внешнему ключу для связывания импортированных прохождений. */
   getUserByExternalKey(key: string): Promise<User | undefined>;
+  /** PRD-54 BR-54-31: пользователь по идентификатору обучающегося в LMS. */
+  getUserByLmsLearnerId(learnerId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   validatePassword(email: string, password: string): Promise<User | null>;
   updateUserLastLogin(id: string): Promise<void>;
@@ -518,6 +520,10 @@ export class DatabaseStorage implements IStorage {
 
   getUser(id: string): Promise<User | undefined> {
     return this.usersRepo.getUser(id);
+  }
+
+  getUserByLmsLearnerId(learnerId: string): Promise<User | undefined> {
+    return this.usersRepo.getUserByLmsLearnerId(learnerId);
   }
 
   getUserByExternalKey(key: string): Promise<User | undefined> {

@@ -108,7 +108,7 @@ describe("buildImportPlan", () => {
  *
  * @param externalKeys карта «нормализованный ключ -> id пользователя»
  */
-function storageStub(externalKeys: Record<string, string> = {}) {
+function storageStub(externalKeys: Record<string, string> = {}, learnerIds: Record<string, string> = {}) {
   const batches: unknown[] = [];
   const attempts: unknown[] = [];
   const answers: unknown[][] = [];
@@ -135,6 +135,10 @@ function storageStub(externalKeys: Record<string, string> = {}) {
       const id = externalKeys[String(key).trim().toLowerCase()];
       return id ? { id } : undefined;
     },
+    getUserByLmsLearnerId: async (learnerId: string) => {
+      const id = learnerIds[String(learnerId).trim().toLowerCase()];
+      return id ? { id } : undefined;
+    },
     getQuestionsByIds: async (ids: string[]) =>
       [{ id: "q1", type: "allocation", prompt: "Вопрос", topicId: "t1" }].filter((q) => ids.includes(q.id)),
     createLmsImportBatch: async (b: unknown) => { batches.push(b); return { id: "batch-1" }; },
@@ -155,6 +159,38 @@ describe("runImport", () => {
     const res = await runImport(book as never, { ...ON, linkUsers: true }, ctx, s as never);
     expect(res.rowsLinked).toBe(1);
     expect((s.attempts[0] as { userId: string }).userId).toBe("user-7");
+  });
+
+  it("связывает по learner_id, когда обезличиватель дописал колонку (BR-54-32)", async () => {
+    // Идентификатор выдаёт сама LMS, поэтому он точнее табельного кода и не зависит от того,
+    // заполнен ли тот вообще.
+    const withLearner = { ...book, rows: [{ ...book.rows[0], learnerId: "u-4471" }] };
+    const s = storageStub({}, { "u-4471": "user-9" });
+
+    const res = await runImport(withLearner as never, { ...ON, linkUsers: true }, ctx, s as never);
+
+    expect(res.rowsLinked).toBe(1);
+    expect((s.attempts[0] as { userId: string }).userId).toBe("user-9");
+  });
+
+  it("learner_id идёт ПЕРЕД внешним ключом (BR-54-33)", async () => {
+    // Оба пути ведут к разным людям — значит видно, какой сработал первым. Порядок не
+    // случайный: `learner_id` точный, код — то, что кто-то однажды ввёл руками.
+    const withLearner = { ...book, rows: [{ ...book.rows[0], learnerId: "u-4471", participantCode: "К-12" }] };
+    const s = storageStub({ "к-12": "user-code" }, { "u-4471": "user-learner" });
+
+    await runImport(withLearner as never, { ...ON, linkUsers: true }, ctx, s as never);
+
+    expect((s.attempts[0] as { userId: string }).userId).toBe("user-learner");
+  });
+
+  it("без совпадения по learner_id падает на внешний ключ", async () => {
+    const withLearner = { ...book, rows: [{ ...book.rows[0], learnerId: "чужой", participantCode: "К-12" }] };
+    const s = storageStub({ "к-12": "user-code" }, {});
+
+    await runImport(withLearner as never, { ...ON, linkUsers: true }, ctx, s as never);
+
+    expect((s.attempts[0] as { userId: string }).userId).toBe("user-code");
   });
 
   it("не связывает, когда флажок выключен", async () => {
