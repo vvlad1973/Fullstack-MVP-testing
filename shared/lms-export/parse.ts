@@ -23,7 +23,7 @@ const BLOCK = 4;
 /** Смещения подколонок блока: тип, продолжительность, результат, полученный ответ. */
 const BLOCK_COLUMNS = [0, 1, 2, 3];
 /** Число служебных колонок перед первым блоком у ИСХОДНОЙ выгрузки LMS. */
-const SERVICE_BASE = 9;
+const SERVICE = 9;
 
 /**
  * Заголовок колонки с идентификатором обучающегося, которую МОЖЕТ добавить внешний
@@ -35,25 +35,42 @@ const SERVICE_BASE = 9;
 const LEARNER_ID_HEADER = "learner_id";
 
 /**
- * Сколько служебных колонок у ЭТОГО листа.
+ * Где стоит колонка `learner_id`, если обезличиватель её добавил; иначе `null`.
  *
- * Обезличиватель вправе дописать `learner_id` — тогда блоки взаимодействий начинаются на колонку
- * правее, и разметка, считанная от жёсткой девятки, разъехалась бы на всём файле. Поэтому ширина
- * служебной части вычисляется, а не задаётся числом.
+ * Место НЕ ЗАДАНО: колонку ищут по заголовку в любой из двух строк шапки и в любом месте листа —
+ * в начале, среди служебных, между блоками или в конце. Скрипт обезличивания пишет не человек из
+ * нашей команды, и привязка к позиции превратила бы его любую вольность в молча испорченный файл.
+ * При нескольких таких колонках берётся первая.
  */
-function serviceWidth(head: string[]): number {
-  return learnerIdColumn(head) === null ? SERVICE_BASE : SERVICE_BASE + 1;
+function learnerIdColumn(sheet: string[][]): number | null {
+  const [head = [], sub = []] = sheet;
+  const width = Math.max(head.length, sub.length);
+  for (let i = 0; i < width; i += 1) {
+    if (cell(head, i).toLowerCase() === LEARNER_ID_HEADER || cell(sub, i).toLowerCase() === LEARNER_ID_HEADER) {
+      return i;
+    }
+  }
+  return null;
 }
 
 /**
- * Где стоит колонка `learner_id`, если обезличиватель её добавил; иначе `null`.
+ * Лист без колонки `learner_id` и сами её значения по строкам.
  *
- * Место ровно одно — СРАЗУ ПОСЛЕ девяти служебных, перед первым блоком. Требование жёсткое
- * намеренно: вставленная в начало, она сдвинула бы ФИО, код, организацию и все даты, которые
- * читаются по своим местам, и разбор поехал бы молча на всём файле.
+ * Колонка ВЫРЕЗАЕТСЯ из каждой строки, после чего лист имеет ровно форму исходной выгрузки LMS:
+ * служебные поля и блоки взаимодействий читаются по своим обычным местам, где бы колонка ни
+ * стояла. Пересчитывать смещения под каждое возможное место было бы хрупко — одно забытое
+ * смещение, и разбор поехал бы молча.
+ *
+ * @param sheet лист как массив строк
+ * @returns лист исходной формы и значения `learner_id` по индексам строк (пусто — колонки нет)
  */
-function learnerIdColumn(head: string[]): number | null {
-  return cell(head, SERVICE_BASE).trim().toLowerCase() === LEARNER_ID_HEADER ? SERVICE_BASE : null;
+function extractLearnerIds(sheet: string[][]): { sheet: string[][]; learnerIds: string[] } {
+  const at = learnerIdColumn(sheet);
+  if (at === null) return { sheet, learnerIds: sheet.map(() => "") };
+  return {
+    sheet: sheet.map((row) => (row ?? []).filter((_, i) => i !== at)),
+    learnerIds: sheet.map((row) => cell(row, at)),
+  };
 }
 /** Подписи подколонок блока — по ним лист и опознаётся. */
 const SUBHEADERS = ["Тип", "Продолжительность (сек.)", "Результат", "Полученный ответ"];
@@ -144,9 +161,9 @@ function cell(row: string[] | undefined, i: number): string {
  * нашим префиксом в первой. Одного мало — четвёрка встречается в чужих отчётах, префикс сам по себе
  * может оказаться в произвольной книге.
  */
-export function looksLikeLmsExport(sheet: string[][]): boolean {
-  const [head = [], sub = []] = sheet;
-  const SERVICE = serviceWidth(head);
+export function looksLikeLmsExport(input: string[][]): boolean {
+  // Дописанная обезличивателем колонка `learner_id` опознанию не мешает, где бы она ни стояла.
+  const [head = [], sub = []] = extractLearnerIds(input).sheet;
   if (head.length < SERVICE + BLOCK) return false;
   const firstBlock = SUBHEADERS.every((label, i) => cell(sub, SERVICE + i) === label);
   if (!firstBlock) return false;
@@ -163,11 +180,10 @@ export function looksLikeLmsExport(sheet: string[][]): boolean {
  * @param sheet лист как массив строк; первые две строки — шапка, дальше данные
  * @returns состав колонок и разобранные строки
  */
-export function parseLmsExport(sheet: string[][]): LmsExportBook {
+export function parseLmsExport(input: string[][]): LmsExportBook {
+  // BR-54-32: колонка `learner_id` вырезается до разбора — дальше лист исходной формы.
+  const { sheet, learnerIds } = extractLearnerIds(input);
   const head = sheet[0] ?? [];
-  // Ширина служебной части зависит от того, дописал ли обезличиватель `learner_id`.
-  const SERVICE = serviceWidth(head);
-  const learnerAt = learnerIdColumn(head);
   const blocks: Array<{ at: number; id: string }> = [];
   for (let i = SERVICE; i < head.length; i += BLOCK) {
     const id = cell(head, i);
@@ -207,7 +223,7 @@ export function parseLmsExport(sheet: string[][]): LmsExportBook {
       passed: cell(raw, 7) === "" ? null : cell(raw, 7) === "Пройден",
       points: cell(raw, 8) === "" ? null : Number(cell(raw, 8)),
       // BR-54-32: идентификатор обучающегося, если его дописал внешний обезличиватель.
-      learnerId: learnerAt === null ? "" : cell(raw, learnerAt),
+      learnerId: learnerIds[r],
       answers: {},
       results: {},
       latencySeconds: {},

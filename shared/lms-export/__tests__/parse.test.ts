@@ -29,15 +29,33 @@ const SHEET: string[][] = [
 ];
 
 /**
- * Тот же лист, но с колонкой `learner_id`, которую дописал внешний обезличиватель (BR-54-32).
+ * Тот же лист с колонкой `learner_id`, которую дописал внешний обезличиватель (BR-54-32).
  *
- * Колонка стоит СРАЗУ ПОСЛЕ служебных: вставленная в начало, она сдвинула бы ФИО, даты и баллы,
- * читаемые по своим местам, и разбор поехал бы молча на всём файле.
+ * @param at куда вставить колонку
+ * @param headRow в какой строке шапки её заголовок: 0 — первая, 1 — вторая
  */
-const SHEET_WITH_LEARNER: string[][] = [
-  [...SHEET[0].slice(0, 9), "learner_id", ...SHEET[0].slice(9)],
-  [...SHEET[1].slice(0, 9), "", ...SHEET[1].slice(9)],
-  [...SHEET[2].slice(0, 9), "u-4471", ...SHEET[2].slice(9)],
+function withLearnerAt(at: number, headRow: 0 | 1 = 0): string[][] {
+  const insert = (row: string[], value: string) => [...row.slice(0, at), value, ...row.slice(at)];
+  return [
+    insert(SHEET[0], headRow === 0 ? "learner_id" : ""),
+    insert(SHEET[1], headRow === 1 ? "learner_id" : ""),
+    insert(SHEET[2], "u-4471"),
+  ];
+}
+
+/** Колонка сразу после служебных — первое место, которое приходит в голову. */
+const SHEET_WITH_LEARNER = withLearnerAt(9);
+
+/**
+ * Места, куда обезличиватель может поставить колонку: место не задано (BR-54-32), и каждое из них
+ * сдвигает разное — ФИО, даты и баллы, первый блок, середину блоков, ничего.
+ */
+const LEARNER_POSITIONS: Array<[string, number]> = [
+  ["в самом начале", 0],
+  ["среди служебных", 3],
+  ["сразу после служебных", 9],
+  ["между блоками", 13],
+  ["в самом конце", SHEET[0].length],
 ];
 
 describe("looksLikeLmsExport", () => {
@@ -75,6 +93,29 @@ describe("parseLmsExport", () => {
     expect(row.passed).toBe(true);
     expect(parseLmsExport(SHEET_WITH_LEARNER).questionIds)
       .toEqual(["80a5957f-cdc7-4490-b4c9-bcedcb973c26"]);
+  });
+
+  it.each(LEARNER_POSITIONS)("находит learner_id %s и разбирает лист как исходный", (_, at) => {
+    const sheet = withLearnerAt(at);
+    const book = parseLmsExport(sheet);
+
+    expect(looksLikeLmsExport(sheet)).toBe(true);
+    expect(book.rows[0].learnerId).toBe("u-4471");
+    // Всё прочее обязано совпасть с разбором листа без колонки — до поля.
+    expect({ ...book, rows: [{ ...book.rows[0], learnerId: "" }] }).toEqual(parseLmsExport(SHEET));
+    expect(book.unknownColumns).toEqual([]);
+  });
+
+  it("находит learner_id и по заголовку во второй строке шапки", () => {
+    const book = parseLmsExport(withLearnerAt(0, 1));
+    expect(book.rows[0].learnerId).toBe("u-4471");
+    expect(book.rows[0].participantName).toBe("Контента Контроль");
+  });
+
+  it("заголовок сверяется без учёта регистра и пробелов", () => {
+    const sheet = withLearnerAt(5);
+    sheet[0][5] = "  Learner_ID ";
+    expect(parseLmsExport(sheet).rows[0].learnerId).toBe("u-4471");
   });
 
   it("без такой колонки идентификатор пуст, а не выдуман", () => {
