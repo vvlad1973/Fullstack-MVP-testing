@@ -123,6 +123,40 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(res.body.items[0]).toMatchObject({ questionId: "q1", declaredDifficulty: 40 });
   });
 
+  describe("несопоставленные взаимодействия рядом с n (FR-11)", () => {
+    const BATCHES = [
+      { id: "b1", testId: "test1", counted: true, groupId: "g1", rowsUnmatched: 7 },
+      { id: "b2", testId: "test1", counted: true, groupId: "g2", rowsUnmatched: 3 },
+      { id: "b3", testId: "test1", counted: false, groupId: "g1", rowsUnmatched: 50 },
+    ];
+
+    it("складывает потери учтённых загрузок", async () => {
+      // Снятая с учёта загрузка в числах не участвует, и её потери выборку не уменьшают.
+      storageMock.getLmsImportBatches.mockResolvedValue(BATCHES);
+      const res = await ask();
+      expect(res.body.unmatched).toBe(10);
+    });
+
+    it("считает только загрузки отобранных групп", async () => {
+      storageMock.getLmsImportBatches.mockResolvedValue(BATCHES);
+      const res = await ask("?groupId=g2");
+      expect(res.body.unmatched).toBe(3);
+    });
+
+    it("без импорта в выборке потерь нет", async () => {
+      storageMock.getLmsImportBatches.mockResolvedValue(BATCHES);
+      const res = await ask("?source=web");
+      expect(res.body.unmatched).toBe(0);
+    });
+
+    it("загрузки без записанного числа дают ноль, а не ошибку", async () => {
+      // Партии, загруженные до FR-11, числа не хранят.
+      storageMock.getLmsImportBatches.mockResolvedValue([{ id: "b1", testId: "test1", counted: true, groupId: null }]);
+      const res = await ask();
+      expect(res.body.unmatched).toBe(0);
+    });
+  });
+
   describe("ключи участников, построенные разными алгоритмами (FR-43)", () => {
     /** `external_id` нашего вида: 64 шестнадцатеричных знака в нижнем регистре. */
     const OWN = (n: number) => String(n).repeat(64).slice(0, 64);

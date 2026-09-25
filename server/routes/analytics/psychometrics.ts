@@ -236,6 +236,28 @@ function mixesKeyAlgorithms(
   return false;
 }
 
+/**
+ * Сколько взаимодействий импорта не нашли своего задания в тесте (PRD-66 FR-11).
+ *
+ * Число хранится на партии, поэтому отбор повторяет выборку там, где это возможно: только
+ * учтённые партии (FR-12), только если импорт вообще входит в источники, только отобранные
+ * группы. Период к партии не приложить — даты у прохождений свои, у партии лишь дата загрузки, —
+ * поэтому по периоду число не режется: это верхняя граница потерь, а не точная доля.
+ *
+ * @param batches партии импорта теста
+ * @param filter условия выборки
+ */
+function unmatchedOf(
+  batches: ReadonlyArray<{ counted: boolean; groupId?: string | null; rowsUnmatched?: number | null }>,
+  filter: ObservationFilter,
+): number {
+  if (filter.sources?.length && !filter.sources.includes("import")) return 0;
+  return batches
+    .filter(batch => batch.counted)
+    .filter(batch => !filter.groupIds?.length || (!!batch.groupId && filter.groupIds.includes(batch.groupId)))
+    .reduce((sum, batch) => sum + (batch.rowsUnmatched ?? 0), 0);
+}
+
 /** Проходной балл теста в долях; `null` — тест ничего не объявляет. */
 function cutRatioOf(rule: unknown): number | null {
   const parsed = rule as { type?: string; value?: number } | null;
@@ -298,6 +320,8 @@ router.get(
           ...psychometrics,
           items: psychometrics.items.map(item => ({ ...item, ...labels.get(item.questionId) })),
           observations: matrix.observations.length,
+          // FR-11: видимая потеря выборки — рядом с n, а не только в протоколе загрузки.
+          unmatched: unmatchedOf(batches, filter),
           firstAttemptOnly: onlyFirst,
           // FR-52: тест, где ВСЕ задания измерительные. Трудности и дискриминации там нет по
           // построению, и таблица с восемью строками «мало данных · 0 из 30» читается как

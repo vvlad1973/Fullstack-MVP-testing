@@ -521,3 +521,16 @@ describe("ItemQualityPanel — ориентировочные коэффицие
     expect(screen.queryByText(/ориентировочно/)).toBeNull();
   });
 });
+
+/** PRD-66 FR-11: потеря выборки при импорте — рядом с n, как в эскизе. */
+describe("ItemQualityPanel — несопоставленные взаимодействия (FR-11)", () => {
+  it("показывает число в составе выборки", () => {
+    render(<ItemQualityPanel view={view({ unmatched: 7 })} />);
+    expect(screen.getByText("не сопоставлено — 7")).toBeTruthy();
+  });
+
+  it("без потерь тега нет", () => {
+    render(<ItemQualityPanel view={view({ unmatched: 0 })} />);
+    expect(screen.queryByText(/не сопоставлено/)).toBeNull();
+  });
+});

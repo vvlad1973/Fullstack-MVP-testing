@@ -88,6 +88,11 @@ export interface ItemQualityView {
     unknownVersionShare: number;
   };
   firstAttemptOnly: boolean;
+  /**
+   * FR-11: сколько взаимодействий импорта не нашли своего задания — видимая потеря выборки.
+   * Может отсутствовать у ответов ручки до этого требования.
+   */
+  unmatched?: number;
   /** Поводы к баннеру смещения (FR-39, FR-40); отсутствует у старых ответов ручки. */
   /**
    * Поводы усомниться в числах. `mixedAnonymity` (FR-43) — в выборке соседствуют `external_id`
@@ -683,6 +688,10 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
               <Tag tone="warning" size="s">
                 редакция неизвестна — {Math.round(view.sample.unknownVersionShare * 100)} %
               </Tag>
+            ) : null}
+            {/* FR-11: потеря выборки видна рядом с n, а не только в протоколе загрузки. */}
+            {view.unmatched ? (
+              <Tag tone="warning" size="s">не сопоставлено — {view.unmatched}</Tag>
             ) : null}
             <Tag tone={view.firstAttemptOnly ? "neutral" : "warning"} size="s">
               {view.firstAttemptOnly ? "только первая попытка" : "все попытки"}
