@@ -316,6 +316,34 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
         ) : null}
       </Grid>
 
+      {options ? (
+        <Card variant="outlined">
+          <CardHeader
+            title="Варианты ответа"
+            subtitle={`Частота выбора и связь с остальным баллом · ${item.observations} ${pluralize(item.observations, "наблюдение", "наблюдения", "наблюдений")}`}
+          />
+          <CardBody>
+            <DataGrid
+              columns={columns}
+              rows={options}
+              rowKey={row => String(row.index)}
+              emptyMessage="Вариантов ответа у задания нет"
+            />
+          </CardBody>
+        </Card>
+      ) : (
+        <Card variant="outlined">
+          <CardBody>
+            {/* FR-27: у сопоставления и ранжирования «вариантов» нет — есть пары и порядок. */}
+            <Text variant="body-s" tone="muted">
+              Для этого типа задания разбор вариантов не применяется: по нему работают трудность и
+              дискриминативность.
+            </Text>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* FR-49: версии содержания — последним блоком: это разрез выборки, а не свойство задания. */}
       {versions.length > 1 && onSelectVersion ? (
         <Card variant="outlined">
           <CardHeader
@@ -388,33 +416,6 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
           </CardBody>
         </Card>
       ) : null}
-
-      {options ? (
-        <Card variant="outlined">
-          <CardHeader
-            title="Варианты ответа"
-            subtitle={`Частота выбора и связь с остальным баллом · ${item.observations} ${pluralize(item.observations, "наблюдение", "наблюдения", "наблюдений")}`}
-          />
-          <CardBody>
-            <DataGrid
-              columns={columns}
-              rows={options}
-              rowKey={row => String(row.index)}
-              emptyMessage="Вариантов ответа у задания нет"
-            />
-          </CardBody>
-        </Card>
-      ) : (
-        <Card variant="outlined">
-          <CardBody>
-            {/* FR-27: у сопоставления и ранжирования «вариантов» нет — есть пары и порядок. */}
-            <Text variant="body-s" tone="muted">
-              Для этого типа задания разбор вариантов не применяется: по нему работают трудность и
-              дискриминативность.
-            </Text>
-          </CardBody>
-        </Card>
-      )}
     </Stack>
   );
 }

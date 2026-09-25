@@ -132,3 +132,26 @@ describe("ItemBreakdownPanel", () => {
     expect(screen.getByText(/половина ответов 0:31 — 1:22/)).toBeTruthy();
   });
 });
+
+/**
+ * PRD-66 FR-49: разбор задания — три блока и ничего между ними: ряд плиток, таблица вариантов,
+ * таблица версий содержания. Версии — последними: это разрез ВЫБОРКИ, а не свойство задания.
+ */
+describe("ItemBreakdownPanel — порядок блоков (FR-49)", () => {
+  const versions = [
+    { psychoHash: "a1b2c3d4e5", observations: 120, difficulty: 0.4, firstAt: "2026-09-01T00:00:00Z", lastAt: "2026-09-10T00:00:00Z" },
+    { psychoHash: "f6e5d4c3b2", observations: 148, difficulty: 0.55, firstAt: "2026-09-11T00:00:00Z", lastAt: "2026-09-20T00:00:00Z" },
+  ];
+
+  it("варианты ответа идут раньше версий содержания", () => {
+    render(<ItemBreakdownPanel
+      view={view({ versions } as never)}
+      onBack={() => {}}
+      onSelectVersion={() => {}}
+    />);
+
+    const options = screen.getByText("Варианты ответа");
+    const versionsTitle = screen.getByText(/Редакции содержания|Версии содержания/);
+    expect(options.compareDocumentPosition(versionsTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
