@@ -12,7 +12,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  Button, Card, CardBody, CardHeader, DataGrid, FilterBar, Input, ModalDialog, Stack, Tag, Text,
+  Button, Card, CardBody, CardHeader, DataGrid, FilterBar, Input, Menu, MenuItem, MenuTrigger,
+  ModalDialog, Stack, Tag, Text,
   type SortDir,
 } from "@skillum/ui-kit";
 
@@ -52,6 +53,18 @@ export interface RegistryRow {
    * выводится из членства участника, а человек состоит и в отделе, и в потоке обучения.
    */
   groups: string[];
+}
+
+/**
+ * Сохранённый ФИЛЬТР реестра (решение владельца 2026-09-25).
+ *
+ * От среза отличается вопросом, на который отвечает: фильтр говорит «покажи эти прохождения»
+ * и может охватывать разные тесты, срез — «вот выборка одного теста, считай по ней».
+ */
+interface SavedFilter {
+  id: string;
+  name: string;
+  conditions: Partial<RegistryFilter>;
 }
 
 export interface PassageRegistryProps {
@@ -110,7 +123,9 @@ export function PassageRegistry({
   filter, onFilterChange, onOpenPassage, actions,
 }: PassageRegistryProps) {
   const [filterOpen, setFilterOpen] = useState(false);
-  const [saveOpen, setSaveOpen] = useState(false);
+  /** Что именно сохраняем: `null` — окно закрыто (решение владельца 2026-09-25). */
+  const [saveOpen, setSaveOpen] = useState<"slice" | "filter" | null>(null);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [sliceName, setSliceName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [rows, setRows] = useState<RegistryRow[]>([]);
@@ -241,30 +256,45 @@ export function PassageRegistry({
   const hasMore = rows.length < total;
   const conditionCount = countConditions(filter);
 
-  /** Сохранить текущий отбор срезом (FR-07c). */
-  const saveSlice = async () => {
+  /**
+   * Сохранить текущий отбор — фильтром или срезом (FR-07c и решение владельца 2026-09-25).
+   *
+   * Тест в теле не передаётся: сервер берёт его ИЗ УСЛОВИЙ, и второе поле рядом значило бы,
+   * что подпись среза и его выборка могут разойтись.
+   */
+  const saveSelection = async (kind: "slice" | "filter") => {
     setSaveError(null);
     try {
       const response = await fetch("/api/analytics/slices", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: sliceName.trim(),
-          testId: filter.testIds[0] ?? null,
-          conditions: filter,
-        }),
+        body: JSON.stringify({ name: sliceName.trim(), kind, conditions: filter }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(data.error ?? "Не удалось сохранить срез");
+        throw new Error(data.error ?? "Не удалось сохранить");
       }
-      setSaveOpen(false);
+      setSaveOpen(null);
       setSliceName("");
+      if (kind === "filter") void loadFilters();
     } catch (error) {
       setSaveError((error as Error).message);
     }
   };
+
+  /** Сохранённые фильтры владельца — список для кнопки «Сохранённые». */
+  const loadFilters = useCallback(async () => {
+    try {
+      const response = await fetch("/api/analytics/filters", { credentials: "include" });
+      if (!response.ok) return;
+      const data = await response.json() as { filters?: SavedFilter[] };
+      setSavedFilters(data.filters ?? []);
+    } catch {
+      // Молчаливо: недоступный список сохранённых не повод ронять реестр, ради которого
+      // человек и пришёл.
+    }
+  }, []);
 
   return (
     <Card>
@@ -283,13 +313,51 @@ export function PassageRegistry({
             actions={
               <>
                 {actions}
+                {/*
+                  Сохранённые фильтры (решение владельца 2026-09-25): набор условий, который
+                  подставляется в реестр. Меню, а не отдельный экран: применение фильтра —
+                  это тот же отбор, только набранный заранее.
+                */}
+                <MenuTrigger
+                  placement="bottom-end"
+                  trigger={<Button variant="ghost" size="s" onClick={() => void loadFilters()}>Сохранённые</Button>}
+                >
+                  <Menu size="sm">
+                    {savedFilters.length === 0 ? (
+                      <MenuItem disabled>Сохранённых фильтров пока нет</MenuItem>
+                    ) : savedFilters.map(saved => (
+                      <MenuItem
+                        key={saved.id}
+                        onClick={() => onFilterChange({ ...EMPTY_FILTER, ...saved.conditions })}
+                      >
+                        {saved.name}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </MenuTrigger>
                 <Button
                   variant="ghost"
                   size="s"
                   // FR-07c: сохранять нечего, пока не отобрано ничего. Кнопка выключена, а не
                   // спрятана: спрятанная не объясняет, почему действия нет.
                   disabled={conditionCount === 0}
-                  onClick={() => setSaveOpen(true)}
+                  onClick={() => setSaveOpen("filter")}
+                >
+                  Сохранить фильтр
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="s"
+                  // СРЕЗ — ВЫБОРКА ОДНОГО ТЕСТА. Выборка по нескольким тестам срезом быть не
+                  // может: средние и пороги поверх разных тестов не значат ничего. Кнопка
+                  // выключена, а подсказка говорит, что с такой выборкой делать.
+                  disabled={filter.testIds.length !== 1}
+                  title={filter.testIds.length === 1
+                    ? undefined
+                    : filter.testIds.length === 0
+                      ? "Срез считается внутри одного теста: добавьте условие по тесту"
+                      : "В выборке несколько тестов: сохраните её фильтром"}
+                  onClick={() => setSaveOpen("slice")}
                 >
                   Сохранить как срез
                 </Button>
@@ -302,19 +370,23 @@ export function PassageRegistry({
           />
 
           <ModalDialog
-            open={saveOpen}
-            onClose={() => setSaveOpen(false)}
+            open={saveOpen !== null}
+            onClose={() => setSaveOpen(null)}
             size="s"
-            title="Сохранить как срез"
-            description="Срез хранит УСЛОВИЯ отбора и пересчитывается при каждом открытии: это не снимок состава участников"
+            title={saveOpen === "filter" ? "Сохранить фильтр" : "Сохранить как срез"}
+            // Обе роли хранят УСЛОВИЯ, а не состав участников, — и обе об этом говорят. Разница
+            // в том, что с ними потом делают: фильтр подставляется в реестр, срез считается.
+            description={saveOpen === "filter"
+              ? "Фильтр хранит УСЛОВИЯ отбора и подставляется в реестр. Тестов в нём может быть сколько угодно"
+              : "Срез хранит УСЛОВИЯ отбора одного теста и пересчитывается при каждом открытии: это не снимок состава участников"}
             footer={
               <>
-                <Button variant="ghost" size="m" onClick={() => setSaveOpen(false)}>Отмена</Button>
+                <Button variant="ghost" size="m" onClick={() => setSaveOpen(null)}>Отмена</Button>
                 <Button
                   variant="primary"
                   size="m"
                   disabled={!sliceName.trim()}
-                  onClick={() => void saveSlice()}
+                  onClick={() => void saveSelection(saveOpen ?? "slice")}
                 >
                   Сохранить
                 </Button>

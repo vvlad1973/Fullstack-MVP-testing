@@ -255,17 +255,57 @@ describe("POST /api/analytics/slices — сохранение среза", () =>
 
     const res = await save({
       name: "Розница, не сдали",
-      testId: "test1",
-      conditions: { groupIds: ["g1"], outcomes: ["failed"] },
+      conditions: { testIds: ["test1"], groupIds: ["g1"], outcomes: ["failed"] },
     });
 
     expect(res.status).toBe(201);
     expect(storageMock.createSlice).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "Розница, не сдали",
-        conditionsJson: { groupIds: ["g1"], outcomes: ["failed"] },
+        kind: "slice",
+        // Тест берётся ИЗ УСЛОВИЙ, а не из отдельного поля: иначе сохранённая выборка и её
+        // подпись расходятся.
+        testId: "test1",
         createdBy: "u-owner",
       }),
+    );
+  });
+
+  it("срез по НЕСКОЛЬКИМ тестам не сохраняется и предлагает фильтр", async () => {
+    // Средние, пороги и сравнение поверх разных тестов не значат ничего. Раньше такой срез
+    // сохранялся, молча забирая первый тест, и автор сравнивал не ту выборку, что отобрал.
+    const res = await save({
+      name: "Два теста",
+      conditions: { testIds: ["test1", "test2"], outcomes: ["failed"] },
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/несколько тестов/i);
+    expect(res.body.error).toMatch(/фильтр/i);
+    expect(storageMock.createSlice).not.toHaveBeenCalled();
+  });
+
+  it("срез БЕЗ теста не сохраняется: считать его не на чем", async () => {
+    const res = await save({ name: "Без теста", conditions: { outcomes: ["failed"] } });
+
+    expect(res.status).toBe(400);
+    expect(storageMock.createSlice).not.toHaveBeenCalled();
+  });
+
+  it("сохранённый ФИЛЬТР принимает сколько угодно тестов", async () => {
+    // Фильтр отвечает на другой вопрос — «покажи эти прохождения», — и внутри одного теста
+    // его запирать незачем (решение владельца 2026-09-25).
+    storageMock.createSlice.mockResolvedValue({ id: "f1", name: "Мои потоки", kind: "filter" });
+
+    const res = await save({
+      name: "Мои потоки",
+      kind: "filter",
+      conditions: { testIds: ["test1", "test2"], sources: ["web"] },
+    });
+
+    expect(res.status).toBe(201);
+    expect(storageMock.createSlice).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "filter", testId: null }),
     );
   });
 
@@ -288,7 +328,7 @@ describe("POST /api/analytics/slices — сохранение среза", () =>
       Object.assign(new Error("duplicate key"), { code: "23505" }),
     );
 
-    const res = await save({ name: "Розница", conditions: { groupIds: ["g1"] } });
+    const res = await save({ name: "Розница", conditions: { testIds: ["test1"], groupIds: ["g1"] } });
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/уже есть/i);

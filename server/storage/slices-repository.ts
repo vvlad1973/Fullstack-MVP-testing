@@ -20,11 +20,17 @@ import {
 
 export class SlicesRepository {
   /** Срезы владельца, новые первыми. */
-  async getSlices(ownerId: string): Promise<AnalyticsSlice[]> {
+  /**
+   * Записи владельца одной роли (решение владельца 2026-09-25).
+   *
+   * По умолчанию — СРЕЗЫ: их спрашивает аналитика и сравнение, и сохранённый фильтр реестра,
+   * попавший в этот список, предлагал бы сравнивать выборки разных тестов.
+   */
+  async getSlices(ownerId: string, kind: "slice" | "filter" = "slice"): Promise<AnalyticsSlice[]> {
     return db
       .select()
       .from(analyticsSlices)
-      .where(eq(analyticsSlices.createdBy, ownerId))
+      .where(and(eq(analyticsSlices.createdBy, ownerId), eq(analyticsSlices.kind, kind)))
       .orderBy(desc(analyticsSlices.createdAt));
   }
 

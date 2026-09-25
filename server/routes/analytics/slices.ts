@@ -119,6 +119,30 @@ function groupIdsOf(raw: unknown): string[] | null {
   return hasOther ? null : [];
 }
 
+/**
+ * GET /api/analytics/filters — сохранённые ФИЛЬТРЫ реестра (решение владельца 2026-09-25).
+ *
+ * Отдельная ручка, а не параметр у `/slices`: та считает величины и требует теста, потому что
+ * без него средние не имеют смысла. Фильтру считать нечего — он лишь набор условий, который
+ * подставляется в реестр, и тестов в нём может быть сколько угодно.
+ */
+router.get("/filters", requirePermission("analytics.read"), async (req: Request, res: Response) => {
+  try {
+    const saved = await storage.getSlices(req.currentUser?.id ?? "", "filter");
+    res.json({
+      filters: saved.map(item => ({
+        id: item.id,
+        name: item.name,
+        conditions: item.conditionsJson,
+        createdAt: item.createdAt,
+      })),
+    });
+  } catch (error) {
+    logger.error("List filters error: " + (error as Error).message);
+    res.status(500).json({ error: "Failed to list filters" });
+  }
+});
+
 // GET /api/analytics/slices — сохранённые срезы с посчитанными величинами
 router.get("/slices", requirePermission("analytics.read"), async (req: Request, res: Response) => {
   try {
@@ -358,13 +382,31 @@ router.post("/slices", requirePermission("analytics.read"), async (req: Request,
     const body = (req.body ?? {}) as Record<string, unknown>;
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const conditions = (body.conditions ?? {}) as Record<string, unknown>;
-    const testId = typeof body.testId === "string" && body.testId.trim() ? body.testId.trim() : null;
+    const kind = body.kind === "filter" ? "filter" : "slice";
+    const testIds = Array.isArray(conditions.testIds)
+      ? (conditions.testIds as unknown[]).filter((id): id is string => typeof id === "string" && !!id.trim())
+      : [];
 
     if (!name) {
-      // Безымянный срез неотличим в списке от соседнего: выбор между ними становится
+      // Безымянная запись неотличима в списке от соседней: выбор между ними становится
       // случайным, а сохранять то, что нельзя потом найти, незачем.
-      return res.status(400).json({ error: "Нужно имя среза" });
+      return res.status(400).json({ error: kind === "filter" ? "Нужно имя фильтра" : "Нужно имя среза" });
     }
+
+    // СРЕЗ — ЭТО ВЫБОРКА ОДНОГО ТЕСТА (решение владельца 2026-09-25).
+    //
+    // Средние, пороги и сравнение поверх нескольких тестов не значат ничего: у каждого теста
+    // свой проходной балл и свои шкалы (FR-07e). Раньше срез с двумя тестами сохранялся, молча
+    // забирая ПЕРВЫЙ из них, — выборка, которую автор потом сравнивал, была не той, что он
+    // отобрал. Сохранённый ФИЛЬТР этого ограничения не несёт: он отвечает на другой вопрос.
+    if (kind === "slice" && testIds.length !== 1) {
+      return res.status(400).json({
+        error: testIds.length === 0
+          ? "Срез считается внутри одного теста: добавьте условие по тесту"
+          : "В выборке несколько тестов: срез считается внутри одного. Сохраните её как фильтр",
+      });
+    }
+    const testId = kind === "slice" ? testIds[0] : null;
 
     const hasConditions = Object.values(conditions).some(value =>
       Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
@@ -375,6 +417,7 @@ router.post("/slices", requirePermission("analytics.read"), async (req: Request,
 
     const slice = await storage.createSlice({
       name,
+      kind,
       testId,
       conditionsJson: conditions,
       createdBy: req.currentUser?.id ?? "",
@@ -385,7 +428,7 @@ router.post("/slices", requirePermission("analytics.read"), async (req: Request,
     // Уникальность имени стережёт индекс: сюда его нарушение приходит ошибкой базы, и
     // читателю надо сказать по-человечески, а не «23505».
     if ((error as { code?: string }).code === "23505") {
-      return res.status(409).json({ error: "Срез с таким именем уже есть" });
+      return res.status(409).json({ error: "Запись с таким именем уже есть" });
     }
     logger.error("Save slice error: " + (error as Error).message);
     res.status(500).json({ error: "Failed to save slice" });

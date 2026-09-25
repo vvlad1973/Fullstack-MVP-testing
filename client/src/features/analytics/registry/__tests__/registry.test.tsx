@@ -29,7 +29,11 @@ const ROW = {
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  fetchMock = vi.fn().mockResolvedValue(page([ROW], 1));
+  fetchMock = vi.fn(async (url: string) => (String(url).includes("/analytics/filters")
+    // Сохранённые фильтры — своя ручка: она ничего не считает, а отдаёт условия (решение
+    // владельца 2026-09-25 о разведении фильтра и среза).
+    ? { ok: true, json: async () => ({ filters: [{ id: "f1", name: "Мои потоки", conditions: { testIds: ["t1", "t2"], sources: ["web"] } }] }) }
+    : page([ROW], 1)));
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("IntersectionObserver", class {
     observe() { /* догрузка проверяется отдельным тестом */ }
@@ -212,6 +216,42 @@ describe("PassageRegistry", () => {
 });
 
 describe("PassageRegistry — сохранение среза", () => {
+  it("не даёт сохранить СРЕЗ, когда в выборке несколько тестов", async () => {
+    // Срез — выборка ОДНОГО теста: средние и пороги поверх разных тестов не значат ничего
+    // (решение владельца 2026-09-25). Такую выборку сохраняют фильтром, и кнопка это говорит.
+    render(
+      <PassageRegistry
+        filter={{ testIds: ["t1", "t2"], groupIds: [], formIds: [], snapshotIds: [], sources: [], outcomes: [] }}
+        onFilterChange={() => {}}
+      />,
+    );
+
+    await screen.findByText("Морозова Анна");
+    expect(screen.getByRole("button", { name: /Сохранить как срез/ })).toBeDisabled();
+    // Фильтром — можно: он и существует ради выборок шире одного теста.
+    expect(screen.getByRole("button", { name: /Сохранить фильтр/ })).toBeEnabled();
+  });
+
+  it("сохранённый фильтр можно применить к реестру", async () => {
+    const onFilterChange = vi.fn();
+    render(
+      <PassageRegistry
+        filter={{ testIds: [], groupIds: [], formIds: [], snapshotIds: [], sources: [], outcomes: [] }}
+        onFilterChange={onFilterChange}
+      />,
+    );
+
+    await screen.findByText("Морозова Анна");
+    await userEvent.click(screen.getByRole("button", { name: "Сохранённые" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /Мои потоки/ }));
+
+    // Применение подставляет УСЛОВИЯ фильтра: реестр пересобирается ими, а не открывает
+    // отдельный экран.
+    expect(onFilterChange).toHaveBeenCalledWith(
+      expect.objectContaining({ testIds: ["t1", "t2"], sources: ["web"] }),
+    );
+  });
+
   it("не предлагает сохранить срез, когда условий нет", async () => {
     render(
       <PassageRegistry
