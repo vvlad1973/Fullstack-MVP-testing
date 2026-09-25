@@ -33,7 +33,9 @@ const SOURCES: ObservationSource[] = ["web", "telemetry", "import"];
 const OUTCOMES: ObservationOutcome[] = ["passed", "failed", "completed", "incomplete"];
 
 /** Столбцы, по которым реестр сортируется. Те же, что видны на экране. */
-const SORTS: ObservationSort[] = ["participant", "test", "date", "result", "outcome", "source"];
+const SORTS: ObservationSort[] = [
+  "participant", "test", "date", "attempt", "result", "outcome", "source", "group",
+];
 
 /** Значения параметра, повторённого несколько раз или перечисленного через запятую. */
 function listOf(value: unknown): string[] {
@@ -95,6 +97,10 @@ async function groupsOfPage(
       ] as const)),
     );
 
+    // Группы строки — по алфавиту: первая из них и есть ключ сортировки по колонке «Группа»
+    // (`selectObservations`), и строка, вставшая по «Альфе», должна начинаться с неё.
+    for (const names of membership.values()) names.sort((a, b) => a.localeCompare(b, "ru"));
+
     for (const row of rows) {
       if (row.groupId) {
         const name = ownNames.get(row.groupId);
@@ -140,7 +146,11 @@ async function attemptOrdinals(
       byParticipantTest.set(key, list);
     }
     for (const list of byParticipantTest.values()) {
-      list.sort((a, b) => (a.startedAt?.getTime() ?? 0) - (b.startedAt?.getTime() ?? 0));
+      // Равные по времени упорядочивает идентификатор побайтово — так же, как нумерует их
+      // запрос сортировки по попытке (`attempt_numbers`), иначе номер в колонке и место строки
+      // разошлись бы.
+      list.sort((a, b) => (a.startedAt?.getTime() ?? 0) - (b.startedAt?.getTime() ?? 0)
+        || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       list.forEach((item, index) => out.set(item.id, index + 1));
     }
   } catch (error) {

@@ -386,3 +386,64 @@ describe("версия публикации и варианты доезжают
     expect(page.rows.every(r => Object.keys(r.forms).length === 0)).toBe(true);
   });
 });
+
+/**
+ * PRD-56 (задача 2.4 плана сверки): «Попытка» и «Группа» сортируются на сервере.
+ *
+ * Номер попытки — свойство прохождения, а не выборки: он считается по ВСЕМ прохождениям
+ * участника по тесту в обоих источниках, и фильтр его не меняет. Значит и сортировать по нему
+ * можно только запросом — на странице видны не все попытки человека.
+ */
+describe("сортировка по номеру попытки и группе", () => {
+  const at = (hour: number) => new Date(`2026-09-11T${String(hour).padStart(2, "0")}:00:00Z`);
+
+  it("номер попытки считается по обоим источникам и не зависит от фильтра", async () => {
+    const first = await webAttempt({ startedAt: at(8), finishedAt: at(9) });
+    // Вторая попытка того же человека — в LMS: нумерация общая, иначе вышло бы две «первые».
+    await lmsAttempt({ userId, startedAt: at(10), finishedAt: at(11) });
+    const third = await webAttempt({ startedAt: at(12), finishedAt: at(13) });
+    // Другой человек, опознанный только псевдонимом импорта, — одна попытка.
+    const other = await lmsAttempt({ origin: "import", participantKey: "b".repeat(64), startedAt: at(14) });
+
+    const desc = await loadObservations({ sources: ["web", "import"], sort: "attempt", dir: "desc" }, ALL_TESTS);
+    // Фильтр убрал вторую попытку, но третья осталась третьей и стоит выше первых.
+    expect(desc.rows[0].id).toBe(third.id);
+    expect(new Set(desc.rows.slice(1).map(r => r.id))).toEqual(new Set([other.id, first.id]));
+
+    const asc = await loadObservations({ sources: ["web", "import"], sort: "attempt", dir: "asc" }, ALL_TESTS);
+    expect(asc.rows.at(-1)!.id).toBe(third.id);
+  });
+
+  it("прохождение без опознанного участника номера не имеет и уходит в конец", async () => {
+    const known = await webAttempt({ startedAt: at(8), finishedAt: at(9) });
+    const anonymous = await lmsAttempt({ userId: null, participantKey: null, startedAt: at(10) });
+
+    for (const dir of ["asc", "desc"] as const) {
+      const page = await loadObservations({ sort: "attempt", dir }, ALL_TESTS);
+      expect(page.rows.map(r => r.id)).toEqual([known.id, anonymous.id]);
+    }
+  });
+
+  it("группа сортируется по названию, «без группы» — последней в обоих направлениях", async () => {
+    const [alpha, beta, gamma] = [randomUUID(), randomUUID(), randomUUID()];
+    await h.current!.db.insert(groups).values([
+      { id: alpha, name: "Альфа" }, { id: beta, name: "Бета" }, { id: gamma, name: "Гамма" },
+    ] as never);
+    // Веб-попытка берёт группу из членства участника.
+    await h.current!.db.insert(userGroups).values({ id: randomUUID(), userId, groupId: beta } as never);
+    const inBeta = await webAttempt();
+    const loneId = randomUUID();
+    await h.current!.db.insert(users).values({
+      id: loneId, email: "lone@b.c", passwordHash: "x", name: "Одиночка",
+    } as never);
+    const none = await webAttempt({ userId: loneId });
+    // Импортированная строка — меткой группы из выгрузки.
+    const inGamma = await lmsAttempt({ origin: "import", participantKey: "c".repeat(64), groupId: gamma });
+    const inAlpha = await lmsAttempt({ origin: "import", participantKey: "d".repeat(64), groupId: alpha });
+
+    const asc = await loadObservations({ sort: "group", dir: "asc" }, ALL_TESTS);
+    expect(asc.rows.map(r => r.id)).toEqual([inAlpha.id, inBeta.id, inGamma.id, none.id]);
+    const desc = await loadObservations({ sort: "group", dir: "desc" }, ALL_TESTS);
+    expect(desc.rows.map(r => r.id)).toEqual([inGamma.id, inBeta.id, inAlpha.id, none.id]);
+  });
+});

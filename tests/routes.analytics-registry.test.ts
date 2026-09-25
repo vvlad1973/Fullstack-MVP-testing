@@ -24,6 +24,8 @@ const { storageMock } = vi.hoisted(() => ({
     getUserTestGrants: vi.fn().mockResolvedValue([]),
     selectObservations: vi.fn(),
     selectAttemptOrder: vi.fn(),
+    getGroup: vi.fn(),
+    getUserGroups: vi.fn(),
   },
 }));
 
@@ -56,6 +58,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   storageMock.selectObservations.mockImplementation(observationsDouble(storageMock as never));
   storageMock.selectAttemptOrder.mockResolvedValue([]);
+  storageMock.getGroup.mockResolvedValue(undefined);
+  storageMock.getUserGroups.mockResolvedValue([]);
   storageMock.getUserRoles.mockResolvedValue(["administrator"]);
   storageMock.getUser.mockResolvedValue({ id: "u1", name: "Морозова Анна", email: "a@b.c" });
   storageMock.getTest.mockResolvedValue(TEST);
@@ -124,6 +128,39 @@ describe("GET /api/analytics/registry", () => {
     const res = await ask();
 
     expect(res.body.rows.every((row: { attemptNumber: number | null }) => row.attemptNumber === null)).toBe(true);
+  });
+
+  // Задача 2.4 плана сверки: «Попытка» и «Группа» сортируются сервером наравне с прочими.
+  it("пропускает в выборку сортировку по попытке и по группе", async () => {
+    for (const sort of ["attempt", "group"]) {
+      await ask(`?sort=${sort}&dir=asc`);
+      expect(storageMock.selectObservations).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sort, dir: "asc" }),
+      );
+    }
+  });
+
+  it("равные по времени попытки нумерует по идентификатору — как запрос сортировки", async () => {
+    // Номер в колонке и место строки при сортировке по попытке обязаны совпасть; запрос
+    // упорядочивает прохождения одной секунды идентификатором, и код — тоже.
+    const same = new Date("2026-09-10T09:00:00Z");
+    storageMock.selectAttemptOrder.mockResolvedValue([
+      { id: "lms-1", testId: "test1", participantId: "7f3a9c21", startedAt: same },
+      { id: "lms-0", testId: "test1", participantId: "7f3a9c21", startedAt: same },
+    ]);
+
+    const res = await ask();
+
+    expect(res.body.rows.find((row: { id: string }) => row.id === "lms-1").attemptNumber).toBe(2);
+  });
+
+  it("перечисляет группы участника по алфавиту: первая — ключ сортировки", async () => {
+    storageMock.getUserGroups.mockResolvedValue([{ name: "Розница" }, { name: "Бухгалтерия" }]);
+
+    const res = await ask();
+
+    expect(res.body.rows.find((row: { id: string }) => row.id === "web-1").groups)
+      .toEqual(["Бухгалтерия", "Розница"]);
   });
 
   it("отдаёт общее число рядом с порцией", async () => {

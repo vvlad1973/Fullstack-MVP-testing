@@ -15,7 +15,7 @@ import { unionAll } from "drizzle-orm/pg-core";
 
 import { db } from "../db";
 import {
-  attempts, lmsImportBatches, scormAnswers, scormAttempts, scormPackages, tests, userGroups, users,
+  attempts, groups, lmsImportBatches, scormAnswers, scormAttempts, scormPackages, tests, userGroups, users,
   type Attempt, type ScormAttempt,
 } from "@shared/schema";
 
@@ -59,7 +59,51 @@ export interface ObservationQuery {
 }
 
 /** Столбцы реестра, по которым он сортируется. Совпадают с колонками экрана. */
-export type ObservationSort = "participant" | "test" | "date" | "result" | "outcome" | "source";
+export type ObservationSort =
+  | "participant" | "test" | "date" | "attempt" | "result" | "outcome" | "source" | "group";
+
+/**
+ * PRD-56 FR-02: номер каждой попытки участника по тесту — производной таблицей.
+ *
+ * Номер — свойство прохождения, а не выборки: он считается по ВСЕМ прохождениям человека по
+ * тесту в обоих источниках, поэтому таблица строится без условий отбора и подключается к
+ * выборке по идентификатору. Правило то же, что у `selectAttemptOrder`, по которому номер
+ * рисуется в колонке: участник — учётная запись, а у строки из LMS без неё — псевдоним
+ * импорта; тест строки из LMS — её собственный `test_id`; прохождение без даты начала или без
+ * участника номера не получает. Прохождения одной секунды упорядочивает идентификатор в
+ * побайтовом сравнении — так же, как их упорядочивает маршрут реестра.
+ *
+ * Строится только при сортировке по попытке: окно по всем прохождениям инсталляции — цена,
+ * которую незачем платить за сортировку по дате.
+ */
+function attemptNumbers() {
+  const lmsParticipant = sql<string>`coalesce(${scormAttempts.userId}, ${scormAttempts.participantKey})`;
+  const pool = unionAll(
+    db.select({
+      id: attempts.id,
+      participant: sql<string>`${attempts.userId}`.as("participant"),
+      testId: sql<string>`${attempts.testId}`.as("test_id"),
+      startedAt: attempts.startedAt,
+    }).from(attempts),
+    db.select({
+      id: scormAttempts.id,
+      participant: lmsParticipant.as("participant"),
+      testId: sql<string>`${scormAttempts.testId}`.as("test_id"),
+      startedAt: sql<Date>`${scormAttempts.startedAt}`.as("started_at"),
+    }).from(scormAttempts).where(and(
+      sql`${scormAttempts.testId} is not null`,
+      sql`${scormAttempts.startedAt} is not null`,
+      sql`${lmsParticipant} is not null`,
+    )),
+  ).as("attempt_pool");
+  return db.select({
+    id: pool.id,
+    n: sql<number>`row_number() over (
+      partition by ${pool.participant}, ${pool.testId}
+      order by ${pool.startedAt}, ${pool.id} collate "C"
+    )`.as("attempt_n"),
+  }).from(pool).as("attempt_numbers");
+}
 
 export interface ObservationRows {
   web: Attempt[];
@@ -256,6 +300,23 @@ export class AnalyticsRepository {
      * заранее, и порядок задаётся уже по ним.
      */
     const sortOf = (of: Record<ObservationSort, unknown>) => of[query.sort ?? "date"];
+    const numbered = query.sort === "attempt" ? attemptNumbers() : null;
+    /**
+     * Группа как ВЕЛИЧИНА СОРТИРОВКИ — первая по алфавиту из тех, что показывает колонка: у
+     * веб-попытки это членство участника (групп бывает несколько), у строки из LMS — метка
+     * группы из выгрузки, а без неё — членство. «Без группы» уходит в конец вместе с прочими
+     * «нет данных». Правило то же, что у `groupsOfPage` маршрута реестра.
+     */
+    const firstMembership = (userIdColumn: unknown) => sql`(
+      select min(${groups.name}) from ${userGroups}
+      join ${groups} on ${groups.id} = ${userGroups.groupId}
+      where ${userGroups.userId} = ${userIdColumn}
+    )`;
+    const lmsGroupName = sql`case
+      when ${scormAttempts.groupId} is not null
+        then (select ${groups.name} from ${groups} where ${groups.id} = ${scormAttempts.groupId})
+      else ${firstMembership(scormAttempts.userId)}
+    end`;
     /**
      * Процент как ВЕЛИЧИНА СОРТИРОВКИ подчиняется тому же правилу, что колонка на экране:
      * результата нет у незавершённого прохождения; у теста без проходного балла ноль процентов
@@ -281,6 +342,8 @@ export class AnalyticsRepository {
      */
     const webSortKey = sortOf({
       date: attempts.startedAt,
+      attempt: numbered ? numbered.n : sql`null`,
+      group: firstMembership(attempts.userId),
       participant: sql`nullif(${users.name}, '')`,
       test: sql`coalesce(${tests.title}, '')`,
       result: gradedPercent(
@@ -298,6 +361,8 @@ export class AnalyticsRepository {
     });
     const lmsSortKey = sortOf({
       date: scormAttempts.startedAt,
+      attempt: numbered ? numbered.n : sql`null`,
+      group: lmsGroupName,
       participant: sql`nullif(coalesce(${scormAttempts.lmsUserName}, ${scormAttempts.participantKey}), '')`,
       test: sql`coalesce(${tests.title}, '')`,
       result: gradedPercent(
@@ -314,7 +379,7 @@ export class AnalyticsRepository {
       source: scormAttempts.origin,
     });
 
-    const webKeys = db
+    const webKeysBase = db
       .select({
         id: attempts.id,
         source: sql<string>`'web'`.as("source"),
@@ -329,9 +394,12 @@ export class AnalyticsRepository {
       .from(attempts)
       .leftJoin(tests, eq(tests.id, attempts.testId))
       .leftJoin(users, eq(users.id, attempts.userId))
-      .where(webWhere);
+      .$dynamic();
+    const webKeys = (numbered
+      ? webKeysBase.leftJoin(numbered, eq(numbered.id, attempts.id))
+      : webKeysBase).where(webWhere);
 
-    const lmsKeys = db
+    const lmsKeysBase = db
       .select({
         id: scormAttempts.id,
         source: scormAttempts.origin,
@@ -346,7 +414,10 @@ export class AnalyticsRepository {
       .from(scormAttempts)
       .leftJoin(scormPackages, eq(scormPackages.id, scormAttempts.packageId))
       .leftJoin(tests, eq(tests.id, sql`coalesce(${scormAttempts.testId}, ${scormPackages.testId})`))
-      .where(lmsWhere);
+      .$dynamic();
+    const lmsKeys = (numbered
+      ? lmsKeysBase.leftJoin(numbered, eq(numbered.id, scormAttempts.id))
+      : lmsKeysBase).where(lmsWhere);
 
     /**
      * Порядок задан НОМЕРАМИ колонок: сослаться на колонку объединения иначе нельзя — своей

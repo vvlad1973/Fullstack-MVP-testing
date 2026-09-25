@@ -215,6 +215,35 @@ describe("PassageRegistry", () => {
   });
 });
 
+/**
+ * Задача 2.4 плана сверки: «Попытка» и «Группа» сортируются, как в эскизе, — и сортирует их
+ * СЕРВЕР: номер попытки считается по всем попыткам человека, а на странице видны не все.
+ */
+describe("PassageRegistry — сортировка по попытке и группе", () => {
+  /** Параметры последнего запроса именно к реестру: ручка сохранённых фильтров — своя. */
+  const lastRegistryQuery = () => {
+    const url = String(fetchMock.mock.calls
+      .map(call => String(call[0]))
+      .filter(u => u.includes("/api/analytics/registry"))
+      .at(-1));
+    return new URLSearchParams(url.slice(url.indexOf("?")));
+  };
+
+  for (const [header, key] of [["Попытка", "attempt"], ["Группа", "group"]] as const) {
+    it(`«${header}» уходит на сервер параметром sort=${key}`, async () => {
+      render(<PassageRegistry filter={{ testIds: [], groupIds: [], formIds: [], snapshotIds: [], sources: [], outcomes: [] }} onFilterChange={() => {}} />);
+      await screen.findByText("Морозова Анна");
+
+      const th = screen.getAllByText(header).find(el => el.closest(".ou-grid__th")) as HTMLElement;
+      expect(th.closest(".ou-grid__th")!.classList.contains("is-sortable")).toBe(true);
+      await userEvent.click(th);
+
+      await waitFor(() => expect(lastRegistryQuery().get("sort")).toBe(key));
+      expect(lastRegistryQuery().get("dir")).toBe("asc");
+    });
+  }
+});
+
 describe("PassageRegistry — сохранение среза", () => {
   it("показывает НОМЕР ПОПЫТКИ, а где его нет — прочерк", async () => {
     // Строка «45 %» не отвечает на вопрос, первый это заход или четвёртый после трёх
