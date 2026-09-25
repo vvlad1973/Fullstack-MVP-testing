@@ -269,7 +269,7 @@ describe("<AnalyticsPage /> — состав экрана", () => {
   it("даёт четыре вкладки: реестр, срезы, очередь дел и экспорт", async () => {
     await renderLoaded();
 
-    for (const name of [/Прохождения/, "Срезы", "Требует внимания", "Экспорт"]) {
+    for (const name of [/Прохождения/, "Срезы", /Требует внимания/, "Экспорт"]) {
       expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     }
   });
@@ -295,9 +295,16 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     expect(screen.getByText("83 %")).toBeInTheDocument();
   });
 
+  it("на вкладке очереди — число дел, как в эскизе", async () => {
+    // Сколько дел ждёт, видно ещё до того, как вкладку открыли: ради этого она и существует.
+    await renderLoaded();
+    const tab = screen.getByRole("tab", { name: /Требует внимания/ });
+    await waitFor(() => expect(tab.querySelector(".ou-tabs__badge")?.textContent).toBe("1"));
+  });
+
   it("показывает очередь дел на своей вкладке", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Требует внимания" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Требует внимания/ }));
 
     expect(await screen.findByText("Не сдали")).toBeInTheDocument();
     expect(screen.getByText(/Иван Петров/)).toBeInTheDocument();
@@ -324,7 +331,7 @@ describe("<AnalyticsPage /> — состав экрана", () => {
 
   it("ведёт из очереди дел в разбор прохождения", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("tab", { name: "Требует внимания" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Требует внимания/ }));
 
     // FR-11: каждая позиция ведёт к участнику и его прохождению. Список дел, из которого
     // некуда пойти, заставляет искать человека руками в другом списке.

@@ -45,6 +45,17 @@ export interface AttentionQueueProps {
   onOpenPassage?: (row: AttentionRow) => void;
   /** Уйти в реестр за остальными делами корзины (FR-08). */
   onOpenRegistry?: (conditions: Record<string, unknown>) => void;
+  /**
+   * Очередь, уже загруженная страницей (ради счётчика на вкладке). Передана — компонент её не
+   * запрашивает: второй запрос за теми же данными был бы лишним.
+   */
+  data?: AttentionData;
+}
+
+/** Ответ `GET /api/analytics/attention`. */
+export interface AttentionData {
+  items: AttentionRow[];
+  counts: Record<AttentionKind, number>;
 }
 
 /** Сколько дел корзины видно сразу. Остальные — в реестре: экран не список, а рабочее место. */
@@ -55,6 +66,11 @@ const BUCKETS: Array<{
   kind: AttentionKind;
   title: string;
   note: string;
+  /**
+   * В чём считается корзина: у каждой своё содержимое — назначения, прохождения, попытки, люди.
+   * «82 дела» теряло предметность: по числу не понять, что именно лежит в корзине.
+   */
+  unit: [string, string, string];
   tone: "warning" | "error" | "neutral";
   /** Условия реестра, которыми виден весь список корзины. Пусто — в реестре его не собрать. */
   conditions?: Record<string, unknown>;
@@ -63,12 +79,14 @@ const BUCKETS: Array<{
     kind: "overdue",
     title: "Не начали к сроку",
     note: "срок истёк, попытка не начиналась",
+    unit: ["назначение", "назначения", "назначений"],
     tone: "warning",
   },
   {
     kind: "failed",
     title: "Не сдали",
     note: "попытки ещё остались",
+    unit: ["прохождение", "прохождения", "прохождений"],
     tone: "error",
     conditions: { outcomes: ["failed"] },
   },
@@ -76,6 +94,7 @@ const BUCKETS: Array<{
     kind: "abandoned",
     title: "Брошенные попытки",
     note: "начаты и не завершены больше двух суток назад",
+    unit: ["попытка", "попытки", "попыток"],
     tone: "warning",
     conditions: { outcomes: ["incomplete"] },
   },
@@ -83,6 +102,7 @@ const BUCKETS: Array<{
     kind: "exhausted",
     title: "Исчерпан лимит попыток",
     note: "лимит исчерпан, тест не сдан",
+    unit: ["участник", "участника", "участников"],
     tone: "error",
     conditions: { outcomes: ["failed"] },
   },
@@ -135,13 +155,19 @@ function details(row: AttentionRow): string {
   return parts.join(" · ");
 }
 
-export function AttentionQueue({ onOpenPassage, onOpenRegistry }: AttentionQueueProps) {
-  const [rows, setRows] = useState<AttentionRow[]>([]);
-  const [counts, setCounts] = useState<Record<AttentionKind, number> | null>(null);
-  const [loading, setLoading] = useState(true);
+export function AttentionQueue({ onOpenPassage, onOpenRegistry, data }: AttentionQueueProps) {
+  const [rows, setRows] = useState<AttentionRow[]>(data?.items ?? []);
+  const [counts, setCounts] = useState<Record<AttentionKind, number> | null>(data?.counts ?? null);
+  const [loading, setLoading] = useState(!data);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (data) {
+      setRows(data.items);
+      setCounts(data.counts);
+      setLoading(false);
+      return;
+    }
     let alive = true;
     void (async () => {
       try {
@@ -163,7 +189,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry }: AttentionQueue
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [data]);
 
   if (failed) {
     return <Text tone="error">Не удалось загрузить очередь. Обновите страницу.</Text>;
@@ -194,7 +220,7 @@ export function AttentionQueue({ onOpenPassage, onOpenRegistry }: AttentionQueue
           <Card key={bucket.kind}>
             <CardHeader
               title={bucket.title}
-              subtitle={`${total} ${pluralize(total, "дело", "дела", "дел")} · ${bucket.note}`}
+              subtitle={`${total} ${pluralize(total, ...bucket.unit)} · ${bucket.note}`}
               trail={<Tag tone={bucket.tone} size="s">{total}</Tag>}
             />
             <CardBody>

@@ -175,3 +175,28 @@ describe("AttentionQueue", () => {
     expect(await screen.findByText(/Не удалось загрузить очередь/i)).toBeTruthy();
   });
 });
+
+/**
+ * PRD-56 (эскиз prd56-analytics-section, «Требует внимания»): подпись корзины называет, ЧТО в
+ * ней лежит. «82 дела» вместо «9 назначений» и «6 попыток» теряло предметность: по числу не
+ * понять, людей это, попытки или назначения.
+ */
+describe("AttentionQueue — подписи корзин", () => {
+  it("каждая корзина считает в своих единицах", async () => {
+    fetchMock.mockResolvedValue(answer(ITEMS, { overdue: 9, failed: 14, abandoned: 6, exhausted: 2 }));
+    render(<AttentionQueue />);
+
+    expect(await screen.findByText("9 назначений · срок истёк, попытка не начиналась")).toBeTruthy();
+    expect(screen.getByText("14 прохождений · попытки ещё остались")).toBeTruthy();
+    expect(screen.getByText("6 попыток · начаты и не завершены больше двух суток назад")).toBeTruthy();
+    expect(screen.getByText("2 участника · лимит исчерпан, тест не сдан")).toBeTruthy();
+  });
+
+  it("данные, переданные страницей, не запрашиваются второй раз", async () => {
+    // Страница уже загрузила очередь ради счётчика на вкладке — второй запрос был бы лишним.
+    render(<AttentionQueue data={{ items: ITEMS as never, counts: { overdue: 1, failed: 1, abandoned: 1, exhausted: 1 } }} />);
+
+    expect(await screen.findByText("Не сдали")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

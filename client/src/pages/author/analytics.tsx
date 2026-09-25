@@ -24,7 +24,7 @@ import {
 } from "@/features/analytics/registry/filter-state";
 import { useRegistryFilter } from "@/features/analytics/registry/use-registry-filter";
 import { SlicesTab } from "@/features/analytics/slices/slices-tab";
-import { AttentionQueue, type AttentionRow } from "@/features/analytics/attention/attention-queue";
+import { AttentionQueue, type AttentionData, type AttentionRow } from "@/features/analytics/attention/attention-queue";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
 import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
@@ -1106,6 +1106,15 @@ export default function AnalyticsPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   /** PRD-54: окно загрузки выгрузки отчёта LMS. */
   const [lmsImportOpen, setLmsImportOpen] = useState(false);
+  /**
+   * Очередь «требует внимания» — страницей, а не только вкладкой: число дел стоит на самой
+   * вкладке (эскиз prd56-analytics-section), и видно его должно быть до того, как её открыли.
+   * Вкладка получает те же данные и второй раз их не запрашивает.
+   */
+  const { data: attentionData } = useQuery<AttentionData>({ queryKey: ["/api/analytics/attention"] });
+  const attentionTotal = attentionData
+    ? Object.values(attentionData.counts).reduce((sum, count) => sum + count, 0)
+    : null;
   /** PRD-56 FR-03: условия отбора реестра живут в адресе страницы. */
   const [registryFilter, setRegistryFilter] = useRegistryFilter();
   /** PRD-56 FR-04: окно выгрузки отфильтрованного — открывается из панели фильтра реестра. */
@@ -1428,8 +1437,10 @@ export default function AnalyticsPage() {
           {
             id: "attention",
             label: "Требует внимания",
+            badge: attentionTotal ? attentionTotal : undefined,
             content: (
               <AttentionQueue
+                data={attentionData}
                 onOpenPassage={handleOpenAttentionPassage}
                 onOpenRegistry={handleOpenSliceInRegistry}
               />
