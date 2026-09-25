@@ -13,10 +13,14 @@
  * и объём выборки каждой темы — и ничего больше. Ни с чем не сравнивает: за сравнением ведёт
  * отдельный режим. Темы грузятся ПРИ РАЗВОРОТЕ: платить за них у всех срезов сразу незачем,
  * а развёрнут за раз один.
+ *
+ * Колонки фактов сортируются (эскиз PRD-56, задача 2.3 плана сверки): срезов по оси бывает
+ * десяток и больше, и «где сдали хуже всех» ищут глазами по столбцу. «Слабейшая тема» не
+ * сортируется — у каждой строки она своя, и порядок по её доле сравнивал бы разные темы.
  */
 import { useEffect, useState } from "react";
 
-import { Button, Cluster, DataGrid, Text } from "@skillum/ui-kit";
+import { Button, Cluster, DataGrid, Text, type SortDir } from "@skillum/ui-kit";
 
 /** Срез с посчитанными величинами — то, что отдаёт `GET /api/analytics/slices`. */
 export interface SliceRow {
@@ -69,6 +73,34 @@ function percent(value: number | null): string {
   return value === null ? "—" : `${Math.round(value)} %`;
 }
 
+/** Колонки, по которым сортируется список срезов. */
+type SliceSort = "name" | "assigned" | "started" | "completed" | "passRate" | "avgPercent";
+
+/**
+ * Число колонки для сортировки; `null` — показывать нечего: величина к срезу неприменима или
+ * выборка мала («мало данных»). Такие строки идут последними в обоих направлениях — пустое не
+ * меньше и не больше числа.
+ */
+function sortNumber(row: SliceRow, column: Exclude<SliceSort, "name">): number | null {
+  if (column === "assigned") return row.assigned ?? null;
+  if (column === "passRate") return row.enoughData ? row.passRate : null;
+  if (column === "avgPercent") return row.enoughData ? row.avgPercent : null;
+  return row[column];
+}
+
+/** Сравнение двух срезов для выбранной колонки и направления. */
+export function compareSlices(a: SliceRow, b: SliceRow, column: SliceSort, dir: SortDir): number {
+  const sign = dir === "asc" ? 1 : -1;
+  if (column === "name") return sign * a.name.localeCompare(b.name, "ru");
+  const valueA = sortNumber(a, column);
+  const valueB = sortNumber(b, column);
+  if (valueA === null || valueB === null) {
+    if (valueA === valueB) return 0;
+    return valueA === null ? 1 : -1;
+  }
+  return sign * (valueA - valueB);
+}
+
 /** Тема развёрнутой строки — то, что отдаёт `GET /api/analytics/slices/topics`. */
 export interface SliceTopic {
   topicId: string;
@@ -87,6 +119,9 @@ export function SliceList({
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [topics, setTopics] = useState<TopicsState>({});
+  // Без выбранной колонки — порядок сервера: ось сама задаёт естественный (попытка 1, 2, 3…).
+  const [sortColumn, setSortColumn] = useState<SliceSort | undefined>(undefined);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   useEffect(() => {
     let alive = true;
@@ -164,35 +199,33 @@ export function SliceList({
       key: "name",
       header: "Срез",
       frozen: true,
+      sortable: true,
       render: (row: SliceRow) => <span className="ou-grid__cell-strong">{row.name}</span>,
     },
     {
       key: "assigned",
       header: "Назначено",
       numeric: true,
+      sortable: true,
       // Прочерк здесь значит «величина к этому срезу неприменима», а не «ноль назначений»:
       // по оси вроде номера попытки назначать нечего — назначают человека (FR-27).
       render: (row: SliceRow) => (row.assigned === null || row.assigned === undefined
         ? "—"
         : row.assigned),
     },
-    { key: "started", header: "Начато", numeric: true, render: (row: SliceRow) => row.started },
+    { key: "started", header: "Начато", numeric: true, sortable: true, render: (row: SliceRow) => row.started },
     {
       key: "completed",
       header: "Завершено",
       numeric: true,
+      sortable: true,
       render: (row: SliceRow) => row.completed,
-    },
-    {
-      key: "participants",
-      header: "Участников",
-      numeric: true,
-      render: (row: SliceRow) => row.participants,
     },
     {
       key: "passRate",
       header: "Сдали",
       numeric: true,
+      sortable: true,
       // «Мало данных» вместо процента — и это не то же самое, что прочерк: прочерк говорит
       // «нечего оценивать», а здесь оценивать есть что, просто выборка мала.
       render: (row: SliceRow) => (row.enoughData
@@ -203,13 +236,14 @@ export function SliceList({
       key: "avgPercent",
       header: "Средний результат",
       numeric: true,
+      sortable: true,
       render: (row: SliceRow) => (row.enoughData
         ? percent(row.avgPercent)
         : <Text variant="body-s" tone="muted">мало данных</Text>),
     },
     {
       key: "weakest",
-      header: "Слабое место",
+      header: "Слабейшая тема",
       // Тема названа вместе со своей долей: «Корпоративные финансы» без числа не говорит,
       // провал это или ровный результат, у которого просто кто-то обязан быть последним.
       // Прочерк здесь честен — он значит «называть слабейшую не из чего» (FR-06d).
@@ -242,10 +276,17 @@ export function SliceList({
     },
   ];
 
+  const rows = sortColumn
+    ? slices.slice().sort((a, b) => compareSlices(a, b, sortColumn, sortDir))
+    : slices;
+
   return (
     <DataGrid
       columns={columns}
-      rows={slices}
+      rows={rows}
+      sortKey={sortColumn}
+      sortDir={sortDir}
+      onSort={(key, dir) => { setSortColumn(key as SliceSort); setSortDir(dir); }}
       rowKey={row => row.id}
       emptyMessage={loading ? "Считаем срезы…" : "Срезов пока нет"}
       expandable

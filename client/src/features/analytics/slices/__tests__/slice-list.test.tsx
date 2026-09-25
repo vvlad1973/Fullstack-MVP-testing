@@ -60,8 +60,7 @@ describe("SliceList", () => {
     expect(await screen.findByText("Отдел продаж")).toBeTruthy();
     expect(screen.getByText("75 %")).toBeTruthy();
     expect(screen.getByText("72 %")).toBeTruthy();
-    // Завершённых и участников поровну — оба числа на месте, сколько бы их ни совпало.
-    expect(screen.getAllByText("12")).toHaveLength(2);
+    expect(screen.getByText("12")).toBeTruthy();
     expect(screen.getByText("14")).toBeTruthy();
   });
 
@@ -81,11 +80,20 @@ describe("SliceList", () => {
     render(<SliceList testId="test1" axis="group" />);
 
     expect(await screen.findByText("Назначено")).toBeTruthy();
-    expect(screen.getByText("Слабое место")).toBeTruthy();
+    expect(screen.getByText("Слабейшая тема")).toBeTruthy();
     expect(screen.getByText("18")).toBeTruthy();
     expect(screen.getByText("Право · 46 %")).toBeTruthy();
     // Строка без обеих величин: два прочерка, а не «0» и не пустая ячейка.
     expect(screen.getAllByText("—").length).toBe(2);
+  });
+
+  // Эскиз PRD-56: колонки «Участников» в списке нет — число людей среза видно в реестре по
+  // переходу, а рядом с «Начато» и «Завершено» оно читалось как третий объём того же рода.
+  it("не показывает колонку «Участников»", async () => {
+    render(<SliceList testId="test1" />);
+
+    await screen.findByText("Отдел продаж");
+    expect(screen.queryByText("Участников")).toBeNull();
   });
 
   it("ниже порога говорит «мало данных» и оставляет объём", async () => {
@@ -224,5 +232,59 @@ describe("SliceList — разворот строки по темам (FR-06e)",
     await userEvent.click(screen.getByRole("button", { name: "Развернуть" }));
 
     await waitFor(() => expect(screen.getByText(/по темам считать нечего/i)).toBeTruthy());
+  });
+});
+
+/**
+ * Эскиз PRD-56 (задача 2.3 плана сверки): колонки фактов сортируются, «Слабейшая тема» — нет.
+ * «Мало данных» и неприменимое «Назначено» уходят в конец в обоих направлениях: пустое не
+ * меньше и не больше числа.
+ */
+describe("SliceList — сортировка", () => {
+  const ROWS = [
+    { ...SLICE, id: "a", name: "Бета", passRate: 60, assigned: 30 },
+    { ...SLICE, id: "b", name: "Альфа", passRate: 90, assigned: null },
+    { ...SCARCE, id: "c", name: "Гамма", assigned: 5 },
+    { ...SLICE, id: "d", name: "Вега", passRate: 40, assigned: 10 },
+  ];
+  const order = () => screen.getAllByText(/^(Альфа|Бета|Вега|Гамма)$/).map(el => el.textContent);
+  const clickHeader = async (title: string) => {
+    const header = screen.getAllByText(title).find(el => el.closest(".ou-grid__th")) as HTMLElement;
+    await userEvent.click(header);
+  };
+
+  beforeEach(() => fetchMock.mockResolvedValue(answer(ROWS)));
+
+  it("по умолчанию — порядок сервера", async () => {
+    render(<SliceList testId="test1" />);
+    await screen.findByText("Альфа");
+    expect(order()).toEqual(["Бета", "Альфа", "Гамма", "Вега"]);
+  });
+
+  it("шесть колонок сортируемы, «Слабейшая тема» — нет", async () => {
+    render(<SliceList testId="test1" />);
+    await screen.findByText("Альфа");
+    const sortable = [...document.querySelectorAll(".ou-grid__th.is-sortable")].map(el => el.textContent);
+    expect(sortable).toEqual(["Срез", "Назначено", "Начато", "Завершено", "Сдали", "Средний результат"]);
+  });
+
+  it("«Сдали» — по доле, «мало данных» последним в обоих направлениях", async () => {
+    render(<SliceList testId="test1" />);
+    await screen.findByText("Альфа");
+
+    await clickHeader("Сдали");
+    expect(order()).toEqual(["Вега", "Бета", "Альфа", "Гамма"]);
+    await clickHeader("Сдали");
+    expect(order()).toEqual(["Альфа", "Бета", "Вега", "Гамма"]);
+  });
+
+  it("«Срез» — по алфавиту, «Назначено» — прочерк последним", async () => {
+    render(<SliceList testId="test1" />);
+    await screen.findByText("Альфа");
+
+    await clickHeader("Срез");
+    expect(order()).toEqual(["Альфа", "Бета", "Вега", "Гамма"]);
+    await clickHeader("Назначено");
+    expect(order()).toEqual(["Гамма", "Вега", "Бета", "Альфа"]);
   });
 });
