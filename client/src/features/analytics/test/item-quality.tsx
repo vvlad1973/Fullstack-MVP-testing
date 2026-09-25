@@ -260,7 +260,8 @@ function flagOf(row: ItemQualityRow, heuristic?: ReviewHeuristic): { tone: "erro
     return {
       tone: "error",
       title: "Сильные ошибаются чаще",
-      detail: `дискриминативность ${num(row.itemRest)}, индекс ${num(row.discrimination)}`,
+      // FR-16a: заголовок — симптом, подпись — вероятная причина и числа, на которых она стоит.
+      detail: `вероятна ошибка в ключе: r = ${num(row.itemRest)}, D = ${num(row.discrimination)}`,
     };
   }
   if (row.flags.atChanceLevel) {

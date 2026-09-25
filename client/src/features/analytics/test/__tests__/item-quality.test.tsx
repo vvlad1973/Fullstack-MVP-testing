@@ -113,7 +113,7 @@ describe("ItemQualityPanel", () => {
 
     expect(screen.getByText("Сильные ошибаются чаще")).toBeTruthy();
     // Числа под заголовком — основание признака: сам он причины не называет.
-    expect(screen.getByText(/дискриминативность .?0,21, индекс .?0,14/)).toBeTruthy();
+    expect(screen.getByText(/вероятна ошибка в ключе: r = .?0,21, D = .?0,14/)).toBeTruthy();
   });
 
   it("у задания с малой выборкой трудность видна, а коэффициент — нет", () => {
@@ -631,5 +631,21 @@ describe("ItemQualityPanel — надёжность при неоднородн�
   it("без пересечений — причина словами", () => {
     render(<ItemQualityPanel view={view({ reliability: "random-delivery", sem: null })} />);
     expect(screen.getByText(/неприменимо к случайной выдаче/)).toBeTruthy();
+  });
+});
+
+/** PRD-66 FR-16a: заголовок называет симптом, а догадка о причине — в числах под ним. */
+describe("ItemQualityPanel — отрицательная дискриминативность (FR-16a)", () => {
+  it("под «Сильные ошибаются чаще» — «вероятна ошибка в ключе»", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({
+        questionId: "q1", itemRest: -0.21, discrimination: -0.14,
+        flags: { tooHard: false, tooEasy: false, negativeDiscrimination: true, atChanceLevel: false },
+      })],
+    })} />);
+
+    expect(screen.getByText("Сильные ошибаются чаще")).toBeTruthy();
+    // Формулировка — дословно из спеки: причина-догадка и числа, на которых она стоит.
+    expect(screen.getByText(/^вероятна ошибка в ключе: r = .?0,21, D = .?0,14$/)).toBeTruthy();
   });
 });
