@@ -459,11 +459,29 @@ export function ItemQualityPanel({ view, exportHref, matrixHref, onOpenItem, onR
       />,
       render: (row: ItemQualityRow) => {
         const flag = flagOf(row, heuristics[row.questionId]);
-        if (!flag) return <Text variant="body-xs" tone="muted">—</Text>;
+        // FR-38: коэффициент на 30–99 наблюдениях — ориентировочный. Без метки «0,26» на сорока
+        // наблюдениях и на четырёхстах выглядели бы одинаково.
+        const tentative = row.coefficientConfidence === "tentative";
+        const observed = `${row.observations} ${pluralize(row.observations, "наблюдение", "наблюдения", "наблюдений")}`;
+        // Тег — по ширине текста, как в эскизе: растянутый на колонку, он читался как полоса.
+        if (!flag) {
+          if (!tentative) return <Text variant="body-xs" tone="muted">—</Text>;
+          return (
+            <Stack gap={1} align="start">
+              <Tag tone="info" size="s">Ориентировочно</Tag>
+              <Text variant="body-xs" tone="muted">{observed}</Text>
+            </Stack>
+          );
+        }
+        // Признак главнее оговорки, но оговорка не теряется — там, где признак стоит на
+        // КОЭФФИЦИЕНТЕ. Трудность и признаки по ней правилу FR-38 не подчиняются (FR-38a).
+        const coefficientFlag = row.flags.negativeDiscrimination;
         return (
-          <Stack gap={1}>
+          <Stack gap={1} align="start">
             <Tag tone={flag.tone} size="s">{flag.title}</Tag>
-            <Text variant="body-xs" tone="muted">{flag.detail}</Text>
+            <Text variant="body-xs" tone="muted">
+              {tentative && coefficientFlag ? `${flag.detail} · ориентировочно, ${observed}` : flag.detail}
+            </Text>
           </Stack>
         );
       },

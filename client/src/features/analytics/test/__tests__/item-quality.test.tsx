@@ -458,3 +458,66 @@ describe("ItemQualityPanel — сортировка колонок (FR-48a)", ()
     expect(order()).toEqual(["Вопрос А", "Вопрос Б", "Вопрос В", "Вопрос Г"]);
   });
 });
+
+/**
+ * PRD-66 FR-38: коэффициент при 30 ≤ n < 100 выводится с меткой ориентировочности.
+ *
+ * Уровень `tentative` движок считал всегда, а экран его не показывал: «0,26» на сорока
+ * наблюдениях и на четырёхстах выглядели одинаково.
+ */
+describe("ItemQualityPanel — ориентировочные коэффициенты (FR-38)", () => {
+  const NEG = { tooHard: false, tooEasy: false, negativeDiscrimination: true, atChanceLevel: false };
+
+  it("задание без признака помечено «Ориентировочно» с числом наблюдений, как в эскизе", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", prompt: "Вопрос 1", observations: 44, coefficientConfidence: "tentative" })],
+    })} />);
+
+    expect(screen.getByText("Ориентировочно")).toBeTruthy();
+    expect(screen.getByText("44 наблюдения")).toBeTruthy();
+  });
+
+  it("у задания с признаком признак главный, а оговорка — в числах под ним", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({
+        questionId: "q1", prompt: "Вопрос 1", observations: 44, coefficientConfidence: "tentative",
+        itemRest: -0.2, discrimination: -0.1, flags: NEG,
+      })],
+    })} />);
+
+    expect(screen.getByText("Сильные ошибаются чаще")).toBeTruthy();
+    expect(screen.getByText(/ориентировочно, 44 наблюдения/)).toBeTruthy();
+  });
+
+  it("у признака по трудности оговорки нет: трудность под правило не попадает (FR-38a)", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({
+        questionId: "q1", prompt: "Вопрос 1", observations: 44, coefficientConfidence: "tentative",
+        difficulty: 0.97, flags: { tooHard: false, tooEasy: true, negativeDiscrimination: false, atChanceLevel: false },
+      })],
+    })} />);
+
+    expect(screen.getByText("Слишком лёгкое")).toBeTruthy();
+    expect(screen.queryByText(/ориентировочно/)).toBeNull();
+  });
+
+  it("ориентировочность — не подозрение: в «Под подозрением» не считается", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", prompt: "Вопрос 1", observations: 44, coefficientConfidence: "tentative" })],
+    })} />);
+
+    const tile = screen.getAllByText("Под подозрением")
+      .map((el) => el.closest(".ou-card"))
+      .find((card): card is HTMLElement => !!card && !card.querySelector("table")) as HTMLElement;
+    expect(within(tile).getByText("0")).toBeTruthy();
+  });
+
+  it("при ста наблюдениях и больше оговорки нет", () => {
+    render(<ItemQualityPanel view={view({
+      items: [row({ questionId: "q1", prompt: "Вопрос 1", observations: 150, coefficientConfidence: "reliable" })],
+    })} />);
+
+    expect(screen.queryByText("Ориентировочно")).toBeNull();
+    expect(screen.queryByText(/ориентировочно/)).toBeNull();
+  });
+});
