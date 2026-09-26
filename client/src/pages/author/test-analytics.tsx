@@ -51,6 +51,7 @@ import {
     EmptyState,
     FilterBar,
     Grid,
+    IconButton,
     Stack,
     Tabs,
     Tag,
@@ -791,7 +792,8 @@ export default function TestAnalyticsPage() {
                             : ""}
                     </Text>
                 </Stack>
-                <Cluster gap={2} justify="end">
+                {/* Кнопки одной группы — 4 px, как в эскизе (план сверки 6.2, 6.4). */}
+                <Cluster gap={1} justify="end" align="center">
                     {/* PRD-54: третья точка входа. Тест здесь ЗАДАН страницей, поэтому файл
                         чужого теста форма отвергнет — см. `fixedTestId`. */}
                     <Button
@@ -815,14 +817,17 @@ export default function TestAnalyticsPage() {
                             Прохождения теста
                         </Button>
                     </Link>
-                    <Button
+                    {/* Значком, а не текстом (решение владельца 2026-09-26, план 6.4): четыре текстовые
+                        кнопки не помещались в строку, и «Обновить» уходило вторым рядом. Имя для
+                        экранного диктора и подсказка при наведении — те же слова. */}
+                    <IconButton
                         variant="ghost"
                         size="s"
-                        leadingIcon={<RefreshCw size={16} />}
+                        aria-label="Обновить"
+                        title="Обновить"
+                        icon={<RefreshCw size={16} />}
                         onClick={() => invalidateAnalytics(queryClient)}
-                    >
-                        Обновить
-                    </Button>
+                    />
                 </Cluster>
             </Cluster>
 

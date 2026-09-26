@@ -218,26 +218,32 @@ export function PsychometricsCompare({ slices }: PsychometricsCompareProps) {
       : []),
   ];
 
+  // Подпись и её таблица — связанные элементы: 4 px (решение владельца 2026-09-26); между
+  // двумя таблицами — разные блоки, их разводит стек панели.
   return (
     <>
-      <Text variant="body-s" weight="medium">Надёжность и ошибка измерения</Text>
-      {!pairwise && (
-        <Text variant="body-xs" tone="muted">Разница считается только при двух срезах</Text>
-      )}
-      <DataGrid
-        columns={summaryColumns}
-        rows={SUMMARY_ROWS}
-        rowKey={row => row.key}
-        emptyMessage="Сравнивать нечего"
-      />
+      <Stack gap={1}>
+        <Text variant="body-s" weight="medium">Надёжность и ошибка измерения</Text>
+        {!pairwise && (
+          <Text variant="body-xs" tone="muted">Разница считается только при двух срезах</Text>
+        )}
+        <DataGrid
+          columns={summaryColumns}
+          rows={SUMMARY_ROWS}
+          rowKey={row => row.key}
+          emptyMessage="Сравнивать нечего"
+        />
+      </Stack>
 
-      <Text variant="body-s" weight="medium">Трудность вопросов</Text>
-      <DataGrid
-        columns={itemColumns}
-        rows={itemRows}
-        rowKey={row => row.questionId}
-        emptyMessage="Вопросов с наблюдениями нет"
-      />
+      <Stack gap={1}>
+        <Text variant="body-s" weight="medium">Трудность вопросов</Text>
+        <DataGrid
+          columns={itemColumns}
+          rows={itemRows}
+          rowKey={row => row.questionId}
+          emptyMessage="Вопросов с наблюдениями нет"
+        />
+      </Stack>
     </>
   );
 }

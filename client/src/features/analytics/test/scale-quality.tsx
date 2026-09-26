@@ -410,7 +410,10 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
           {
             key: "itemRest",
             width: "14%",
-            header: <TermHint term="Корреляция с остатком шкалы" hint={HINT.itemRest} align="end" />,
+            // Перенос после первого слова (решение владельца 2026-09-26): «Корреляция» /
+            // «с остатком шкалы», а не как придётся по ширине колонки. Пробел перед <br /> держит
+            // термин одним текстом для поиска и экранного диктора.
+            header: <TermHint term={<>Корреляция <br />с остатком шкалы</>} hint={HINT.itemRest} align="end" />,
             align: "right" as const,
             numeric: true,
             render: (row: ScaleItemRow) => <Text variant="body-s">{num(row.itemRest)}</Text>,
