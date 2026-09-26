@@ -38,6 +38,29 @@ const TONE_COLOR: Record<ScoreBucketView["tone"], string> = {
   neutral: "var(--ou-accent-default)",
 };
 
+/**
+ * Ось долей с круглыми делениями (план сверки 5.9).
+ *
+ * Без неё диаграмма делила ось на четыре равных шага от самого высокого столбика: при 37 %
+ * деления выходили 9,25 / 18,5 / 27,75 %, не помещались в левое поле и обрезались («.75 %»).
+ * Верх оси — ближайшее сверху кратное шагу, шаг — 5, 10 или 20 пунктов по высоте столбиков,
+ * как в эскизе: деления читаются целыми процентами.
+ *
+ * Над самым высоким столбиком оставлено не меньше полшага: подпись «37 %» ставится НАД
+ * столбиком, и при верхе оси 40 % ей не хватало места — диаграмма прижимала её к краю и красила
+ * белым, как подпись внутри столбика, и на белом фоне она пропадала (приёмка 5.9).
+ *
+ * @param top высота самого высокого столбика, %
+ * @returns верх оси и деления
+ */
+export function shareAxis(top: number): { max: number; ticks: number[] } {
+  const step = top <= 20 ? 5 : top <= 50 ? 10 : 20;
+  const max = Math.min(100, Math.max(step, Math.ceil((top + step / 2) / step) * step));
+  const ticks: number[] = [];
+  for (let value = 0; value <= max; value += step) ticks.push(value);
+  return { max, ticks };
+}
+
 export function ScoreDistribution({ buckets, completed, thresholdPercent }: ScoreDistributionProps) {
   const subtitle = [
     `${completed} ${pluralize(completed, "завершённое прохождение", "завершённых прохождения", "завершённых прохождений")}`,
@@ -45,6 +68,8 @@ export function ScoreDistribution({ buckets, completed, thresholdPercent }: Scor
       ? "проходного балла нет: тест не выносит вердикта"
       : `проходной балл ${Math.round(thresholdPercent)} %`,
   ].join(" · ");
+
+  const axis = shareAxis(Math.max(0, ...buckets.map(bucket => Math.round(bucket.share))));
 
   return (
     <Card>
@@ -62,6 +87,8 @@ export function ScoreDistribution({ buckets, completed, thresholdPercent }: Scor
         ) : (
           <BarChart
             height={260}
+            yMax={axis.max}
+            yTickValues={axis.ticks}
             categories={buckets.map(bucket => bucket.label)}
             series={[{
               id: "share",

@@ -12,7 +12,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PassTrend } from "../pass-trend";
-import { ScoreDistribution } from "../score-distribution";
+import { ScoreDistribution, shareAxis } from "../score-distribution";
 import { TopicBreakdown } from "../topic-breakdown";
 
 const BUCKETS = [
@@ -130,5 +130,38 @@ describe("PassTrend", () => {
     ]} />);
 
     expect(screen.getByText(/вердиктов не выносили/i)).toBeTruthy();
+  });
+});
+
+/**
+ * План сверки 5.9: деления оси долей — целые проценты. Четыре равных шага от 37 % давали
+ * 9,25 / 18,5 / 27,75, и подписи обрезались левым полем диаграммы.
+ */
+describe("shareAxis — круглые деления оси", () => {
+  it("при 37 % — шаг 10, верх 50: над столбиком остаётся место для подписи", () => {
+    expect(shareAxis(37)).toEqual({ max: 50, ticks: [0, 10, 20, 30, 40, 50] });
+  });
+
+  it("верх оси не ниже самого высокого столбика плюс полшага", () => {
+    for (const top of [4, 12, 22, 37, 44, 58, 81]) {
+      const { max, ticks } = shareAxis(top);
+      const step = ticks[1] - ticks[0];
+      expect(max - top).toBeGreaterThanOrEqual(step / 2);
+    }
+  });
+
+  it("низкие столбики — шаг 5", () => {
+    expect(shareAxis(12)).toEqual({ max: 15, ticks: [0, 5, 10, 15] });
+    expect(shareAxis(8)).toEqual({ max: 15, ticks: [0, 5, 10, 15] });
+  });
+
+  it("высокие — шаг 20 и не выше 100 %", () => {
+    expect(shareAxis(97)).toEqual({ max: 100, ticks: [0, 20, 40, 60, 80, 100] });
+  });
+
+  it("все деления — целые числа", () => {
+    for (const top of [1, 7, 23, 37, 49, 51, 66, 100]) {
+      expect(shareAxis(top).ticks.every(Number.isInteger)).toBe(true);
+    }
   });
 });
