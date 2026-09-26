@@ -84,6 +84,9 @@ export function itemsSheet(
 
   for (const item of psychometrics.items) {
     const flags = [
+      // FR-46a: вопрос пула без наблюдений — словом, как на экране: пустые клетки читались бы
+      // как сбой выгрузки, а не как «тест его пока не выдавал».
+      item.neverDelivered ? "вопрос ещё не выдавался" : "",
       item.flags.negativeDiscrimination ? "сильные ошибаются чаще" : "",
       item.flags.atChanceLevel ? "на уровне угадывания" : "",
       item.flags.weakDiscrimination ? "сильные и слабые отвечают одинаково" : "",

@@ -5,6 +5,7 @@
  * Расчёт проверен на движке и на сведении; здесь — то, что относится к ручке: область
  * видимости, режим попыток по умолчанию, кэш и поведение на пустой выборке.
  */
+import ExcelJS from "exceljs";
 import express from "express";
 import session from "express-session";
 import request from "supertest";
@@ -321,6 +322,50 @@ describe("GET /analytics/psychometrics/:testId", () => {
         coefficientConfidence: "insufficient",
         flags: { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false, weakDiscrimination: false },
       });
+    });
+
+    /** Строки листа книги, пришедшей файлом. */
+    async function sheetOf(path: string, sheet: string): Promise<unknown[][]> {
+      const res = await request(makeApp())
+        .get(path)
+        .set("x-test-user", "a1")
+        .buffer(true)
+        .parse((response, callback) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+          response.on("end", () => callback(null, Buffer.concat(chunks)));
+        });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(res.body as never);
+      const rows: unknown[][] = [];
+      workbook.getWorksheet(sheet)?.eachRow(row => rows.push((row.values as unknown[]).slice(1)));
+      return rows;
+    }
+
+    it("психометрический отчёт перечисляет и невыданный вопрос — как экран", async () => {
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1"), Q("q2")]);
+      storageMock.getQuestionsByIds.mockImplementation(async (ids: string[]) =>
+        [Q("q1"), Q("q2")].filter(q => ids.includes(q.id)));
+
+      const rows = await sheetOf("/api/analytics/psychometrics/test1/export", "Вопросы");
+      const q2 = rows.find(row => row[0] === "q2");
+
+      expect(q2).toBeTruthy();
+      expect(q2![1]).toBe("Вопрос q2");
+      expect(q2![2]).toBe(0);
+      expect(String(q2![q2!.length - 1])).toContain("вопрос ещё не выдавался");
+    });
+
+    it("матрица ответов колонку невыданному вопросу не заводит", async () => {
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1"), Q("q2")]);
+      storageMock.getQuestionsByIds.mockImplementation(async (ids: string[]) =>
+        [Q("q1"), Q("q2")].filter(q => ids.includes(q.id)));
+
+      const rows = await sheetOf("/api/analytics/psychometrics/test1/matrix", "Матрица ответов");
+      const header = rows.find(row => row[0] === "Респондент");
+
+      expect(header).toContain("q1");
+      expect(header).not.toContain("q2");
     });
 
     it("исключённый из выдачи вопрос в пул не входит", async () => {

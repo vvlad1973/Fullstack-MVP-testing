@@ -624,6 +624,10 @@ async function collectForExport(req: Request, testId: string) {
     cutRatio: cutRatioOf(test?.overallPassRuleJson),
     // FR-20: выгрузка считает надёжность тем же способом, что экран.
     unevenDelivery: deliveryIsUneven(test?.mode, await storage.getTestSections(testId)),
+    // FR-46a, решение владельца 2026-09-26: в отчёте — тот же список вопросов, что на экране,
+    // вместе с ещё не выданными. Матрицу это не трогает: её колонки строятся по ответам, а
+    // колонка из одних «не выдавался» внешнему пакету ничего не даёт.
+    poolQuestionIds: (await loadDeliveryPool(testId)).questionIds,
   });
 
   return { ctx, psychometrics, responses, questionById };
