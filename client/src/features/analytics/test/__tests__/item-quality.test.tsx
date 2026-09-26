@@ -947,7 +947,7 @@ describe("ItemQualityPanel — меню строки", () => {
 
     expect(await screen.findByText(/останется 11/i)).toBeTruthy();
     expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/analytics/tests/t1/questions/q1/delivery-impact", expect.anything());
-    await userEvent.click(screen.getByRole("button", { name: "Исключить" }));
+    await userEvent.click(screen.getByRole("button", { name: "Исключить из выдачи" }));
 
     expect(onDeliveryChange).toHaveBeenCalledWith("q1", true);
   });

@@ -241,7 +241,7 @@ describe("QuestionTable — исключение из выдачи", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ topicName: "Право и комплаенс", remaining: 11, drawCount: 10, allowed: true }),
+      json: async () => ({ topicName: "Право и комплаенс", remaining: 11, drawCount: 10, allowed: true, publishedAt: "2026-09-01T10:00:00Z" }),
     }));
   });
 
@@ -270,10 +270,28 @@ describe("QuestionTable — исключение из выдачи", () => {
     await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
 
-    // FR-17b: окно говорит, сколько заданий останется в теме при её квоте выдачи, и что
-    // опубликованная версия не меняется.
-    expect(await screen.findByText(/останется 11/i)).toBeTruthy();
-    expect(screen.getByText(/опубликованная версия не меняется/i)).toBeTruthy();
+    // FR-17b, эскиз окна (план сверки 5.8): что станет с вопросом, что сохранится, сколько
+    // останется при какой квоте и когда исключение подействует.
+    expect(screen.getByText(/Вопрос остаётся в теме и в банке/)).toBeTruthy();
+    expect(screen.getByText(/Право и комплаенс · 82 % показов при 41 % верных/)).toBeTruthy();
+    expect(await screen.findByText(/В теме останется 11 вопросов при квоте 10 на прохождение: выдача выполнима/)).toBeTruthy();
+    expect(screen.getByText(/ответы и статистика по вопросу сохраняются/)).toBeTruthy();
+    expect(screen.getByText("Подействует после новой публикации")).toBeTruthy();
+    expect(screen.getByText(/Тест опубликован 01.09.2026/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Исключить из выдачи" })).toBeTruthy();
+  });
+
+  it("у неопубликованного теста не обещает «после публикации»: исключение действует сразу", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ topicName: "Право и комплаенс", remaining: 11, drawCount: 10, allowed: true, publishedAt: null }),
+    }));
+    render(<QuestionTable questions={QUESTIONS} onDeliveryChange={vi.fn()} />);
+    await openRowMenu(/Действия с вопросом: Какая мера/);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
+
+    await screen.findByText(/В теме останется/);
+    expect(screen.queryByText("Подействует после новой публикации")).toBeNull();
   });
 
   it("не исключает, пока подтверждение не дано", async () => {
@@ -295,7 +313,7 @@ describe("QuestionTable — исключение из выдачи", () => {
     await openRowMenu(/Действия с вопросом: Какая мера/);
     await userEvent.click(screen.getByRole("menuitem", { name: /Исключить из выдачи: Какая мера/ }));
     await screen.findByText(/останется 11/i);
-    await userEvent.click(screen.getByRole("button", { name: "Исключить" }));
+    await userEvent.click(screen.getByRole("button", { name: "Исключить из выдачи" }));
 
     expect(onDeliveryChange).toHaveBeenCalledWith("q1", true);
   });
@@ -335,7 +353,7 @@ describe("QuestionTable — исключение из выдачи", () => {
 
     // Не «выполнено с предупреждением»: кнопка выключена, и сказано почему.
     expect(await screen.findByText(/выдачу собрать будет нельзя/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Исключить" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Исключить из выдачи" })).toBeDisabled();
   });
 
   it("возвращает задание в выдачу без подтверждения", async () => {

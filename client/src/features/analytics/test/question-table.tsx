@@ -529,7 +529,17 @@ export function QuestionTable({
             : undefined}
           excluded={row.excludedFromDelivery}
           onExclude={onDeliveryChange
-            ? () => setPending({ questionId: row.questionId, prompt: row.questionPrompt })
+            ? () => setPending({
+              questionId: row.questionId,
+              prompt: row.questionPrompt,
+              // Эскиз: «тема · N % показов при M % верных» — почему вопрос и стоит исключать.
+              caption: [
+                row.topicName,
+                row.exposurePercent !== null && row.correctPercent !== null
+                  ? `${Math.round(row.exposurePercent)} % показов при ${Math.round(row.correctPercent)} % верных`
+                  : "",
+              ].filter(Boolean).join(" · "),
+            })
             : undefined}
           onRestore={onDeliveryChange ? () => onDeliveryChange(row.questionId, false) : undefined}
         />

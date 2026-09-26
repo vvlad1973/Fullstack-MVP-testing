@@ -68,6 +68,13 @@ router.get(
        * действие отказывало. Обещание и отказ обязаны приходить из одного расчёта.
        */
       const findings = await assessTestPublish(testId, [questionId]);
+      /**
+       * Когда исключение подействует (эскиз prd56-test-analytics, окно исключения): прохождения
+       * опубликованного теста идут по снимку, где вопрос ещё есть, и автор должен знать, что
+       * до новой публикации ничего не изменится. `null` — тест не публиковался, и прохождения
+       * идут по живому содержанию.
+       */
+      const snapshot = await storage.getLatestSnapshot(testId);
 
       res.json({
         topicId: section.topicId,
@@ -76,6 +83,7 @@ router.get(
         drawCount,
         allowed: findings.length === 0,
         findings,
+        publishedAt: snapshot?.publishedAt ?? null,
       });
     } catch (error) {
       logger.error("Delivery impact error: " + (error as Error).message);

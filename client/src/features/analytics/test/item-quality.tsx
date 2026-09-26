@@ -698,7 +698,7 @@ export function ItemQualityPanel({
             onOpenInTopic={() => navigate(questionInTopicHref(row.questionId))}
             excluded={!!excluded[row.questionId]}
             onExclude={onDeliveryChange
-              ? () => setPending({ questionId: row.questionId, prompt })
+              ? () => setPending({ questionId: row.questionId, prompt, caption: row.topicName })
               : undefined}
             onRestore={onDeliveryChange ? () => onDeliveryChange(row.questionId, false) : undefined}
           />

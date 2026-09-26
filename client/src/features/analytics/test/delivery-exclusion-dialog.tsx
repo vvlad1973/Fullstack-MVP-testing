@@ -9,10 +9,14 @@
  * пула на клиенте значило бы завести вторую копию правил выдачи. Невыполнимая выдача ЗАПРЕЩАЕТ
  * действие, а не сопровождает его предупреждением: тест, который нельзя собрать, ломается у
  * участника на старте попытки.
+ *
+ * Состав окна — по эскизу `prd56-test-analytics.html` (состояние items-exclude, план сверки 5.8):
+ * что станет с вопросом, какой вопрос и где он, что сохранится и сколько останется в теме, и
+ * когда исключение подействует.
  */
 import { useEffect, useState } from "react";
 
-import { Button, ModalDialog, Stack, Text } from "@skillum/ui-kit";
+import { Banner, Button, ModalDialog, Stack, Text } from "@skillum/ui-kit";
 
 import { pluralize } from "@/lib/i18n";
 
@@ -32,13 +36,20 @@ interface DeliveryImpact {
   drawCount: number;
   allowed: boolean;
   findings?: Array<{ topicName: string; issues: DeliveryIssue[] }>;
+  /** Дата последней публикации; `null` — тест не публиковался, и исключение действует сразу. */
+  publishedAt?: string | null;
 }
 
 /** Вопрос, который собираются исключить. */
 export interface ExclusionTarget {
   questionId: string;
-  /** Текст вопроса — описание окна: автор должен видеть, ЧТО он исключает. */
+  /** Текст вопроса: автор должен видеть, ЧТО он исключает. */
   prompt: string;
+  /**
+   * Где вопрос и чем он заметен — строка под текстом (эскиз: «Право и комплаенс · Антикоррупция ·
+   * 82 % показов при 41 % верных»). Собирает таблица, которая открыла окно: числа у неё свои.
+   */
+  caption?: string;
 }
 
 export interface DeliveryExclusionDialogProps {
@@ -65,6 +76,11 @@ function issueText(issue: DeliveryIssue): string {
     return `Вопросов в теме: нужно ${issue.required}, останется ${issue.available}`;
   }
   return "Выдача этого раздела перестанет собираться";
+}
+
+/** Дата «дд.мм.гггг» — так её пишет эскиз. */
+function dateText(iso: string): string {
+  return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 /**
@@ -108,12 +124,13 @@ export function DeliveryExclusionDialog({ target, testId, onClose, onConfirm }: 
       onClose={onClose}
       size="s"
       title="Исключить вопрос из выдачи?"
-      description={target?.prompt}
+      description="Вопрос остаётся в теме и в банке, но перестаёт попадать в новые прохождения этого теста"
       footer={
         <>
           <Button variant="ghost" size="m" onClick={onClose}>Отмена</Button>
+          {/* Тон удаления, как в эскизе: действие убирает вопрос из выдачи всем будущим участникам. */}
           <Button
-            variant="primary"
+            variant="destructive"
             size="m"
             disabled={!impact?.allowed}
             onClick={() => {
@@ -121,37 +138,46 @@ export function DeliveryExclusionDialog({ target, testId, onClose, onConfirm }: 
               onClose();
             }}
           >
-            Исключить
+            Исключить из выдачи
           </Button>
         </>
       }
     >
-      <Stack gap={3}>
+      <Stack gap={4}>
+        <Stack gap={1}>
+          <Text variant="body-m" weight="medium">{target?.prompt}</Text>
+          {target?.caption ? <Text variant="body-xs" tone="muted">{target.caption}</Text> : null}
+        </Stack>
         {impact === null ? (
           <Text tone="muted">Считаем, сколько вопросов останется в теме…</Text>
+        ) : impact.allowed ? (
+          <Banner
+            variant="subtle"
+            tone="info"
+            size="sm"
+            description={`Собранные ответы и статистика по вопросу сохраняются — из аналитики он не пропадёт. В теме останется ${impact.remaining} ${pluralize(impact.remaining, "вопрос", "вопроса", "вопросов")} при квоте ${impact.drawCount} на прохождение: выдача выполнима.`}
+          />
         ) : (
-          <>
-            <Text>
-              В теме «{impact.topicName}» останется {impact.remaining} {pluralize(impact.remaining, "вопрос", "вопроса", "вопросов")}, а выдавать
-              нужно {impact.drawCount}.
-            </Text>
-            {!impact.allowed && (
-              <Stack gap={1}>
-                <Text tone="error">Выдачу собрать будет нельзя:</Text>
-                {(impact.findings ?? []).flatMap(finding => finding.issues).map((issue, index) => (
-                  <Text key={index} variant="body-s" tone="error">{issueText(issue)}</Text>
-                ))}
-                <Text variant="body-s" tone="muted">
-                  Уменьшите число выдаваемых вопросов или добавьте новые в тему.
-                </Text>
-              </Stack>
-            )}
-          </>
+          <Banner
+            variant="subtle"
+            tone="error"
+            size="sm"
+            title="Выдачу собрать будет нельзя"
+            description={[
+              ...(impact.findings ?? []).flatMap(finding => finding.issues).map(issueText),
+              "Уменьшите число выдаваемых вопросов или добавьте новые в тему.",
+            ].join(". ").replace(/\.\./g, ".")}
+          />
         )}
-        <Text variant="body-s" tone="muted">
-          Опубликованная версия не меняется: пока тест не опубликован заново, и веб, и
-          выгруженный пакет SCORM продолжают выдавать этот вопрос по снимку.
-        </Text>
+        {impact?.publishedAt ? (
+          <Banner
+            variant="subtle"
+            tone="warning"
+            size="sm"
+            title="Подействует после новой публикации"
+            description={`Тест опубликован ${dateText(impact.publishedAt)}. Прохождения идут по опубликованной версии, где вопрос ещё есть, — и веб, и выгруженный пакет SCORM.`}
+          />
+        ) : null}
       </Stack>
     </ModalDialog>
   );

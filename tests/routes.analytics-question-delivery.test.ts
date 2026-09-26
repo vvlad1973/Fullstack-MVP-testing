@@ -26,6 +26,8 @@ const { storageMock, feasibilityMock } = vi.hoisted(() => ({
     getQuestionsByTopic: vi.fn(),
     getTopic: vi.fn(),
     getTestQuestionScoring: vi.fn().mockResolvedValue([]),
+    // Окно исключения говорит, когда оно подействует: дата — из последнего снимка (план 5.8).
+    getLatestSnapshot: vi.fn().mockResolvedValue({ publishedAt: new Date("2026-09-01T10:00:00Z") }),
     setQuestionDelivery: vi.fn(),
     getTestIdsByOwner: vi.fn().mockResolvedValue([]),
     getUserTestGrants: vi.fn().mockResolvedValue([]),
@@ -147,6 +149,17 @@ describe("GET /api/analytics/tests/:testId/questions/:questionId/delivery-impact
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ topicName: "Право", remaining: 2, drawCount: 2, allowed: true });
+  });
+
+  it("называет дату публикации: до новой публикации исключение не подействует (план 5.8)", async () => {
+    const res = await impact();
+    expect(res.body.publishedAt).toBe("2026-09-01T10:00:00.000Z");
+  });
+
+  it("у неопубликованного теста даты нет — прохождения идут по живому содержанию", async () => {
+    storageMock.getLatestSnapshot.mockResolvedValueOnce(undefined);
+    const res = await impact();
+    expect(res.body.publishedAt).toBeNull();
   });
 
   it("предупреждает, что выдать станет нельзя", async () => {
