@@ -93,34 +93,6 @@ const RELIABILITY_GAP: Record<string, string> = {
 };
 
 /**
- * Предел длины подписи градации, при котором её ещё можно ставить под столбиком.
- *
- * Двадцать четыре знака — это «полностью согласен» с запасом, то есть вся шкала Ликерта и
- * любая градация в два-три слова. Вариант-предложение в него не помещается, и правильно:
- * под столбиком ему не место.
- */
-const MAX_GRADE_LABEL = 24;
-
-/**
- * Как подписаны столбики гистограммы (FR-30b, FR-30c): словами все, словами только края или
- * номерами все. Одно правило для гистограммы и для подсказки заголовка — иначе подсказка
- * описывала бы подписи, которых под столбиками нет.
- */
-type GradeLabelMode = "words" | "ends" | "numbers";
-
-function gradeLabelMode(distribution: number[], labels: string[]): GradeLabelMode {
-  // Читаемость подписи решает не только ЧИСЛО градаций, но и их ДЛИНА. У шкалы Ликерта
-  // подпись в два слова, и пять таких помещаются; у опросника, где варианты — целые
-  // предложения, та же подпись растягивает колонку на тысячи пикселей и выталкивает за
-  // горизонтальную прокрутку связь с остатком и признак (вскрыто на стенде). Длинные
-  // градации подписываются номерами, а расшифровка остаётся в подсказке строки.
-  const short = labels.slice(0, distribution.length)
-    .every(label => (label ?? "").length <= MAX_GRADE_LABEL);
-  if (!short) return "numbers";
-  return distribution.length <= 5 ? "words" : "ends";
-}
-
-/**
  * Подсказки к терминам таблиц шкал — дословно из эскиза `prd66-item-quality.html` (FR-14b).
  *
  * Внутри шкалы опросника единица — «пункт», а не «вопрос».
@@ -133,35 +105,53 @@ const HINT = {
   contribution: "С каким знаком ответ на пункт входит в шкалу. У обратного пункта вклад должен быть отрицательным — иначе он портит согласованность шкалы.",
   itemRest: "Связь ответа на этот пункт с суммой по ОСТАЛЬНЫМ пунктам той же шкалы. Показывает, тянет ли пункт в ту же сторону, что шкала целиком. Отрицательная — пункт работает против своей шкалы: чаще всего у обратного пункта забыли поставить отрицательный вклад.",
   quality: "Что не так с пунктом: «Работает против шкалы» — ответы идут противоположно остальным пунктам; «мёртвый» — почти все выбирают одну градацию.",
+  // Одна форма гистограммы на все случаи (решение владельца 2026-09-26, FR-30): номера под
+  // столбиками, словами — только края, расшифровка номеров — в подсказке ячейки.
+  distribution: "Доли участников по градациям ответа. Под столбиками — номера градаций, словами подписаны крайние; расшифровка номеров — в подсказке ячейки.",
 } as const;
 
-/** Число градаций словом — как в эскизе («Градаций семь»); за пределами списка — цифрами. */
+/**
+ * Число градаций словом, с прописной — оно открывает подзаголовок карточки («Пять градаций
+ * ответа»). Больше десяти — цифрами: словом такое число читается хуже, чем числом.
+ */
 const GRADE_COUNT_WORD: Record<number, string> = {
-  6: "шесть", 7: "семь", 8: "восемь", 9: "девять", 10: "десять",
+  1: "Одна", 2: "Две", 3: "Три", 4: "Четыре", 5: "Пять",
+  6: "Шесть", 7: "Семь", 8: "Восемь", 9: "Девять", 10: "Десять",
 };
 
 /**
- * Подсказка к «Распределению ответов» — о подписях ЭТОЙ шкалы (FR-30b, FR-30c).
- *
- * Эскиз даёт два текста: для подписей словами (с перечнем градаций) и для номеров с краями
- * словами (с числом градаций). Градации берутся у первого пункта шкалы, у которого они есть:
- * пункты одной шкалы обычно отвечают по одной и той же шкале ответа.
+ * Число градаций пункта. Подписи задаёт автор, распределение считается по ним же; берётся
+ * большее, чтобы пункт без ответов на крайнюю градацию не терял её.
  */
-function distributionHint(items: ScaleItemRow[]): string {
-  const sample = items.find(row => row.distribution.length > 0);
-  if (!sample) {
-    return "Доли участников по градациям ответа этого вопроса. Названия берутся из самого вопроса. Если почти все выбирают одну градацию, пункт никого не различает.";
-  }
-  const count = sample.distribution.length;
-  const mode = gradeLabelMode(sample.distribution, sample.gradeLabels);
-  if (mode === "words") {
-    const labels = sample.distribution.map((_, i) => sample.gradeLabels[i] ?? String(i + 1)).join(", ");
-    return `Доли участников по градациям ответа этого вопроса: ${labels}. Названия берутся из самого вопроса. Если почти все выбирают одну градацию, пункт никого не различает.`;
-  }
-  if (mode === "ends") {
-    return `Доли участников по градациям этого вопроса. Градаций ${GRADE_COUNT_WORD[count] ?? count}, поэтому под столбиками стоят номера, а словами подписаны края. Полный список с долями — в подсказке строки.`;
-  }
-  return "Доли участников по градациям этого вопроса. Подписи градаций длинные, поэтому под столбиками стоят номера. Полный список с долями — в подсказке строки.";
+function gradeCount(row: ScaleItemRow): number {
+  return Math.max(row.distribution.length, row.gradeLabels.length);
+}
+
+/**
+ * Подзаголовок карточки пунктов шкалы: сколько градаций у ответа и на скольких прохождениях
+ * посчитана шкала.
+ *
+ * Градации считаются только у пунктов Ликерта (PRD-26): у распределения баллов, одиночного
+ * выбора и прочих типов «градаций ответа» нет, и шкала из одних таких пунктов называет лишь
+ * число прохождений. Пункты с разным числом градаций дают диапазон «от 5 до 7».
+ *
+ * @param scale шкала с пунктами
+ * @returns строка подзаголовка
+ */
+export function scaleItemsSubtitle(scale: ScaleQualityRow): string {
+  const passages = `${scale.respondents} ${pluralize(scale.respondents, "прохождение", "прохождения", "прохождений")}`;
+  const counts = scale.items
+    .filter(row => row.questionType === "scale")
+    .map(gradeCount)
+    .filter(count => count > 0);
+  if (counts.length === 0) return passages;
+
+  const min = Math.min(...counts);
+  const max = Math.max(...counts);
+  if (min !== max) return `от ${min} до ${max} градаций ответа · ${passages}`;
+
+  const word = GRADE_COUNT_WORD[min] ?? String(min);
+  return `${word} ${pluralize(min, "градация", "градации", "градаций")} ответа · ${passages}`;
 }
 
 /**
@@ -204,10 +194,11 @@ function ScaleVerdict({ scale }: { scale: ScaleQualityRow }) {
 /**
  * Мини-гистограмма распределения по градациям (FR-30a — FR-30c).
  *
- * До пяти КОРОТКИХ градаций каждый столбик подписан словами; от шести подписи словами
- * наезжают друг на друга, а длинные растягивают колонку — в обоих случаях под столбиками
- * стоят номера. Высота отсчитывается от общей шкалы 0 — 100 %, поэтому строки таблицы
- * сравнимы между собой.
+ * Форма ОДНА при любом числе и длине градаций (решение владельца 2026-09-26): под столбиками —
+ * номера 1…N, словами подписаны только края, и одной строкой, без переноса. Подписи словами
+ * под каждым столбиком наезжали друг на друга или растягивали колонку, а перенесённые — не
+ * читались. Расшифровка номеров — нумерованным списком в подсказке ячейки. Высота
+ * отсчитывается от общей шкалы 0 — 100 %, поэтому строки таблицы сравнимы между собой.
  */
 function GradeHistogram({ distribution, labels }: { distribution: number[]; labels: string[] }) {
   // Градаций у ответа нет вовсе — так бывает у распределения баллов и ранжирования, где
@@ -224,13 +215,24 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
       </Tooltip>
     );
   }
-  const mode = gradeLabelMode(distribution, labels);
-  const hint = distribution
-    .map((share, i) => `${labels[i] ?? i + 1}: ${Math.round(share * 100)} %`)
-    .join(", ");
+  const last = distribution.length - 1;
+  const first = labels[0]?.trim() ?? "";
+  const final = last > 0 ? labels[last]?.trim() ?? "" : "";
+
+  // Расшифровка — нумерованным списком в порядке градаций: номер пункта списка и есть номер
+  // под столбиком. Строка через запятую читалась сплошным текстом.
+  const decoding = (
+    <ol className="tb-psy-hist__list">
+      {distribution.map((share, i) => {
+        const label = labels[i]?.trim();
+        const percent = `${Math.round(share * 100)} %`;
+        return <li key={i}>{label ? `${label} — ${percent}` : percent}</li>;
+      })}
+    </ol>
+  );
 
   return (
-    <Tooltip content={hint} placement="bottom" wrap>
+    <Tooltip title="Градации ответа" content={decoding} placement="bottom" wrap>
       <span
         className="tb-psy-hist"
         style={{ gridTemplateColumns: `repeat(${distribution.length}, 1fr)` }}
@@ -242,16 +244,17 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
         ))}
         {distribution.map((_, i) => (
           <span key={`label-${i}`} className="tb-psy-hist__label ou-text ou-text--body-xs">
-            {mode === "words"
-              ? labels[i] ?? String(i + 1)
-              // Градаций много, но подписи короткие — края словами, середина номерами: так
-              // они не наезжают друг на друга, а смысл краёв остаётся виден. Подписи
-              // ДЛИННЫЕ — номерами все до одной, иначе край растянет колонку на себя.
-              : mode === "ends" && (i === 0 || i === distribution.length - 1)
-                ? labels[i] ?? String(i + 1)
-                : String(i + 1)}
+            {String(i + 1)}
           </span>
         ))}
+        {first || final ? (
+          // Края словами — строкой во всю ширину гистограммы: первый у левого края, последний
+          // у правого, в одну строку с многоточием, а не переносом.
+          <span className="tb-psy-hist__edges">
+            <Text variant="body-xs" tone="muted" truncate>{first}</Text>
+            <Text variant="body-xs" tone="muted" truncate align="end">{final}</Text>
+          </span>
+        ) : null}
       </span>
     </Tooltip>
   );
@@ -415,7 +418,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
           {
             key: "distribution",
             width: "34%",
-            header: <TermHint term="Распределение ответов" hint={distributionHint(scale.items)} />,
+            header: <TermHint term="Распределение ответов" hint={HINT.distribution} />,
             render: (row: ScaleItemRow) => (
               <GradeHistogram distribution={row.distribution} labels={row.gradeLabels} />
             ),
@@ -463,7 +466,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
             <CardHeader
               // Согласованность шкалы — в сводке «Шкалы методики»; здесь только её пункты.
               title={`Пункты шкалы «${scale.label}»`}
-              subtitle="Связь пункта с остальной частью своей шкалы"
+              subtitle={scaleItemsSubtitle(scale)}
               trail={scale.ipsative
                 ? (
                   <Tooltip

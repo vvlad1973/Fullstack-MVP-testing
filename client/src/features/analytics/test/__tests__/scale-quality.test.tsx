@@ -9,6 +9,7 @@ import { ScaleQualityPanel, type ScaleItemRow, type ScaleQualityRow } from "../s
 
 function item(over: Partial<ScaleItemRow> & Pick<ScaleItemRow, "questionId" | "prompt">): ScaleItemRow {
   return {
+    questionType: "scale",
     observations: 120,
     itemRest: 0.52,
     distribution: [0.1, 0.2, 0.4, 0.2, 0.1],
@@ -70,8 +71,13 @@ describe("ScaleQualityPanel", () => {
     }
     expect(screen.queryByText("Признак")).toBeNull();
     expect(screen.queryByText("Связь с остатком шкалы")).toBeNull();
-    // Подсказка распределения перечисляет градации самого вопроса.
-    expect(container.textContent).toContain("Доли участников по градациям ответа этого вопроса: Никогда, Редко, Иногда, Часто, Всегда.");
+    // Подсказка распределения — один текст на все случаи: он описывает единственную форму
+    // гистограммы (FR-30), а не градации конкретного вопроса.
+    const hint = screen.getByText("Распределение ответов").closest(".ou-tip")!.querySelector(".ou-tip__bubble");
+    expect(hint?.textContent).toBe(
+      "Доли участников по градациям ответа. Под столбиками — номера градаций, словами подписаны крайние; расшифровка номеров — в подсказке ячейки.",
+    );
+    expect(container.textContent).not.toContain("Доли участников по градациям ответа этого вопроса");
   });
 
   it("причину отсутствия согласованности называет словами", () => {
@@ -175,53 +181,106 @@ describe("ScaleQualityPanel", () => {
     expect(screen.getByText("Ипсативная методика")).toBeTruthy();
   });
 
-  it("подписи градаций берутся у вопроса, а не придумываются", () => {
-    render(<ScaleQualityPanel scales={[scale()]} />);
+  describe("подзаголовок карточки пунктов: градации и прохождения", () => {
+    const grades = (count: number) => ({
+      distribution: new Array<number>(count).fill(1 / count),
+      gradeLabels: Array.from({ length: count }, (_, i) => `Градация ${i + 1}`),
+    });
 
-    expect(screen.getByText("Никогда")).toBeTruthy();
-    expect(screen.getByText("Всегда")).toBeTruthy();
+    it.each([
+      [5, "Пять градаций ответа · 312 прохождений"],
+      [7, "Семь градаций ответа · 312 прохождений"],
+      [3, "Три градации ответа · 312 прохождений"],
+      [11, "11 градаций ответа · 312 прохождений"],
+    ])("%i градаций — «%s»", (count, expected) => {
+      render(<ScaleQualityPanel scales={[scale({
+        respondents: 312,
+        items: [item({ questionId: "s1", prompt: "Пункт", ...grades(count) })],
+      })]} />);
+      expect(screen.getByText(expected)).toBeTruthy();
+    });
+
+    it("пункты с разным числом градаций — диапазон", () => {
+      render(<ScaleQualityPanel scales={[scale({
+        respondents: 312,
+        items: [
+          item({ questionId: "s1", prompt: "Пятибалльный", ...grades(5) }),
+          item({ questionId: "s2", prompt: "Семибалльный", ...grades(7) }),
+        ],
+      })]} />);
+      expect(screen.getByText("от 5 до 7 градаций ответа · 312 прохождений")).toBeTruthy();
+    });
+
+    it("без пунктов Ликерта — только число прохождений", () => {
+      // Распределение баллов и одиночный выбор «градаций ответа» не имеют: одиночный выбор
+      // рисует гистограмму по вариантам, но подзаголовок их градациями не называет.
+      render(<ScaleQualityPanel scales={[scale({
+        respondents: 312,
+        items: [
+          item({ questionId: "s1", prompt: "Распределение", questionType: "allocation", distribution: [], gradeLabels: [] }),
+          item({ questionId: "s2", prompt: "Выбор", questionType: "single", ...grades(4) }),
+        ],
+      })]} />);
+      expect(screen.getByText("312 прохождений")).toBeTruthy();
+      expect(screen.queryByText(/градаци\S* ответа ·/)).toBeNull();
+    });
   });
 
-  it("при шести и более градациях словами подписаны только края (FR-30c)", () => {
-    // Иначе подписи наезжают друг на друга и не читаются вовсе.
-    render(<ScaleQualityPanel scales={[scale({
-      items: [item({
-        questionId: "s7",
-        prompt: "Семибалльный пункт",
-        distribution: [0.1, 0.1, 0.2, 0.2, 0.2, 0.1, 0.1],
-        gradeLabels: ["Совсем нет", "2", "3", "4", "5", "6", "Полностью"],
-      })],
-    })]} />);
+  describe("распределение ответов — одна форма (FR-30)", () => {
+    function histogramOf(prompt: string): HTMLElement {
+      return screen.getByText(prompt).closest("tr")!.querySelector(".tb-psy-hist") as HTMLElement;
+    }
 
-    expect(screen.getByText("Совсем нет")).toBeTruthy();
-    expect(screen.getByText("Полностью")).toBeTruthy();
-  });
+    it("под столбиками номера, словами — только два края", () => {
+      render(<ScaleQualityPanel scales={[scale()]} />);
+      const hist = histogramOf("Я чувствую себя опустошённым");
 
-  it("ДЛИННЫЕ градации подписываются номерами, а не текстом (FR-30b)", () => {
-    // Правило «до пяти градаций — словами» писалось под шкалу Ликерта, где подпись в два
-    // слова. У опросника с вариантами-предложениями та же подпись растягивает колонку на
-    // тысячи пикселей и выталкивает за горизонтальную прокрутку связь с остатком и признак
-    // (вскрыто на стенде). Читаемость решает ДЛИНА подписи, а не только их число.
-    const long = "Я помогаю команде сфокусироваться на главном и направляю наши усилия на то, чтобы цели были достигнуты в срок";
-    render(<ScaleQualityPanel scales={[scale({
-      items: [item({
-        questionId: "s8",
-        prompt: "Пункт с длинными вариантами",
-        distribution: [0.5, 0.3, 0.2],
-        gradeLabels: [long, "Я призываю коллег к открытому обсуждению проблем", "Я предлагаю вернуться к плану"],
-      })],
-    })]} />);
+      const numbers = [...hist.querySelectorAll(".tb-psy-hist__label")].map(el => el.textContent);
+      expect(numbers).toEqual(["1", "2", "3", "4", "5"]);
+      const edges = [...hist.querySelectorAll(".tb-psy-hist__edges > *")].map(el => el.textContent);
+      expect(edges).toEqual(["Никогда", "Всегда"]);
+      // Середина шкалы словами под столбиками не подписывается.
+      expect(hist.textContent).not.toContain("Редко");
+      expect(hist.textContent).not.toContain("Иногда");
+    });
 
-    // Подпись под столбиком — номер градации; полный текст остаётся в подсказке строки.
-    expect(screen.queryByText(long)).toBeNull();
-    expect(screen.getByText("1")).toBeTruthy();
-    expect(screen.getByText("3")).toBeTruthy();
-  });
+    it("длинные градации — та же форма: номера и края, без подписи под каждым столбиком", () => {
+      const long = "Я помогаю команде сфокусироваться на главном и направляю наши усилия на то, чтобы цели были достигнуты в срок";
+      const middle = "Я призываю коллег к открытому обсуждению проблем";
+      render(<ScaleQualityPanel scales={[scale({
+        items: [item({
+          questionId: "s8",
+          prompt: "Пункт с длинными вариантами",
+          distribution: [0.5, 0.3, 0.2],
+          gradeLabels: [long, middle, "Я предлагаю вернуться к плану"],
+        })],
+      })]} />);
+      const hist = histogramOf("Пункт с длинными вариантами");
 
-  it("короткие градации по-прежнему подписаны словами", () => {
-    render(<ScaleQualityPanel scales={[scale()]} />);
-    expect(screen.getByText("Никогда")).toBeTruthy();
-    expect(screen.getByText("Всегда")).toBeTruthy();
+      expect([...hist.querySelectorAll(".tb-psy-hist__label")].map(el => el.textContent)).toEqual(["1", "2", "3"]);
+      expect([...hist.querySelectorAll(".tb-psy-hist__edges > *")].map(el => el.textContent))
+        .toEqual([long, "Я предлагаю вернуться к плану"]);
+      // Края — одной строкой с многоточием, а не переносом.
+      hist.querySelectorAll(".tb-psy-hist__edges > *")
+        .forEach(el => expect(el.classList.contains("ou-text--truncate")).toBe(true));
+    });
+
+    it("подсказка ячейки расшифровывает номера нумерованным списком в порядке градаций", () => {
+      render(<ScaleQualityPanel scales={[scale()]} />);
+      const tip = histogramOf("Я чувствую себя опустошённым").closest(".ou-tip")!;
+      const bubble = tip.querySelector(".ou-tip__bubble")!;
+
+      expect(bubble.classList.contains("ou-tip__bubble--wrap")).toBe(true);
+      expect(bubble.querySelector(".ou-tip__title")?.textContent).toBe("Градации ответа");
+      const items = [...bubble.querySelectorAll("ol > li")].map(li => li.textContent);
+      expect(items).toEqual([
+        "Никогда — 10 %",
+        "Редко — 20 %",
+        "Иногда — 40 %",
+        "Часто — 20 %",
+        "Всегда — 10 %",
+      ]);
+    });
   });
 
   it("без шкал ничего не выдумывает", () => {
