@@ -208,7 +208,8 @@ describe("exposureProfile (FR-20)", () => {
 
     expect(result.rows.map(r => r.questionId)).toEqual(["q1", "q2", "q4"]);
     expect(result.rows[0]).toMatchObject({ deliveredCount: 82, sharePercent: 82 });
-    expect(result.bankSize).toBe(4);
+    // Банк — пул выдачи (решение владельца 2026-09-26): исключённый q3 его не пополняет.
+    expect(result.bankSize).toBe(3);
     expect(result.drawCount).toBe(2);
   });
 
@@ -218,7 +219,8 @@ describe("exposureProfile (FR-20)", () => {
     const result = profile({ q1: 82 });
 
     expect(result.rows).toHaveLength(1);
-    expect(result.neverDelivered).toBe(3);
+    // q3 исключён: выдать его тест не может, и простоем банка он не считается.
+    expect(result.neverDelivered).toBe(2);
   });
 
   it("исключённое из выдачи задание помечено, но из профиля не исчезает", () => {
@@ -231,7 +233,27 @@ describe("exposureProfile (FR-20)", () => {
     const result = profile({}, 0);
 
     expect(result.rows).toEqual([]);
-    expect(result.neverDelivered).toBe(4);
+    expect(result.neverDelivered).toBe(3);
     expect(result.attemptsInWindow).toBe(0);
+  });
+
+  it("вопрос вне пула (не входит ни в один вариант) не считается ни банком, ни простоем", () => {
+    const result = exposureProfile({
+      topicId: "tp-1",
+      topicName: "Право и комплаенс",
+      drawCount: null,
+      bank: [
+        { ...BANK[0], inPool: true },
+        { ...BANK[1], inPool: false },
+        { ...BANK[3], inPool: false },
+      ],
+      // q4 выдавался раньше, до того как выпал из вариантов: история выдач остаётся строкой.
+      deliveredCounts: new Map([["q4", 5]]),
+      attemptsInWindow: 10,
+    });
+
+    expect(result.bankSize).toBe(1);
+    expect(result.neverDelivered).toBe(1);
+    expect(result.rows.map(r => r.questionId)).toEqual(["q4"]);
   });
 });

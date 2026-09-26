@@ -30,6 +30,7 @@ import {
 } from "@shared/draw/feasibility";
 import { tagKey } from "@shared/tags";
 import { storage, type TestUsageRef } from "../storage";
+import { availableOf, excludedFromDelivery } from "./delivery-pool";
 import type { Question, TestSection } from "@shared/schema";
 
 /** Describes the proposed change for the formula-loss pass (E-6). */
@@ -246,11 +247,11 @@ async function buildRequirements(
  *
  * Пул темы для проверки выполнимости обязан их терять: иначе публикация разрешит тест,
  * который выдать нельзя («выдать 5 из 5», где пятое задание автор снял), и ошибка вскроется
- * не здесь, а у участника на старте попытки.
+ * не здесь, а у участника на старте попытки. Правило — общее с профилем экспозиции и списком
+ * «Качество вопросов» (`delivery-pool`): третьего определения пула не заводится.
  */
 async function excludedFromDeliveryOf(testId: string): Promise<Set<string>> {
-  const rows = await storage.getTestQuestionScoring(testId);
-  return new Set(rows.filter(row => row.excludedFromDelivery).map(row => row.questionId));
+  return excludedFromDelivery(await storage.getTestQuestionScoring(testId));
 }
 
 /**
@@ -345,8 +346,9 @@ export async function assessTestPublish(
   for (const questionId of alsoExcludedQuestionIds) excluded.add(questionId);
   const findings: PublishCheckFinding[] = [];
   for (const section of sections) {
-    const pool = (await storage.getQuestionsByTopic(section.topicId))
-      .filter(question => !excluded.has(question.id))
+    // Доступный банк раздела — тот же, из которого отбирает старт попытки (`delivery-pool`);
+    // варианты и уровни ядро проверяет поверх него само.
+    const pool = availableOf(await storage.getQuestionsByTopic(section.topicId), excluded)
       .map(toPoolQuestion);
     const adaptive =
       test.mode === "adaptive" ? await storage.getAdaptiveLevels(testId, section.topicId) : [];

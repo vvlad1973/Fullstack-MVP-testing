@@ -76,6 +76,12 @@ export interface PsychometricsContext {
    * надёжность считается оценкой по связям заданий, а не альфой полного набора.
    */
   unevenDelivery?: boolean;
+  /**
+   * Пул выдачи теста (`delivery-pool`, решение владельца 2026-09-26): вопросы, которые тест
+   * может выдать. Вопрос пула без единого наблюдения в ТЕКУЩЕЙ выборке идёт строкой «Вопрос ещё
+   * не выдавался» (`neverDelivered`). Без поля список строится по ответам, как раньше.
+   */
+  poolQuestionIds?: readonly string[];
 }
 
 /** Психометрика ОДНОГО задания. */
@@ -106,6 +112,12 @@ export interface ItemPsychometrics {
   flags: ItemFlags;
   /** Заявленная автором трудность рядом с наблюдаемой (FR-18). */
   declaredDifficulty: number | null;
+  /**
+   * Вопрос пула выдачи, которого в выборке нет ни у одного участника: «Вопрос ещё не
+   * выдавался». Все числа у такой строки пустые, и в надёжность, ошибку измерения и счёт
+   * «под подозрением» она не входит. Отсутствует у строк, построенных по ответам.
+   */
+  neverDelivered?: true;
 }
 
 /** Признаки задания — симптомы, названные числами, а не приговор (FR-50). */
@@ -290,6 +302,38 @@ export function firstAttemptOnly(responses: readonly ResponseFact[]): ResponseFa
 }
 
 /**
+ * Строка вопроса пула, которого выборка не видела: «Вопрос ещё не выдавался».
+ *
+ * Все величины пустые, доверие — «недостаточно», признаков нет: судить не на чем, и это не
+ * «здоров». `missingShare` — ноль, а не единица: доля невыданных наблюдений меряет смещение
+ * трудности, а трудности здесь нет вовсе.
+ */
+function neverDeliveredItem(questionId: string, question: QuestionInfo | undefined): ItemPsychometrics {
+  return {
+    questionId,
+    observations: 0,
+    missingShare: 0,
+    difficulty: null,
+    correctedDifficulty: null,
+    itemRest: null,
+    discrimination: null,
+    timing: null,
+    timingFlags: { rushed: false, slow: false },
+    difficultyConfidence: "insufficient",
+    coefficientConfidence: "insufficient",
+    declaredDifficulty: question?.difficulty ?? null,
+    flags: {
+      tooHard: false,
+      tooEasy: false,
+      negativeDiscrimination: false,
+      atChanceLevel: false,
+      weakDiscrimination: false,
+    },
+    neverDelivered: true,
+  };
+}
+
+/**
  * Посчитать психометрику по наблюдениям.
  *
  * @param responses наблюдения за ответами — уже отобранные фильтром экрана
@@ -413,6 +457,16 @@ export function computePsychometrics(
     });
   }
 
+  // Вопросы пула, которых в выборке нет вовсе (решение владельца 2026-09-26). Строки строятся
+  // ПОСЛЕ расчёта и мимо него: наблюдений у них нет, и ни одна величина теста от них не зависит.
+  const neverDelivered: ItemPsychometrics[] = [];
+  const seenPool = new Set<string>();
+  for (const questionId of ctx.poolQuestionIds ?? []) {
+    if (byItem.has(questionId) || seenPool.has(questionId)) continue;
+    seenPool.add(questionId);
+    neverDelivered.push(neverDeliveredItem(questionId, ctx.questionById.get(questionId)));
+  }
+
   const values: ItemValue[] = graded
     .filter(r => r.ratio !== null)
     .map(r => ({ respondentId: r.respondentId, itemId: r.itemId, value: r.ratio! }));
@@ -449,7 +503,11 @@ export function computePsychometrics(
   }
 
   return {
-    items: items.sort((a, b) => a.questionId.localeCompare(b.questionId)),
+    // Невыданные — в конце: порядок показа решает экран, но выгрузка и срезы читают этот.
+    items: [
+      ...items.sort((a, b) => a.questionId.localeCompare(b.questionId)),
+      ...neverDelivered.sort((a, b) => a.questionId.localeCompare(b.questionId)),
+    ],
     reliability,
     coreReliability: core,
     sem,
@@ -591,7 +649,8 @@ export function computeItemBreakdown(
   if (psychoHash !== undefined) {
     responses = responses.filter(r => r.questionId !== questionId || r.psychoHash === psychoHash);
   }
-  const all = computePsychometrics(responses, ctx);
+  // Пул здесь не нужен: разбор строится по наблюдениям, и у невыданного вопроса разбирать нечего.
+  const all = computePsychometrics(responses, { ...ctx, poolQuestionIds: undefined });
   const item = all.items.find(row => row.questionId === questionId);
   if (!item) return null;
 

@@ -41,6 +41,7 @@ import {
 import { computeScalePsychometrics } from "../../services/analytics/scale-psychometrics";
 import { toMeasurementSpecs } from "../../services/scale-domain";
 import { loadTestScoringContext } from "../../services/effective-scoring";
+import { loadDeliveryPool } from "../../services/delivery-pool";
 import { addAoaSheet, workbookToBuffer } from "../../utils/excel";
 import { hasOwnExternalIdFormat } from "../../utils/crypto";
 import type { ObservationFilter, ObservationSource } from "../../services/analytics/observations";
@@ -304,6 +305,9 @@ router.get(
           cutRatio: cutRatioOf(test.overallPassRuleJson),
           // FR-20: при неоднородной выдаче надёжность — оценка по связям заданий.
           unevenDelivery: deliveryIsUneven(test.mode, sections),
+          // Решение владельца 2026-09-26: вопросы теста — пул выдачи, а не «на что отвечали».
+          // Определение пула — то же, что у профиля экспозиции и проверки публикации.
+          poolQuestionIds: (await loadDeliveryPool(testId)).questionIds,
         };
         const psychometrics = computePsychometrics(responses, ctx);
         const importShare = psychometrics.sample.responses === 0
@@ -332,8 +336,10 @@ router.get(
           // FR-52: тест, где ВСЕ задания измерительные. Трудности и дискриминации там нет по
           // построению, и таблица с восемью строками «мало данных · 0 из 30» читается как
           // поломка — вскрыто приёмкой на синтетических данных.
-          measurementOnly: psychometrics.items.length > 0
-            && psychometrics.items.every(item => item.observations === 0),
+          // Невыданные вопросы пула здесь не в счёт: ноль наблюдений у них — от того, что их не
+          // выдавали, а не от того, что они измерительные.
+          measurementOnly: psychometrics.items.some(item => !item.neverDelivered)
+            && psychometrics.items.every(item => item.neverDelivered || item.observations === 0),
           // FR-39, FR-40: два повода к одному баннеру — неоднородная выдача и заметная доля
           // импорта, где исход бинарный, а редакция неизвестна.
           bias: {

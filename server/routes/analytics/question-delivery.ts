@@ -18,6 +18,7 @@ import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { storage } from "../../storage";
 import { assessTestPublish } from "../../services/draw-feasibility";
+import { resetPsychometricsCache } from "./psychometrics";
 
 const router = Router();
 
@@ -120,10 +121,14 @@ router.put(
           });
         }
         await storage.setQuestionDelivery(testId, questionId, true);
+        // Пул выдачи изменился — «Качество вопросов» строит по нему строки «ещё не выдавался»
+        // (план сверки 6.1), и кэш расчёта показывал бы прежний состав до минуты.
+        resetPsychometricsCache(testId);
         return res.json({ excluded: true });
       }
 
       await storage.setQuestionDelivery(testId, questionId, false);
+      resetPsychometricsCache(testId);
       res.json({ excluded: false });
     } catch (error) {
       logger.error("Question delivery error: " + (error as Error).message);

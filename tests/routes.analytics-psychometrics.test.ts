@@ -32,6 +32,7 @@ const { storageMock } = vi.hoisted(() => ({
     selectGroupsOfUsers: vi.fn().mockResolvedValue(new Map()),
     getSnapshot: vi.fn().mockResolvedValue(undefined),
     getScormPackages: vi.fn().mockResolvedValue([]),
+    getAdaptiveLevelsByTest: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -285,8 +286,98 @@ describe("GET /analytics/psychometrics/:testId", () => {
     const res = await ask();
 
     expect(res.status).toBe(200);
-    expect(res.body.items).toEqual([]);
+    // Вопрос пула остаётся строкой «ещё не выдавался» (решение владельца 2026-09-26) — но
+    // числа теста от него не зависят: надёжности по-прежнему нет.
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({ questionId: "q1", neverDelivered: true, observations: 0 });
     expect(res.body.reliability).toBe("too-few-items");
+    expect(res.body.measurementOnly).toBe(false);
+  });
+
+  describe("вопросы пула, которых выборка не видела (решение владельца 2026-09-26)", () => {
+    const Q = (id: string, over: Record<string, unknown> = {}) => ({
+      ...TOPIC_QUESTIONS[0], id, prompt: `Вопрос ${id}`, ...over,
+    });
+
+    it("невыданный вопрос пула идёт строкой в конце, с пустыми числами и подписью", async () => {
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1"), Q("q2")]);
+      storageMock.getQuestionsByIds.mockImplementation(async (ids: string[]) =>
+        [Q("q1"), Q("q2")].filter(q => ids.includes(q.id)));
+
+      const res = await ask();
+
+      expect(res.body.items.map((i: { questionId: string }) => i.questionId)).toEqual(["q1", "q2"]);
+      expect(res.body.items[0].neverDelivered).toBeUndefined();
+      expect(res.body.items[1]).toMatchObject({
+        questionId: "q2",
+        prompt: "Вопрос q2",
+        topicName: "Тема",
+        neverDelivered: true,
+        observations: 0,
+        difficulty: null,
+        itemRest: null,
+        discrimination: null,
+        difficultyConfidence: "insufficient",
+        coefficientConfidence: "insufficient",
+        flags: { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false, weakDiscrimination: false },
+      });
+    });
+
+    it("исключённый из выдачи вопрос в пул не входит", async () => {
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1"), Q("q2")]);
+      storageMock.getTestQuestionScoring.mockResolvedValue([
+        { testId: "test1", questionId: "q2", excludedFromDelivery: true },
+      ]);
+
+      const res = await ask();
+
+      expect(res.body.items.map((i: { questionId: string }) => i.questionId)).toEqual(["q1"]);
+    });
+
+    it("у раздела с вариантами пул — вопросы вариантов", async () => {
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1"), Q("q2"), Q("q3")]);
+      storageMock.getTestSections.mockResolvedValue([{
+        id: "s1", testId: "test1", topicId: "t1",
+        formSetJson: { forms: [{ id: "f1", label: "Форма 1", questionIds: ["q1", "q3"] }] },
+      }]);
+
+      const res = await ask();
+
+      expect(res.body.items.map((i: { questionId: string }) => i.questionId)).toEqual(["q1", "q3"]);
+    });
+
+    it("у адаптивного теста пул — вопросы, чья трудность попадает в полосу уровня", async () => {
+      storageMock.getTest.mockResolvedValue({ ...TEST, mode: "adaptive" });
+      storageMock.getQuestionsByTopic.mockResolvedValue([
+        Q("q1", { difficulty: 40 }), Q("q2", { difficulty: 90 }), Q("q3", { difficulty: 20 }),
+        Q("q4", { difficulty: null }),
+      ]);
+      storageMock.getAdaptiveLevelsByTest.mockResolvedValue([
+        { id: "l1", testId: "test1", topicId: "t1", levelIndex: 0, minDifficulty: 10, maxDifficulty: 50, questionsCount: 1 },
+      ]);
+      // Действующая трудность теста перебивает базовую (FR-34): q2 опущен в полосу уровня.
+      storageMock.getTestQuestionScoring.mockResolvedValue([
+        { testId: "test1", questionId: "q2", difficulty: 30, excludedFromDelivery: false },
+      ]);
+
+      const res = await ask();
+
+      expect(res.body.items.map((i: { questionId: string }) => i.questionId)).toEqual(["q1", "q2", "q3"]);
+    });
+
+    it("невыданные вопросы не трогают надёжность и не делают тест измерительным", async () => {
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1")]);
+      const before = (await ask()).body;
+      resetPsychometricsCache();
+      storageMock.getQuestionsByTopic.mockResolvedValue([Q("q1"), Q("q2"), Q("q3")]);
+      const after = (await ask()).body;
+
+      expect(after.items).toHaveLength(3);
+      expect(after.reliability).toEqual(before.reliability);
+      expect(after.sem).toEqual(before.sem);
+      expect(after.sample).toEqual(before.sample);
+      expect(after.measurementOnly).toBe(false);
+    });
   });
 
   it("неизвестный тест — 404", async () => {

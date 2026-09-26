@@ -687,3 +687,59 @@ describe("computePsychometrics — надёжность при неодноро�
     expect(result.coreReliability).toBeNull();
   });
 });
+
+describe("вопросы пула без наблюдений (решение владельца 2026-09-26)", () => {
+  const POOL_CTX = {
+    ...CTX,
+    questionById: new Map([...CTX.questionById, ["q5", question("q5", { difficulty: 55 })]]),
+    poolQuestionIds: ["q1", "q2", "q3", "q4", "q5", "q5"],
+  };
+
+  it("вопрос пула, которого нет в выборке, идёт строкой «ещё не выдавался» в конце списка", () => {
+    const result = computePsychometrics(RESPONSES, POOL_CTX);
+
+    expect(result.items.map(item => item.questionId)).toEqual(["q1", "q2", "q3", "q4", "q5"]);
+    expect(result.items.slice(0, 4).every(item => item.neverDelivered === undefined)).toBe(true);
+    expect(result.items[4]).toEqual({
+      questionId: "q5",
+      observations: 0,
+      missingShare: 0,
+      difficulty: null,
+      correctedDifficulty: null,
+      itemRest: null,
+      discrimination: null,
+      timing: null,
+      timingFlags: { rushed: false, slow: false },
+      difficultyConfidence: "insufficient",
+      coefficientConfidence: "insufficient",
+      declaredDifficulty: 55,
+      flags: {
+        tooHard: false, tooEasy: false, negativeDiscrimination: false,
+        atChanceLevel: false, weakDiscrimination: false,
+      },
+      neverDelivered: true,
+    });
+  });
+
+  it("надёжность, ошибка измерения и выборка от невыданных вопросов не зависят", () => {
+    const withoutPool = computePsychometrics(RESPONSES, CTX);
+    const withPool = computePsychometrics(RESPONSES, POOL_CTX);
+
+    expect(withPool.reliability).toEqual(withoutPool.reliability);
+    expect(withPool.sem).toEqual(withoutPool.sem);
+    expect(withPool.semPercent).toEqual(withoutPool.semPercent);
+    expect(withPool.lengthForecast).toEqual(withoutPool.lengthForecast);
+    expect(withPool.sample).toEqual(withoutPool.sample);
+  });
+
+  it("«не выдавался» — по ТЕКУЩЕЙ выборке: отфильтрованный ответ вопрос в невыданные переводит", () => {
+    const result = computePsychometrics(RESPONSES.filter(r => r.questionId !== "q4"), POOL_CTX);
+
+    expect(result.items.filter(item => item.neverDelivered).map(item => item.questionId))
+      .toEqual(["q4", "q5"]);
+  });
+
+  it("разбор вопроса пулом не пользуется: у невыданного разбирать нечего", () => {
+    expect(computeItemBreakdown(RESPONSES, POOL_CTX, "q5", [0])).toBeNull();
+  });
+});

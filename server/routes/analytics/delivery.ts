@@ -18,6 +18,7 @@ import { requirePermission } from "../../middleware/auth";
 import { requireTestScope } from "../../middleware/test-scope";
 import { storage } from "../../storage";
 import { loadObservations } from "../../services/analytics/observations";
+import { loadDeliveryPool } from "../../services/delivery-pool";
 import {
   exposureProfile,
   variantStats,
@@ -111,12 +112,16 @@ router.get(
         windowStart.setMonth(windowStart.getMonth() - config.delivery.exposureWindowMonths);
         attemptsInWindow = observations.filter(o => o.startedAt >= windowStart).length;
 
-        const bank = await storage.getQuestionsByTopic(profileSection.topicId);
-        const excluded = new Set(
-          (await storage.getTestQuestionScoring(testId))
-            .filter(row => row.excludedFromDelivery)
-            .map(row => row.questionId),
-        );
+        // Пул выдачи — ОДНО определение с «Качеством вопросов» и проверкой публикации
+        // (`delivery-pool`): без исключённых, для раздела с вариантами — вопросы вариантов, для
+        // адаптива — вопросы уровней. Банк темы читается целиком: задание, выданное раньше и
+        // выпавшее из пула, свою историю выдач сохраняет строкой профиля.
+        const deliveryPool = await loadDeliveryPool(testId);
+        const sectionPool = deliveryPool.sections.find(p => p.section.id === profileSection.id)
+          ?? deliveryPool.sections.find(p => p.section.topicId === profileSection.topicId);
+        const bank = sectionPool?.bank ?? await storage.getQuestionsByTopic(profileSection.topicId);
+        const inPool = new Set((sectionPool?.pool ?? []).map(question => question.id));
+        const excluded = deliveryPool.excluded;
         // Сбой чтения счётчиков не имеет права уронить экран: без них профиль показывает
         // «не выдавалось ни разу», что честнее выдуманных долей.
         let deliveredCounts = new Map<string, number>();
@@ -141,6 +146,7 @@ router.get(
             type: question.type,
             tags: question.tags ?? [],
             excluded: excluded.has(question.id),
+            inPool: inPool.has(question.id),
           })),
           deliveredCounts,
           attemptsInWindow,

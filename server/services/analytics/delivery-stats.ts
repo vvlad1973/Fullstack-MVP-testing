@@ -195,6 +195,16 @@ export interface BankQuestion {
   tags: string[];
   /** PRD-56 FR-17a: задание исключено из выдачи этого теста. */
   excluded: boolean;
+  /**
+   * Входит ли задание в ПУЛ ВЫДАЧИ теста (`delivery-pool`): доступный банк, для раздела с
+   * вариантами — вопросы вариантов, для адаптива — вопросы уровней. Без поля — «входит, если не
+   * исключено».
+   *
+   * Строка профиля и пул — разные вещи: задание, выданное раньше и с тех пор исключённое или
+   * выпавшее из вариантов, свою историю выдач сохраняет и строкой остаётся, но ни в размер банка,
+   * ни в «не выдавалось ни разу» уже не входит — выдать его тест больше не может.
+   */
+  inPool?: boolean;
 }
 
 export interface ExposureRow {
@@ -228,7 +238,7 @@ export interface ExposureProfileResult {
   drawCount: number | null;
   attemptsInWindow: number;
   rows: ExposureRow[];
-  /** Сколько заданий банка не выдавалось НИ РАЗУ — хвост, свёрнутый в одно число. */
+  /** Сколько заданий ПУЛА не выдавалось НИ РАЗУ — хвост, свёрнутый в одно число. */
   neverDelivered: number;
 }
 
@@ -242,11 +252,15 @@ export interface ExposureProfileResult {
 export function exposureProfile(input: ExposureProfileInput): ExposureProfileResult {
   const rows: ExposureRow[] = [];
   let neverDelivered = 0;
+  let bankSize = 0;
 
   for (const question of input.bank) {
+    const inPool = question.inPool ?? !question.excluded;
+    if (inPool) bankSize += 1;
     const deliveredCount = input.deliveredCounts.get(question.id) ?? 0;
     if (deliveredCount === 0) {
-      neverDelivered += 1;
+      // Невыданное задание вне пула — не простой банка: выдать его тест и не может.
+      if (inPool) neverDelivered += 1;
       continue;
     }
     rows.push({
@@ -268,7 +282,9 @@ export function exposureProfile(input: ExposureProfileInput): ExposureProfileRes
   return {
     topicId: input.topicId,
     topicName: input.topicName,
-    bankSize: input.bank.length,
+    // Размер банка — размер ПУЛА выдачи (решение владельца 2026-09-26): исключённое задание
+    // банк не пополняет, хотя строкой с историей выдач и остаётся.
+    bankSize,
     drawCount: input.drawCount,
     attemptsInWindow: input.attemptsInWindow,
     rows,

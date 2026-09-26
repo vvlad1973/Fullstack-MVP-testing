@@ -977,3 +977,95 @@ describe("ItemQualityPanel — меню строки", () => {
     expect(screen.queryByRole("button", { name: /Действия с вопросом/ })).toBeNull();
   });
 });
+
+/**
+ * Вопросы пула, которых выборка не видела (решение владельца 2026-09-26; эскиз prd66-item-quality,
+ * состояние quality-thin: «Вопрос ещё не выдавался»).
+ */
+describe("ItemQualityPanel — вопрос ещё не выдавался", () => {
+  const NEVER = {
+    observations: 0, difficulty: null, correctedDifficulty: null, itemRest: null, discrimination: null,
+    difficultyConfidence: "insufficient" as const, coefficientConfidence: "insufficient" as const,
+    neverDelivered: true,
+  };
+  const HARD = { tooHard: true, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false };
+  const items = [
+    row({ questionId: "z", prompt: "Вопрос Я", ...NEVER }),
+    row({ questionId: "a", prompt: "Вопрос А", difficulty: 0.9, observations: 300 }),
+    row({ questionId: "b", prompt: "Вопрос Б", difficulty: 0.1, observations: 120, flags: HARD }),
+    row({ questionId: "d", prompt: "Вопрос Г", difficulty: null, observations: 5, itemRest: null, coefficientConfidence: "insufficient" }),
+  ];
+  const order = () => screen.getAllByText(/^Вопрос [А-Я]$/).map((el) => el.textContent);
+  const clickHeader = async (title: string) => {
+    const header = screen.getAllByText(title).find((el) => el.closest(".ou-grid__th")) as HTMLElement;
+    await userEvent.click(header);
+  };
+  const rowOf = (prompt: string) => screen.getByText(prompt).closest("tr") as HTMLElement;
+
+  it("строка говорит «Вопрос ещё не выдавался», числа — «нет наблюдений», n = 0", () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+    const tr = rowOf("Вопрос Я");
+
+    expect(within(tr).getByText("Вопрос ещё не выдавался")).toBeTruthy();
+    expect(within(tr).getAllByText("нет наблюдений")).toHaveLength(2);
+    expect(within(tr).getByText("0")).toBeTruthy();
+    expect(within(tr).queryByText("Мало данных")).toBeNull();
+  });
+
+  it("стоит в конце при любой колонке и направлении сортировки", async () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+    expect(order().at(-1)).toBe("Вопрос Я");
+
+    for (const column of ["Вопрос", "Что не так", "Трудность", "Дискриминативность", "n"]) {
+      await clickHeader(column);
+      expect(order().at(-1), `${column}, первое нажатие`).toBe("Вопрос Я");
+      await clickHeader(column);
+      expect(order().at(-1), `${column}, второе нажатие`).toBe("Вопрос Я");
+    }
+  });
+
+  it("считается в «Мало данных» и «Все», но не в «Под подозрением»", async () => {
+    render(<ItemQualityPanel view={view({ items })} />);
+
+    expect(screen.getByRole("button", { name: /Мало данных/ }).textContent).toContain("2");
+    expect(screen.getByRole("button", { name: /Под подозрением/ }).textContent).toContain("1");
+    // Подзаголовок и плитка считают пул целиком — вместе с невыданными (эскиз: «42 вопроса»).
+    expect(screen.getByText(/^4 вопроса · отсортированы по силе подозрения$/)).toBeTruthy();
+    expect(screen.getByText("из 4 вопросов")).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: /Мало данных/ }));
+    expect(order()).toEqual(["Вопрос Г", "Вопрос Я"]);
+
+    await userEvent.click(screen.getByRole("button", { name: /Под подозрением/ }));
+    expect(order()).toEqual(["Вопрос Б"]);
+  });
+
+  it("в состоянии «данных мало» колонка «Состояние» говорит то же", () => {
+    render(<ItemQualityPanel view={view({
+      sample: { respondents: 18, responses: 180, bySource: { web: 18 }, unknownVersionShare: 0 },
+      reliability: "too-few-respondents",
+      items: [
+        row({ questionId: "q1", prompt: "Вопрос 1", observations: 11, coefficientConfidence: "insufficient" }),
+        row({ questionId: "q2", prompt: "Вопрос 2", ...NEVER }),
+      ],
+    })} />);
+
+    expect(screen.getByText("Нужно ещё 19 наблюдений")).toBeTruthy();
+    expect(within(rowOf("Вопрос 2")).getByText("Вопрос ещё не выдавался")).toBeTruthy();
+    expect(screen.queryByText("Нужно ещё 30 наблюдений")).toBeNull();
+  });
+
+  it("меню: «Открыть вопрос в теме» и исключение есть, «Разбор вопроса» — нет", async () => {
+    render(<ItemQualityPanel
+      view={view({ items: [row({ questionId: "z", prompt: "Вопрос Я", ...NEVER })] })}
+      testId="t1"
+      onOpenItem={vi.fn()}
+      onDeliveryChange={vi.fn()}
+    />);
+    await userEvent.click(screen.getByRole("button", { name: "Действия с вопросом: Вопрос Я" }));
+
+    expect(screen.getAllByRole("menuitem").map(item => item.textContent)).toEqual([
+      "Открыть вопрос в теме", "Исключить из выдачи…",
+    ]);
+  });
+});

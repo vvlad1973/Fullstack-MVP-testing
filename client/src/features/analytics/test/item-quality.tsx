@@ -69,6 +69,12 @@ export interface ItemQualityRow {
   coefficientConfidence: Confidence;
   flags: ItemQualityFlags;
   timingFlags: { rushed: boolean; slow: boolean };
+  /**
+   * Вопрос пула выдачи, которого в выборке нет ни у одного участника (решение владельца
+   * 2026-09-26): строка «Вопрос ещё не выдавался». Всегда в конце таблицы, считается в «Мало
+   * данных», но не в «Под подозрением»; разбирать в нём нечего.
+   */
+  neverDelivered?: boolean;
   /** Подписи приходят с сервера: текст задания и тема живут там же, где задание. */
   prompt?: string;
   topicName?: string;
@@ -369,6 +375,8 @@ function discriminationDetail(row: ItemQualityRow): string {
  * разошлись бы на первом же новом признаке.
  */
 function suspicious(row: ItemQualityRow, heuristic?: ReviewHeuristic): boolean {
+  // Невыданный вопрос не подозрителен и не здоров: судить о нём не по чему.
+  if (row.neverDelivered) return false;
   const flag = flagOf(row, heuristic);
   return flag !== null && flag.tone !== "info";
 }
@@ -383,6 +391,14 @@ function suspicious(row: ItemQualityRow, heuristic?: ReviewHeuristic): boolean {
  */
 /** Ранг задания «мало данных» без эвристики: последние в любом порядке (FR-48a). */
 const THIN_RANK = 90;
+
+/**
+ * Попадает ли вопрос в «Мало данных»: коэффициенты не считаются — либо наблюдений мало, либо
+ * их нет вовсе, потому что вопрос ещё не выдавался.
+ */
+function isThin(row: ItemQualityRow): boolean {
+  return row.neverDelivered === true || row.coefficientConfidence === "insufficient";
+}
 
 function suspicionRank(row: ItemQualityRow, heuristic?: ReviewHeuristic): number {
   const hasHeuristic = heuristicFlag(heuristic) !== null;
@@ -463,6 +479,14 @@ function compareRows(
   dir: SortDir,
   heuristics: Record<string, ReviewHeuristic>,
 ): number {
+  // Невыданные вопросы — в самом конце при ЛЮБОЙ колонке и направлении (решение владельца
+  // 2026-09-26): у них нет ни одного числа, и сравнивать их с остальными не по чему.
+  const neverA = a.neverDelivered === true;
+  const neverB = b.neverDelivered === true;
+  if (neverA !== neverB) return neverA ? 1 : -1;
+  if (neverA && neverB) {
+    return (a.prompt ?? a.questionId).localeCompare(b.prompt ?? b.questionId, "ru");
+  }
   const sign = dir === "asc" ? 1 : -1;
   if (column === "flag") {
     const rankA = suspicionRank(a, heuristics[a.questionId]);
@@ -500,14 +524,14 @@ export function ItemQualityPanel({
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const suspiciousCount = view.items.filter(r => suspicious(r, heuristics[r.questionId])).length;
-  const thinCount = view.items.filter(r => r.coefficientConfidence === "insufficient").length;
+  const thinCount = view.items.filter(isThin).length;
   const reliableCount = view.items.filter(r => r.coefficientConfidence === "reliable").length;
 
   const rows = view.items
     .filter(row =>
       tab === "all" ? true
         : tab === "suspicious" ? suspicious(row, heuristics[row.questionId])
-          : row.coefficientConfidence === "insufficient")
+          : isThin(row))
     .slice()
     .sort((a, b) => compareRows(a, b, sortColumn, sortDir, heuristics));
 
@@ -594,6 +618,10 @@ export function ItemQualityPanel({
         ? <TermHint term="Состояние" hint={HINTS.state} />
         : <TermHint term="Что не так" hint={HINTS.flag} />,
       render: (row: ItemQualityRow) => {
+        // Эскиз prd66-item-quality, состояние quality-thin: вопрос пула без наблюдений.
+        if (row.neverDelivered) {
+          return <Text variant="body-xs" tone="muted">Вопрос ещё не выдавался</Text>;
+        }
         const flag = flagOf(row, heuristics[row.questionId]);
         if (thin && (!flag || flag.tone === "info")) {
           const needed = Math.max(0, COEFFICIENT_MIN - row.observations);
@@ -641,7 +669,7 @@ export function ItemQualityPanel({
       align: "right" as const,
       // Трудность живёт при пороге наблюдений инстанса, а коэффициенты — при 30 и 100
       // (FR-38a). Поэтому у задания с дюжиной наблюдений она есть, а дискриминативности нет.
-      render: (row: ItemQualityRow) => (
+      render: (row: ItemQualityRow) => (row.neverDelivered ? <NoObservations /> : (
         <Stack gap={1}>
           <Text variant="body-s" tone={row.difficultyConfidence === "insufficient" ? "muted" : undefined}>
             {row.difficultyConfidence === "insufficient" ? "мало данных" : num(row.difficulty)}
@@ -655,7 +683,7 @@ export function ItemQualityPanel({
             <Text variant="body-xs" tone="subtle">{missingText(row.missingShare)}</Text>
           ) : null}
         </Stack>
-      ),
+      )),
     },
     {
       key: "itemRest",
@@ -664,11 +692,11 @@ export function ItemQualityPanel({
       header: <TermHint term="Дискриминативность" hint={ITEM_REST_HINT} align="end" />,
       numeric: true,
       align: "right" as const,
-      render: (row: ItemQualityRow) => (
+      render: (row: ItemQualityRow) => (row.neverDelivered ? <NoObservations /> : (
         <Text variant="body-s" tone={row.coefficientConfidence === "insufficient" ? "muted" : undefined}>
           {row.coefficientConfidence === "insufficient" ? "мало данных" : num(row.itemRest)}
         </Text>
-      ),
+      )),
     },
     {
       key: "observations",
@@ -694,7 +722,8 @@ export function ItemQualityPanel({
         return (
           <QuestionRowMenu
             prompt={prompt}
-            onOpenQuality={onOpenItem ? () => onOpenItem(row.questionId) : undefined}
+            // Невыданный вопрос разбирать не по чему: пункта «Разбор вопроса» у него нет.
+            onOpenQuality={onOpenItem && !row.neverDelivered ? () => onOpenItem(row.questionId) : undefined}
             onOpenInTopic={() => navigate(questionInTopicHref(row.questionId))}
             excluded={!!excluded[row.questionId]}
             onExclude={onDeliveryChange
@@ -952,6 +981,11 @@ export function ItemQualityPanel({
       />
     </Stack>
   );
+}
+
+/** Числовая ячейка вопроса, который ещё не выдавался: «нет наблюдений», а не «мало данных». */
+function NoObservations() {
+  return <Text variant="body-s" tone="muted">нет наблюдений</Text>;
 }
 
 /** Одна статья глоссария: термин, что он значит и какие у него ориентиры. */

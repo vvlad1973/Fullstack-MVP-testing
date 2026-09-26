@@ -172,6 +172,32 @@ describe("GET /api/analytics/tests/:testId/delivery", () => {
     expect(res.body.exposure.neverDelivered).toBe(2);
   });
 
+  it("банк профиля — пул выдачи: исключённый вопрос не считается ни банком, ни простоем", async () => {
+    // Решение владельца 2026-09-26: то же определение пула, что у «Качества вопросов» и проверки
+    // публикации. q2 исключён и не выдавался — выдать его тест не может.
+    storageMock.getTestQuestionScoring.mockResolvedValue([
+      { testId: "test1", questionId: "q2", excludedFromDelivery: true },
+    ]);
+
+    const res = await ask();
+
+    expect(res.body.exposure.bankSize).toBe(1);
+    expect(res.body.exposure.neverDelivered).toBe(0);
+  });
+
+  it("у раздела с вариантами банк профиля — вопросы вариантов", async () => {
+    storageMock.getQuestionsByTopic.mockResolvedValue([
+      { id: "q1", prompt: "Первый", type: "single", topicId: "tp-1", tags: [] },
+      { id: "q2", prompt: "Второй", type: "single", topicId: "tp-1", tags: [] },
+      { id: "q3", prompt: "Вне вариантов", type: "single", topicId: "tp-1", tags: [] },
+    ]);
+
+    const res = await ask();
+
+    expect(res.body.exposure.bankSize).toBe(2);
+    expect(res.body.exposure.neverDelivered).toBe(1);
+  });
+
   it("несуществующий тест — 404", async () => {
     storageMock.getTest.mockResolvedValue(undefined);
 
