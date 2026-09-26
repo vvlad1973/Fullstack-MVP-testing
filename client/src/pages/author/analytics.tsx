@@ -1071,6 +1071,10 @@ export default function AnalyticsPage() {
                     groupIds: compareWith.groupIds,
                     sources: compareWith.sources,
                     outcomes: compareWith.outcomes,
+                    // Вариант и версия — такие же условия отбора: без них отбор «Вариант Б»
+                    // сравнивался бы как тест целиком.
+                    formIds: compareWith.formIds,
+                    snapshotIds: compareWith.snapshotIds,
                     ...(compareWith.from ? { from: compareWith.from } : {}),
                     ...(compareWith.to ? { to: compareWith.to } : {}),
                   }

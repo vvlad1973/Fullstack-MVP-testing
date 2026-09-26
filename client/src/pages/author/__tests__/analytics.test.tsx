@@ -297,6 +297,26 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     expect(screen.getByText(/Иван Петров/)).toBeInTheDocument();
   });
 
+  it("«Сравнить со срезом» уносит в сравнение вариант и версию отбора", async () => {
+    window.history.replaceState(null, "", "/author/analytics?testId=test1&formId=form-b&snapshotId=snap-3");
+    try {
+      await renderLoaded();
+      fireEvent.click(await screen.findByRole("button", { name: "Сравнить со срезом" }));
+
+      // Без варианта и версии отбор «Вариант Б» сравнивался бы как тест целиком.
+      await waitFor(() => {
+        const asked = fetchMock.mock.calls
+          .map(call => String(call[0]))
+          .find(url => url.includes("/api/analytics/slices") && url.includes("conditions="));
+        expect(asked).toBeTruthy();
+        const conditions = JSON.parse(new URL(asked!, "http://x").searchParams.get("conditions")!);
+        expect(conditions).toMatchObject({ formIds: ["form-b"], snapshotIds: ["snap-3"] });
+      });
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
   it("ведёт из строки среза в реестр с предзаполненными условиями", async () => {
     await renderLoaded();
     await openSlicesForTest();
