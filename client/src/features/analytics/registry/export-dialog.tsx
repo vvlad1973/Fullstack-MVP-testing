@@ -105,6 +105,8 @@ export function ExportDialog({ open, onClose, filter }: ExportDialogProps) {
           groupIds: filter.groupIds,
           sources: filter.sources,
           outcomes: filter.outcomes,
+          formIds: filter.formIds,
+          snapshotIds: filter.snapshotIds,
           dateFrom: filter.from ?? "",
           dateTo: filter.to ?? "",
           includeSheets: sheets,

@@ -31,6 +31,11 @@ export interface SliceCompareProps {
    * реестр, придумывания имени и лишней строки в списке срезов, нужной на одну минуту.
    */
   adhoc?: Record<string, unknown> | null;
+  /**
+   * Имя временного среза. Срез, отправленный в сравнение из строки списка («Розница»), —
+   * не «Текущий отбор»: безымянная колонка заставила бы гадать, какую строку сюда принесли.
+   */
+  adhocName?: string | null;
 }
 
 /** Сколько условий видно в подписи столбца до свёртки в «ещё N» (FR-07f). */
@@ -141,7 +146,7 @@ function ColumnHead(props: { name: string; conditions: Array<{ id: string; label
   );
 }
 
-export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
+export function SliceCompare({ testId, from, to, adhoc, adhocName }: SliceCompareProps) {
   const [available, setAvailable] = useState<SliceRow[]>([]);
   /** Слоты сравнения: по одному на срез, пустой слот — «не выбран» (эскиз, состояние compare). */
   const [slots, setSlots] = useState<Array<string | null>>([null]);
@@ -158,7 +163,10 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
     if (to) query.set("to", to);
     // Набранный отбор считается сервером тем же кодом, что сохранённый срез: двух расчётов
     // одной величины в продукте быть не должно (FR-25).
-    if (adhoc && Object.keys(adhoc).length > 0) query.set("conditions", JSON.stringify(adhoc));
+    if (adhoc && Object.keys(adhoc).length > 0) {
+      query.set("conditions", JSON.stringify(adhoc));
+      if (adhocName?.trim()) query.set("conditionsName", adhocName.trim());
+    }
 
     void (async () => {
       try {
@@ -174,7 +182,7 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
     })();
 
     return () => { alive = false; };
-  }, [testId, from, to, adhoc, reloads]);
+  }, [testId, from, to, adhoc, adhocName, reloads]);
 
   /**
    * Пришли из реестра с набранным отбором — он и занимает первый слот.

@@ -85,16 +85,52 @@ function dateOf(value: unknown, edge: "start" | "end"): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-/** Условия среза, приведённые к отбору наблюдений. */
+/**
+ * Условия среза, приведённые к отбору наблюдений.
+ *
+ * Все условия, которые умеет реестр: срез по варианту, версии или месяцу, у которого они
+ * выпадали, молча считался как тест целиком — и сравнение показывало две одинаковые колонки.
+ */
 function conditionsOf(raw: unknown): ObservationFilter {
   const source = (raw ?? {}) as Record<string, unknown>;
   const list = (value: unknown): string[] =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const from = dateOf(source.from, "start");
+  const to = dateOf(source.to, "end");
 
   return {
     ...(list(source.groupIds).length ? { groupIds: list(source.groupIds) } : {}),
     ...(list(source.sources).length ? { sources: list(source.sources) as ObservationSource[] } : {}),
     ...(list(source.outcomes).length ? { outcomes: list(source.outcomes) as ObservationOutcome[] } : {}),
+    ...(list(source.formIds).length ? { formIds: list(source.formIds) } : {}),
+    ...(list(source.snapshotIds).length ? { snapshotIds: list(source.snapshotIds) } : {}),
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+  };
+}
+
+/**
+ * Отбор среза внутри рамки расчёта.
+ *
+ * Тест рамки перебивает тест среза (FR-07e). Период же ПЕРЕСЕКАЕТСЯ: срез «июль», открытый в
+ * рамке «с 15 июля», — это вторая половина июля, а не весь июль и не всё с 15-го.
+ */
+function withinFrame(
+  conditions: ObservationFilter,
+  testId: string,
+  from: Date | undefined,
+  to: Date | undefined,
+): ObservationFilter {
+  const later = (a?: Date, b?: Date) => (a && b ? (a > b ? a : b) : a ?? b);
+  const earlier = (a?: Date, b?: Date) => (a && b ? (a < b ? a : b) : a ?? b);
+  const start = later(conditions.from, from);
+  const end = earlier(conditions.to, to);
+  const { from: _from, to: _to, ...rest } = conditions;
+  return {
+    ...rest,
+    testIds: [testId],
+    ...(start ? { from: start } : {}),
+    ...(end ? { to: end } : {}),
   };
 }
 
@@ -112,7 +148,7 @@ function groupIdsOf(raw: unknown): string[] | null {
     : [];
   if (groupIds.length > 0) return groupIds;
 
-  const hasOther = ["sources", "outcomes", "testIds"].some(key =>
+  const hasOther = ["sources", "outcomes", "testIds", "formIds", "snapshotIds"].some(key =>
     Array.isArray(source[key]) && (source[key] as unknown[]).length > 0)
     || typeof source.from === "string"
     || typeof source.to === "string";
@@ -244,8 +280,14 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
       }
     })();
 
+    // Временный срез из строки списка несёт своё имя («Розница»); отбор из реестра имени не
+    // имеет и остаётся «Текущим отбором». Длина ограничена: имя приезжает из адреса.
+    const adhocName = typeof req.query.conditionsName === "string"
+      ? req.query.conditionsName.trim().slice(0, 200)
+      : "";
+
     const sources = [
-      ...(adhoc ? [{ id: "adhoc", name: "Текущий отбор", conditionsJson: adhoc }] : []),
+      ...(adhoc ? [{ id: "adhoc", name: adhocName || "Текущий отбор", conditionsJson: adhoc }] : []),
       ...(withWhole
         ? [{ id: "whole", name: "Тест целиком", conditionsJson: {} as Record<string, unknown> }]
         : []),
@@ -271,12 +313,7 @@ router.get("/slices", requirePermission("analytics.read"), async (req: Request, 
       // Тест рамки перебивает тест среза (FR-07e): он общий для всех сравниваемых срезов и в
       // их собственные условия не входит.
       const { rows } = await loadObservations(
-        {
-          ...conditionsOf(slice.conditionsJson),
-          testIds: [testId],
-          ...(from ? { from } : {}),
-          ...(to ? { to } : {}),
-        },
+        withinFrame(conditionsOf(slice.conditionsJson), testId, from, to),
         scope,
       );
 
@@ -354,7 +391,7 @@ router.get("/slices/topics", requirePermission("analytics.read"), async (req: Re
         : (await storage.getSlices(req.currentUser?.id ?? "")).find(s => s.id === sliceId);
       if (!saved) return res.status(404).json({ error: "Срез не найден" });
       const { rows } = await loadObservations(
-        { ...conditionsOf(saved.conditionsJson), ...frame },
+        withinFrame(conditionsOf(saved.conditionsJson), testId, from, to),
         scope,
       );
       observations = rows;

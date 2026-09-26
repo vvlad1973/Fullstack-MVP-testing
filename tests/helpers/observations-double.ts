@@ -50,11 +50,16 @@ export function observationsDouble(storage: Sources) {
 
     const matchesOutcome = (row: Record<string, unknown>, source: string) =>
       !query.outcomes?.length || query.outcomes.includes(outcomeOf(row, source) as never);
+    // Версия публикации — колонка строки; вариант выдачи двойник не разбирает (он живёт в
+    // `variant_json` посекционно и проверяется на настоящей выборке).
+    const matchesSnapshot = (row: Record<string, unknown>) =>
+      !query.snapshotIds?.length || query.snapshotIds.includes(row.snapshotId as string);
 
     const web = wantsWeb
       ? (await rowsOf(storage.getAllAttempts)).filter(
           row => (!query.testIds || query.testIds.includes(row.testId as string))
-            && matchesOutcome(row, "web"),
+            && matchesOutcome(row, "web")
+            && matchesSnapshot(row),
         )
       : [];
     // PRD-54: у части старых строк телеметрии своего `test_id` нет — тест известен через
@@ -65,7 +70,8 @@ export function observationsDouble(storage: Sources) {
       ? (await rowsOf(storage.getAllScormAttempts)).filter(row => {
           const testId = (row.testId as string) ?? testOfPackage.get(row.packageId as string);
           return (!query.testIds || query.testIds.includes(testId))
-            && matchesOutcome(row, "lms");
+            && matchesOutcome(row, "lms")
+            && matchesSnapshot(row);
         })
       : [];
 

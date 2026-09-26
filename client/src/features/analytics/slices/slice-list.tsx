@@ -85,7 +85,7 @@ export interface SliceListProps {
    * Уйти в аналитику ТЕСТА с условиями этого среза (FR-24, переход «группа → тест»).
    *
    * Реестр отвечает на «кто эти люди», аналитика теста — на «что у них не получилось»: где
-   * провалились темы, какие задания подвели. Без перехода второй вопрос требовал бы заново
+   * провалились темы, какие вопросы подвели. Без перехода второй вопрос требовал бы заново
    * искать тест в списке и там набирать условие, которое уже набрано здесь.
    */
   onOpenTestAnalytics?: (conditions: Record<string, unknown>) => void;
@@ -94,7 +94,7 @@ export interface SliceListProps {
    * слот. Условия едут набранным отбором (FR-07b) — сравнение знает сохранённые срезы и отбор,
    * а срез по оси сохранённым не является.
    */
-  onCompare?: (conditions: Record<string, unknown>) => void;
+  onCompare?: (conditions: Record<string, unknown>, name: string) => void;
 }
 
 /** Есть ли у среза хоть одно условие на языке реестра. */
@@ -473,7 +473,7 @@ export function SliceList({
             name={row.name}
             onOpenRegistry={onOpenRegistry && (() => onOpenRegistry(row.conditions))}
             onOpenTestAnalytics={onOpenTestAnalytics && (() => onOpenTestAnalytics(row.conditions))}
-            onCompare={onCompare && describable ? () => onCompare(row.conditions) : undefined}
+            onCompare={onCompare && describable ? () => onCompare(row.conditions, row.name) : undefined}
             onEdit={saved ? () => setEditing(row) : undefined}
             onSave={!saved && describable
               ? () => { setSaveError(null); setSaveName(row.name); setSaving(row); }

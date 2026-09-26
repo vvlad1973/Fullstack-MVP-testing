@@ -384,7 +384,7 @@ describe("SliceList — меню «⋯» строки среза", () => {
     expect(menuItems()).toEqual(["Выгрузить прохождения"]);
   });
 
-  it("«Сравнить с другим срезом» отдаёт условия этого среза", async () => {
+  it("«Сравнить с другим срезом» отдаёт условия и имя этого среза", async () => {
     const onCompare = vi.fn();
     fetchMock.mockResolvedValue(answer([AXIS_ROW]));
     render(<SliceList testId="t1" axis="group" onCompare={onCompare} />);
@@ -392,7 +392,7 @@ describe("SliceList — меню «⋯» строки среза", () => {
     await openRowMenu("Розница");
     await userEvent.click(screen.getByRole("menuitem", { name: "Сравнить с другим срезом" }));
 
-    expect(onCompare).toHaveBeenCalledWith({ groupIds: ["g1"] });
+    expect(onCompare).toHaveBeenCalledWith({ groupIds: ["g1"] }, "Розница");
   });
 
   it("«Сохранить как срез» сохраняет условия строки с тестом рамки и именем строки", async () => {

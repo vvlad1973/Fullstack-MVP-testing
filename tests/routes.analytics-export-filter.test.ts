@@ -138,6 +138,30 @@ describe("POST /api/export/excel — состав строк задаёт фил
     expect(rows[0][2]).toBe("Участник 7f3a9c");
   });
 
+  it("версия публикации сужает и лист прохождений, и листы по веб-попыткам", async () => {
+    storageMock.getAllAttempts.mockResolvedValue([
+      {
+        id: "web-1", testId: "test1", userId: "u1", snapshotId: "snap-3",
+        startedAt: new Date("2026-09-11T14:00:00Z"), finishedAt: new Date("2026-09-11T14:20:00Z"),
+        variantJson: {}, answersJson: {},
+        resultJson: { overallPercent: 78, overallPassed: true, totalPossiblePoints: 20, totalEarnedPoints: 16 },
+      },
+      {
+        id: "web-2", testId: "test1", userId: "u2", snapshotId: "snap-2",
+        startedAt: new Date("2026-09-12T14:00:00Z"), finishedAt: new Date("2026-09-12T14:20:00Z"),
+        variantJson: {}, answersJson: {},
+        resultJson: { overallPercent: 40, overallPassed: false, totalPossiblePoints: 20, totalEarnedPoints: 8 },
+      },
+    ]);
+
+    const res = await exportWith({ testIds: ["test1"], snapshotIds: ["snap-3"] });
+
+    const attemptsRows = await sheetRows(res.body, "Попытки");
+    expect(attemptsRows.map(r => r[1])).toEqual(["web-1"]);
+    const summary = await sheetRows(res.body, "Сводка");
+    expect(summary).toContainEqual(["Попыток (завершённых)", 1]);
+  });
+
   it("подписывает источник каждой строки: импорт и веб читаются по-разному", async () => {
     const res = await exportWith({ testIds: ["test1"] });
 

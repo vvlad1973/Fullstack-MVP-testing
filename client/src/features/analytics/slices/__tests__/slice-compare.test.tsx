@@ -237,6 +237,50 @@ describe("SliceCompare", () => {
     expect((await screen.findAllByText("Текущий отбор")).length).toBeGreaterThan(1);
   });
 
+  // Срез, отправленный в сравнение из строки списка, приходит со своим именем: колонка
+  // «Текущий отбор» заставила бы гадать, какую строку сюда принесли.
+  it("передаёт имя временного среза, чтобы колонка звалась по нему", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ slices: SLICES, minObservations: 10 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SliceCompare testId="test1" adhoc={{ groupIds: ["g1"] }} adhocName="Розница" />);
+
+    await waitFor(() => expect(
+      fetchMock.mock.calls.some(call => String(call[0]).includes("conditionsName=%D0%A0%D0%BE%D0%B7%D0%BD%D0%B8%D1%86%D0%B0")),
+    ).toBe(true));
+  });
+
+  // Окно правки условий тест не показывает, и срез без теста перестал бы быть выборкой
+  // одного теста: тест обязан пережить правку, как и вариант с версией.
+  it("правка условий в слоте сохраняет тест среза", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        slices: [
+          SLICES[0],
+          { ...SLICES[1], conditions: { testIds: ["test1"], groupIds: ["g1"] } },
+        ],
+        minObservations: 10,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SliceCompare testId="test1" />);
+    await pick("Розница");
+    await userEvent.click(screen.getByRole("button", { name: "Изменить условия" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Применить" }));
+
+    await waitFor(() => {
+      const put = fetchMock.mock.calls.find(call => (call[1] as RequestInit | undefined)?.method === "PUT");
+      expect(put).toBeTruthy();
+      const body = JSON.parse(String((put![1] as RequestInit).body));
+      expect(body.conditions).toMatchObject({ testIds: ["test1"], groupIds: ["g1"] });
+    });
+  });
+
   // Править условия можно у СОХРАНЁННОГО среза: «тест целиком» условий не имеет, а набранный
   // отбор правится там, где набран, — в фильтре реестра.
   it("предлагает правку условий только сохранённому срезу", async () => {

@@ -173,15 +173,21 @@ export function SliceSlots<T extends SlotSlice>({
           const target = editing;
           setEditing(null);
           if (!target) return;
+          // Тест среза сохраняется как был: окно правит условия ВНУТРИ теста и сам тест не
+          // показывает, а срез без теста перестал бы быть выборкой одного теста.
+          const testIds = conditionsToFilter(target.conditions).testIds;
           await fetch(`/api/analytics/slices/${target.id}`, {
             method: "PUT",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               conditions: {
+                ...(testIds.length > 0 ? { testIds } : {}),
                 groupIds: next.groupIds,
                 sources: next.sources,
                 outcomes: next.outcomes,
+                formIds: next.formIds,
+                snapshotIds: next.snapshotIds,
                 ...(next.from ? { from: next.from } : {}),
                 ...(next.to ? { to: next.to } : {}),
               },

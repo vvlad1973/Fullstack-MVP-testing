@@ -554,12 +554,20 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
     // и книга обязана понимать их так же, как экран.
     const sources = Array.isArray(config?.sources) ? config.sources : [];
     const outcomes = Array.isArray(config?.outcomes) ? config.outcomes : [];
+    // Вариант выдачи и версия публикации — тоже условия реестра: срез «Вариант Б», выгруженный
+    // без них, отдавал в книгу весь тест.
+    const stringsOf = (value: unknown): string[] =>
+      Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+    const formIds = stringsOf(config?.formIds);
+    const snapshotIds = stringsOf(config?.snapshotIds);
     const observed = (await loadObservations(
       {
         testIds: [...selectedTestIds],
         ...(groupIds.length ? { groupIds } : {}),
         ...(sources.length ? { sources } : {}),
         ...(outcomes.length ? { outcomes } : {}),
+        ...(formIds.length ? { formIds } : {}),
+        ...(snapshotIds.length ? { snapshotIds } : {}),
         ...(from ? { from } : {}),
         ...(to ? { to } : {}),
       },
@@ -568,6 +576,14 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
 
     // Only completed
     let completed = attempts.filter(a => a.resultJson !== null);
+
+    // Листы по веб-попыткам сужаются тем же отбором, что лист прохождений: веб-наблюдение и
+    // попытка делят идентификатор, а второе толкование «варианта» в экспорте разошлось бы с
+    // реестром.
+    if (formIds.length || snapshotIds.length) {
+      const matched = new Set(observed.filter(o => o.source === "web").map(o => o.id));
+      completed = completed.filter(a => matched.has(a.id));
+    }
 
     // Best attempt only
     if (bestAttemptOnly) {

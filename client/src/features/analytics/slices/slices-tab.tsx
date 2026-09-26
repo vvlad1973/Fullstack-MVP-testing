@@ -81,7 +81,10 @@ export function SlicesTab({
   const [axis, setAxis] = useState("group");
   const [mode, setMode] = useState<"list" | "compare">(adhoc ? "compare" : "list");
   /** Срез из строки списка, отправленный в сравнение пунктом «Сравнить с другим срезом». */
-  const [compareSlice, setCompareSlice] = useState<Record<string, unknown> | null>(null);
+  const [compareSlice, setCompareSlice] = useState<{
+    conditions: Record<string, unknown>;
+    name: string;
+  } | null>(null);
 
   const fromIso = isoOf(from);
   const toIso = isoOf(to);
@@ -147,14 +150,20 @@ export function SlicesTab({
               )}
 
               {mode === "compare" ? (
-                <SliceCompare testId={testId} from={fromIso} to={toIso} adhoc={compareSlice ?? adhoc} />
+                <SliceCompare
+                  testId={testId}
+                  from={fromIso}
+                  to={toIso}
+                  adhoc={compareSlice?.conditions ?? adhoc}
+                  adhocName={compareSlice?.name}
+                />
               ) : (
                 <SliceList
                   testId={testId}
                   axis={axis}
                   from={fromIso}
                   to={toIso}
-                  onCompare={conditions => { setCompareSlice(conditions); setMode("compare"); }}
+                  onCompare={(conditions, name) => { setCompareSlice({ conditions, name }); setMode("compare"); }}
                   onOpenRegistry={onOpenRegistry && (conditions => onOpenRegistry({
                     // Рамка расчёта — часть выборки, но не часть условий среза (FR-07e):
                     // добавляется здесь, иначе реестр показал бы прохождения всех тестов.

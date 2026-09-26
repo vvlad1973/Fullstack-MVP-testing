@@ -74,6 +74,25 @@ describe("ExportDialog — только лучшая попытка", () => {
     await waitFor(() => expect(exportBody()).toMatchObject({ bestAttemptOnly: true, bestAttemptCriteria: "percent" }));
   });
 
+  it("вариант и версия отбора уходят в выгрузку, а не теряются", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, queryFn: getQueryFn({ on401: "throw" }) } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ExportDialog
+          open
+          onClose={() => {}}
+          filter={{ ...EMPTY_FILTER, testIds: ["t1"], formIds: ["form-b"], snapshotIds: ["snap-3"] }}
+        />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByText(/12 прохождений/)).toBeTruthy());
+    await userEvent.click(screen.getByRole("button", { name: "Скачать книгу" }));
+
+    await waitFor(() => expect(exportBody()).toMatchObject({
+      formIds: ["form-b"], snapshotIds: ["snap-3"],
+    }));
+  });
+
   it("без галочки правило не передаётся включённым", async () => {
     renderDialog();
     await waitFor(() => expect(screen.getByText(/12 прохождений/)).toBeTruthy());

@@ -173,6 +173,50 @@ describe("GET /api/analytics/slices", () => {
   });
 });
 
+describe("GET /api/analytics/slices — условия среза целиком", () => {
+  it("вариант и версия среза доходят до выборки, а не теряются", async () => {
+    storageMock.getSlices.mockResolvedValue([{
+      id: "s2", name: "Вариант Б, версия 3", testId: "test1",
+      conditionsJson: { formIds: ["form-b"], snapshotIds: ["snap-3"] }, createdBy: "u-owner",
+    }]);
+
+    await ask("?testId=test1");
+
+    expect(storageMock.selectObservations).toHaveBeenCalledWith(
+      expect.objectContaining({ formIds: ["form-b"], snapshotIds: ["snap-3"] }),
+    );
+  });
+
+  it("период среза пересекается с периодом рамки", async () => {
+    storageMock.getSlices.mockResolvedValue([{
+      id: "s3", name: "Июль", testId: "test1",
+      conditionsJson: { from: "2026-07-01", to: "2026-07-31" }, createdBy: "u-owner",
+    }]);
+
+    await ask("?testId=test1&from=2026-07-15");
+
+    const calls = storageMock.selectObservations.mock.calls.map(call => call[0]);
+    expect(calls).toContainEqual(expect.objectContaining({
+      from: new Date("2026-07-15T00:00:00.000Z"),
+      to: new Date("2026-07-31T23:59:59.999Z"),
+    }));
+  });
+
+  it("временный срез из строки списка подписан своим именем", async () => {
+    const conditions = encodeURIComponent(JSON.stringify({ groupIds: ["g1"] }));
+    const res = await ask(`?testId=test1&conditions=${conditions}&conditionsName=${encodeURIComponent("Розница")}`);
+
+    expect(res.body.slices[0]).toMatchObject({ id: "adhoc", name: "Розница" });
+  });
+
+  it("отбор без имени остаётся «Текущим отбором»", async () => {
+    const conditions = encodeURIComponent(JSON.stringify({ groupIds: ["g1"] }));
+    const res = await ask(`?testId=test1&conditions=${conditions}`);
+
+    expect(res.body.slices[0]).toMatchObject({ id: "adhoc", name: "Текущий отбор" });
+  });
+});
+
 describe("GET /api/analytics/slices?axis=... — разбиение", () => {
   it("разбивает выборку по оси и считает каждый срез", async () => {
     storageMock.getGroups.mockResolvedValue([
