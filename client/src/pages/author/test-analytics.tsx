@@ -782,6 +782,14 @@ export default function TestAnalyticsPage() {
                     <Text as="h1" variant="heading-l">{analytics.testTitle}</Text>
                     <Text tone="muted">
                         {`${summary.completedAttempts} ${pluralize(summary.completedAttempts, "завершённое прохождение", "завершённых прохождения", "завершённых прохождений")} · ${sourcesLabel(filter.sources)}`}
+                        {/* FR-52, эскиз wf-scales: почему у вкладки качества нет плиток и таблицы
+                            вопросов, говорит подзаголовок, а не отдельная карточка. Признак — тот же,
+                            что у таблицы вопросов (прохождения есть, оценённых нет), а не ответ
+                            вкладки качества: тот грузится только на ней, и шапка менялась бы при
+                            переключении вкладок. */}
+                        {summary.completedAttempts > 0 && summary.gradedAttempts === 0
+                            ? " · измерительный тест, эталона у вопросов нет"
+                            : ""}
                     </Text>
                 </Stack>
                 <Cluster gap={2} justify="end">
@@ -874,6 +882,14 @@ export default function TestAnalyticsPage() {
                                         onBack={() => { setBreakdownId(null); setBreakdownVersion(undefined); }}
                                     />
                                 )
+                                : itemQuality?.measurementOnly
+                                    // FR-52, эскиз wf-scales: у измерительного теста вкладка —
+                                    // только раздел шкал, без плиток и таблицы вопросов.
+                                    ? (scaleQuality
+                                        ? <ScaleQualityPanel scales={scaleQuality.scales} />
+                                        : analytics.hasScales
+                                            ? <LoadingState message="Считаем психометрику..." />
+                                            : <ScaleQualityPanel scales={[]} />)
                                 : itemQuality
                                     ? (
                                         <Stack gap={4}>

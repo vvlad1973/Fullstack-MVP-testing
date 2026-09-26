@@ -359,9 +359,11 @@ describe("ItemQualityPanel", () => {
   it("у теста, где все задания измерительные, вкладка показывает только шкалы (FR-52)", () => {
     // Вскрыто приёмкой: таблица с восемью строками «мало данных · 0 из 30» и плитками с
     // прочерками читается как поломка экрана, хотя всё в порядке — проверять просто нечего.
-    render(<ItemQualityPanel view={view({ measurementOnly: true })} />);
+    const { container } = render(<ItemQualityPanel view={view({ measurementOnly: true })} />);
 
-    expect(screen.getByText("Тест измерительный")).toBeTruthy();
+    // Эскиз wf-scales: над «Шкалами методики» нет ничего — ни плиток, ни поясняющей карточки.
+    expect(container.innerHTML).toBe("");
+    expect(screen.queryByText("Тест измерительный")).toBeNull();
     expect(screen.queryByText("Надёжность (альфа)")).toBeNull();
     expect(screen.queryByText("Вопросы")).toBeNull();
   });

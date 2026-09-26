@@ -48,10 +48,31 @@ export interface ScaleContext {
   itemById: ReadonlyMap<string, ScaleItemInfo>;
 }
 
+/**
+ * Вклад пункта в шкалу одним числом — колонка «Вклад» (эскиз prd66-item-quality, wf-scales).
+ *
+ * `value` — на сколько сдвигается шкала за шаг ответа: у пункта Ликерта — за одну градацию
+ * вверх, у вклада «за ответ» — за сам ответ, у распределения баллов — за один назначенный балл.
+ * Знак и есть то, что автор проверяет: у обратного пункта он должен быть отрицательным.
+ * `exact: false` — вклады градаций неравномерны, и число — наклон по методу наименьших квадратов,
+ * то есть направление пункта, а не точный шаг.
+ */
+export interface ItemContribution {
+  value: number;
+  exact: boolean;
+}
+
 /** Пункт шкалы с его психометрикой. */
 export interface ScaleItemPsychometrics {
   questionId: string;
   prompt: string;
+  /** Тип вопроса — для пиктограммы в строке: сырой тип в интерфейсе недопустим. */
+  questionType: string;
+  /**
+   * Вклад пункта в эту шкалу (см. {@link ItemContribution}); `null` — одним числом он не
+   * выражается: вклад зависит от того, КАКОЙ вариант выбран, а варианты не упорядочены.
+   */
+  contribution: ItemContribution | null;
   observations: number;
   /** Корреляция пункта с остатком СВОЕЙ шкалы; `null` — считать не на чем. */
   itemRest: number | null;
@@ -96,6 +117,79 @@ function gradeOf(type: string, answer: unknown): number | null {
   // Шкала Ликерта (PRD-26) отвечает индексом градации; прочие типы гистограммы не имеют.
   if (type === "scale" && typeof answer === "number") return answer;
   if (type === "single" && typeof answer === "number") return answer;
+  return null;
+}
+
+/** Погрешность сравнения вкладов: они приходят из JSON и бывают дробными. */
+const EPSILON = 1e-9;
+
+/**
+ * Вклад пункта в шкалу одним числом (колонка «Вклад»).
+ *
+ * Источник — ТЕ ЖЕ единицы измерения, по которым считается результат участника и значение
+ * пункта в этой же психометрике: вклад единицы — `value * weight`, как в `unitContribution`
+ * движка шкал. Своего второго представления о «прямом» и «обратном» пункте здесь нет.
+ *
+ * - вклад «за ответ» (`question`) — сумма его единиц;
+ * - пункт Ликерта с вкладом по градациям — наклон вклада по номеру градации; невыбранная
+ *   градация без единицы вносит 0, как и в движке. Равный шаг даёт точное число («+1»),
+ *   неравный — направление (`exact: false`);
+ * - распределение баллов и множественный выбор — общий множитель, если он у всех единиц один;
+ * - одиночный выбор с неупорядоченными вариантами, соответствия, ранжирование и смешанные
+ *   источники — `null`: вклад зависит от выбранного варианта.
+ *
+ * @param measurements единицы измерения теста
+ * @param questionId пункт
+ * @param scaleKey шкала
+ * @param type тип вопроса
+ * @param gradeCount число градаций вопроса (по подписям)
+ */
+export function itemContribution(
+  measurements: readonly MeasurementSpec[],
+  questionId: string,
+  scaleKey: string,
+  type: string,
+  gradeCount: number,
+): ItemContribution | null {
+  const units = measurements.filter(m => m.questionId === questionId && m.scaleKey === scaleKey);
+  if (units.length === 0) return null;
+  const kinds = new Set(units.map(unit => unit.sourceType));
+  if (kinds.size !== 1) return null;
+  const kind = units[0].sourceType;
+  const coefficient = (unit: MeasurementSpec) => unit.value * unit.weight;
+
+  if (kind === "question") {
+    return { value: units.reduce((sum, unit) => sum + coefficient(unit), 0), exact: true };
+  }
+
+  if (kind === "option" && type === "scale") {
+    const indexes = units.map(unit => Number(unit.sourceKey));
+    if (indexes.some(index => !Number.isInteger(index) || index < 0)) return null;
+    const count = Math.max(gradeCount, Math.max(...indexes) + 1);
+    if (count < 2) return null;
+    const perGrade = new Array<number>(count).fill(0);
+    units.forEach((unit, i) => { perGrade[indexes[i]] += coefficient(unit); });
+
+    const meanX = (count - 1) / 2;
+    const meanY = perGrade.reduce((sum, y) => sum + y, 0) / count;
+    let covariance = 0;
+    let variance = 0;
+    perGrade.forEach((y, x) => {
+      covariance += (x - meanX) * (y - meanY);
+      variance += (x - meanX) ** 2;
+    });
+    const slope = covariance / variance;
+    const exact = perGrade.every((y, x) => Math.abs(y - (perGrade[0] + slope * x)) < EPSILON);
+    return { value: slope, exact };
+  }
+
+  if (kind === "option_allocation" || (kind === "option" && type === "multiple")) {
+    const first = coefficient(units[0]);
+    return units.every(unit => Math.abs(coefficient(unit) - first) < EPSILON)
+      ? { value: first, exact: true }
+      : null;
+  }
+
   return null;
 }
 
@@ -172,6 +266,10 @@ export function computeScalePsychometrics(
       return {
         questionId,
         prompt: info?.prompt ?? questionId,
+        questionType: info?.type ?? "",
+        contribution: itemContribution(
+          ctx.measurements, questionId, scaleKey, info?.type ?? "", info?.gradeLabels.length ?? 0,
+        ),
         observations: own.length,
         itemRest,
         distribution,

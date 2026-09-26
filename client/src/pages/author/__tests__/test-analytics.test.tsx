@@ -474,6 +474,66 @@ describe("<TestAnalyticsPage />", () => {
     });
   });
 
+  /** План сверки 5.6, эскиз prd66-item-quality (состояние wf-scales). */
+  describe("измерительный тест на «Качестве вопросов» (PRD-66 FR-52)", () => {
+    beforeEach(() => {
+      // Измерительный тест: прохождения есть, оценённых среди них нет — по этому признаку шапка
+      // говорит «измерительный тест» сразу, ещё до загрузки вкладки качества.
+      state.analyticsBody = {
+        ...standardAnalytics(),
+        hasScales: true,
+        summary: { ...standardAnalytics().summary, gradedAttempts: 0 },
+      };
+      fetchMock.mockImplementation(async (input: string) => {
+        const path = String(input).split("?")[0];
+        const body = path === "/api/analytics/psychometrics/t1/scales" ? {
+          scales: [{
+            scaleKey: "burnout", label: "Деперсонализация",
+            reliability: { alpha: 0.64, items: 5, respondents: 312, totalSd: 4, dichotomous: false },
+            respondents: 312, ipsative: false,
+            items: [{
+              questionId: "s1", prompt: "Мне стало безразлично, что происходит с коллегами",
+              questionType: "scale", contribution: { value: 1, exact: true },
+              observations: 312, itemRest: 0.61, distribution: [0.04, 0.17, 0.41, 0.28, 0.1],
+              gradeLabels: ["совсем не согласен", "скорее не согласен", "затрудняюсь", "скорее согласен", "полностью согласен"],
+              dead: false, againstScale: false, alphaIfMirrored: null,
+            }],
+          }],
+          firstAttemptOnly: true,
+        }
+          : path === "/api/analytics/psychometrics/t1" ? {
+            items: [{
+              questionId: "s1", observations: 0, difficulty: null, correctedDifficulty: null,
+              itemRest: null, discrimination: null, declaredDifficulty: null,
+              difficultyConfidence: "insufficient", coefficientConfidence: "insufficient",
+              flags: { tooHard: false, tooEasy: false, negativeDiscrimination: false, atChanceLevel: false },
+              timingFlags: { rushed: false, slow: false },
+            }],
+            reliability: "too-few-items", sem: null, cutBand: null,
+            sample: { respondents: 312, responses: 312, bySource: { web: 312 }, unknownVersionShare: 0 },
+            firstAttemptOnly: true,
+            measurementOnly: true,
+          }
+            : path === "/api/analytics/tests/t1" ? state.analyticsBody : [];
+        return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+      });
+    });
+
+    it("вкладка — только раздел шкал: ни плиток, ни таблицы вопросов, ни поясняющей карточки", async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole("tab", { name: "Качество вопросов" }));
+
+      expect(await screen.findByText("Шкалы методики")).toBeInTheDocument();
+      expect(screen.getByText("Пункты шкалы «Деперсонализация»")).toBeInTheDocument();
+      expect(screen.getByText("+1")).toBeInTheDocument();
+      expect(screen.queryByText("Тест измерительный")).toBeNull();
+      expect(screen.queryByText(/Надёжность \(/)).toBeNull();
+      expect(screen.queryByRole("link", { name: /Психометрический отчёт/ })).toBeNull();
+      // Почему так — говорит подзаголовок страницы, как в эскизе.
+      expect(screen.getByText(/измерительный тест, эталона у вопросов нет/)).toBeInTheDocument();
+    });
+  });
+
   it("exports to Excel via the header action", async () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("button", { name: /Экспорт Excel/ }));

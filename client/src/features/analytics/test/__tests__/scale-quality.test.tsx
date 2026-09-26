@@ -59,7 +59,7 @@ describe("ScaleQualityPanel", () => {
 
     for (const term of [
       "Пунктов", "Альфа Кронбаха", "n", "Вывод по шкале",
-      "Корреляция с остатком шкалы", "Распределение ответов", "Качество пункта",
+      "Вклад", "Корреляция с остатком шкалы", "Распределение ответов", "Качество пункта",
     ]) {
       const label = screen.getByText(term);
       const tip = label.closest(".ou-tip");
@@ -96,13 +96,78 @@ describe("ScaleQualityPanel", () => {
     expect(screen.getByText(/с вкладом −1 альфа 0,81 → 0,90/)).toBeTruthy();
   });
 
-  it("мёртвый пункт назван и объяснён", () => {
+  it("мёртвый пункт назван и несёт число, которое его вызвало (FR-50)", () => {
     render(<ScaleQualityPanel scales={[scale({
-      items: [item({ questionId: "s2", prompt: "Все отвечают одинаково", dead: true, distribution: [0, 0, 0.95, 0.05, 0] })],
+      items: [item({ questionId: "s2", prompt: "Все отвечают одинаково", dead: true, distribution: [0.01, 0.02, 0.94, 0.02, 0.01] })],
     })]} />);
 
     expect(screen.getByText("Мёртвый пункт")).toBeTruthy();
-    expect(screen.getByText(/почти все ответили одинаково/)).toBeTruthy();
+    // Подпись — дословно из эскиза wf-scales: «94 % в одной градации».
+    expect(screen.getByText("94 % в одной градации")).toBeTruthy();
+    expect(screen.queryByText("Работает")).toBeNull();
+  });
+
+  it("здоровый пункт помечен «Работает», как в эскизе, а не прочерком", () => {
+    render(<ScaleQualityPanel scales={[scale()]} />);
+    expect(screen.getByText("Работает")).toBeTruthy();
+  });
+
+  it("без связи с остатком шкалы «Работает» не утверждается", () => {
+    render(<ScaleQualityPanel scales={[scale({ items: [item({ questionId: "s1", prompt: "Пункт", itemRest: null })] })]} />);
+    expect(screen.queryByText("Работает")).toBeNull();
+  });
+
+  describe("колонка «Вклад»", () => {
+    it("печатает знак и шаг: «+1» и «−1» с типографским минусом", () => {
+      render(<ScaleQualityPanel scales={[scale({
+        items: [
+          item({ questionId: "s1", prompt: "Прямой пункт", contribution: { value: 1, exact: true } }),
+          item({ questionId: "s2", prompt: "Обратный пункт", contribution: { value: -1, exact: true } }),
+        ],
+      })]} />);
+
+      expect(screen.getByText("+1")).toBeTruthy();
+      // U+2212, а не дефис: в колонке чисел дефис читается как прочерк.
+      expect(screen.getByText("−1")).toBeTruthy();
+      expect(screen.queryByText("-1")).toBeNull();
+    });
+
+    it("дробный и неравномерный вклад — с запятой и знаком приближения", () => {
+      render(<ScaleQualityPanel scales={[scale({
+        items: [
+          item({ questionId: "s1", prompt: "Половинный", contribution: { value: 0.5, exact: true } }),
+          item({ questionId: "s2", prompt: "Неравномерный", contribution: { value: -0.8, exact: false } }),
+        ],
+      })]} />);
+
+      expect(screen.getByText("+0,5")).toBeTruthy();
+      expect(screen.getByText("≈−0,8")).toBeTruthy();
+    });
+
+    it("вклад, не выражаемый одним числом, — прочерк, а не выдуманное число", () => {
+      render(<ScaleQualityPanel scales={[scale({
+        items: [item({ questionId: "s1", prompt: "Выбор без порядка", contribution: null })],
+      })]} />);
+
+      const cells = screen.getByText("Выбор без порядка").closest("tr")!.querySelectorAll("td");
+      // Прочерк, а причина — в подсказке ячейки.
+      expect(cells[1].textContent?.startsWith("—")).toBe(true);
+      expect(cells[1].textContent).toContain("одним числом не выражается");
+    });
+
+    it("колонки пунктов идут в порядке эскиза", () => {
+      render(<ScaleQualityPanel scales={[scale()]} />);
+      // Первые пять заголовков — сводка «Шкалы методики», следующие — карточка пунктов шкалы.
+      const headers = screen.getAllByRole("columnheader").slice(5).map(h => h.textContent ?? "");
+      const expected = ["Пункт", "Вклад", "Корреляция с остатком шкалы", "Распределение ответов", "Качество пункта"];
+      expect(headers).toHaveLength(expected.length);
+      expected.forEach((term, i) => expect(headers[i].startsWith(term), term).toBe(true));
+    });
+  });
+
+  it("обе таблицы — в фиксированной раскладке, без горизонтальной прокрутки", () => {
+    render(<ScaleQualityPanel scales={[scale()]} />);
+    expect(document.querySelectorAll(".ou-grid.tb-psy-grid")).toHaveLength(2);
   });
 
   it("ипсативная методика помечается — альфа там занижена по построению", () => {

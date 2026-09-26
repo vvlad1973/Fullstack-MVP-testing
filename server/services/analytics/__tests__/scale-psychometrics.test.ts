@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { computeScalePsychometrics, type ScaleContext } from "../scale-psychometrics";
+import { computeScalePsychometrics, itemContribution, type ScaleContext } from "../scale-psychometrics";
 import type { ResponseFact } from "../response-matrix";
 
 function fact(over: Partial<ResponseFact> & Pick<ResponseFact, "questionId" | "respondentId" | "answer">): ResponseFact {
@@ -184,5 +184,65 @@ describe("computeScalePsychometrics", () => {
 
   it("на пустой выборке шкал не выдумывает", () => {
     expect(computeScalePsychometrics([], CTX)).toEqual([]);
+  });
+
+  it("пункт несёт свой вклад в шкалу и тип вопроса (колонка «Вклад»)", () => {
+    const [scale] = computeScalePsychometrics(RESPONSES, CTX);
+    const first = scale.items.find(i => i.questionId === "s1")!;
+
+    // Вклад градации равен её номеру — шаг +1; обратный пункт с неперевёрнутым вкладом
+    // показывает тот же «+1», и в этом автор видит ошибку сборки.
+    expect(first.contribution).toEqual({ value: 1, exact: true });
+    expect(first.questionType).toBe("scale");
+  });
+});
+
+describe("itemContribution", () => {
+  const likert = (values: number[], weight = 1) => values.map((value, grade) => ({
+    questionId: "q", scaleKey: "k", sourceType: "option" as const, sourceKey: String(grade), value, weight,
+  }));
+
+  it("прямой пункт Ликерта — «+1», обратный — «−1»", () => {
+    expect(itemContribution(likert([0, 1, 2, 3, 4]), "q", "k", "scale", 5)).toEqual({ value: 1, exact: true });
+    expect(itemContribution(likert([4, 3, 2, 1, 0]), "q", "k", "scale", 5)).toEqual({ value: -1, exact: true });
+  });
+
+  it("вес единицы входит в вклад так же, как в движке шкал (value * weight)", () => {
+    expect(itemContribution(likert([1, 2, 3, 4, 5], 2), "q", "k", "scale", 5)).toEqual({ value: 2, exact: true });
+  });
+
+  it("неравномерные вклады градаций дают направление, а не точный шаг", () => {
+    const result = itemContribution(likert([0, 0, 1, 3, 4]), "q", "k", "scale", 5)!;
+    expect(result.exact).toBe(false);
+    expect(result.value).toBeGreaterThan(0);
+  });
+
+  it("градация без единицы вносит ноль, как в движке", () => {
+    // Единицы только у двух верхних градаций: остальные вносят 0.
+    const units = likert([0, 0, 0, 1, 2]).slice(3);
+    const result = itemContribution(units, "q", "k", "scale", 5)!;
+    expect(result.exact).toBe(false);
+    expect(result.value).toBeGreaterThan(0);
+  });
+
+  it("вклад «за ответ» — его число со знаком", () => {
+    const units = [{ questionId: "q", scaleKey: "k", sourceType: "question" as const, sourceKey: null, value: -1, weight: 1 }];
+    expect(itemContribution(units, "q", "k", "single", 3)).toEqual({ value: -1, exact: true });
+  });
+
+  it("распределение баллов — общий множитель к назначенным баллам", () => {
+    const units = [0, 1, 2].map(option => ({
+      questionId: "q", scaleKey: "k", sourceType: "option_allocation" as const, sourceKey: String(option), value: -1, weight: 1,
+    }));
+    expect(itemContribution(units, "q", "k", "allocation", 3)).toEqual({ value: -1, exact: true });
+  });
+
+  it("одиночный выбор без порядка вариантов одним числом не выражается", () => {
+    expect(itemContribution(likert([2, 0, 1]), "q", "k", "single", 3)).toBeNull();
+  });
+
+  it("чужая шкала и чужой вопрос в вклад не входят", () => {
+    expect(itemContribution(likert([0, 1, 2]), "q", "other", "scale", 3)).toBeNull();
+    expect(itemContribution(likert([0, 1, 2]), "q2", "k", "scale", 3)).toBeNull();
   });
 });

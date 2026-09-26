@@ -19,14 +19,27 @@ import {
   Card, CardBody, CardHeader, DataGrid, Stack, Tag, Text, Tooltip,
 } from "@skillum/ui-kit";
 
+import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
+import type { QuestionType } from "@shared/questions/question-type";
 import { pluralize } from "@/lib/i18n";
 
+// Общий формат психометрического числа: запятая и типографский минус — как у связи с остатком
+// на вкладке заданий («−0,44» в эскизе, а не «-0,44»).
+import { num } from "./psychometrics-format";
 import { TermHint } from "./term-hint";
 
 /** Пункт шкалы с его психометрикой. */
 export interface ScaleItemRow {
   questionId: string;
   prompt: string;
+  /** Тип вопроса — только для пиктограммы: сырой тип на экране недопустим. */
+  questionType?: string;
+  /**
+   * Вклад пункта в шкалу: на сколько она сдвигается за шаг ответа. `exact: false` — вклады
+   * градаций неравномерны, и число передаёт направление; `null` — одним числом вклад не
+   * выражается (зависит от выбранного варианта).
+   */
+  contribution?: { value: number; exact: boolean } | null;
   observations: number;
   itemRest: number | null;
   distribution: number[];
@@ -52,9 +65,24 @@ export interface ScaleQualityPanelProps {
   scales: ScaleQualityRow[];
 }
 
-/** Число с запятой; прочерк там, где величины нет. */
-function num(value: number | null, digits = 2): string {
-  return value === null ? "—" : value.toFixed(digits).replace(".", ",");
+/**
+ * Вклад со знаком, как в эскизе: «+1», «−1», «+0,5». Минус — типографский (U+2212): в колонке
+ * чисел дефис читается как прочерк, а знак здесь — главное, что о пункте сказано.
+ */
+export function signedContribution(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  if (rounded === 0) return "0";
+  const digits = Number.isInteger(rounded) ? String(Math.abs(rounded)) : String(Math.abs(rounded)).replace(".", ",");
+  return `${rounded > 0 ? "+" : "−"}${digits}`;
+}
+
+/**
+ * Порог «мёртвого» пункта задаёт движок (`DEAD_ITEM_SHARE` в `shared/psychometrics/scales`);
+ * экран не пересчитывает признак, а только называет число, которое его вызвало (FR-50): долю
+ * самой частой градации.
+ */
+function topGradeShare(distribution: number[]): number {
+  return distribution.length === 0 ? 0 : Math.round(Math.max(...distribution) * 100);
 }
 
 /** Почему альфы нет — словами, а не пустым местом. */
@@ -102,6 +130,7 @@ const HINT = {
   alpha: "Насколько согласованно пункты шкалы меряют одно и то же. Приемлемо от 0,70, хорошо от 0,80. У ипсативной методики занижена по построению и дефектом не считается.",
   respondents: "Сколько участников ответили на все пункты шкалы: по ним считается альфа.",
   verdict: "Годится ли шкала: альфа от 0,70 — приемлемо, от 0,80 — хорошо. Ниже — пункты шкалы меряют разное.",
+  contribution: "С каким знаком ответ на пункт входит в шкалу. У обратного пункта вклад должен быть отрицательным — иначе он портит согласованность шкалы.",
   itemRest: "Связь ответа на этот пункт с суммой по ОСТАЛЬНЫМ пунктам той же шкалы. Показывает, тянет ли пункт в ту же сторону, что шкала целиком. Отрицательная — пункт работает против своей шкалы: чаще всего у обратного пункта забыли поставить отрицательный вклад.",
   quality: "Что не так с пунктом: «Работает против шкалы» — ответы идут противоположно остальным пунктам; «мёртвый» — почти все выбирают одну градацию.",
 } as const;
@@ -144,7 +173,7 @@ function distributionHint(items: ScaleItemRow[]): string {
 function ScaleVerdict({ scale }: { scale: ScaleQualityRow }) {
   if (scale.ipsative) {
     return (
-      <Stack gap={1}>
+      <Stack gap={1} align="start">
         <Tag tone="info" size="s">Ипсативная</Tag>
         <Text variant="body-xs" tone="muted">сумма баллов фиксирована, альфа занижена</Text>
       </Stack>
@@ -161,8 +190,9 @@ function ScaleVerdict({ scale }: { scale: ScaleQualityRow }) {
   if (alpha >= 0.8) return <Tag tone="success" size="s">Хорошо</Tag>;
   if (alpha >= 0.7) return <Tag tone="success" size="s">Приемлемо</Tag>;
   const against = scale.items.filter(row => row.againstScale).length;
+  // align="start": без него тег в столбце растягивается на всю ширину колонки (приёмка 5.6).
   return (
-    <Stack gap={1}>
+    <Stack gap={1} align="start">
       <Tag tone="warning" size="s">Ниже приемлемого</Tag>
       <Text variant="body-xs" tone="muted">
         порог 0,70{against > 0 ? `; ${against} ${pluralize(against, "пункт", "пункта", "пунктов")} против шкалы` : ""}
@@ -188,6 +218,7 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
       <Tooltip
         content="Участник не выбирает один вариант, а раскладывает ответ между утверждениями: градаций, по которым строится распределение, у такого вопроса нет."
         placement="bottom"
+        wrap
       >
         <Text variant="body-xs" tone="muted">—</Text>
       </Tooltip>
@@ -199,7 +230,7 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
     .join(", ");
 
   return (
-    <Tooltip content={hint} placement="bottom">
+    <Tooltip content={hint} placement="bottom" wrap>
       <span
         className="tb-psy-hist"
         style={{ gridTemplateColumns: `repeat(${distribution.length}, 1fr)` }}
@@ -305,6 +336,8 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
         />
         <CardBody>
           <DataGrid
+            // Доли сводки — из эскиза: 26 / 10 / 10 / 8 / 46 %.
+            className="tb-psy-grid"
             columns={summaryColumns}
             rows={scales}
             rowKey={row => row.scaleKey}
@@ -316,22 +349,61 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
       {scales.map(scale => {
         const reliability = typeof scale.reliability === "string" ? null : scale.reliability;
 
+        // Доли колонок — из эскиза (colgroup состояния wf-scales): 24 / 8 / 14 / 34 / 20 %. При
+        // фиксированной раскладке (`tb-psy-grid`) они и есть ширины: таблица на карточке
+        // ~1000 px не уходит в горизонтальную прокрутку.
         const columns = [
           {
             key: "item",
-            width: "32%",
+            width: "24%",
             header: "Пункт",
             frozen: true,
+            // Как в эскизе: пиктограмма типа и текст пункта, без счётчика ответов под ним.
             render: (row: ScaleItemRow) => (
-              <Stack gap={1}>
+              <span className="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
+                {row.questionType
+                  ? <QuestionTypeIcon type={row.questionType as QuestionType} size={16} />
+                  : null}
                 <span className="tb-psy-prompt">{row.prompt}</span>
-                <Text variant="body-xs" tone="muted">
-                  {row.observations} {pluralize(row.observations, "ответ", "ответа", "ответов")}
-                </Text>
-              </Stack>
+              </span>
             ),
           },
-          // Порядок колонок — как в эскизе: число связи рядом с пунктом, гистограмма за ним.
+          // Порядок колонок — как в эскизе: вклад и число связи рядом с пунктом, гистограмма
+          // за ними, признак последним.
+          {
+            key: "contribution",
+            width: "8%",
+            header: <TermHint term="Вклад" hint={HINT.contribution} align="end" />,
+            align: "right" as const,
+            numeric: true,
+            render: (row: ScaleItemRow) => {
+              const contribution = row.contribution ?? null;
+              if (contribution === null) {
+                return (
+                  <Tooltip
+                    content="Вклад зависит от того, какой вариант выбран, и одним числом не выражается."
+                    placement="bottom"
+                    wrap
+                  >
+                    <Text variant="body-s" tone="muted">—</Text>
+                  </Tooltip>
+                );
+              }
+              if (!contribution.exact) {
+                // Вклады градаций неравномерны: число — направление пункта, а не точный шаг.
+                return (
+                  <Tooltip
+                    content="Вклады градаций неравномерны: число показывает направление пункта — на сколько в среднем сдвигается шкала за одну градацию."
+                    placement="bottom"
+                    wrap
+                  >
+                    <Text variant="body-s">≈{signedContribution(contribution.value)}</Text>
+                  </Tooltip>
+                );
+              }
+              return <Text variant="body-s">{signedContribution(contribution.value)}</Text>;
+            },
+          },
           {
             key: "itemRest",
             width: "14%",
@@ -355,7 +427,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
             render: (row: ScaleItemRow) => {
               if (row.againstScale) {
                 return (
-                  <Stack gap={1}>
+                  <Stack gap={1} align="start">
                     <Tag tone="error" size="s">Работает против шкалы</Tag>
                     {row.alphaIfMirrored !== null && reliability ? (
                       // Вычислимое следствие вместо догадки о причине (FR-31b).
@@ -368,13 +440,20 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
               }
               if (row.dead) {
                 return (
-                  <Stack gap={1}>
+                  <Stack gap={1} align="start">
                     <Tag tone="warning" size="s">Мёртвый пункт</Tag>
-                    <Text variant="body-xs" tone="muted">почти все ответили одинаково</Text>
+                    {/* FR-50: признак несёт число, которое его вызвало. */}
+                    <Text variant="body-xs" tone="muted">
+                      {topGradeShare(row.distribution)} % в одной градации
+                    </Text>
                   </Stack>
                 );
               }
-              return <Text variant="body-xs" tone="muted">—</Text>;
+              // «Работает» — вывод по связи с остатком шкалы. Где её посчитать не на чем,
+              // утверждать нечего, и стоит прочерк.
+              return row.itemRest === null
+                ? <Text variant="body-xs" tone="muted">—</Text>
+                : <Tag tone="success" size="s">Работает</Tag>;
             },
           },
         ];
@@ -390,6 +469,7 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
                   <Tooltip
                     content="Участник раздаёт фиксированный запас баллов, поэтому высокий балл одному пункту неизбежно означает низкий другому. Вклады связаны по построению, и согласованность здесь систематически занижена."
                     placement="bottom"
+                    wrap
                   >
                     <Tag tone="info" size="s">Ипсативная методика</Tag>
                   </Tooltip>
@@ -398,6 +478,8 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
             />
             <CardBody>
               <DataGrid
+                // Фиксированная раскладка по долям эскиза, как у таблиц разбора вопроса.
+                className="tb-psy-grid"
                 columns={columns}
                 rows={scale.items}
                 rowKey={row => row.questionId}
