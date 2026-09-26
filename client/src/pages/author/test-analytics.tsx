@@ -51,7 +51,6 @@ import {
     EmptyState,
     FilterBar,
     Grid,
-    ModalDialog,
     Stack,
     Tabs,
     Tag,
@@ -59,7 +58,7 @@ import {
 } from "@skillum/ui-kit";
 import { LoadingState } from "@/components/loading-state";
 import { pluralize } from "@/lib/i18n";
-import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
+import { LmsImportDialog } from "@/features/analytics/lms-import/lms-import-dialog";
 import { RegistryFilterDialog } from "@/features/analytics/registry/filter-dialog";
 import {
     countConditions,
@@ -827,18 +826,13 @@ export default function TestAnalyticsPage() {
                 </Cluster>
             </Cluster>
 
-            <ModalDialog
+            <LmsImportDialog
                 open={lmsImportOpen}
                 onClose={() => setLmsImportOpen(false)}
-                title="Загрузка выгрузки LMS"
                 description={analytics.testTitle}
-            >
-                <LmsImportForm
-                    fixedTestId={testId}
-                    onDone={() => invalidateAnalytics(queryClient)}
-                    onCancel={() => setLmsImportOpen(false)}
-                />
-            </ModalDialog>
+                fixedTestId={testId}
+                onDone={() => invalidateAnalytics(queryClient)}
+            />
 
             <RegistryFilterDialog
                 open={filterOpen}

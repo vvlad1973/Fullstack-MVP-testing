@@ -198,6 +198,23 @@ describe("<TestAnalyticsPage />", () => {
     expect(screen.getByRole("button", { name: /Экспорт Excel/ })).toBeInTheDocument();
   });
 
+  it("окно загрузки выгрузки LMS: кнопки в подвале окна, загрузки теста в теле", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByRole("button", { name: /Загрузить выгрузку LMS/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    const foot = dialog.querySelector("footer.ou-modal__foot") as HTMLElement;
+    expect(within(foot).getAllByRole("button").map((b) => b.textContent))
+      .toEqual(["Отмена", "Проверить", "Импортировать"]);
+    expect(within(foot).getByRole("button", { name: "Импортировать" })).toBeDisabled();
+    // Тест задан страницей — список загрузок виден до выбора файла, и он в теле окна.
+    const body = dialog.querySelector(".ou-modal__body") as HTMLElement;
+    expect(within(body).getByText("Загрузки этого теста")).toBeInTheDocument();
+
+    fireEvent.click(within(foot).getByRole("button", { name: "Отмена" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("четыре плитки сводки — на «Обзоре», время медианой", async () => {
     await renderLoaded();
     for (const label of ["Прохождений", "Сдали", "Средний результат", "Время, медиана"]) {
