@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeItemBreakdown,
   computePsychometrics,
+  defaultVersionOf,
   firstAttemptOnly,
   type QuestionInfo,
 } from "../psychometrics";
@@ -550,6 +551,70 @@ describe("приёмка PRD-66 (AC-02 — AC-04)", () => {
 
     expect(breakdown.item.observations).toBe(1);
     expect(breakdown.versions.some(v => v.psychoHash === null)).toBe(true);
+  });
+
+  /**
+   * Сорок участников: q1 первые тридцать видели в редакции v2, последние десять — в v1.
+   * Остальные вопросы у всех одни и те же — остаток общий.
+   */
+  const twoEditions: ResponseFact[] = [];
+  for (let i = 0; i < 40; i += 1) {
+    const ability = i / 39;
+    const at = new Date(i < 30 ? "2026-09-10T10:00:00Z" : "2026-08-10T10:00:00Z");
+    twoEditions.push(fact({
+      respondentId: `R${i}`, questionId: "q1", psychoHash: i < 30 ? "v2" : "v1",
+      scoreRatio: (i % 3 === 0 ? ability < 0.3 : ability > 0.4) ? 1 : 0, occurredAt: at,
+    }));
+    twoEditions.push(fact({ respondentId: `R${i}`, questionId: "q2", scoreRatio: ability > 0.5 ? 1 : 0, occurredAt: at }));
+    twoEditions.push(fact({ respondentId: `R${i}`, questionId: "q3", scoreRatio: ability > 0.3 ? 1 : 0, occurredAt: at }));
+  }
+
+  it("у каждой редакции своя дискриминативность — тем же расчётом, что у карточки", () => {
+    const breakdown = computeItemBreakdown(twoEditions, CTX, "q1", [0])!;
+    const v2 = breakdown.versions.find(v => v.psychoHash === "v2")!;
+
+    // Та же величина, что показывает карточка, когда выбрана эта редакция: остаток — те же
+    // остальные вопросы, от q1 — только ответы на v2.
+    const onlyV2 = computeItemBreakdown(twoEditions, CTX, "q1", [0], "v2")!;
+    expect(v2.itemRest).not.toBeNull();
+    expect(v2.itemRest).toBeCloseTo(onlyV2.item.itemRest!, 12);
+  });
+
+  it("редакция с наблюдениями ниже порога коэффициентов дискриминативности не получает", () => {
+    // Десять ответов — шум: рядом с редакцией на тридцать ответов он читался бы как вывод.
+    const breakdown = computeItemBreakdown(twoEditions, CTX, "q1", [0])!;
+    const v1 = breakdown.versions.find(v => v.psychoHash === "v1")!;
+
+    expect(v1.observations).toBe(10);
+    expect(v1.itemRest).toBeNull();
+  });
+});
+
+describe("defaultVersionOf — редакция карточки по умолчанию (FR-49a)", () => {
+  const mixed: ResponseFact[] = [
+    fact({ respondentId: "A", questionId: "q1", psychoHash: "v1", occurredAt: new Date("2026-08-01T10:00:00Z") }),
+    fact({ respondentId: "B", questionId: "q1", psychoHash: "v2", occurredAt: new Date("2026-09-01T10:00:00Z") }),
+    fact({ respondentId: "C", questionId: "q1", psychoHash: null, occurredAt: new Date("2026-09-20T10:00:00Z") }),
+  ];
+
+  it("по умолчанию — текущая редакция, если по ней отвечали", () => {
+    expect(defaultVersionOf(mixed, "q1", "v1")).toBe("v1");
+  });
+
+  it("текущей в выборке нет — самая свежая серия с отпечатком", () => {
+    expect(defaultVersionOf(mixed, "q1", "v3")).toBe("v2");
+  });
+
+  it("одна редакция — выбирать нечего, карточка считается по всей выборке", () => {
+    expect(defaultVersionOf(mixed.slice(0, 1), "q1", "v1")).toBeUndefined();
+  });
+
+  it("одна серия «версия неизвестна» — выбирать тоже нечего", () => {
+    const legacy = [
+      fact({ respondentId: "A", questionId: "q1", psychoHash: null }),
+      fact({ respondentId: "B", questionId: "q1", psychoHash: null }),
+    ];
+    expect(defaultVersionOf(legacy, "q1", "v1")).toBeUndefined();
   });
 });
 

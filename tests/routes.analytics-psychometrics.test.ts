@@ -405,6 +405,49 @@ describe("GET /analytics/psychometrics/:testId", () => {
     expect(res.body.slices[0].items[0]).toMatchObject({ questionId: "q1" });
   });
 
+  describe("разбор вопроса (FR-24, FR-49a)", () => {
+    const askItem = (query = "") =>
+      request(makeApp()).get(`/api/analytics/psychometrics/test1/items/q1${query}`).set("x-test-user", "a1");
+
+    it("отдаёт тему и подтемы для подзаголовка «Тема · подтема · N наблюдений»", async () => {
+      storageMock.getQuestionsByIds.mockResolvedValue([
+        { ...TOPIC_QUESTIONS[0], tags: ["Антикоррупция"], psychoHash: "hash-1" },
+      ]);
+
+      const res = await askItem();
+
+      expect(res.status).toBe(200);
+      expect(res.body.topicName).toBe("Тема");
+      expect(res.body.tags).toEqual(["Антикоррупция"]);
+      expect(res.body.currentVersion).toBe("hash-1");
+      // Редакция одна — выбирать нечего, и карточка считается по всей выборке.
+      expect(res.body).not.toHaveProperty("selectedVersion");
+    });
+
+    it("при нескольких редакциях по умолчанию считает карточку по текущей", async () => {
+      storageMock.getQuestionsByIds.mockResolvedValue([{ ...TOPIC_QUESTIONS[0], psychoHash: "hash-1" }]);
+      const attempts = [
+        ATTEMPTS[0],
+        { ...ATTEMPTS[1], userId: "u2", variantJson: { ...ATTEMPTS[1].variantJson, psychoHashes: { q1: "hash-0" } } },
+      ];
+      storageMock.getAttemptsByIds.mockResolvedValue(attempts);
+      storageMock.selectObservations.mockResolvedValue({
+        web: attempts, lms: [], order: attempts.map(a => ({ id: a.id, source: "web" })), total: attempts.length,
+      });
+
+      const byDefault = await askItem();
+      expect(byDefault.body.versions).toHaveLength(2);
+      expect(byDefault.body.selectedVersion).toBe("hash-1");
+      expect(byDefault.body.item.observations).toBe(1);
+      expect(byDefault.body.item.difficulty).toBe(1);
+      expect(byDefault.body.versions[0]).toHaveProperty("itemRest");
+
+      const older = await askItem("?version=hash-0");
+      expect(older.body.selectedVersion).toBe("hash-0");
+      expect(older.body.item.difficulty).toBe(0);
+    });
+  });
+
   it("снятие партии с учёта пересчитывает, а не отдаёт прежние числа", async () => {
     // Партия в ключе кэша именно поэтому: она меняет выборку, не трогая ни теста, ни его
     // содержания, и без неё экран после переключения выглядел бы сломанным.

@@ -414,7 +414,10 @@ export default function TestAnalyticsPage() {
      * для всех строк таблицы заранее значило бы платить за сорок разборов ради одного.
      */
     const [breakdownId, setBreakdownId] = useState<string | null>(null);
-    /** Выбранная редакция задания: `undefined` — все сразу, `null` — «версия неизвестна». */
+    /**
+     * Выбранная редакция вопроса: `undefined` — автор ещё не выбирал, и сервер считает карточку по
+     * текущей редакции (FR-49a); `null` — «версия неизвестна».
+     */
     const [breakdownVersion, setBreakdownVersion] = useState<string | null | undefined>(undefined);
     /**
      * PRD-66 FR-04b: режим вкладки — выборка целиком или сравнение срезов.

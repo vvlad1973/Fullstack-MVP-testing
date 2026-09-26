@@ -3256,6 +3256,10 @@
 .ou-grid__th:has(.tb-term-hint) { white-space: normal; }
 .ou-grid__th .tb-term-hint { display: inline; }
 .ou-grid__th > svg { flex-shrink: 0; }
+/* У двух последних колонок пузырёк открывается влево при любом выравнивании: скрытый, он всё
+   равно шириной 240 px и, открываясь вправо от термина, выходил за край таблицы и включал
+   горизонтальную прокрутку (приёмка 5.5, «Качество варианта»). */
+th:nth-last-child(-n + 2) .tb-term-hint[data-placement="bottom"] .ou-tip__bubble,
 .ou-grid__th .ou-text--end .tb-term-hint[data-placement="bottom"] .ou-tip__bubble {
   left: auto;
   right: 0;

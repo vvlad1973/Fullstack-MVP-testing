@@ -19,6 +19,9 @@ import {
 import { ArrowLeft } from "lucide-react";
 
 import { TermHint } from "./term-hint";
+// Общий формат чисел: типографский минус (U+2212). Своя копия без него печатала «-0,33» на
+// плитке поправки — дефис в колонке чисел читается как прочерк (приёмка 5.5).
+import { num } from "./psychometrics-format";
 
 import { QuestionTypeIcon } from "@/features/tests/editor/sections/question-type-icon";
 import type { QuestionType } from "@shared/questions/question-type";
@@ -57,6 +60,17 @@ export interface ItemBreakdownView {
   options: OptionRow[] | null;
   /** Редакции содержания, встреченные в выборке (FR-49). */
   versions?: VersionRow[];
+  /** Тема вопроса — первая часть подзаголовка «Тема · подтема · N наблюдений». */
+  topicName?: string;
+  /** Подтемы вопроса — его теги (PRD-11). */
+  tags?: string[];
+  /** Отпечаток текущей редакции вопроса; `null` — неизвестен. */
+  currentVersion?: string | null;
+  /**
+   * По какой редакции посчитана карточка: отпечаток, `null` — «версия неизвестна»; поля нет —
+   * редакция одна, и карточка считается по всей выборке.
+   */
+  selectedVersion?: string | null;
 }
 
 /** Строка таблицы редакций. */
@@ -64,6 +78,8 @@ export interface VersionRow {
   psychoHash: string | null;
   observations: number;
   difficulty: number | null;
+  /** Корреляция вопрос-остаток по этой редакции; `null` — наблюдений меньше порога коэффициентов. */
+  itemRest?: number | null;
   firstAt: string;
   lastAt: string;
 }
@@ -71,16 +87,15 @@ export interface VersionRow {
 export interface ItemBreakdownPanelProps {
   view: ItemBreakdownView;
   onBack: () => void;
-  /** Какая редакция показана: строка-отпечаток, `null` — «версия неизвестна», иначе все. */
+  /**
+   * Какую редакцию выбрал автор: строка-отпечаток, `null` — «версия неизвестна»; `undefined` —
+   * ещё не выбирал, и отмечена та, по которой сервер посчитал карточку (`view.selectedVersion`).
+   */
   version?: string | null;
   /** Показать другую редакцию — это смена ВЫБОРКИ, а не отдельный экран (FR-49a). */
   onSelectVersion?: (version: string | null | undefined) => void;
 }
 
-/** Число с запятой; прочерк там, где величины нет. */
-function num(value: number | null, digits = 2): string {
-  return value === null ? "—" : value.toFixed(digits).replace(".", ",");
-}
 
 /** Доля как процент для чтения. */
 function percent(value: number | null): string {
@@ -118,7 +133,9 @@ function optionFlag(option: OptionRow): { tone: "success" | "warning" | "error";
   // Верный вариант, который выбирают СЛАБЫЕ, — самый яркий симптом испорченного ключа, и
   // нейтральный ярлык «Верный ответ» на нём читался бы как «здесь всё в порядке».
   if (option.correct && option.correctButWeak) return { tone: "error", label: "Верный ответ выбирают слабые" };
-  if (option.correct) return { tone: "success", label: "Верный ответ" };
+  // Что вариант верный, уже сказано подписью под ним; колонка отвечает на другой вопрос —
+  // работает ли он (эскиз).
+  if (option.correct) return { tone: "success", label: "Работает" };
   if (option.dead) return { tone: "warning", label: "Мёртвый вариант" };
   if (option.inverted) return { tone: "error", label: "Выбирают сильные" };
   return { tone: "success", label: "Работает" };
@@ -138,6 +155,76 @@ function intentVerdict(declared: number, observed: number | null): string {
   const gap = observed - declared;
   if (Math.abs(gap) <= INTENT_TOLERANCE) return "расхождения нет";
   return gap > 0 ? `труднее задуманного на ${gap}` : `легче задуманного на ${-gap}`;
+}
+
+/** Ориентир трудности из FR-13 — стоит под числом всегда, чтобы было с чем сравнить. */
+const DIFFICULTY_RANGE = "приемлемо: 0,20 — 0,80";
+
+/**
+ * Подпись плитки трудности: ориентир и, если число за ним, вывод (FR-13).
+ *
+ * Границы — те же, что у признаков списка: ниже 0,20 «слишком трудный», выше 0,90 «слишком
+ * лёгкий». Полоса 0,80 — 0,90 признаком не метится, но и в ориентир не входит: там вопрос
+ * «лёгкий» — отсеивает мало, но ещё отсеивает.
+ */
+function difficultyCaption(p: number | null): string {
+  if (p === null) return DIFFICULTY_RANGE;
+  const rounded = Math.round(p * 100) / 100;
+  if (rounded < 0.2) return `слишком трудный · ${DIFFICULTY_RANGE}`;
+  if (rounded > 0.9) return `слишком лёгкий · ${DIFFICULTY_RANGE}`;
+  if (rounded > 0.8) return `лёгкий · ${DIFFICULTY_RANGE}`;
+  return DIFFICULTY_RANGE;
+}
+
+/**
+ * Полоса индекса дискриминации, в которую попало число (FR-14): вывод и её границы.
+ *
+ * Сравнивается число, ОКРУГЛЁННОЕ так же, как на плитке: иначе под «0,40» стояло бы «хорошо
+ * 0,30 — 0,39».
+ */
+function discriminationBand(d: number): string {
+  const rounded = Math.round(d * 100) / 100;
+  if (rounded < 0) return "дефект: ниже 0";
+  if (rounded < 0.2) return "слабое: ниже 0,20";
+  if (rounded < 0.3) return "приемлемо 0,20 — 0,29";
+  if (rounded < 0.4) return "хорошо 0,30 — 0,39";
+  return "отлично от 0,40";
+}
+
+/** Число вариантов словом, как в эскизе («четыре варианта»); больше десяти — цифрами. */
+const COUNT_WORDS = ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять", "десять"];
+
+function optionsCount(count: number): string {
+  const word = COUNT_WORDS[count] || String(count);
+  return `${word} ${pluralize(count, "вариант", "варианта", "вариантов")}`;
+}
+
+/** Дата редакции — «04.09.2026». */
+function day(iso: string): string {
+  return new Date(iso).toLocaleDateString("ru-RU");
+}
+
+/**
+ * Подписи строки таблицы версий (эскиз): текущая — «С дд.мм.гггг — текущая», прежние —
+ * диапазоном дат, серия без отпечатка — «Версия неизвестна» с объяснением, откуда она.
+ *
+ * @param row строка редакции
+ * @param current отпечаток текущей редакции вопроса
+ * @param stampedSince когда в выборке появились редакции с отпечатком — граница серии без него
+ */
+function versionLabel(
+  row: VersionRow,
+  current: string | null | undefined,
+  stampedSince: string | null,
+): { title: string; sub: string | null } {
+  if (row.psychoHash === null) {
+    return {
+      title: "Версия неизвестна",
+      sub: `импорт выгрузок и прохождения до ${day(stampedSince ?? row.lastAt)}`,
+    };
+  }
+  if (current && row.psychoHash === current) return { title: `С ${day(row.firstAt)} — текущая`, sub: null };
+  return { title: `${day(row.firstAt)} — ${day(row.lastAt)}`, sub: "предыдущая редакция" };
 }
 
 /**
@@ -170,14 +257,34 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
   // обратную сторону (1 — решили все), и сравнивать их напрямую значило бы читать лёгкое
   // задание как трудное.
   const observedHardness = item.difficulty === null ? null : Math.round((1 - item.difficulty) * 100);
-  const versions = view.versions ?? [];
+  // Порядок эскиза: текущая редакция первой, за ней прежние от новых к старым, серия «версия
+  // неизвестна» — последней. Автор после правки сравнивает «стало» с «было», и «стало» — сверху.
+  const versions = [...(view.versions ?? [])].sort((a, b) => {
+    const rank = (row: typeof a) => (row.psychoHash === null ? 2 : row.psychoHash === view.currentVersion ? 0 : 1);
+    return rank(a) - rank(b) || (b.lastAt < a.lastAt ? -1 : b.lastAt > a.lastAt ? 1 : 0);
+  });
+  // Выбранная автором редакция; до выбора — та, по которой сервер посчитал карточку (текущая).
+  const selectedVersion = version !== undefined ? version : view.selectedVersion;
+  // Граница серии «версия неизвестна»: с какого дня в выборке есть редакции с отпечатком.
+  const stampedSince = versions
+    .filter(row => row.psychoHash !== null)
+    .map(row => row.firstAt)
+    .sort()[0] ?? null;
+  // Подзаголовок — «Тема · подтема · N наблюдений» (эскиз); пустые части не печатаются.
+  const subtitle = [
+    view.topicName,
+    view.tags?.length ? view.tags.join(", ") : "",
+    `${item.observations} ${pluralize(item.observations, "наблюдение", "наблюдения", "наблюдений")}`,
+  ].filter(Boolean).join(" · ");
   // Размер крайних групп — в заголовке колонки: 27 % не четверть, и число не подменяется словом.
   const groupPercent = Math.round((groups?.share ?? 0.27) * 100);
 
   const columns = [
     {
       key: "option",
-      width: "30%",
+      // Доли эскиза (30/9/19/19/10/13) сдвинуты к последней колонке: тег «Мёртвый вариант» не
+      // помещался в 13 % и вылезал за край, включая горизонтальную прокрутку (приёмка 5.5).
+      width: "28%",
       header: "Вариант",
       frozen: true,
       render: (row: OptionRow) => (
@@ -197,27 +304,29 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
     },
     {
       key: "bottom",
-      width: "19%",
+      width: "17%",
       header: <TermHint term={`Слабые ${groupPercent} %`} hint={HINT.bottom} />,
       render: (row: OptionRow) => <ShareScale value={row.bottomShare} />,
     },
     {
       key: "top",
-      width: "19%",
+      width: "17%",
       header: <TermHint term={`Сильные ${groupPercent} %`} hint={HINT.top} />,
       render: (row: OptionRow) => <ShareScale value={row.topShare} />,
     },
     {
       key: "rest",
-      width: "10%",
-      header: <TermHint term="Корреляция с остатком" hint={HINT.optionRest} align="end" />,
+      width: "12%",
+      // Неразрывный пробел держит предлог при слове: в колонке 10 % заголовок иначе ломался в три
+      // строки с одиноким «с» посередине, а так — не больше двух.
+      header: <TermHint term={"Корреляция с остатком"} hint={HINT.optionRest} align="end" />,
       align: "right" as const,
       numeric: true,
       render: (row: OptionRow) => <Text variant="body-s">{num(row.restCorrelation)}</Text>,
     },
     {
       key: "flag",
-      width: "13%",
+      width: "17%",
       header: <TermHint term="Качество варианта" hint={HINT.optionQuality} />,
       render: (row: OptionRow) => {
         const flag = optionFlag(row);
@@ -238,9 +347,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
             : null}
           {" "}{view.prompt}
         </Text>
-        <Text variant="body-m" tone="muted">
-          {item.observations} {pluralize(item.observations, "наблюдение", "наблюдения", "наблюдений")}
-        </Text>
+        <Text variant="body-m" tone="muted">{subtitle}</Text>
       </Stack>
 
       {/* FR-48b: СТРОГО три в ряд. Автоподбор давал на широком мониторе пять плиток и одну
@@ -251,7 +358,7 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
             <Stack gap={1} align="center">
               <Text variant="display-s" weight="bold">{num(item.difficulty)}</Text>
               <Text variant="body-s" tone="muted"><TermHint term="Трудность" hint={HINT.difficulty} /></Text>
-              <Text variant="body-xs" tone="subtle">приемлемо: 0,20 — 0,80</Text>
+              <Text variant="body-xs" tone="subtle">{difficultyCaption(item.difficulty)}</Text>
             </Stack>
           </CardBody>
         </Card>
@@ -261,14 +368,14 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
               <Stack gap={1} align="center">
                 <Text variant="display-s" weight="bold">{num(item.correctedDifficulty)}</Text>
                 <Text variant="body-s" tone="muted"><TermHint term="С поправкой на угадывание" hint={HINT.corrected} /></Text>
-                {/* Сколько вариантов и какой доли ждать от случайного выбора — как в эскизе. */}
+                {/* Сколько вариантов и какой доли ждать от случайного выбора — как в эскизе.
+                    FR-17b (частичное знание модель не учитывает) эскиз перенёс в подсказку
+                    термина: под числом у каждой плитки одна строка. */}
                 {view.options?.length ? (
                   <Text variant="body-xs" tone="subtle">
-                    {`${view.options.length} ${pluralize(view.options.length, "вариант", "варианта", "вариантов")}, ожидание ${num(1 / view.options.length)}`}
+                    {`${optionsCount(view.options.length)}, ожидание ${num(1 / view.options.length)}`}
                   </Text>
                 ) : null}
-                {/* FR-17b: ограничение модели сказано прямо, иначе число читают как точное. */}
-                <Text variant="body-xs" tone="subtle">модель «знает или угадывает»: частичное знание не учитывает</Text>
               </Stack>
             </CardBody>
           </Card>
@@ -288,8 +395,10 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
               <Text variant="display-s" weight="bold">{num(item.discrimination)}</Text>
               <Text variant="body-s" tone="muted"><TermHint term="Индекс дискриминации (D)" hint={HINT.discrimination} /></Text>
               <Text variant="body-xs" tone="subtle">
+                {/* Эскиз: «крайние четверти, 27 % · хорошо 0,30 — 0,39» — расшифровка из FR-14a
+                    и полоса FR-14, в которую попало число. */}
                 {groups
-                  ? `крайние ${Math.round(groups.share * 100)} % · по ${groups.size} ${pluralize(groups.size, "участнику", "участника", "участников")}`
+                  ? `крайние четверти, ${Math.round(groups.share * 100)} %${item.discrimination === null ? "" : ` · ${discriminationBand(item.discrimination)}`}`
                   : "крайние группы не сложились"}
               </Text>
             </Stack>
@@ -332,6 +441,9 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
           />
           <CardBody>
             <DataGrid
+              // Фиксированная раскладка по долям эскиза: иначе доли колонок — лишь пожелание, и
+              // таблица на карточке ~1000 px уходила в горизонтальную прокрутку (приёмка 5.5).
+              className="tb-psy-grid"
               columns={columns}
               rows={options}
               rowKey={row => String(row.index)}
@@ -360,26 +472,29 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
           />
           <CardBody>
             <DataGrid
+              // Фиксированная раскладка по долям эскиза: иначе доли колонок — лишь пожелание, и
+              // таблица на карточке ~1000 px уходила в горизонтальную прокрутку (приёмка 5.5).
+              className="tb-psy-grid"
               columns={[
                 {
                   key: "version",
-                  width: "34%",
+                  width: "30%",
                   header: <TermHint term="Редакция" hint={HINT.version} />,
                   frozen: true,
-                  render: (row: VersionRow) => (
-                    <Stack gap={1}>
-                      <span>
+                  render: (row: VersionRow) => {
+                    // FR-49b: серия, собранная до появления штампа, выбирается так же, как
+                    // остальные, — иначе эти наблюдения были бы недоступны вовсе; её числа
+                    // приглушены как приблизительные.
+                    const label = versionLabel(row, view.currentVersion, stampedSince);
+                    return (
+                      <Stack gap={1}>
                         {row.psychoHash === null
-                          // FR-49b: серия, собранная до появления штампа, выбирается так же,
-                          // как остальные, — иначе эти наблюдения были бы недоступны вовсе.
-                          ? "Версия неизвестна"
-                          : `Редакция ${row.psychoHash.slice(0, 8)}`}
-                      </span>
-                      <Text variant="body-xs" tone="muted">
-                        {new Date(row.firstAt).toLocaleDateString("ru-RU")} — {new Date(row.lastAt).toLocaleDateString("ru-RU")}
-                      </Text>
-                    </Stack>
-                  ),
+                          ? <Text variant="body-s" tone="muted">{label.title}</Text>
+                          : <span className="ou-grid__cell-strong">{label.title}</span>}
+                        {label.sub ? <Text variant="body-xs" tone="muted">{label.sub}</Text> : null}
+                      </Stack>
+                    );
+                  },
                 },
                 {
                   key: "observations",
@@ -391,21 +506,38 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
                 },
                 {
                   key: "difficulty",
-                  width: "18%",
+                  width: "16%",
                   header: <TermHint term="Трудность" hint={HINT.difficulty} align="end" />,
                   align: "right" as const,
                   numeric: true,
-                  render: (row: VersionRow) => <Text variant="body-s">{num(row.difficulty)}</Text>,
+                  render: (row: VersionRow) => (
+                    <Text variant="body-s" tone={row.psychoHash === null ? "muted" : undefined}>{num(row.difficulty)}</Text>
+                  ),
+                },
+                {
+                  key: "itemRest",
+                  width: "22%",
+                  header: <TermHint term="Дискриминативность" hint={HINT.itemRest} align="end" />,
+                  align: "right" as const,
+                  numeric: true,
+                  render: (row: VersionRow) => (
+                    <Text variant="body-s" tone={row.psychoHash === null || row.itemRest == null ? "muted" : undefined}>
+                      {num(row.itemRest ?? null)}
+                    </Text>
+                  ),
                 },
                 {
                   key: "action",
+                  width: "22%",
                   header: <TermHint term="Статистика карточки" hint={HINT.cardStats} />,
                   render: (row: VersionRow) => {
-                    const shown = version !== undefined && version === row.psychoHash;
+                    // FR-49a: отметка выбранной редакции переезжает в нажатую строку. «Показать
+                    // все вместе» нет: наблюдения разных редакций не складываются.
+                    const shown = selectedVersion !== undefined && selectedVersion === row.psychoHash;
                     return shown
-                      ? <Tag tone="success" size="s">Показана</Tag>
+                      ? <Tag tone="info" size="s">Выбрана</Tag>
                       : (
-                        <Button variant="ghost" size="s" onClick={() => onSelectVersion(row.psychoHash)}>
+                        <Button variant="secondary" size="s" onClick={() => onSelectVersion(row.psychoHash)}>
                           Показать
                         </Button>
                       );
@@ -416,16 +548,6 @@ export function ItemBreakdownPanel({ view, onBack, version, onSelectVersion }: I
               rowKey={row => row.psychoHash ?? "unknown"}
               emptyMessage="Редакций в выборке нет"
             />
-            {version !== undefined ? (
-              <Stack direction="row" gap={1} align="center">
-                <Button variant="ghost" size="s" onClick={() => onSelectVersion(undefined)}>
-                  Показать все редакции вместе
-                </Button>
-                <Text variant="body-xs" tone="muted">
-                  Числа карточки посчитаны по выбранной редакции
-                </Text>
-              </Stack>
-            ) : null}
           </CardBody>
         </Card>
       ) : null}

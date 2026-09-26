@@ -496,6 +496,12 @@ export interface ItemVersion {
   psychoHash: string | null;
   observations: number;
   difficulty: number | null;
+  /**
+   * Корреляция вопрос-остаток по наблюдениям ЭТОЙ редакции; `null` — наблюдений меньше порога
+   * коэффициентов (FR-05): корреляция по десятку ответов — шум, и в таблице версий, где рядом
+   * стоят две редакции, она читалась бы как «после правки стало хуже».
+   */
+  itemRest: number | null;
   /** Когда по этой редакции отвечали впервые и в последний раз — ею и различают версии. */
   firstAt: string;
   lastAt: string;
@@ -642,6 +648,30 @@ export function computeItemBreakdown(
   };
 }
 
+/**
+ * Какую редакцию показывает карточка, пока автор не выбрал другую (FR-49a, эскиз: «По умолчанию —
+ * текущая»).
+ *
+ * Наблюдения разных редакций не складываются, поэтому при нескольких редакциях карточка по
+ * умолчанию считается по ОДНОЙ: по текущей, если по ней уже отвечали, иначе по самой свежей серии
+ * с известной редакцией. При одной редакции выбирать нечего —
+ * `undefined`, и карточка считается по всей выборке, что то же самое.
+ *
+ * @param responses наблюдения выборки
+ * @param questionId вопрос
+ * @param currentHash отпечаток текущей редакции вопроса; `null` — неизвестен
+ */
+export function defaultVersionOf(
+  responses: readonly ResponseFact[],
+  questionId: string,
+  currentHash: string | null,
+): string | null | undefined {
+  const versions = versionsOf(responses, questionId);
+  if (versions.length <= 1) return undefined;
+  if (currentHash !== null && versions.some(v => v.psychoHash === currentHash)) return currentHash;
+  // Серий больше одной, а «версия неизвестна» — только одна из них: серия с отпечатком есть.
+  return versions.find(v => v.psychoHash !== null)!.psychoHash;
+}
 
 /**
  * Редакции задания в выборке с объёмами (FR-49).
@@ -650,9 +680,10 @@ export function computeItemBreakdown(
  * серию, а прежняя нужна ему для сравнения, а не наоборот.
  */
 function versionsOf(responses: readonly ResponseFact[], questionId: string): ItemVersion[] {
+  const identified = responses.filter(r => r.respondentId !== null);
   const byHash = new Map<string | null, ResponseFact[]>();
-  for (const response of responses) {
-    if (response.questionId !== questionId || response.respondentId === null) continue;
+  for (const response of identified) {
+    if (response.questionId !== questionId) continue;
     const list = byHash.get(response.psychoHash);
     if (list) list.push(response);
     else byHash.set(response.psychoHash, [response]);
@@ -662,6 +693,12 @@ function versionsOf(responses: readonly ResponseFact[], questionId: string): Ite
   for (const [hash, facts] of byHash) {
     const scored = facts.filter(f => f.scoreRatio !== null);
     const times = facts.map(f => f.occurredAt.getTime());
+    // Остаток — ТЕ ЖЕ остальные вопросы, что у общей корреляции карточки; от этого вопроса
+    // берутся только ответы на эту редакцию. Иначе числа двух строк считались бы по разным
+    // правилам, и сравнение «до и после правки» ничего бы не доказывало.
+    const graded: ItemResponse[] = identified
+      .filter(r => r.questionId !== questionId || r.psychoHash === hash)
+      .map(r => ({ respondentId: r.respondentId!, itemId: r.questionId, ratio: r.scoreRatio }));
     out.push({
       psychoHash: hash,
       observations: scored.length,
@@ -670,6 +707,9 @@ function versionsOf(responses: readonly ResponseFact[], questionId: string): Ite
         itemId: questionId,
         ratio: f.scoreRatio,
       }))),
+      itemRest: coefficientConfidence(scored.length) === "insufficient"
+        ? null
+        : itemRestCorrelation(questionId, graded),
       firstAt: new Date(Math.min(...times)).toISOString(),
       lastAt: new Date(Math.max(...times)).toISOString(),
     });

@@ -27,6 +27,7 @@ import { loadResponseMatrix } from "../../services/analytics/response-matrix";
 import {
   computeItemBreakdown,
   computePsychometrics,
+  defaultVersionOf,
   firstAttemptOnly,
   type PsychometricsContext,
   type QuestionInfo,
@@ -542,9 +543,15 @@ router.get(
       const responses = onlyFirst ? firstAttemptOnly(matrix.responses) : matrix.responses;
 
       const [question] = await storage.getQuestionsByIds([questionId]);
+      const currentVersion = question?.psychoHash ?? null;
       // FR-49a: выбранная редакция — это СМЕНА ВЫБОРКИ, и приходит она параметром. Пустая
-      // строка означает серию «версия неизвестна» (FR-49b): её тоже можно посмотреть.
-      const version = typeof req.query.version === "string" ? req.query.version : undefined;
+      // строка означает серию «версия неизвестна» (FR-49b): её тоже можно посмотреть. Без
+      // параметра карточка считается по текущей редакции (эскиз: «По умолчанию — текущая»):
+      // наблюдения разных редакций не складываются.
+      const requested = typeof req.query.version === "string" ? req.query.version : undefined;
+      const version = requested === undefined
+        ? defaultVersionOf(responses, questionId, currentVersion)
+        : (requested === "" ? null : requested);
       const breakdown = computeItemBreakdown(
         responses,
         {
@@ -554,17 +561,29 @@ router.get(
         },
         questionId,
         correctIndexesOf(question?.correctJson),
-        version === undefined ? undefined : (version === "" ? null : version),
+        version,
       );
       // Наблюдений за заданием нет вовсе — это не ошибка запроса, а пустая выборка: задание
       // могли добавить вчера, и разбирать в нём пока нечего.
       if (!breakdown) return res.json({ breakdown: null, questionId });
+
+      // Подзаголовок карточки — «Тема · подтема · N наблюдений» (эскиз); подтемы в продукте —
+      // теги вопроса (PRD-11).
+      const topicName = question
+        ? (await storage.getTopics()).find(topic => topic.id === question.topicId)?.name ?? ""
+        : "";
 
       res.json({
         ...breakdown,
         questionId,
         prompt: question?.prompt ?? questionById.get(questionId)?.prompt ?? "",
         questionType: question?.type ?? questionById.get(questionId)?.type ?? "",
+        topicName,
+        tags: Array.isArray(question?.tags) ? question.tags : [],
+        // Какая редакция текущая и по какой посчитана карточка (FR-49a). `selectedVersion`
+        // отсутствует, когда редакция одна и карточка считается по всей выборке.
+        currentVersion,
+        ...(version !== undefined ? { selectedVersion: version } : {}),
       });
     } catch (error) {
       logger.error("Psychometrics item error: " + (error as Error).message, "analytics");
