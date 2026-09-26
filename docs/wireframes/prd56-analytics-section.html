@@ -72,7 +72,7 @@
       /* Карточки срезов не тянутся под самую высокую: развёрнутые условия одного
          среза не должны оставлять пустоту в соседних. */
       .wf-slots { align-items: start; }
-      .wf-slot { min-width: 0; padding: var(--ou-space-3); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-l); }
+      .wf-slot { min-width: 0; padding: var(--ou-space-6); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-l); }
       /* Аккордеон условий: в эскизе открытое состояние рисуется классом. */
       .ou-acc__item:not(.is-open) .ou-acc__body { display: none; }
       /* Ячейка меню строки: в коде это `MenuTrigger`, здесь — раскрытый список. */
@@ -81,10 +81,11 @@
       /* Вложенность подтемы показывается одним и тем же сдвигом 6x везде:
          и в строках раскрытия, и в таблицах сравнения. */
       .wf-gap__row--tag { padding-left: var(--ou-space-6); }
-      .wf-gap__row { display: grid; grid-template-columns: var(--wf-size-220) 1fr var(--wf-size-160) var(--wf-size-90); align-items: center; gap: var(--ou-space-3); }
-      /* Модульная сетка 4 px (1x / 4x / 6x): каркас задаёт 20 px между блоками и 32 px от краёв —
-         обе величины вне сетки, поэтому в состоянии «Требует внимания» они перекрыты явно. */
-      #wf-attention .ou-shell__main { gap: var(--ou-space-4); padding-inline: var(--ou-space-6); }
+      .wf-gap__row { display: grid; grid-template-columns: var(--wf-size-220) 1fr var(--wf-size-160) var(--wf-size-90); align-items: center; gap: var(--ou-space-4); }
+      /* Модульная сетка 4 px (1x / 4x / 6x): между блоками страницы 4x, от краёв 6x. Правило
+         было введено для «Требует внимания»; с 6.2 оно держит все рабочие состояния, чтобы
+         ритм не зависел от версии каркаса. */
+      .wf-state[data-tab] .ou-shell__main { gap: var(--ou-space-4); padding-inline: var(--ou-space-6); }
     </style>
 
     <style data-wf-template-overrides>
@@ -100,6 +101,13 @@
     </style>
   </head>
   <body class="ou ou--light ou--normal">
+    <!-- ДЕЛЬТА 6.2 (2026-09-26, решение владельца): модульная сетка 4 px во всех состояниях.
+         Связанные элементы — 1x (4 px, gap-1): подпись и поле, кнопки одной группы, заголовок
+         и счётчик, ключ и значение условия, строки одного списка. Разные элементы — 4x (16 px,
+         gap-4): поля формы, блоки карточки среза, колонки строки разрыва по темам, элементы
+         общих условий вкладки. От краёв карточки и рамки — 6x (24 px): рамка среза в
+         сравнении и плитка «Добавить срез». Значения вне сетки (gap-2, gap-3, gap-5, pad-4 у
+         рамки, 12 px в CSS-держателях) заменены; эталон — состояние «Требует внимания». -->
     <svg class="wf-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></symbol>
       <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></symbol>
@@ -128,7 +136,7 @@
     <template id="wf-side-tpl">
       <aside class="ou-side">
         <div class="ou-side__brand">
-          <a href="#" class="ou-link-reset ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <a href="#" class="ou-link-reset ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
             <span class="ou-shell__brand-mark"><svg width="16" height="16"><use href="#i-book" /></svg></span>
             <span class="ou-text ou-text--body-m ou-text--w-semibold">Skill'Ум</span>
           </a>
@@ -171,7 +179,7 @@
         <h1 class="ou-text ou-text--heading-l">Аналитика</h1>
         <p class="ou-text ou-text--body-m ou-text--tone-muted">Что происходит с людьми и процессом: прохождения, срезы и дела, требующие внимания</p>
       </div>
-      <div class="ou-stack ou-stack--row ou-stack--gap-2">
+      <div class="ou-stack ou-stack--row ou-stack--gap-1">
         <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-upload" /></svg></span><span>Загрузить выгрузку LMS</span></button>
         <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-refresh" /></svg></span><span>Обновить</span></button>
       </div>
@@ -230,7 +238,7 @@
     <!-- Общие условия вкладки «Срезы»: ровно два — тест и период. Это не фильтр:
          фильтровать тут нечего, оба условия обязательны и задают рамку расчёта. -->
     <template id="wf-slices-scope-tpl">
-      <div class="ou-stack ou-stack--row ou-stack--gap-3 ou-stack--wrap ou-stack--ai-end">
+      <div class="ou-stack ou-stack--row ou-stack--gap-4 ou-stack--wrap ou-stack--ai-end">
         <div class="ou-stack ou-stack--gap-1 wf-ctl wf-ctl--grow">
           <span class="ou-text ou-text--body-xs ou-text--tone-muted">Тест</span>
           <div class="ou-combo ou-combo--single ou-combo--s">
@@ -268,7 +276,7 @@
 
     <!-- Единственный собственный параметр списка срезов — ось разбиения. -->
     <template id="wf-slice-controls-tpl">
-      <div class="ou-stack ou-stack--row ou-stack--gap-3 ou-stack--wrap ou-stack--ai-end">
+      <div class="ou-stack ou-stack--row ou-stack--gap-4 ou-stack--wrap ou-stack--ai-end">
         <div class="ou-stack ou-stack--gap-1 wf-ctl">
           <span class="ou-text ou-text--body-xs ou-text--tone-muted">Разбить по</span>
           <div class="ou-select ou-field--s" data-ou-options="Группа|Поток (период)|Номер попытки|Версия теста|Вариант выдачи|Источник|Внутренние и внешние">
@@ -314,7 +322,7 @@
             <div class="ou-filterbar__row" data-wf-search>
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog"><span>Фильтр</span></button>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s ou-filterbar__saved"><span>Сохранённые</span></button>
-              <div class="ou-filterbar__spacer ou-stack ou-stack--row ou-stack--gap-2">
+              <div class="ou-filterbar__spacer ou-stack ou-stack--row ou-stack--gap-1">
                 <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" disabled><span>Сохранить как срез</span></button>
                 <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(null, 'reg-export')"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-download" /></svg></span><span>Экспорт</span></button>
               </div>
@@ -428,7 +436,7 @@
                 </div>
                 <div class="ou-grid__footer">
                   <span>Показано 25 из 1 284</span>
-                  <span class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">Следующие подгружаются при прокрутке</span>
+                  <span class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">Следующие подгружаются при прокрутке</span>
                 </div>
               </div>
             </div>
@@ -450,7 +458,7 @@
             <div class="ou-filterbar__row" data-wf-search>
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog"><span>Фильтр</span><span class="ou-chip__count">4</span></button>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s ou-filterbar__saved"><span>Сохранённые</span></button>
-              <div class="ou-filterbar__spacer ou-stack ou-stack--row ou-stack--gap-2">
+              <div class="ou-filterbar__spacer ou-stack ou-stack--row ou-stack--gap-1">
                 <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(null, 'save-slice')"><span>Сохранить как срез</span></button>
                 <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(null, 'reg-export')"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-download" /></svg></span><span>Экспорт</span></button>
               </div>
@@ -532,7 +540,7 @@
                 </div>
                 <div class="ou-grid__footer">
                   <span>Показано 25 из 128</span>
-                  <span class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2"><span class="ou-spinner ou-spinner--xs ou-spinner--neutral" role="status" aria-label="Загрузка"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="ou-spinner__track" cx="12" cy="12" r="10" /><circle class="ou-spinner__head" cx="12" cy="12" r="10" /></svg></span>Загружаем следующие 25</span>
+                  <span class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1"><span class="ou-spinner ou-spinner--xs ou-spinner--neutral" role="status" aria-label="Загрузка"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="ou-spinner__track" cx="12" cy="12" r="10" /><circle class="ou-spinner__head" cx="12" cy="12" r="10" /></svg></span>Загружаем следующие 25</span>
                 </div>
               </div>
             </div>
@@ -762,7 +770,7 @@
                   <input class="ou-field__input" id="wf-slice-name" type="text" value="Отдел продаж, не сдали" />
                 </div>
               </div>
-              <div class="ou-stack ou-stack--gap-2">
+              <div class="ou-stack ou-stack--gap-1">
                 <span class="ou-text ou-text--body-xs ou-text--tone-muted">Условия — те же, что в фильтре сейчас</span>
                 <div class="ou-chip-group">
                   <span class="ou-chip ou-chip--xs"><button type="button" class="ou-chip__action" aria-pressed="false">Тест: Сертификация руководителей</button></span>
@@ -964,8 +972,12 @@
                             <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия со срезом" aria-haspopup="menu" aria-expanded="true"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-dots" /></svg></span></button>
                             <div class="ou-menu ou-menu--sm wf-rowmenu" role="menu">
                               <button type="button" class="ou-menu__item" role="menuitem" onclick="showState(null, 'reg-filtered')"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Открыть прохождения</span></span></button>
+                              <!-- ДЕЛЬТА 6.3 (2026-09-26, PRD-56 FR-24): «Аналитика теста» вторым пунктом —
+                                   переход к аналитике теста с условиями этого среза. Условные пункты:
+                                   «Изменить условия» — только у СОХРАНЁННОГО среза, «Сохранить как срез» —
+                                   только у среза по ОСИ (строка списка «Разбить по»). Остальные — всегда. -->
+                              <a class="ou-menu__item ou-link-reset" role="menuitem" href="prd56-test-analytics.html"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Аналитика теста</span></span></a>
                               <button type="button" class="ou-menu__item" role="menuitem" onclick="showState(null, 'compare')"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Сравнить с другим срезом</span></span></button>
-                              <button type="button" class="ou-menu__item" role="menuitem" onclick="showState(null, 'filter-form')"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Изменить условия</span></span></button>
                               <div class="ou-menu__divider" role="separator"></div>
                               <button type="button" class="ou-menu__item" role="menuitem" onclick="showState(null, 'save-slice')"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Сохранить как срез</span></span></button>
                               <button type="button" class="ou-menu__item" role="menuitem" onclick="showState(null, 'reg-export')"><span class="ou-menu__item-text"><span class="ou-menu__item-title">Выгрузить прохождения</span></span></button>
@@ -975,114 +987,116 @@
                         <tr class="ou-grid__expanded">
                           <td colspan="9">
                             <div class="ou-grid__expanded-inner">
-                              <div class="ou-stack ou-stack--gap-3">
-                                <div class="ou-stack ou-stack--row ou-stack--gap-3 ou-stack--wrap ou-stack--ai-center">
+                              <div class="ou-stack ou-stack--gap-4">
+                                <div class="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--wrap ou-stack--ai-center">
                                   <span class="ou-text ou-text--body-xs ou-text--tone-muted">Условия среза:</span>
                                   <span class="ou-chip ou-chip--xs"><button type="button" class="ou-chip__action" aria-pressed="false">Группа: Отдел продаж</button></span>
                                   <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
                                 </div>
 
-                                <span class="ou-text ou-text--body-xs ou-text--tone-muted">Отдел продаж, 58 завершённых прохождений · доля верных ответов по темам и подтемам</span>
+                                <div class="ou-stack ou-stack--gap-1">
+                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Отдел продаж, 58 завершённых прохождений · доля верных ответов по темам и подтемам</span>
 
-                                <div class="wf-gap__row">
-                                  <span class="ou-text ou-text--body-s">Право и комплаенс</span>
-                                  <span class="ou-progress ou-progress--s ou-progress--error"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 54%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">54 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  <div class="wf-gap__row">
+                                    <span class="ou-text ou-text--body-s">Право и комплаенс</span>
+                                    <span class="ou-progress ou-progress--s ou-progress--error"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 54%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">54 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Антикоррупция</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--error"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 41%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">41 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Персональные данные</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--error"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 52%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">52 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Договорная работа</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--warning"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 69%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">69 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 34 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row">
+                                    <span class="ou-text ou-text--body-s">Управление командой</span>
+                                    <span class="ou-progress ou-progress--s ou-progress--warning"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 63%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">63 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Обратная связь</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--warning"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 58%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">58 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Делегирование</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 68%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">68 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row">
+                                    <span class="ou-text ou-text--body-s">Документооборот</span>
+                                    <span class="ou-progress ou-progress--s ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 70%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">70 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">ЭДО</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 72%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">72 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Архивное хранение</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 67%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">67 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 29 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row">
+                                    <span class="ou-text ou-text--body-s">Охрана труда</span>
+                                    <span class="ou-progress ou-progress--s ou-progress--success"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 81%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">81 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Инструктажи</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--success"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 86%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">86 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row wf-gap__row--tag">
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">Средства защиты</span>
+                                    <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 75%"></span></span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">75 % верных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
+                                  </div>
+
+                                  <div class="wf-gap__row">
+                                    <span class="ou-text ou-text--body-s ou-text--tone-muted">Информационная безопасность</span>
+                                    <span></span>
+                                    <span class="ou-text ou-text--body-xs ou-text--tone-muted">мало данных</span>
+                                    <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 6 прохождениям</span>
+                                  </div>
                                 </div>
 
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Антикоррупция</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--error"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 41%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">41 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Персональные данные</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--error"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 52%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">52 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Договорная работа</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--warning"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 69%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">69 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 34 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row">
-                                  <span class="ou-text ou-text--body-s">Управление командой</span>
-                                  <span class="ou-progress ou-progress--s ou-progress--warning"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 63%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">63 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Обратная связь</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--warning"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 58%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">58 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Делегирование</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 68%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">68 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row">
-                                  <span class="ou-text ou-text--body-s">Документооборот</span>
-                                  <span class="ou-progress ou-progress--s ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 70%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">70 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">ЭДО</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 72%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">72 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Архивное хранение</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 67%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">67 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 29 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row">
-                                  <span class="ou-text ou-text--body-s">Охрана труда</span>
-                                  <span class="ou-progress ou-progress--s ou-progress--success"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 81%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">81 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Инструктажи</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--success"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 86%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">86 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row wf-gap__row--tag">
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">Средства защиты</span>
-                                  <span class="ou-progress ou-progress--xs ou-progress--neutral"><span class="ou-progress__track"><span class="ou-progress__fill" style="width: 75%"></span></span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">75 % верных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 58 прохождениям</span>
-                                </div>
-
-                                <div class="wf-gap__row">
-                                  <span class="ou-text ou-text--body-s ou-text--tone-muted">Информационная безопасность</span>
-                                  <span></span>
-                                  <span class="ou-text ou-text--body-xs ou-text--tone-muted">мало данных</span>
-                                  <span class="ou-text ou-text--end ou-text--body-xs ou-text--tone-muted">по 6 прохождениям</span>
-                                </div>
-
-                                <div class="ou-stack ou-stack--row ou-stack--gap-2">
+                                <div class="ou-stack ou-stack--row ou-stack--gap-1">
                                   <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(null, 'reg-filtered')"><span>Открыть прохождения</span></button>
                                   <button type="button" class="ou-btn ou-btn--ghost ou-btn--s" onclick="showState(null, 'compare')"><span>Сравнить с другим срезом</span></button>
                                 </div>
@@ -1142,8 +1156,8 @@
             <div class="ou-card__body">
               <div class="ou-stack ou-stack--gap-4">
                 <div class="ou-lgrid ou-lgrid--auto ou-lgrid--min-md ou-lgrid--gap-4 wf-slots">
-          <div class="ou-stack ou-stack--gap-3 wf-slot">
-            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <div class="ou-stack ou-stack--gap-4 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
               <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 1</span>
               <span class="ou-text ou-text--body-xs ou-text--tone-muted">163 прохождения</span>
             </div>
@@ -1162,20 +1176,20 @@
                   <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
                 </button>
                 <div class="ou-acc__body" role="region">
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Розница</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Попытка</span><span class="ou-text ou-text--body-xs">Первая</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Период</span><span class="ou-text ou-text--body-xs">01.01.2026 — 30.06.2026</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Источник</span><span class="ou-text ou-text--body-xs">Веб</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Участники</span><span class="ou-text ou-text--body-xs">Внутренние сотрудники</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Розница</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Попытка</span><span class="ou-text ou-text--body-xs">Первая</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Период</span><span class="ou-text ou-text--body-xs">01.01.2026 — 30.06.2026</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Источник</span><span class="ou-text ou-text--body-xs">Веб</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Участники</span><span class="ou-text ou-text--body-xs">Внутренние сотрудники</span></div>
                 </div>
               </div>
             </div>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
             </div>
           </div>
-          <div class="ou-stack ou-stack--gap-3 wf-slot">
-            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <div class="ou-stack ou-stack--gap-4 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
               <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 2</span>
               <span class="ou-text ou-text--body-xs ou-text--tone-muted">58 прохождений</span>
             </div>
@@ -1194,21 +1208,22 @@
                   <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
                 </button>
                 <div class="ou-acc__body" role="region">
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Отдел продаж</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Отдел продаж</span></div>
                 </div>
               </div>
             </div>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Убрать</span></button>
             </div>
           </div>
-                  <button type="button" class="ou-box ou-box--border-dashed ou-box--radius-l ou-box--pad-4 wf-slot-add" onclick="showState(null, 'compare-many')">
+                  <button type="button" class="ou-box ou-box--border-dashed ou-box--radius-l ou-box--pad-6 wf-slot-add" onclick="showState(null, 'compare-many')">
                     <span class="ou-text ou-text--body-s ou-text--w-medium">+ Добавить срез</span>
                     <span class="ou-text ou-text--body-xs ou-text--tone-muted">до четырёх срезов</span>
                   </button>
                 </div>
 
+                <div class="ou-stack ou-stack--gap-1"><!-- подпись и её таблица — связанные: 4 px (решение владельца 2026-09-26) -->
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Прохождения и результат</span>
                 <div class="ou-grid">
                   <div class="ou-grid__scroll">
@@ -1262,7 +1277,9 @@
                     </table>
                   </div>
                 </div>
+                </div>
 
+                <div class="ou-stack ou-stack--gap-1"><!-- подпись и её таблица — связанные: 4 px (решение владельца 2026-09-26) -->
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Доля верных ответов</span>
                 <div class="ou-grid">
                   <div class="ou-grid__scroll">
@@ -1346,8 +1363,9 @@
                     </table>
                   </div>
                 </div>
+                </div>
 
-                <div class="ou-stack ou-stack--row ou-stack--gap-2">
+                <div class="ou-stack ou-stack--row ou-stack--gap-1">
                   <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(null, 'reg-filtered')"><span>Прохождения: Розница, первый поток</span></button>
                   <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(null, 'reg-filtered')"><span>Прохождения: Отдел продаж</span></button>
                 </div>
@@ -1386,8 +1404,8 @@
             <div class="ou-card__body">
               <div class="ou-stack ou-stack--gap-4">
                 <div class="ou-lgrid ou-lgrid--auto ou-lgrid--min-md ou-lgrid--gap-4 wf-slots">
-          <div class="ou-stack ou-stack--gap-3 wf-slot">
-            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <div class="ou-stack ou-stack--gap-4 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
               <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 1</span>
               <span class="ou-text ou-text--body-xs ou-text--tone-muted">163 прохождения</span>
             </div>
@@ -1406,20 +1424,20 @@
                   <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
                 </button>
                 <div class="ou-acc__body" role="region">
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Розница</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Попытка</span><span class="ou-text ou-text--body-xs">Первая</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Период</span><span class="ou-text ou-text--body-xs">01.01.2026 — 30.06.2026</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Источник</span><span class="ou-text ou-text--body-xs">Веб</span></div>
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Участники</span><span class="ou-text ou-text--body-xs">Внутренние сотрудники</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Розница</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Попытка</span><span class="ou-text ou-text--body-xs">Первая</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Период</span><span class="ou-text ou-text--body-xs">01.01.2026 — 30.06.2026</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Источник</span><span class="ou-text ou-text--body-xs">Веб</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Участники</span><span class="ou-text ou-text--body-xs">Внутренние сотрудники</span></div>
                 </div>
               </div>
             </div>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
             </div>
           </div>
-          <div class="ou-stack ou-stack--gap-3 wf-slot">
-            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <div class="ou-stack ou-stack--gap-4 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
               <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 2</span>
               <span class="ou-text ou-text--body-xs ou-text--tone-muted">58 прохождений</span>
             </div>
@@ -1438,17 +1456,17 @@
                   <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
                 </button>
                 <div class="ou-acc__body" role="region">
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Отдел продаж</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Отдел продаж</span></div>
                 </div>
               </div>
             </div>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Убрать</span></button>
             </div>
           </div>
-          <div class="ou-stack ou-stack--gap-3 wf-slot">
-            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <div class="ou-stack ou-stack--gap-4 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
               <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 3</span>
               <span class="ou-text ou-text--body-xs ou-text--tone-muted">41 прохождение</span>
             </div>
@@ -1467,17 +1485,17 @@
                   <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
                 </button>
                 <div class="ou-acc__body" role="region">
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Логистика</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Логистика</span></div>
                 </div>
               </div>
             </div>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Убрать</span></button>
             </div>
           </div>
-          <div class="ou-stack ou-stack--gap-3 wf-slot">
-            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-2">
+          <div class="ou-stack ou-stack--gap-4 wf-slot">
+            <div class="ou-stack ou-stack--row ou-stack--ai-center ou-stack--gap-1">
               <span class="ou-text ou-text--body-s ou-text--w-medium">Срез 4</span>
               <span class="ou-text ou-text--body-xs ou-text--tone-muted">206 прохождений</span>
             </div>
@@ -1496,11 +1514,11 @@
                   <span class="ou-acc__chev"><svg width="16" height="16"><use href="#i-chevron-down" /></svg></span>
                 </button>
                 <div class="ou-acc__body" role="region">
-              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-3"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Сервисные центры</span></div>
+              <div class="ou-stack ou-stack--row ou-stack--jc-between ou-stack--gap-1"><span class="ou-text ou-text--body-xs ou-text--tone-muted">Группа</span><span class="ou-text ou-text--body-xs">Сервисные центры</span></div>
                 </div>
               </div>
             </div>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" aria-haspopup="dialog" onclick="showState(null, 'filter-form')"><span>Изменить условия</span></button>
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span>Убрать</span></button>
             </div>
@@ -1508,6 +1526,7 @@
                 </div>
                 <span class="ou-text ou-text--body-xs ou-text--tone-muted">Добавить пятый срез нельзя: сравнение держит четыре</span>
 
+                <div class="ou-stack ou-stack--gap-1"><!-- подпись и её таблица — связанные: 4 px (решение владельца 2026-09-26) -->
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Прохождения и результат</span>
                 <div class="ou-grid">
                   <div class="ou-grid__scroll">
@@ -1568,7 +1587,9 @@
                     </table>
                   </div>
                 </div>
+                </div>
 
+                <div class="ou-stack ou-stack--gap-1"><!-- подпись и её таблица — связанные: 4 px (решение владельца 2026-09-26) -->
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Доля верных ответов</span>
                 <div class="ou-grid">
                   <div class="ou-grid__scroll">
@@ -1664,6 +1685,7 @@
                     </table>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           </section>
@@ -1711,11 +1733,11 @@
             <button type="button" class="ou-modal__close" aria-label="Закрыть" onclick="showState(null, 'slices')"><svg width="16" height="16"><use href="#i-x" /></svg></button>
           </header>
           <div class="ou-modal__body">
-            <div class="ou-stack ou-stack--gap-5">
+            <div class="ou-stack ou-stack--gap-4">
 
-              <div class="ou-stack ou-stack--gap-2">
+              <div class="ou-stack ou-stack--gap-1">
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Период</span>
-                <div class="ou-stack ou-stack--row ou-stack--gap-3 ou-stack--wrap">
+                <div class="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--wrap">
                   <div class="ou-datepicker">
                     <label class="ou-datepicker__lbl" for="wf-period-from">С</label>
                     <button type="button" class="ou-datepicker__trigger" id="wf-period-from" aria-haspopup="dialog" aria-expanded="false">
@@ -1735,7 +1757,7 @@
                 </div>
               </div>
 
-              <div class="ou-stack ou-stack--gap-2">
+              <div class="ou-stack ou-stack--gap-1">
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Группа</span>
                 <div class="ou-combo ou-combo--s">
                   <div class="ou-combo__control">
@@ -1748,7 +1770,7 @@
                 </div>
               </div>
 
-              <div class="ou-stack ou-stack--gap-2">
+              <div class="ou-stack ou-stack--gap-1">
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Источник</span>
                 <div class="ou-check-group ou-check-group--row">
               <label class="ou-check ou-check--s"><input type="checkbox" class="ou-check__input" checked /><span class="ou-check__box"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l2 2 4-5" /></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Веб</span></span></label>
@@ -1757,7 +1779,7 @@
                 </div>
               </div>
 
-              <div class="ou-stack ou-stack--gap-2">
+              <div class="ou-stack ou-stack--gap-1">
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Исход</span>
                 <div class="ou-check-group ou-check-group--row">
               <label class="ou-check ou-check--s"><input type="checkbox" class="ou-check__input" checked /><span class="ou-check__box"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l2 2 4-5" /></svg></span><span class="ou-check__text"><span class="ou-check__lbl">Сдал</span></span></label>
@@ -1766,7 +1788,7 @@
                 </div>
               </div>
 
-              <div class="ou-stack ou-stack--gap-2 wf-ctl">
+              <div class="ou-stack ou-stack--gap-1 wf-ctl">
                 <span class="ou-text ou-text--body-s ou-text--w-medium">Попытка</span>
                 <div class="ou-select ou-field--s" data-ou-options="Любая|Первая|Повторная|Последняя">
                   <button type="button" class="ou-select__trigger"><span class="ou-select__value">Первая</span><span class="ou-select__chev"><svg width="14" height="14"><use href="#i-chevron-down" /></svg></span></button>
@@ -1777,7 +1799,7 @@
           </div>
           <footer class="ou-modal__foot ou-modal__foot--between">
             <button type="button" class="ou-btn ou-btn--ghost ou-btn--m"><span>Сбросить всё</span></button>
-            <div class="ou-stack ou-stack--row ou-stack--gap-2">
+            <div class="ou-stack ou-stack--row ou-stack--gap-1">
               <button type="button" class="ou-btn ou-btn--ghost ou-btn--m" onclick="showState(null, 'slices')"><span>Отмена</span></button>
               <button type="button" class="ou-btn ou-btn--primary ou-btn--m" onclick="showState(null, 'slices')"><span>Применить</span></button>
             </div>
@@ -2066,6 +2088,11 @@
                   <td>«Открыть прохождения в реестре»</td>
                   <td>вкладка «Прохождения», фильтр = условия экрана + условия среза</td>
                   <td>FR-08. Переход уносит на первую вкладку с готовым фильтром: тест, период и условия этого среза стоят чипами, их видно и можно ослабить. Стрелка в конце строки таблицы делает то же самое</td>
+                </tr>
+                <tr>
+                  <td>«Аналитика теста» (меню строки)</td>
+                  <td>экран аналитики теста, условия = условия среза</td>
+                  <td>FR-24, дельта 6.3 (2026-09-26). Второй пункт меню «⋯». Пункты меню условны: «Изменить условия» есть только у сохранённого среза, «Сохранить как срез» — только у среза по оси; остальные показываются всегда</td>
                 </tr>
                 <tr>
                   <td>«Сравнить с другим срезом»</td>

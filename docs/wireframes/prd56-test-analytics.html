@@ -133,6 +133,8 @@
       <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></symbol>
       <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></symbol>
       <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
     </svg>
 
     <template id="wf-side-tpl">
@@ -181,9 +183,13 @@
         <h1 class="ou-text ou-text--heading-l">Сертификация руководителей</h1>
         <p class="ou-text ou-text--body-m ou-text--tone-muted">486 завершённых прохождений · веб, телеметрия LMS и импортированные выгрузки</p>
       </div>
-      <div class="ou-stack ou-stack--row ou-stack--gap-2">
+      <div class="ou-stack ou-stack--row ou-stack--gap-1 ou-stack--ai-center">
+        <!-- ДЕЛЬТА 6.4 (2026-09-26, решение владельца): действия шапки как в продукте. PRD-54 ставит
+             загрузку выгрузки LMS рядом с экспортом; «Обновить» — иконка без подписи, последней. -->
+        <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-upload" /></svg></span><span>Загрузить выгрузку LMS</span></button>
+        <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-download" /></svg></span><span>Экспорт Excel</span></button>
         <a href="prd56-analytics-section.html" class="ou-btn ou-btn--secondary ou-btn--s ou-link-reset"><span>Прохождения теста</span><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-chevron-right" /></svg></span></a>
-        <button type="button" class="ou-btn ou-btn--ghost ou-btn--s"><span class="ou-btn__ico"><svg width="14" height="14"><use href="#i-refresh" /></svg></span><span>Обновить</span></button>
+        <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Обновить" title="Обновить"><span class="ou-iconbtn__ico"><svg width="16" height="16"><use href="#i-refresh" /></svg></span></button>
       </div>
     </template>
 
