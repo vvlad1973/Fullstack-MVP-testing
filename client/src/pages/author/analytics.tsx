@@ -30,7 +30,7 @@ import { AttentionQueue, type AttentionData, type AttentionRow } from "@/feature
 import { DEFAULT_ATTENTION_PERIOD, type AttentionPeriod } from "@shared/analytics/attention-period";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/loading-state";
-import { LmsImportForm } from "@/features/analytics/lms-import/lms-import-form";
+import { LmsImportDialog } from "@/features/analytics/lms-import/lms-import-dialog";
 import {
   Box,
   Button,
@@ -1002,14 +1002,12 @@ export default function AnalyticsPage() {
         </Cluster>
       </Cluster>
 
-      <ModalDialog
+      <LmsImportDialog
         open={lmsImportOpen}
         onClose={() => setLmsImportOpen(false)}
-        title="Загрузка выгрузки LMS"
         description="Тест определяется по самому файлу"
-      >
-        <LmsImportForm onDone={() => window.location.reload()} onCancel={() => setLmsImportOpen(false)} />
-      </ModalDialog>
+        onDone={() => window.location.reload()}
+      />
 
       {/* Табы */}
       <Tabs

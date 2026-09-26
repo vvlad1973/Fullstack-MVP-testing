@@ -4,7 +4,7 @@
  * и подписи плана.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { getQueryFn, queryClient } from "@/lib/queryClient";
 import { LmsImportForm, type LmsInspectResult } from "../lms-import-form";
@@ -143,13 +143,38 @@ describe("<LmsImportForm /> — окно до выбора файла (эски�
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it("в окне кнопки стоят последними, под списком загрузок — как подвал окна", async () => {
-    renderEmpty({ fixedTestId: "t1", onCancel: () => {} });
+  it("встроенная форма ставит кнопки в тело, перед списком загрузок", async () => {
+    renderEmpty({ fixedTestId: "t1" });
     await screen.findAllByRole("checkbox", { name: "В расчётах" });
 
     const list = screen.getByText("Загрузки этого теста");
     const importButton = screen.getByRole("button", { name: "Импортировать" });
-    expect(list.compareDocumentPosition(importButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(importButton.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("с раскладкой по окну кнопки отдаются хосту отдельно от тела", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <LmsImportForm
+          fixedTestId="t1"
+          onCancel={() => {}}
+          frame={({ body, actions }) => (
+            <>
+              <div data-testid="body">{body}</div>
+              <div data-testid="actions">{actions}</div>
+            </>
+          )}
+        />
+      </QueryClientProvider>,
+    );
+    await screen.findAllByRole("checkbox", { name: "В расчётах" });
+
+    const body = screen.getByTestId("body");
+    const actions = screen.getByTestId("actions");
+    expect(within(body).getByText("Загрузки этого теста")).toBeInTheDocument();
+    expect(within(body).queryByRole("button", { name: "Импортировать" })).toBeNull();
+    expect(within(actions).getAllByRole("button").map((b) => b.textContent))
+      .toEqual(["Отмена", "Проверить", "Импортировать"]);
   });
 });
 

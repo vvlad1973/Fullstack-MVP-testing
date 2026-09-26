@@ -3,7 +3,8 @@
  * @description Форма загрузки выгрузки отчёта LMS (PRD-54 раздел 11).
  *
  * ОДНА на три точки входа: экран «Импорт» встраивает её в страницу, обе страницы аналитики — в
- * `ModalDialog`. Копии разошлись бы поведением сухого прогона и предупреждений, а разойдясь,
+ * `ModalDialog` через `LmsImportDialog`. В окне кнопки уходят в стандартный подвал окна (`frame`),
+ * на встроенном экране стоят в теле формы. Копии разошлись бы поведением сухого прогона и предупреждений, а разойдясь,
  * начали бы обещать разное про один и тот же файл.
  *
  * Хост может отдать уже разобранный файл (экран импорта опознаёт вид до ветвления) либо не отдать
@@ -11,7 +12,7 @@
  *
  * Эскиз: `docs/wireframes/prd54-lms-import.html` (согласован 2026-09-12).
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Trash2, Upload, X } from "lucide-react";
 import {
@@ -74,6 +75,17 @@ interface Batch {
   counted: boolean;
 }
 
+/**
+ * Части формы, которые хост-окно раскладывает по своим местам: тело — в тело окна, кнопки — в
+ * его подвал с разделителем.
+ */
+export interface LmsImportFrameParts {
+  /** Содержимое формы без кнопок. */
+  body: ReactNode;
+  /** Кнопки текущего состояния формы («Отмена», «Проверить», «Импортировать» и т. п.). */
+  actions: ReactNode;
+}
+
 export interface LmsImportFormProps {
   /** Файл, уже выбранный хостом. Без него форма показывает свой загрузчик. */
   file?: File;
@@ -97,11 +109,15 @@ export interface LmsImportFormProps {
    */
   onReset?: () => void;
   /**
-   * Закрыть окно, в котором открыта форма. Задан — значит, форма живёт в `ModalDialog`: тогда
-   * внизу появляется «Отмена», а кнопки идут последними, под списком загрузок, как подвал окна
-   * в эскизе. Встроенная форма экрана «Импорт» его не передаёт.
+   * Закрыть окно, в котором открыта форма. Задан — среди кнопок первой появляется «Отмена»
+   * (после успешной загрузки — «Закрыть»). Встроенная форма экрана «Импорт» его не передаёт.
    */
   onCancel?: () => void;
+  /**
+   * Раскладка по окну. Задана — форма отдаёт тело и кнопки порознь, и хост ставит кнопки в подвал
+   * окна (эскиз, состояние «в окне»). Не задана — кнопки стоят в теле формы, перед списком загрузок.
+   */
+  frame?: (parts: LmsImportFrameParts) => ReactNode;
 }
 
 /** Килобайты файла для подписи под именем. */
@@ -127,7 +143,7 @@ function plural(n: number, forms: [string, string, string]): string {
   return `${n} ${forms[2]}`;
 }
 
-export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestId, onDone, onReset, onCancel }: LmsImportFormProps) {
+export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestId, onDone, onReset, onCancel, frame }: LmsImportFormProps) {
   const { toast } = useToast();
 
   const [ownFile, setOwnFile] = useState<File | null>(null);
@@ -249,6 +265,35 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
     onReset?.();
   }
 
+  /**
+   * Собрать состояние формы. В окне тело и кнопки уходят хосту порознь — кнопки встают в подвал;
+   * встроенная форма ставит их в конец тела, справа.
+   *
+   * @param body содержимое до кнопок
+   * @param buttons кнопки состояния, без «Отмены»: её добавляет сама раскладка
+   * @param options.closeLabel подпись закрывающей кнопки — после записи отменять уже нечего
+   * @param options.after содержимое под кнопками встроенной формы (список загрузок); в окне оно
+   *   остаётся в теле, а кнопки уходят в подвал
+   */
+  function compose(
+    body: ReactNode,
+    buttons: ReactNode,
+    { closeLabel = "Отмена", after = null }: { closeLabel?: string; after?: ReactNode } = {},
+  ) {
+    const cancel = onCancel ? (
+      <Button variant="ghost" onClick={onCancel} disabled={runMut.isPending}>{closeLabel}</Button>
+    ) : null;
+    const actions = <>{cancel}{buttons}</>;
+    if (frame) return <>{frame({ body: <Stack gap={3}>{body}{after}</Stack>, actions })}</>;
+    return (
+      <Stack gap={3}>
+        {body}
+        <Cluster justify="end" gap={2}>{actions}</Cluster>
+        {after}
+      </Stack>
+    );
+  }
+
   // ── Пусто: собственный загрузчик на месте строки файла ───────────────────
   // Остальная форма видна и до файла (эскиз, состояние «в окне»): человек сразу видит, что его
   // ждёт, а на странице теста — ещё и загрузки, которые можно снять с учёта.
@@ -282,70 +327,71 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
 
   // ── Идёт разбор ──────────────────────────────────────────────────────────
   if (inspectMut.isPending) {
-    return (
-      <Stack gap={3}>
+    // Встроенной форме без «Отмены» кнопок тут нет вовсе — пустую строку не рисуем.
+    const body = (
+      <>
         {fileRow}
         <Cluster gap={2}><Spinner size="s" /><Text variant="body-s" tone="muted">Читаем файл…</Text></Cluster>
-      </Stack>
+      </>
     );
+    return onCancel || frame ? compose(body, null) : <Stack gap={3}>{body}</Stack>;
   }
 
   // ── Файл не распознан ────────────────────────────────────────────────────
   if (notRecognized) {
-    return (
-      <Stack gap={3}>
+    return compose(
+      <>
         {fileRow}
         <Banner
           tone="error"
           title="Файл не распознан"
           description="Это не выгрузка отчёта LMS. Проверьте, что выгружали отчёт по SCORM-модулю, а не что-то другое."
         />
-        <Cluster justify="end"><Button variant="secondary" onClick={reset}>Выбрать другой файл</Button></Cluster>
-      </Stack>
+      </>,
+      <Button variant="secondary" onClick={reset}>Выбрать другой файл</Button>,
     );
   }
 
   // ── Тест по вопросам не найден ───────────────────────────────────────────
   if (inspect && !testId) {
-    return (
-      <Stack gap={3}>
+    return compose(
+      <>
         {fileRow}
         <Banner
           tone="error"
           title="Тест по файлу не определён"
           description={`Из ${inspect.questionIds} вопросов файла ни один однозначно не указывает на тест этой установки. Похоже, выгрузка сделана по тесту из другой системы.`}
         />
-        <Cluster justify="end"><Button variant="secondary" onClick={reset}>Выбрать другой файл</Button></Cluster>
-      </Stack>
+      </>,
+      <Button variant="secondary" onClick={reset}>Выбрать другой файл</Button>,
     );
   }
 
   // ── Чужой тест ───────────────────────────────────────────────────────────
   if (mismatch) {
-    return (
-      <Stack gap={3}>
+    return compose(
+      <>
         {fileRow}
         <Banner
           tone="error"
           title="Это выгрузка другого теста"
           description={`В файле — «${inspect?.testTitle ?? testId}». Открыта аналитика другого теста, и записать эти строки сюда нельзя.`}
         />
-        <Cluster justify="end"><Button variant="secondary" onClick={reset}>Выбрать другой файл</Button></Cluster>
-      </Stack>
+      </>,
+      <Button variant="secondary" onClick={reset}>Выбрать другой файл</Button>,
     );
   }
 
   // ── Готово ───────────────────────────────────────────────────────────────
   if (done) {
-    return (
-      <Stack gap={3}>
-        <Banner
-          tone="success"
-          title="Загрузка завершена"
-          description={`Добавлено ${done.rowsCreated}, обновлено ${done.rowsUpdated}, пропущено ${done.rowsSkipped}, связано с пользователями ${done.rowsLinked}.`}
-        />
-        <Cluster justify="end"><Button variant="secondary" onClick={reset}>Загрузить ещё</Button></Cluster>
-      </Stack>
+    return compose(
+      <Banner
+        tone="success"
+        title="Загрузка завершена"
+        description={`Добавлено ${done.rowsCreated}, обновлено ${done.rowsUpdated}, пропущено ${done.rowsSkipped}, связано с пользователями ${done.rowsLinked}.`}
+      />,
+      <Button variant="secondary" onClick={reset}>Загрузить ещё</Button>,
+      { closeLabel: "Закрыть" },
     );
   }
 
@@ -357,14 +403,11 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
 
   /**
    * «Проверить» и «Импортировать». Без файла проверять нечего, поэтому обе заблокированы. В окне
-   * (задан `onCancel`) к ним добавляется «Отмена», а весь блок встаёт последним — под список
-   * загрузок, как подвал окна в эскизе; на встроенном экране «Импорт» он стоит перед списком.
+   * перед ними встаёт «Отмена», и все три уходят в подвал окна — порядок как в эскизе; на
+   * встроенном экране «Импорт» они стоят в теле, перед списком загрузок.
    */
-  const actions = (
-    <Cluster justify="end" gap={2}>
-      {onCancel ? (
-        <Button variant="ghost" onClick={onCancel} disabled={runMut.isPending}>Отмена</Button>
-      ) : null}
+  const buttons = (
+    <>
       <Button
         variant="secondary"
         onClick={() => dryMut.mutate()}
@@ -384,11 +427,11 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
       >
         Импортировать
       </Button>
-    </Cluster>
+    </>
   );
 
-  return (
-    <Stack gap={3}>
+  const form = (
+    <>
       {file ? fileRow : uploader}
 
       {inspect && (
@@ -463,56 +506,54 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, fixedTestI
       {dryMut.isError && (
         <Banner tone="error" title="Проверка не выполнена" description={(dryMut.error as Error).message} />
       )}
+    </>
+  );
 
-      {onCancel ? null : actions}
-
-      {batchesTestId && (
-        <Stack gap={2}>
-          <Text variant="body-s" weight="medium">Загрузки этого теста</Text>
-          {(batches.data ?? []).length === 0 ? (
-            <EmptyState
-              title="Выгрузки ещё не загружали"
-              description="Здесь появится список загруженных файлов — с датой, автором и возможностью откатить."
-            />
-          ) : (
-            <Stack gap={1}>
-              {(batches.data ?? []).map((b) => (
-                // Строка не переносится: в узком окне аналитики переключатель и откат иначе
-                // уезжали на отдельные строки и у соседних загрузок вставали по-разному. Переносится
-                // только текст — он и растягивается.
-                <Cluster key={b.id} gap={3} wrap={false}>
-                  <Stack gap={0} grow>
-                    <Text variant="body-s" weight="medium">{b.fileName}</Text>
-                    <Text variant="body-xs" tone="muted">
-                      {new Date(b.importedAt).toLocaleString("ru-RU")} · добавлено {b.rowsCreated}, обновлено {b.rowsUpdated}
-                      {/* Выключенный переключатель в списке легко не заметить — говорим словами. */}
-                      {b.counted ? null : " · не учитывается в расчётах — данные сохранены"}
-                    </Text>
-                  </Stack>
-                  <Switch
-                    size="s"
-                    label="В расчётах"
-                    checked={b.counted}
-                    onChange={(e) => countedMut.mutate({ id: b.id, counted: e.target.checked })}
-                    disabled={countedMut.isPending}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="s"
-                    leadingIcon={<Trash2 size={14} />}
-                    onClick={() => rollbackMut.mutate(b.id)}
-                    loading={rollbackMut.isPending}
-                  >
-                    Откатить
-                  </Button>
-                </Cluster>
-              ))}
-            </Stack>
-          )}
+  const batchList = batchesTestId && (
+    <Stack gap={2}>
+      <Text variant="body-s" weight="medium">Загрузки этого теста</Text>
+      {(batches.data ?? []).length === 0 ? (
+        <EmptyState
+          title="Выгрузки ещё не загружали"
+          description="Здесь появится список загруженных файлов — с датой, автором и возможностью откатить."
+        />
+      ) : (
+        <Stack gap={1}>
+          {(batches.data ?? []).map((b) => (
+            // Строка не переносится: в узком окне аналитики переключатель и откат иначе
+            // уезжали на отдельные строки и у соседних загрузок вставали по-разному. Переносится
+            // только текст — он и растягивается.
+            <Cluster key={b.id} gap={3} wrap={false}>
+              <Stack gap={0} grow>
+                <Text variant="body-s" weight="medium">{b.fileName}</Text>
+                <Text variant="body-xs" tone="muted">
+                  {new Date(b.importedAt).toLocaleString("ru-RU")} · добавлено {b.rowsCreated}, обновлено {b.rowsUpdated}
+                  {/* Выключенный переключатель в списке легко не заметить — говорим словами. */}
+                  {b.counted ? null : " · не учитывается в расчётах — данные сохранены"}
+                </Text>
+              </Stack>
+              <Switch
+                size="s"
+                label="В расчётах"
+                checked={b.counted}
+                onChange={(e) => countedMut.mutate({ id: b.id, counted: e.target.checked })}
+                disabled={countedMut.isPending}
+              />
+              <Button
+                variant="ghost"
+                size="s"
+                leadingIcon={<Trash2 size={14} />}
+                onClick={() => rollbackMut.mutate(b.id)}
+                loading={rollbackMut.isPending}
+              >
+                Откатить
+              </Button>
+            </Cluster>
+          ))}
         </Stack>
       )}
-
-      {onCancel ? actions : null}
     </Stack>
   );
+
+  return compose(form, buttons, { after: batchList });
 }
