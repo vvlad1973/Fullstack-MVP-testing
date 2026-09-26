@@ -25,6 +25,7 @@ import { pluralize } from "@/lib/i18n";
 
 // Общий формат психометрического числа: запятая и типографский минус — как у связи с остатком
 // на вкладке заданий («−0,44» в эскизе, а не «-0,44»).
+import { FloatingHint } from "./floating-hint";
 import { num } from "./psychometrics-format";
 import { TermHint } from "./term-hint";
 
@@ -206,13 +207,11 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
   // причина названа в подсказке.
   if (distribution.length === 0) {
     return (
-      <Tooltip
+      <FloatingHint
         content="Участник не выбирает один вариант, а раскладывает ответ между утверждениями: градаций, по которым строится распределение, у такого вопроса нет."
-        placement="bottom"
-        wrap
       >
         <Text variant="body-xs" tone="muted">—</Text>
-      </Tooltip>
+      </FloatingHint>
     );
   }
   const last = distribution.length - 1;
@@ -232,7 +231,7 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
   );
 
   return (
-    <Tooltip title="Градации ответа" content={decoding} placement="bottom" wrap>
+    <FloatingHint title="Градации ответа" content={decoding}>
       <span
         className="tb-psy-hist"
         style={{ gridTemplateColumns: `repeat(${distribution.length}, 1fr)` }}
@@ -256,7 +255,7 @@ function GradeHistogram({ distribution, labels }: { distribution: number[]; labe
           </span>
         ) : null}
       </span>
-    </Tooltip>
+    </FloatingHint>
   );
 }
 
@@ -383,25 +382,21 @@ export function ScaleQualityPanel({ scales }: ScaleQualityPanelProps) {
               const contribution = row.contribution ?? null;
               if (contribution === null) {
                 return (
-                  <Tooltip
+                  <FloatingHint
                     content="Вклад зависит от того, какой вариант выбран, и одним числом не выражается."
-                    placement="bottom"
-                    wrap
                   >
                     <Text variant="body-s" tone="muted">—</Text>
-                  </Tooltip>
+                  </FloatingHint>
                 );
               }
               if (!contribution.exact) {
                 // Вклады градаций неравномерны: число — направление пункта, а не точный шаг.
                 return (
-                  <Tooltip
+                  <FloatingHint
                     content="Вклады градаций неравномерны: число показывает направление пункта — на сколько в среднем сдвигается шкала за одну градацию."
-                    placement="bottom"
-                    wrap
                   >
                     <Text variant="body-s">≈{signedContribution(contribution.value)}</Text>
-                  </Tooltip>
+                  </FloatingHint>
                 );
               }
               return <Text variant="body-s">{signedContribution(contribution.value)}</Text>;

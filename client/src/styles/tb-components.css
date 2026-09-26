@@ -3255,10 +3255,8 @@
      перенос по словам разрешён.
    - Стрелка сортировки не сжимается: в узкой колонке переносится текст, а не
      пропадает стрелка.
-   - Пузырёк позиционируется от строчного якоря и без явной ширины сжимается до
-     ширины заголовка; у числовой колонки (обёртка `ou-text--end`) он прижат к
-     правому краю, иначе уходит за край таблицы. */
-.tb-term-hint .ou-tip__bubble--wrap { width: 240px; }
+   - Пузырёк выводится поверх страницы (`FloatingHint`, ниже): внутри таблицы его
+     обрезала рамка, а скрытый он раздувал прокрутку. */
 .tb-term-hint__term::after {
   content: "\00a0";
   padding-right: 12px;
@@ -3269,15 +3267,29 @@
 .ou-grid__th:has(.tb-term-hint) { white-space: normal; }
 .ou-grid__th .tb-term-hint { display: inline; }
 .ou-grid__th > svg { flex-shrink: 0; }
-/* У двух последних колонок пузырёк открывается влево при любом выравнивании: скрытый, он всё
-   равно шириной 240 px и, открываясь вправо от термина, выходил за край таблицы и включал
-   горизонтальную прокрутку (приёмка 5.5, «Качество варианта»). */
-th:nth-last-child(-n + 2) .tb-term-hint[data-placement="bottom"] .ou-tip__bubble,
-.ou-grid__th .ou-text--end .tb-term-hint[data-placement="bottom"] .ou-tip__bubble {
-  left: auto;
-  right: 0;
-  --ou-tip-tx: 0;
+
+/* ─── PRD-66: подсказка поверх страницы (`FloatingHint`) ─────────────────────
+   Пузырь подсказки дизайн-системы живёт внутри триггера, и в таблице его обрезает
+   рамка `DataGrid`, а скрытый (прозрачный, но занимающий место) он раздувал её
+   прокрутку — приёмка этапа 6. Здесь пузырь выводится порталом всплывающего окна
+   дизайн-системы, а выглядит как пузырь подсказки: те же токены, что у
+   `.ou-tip__bubble` с переносом строк. */
+.tb-float-hint {
+  box-sizing: border-box;
+  max-width: 240px;
+  padding: 6px 10px;
+  background: var(--ou-neutral-900);
+  color: var(--ou-neutral-0);
+  font: var(--ou-text-body-xs);
+  font-weight: 500;
+  line-height: 1.35;
+  border-radius: var(--ou-radius-s);
+  box-shadow: var(--ou-shadow-md);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }
+.tb-float-hint__title { display: block; font-weight: 600; margin-bottom: 2px; }
 
 /* ─── PRD-66: таблица «Качество вопросов» — фиксированная раскладка ───────────
    Колонка «n» уезжала за горизонтальную прокрутку: при `table-layout: auto`

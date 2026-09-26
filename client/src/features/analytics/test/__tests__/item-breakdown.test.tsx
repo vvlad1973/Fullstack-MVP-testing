@@ -64,9 +64,9 @@ describe("ItemBreakdownPanel", () => {
       "Выбрали", "Слабые 27 %", "Сильные 27 %", "Корреляция с остатком", "Качество варианта",
     ]) {
       const label = screen.getByText(term);
-      const tip = label.closest(".ou-tip");
+      const tip = label.closest("[aria-describedby]");
       expect(tip, term).not.toBeNull();
-      expect(tip!.querySelector(".ou-tip__bubble")?.textContent, term).toBeTruthy();
+      expect(tip!.querySelector(".ou-sr-only")?.textContent, term).toBeTruthy();
       // Значок — псевдоэлемент термина и держится при последнем слове (см. term-hint.tsx).
       expect(label.classList.contains("tb-term-hint__term"), term).toBe(true);
     }
@@ -127,7 +127,7 @@ describe("ItemBreakdownPanel", () => {
     render(<ItemBreakdownPanel view={view()} onBack={() => {}} />);
     expect(screen.getByText("три варианта, ожидание 0,33")).toBeTruthy();
     // FR-17b эскиз перенёс в подсказку термина: под числом одна строка.
-    expect(screen.getByText("С поправкой на угадывание").closest(".ou-tip")!.textContent)
+    expect(screen.getByText("С поправкой на угадывание").closest("[aria-describedby]")!.textContent)
       .toMatch(/Частичное знание модель не учитывает/);
   });
 
@@ -272,14 +272,14 @@ describe("ItemBreakdownPanel — порядок блоков (FR-49)", () => {
 
     expect(screen.getByText("Версии содержания")).toBeTruthy();
     for (const term of ["Редакция", "n", "Статистика карточки"]) {
-      expect(screen.getByText(term).closest(".ou-tip"), term).not.toBeNull();
+      expect(screen.getByText(term).closest("[aria-describedby]"), term).not.toBeNull();
     }
     // «Трудность» есть и в плитке, и в заголовке версий — подсказка у обеих.
     for (const label of screen.getAllByText("Трудность")) {
-      expect(label.closest(".ou-tip")).not.toBeNull();
+      expect(label.closest("[aria-describedby]")).not.toBeNull();
     }
     expect(screen.queryByText("Наблюдений")).toBeNull();
-    expect(screen.getByText("Дискриминативность").closest(".ou-tip")).not.toBeNull();
+    expect(screen.getByText("Дискриминативность").closest("[aria-describedby]")).not.toBeNull();
   });
 });
 

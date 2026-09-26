@@ -63,9 +63,9 @@ describe("ScaleQualityPanel", () => {
       "Вклад", "Корреляция с остатком шкалы", "Распределение ответов", "Качество пункта",
     ]) {
       const label = screen.getByText(term);
-      const tip = label.closest(".ou-tip");
+      const tip = label.closest("[aria-describedby]");
       expect(tip, term).not.toBeNull();
-      expect(tip!.querySelector(".ou-tip__bubble")?.textContent, term).toBeTruthy();
+      expect(tip!.querySelector(".ou-sr-only")?.textContent, term).toBeTruthy();
       // Значок — псевдоэлемент термина и держится при последнем слове (см. term-hint.tsx).
       expect(label.classList.contains("tb-term-hint__term"), term).toBe(true);
     }
@@ -73,7 +73,7 @@ describe("ScaleQualityPanel", () => {
     expect(screen.queryByText("Связь с остатком шкалы")).toBeNull();
     // Подсказка распределения — один текст на все случаи: он описывает единственную форму
     // гистограммы (FR-30), а не градации конкретного вопроса.
-    const hint = screen.getByText("Распределение ответов").closest(".ou-tip")!.querySelector(".ou-tip__bubble");
+    const hint = screen.getByText("Распределение ответов").closest("[aria-describedby]")!.querySelector(".ou-sr-only");
     expect(hint?.textContent).toBe(
       "Доли участников по градациям ответа. Под столбиками — номера градаций, словами подписаны крайние; расшифровка номеров — в подсказке ячейки.",
     );
@@ -267,11 +267,12 @@ describe("ScaleQualityPanel", () => {
 
     it("подсказка ячейки расшифровывает номера нумерованным списком в порядке градаций", () => {
       render(<ScaleQualityPanel scales={[scale()]} />);
-      const tip = histogramOf("Я чувствую себя опустошённым").closest(".ou-tip")!;
-      const bubble = tip.querySelector(".ou-tip__bubble")!;
+      const tip = histogramOf("Я чувствую себя опустошённым").closest("[aria-describedby]")!;
+      // Текст подсказки лежит в триггере скрытым для глаз: пузырь выводится поверх страницы
+      // только по наведению (floating-hint.tsx), а пояснение читает экранный диктор.
+      const bubble = tip.querySelector(".ou-sr-only")!;
 
-      expect(bubble.classList.contains("ou-tip__bubble--wrap")).toBe(true);
-      expect(bubble.querySelector(".ou-tip__title")?.textContent).toBe("Градации ответа");
+      expect(bubble.textContent).toMatch(/^Градации ответа: /);
       const items = [...bubble.querySelectorAll("ol > li")].map(li => li.textContent);
       expect(items).toEqual([
         "Никогда — 10 %",

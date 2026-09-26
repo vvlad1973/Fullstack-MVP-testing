@@ -15,9 +15,13 @@
  * У числовой колонки заголовок стоит справа, над числами (`align="end"`): ячейка заголовка
  * DataGrid — гибкий ряд, поэтому обёртка растягивается на всю ширину (`ou-grow`) и
  * выравнивает текст по правому краю (`ou-text--end`).
+ *
+ * Пузырь выводится поверх страницы (`FloatingHint`): внутри таблицы его обрезала рамка, а у
+ * последних колонок скрытый пузырь включал горизонтальную прокрутку.
  */
 import type { ReactNode } from "react";
-import { Tooltip } from "@skillum/ui-kit";
+
+import { FloatingHint } from "./floating-hint";
 
 /** Свойства термина с подсказкой. */
 export interface TermHintProps {
@@ -37,11 +41,10 @@ export interface TermHintProps {
  */
 export function TermHint({ term, hint, align = "start" }: TermHintProps) {
   const tip = (
-    // tabIndex: подсказка открывается и с клавиатуры (`:focus-within`), как в эскизе.
     // `tb-term-hint` — метка для раскладки заголовка в `tb-components.css`.
-    <Tooltip content={hint} placement="bottom" wrap tabIndex={0} className="tb-term-hint">
+    <FloatingHint content={hint} className="tb-term-hint">
       <span className="tb-term-hint__term">{term}</span>
-    </Tooltip>
+    </FloatingHint>
   );
   return align === "end" ? <span className="ou-grow ou-text--end">{tip}</span> : tip;
 }
