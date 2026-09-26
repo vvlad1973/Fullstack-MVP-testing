@@ -85,6 +85,19 @@ describe("ItemQualityPanel — прогноз длины (FR-22)", () => {
 
     expect(screen.getByText(/такого же качества/)).toBeTruthy();
   });
+
+  // План сверки 5.7: статьи эскиза, которых не хватало.
+  it("в «Терминах» есть корреляция с остатком, обратный пункт и дистрактор", async () => {
+    render(<ItemQualityPanel view={view()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Термины" }));
+
+    for (const term of ["Корреляция с остатком", "Обратный пункт", "Дистрактор"]) {
+      expect(screen.getByText(term)).toBeTruthy();
+    }
+    expect(screen.getByText(/называют реверсированием/)).toBeTruthy();
+    // Случайная выдача больше не «без надёжности»: оценка по связям вопросов (FR-20).
+    expect(screen.queryByText(/там нет и самой надёжности/)).toBeNull();
+  });
 });
 
 describe("ItemQualityPanel", () => {
