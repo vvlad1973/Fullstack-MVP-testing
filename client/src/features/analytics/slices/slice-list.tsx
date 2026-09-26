@@ -17,10 +17,33 @@
  * Колонки фактов сортируются (эскиз PRD-56, задача 2.3 плана сверки): срезов по оси бывает
  * десяток и больше, и «где сдали хуже всех» ищут глазами по столбцу. «Слабейшая тема» не
  * сортируется — у каждой строки она своя, и порядок по её доле сравнивал бы разные темы.
+ *
+ * Действия строки живут под троеточием «⋯» (эскиз, состояние `slice-gap`, дельта 6.3): два
+ * перехода кнопками с именем среза в подписи вылезали за правый край таблицы, а действий у среза
+ * больше двух. Порядок пунктов — как в эскизе: сначала куда перейти, потом что сделать со срезом.
  */
 import { useEffect, useState } from "react";
 
-import { Button, Cluster, DataGrid, Text, type SortDir } from "@skillum/ui-kit";
+import { MoreHorizontal } from "lucide-react";
+
+import {
+  Button,
+  DataGrid,
+  IconButton,
+  Input,
+  Menu,
+  MenuDivider,
+  MenuItem,
+  MenuTrigger,
+  ModalDialog,
+  Stack,
+  Text,
+  type SortDir,
+} from "@skillum/ui-kit";
+
+import { ExportDialog } from "../registry/export-dialog";
+import { RegistryFilterDialog } from "../registry/filter-dialog";
+import { conditionsToFilter, EMPTY_FILTER, type RegistryFilter } from "../registry/filter-state";
 
 /** Срез с посчитанными величинами — то, что отдаёт `GET /api/analytics/slices`. */
 export interface SliceRow {
@@ -66,6 +89,83 @@ export interface SliceListProps {
    * искать тест в списке и там набирать условие, которое уже набрано здесь.
    */
   onOpenTestAnalytics?: (conditions: Record<string, unknown>) => void;
+  /**
+   * Сравнить этот срез с другим: вкладка переходит в режим сравнения, и срез занимает первый
+   * слот. Условия едут набранным отбором (FR-07b) — сравнение знает сохранённые срезы и отбор,
+   * а срез по оси сохранённым не является.
+   */
+  onCompare?: (conditions: Record<string, unknown>) => void;
+}
+
+/** Есть ли у среза хоть одно условие на языке реестра. */
+function hasConditions(conditions: Record<string, unknown>): boolean {
+  return Object.values(conditions).some(value =>
+    Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "");
+}
+
+/**
+ * Пересечение двух границ периода: поздняя из начал и ранняя из концов.
+ *
+ * Срез по потоку несёт свой период, а рамка вкладки — свой; выгрузка обязана отдать прохождения,
+ * попавшие в ОБА, иначе книга разошлась бы с числами строки.
+ */
+function laterOf(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
+function earlierOf(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a < b ? a : b;
+}
+
+interface SliceRowMenuProps {
+  name: string;
+  onOpenRegistry?: () => void;
+  onOpenTestAnalytics?: () => void;
+  onCompare?: () => void;
+  onEdit?: () => void;
+  onSave?: () => void;
+  onExport: () => void;
+}
+
+/**
+ * Меню «⋯» строки среза — пункты в порядке эскиза (`slice-gap`, дельта 6.3).
+ *
+ * Пункта без обработчика нет вовсе: выключенный пункт спрашивал бы «почему», а ответ «этот
+ * срез по оси» читателю ничего не даёт — у среза по оси просто другие действия.
+ */
+function SliceRowMenu({
+  name, onOpenRegistry, onOpenTestAnalytics, onCompare, onEdit, onSave, onExport,
+}: SliceRowMenuProps) {
+  return (
+    // `tb-rowmenu` — метка ячейки меню для раскладки узкой колонки (`tb-components.css`).
+    <span className="tb-rowmenu">
+      <MenuTrigger
+        placement="bottom-end"
+        trigger={
+          <IconButton
+            variant="ghost"
+            size="s"
+            aria-label={`Действия со срезом: ${name}`}
+            icon={<MoreHorizontal size={16} aria-hidden="true" />}
+          />
+        }
+      >
+        <Menu size="sm">
+          {onOpenRegistry && <MenuItem onClick={onOpenRegistry}>Открыть прохождения</MenuItem>}
+          {onOpenTestAnalytics && <MenuItem onClick={onOpenTestAnalytics}>Аналитика теста</MenuItem>}
+          {onCompare && <MenuItem onClick={onCompare}>Сравнить с другим срезом</MenuItem>}
+          {onEdit && <MenuItem onClick={onEdit}>Изменить условия</MenuItem>}
+          <MenuDivider />
+          {onSave && <MenuItem onClick={onSave}>Сохранить как срез</MenuItem>}
+          <MenuItem onClick={onExport}>Выгрузить прохождения</MenuItem>
+        </Menu>
+      </MenuTrigger>
+    </span>
+  );
 }
 
 /** Процент для чтения человеком: без десятых, которых в таких числах всё равно нет. */
@@ -113,7 +213,7 @@ export interface SliceTopic {
 type TopicsState = Record<string, SliceTopic[] | null>;
 
 export function SliceList({
-  testId, from, to, axis, onOpenRegistry, onOpenTestAnalytics,
+  testId, from, to, axis, onOpenRegistry, onOpenTestAnalytics, onCompare,
 }: SliceListProps) {
   const [slices, setSlices] = useState<SliceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +222,20 @@ export function SliceList({
   // Без выбранной колонки — порядок сервера: ось сама задаёт естественный (попытка 1, 2, 3…).
   const [sortColumn, setSortColumn] = useState<SliceSort | undefined>(undefined);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  /** Счётчик перезагрузок: правка условий меняет числа, и список надо пересчитать. */
+  const [reloads, setReloads] = useState(0);
+  /** Сохранённый срез, у которого открыта правка условий. */
+  const [editing, setEditing] = useState<SliceRow | null>(null);
+  /** Срез по оси, который сохраняют как срез. */
+  const [saving, setSaving] = useState<SliceRow | null>(null);
+  const [saveName, setSaveName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  /**
+   * Выборка выгружаемого среза. Хранится готовым отбором, а не строкой: окно выгрузки
+   * перезапрашивает объём при каждой смене отбора, и новый объект на каждой отрисовке
+   * гонял бы запрос по кругу.
+   */
+  const [exporting, setExporting] = useState<RegistryFilter | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -154,7 +268,7 @@ export function SliceList({
     // Рамка сменилась — прежние темы к новой выборке отношения не имеют.
     setTopics({});
     return () => { alive = false; };
-  }, [testId, from, to, axis]);
+  }, [testId, from, to, axis, reloads]);
 
   /**
    * Темы одного среза — по требованию, при развороте.
@@ -188,6 +302,91 @@ export function SliceList({
       // Пустой список честнее ложных нулей: строка скажет «не удалось посчитать».
       setTopics(prev => ({ ...prev, [row.id]: [] }));
     }
+  };
+
+  /**
+   * Выборка среза для выгрузки: его условия плюс рамка расчёта.
+   *
+   * Тест рамки обязателен — без него книга собрала бы прохождения всех тестов под именем среза
+   * (FR-07e). Период — пересечение периода среза (у потока он свой) и периода рамки.
+   */
+  const exportFilterOf = (row: SliceRow): RegistryFilter => {
+    const own = conditionsToFilter(row.conditions);
+    const periodFrom = laterOf(own.from, from);
+    const periodTo = earlierOf(own.to, to);
+    return {
+      testIds: [testId],
+      groupIds: own.groupIds,
+      sources: own.sources,
+      outcomes: own.outcomes,
+      formIds: own.formIds,
+      snapshotIds: own.snapshotIds,
+      ...(periodFrom ? { from: periodFrom } : {}),
+      ...(periodTo ? { to: periodTo } : {}),
+    };
+  };
+
+  /**
+   * Сохранить срез по оси как именованный срез — тем же запросом, что «Сохранить как срез» в
+   * реестре. Тест в условиях ровно один: срез — выборка одного теста. Период рамки в условия не
+   * кладётся: он рамка, а не свойство среза (FR-07e).
+   */
+  const saveAsSlice = async () => {
+    if (!saving) return;
+    setSaveError(null);
+    try {
+      const response = await fetch("/api/analytics/slices", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: saveName.trim(),
+          kind: "slice",
+          conditions: { ...saving.conditions, testIds: [testId] },
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? "Не удалось сохранить");
+      }
+      setSaving(null);
+      setSaveName("");
+    } catch (error) {
+      setSaveError((error as Error).message);
+    }
+  };
+
+  /**
+   * Правка условий сохранённого среза — той же формой отбора, что в сравнении (FR-07b).
+   *
+   * Тест среза сохраняется как был: окно правит условия ВНУТРИ теста и сам тест не показывает,
+   * а срез без теста перестал бы быть выборкой одного теста.
+   */
+  const applyEdit = async (next: RegistryFilter) => {
+    const target = editing;
+    setEditing(null);
+    if (!target) return;
+    const testIds = conditionsToFilter(target.conditions).testIds;
+    await fetch(`/api/analytics/slices/${target.id}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conditions: {
+          ...(testIds.length > 0 ? { testIds } : {}),
+          groupIds: next.groupIds,
+          sources: next.sources,
+          outcomes: next.outcomes,
+          formIds: next.formIds,
+          snapshotIds: next.snapshotIds,
+          ...(next.from ? { from: next.from } : {}),
+          ...(next.to ? { to: next.to } : {}),
+        },
+      }),
+    }).catch(() => undefined);
+    // Срез хранит УСЛОВИЯ и пересчитывается при открытии (FR-07d): после правки числа другие,
+    // и список надо перечитать, а не поправить на месте.
+    setReloads(value => value + 1);
   };
 
   if (failed) {
@@ -255,24 +454,34 @@ export function SliceList({
     },
     {
       key: "actions",
+      // Узкая колонка управления, как у меню строки в таблицах вопросов: кнопок с именем среза
+      // в подписи здесь больше нет, и таблица не вылезает за правый край карточки.
+      width: "4%",
       header: "",
-      // Два перехода, а не один: реестр отвечает «кто эти люди», аналитика теста — «что у них
-      // не получилось» (FR-08, FR-24). Оба несут условия ЭТОГО среза, чтобы на той стороне
-      // ничего не пришлось набирать заново.
-      render: (row: SliceRow) => (
-        <Cluster gap={1}>
-          {onOpenRegistry && (
-            <Button variant="ghost" size="s" onClick={() => onOpenRegistry(row.conditions)}>
-              Прохождения: {row.name}
-            </Button>
-          )}
-          {onOpenTestAnalytics && (
-            <Button variant="ghost" size="s" onClick={() => onOpenTestAnalytics(row.conditions)}>
-              Аналитика теста
-            </Button>
-          )}
-        </Cluster>
-      ),
+      // Реестр отвечает «кто эти люди», аналитика теста — «что у них не получилось» (FR-08,
+      // FR-24). Все пункты несут условия ЭТОГО среза, чтобы на той стороне ничего не пришлось
+      // набирать заново.
+      render: (row: SliceRow) => {
+        // Срез по оси — строка разбиения, сохранённый — запись владельца. Править можно только
+        // запись; сохранять — только строку разбиения, у записи имя уже есть.
+        const saved = !axis && row.id !== "whole" && row.id !== "adhoc";
+        // «Без группы», номер попытки, внешний участник на языке реестра не описываются: условий
+        // у такой строки нет, и сравнение или сохранение по ним дали бы тест целиком.
+        const describable = hasConditions(row.conditions);
+        return (
+          <SliceRowMenu
+            name={row.name}
+            onOpenRegistry={onOpenRegistry && (() => onOpenRegistry(row.conditions))}
+            onOpenTestAnalytics={onOpenTestAnalytics && (() => onOpenTestAnalytics(row.conditions))}
+            onCompare={onCompare && describable ? () => onCompare(row.conditions) : undefined}
+            onEdit={saved ? () => setEditing(row) : undefined}
+            onSave={!saved && describable
+              ? () => { setSaveError(null); setSaveName(row.name); setSaving(row); }
+              : undefined}
+            onExport={() => setExporting(exportFilterOf(row))}
+          />
+        );
+      },
     },
   ];
 
@@ -281,56 +490,109 @@ export function SliceList({
     : slices;
 
   return (
-    <DataGrid
-      columns={columns}
-      rows={rows}
-      sortKey={sortColumn}
-      sortDir={sortDir}
-      onSort={(key, dir) => { setSortColumn(key as SliceSort); setSortDir(dir); }}
-      rowKey={row => row.id}
-      emptyMessage={loading ? "Считаем срезы…" : "Срезов пока нет"}
-      expandable
-      // Разворачивать нечего там, где прохождений не было: раскрытие в пустоту читается как
-      // поломка, а не как «данных нет».
-      canExpand={row => row.completed > 0}
-      onRowExpand={row => { void loadTopics(row); }}
-      renderExpanded={row => {
-        const rows = topics[row.id];
-        if (rows === undefined || rows === null) {
-          return <Text variant="body-s" tone="muted">Считаем темы…</Text>;
+    <>
+      <DataGrid
+        columns={columns}
+        rows={rows}
+        sortKey={sortColumn}
+        sortDir={sortDir}
+        onSort={(key, dir) => { setSortColumn(key as SliceSort); setSortDir(dir); }}
+        rowKey={row => row.id}
+        emptyMessage={loading ? "Считаем срезы…" : "Срезов пока нет"}
+        expandable
+        // Разворачивать нечего там, где прохождений не было: раскрытие в пустоту читается как
+        // поломка, а не как «данных нет».
+        canExpand={row => row.completed > 0}
+        onRowExpand={row => { void loadTopics(row); }}
+        renderExpanded={row => {
+          const rows = topics[row.id];
+          if (rows === undefined || rows === null) {
+            return <Text variant="body-s" tone="muted">Считаем темы…</Text>;
+          }
+          if (rows.length === 0) {
+            return <Text variant="body-s" tone="muted">По темам считать нечего: ответов нет</Text>;
+          }
+          return (
+            <DataGrid
+              columns={[
+                {
+                  key: "topic",
+                  header: "Тема",
+                  render: (topic: SliceTopic) => topic.topicName,
+                },
+                {
+                  key: "correct",
+                  header: "Доля верных, % ответов",
+                  numeric: true,
+                  render: (topic: SliceTopic) => (topic.correctShare === null
+                    ? "—"
+                    : `${Math.round(topic.correctShare)} %`),
+                },
+                {
+                  key: "sample",
+                  header: "В выборке, прохождений",
+                  numeric: true,
+                  render: (topic: SliceTopic) => topic.inSample,
+                },
+              ]}
+              rows={rows}
+              rowKey={topic => topic.topicId}
+              emptyMessage="Тем нет"
+            />
+          );
+        }}
+      />
+
+      {/* Правка условий — той же формой отбора, что в реестре и в сравнении (FR-07b): двух
+          языков условий в продукте нет. */}
+      <RegistryFilterDialog
+        open={editing !== null}
+        filter={conditionsToFilter(editing?.conditions ?? {})}
+        hideTest
+        scopeTestId={testId}
+        onClose={() => setEditing(null)}
+        onApply={next => { void applyEdit(next); }}
+      />
+
+      <ModalDialog
+        open={saving !== null}
+        onClose={() => setSaving(null)}
+        size="s"
+        title="Сохранить как срез"
+        description="Срез хранит УСЛОВИЯ отбора одного теста и пересчитывается при каждом открытии: это не снимок состава участников"
+        footer={
+          <>
+            <Button variant="ghost" size="m" onClick={() => setSaving(null)}>Отмена</Button>
+            <Button
+              variant="primary"
+              size="m"
+              disabled={!saveName.trim()}
+              onClick={() => void saveAsSlice()}
+            >
+              Сохранить
+            </Button>
+          </>
         }
-        if (rows.length === 0) {
-          return <Text variant="body-s" tone="muted">По темам считать нечего: ответов нет</Text>;
-        }
-        return (
-          <DataGrid
-            columns={[
-              {
-                key: "topic",
-                header: "Тема",
-                render: (topic: SliceTopic) => topic.topicName,
-              },
-              {
-                key: "correct",
-                header: "Доля верных, % ответов",
-                numeric: true,
-                render: (topic: SliceTopic) => (topic.correctShare === null
-                  ? "—"
-                  : `${Math.round(topic.correctShare)} %`),
-              },
-              {
-                key: "sample",
-                header: "В выборке, прохождений",
-                numeric: true,
-                render: (topic: SliceTopic) => topic.inSample,
-              },
-            ]}
-            rows={rows}
-            rowKey={topic => topic.topicId}
-            emptyMessage="Тем нет"
+      >
+        <Stack gap={3}>
+          <label htmlFor="slice-row-name">
+            <Text variant="body-s">Название среза</Text>
+          </label>
+          <Input
+            id="slice-row-name"
+            value={saveName}
+            onChange={event => setSaveName(event.target.value)}
           />
-        );
-      }}
-    />
+          {saveError && <Text tone="error">{saveError}</Text>}
+        </Stack>
+      </ModalDialog>
+
+      {/* Выгрузка отдаёт ТО, ЧТО В СТРОКЕ (FR-04): условия среза плюс рамка расчёта. */}
+      <ExportDialog
+        open={exporting !== null}
+        onClose={() => setExporting(null)}
+        filter={exporting ?? EMPTY_FILTER}
+      />
+    </>
   );
 }

@@ -80,6 +80,8 @@ export function SlicesTab({
   const [to, setTo] = useState<DatePickerValue>(null);
   const [axis, setAxis] = useState("group");
   const [mode, setMode] = useState<"list" | "compare">(adhoc ? "compare" : "list");
+  /** Срез из строки списка, отправленный в сравнение пунктом «Сравнить с другим срезом». */
+  const [compareSlice, setCompareSlice] = useState<Record<string, unknown> | null>(null);
 
   const fromIso = isoOf(from);
   const toIso = isoOf(to);
@@ -87,8 +89,8 @@ export function SlicesTab({
 
   return (
     <Stack gap={4}>
-      {/* Рамка расчёта: одна на оба режима (FR-07i). */}
-      <Stack gap={3} direction="row" wrap align="end">
+      {/* Рамка расчёта: одна на оба режима (FR-07i). Тест и период — разные поля: 4x сетки. */}
+      <Stack gap={4} direction="row" wrap align="end">
         <Box grow>
           <Combobox
             label="Тест"
@@ -133,7 +135,7 @@ export function SlicesTab({
               {mode === "list" && (
                 // Своя строка: иначе контрол растягивается на ширину карточки и читается как
                 // заголовок таблицы, а не как её единственная настройка.
-                <Stack direction="row" gap={3} wrap align="end">
+                <Stack direction="row" gap={4} wrap align="end">
                   <Select
                     label="Разбить по"
                     size="s"
@@ -145,13 +147,14 @@ export function SlicesTab({
               )}
 
               {mode === "compare" ? (
-                <SliceCompare testId={testId} from={fromIso} to={toIso} adhoc={adhoc} />
+                <SliceCompare testId={testId} from={fromIso} to={toIso} adhoc={compareSlice ?? adhoc} />
               ) : (
                 <SliceList
                   testId={testId}
                   axis={axis}
                   from={fromIso}
                   to={toIso}
+                  onCompare={conditions => { setCompareSlice(conditions); setMode("compare"); }}
                   onOpenRegistry={onOpenRegistry && (conditions => onOpenRegistry({
                     // Рамка расчёта — часть выборки, но не часть условий среза (FR-07e):
                     // добавляется здесь, иначе реестр показал бы прохождения всех тестов.

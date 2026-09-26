@@ -252,83 +252,31 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
         />
       ) : (
         <>
-          <Text variant="body-s" weight="medium">Прохождения и результат</Text>
-          <div className="ou-grid">
-            <div className="ou-grid__scroll">
-              <table className="ou-grid__table" role="table">
-                {head("Показатель")}
-                <tbody>
-                  {ROWS.map(row => {
-                    const delta = showDifference && row.share
-                      ? difference(selected[0], selected[1], row.key)
-                      : null;
-                    return (
-                      <tr key={String(row.key)}>
-                        <td className="ou-grid__cell-strong">{row.label}</td>
-                        {selected.map(slice => (
-                          <td key={slice.id} className="is-numeric">
-                            {cell(slice, row.key, row.share)}
-                          </td>
-                        ))}
-                        {showDifference && (
-                          <td className="is-numeric">
-                            {/* Разница только у долей: вычитать объёмы — значит называть
-                                разницу в составе штата результатом обучения. */}
-                            {delta === null
-                              ? <Text variant="body-s" tone="muted">—</Text>
-                              : <Text variant="body-s" tone={deltaTone(delta)}>{deltaLabel(delta)}</Text>}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* FR-07: доли верных ПО ТЕМАМ — ради них сравнение и затевают. Отдельной таблицей,
-              как в эскизе: единица счёта здесь другая (доля ОТВЕТОВ, а не прохождений), и
-              мешать её с объёмами в одном столбце значило бы звать читателя их сложить. */}
-          <Text variant="body-s" weight="medium">Доля верных ответов</Text>
-          {topicRows.length === 0 ? (
-            <Text variant="body-s" tone="muted">
-              По темам сравнивать нечего: у выбранных срезов нет оценённых ответов.
-            </Text>
-          ) : (
+          {/* Подпись и её таблица — родственные элементы: 1x сетки (4 px), а от соседних
+              блоков их отделяет 4x родительского стека (решение владельца 2026-09-26). */}
+          <Stack gap={1}>
+            <Text variant="body-s" weight="medium">Прохождения и результат</Text>
             <div className="ou-grid">
               <div className="ou-grid__scroll">
                 <table className="ou-grid__table" role="table">
-                  {head("Тема")}
+                  {head("Показатель")}
                   <tbody>
-                    {topicRows.map(topic => {
-                      // Порог наблюдений распространяется и сюда: доля по теме — такой же
-                      // процент, как доля сдавших, и у среза из четырёх прохождений шумит
-                      // одинаково (FR-06d).
-                      const shares = selected.map(slice => (slice.enoughData
-                        ? topicOf(slice, topic.id)
-                        : undefined));
-                      const comparable = showDifference
-                        && shares[0] !== undefined && shares[0].correctShare !== null
-                        && shares[1] !== undefined && shares[1].correctShare !== null;
-                      const delta = comparable
-                        ? Math.round((shares[0]!.correctShare as number) - (shares[1]!.correctShare as number))
+                    {ROWS.map(row => {
+                      const delta = showDifference && row.share
+                        ? difference(selected[0], selected[1], row.key)
                         : null;
-
                       return (
-                        <tr key={topic.id}>
-                          <td className="ou-grid__cell-strong">{topic.name}</td>
-                          {shares.map((share, index) => (
-                            <td key={selected[index].id} className="is-numeric">
-                              {!selected[index].enoughData
-                                ? <Text variant="body-s" tone="muted">мало данных</Text>
-                                : share === undefined || share.correctShare === null
-                                  ? "—"
-                                  : `${Math.round(share.correctShare)} %`}
+                        <tr key={String(row.key)}>
+                          <td className="ou-grid__cell-strong">{row.label}</td>
+                          {selected.map(slice => (
+                            <td key={slice.id} className="is-numeric">
+                              {cell(slice, row.key, row.share)}
                             </td>
                           ))}
                           {showDifference && (
                             <td className="is-numeric">
+                              {/* Разница только у долей: вычитать объёмы — значит называть
+                                  разницу в составе штата результатом обучения. */}
                               {delta === null
                                 ? <Text variant="body-s" tone="muted">—</Text>
                                 : <Text variant="body-s" tone={deltaTone(delta)}>{deltaLabel(delta)}</Text>}
@@ -341,9 +289,67 @@ export function SliceCompare({ testId, from, to, adhoc }: SliceCompareProps) {
                 </table>
               </div>
             </div>
-          )}
+          </Stack>
 
-          <Stack direction="row" gap={2}>
+          {/* FR-07: доли верных ПО ТЕМАМ — ради них сравнение и затевают. Отдельной таблицей,
+              как в эскизе: единица счёта здесь другая (доля ОТВЕТОВ, а не прохождений), и
+              мешать её с объёмами в одном столбце значило бы звать читателя их сложить. */}
+          <Stack gap={1}>
+            <Text variant="body-s" weight="medium">Доля верных ответов</Text>
+            {topicRows.length === 0 ? (
+              <Text variant="body-s" tone="muted">
+                По темам сравнивать нечего: у выбранных срезов нет оценённых ответов.
+              </Text>
+            ) : (
+              <div className="ou-grid">
+                <div className="ou-grid__scroll">
+                  <table className="ou-grid__table" role="table">
+                    {head("Тема")}
+                    <tbody>
+                      {topicRows.map(topic => {
+                        // Порог наблюдений распространяется и сюда: доля по теме — такой же
+                        // процент, как доля сдавших, и у среза из четырёх прохождений шумит
+                        // одинаково (FR-06d).
+                        const shares = selected.map(slice => (slice.enoughData
+                          ? topicOf(slice, topic.id)
+                          : undefined));
+                        const comparable = showDifference
+                          && shares[0] !== undefined && shares[0].correctShare !== null
+                          && shares[1] !== undefined && shares[1].correctShare !== null;
+                        const delta = comparable
+                          ? Math.round((shares[0]!.correctShare as number) - (shares[1]!.correctShare as number))
+                          : null;
+
+                        return (
+                          <tr key={topic.id}>
+                            <td className="ou-grid__cell-strong">{topic.name}</td>
+                            {shares.map((share, index) => (
+                              <td key={selected[index].id} className="is-numeric">
+                                {!selected[index].enoughData
+                                  ? <Text variant="body-s" tone="muted">мало данных</Text>
+                                  : share === undefined || share.correctShare === null
+                                    ? "—"
+                                    : `${Math.round(share.correctShare)} %`}
+                              </td>
+                            ))}
+                            {showDifference && (
+                              <td className="is-numeric">
+                                {delta === null
+                                  ? <Text variant="body-s" tone="muted">—</Text>
+                                  : <Text variant="body-s" tone={deltaTone(delta)}>{deltaLabel(delta)}</Text>}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </Stack>
+
+          <Stack direction="row" gap={1}>
             <Button variant="ghost" size="s" onClick={() => setSlots([null])}>
               Очистить сравнение
             </Button>

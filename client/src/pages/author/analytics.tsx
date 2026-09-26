@@ -420,8 +420,8 @@ function AttemptDetailsDialog({
   };
 
   const emptyState = (message: string) => (
-    <Box pad={8}>
-      <Stack align="center" gap={3}>
+    <Box pad={6}>
+      <Stack align="center" gap={4}>
         <HelpCircle size={48} color="var(--ou-fg-subtle)" />
         <Text tone="muted">{message}</Text>
       </Stack>
@@ -429,7 +429,7 @@ function AttemptDetailsDialog({
   );
 
   const overviewContent = details && (
-    <Stack gap={6}>
+    <Stack gap={4}>
         {/* Основная информация */}
         <Grid minItem="sm" gap={1}>
           <Card>
@@ -482,7 +482,7 @@ function AttemptDetailsDialog({
                 <Text variant="body-s" tone="muted">Результаты по достигнутым уровням — см. ниже</Text>
               </Cluster>
             ) : (
-              <Cluster gap={6}>
+              <Cluster gap={4}>
                 <Stack gap={1} align="center">
                   <Text variant="display-m" weight="bold">{details.overallPercent?.toFixed(0)}%</Text>
                   <Text variant="body-s" tone="muted">{details.earnedPoints} / {details.possiblePoints} баллов</Text>
@@ -503,11 +503,11 @@ function AttemptDetailsDialog({
         {/* Достигнутые уровни (для адаптивных) */}
         {details.achievedLevels && details.achievedLevels.length > 0 && (
           <Card>
-            <CardHeader title={<Cluster gap={2}><Layers size={16} />Достигнутые уровни</Cluster>} />
+            <CardHeader title={<Cluster gap={1}><Layers size={16} />Достигнутые уровни</Cluster>} />
             <CardBody>
-              <Stack gap={2}>
+              <Stack gap={1}>
                 {details.achievedLevels.map((level) => (
-                  <Box key={level.topicId} pad={3} surface="muted" radius="l">
+                  <Box key={level.topicId} pad={4} surface="muted" radius="l">
                     <Cluster justify="between">
                       <Text weight="medium">{level.topicName}</Text>
                       <Tag variant="outline">{level.levelName || `Уровень ${(level.levelIndex || 0) + 1}`}</Tag>
@@ -528,9 +528,9 @@ function AttemptDetailsDialog({
           <Card>
             <CardHeader title="Траектория прохождения" />
             <CardBody>
-              <Stack gap={2}>
+              <Stack gap={1}>
                 {details.trajectory.map((event, index) => (
-                  <Cluster key={index} gap={2}>
+                  <Cluster key={index} gap={1}>
                     {event.action === "level_up"
                       ? <CheckCircle size={16} color="var(--ou-success-600)" />
                       : <XCircle size={16} color="var(--ou-error-600)" />}
@@ -545,7 +545,7 @@ function AttemptDetailsDialog({
   );
 
   const answersContent = details && (
-    <Stack gap={3}>
+    <Stack gap={4}>
         {(details.answers?.length ?? 0) > 1 && (
           <div className="tb-fold-toolbar">
             <FoldAllButtons fold={fold} testIdPrefix="attempt-answers" />
@@ -563,7 +563,7 @@ function AttemptDetailsDialog({
           return (
           <Card key={answer.questionId} variant="outlined">
             <CardBody>
-              <Stack gap={3}>
+              <Stack gap={4}>
                 <Cluster justify="between" align="start" gap={4}>
                   {/*
                     Внутри кнопки только строчные элементы: Stack/Cluster — это `div`,
@@ -599,7 +599,7 @@ function AttemptDetailsDialog({
                       </Text>
                     </span>
                   </button>
-                  <Cluster gap={2}>
+                  <Cluster gap={1}>
                     {answer.measurementOnly
                       ? <Tag size="s">Измерение</Tag>
                       : (
@@ -620,14 +620,14 @@ function AttemptDetailsDialog({
                     <Grid minItem="md" gap={1}>
                       <Stack gap={1}>
                         <Text variant="body-xs" tone="muted">Ответ пользователя:</Text>
-                        <Box pad={3} radius="l" surface="muted">
+                        <Box pad={4} radius="l" surface="muted">
                           <Text variant="body-s" tone={answer.measurementOnly ? "default" : (answer.isCorrect ? "success" : "error")}>{formatUserAnswer(answer)}</Text>
                         </Box>
                       </Stack>
                       {showCorrect && (
                         <Stack gap={1}>
                           <Text variant="body-xs" tone="muted">Правильный ответ:</Text>
-                          <Box pad={3} radius="l" surface="muted">
+                          <Box pad={4} radius="l" surface="muted">
                             <Text variant="body-s">{formatCorrectAnswer(answer)}</Text>
                           </Box>
                         </Stack>
@@ -646,7 +646,7 @@ function AttemptDetailsDialog({
   );
 
   const topicsContent = details && (
-    <Stack gap={3}>
+    <Stack gap={4}>
         {details.testMode === "adaptive" ? (
           // Адаптивный — показываем достигнутые уровни
           details.achievedLevels && details.achievedLevels.length > 0 ? (
@@ -654,7 +654,7 @@ function AttemptDetailsDialog({
               <Card key={level.topicId}>
                 <CardBody>
                   <Cluster justify="between">
-                    <Cluster gap={2}>
+                    <Cluster gap={1}>
                       {level.levelName
                         ? <CheckCircle size={20} color="var(--ou-info-600)" />
                         : <XCircle size={20} color="var(--ou-error-600)" />}
@@ -672,13 +672,13 @@ function AttemptDetailsDialog({
             details.topicResults.map((topic) => (
               <Card key={topic.topicId}>
                 <CardBody>
-                  <Stack gap={3}>
+                  <Stack gap={4}>
                     <Cluster justify="between">
                       <Stack gap={1}>
                         <Text weight="medium">{topic.topicName}</Text>
                         <Text variant="body-s" tone="muted">{topic.earnedPoints} / {topic.possiblePoints} баллов</Text>
                       </Stack>
-                      <Cluster gap={3}>
+                      <Cluster gap={1}>
                         <Text variant="display-s" weight="bold">{(topic.percent ?? 0).toFixed(0)}%</Text>
                         {topic.passed !== null && (
                           topic.passed
@@ -708,7 +708,7 @@ function AttemptDetailsDialog({
       onClose={onClose}
       size="xl"
       title={
-        <Cluster gap={3}>
+        <Cluster gap={1}>
           Детали попытки
           {attempt?.source === "web"
             ? <Tag variant="outline" size="s"><Globe />Web</Tag>
@@ -983,9 +983,11 @@ export default function AnalyticsPage() {
 
 
   return (
-    <Stack gap={6}>
+    // Модульная сетка 4 px (эскиз prd56-analytics-section, дельта 6.2): шапка и вкладки —
+    // разные блоки страницы, 4x; тот же шаг держит `ou-shell__main` эскиза.
+    <Stack gap={4}>
       {/* Заголовок */}
-      <Cluster justify="between">
+      <Cluster justify="between" gap={4}>
         <Stack gap={1}>
           <Text as="h1" variant="display-s" weight="semibold">Аналитика</Text>
           <Text tone="muted">Прохождения, срезы и дела, по которым нужно действие</Text>

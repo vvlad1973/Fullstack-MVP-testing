@@ -106,13 +106,28 @@ describe("SlicesTab", () => {
     render(<SlicesTab tests={TESTS} onOpenRegistry={onOpenRegistry} />);
     await pickTest("Сертификация руководителей");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Прохождения: Розница" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Действия со срезом: Розница" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Открыть прохождения" }));
 
     // У среза своего теста нет: он общий для всей вкладки (FR-07e). Реестр без него показал бы
     // прохождения всех тестов разом — другую выборку под именем среза.
     expect(onOpenRegistry).toHaveBeenCalledWith(
       expect.objectContaining({ groupIds: ["g1"], testIds: ["t1"] }),
     );
+  });
+
+  // Дельта 6.3 эскиза: «Сравнить с другим срезом» из меню строки открывает сравнение, где этот
+  // срез уже стоит в первом слоте, — выбирать его заново из списка незачем.
+  it("«Сравнить с другим срезом» открывает сравнение с этим срезом", async () => {
+    render(<SlicesTab tests={TESTS} />);
+    await pickTest("Сертификация руководителей");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Действия со срезом: Розница" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Сравнить с другим срезом" }));
+
+    expect(await screen.findByText("Сравнение срезов")).toBeTruthy();
+    await waitFor(() => expect(JSON.parse(lastSlicesQuery().get("conditions") ?? "null"))
+      .toEqual({ groupIds: ["g1"] }));
   });
 
   it("называет в заголовке, по какому признаку разбита выборка", async () => {

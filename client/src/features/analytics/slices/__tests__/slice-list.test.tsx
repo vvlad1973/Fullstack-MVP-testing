@@ -7,7 +7,7 @@
  * наблюдений процент не печатается вовсе: «33 % сдали» на трёх прохождениях — шум, по которому
  * принимают решения о людях.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,6 +51,16 @@ afterEach(() => vi.unstubAllGlobals());
 function lastQuery(): URLSearchParams {
   const url = String(fetchMock.mock.calls.at(-1)?.[0] ?? "");
   return new URLSearchParams(url.slice(url.indexOf("?")));
+}
+
+/** Открыть меню «⋯» строки среза. */
+async function openRowMenu(name: string): Promise<void> {
+  await userEvent.click(await screen.findByRole("button", { name: `Действия со срезом: ${name}` }));
+}
+
+/** Пункты открытого меню строки — по порядку. */
+function menuItems(): string[] {
+  return screen.getAllByRole("menuitem").map(item => item.textContent ?? "");
 }
 
 describe("SliceList", () => {
@@ -134,7 +144,8 @@ describe("SliceList", () => {
     const onOpenRegistry = vi.fn();
     render(<SliceList testId="test1" onOpenRegistry={onOpenRegistry} />);
 
-    await userEvent.click(await screen.findByRole("button", { name: /Прохождения: Отдел продаж/ }));
+    await openRowMenu("Отдел продаж");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Открыть прохождения" }));
 
     expect(onOpenRegistry).toHaveBeenCalledWith(SLICE.conditions);
   });
@@ -149,7 +160,8 @@ describe("SliceList", () => {
       <SliceList testId="test1" axis="group" onOpenTestAnalytics={onOpenTestAnalytics} />,
     );
 
-    await userEvent.click(await screen.findByRole("button", { name: "Аналитика теста" }));
+    await openRowMenu("Отдел продаж");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Аналитика теста" }));
 
     expect(onOpenTestAnalytics).toHaveBeenCalledWith({ groupIds: ["g1"] });
   });
@@ -286,5 +298,222 @@ describe("SliceList — сортировка", () => {
     expect(order()).toEqual(["Альфа", "Бета", "Вега", "Гамма"]);
     await clickHeader("Назначено");
     expect(order()).toEqual(["Гамма", "Вега", "Бета", "Альфа"]);
+  });
+});
+
+/**
+ * Эскиз PRD-56, состояние `slice-gap` (дельта 6.3): действия строки — под троеточием. Две кнопки
+ * с именем среза в подписи вылезали за правый край таблицы; меню занимает узкую колонку.
+ */
+describe("SliceList — меню «⋯» строки среза", () => {
+  const AXIS_ROW = { ...SLICE, id: "group:g1", name: "Розница" };
+
+  /** Запросы к ручке с данным началом адреса. */
+  const callsTo = (prefix: string) => fetchMock.mock.calls
+    .map(([url]) => String(url))
+    .filter(url => url.startsWith(prefix));
+
+  it("вместо кнопок-переходов в строке — одна кнопка «⋯»", async () => {
+    fetchMock.mockResolvedValue(answer([AXIS_ROW]));
+    render(
+      <SliceList testId="t1" axis="group" onOpenRegistry={vi.fn()} onOpenTestAnalytics={vi.fn()} />,
+    );
+
+    expect(await screen.findByRole("button", { name: "Действия со срезом: Розница" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Прохождения:/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Аналитика теста" })).toBeNull();
+  });
+
+  it("срез по оси: пункты эскиза, «Сохранить как срез» есть, «Изменить условия» — нет", async () => {
+    fetchMock.mockResolvedValue(answer([AXIS_ROW]));
+    render(
+      <SliceList
+        testId="t1"
+        axis="group"
+        onOpenRegistry={vi.fn()}
+        onOpenTestAnalytics={vi.fn()}
+        onCompare={vi.fn()}
+      />,
+    );
+
+    await openRowMenu("Розница");
+
+    expect(menuItems()).toEqual([
+      "Открыть прохождения",
+      "Аналитика теста",
+      "Сравнить с другим срезом",
+      "Сохранить как срез",
+      "Выгрузить прохождения",
+    ]);
+    expect(screen.getByRole("separator")).toBeTruthy();
+  });
+
+  it("сохранённый срез: «Изменить условия» есть, «Сохранить как срез» — нет", async () => {
+    render(
+      <SliceList testId="t1" onOpenRegistry={vi.fn()} onOpenTestAnalytics={vi.fn()} onCompare={vi.fn()} />,
+    );
+
+    await openRowMenu("Отдел продаж");
+
+    expect(menuItems()).toEqual([
+      "Открыть прохождения",
+      "Аналитика теста",
+      "Сравнить с другим срезом",
+      "Изменить условия",
+      "Выгрузить прохождения",
+    ]);
+  });
+
+  it("пунктов без обработчика нет", async () => {
+    fetchMock.mockResolvedValue(answer([AXIS_ROW]));
+    render(<SliceList testId="t1" axis="group" />);
+
+    await openRowMenu("Розница");
+
+    expect(menuItems()).toEqual(["Сохранить как срез", "Выгрузить прохождения"]);
+  });
+
+  // «Без группы», номер попытки, внешний участник на языке реестра не описываются: сравнение и
+  // сохранение по пустым условиям дали бы тест целиком под именем среза.
+  it("строка без условий не предлагает сравнить и сохранить", async () => {
+    fetchMock.mockResolvedValue(answer([{ ...AXIS_ROW, id: "attempt:2", name: "Попытка 2", conditions: {} }]));
+    render(<SliceList testId="t1" axis="attempt" onCompare={vi.fn()} />);
+
+    await openRowMenu("Попытка 2");
+
+    expect(menuItems()).toEqual(["Выгрузить прохождения"]);
+  });
+
+  it("«Сравнить с другим срезом» отдаёт условия этого среза", async () => {
+    const onCompare = vi.fn();
+    fetchMock.mockResolvedValue(answer([AXIS_ROW]));
+    render(<SliceList testId="t1" axis="group" onCompare={onCompare} />);
+
+    await openRowMenu("Розница");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Сравнить с другим срезом" }));
+
+    expect(onCompare).toHaveBeenCalledWith({ groupIds: ["g1"] });
+  });
+
+  it("«Сохранить как срез» сохраняет условия строки с тестом рамки и именем строки", async () => {
+    fetchMock.mockResolvedValueOnce(answer([AXIS_ROW]));
+    render(<SliceList testId="t1" axis="group" from="2026-09-01" />);
+
+    await openRowMenu("Розница");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Сохранить как срез" }));
+
+    const dialog = await screen.findByRole("dialog");
+    const name = within(dialog).getByLabelText("Название среза") as HTMLInputElement;
+    // Имя предложено из строки: срез по оси уже назван, придумывать заново незачем.
+    expect(name.value).toBe("Розница");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Розница, сентябрь");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ slice: {} }) });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const call = fetchMock.mock.calls.find(([url, init]) =>
+      String(url) === "/api/analytics/slices" && (init as RequestInit | undefined)?.method === "POST");
+    expect(call).toBeTruthy();
+    // Период рамки в условия не входит: он рамка расчёта, а не свойство среза (FR-07e).
+    expect(JSON.parse(String((call![1] as RequestInit).body))).toEqual({
+      name: "Розница, сентябрь",
+      kind: "slice",
+      conditions: { groupIds: ["g1"], testIds: ["t1"] },
+    });
+  });
+
+  it("ошибку сохранения говорит в окне, окно не закрывает", async () => {
+    fetchMock.mockResolvedValueOnce(answer([AXIS_ROW]));
+    render(<SliceList testId="t1" axis="group" />);
+
+    await openRowMenu("Розница");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Сохранить как срез" }));
+    const dialog = await screen.findByRole("dialog");
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false, status: 409, json: async () => ({ error: "Запись с таким именем уже есть" }),
+    });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Сохранить" }));
+
+    expect(await within(dialog).findByText("Запись с таким именем уже есть")).toBeTruthy();
+  });
+
+  it("«Изменить условия» правит сохранённый срез и перечитывает список", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "PUT") return { ok: true, json: async () => ({ slice: {} }) };
+      if (String(url).startsWith("/api/analytics/slices?")) {
+        return answer([{ ...SLICE, conditions: { groupIds: ["g1"], testIds: ["t1"] } }]);
+      }
+      // Справочники окна отбора.
+      return { ok: true, json: async () => [] };
+    });
+    render(<SliceList testId="t1" />);
+
+    await openRowMenu("Отдел продаж");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Изменить условия" }));
+    const dialog = await screen.findByRole("dialog");
+    const before = callsTo("/api/analytics/slices?").length;
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /Применить/ }));
+
+    await waitFor(() => expect(callsTo("/api/analytics/slices?").length).toBe(before + 1));
+    const put = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PUT");
+    expect(String(put![0])).toBe("/api/analytics/slices/s1");
+    // Тест среза переживает правку: окно его не показывает, но срез без теста — не срез.
+    expect(JSON.parse(String((put![1] as RequestInit).body)).conditions).toEqual(
+      expect.objectContaining({ testIds: ["t1"], groupIds: ["g1"] }),
+    );
+  });
+
+  it("«Выгрузить прохождения» открывает окно экспорта с условиями среза и рамкой", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).startsWith("/api/analytics/slices?")) return answer([AXIS_ROW]);
+      if (String(url).startsWith("/api/analytics/registry?")) {
+        return { ok: true, json: async () => ({ total: 18, rows: [] }) };
+      }
+      return { ok: true, json: async () => [] };
+    });
+    render(<SliceList testId="t1" axis="group" from="2026-09-01" to="2026-09-30" />);
+
+    await openRowMenu("Розница");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Выгрузить прохождения" }));
+
+    expect(await screen.findByText("Экспорт прохождений")).toBeTruthy();
+    await waitFor(() => {
+      const asked = callsTo("/api/analytics/registry?").at(-1) ?? "";
+      const query = new URLSearchParams(asked.slice(asked.indexOf("?")));
+      expect(query.get("testId")).toBe("t1");
+      expect(query.get("groupId")).toBe("g1");
+      expect(query.get("from")).toBe("2026-09-01");
+      expect(query.get("to")).toBe("2026-09-30");
+    });
+  });
+
+  it("срез по потоку выгружается в пересечении своего периода и рамки", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).startsWith("/api/analytics/slices?")) {
+        return answer([{
+          ...AXIS_ROW, id: "period:2026-09", name: "Сентябрь 2026",
+          conditions: { from: "2026-09-01", to: "2026-09-30" },
+        }]);
+      }
+      if (String(url).startsWith("/api/analytics/registry?")) {
+        return { ok: true, json: async () => ({ total: 5, rows: [] }) };
+      }
+      return { ok: true, json: async () => [] };
+    });
+    render(<SliceList testId="t1" axis="period" from="2026-09-10" />);
+
+    await openRowMenu("Сентябрь 2026");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Выгрузить прохождения" }));
+
+    await waitFor(() => {
+      const asked = callsTo("/api/analytics/registry?").at(-1) ?? "";
+      const query = new URLSearchParams(asked.slice(asked.indexOf("?")));
+      expect(query.get("from")).toBe("2026-09-10");
+      expect(query.get("to")).toBe("2026-09-30");
+    });
   });
 });

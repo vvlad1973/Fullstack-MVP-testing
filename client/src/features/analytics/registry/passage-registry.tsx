@@ -432,23 +432,27 @@ export function PassageRegistry({
               </>
             }
           >
-            <Stack gap={3}>
-              <label htmlFor="slice-name">
-                <Text variant="body-s">{saveOpen === "filter" ? "Название фильтра" : "Название среза"}</Text>
-              </label>
-              <Input
-                id="slice-name"
-                value={sliceName}
-                onChange={event => setSliceName(event.target.value)}
-                placeholder="Например: Розница, не сдали"
-              />
+            {/* Модульная сетка 4 px: поле, выбор теста и пояснение — разные элементы, 4x;
+                подпись и её поле, выбор и его пояснение — родственные, 1x. */}
+            <Stack gap={4}>
+              <Stack gap={1}>
+                <label htmlFor="slice-name">
+                  <Text variant="body-s">{saveOpen === "filter" ? "Название фильтра" : "Название среза"}</Text>
+                </label>
+                <Input
+                  id="slice-name"
+                  value={sliceName}
+                  onChange={event => setSliceName(event.target.value)}
+                  placeholder="Например: Розница, не сдали"
+                />
+              </Stack>
               {/*
                 Тест спрашивается, только когда их в выборке несколько: при одном он уже
                 определён, и выбор из одного пункта — лишний вопрос. Список — ТОЛЬКО тесты
                 выборки: срез сужает уже отобранное, а не открывает каталог заново.
               */}
               {saveOpen === "slice" && filter.testIds.length > 1 ? (
-                <>
+                <Stack gap={1}>
                   <Select
                     size="s"
                     label="По какому тесту сохранить срез"
@@ -463,7 +467,7 @@ export function PassageRegistry({
                     Прочие тесты в условия среза не войдут; остальной отбор — группы, источники,
                     период — сохранится как есть.
                   </Text>
-                </>
+                </Stack>
               ) : null}
               <Text variant="body-xs" tone="muted">
                 Условий в отборе: {conditionCount}. Под них сейчас подходит {total} прохождений —

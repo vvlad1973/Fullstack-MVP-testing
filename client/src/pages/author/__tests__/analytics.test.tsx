@@ -301,7 +301,8 @@ describe("<AnalyticsPage /> — состав экрана", () => {
     await renderLoaded();
     await openSlicesForTest();
 
-    fireEvent.click(screen.getByRole("button", { name: "Прохождения: Розница" }));
+    fireEvent.click(screen.getByRole("button", { name: "Действия со срезом: Розница" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Открыть прохождения" }));
 
     // FR-08: переход не просто открывает список, он показывает ТОТ ЖЕ состав — иначе строка
     // среза и открытый по ней реестр отвечали бы на один вопрос разными числами (FR-25).

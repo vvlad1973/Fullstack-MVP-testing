@@ -97,8 +97,10 @@ export function RegistryFilterDialog({
         </>
       }
     >
+      {/* Модульная сетка 4 px (эскиз, дельта 6.2): поля формы — разные элементы, 4x; подпись
+          группы и её пункты, поля «с» и «по» одного периода — родственные, 1x. */}
       <Stack gap={4}>
-        <Stack gap={2}>
+        <Stack gap={1}>
           <Text variant="body-s" weight="medium">Источник</Text>
           {SOURCES.map(source => (
             <Checkbox
@@ -110,7 +112,7 @@ export function RegistryFilterDialog({
           ))}
         </Stack>
 
-        <Stack gap={2}>
+        <Stack gap={1}>
           <Text variant="body-s" weight="medium">Исход</Text>
           {OUTCOMES.map(outcome => (
             <Checkbox
@@ -181,7 +183,7 @@ export function RegistryFilterDialog({
           />
         )}
 
-        <Stack gap={2}>
+        <Stack gap={1}>
           <Text variant="body-s" weight="medium">Период</Text>
           <FormField label="Период с" htmlFor="registry-from">
             <Input

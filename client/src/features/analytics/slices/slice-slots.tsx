@@ -71,72 +71,79 @@ export function SliceSlots<T extends SlotSlice>({
           const taken = new Set(slots.filter((value): value is string => value !== null && value !== id));
 
           return (
-            <Stack key={index} gap={3}>
-              <Stack direction="row" gap={2} align="center">
-                <Text variant="body-s" weight="medium">{`Срез ${index + 1}`}</Text>
-                {slice && <Text variant="body-xs" tone="muted">{countLabel(slice)}</Text>}
-              </Stack>
-
-              <Select
-                size="s"
-                label="Сохранённый срез"
-                value={id ?? ""}
-                onChange={value => onSlotsChange(slots.map((item, at) =>
-                  (at === index ? (String(value) === "" ? null : String(value)) : item)))}
-                options={[
-                  { value: "", label: "— не выбран —" },
-                  ...available
-                    .filter(item => !taken.has(item.id))
-                    .map(item => ({ value: item.id, label: item.name })),
-                ]}
-              />
-
-              {slice && (
-                <Accordion>
-                  <AccordionItem
-                    value={`conditions-${index}`}
-                    title={`Условия отбора · ${conditions.length}`}
-                  >
-                    <Stack gap={2}>
-                      {conditions.length === 0 ? (
-                        // Срез без условий — это «тест целиком» (FR-07a), и сказать об этом
-                        // надо словом: пустой список читается как незагрузившийся.
-                        <Text variant="body-xs" tone="muted">без условий — тест целиком</Text>
-                      ) : conditions.map(condition => (
-                        <Text key={condition.id} variant="body-xs">{condition.label}</Text>
-                      ))}
-                    </Stack>
-                  </AccordionItem>
-                </Accordion>
-              )}
-
-              {slice && (
-                <Stack direction="row" gap={2}>
-                  {/* Править можно СОХРАНЁННЫЙ срез: «тест целиком» условий не имеет вовсе, а
-                      набранный отбор правится там, где набран, — в фильтре реестра. */}
-                  {slice.id !== "whole" && slice.id !== "adhoc" && (
-                    <Button variant="secondary" size="s" onClick={() => setEditing(slice)}>
-                      Изменить условия
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="s"
-                    onClick={() => onSlotsChange(slots.length <= minSlots
-                      ? slots.map((item, at) => (at === index ? null : item))
-                      : slots.filter((_, at) => at !== index))}
-                  >
-                    Убрать
-                  </Button>
+            /*
+              Модульная сетка 4 px (эскиз prd56-analytics-section, дельта 6.2): слот — рамка с
+              полями 6x от краёв; блоки внутри (шапка, выбор, условия, действия) — разные
+              элементы, 4x; номер среза и его объём, кнопки одной группы — родственные, 1x.
+            */
+            <Box key={index} pad={6} border radius="l">
+              <Stack gap={4}>
+                <Stack direction="row" gap={1} align="center">
+                  <Text variant="body-s" weight="medium">{`Срез ${index + 1}`}</Text>
+                  {slice && <Text variant="body-xs" tone="muted">{countLabel(slice)}</Text>}
                 </Stack>
-              )}
-            </Stack>
+
+                <Select
+                  size="s"
+                  label="Сохранённый срез"
+                  value={id ?? ""}
+                  onChange={value => onSlotsChange(slots.map((item, at) =>
+                    (at === index ? (String(value) === "" ? null : String(value)) : item)))}
+                  options={[
+                    { value: "", label: "— не выбран —" },
+                    ...available
+                      .filter(item => !taken.has(item.id))
+                      .map(item => ({ value: item.id, label: item.name })),
+                  ]}
+                />
+
+                {slice && (
+                  <Accordion>
+                    <AccordionItem
+                      value={`conditions-${index}`}
+                      title={`Условия отбора · ${conditions.length}`}
+                    >
+                      <Stack gap={1}>
+                        {conditions.length === 0 ? (
+                          // Срез без условий — это «тест целиком» (FR-07a), и сказать об этом
+                          // надо словом: пустой список читается как незагрузившийся.
+                          <Text variant="body-xs" tone="muted">без условий — тест целиком</Text>
+                        ) : conditions.map(condition => (
+                          <Text key={condition.id} variant="body-xs">{condition.label}</Text>
+                        ))}
+                      </Stack>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+
+                {slice && (
+                  <Stack direction="row" gap={1}>
+                    {/* Править можно СОХРАНЁННЫЙ срез: «тест целиком» условий не имеет вовсе, а
+                        набранный отбор правится там, где набран, — в фильтре реестра. */}
+                    {slice.id !== "whole" && slice.id !== "adhoc" && (
+                      <Button variant="secondary" size="s" onClick={() => setEditing(slice)}>
+                        Изменить условия
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="s"
+                      onClick={() => onSlotsChange(slots.length <= minSlots
+                        ? slots.map((item, at) => (at === index ? null : item))
+                        : slots.filter((_, at) => at !== index))}
+                    >
+                      Убрать
+                    </Button>
+                  </Stack>
+                )}
+              </Stack>
+            </Box>
           );
         })}
 
         {/* FR-07g: на четвёртом срезе плитка ВЫКЛЮЧАЕТСЯ, а не исчезает. Исчезнувшая читается
             как «больше срезов нет», выключенная с подписью объясняет, почему пятого не будет. */}
-        <Box pad={4} border="dashed" radius="l">
+        <Box pad={6} border="dashed" radius="l">
           <Stack gap={1}>
             <Button
               variant="secondary"
