@@ -407,6 +407,13 @@
       "when": 1791475258431,
       "tag": "0057_scenario_pass_rule",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1791829676816,
+      "tag": "0058_test_public_links",
+      "breakpoints": true
     }
   ]
 }

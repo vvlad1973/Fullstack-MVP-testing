@@ -89,6 +89,7 @@ import type {
   UserGroup,
   TestAccessGrant, InsertTestAccessGrant,
   TestSnapshot,
+  TestPublicLink,
   TopicAccessGrant,
   TestAssignment, InsertTestAssignment,
   PasswordResetToken,
@@ -300,6 +301,10 @@ export interface IStorage {
 
   getTests(): Promise<Test[]>;
   getTest(id: string): Promise<Test | undefined>;
+  getTestPublicLink(testId: string): Promise<TestPublicLink | undefined>;
+  getTestPublicLinkByToken(token: string): Promise<TestPublicLink | undefined>;
+  upsertTestPublicLink(testId: string, token: string, createdBy: string): Promise<TestPublicLink>;
+  deleteTestPublicLink(testId: string): Promise<void>;
   getMigrationHealth(): Promise<{ legacyStartPageCount: number }>;
   updateTest(id: string, test: Partial<InsertTest>): Promise<Test | undefined>;
   /** Updates only the status field without bumping the version counter (PRD-7 §9). */
@@ -1093,6 +1098,22 @@ export class DatabaseStorage implements IStorage {
 
   getTest(id: string): Promise<Test | undefined> {
     return this.testsRepo.getTest(id);
+  }
+
+  getTestPublicLink(testId: string): Promise<TestPublicLink | undefined> {
+    return this.testsRepo.getTestPublicLink(testId);
+  }
+
+  getTestPublicLinkByToken(token: string): Promise<TestPublicLink | undefined> {
+    return this.testsRepo.getTestPublicLinkByToken(token);
+  }
+
+  upsertTestPublicLink(testId: string, token: string, createdBy: string): Promise<TestPublicLink> {
+    return this.testsRepo.upsertTestPublicLink(testId, token, createdBy);
+  }
+
+  deleteTestPublicLink(testId: string): Promise<void> {
+    return this.testsRepo.deleteTestPublicLink(testId);
   }
 
   getMigrationHealth(): Promise<{ legacyStartPageCount: number }> {

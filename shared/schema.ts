@@ -831,6 +831,25 @@ export const testAccessGrants = pgTable("test_access_grants", {
   testUserIdx: uniqueIndex("test_access_grants_test_user_idx").on(table.testId, table.userId),
 }));
 
+/**
+ * Public link of a test (stage 1: at most one per test). Kept out of `tests` on purpose:
+ * the test row is copied into publication snapshots and spread into `/api/learner/tests`,
+ * so a token column there would leak to every learner of the test.
+ */
+export const testPublicLinks = pgTable("test_public_links", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  testId: varchar("test_id", { length: 36 }).notNull()
+    .references(() => tests.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 64 }).notNull(),
+  createdBy: varchar("created_by", { length: 36 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  testIdx: uniqueIndex("test_public_links_test_idx").on(table.testId),
+  tokenIdx: uniqueIndex("test_public_links_token_idx").on(table.token),
+}));
+
+export type TestPublicLink = typeof testPublicLinks.$inferSelect;
+
 // ─── PRD-11: tag draw quotas (квоты выдачи по тегам) ─────────────────────────
 // Optional per-section stratified-draw blueprint guaranteeing coverage of
 // sub-topics (tags) within a topic's draw_count sample. Absence = today's
