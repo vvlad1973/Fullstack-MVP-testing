@@ -22744,6 +22744,28 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const m = media.get(el.media);
     return { x: el.x, y: el.y, w: (_b = (_a = el.w) != null ? _a : m == null ? void 0 : m.w) != null ? _b : 0, h: (_d = (_c = el.h) != null ? _c : m == null ? void 0 : m.h) != null ? _d : 0 };
   }
+  function fieldStacking(scene, field, media, isShown) {
+    const els = scene.elements;
+    let host = -1;
+    let hostArea = Infinity;
+    for (let i = 0; i < els.length; i += 1) {
+      const b = elementBox(els[i], media);
+      const holds = b.x <= field.x && b.y <= field.y && b.x + b.w >= field.x + field.w && b.y + b.h >= field.y + field.h;
+      const area = b.w * b.h;
+      if (holds && area < hostArea) {
+        host = i;
+        hostArea = area;
+      }
+    }
+    if (host < 0) return { host, shown: true, covered: false };
+    let covered = false;
+    for (let i = host + 1; i < els.length && !covered; i += 1) {
+      if (!isShown(els[i].id)) continue;
+      const b = elementBox(els[i], media);
+      covered = b.x < field.x + field.w && b.x + b.w > field.x && b.y < field.y + field.h && b.y + b.h > field.y;
+    }
+    return { host, shown: isShown(els[host].id), covered };
+  }
   function same(a, b, media) {
     if (a.media !== b.media) return false;
     const x = elementBox(a, media);
@@ -22821,12 +22843,17 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
 .tbsim__kpi b{font-size:22px;color:#16181d;font-variant-numeric:tabular-nums}
 .tbsim__actions{display:flex;justify-content:flex-end;gap:8px}
 `;
-  function ensureStyle2(doc) {
-    if (doc.getElementById("tbsim-css")) return;
+  function scopeOf(root) {
+    const node = root.getRootNode();
+    return node.nodeType === 11 ? node : root.ownerDocument;
+  }
+  function ensureStyle2(scope, doc) {
+    if (scope.getElementById("tbsim-css")) return;
     const s = doc.createElement("style");
     s.id = "tbsim-css";
     s.textContent = CSS;
-    doc.head.appendChild(s);
+    if (scope.nodeType === 11) scope.insertBefore(s, scope.firstChild);
+    else doc.head.appendChild(s);
   }
   function h(doc, tag, cls, text) {
     const el = doc.createElement(tag);
@@ -22887,7 +22914,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   function mountPlayer(root, options) {
     var _a, _b, _c, _d, _e, _f;
     const doc = root.ownerDocument;
-    ensureStyle2(doc);
+    const scope = scopeOf(root);
+    ensureStyle2(scope, doc);
     const { scenario } = options;
     const media = new Map(scenario.media.map((m) => [m.id, m]));
     const fieldDefs = new Map(((_a = scenario.fields) != null ? _a : []).map((f) => [f.id, f]));
@@ -23040,6 +23068,20 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       });
       return input;
     }
+    function stack(node, p) {
+      var _a2;
+      const scene = run.scene();
+      const st = fieldStacking(scene, p, media, (id) => run.isVisible(id));
+      const above = st.host < 0 ? null : (_a2 = scene.elements.slice(st.host + 1).map((el) => nodes.get(el.id)).find((n) => n)) != null ? _a2 : null;
+      canvas.insertBefore(node, above != null ? above : overlay);
+      node.style.visibility = st.shown ? "" : "hidden";
+      const reachable = st.shown && !st.covered;
+      node.style.pointerEvents = reachable ? "" : "none";
+      if (node.tagName === "INPUT") {
+        node.tabIndex = reachable ? 0 : -1;
+        if (!reachable && scope.activeElement === node) node.blur();
+      }
+    }
     function drawFields() {
       var _a2, _b2, _c2;
       const placed = /* @__PURE__ */ new Set();
@@ -23056,11 +23098,11 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
             input.value = run.value(p.field);
             committed.set(p.field, input.value);
           }
-          if (doc.activeElement !== input) input.value = run.value(p.field);
+          if (scope.activeElement !== input) input.value = run.value(p.field);
           input.classList.toggle("is-wrong", run.isWrong(p.field));
           place(input, p);
           input.style.fontSize = `${fontPx}px`;
-          canvas.insertBefore(input, overlay);
+          stack(input, p);
         } else {
           (_c2 = inputs.get(p.field)) == null ? void 0 : _c2.remove();
           inputs.delete(p.field);
@@ -23072,7 +23114,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
           label.textContent = run.value(p.field);
           place(label, p);
           label.style.fontSize = `${fontPx}px`;
-          canvas.insertBefore(label, overlay);
+          stack(label, p);
         }
       }
       for (const [id, n] of inputs) if (!placed.has(id)) {
@@ -23232,11 +23274,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       react(run.click(p.x, p.y, "rightclick"));
     });
     const onKey = (e) => {
-      var _a2, _b2;
+      var _a2, _b2, _c2;
       if (run.done() || shell.querySelector(".tbsim__veil")) return;
       const combo = comboOf(e);
       if (!combo) return;
-      const inInput = (_b2 = (_a2 = e.target) == null ? void 0 : _a2.classList) == null ? void 0 : _b2.contains("tbsim__input");
+      const target = (_b2 = (_a2 = e.composedPath) == null ? void 0 : _a2.call(e)[0]) != null ? _b2 : e.target;
+      const inInput = (_c2 = target == null ? void 0 : target.classList) == null ? void 0 : _c2.contains("tbsim__input");
       if (inInput && !/^(Ctrl|Alt|Meta)\+/.test(combo) && combo !== "Escape") return;
       if (inInput && /^(Ctrl|Meta)\+[CVXAZ]$/.test(combo)) return;
       if (/^(Ctrl|Meta)\+S$/.test(combo)) e.preventDefault();
