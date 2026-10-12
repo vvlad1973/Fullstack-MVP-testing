@@ -31,7 +31,10 @@ vi.mock("../server/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 vi.mock("../server/services/test-snapshot", () => ({ publishedSnapshotOf: publishedSnapshotOfMock }));
-vi.mock("../server/scorm/debug-player/public-package-cache", () => ({ getPublicPackage: getPublicPackageMock }));
+vi.mock("../server/scorm/debug-player/public-package-cache", () => ({
+  getPublicPackage: getPublicPackageMock,
+  LIVE_PACKAGE_TTL_MS: 10 * 60 * 1000,
+}));
 
 import publicLinkRouter from "../server/routes/public-link";
 import publicPlayRouter from "../server/routes/public-play";
@@ -52,7 +55,10 @@ function makeApp(authed = true) {
 }
 
 const user = { id: "user-1", emailHash: "h", role: "author", status: "active" };
-const baseTest = { id: "test-1", title: "Test", mode: "standard", ownerId: "user-1" };
+const baseTest = {
+  id: "test-1", title: "Test", mode: "standard", ownerId: "user-1",
+  status: "published", updatedAt: new Date("2026-10-12T10:00:00Z"),
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -72,11 +78,18 @@ describe("author API /api/tests/:id/public-link", () => {
     expect(res.body).toEqual({ url: null, published: true });
   });
 
-  it("refuses to issue a link for an unpublished test with 409", async () => {
-    publishedSnapshotOfMock.mockResolvedValue(null);
+  it("refuses to issue a link for a draft with 409", async () => {
+    storageMock.getTest.mockResolvedValue({ ...baseTest, status: "draft" });
     const res = await request(makeApp()).post("/api/tests/test-1/public-link");
     expect(res.status).toBe(409);
     expect(storageMock.upsertTestPublicLink).not.toHaveBeenCalled();
+  });
+
+  it("issues a link for a test published before snapshots (no snapshot)", async () => {
+    publishedSnapshotOfMock.mockResolvedValue(null);
+    const res = await request(makeApp()).post("/api/tests/test-1/public-link");
+    expect(res.status).toBe(200);
+    expect(storageMock.upsertTestPublicLink).toHaveBeenCalled();
   });
 
   it("issues a link with a 64-hex token for a published test", async () => {
@@ -138,10 +151,26 @@ describe("anonymous play /p/:token", () => {
   });
 
   it("answers 404 when the test is no longer published", async () => {
-    publishedSnapshotOfMock.mockResolvedValue(null);
+    storageMock.getTest.mockResolvedValue({ ...baseTest, status: "draft" });
     const res = await request(makeApp(false)).get(`/p/${TOKEN}`);
     expect(res.status).toBe(404);
     expect(getPublicPackageMock).not.toHaveBeenCalled();
+  });
+
+  it("keys the package by snapshot when one exists, with no TTL", async () => {
+    await request(makeApp(false)).get(`/p/${TOKEN}`);
+    expect(getPublicPackageMock).toHaveBeenCalledWith("test-1", "snap:snap-1");
+  });
+
+  it("serves a published test without a snapshot from live content with a TTL", async () => {
+    publishedSnapshotOfMock.mockResolvedValue(null);
+    const res = await request(makeApp(false)).get(`/p/${TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(getPublicPackageMock).toHaveBeenCalledWith(
+      "test-1",
+      `live:${baseTest.updatedAt.getTime()}`,
+      { ttlMs: 10 * 60 * 1000 },
+    );
   });
 
   it("rejects a malformed token without a DB lookup", async () => {

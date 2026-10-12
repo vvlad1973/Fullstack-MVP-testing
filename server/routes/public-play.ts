@@ -7,7 +7,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { storage } from "../storage";
 import { publishedSnapshotOf } from "../services/test-snapshot";
-import { getPublicPackage, type PublicPackage } from "../scorm/debug-player/public-package-cache";
+import { getPublicPackage, LIVE_PACKAGE_TTL_MS, type PublicPackage } from "../scorm/debug-player/public-package-cache";
 import { readShimJs } from "../scorm/debug-player/assets";
 import { contentTypeFor } from "../scorm/debug-player/run-session";
 import { logger } from "../logger";
@@ -35,14 +35,22 @@ function notFoundPage(res: Response) {
   );
 }
 
-/** Resolve a token to the package of the test's CURRENT published snapshot, or null. */
+/**
+ * Resolve a token to the package of the test as learners get it, or null. A published test
+ * serves its snapshot; one published before snapshots existed serves live content, cached
+ * for a few minutes (bank edits do not touch the test row, so the key alone cannot see them).
+ */
 async function resolve(token: string): Promise<{ testId: string; pkg: PublicPackage } | null> {
   if (!TOKEN_RE.test(token)) return null;
   const link = await storage.getTestPublicLinkByToken(token);
   if (!link) return null;
+  const test = await storage.getTest(link.testId);
+  if (test?.status !== "published") return null;
   const snapshot = await publishedSnapshotOf(link.testId);
-  if (!snapshot) return null;
-  return { testId: link.testId, pkg: await getPublicPackage(link.testId, snapshot.id) };
+  const pkg = snapshot
+    ? await getPublicPackage(link.testId, `snap:${snapshot.id}`)
+    : await getPublicPackage(link.testId, `live:${new Date(test.updatedAt).getTime()}`, { ttlMs: LIVE_PACKAGE_TTL_MS });
+  return { testId: link.testId, pkg };
 }
 
 router.use(noIndex);

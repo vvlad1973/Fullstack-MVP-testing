@@ -3,7 +3,7 @@
  * @description The public-link package cache builds one package per (test, snapshot),
  * shares in-flight builds, builds without telemetry and forgets failed builds.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const buildScormExportData = vi.hoisted(() => vi.fn());
 const generateScormPackage = vi.hoisted(() => vi.fn());
@@ -23,7 +23,27 @@ beforeEach(() => {
   unzipPackage.mockResolvedValue({ files: new Map([["index.html", Buffer.from("x")]]), launch: "index.html" });
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe("getPublicPackage", () => {
+  it("rebuilds a live entry after its TTL", async () => {
+    vi.useFakeTimers();
+    await getPublicPackage("t1", "live:1", { ttlMs: 1000 });
+    await getPublicPackage("t1", "live:1", { ttlMs: 1000 });
+    expect(buildScormExportData).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1001);
+    await getPublicPackage("t1", "live:1", { ttlMs: 1000 });
+    expect(buildScormExportData).toHaveBeenCalledTimes(2);
+  });
+
+  it("never expires a snapshot entry", async () => {
+    vi.useFakeTimers();
+    await getPublicPackage("t1", "snap:s1");
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+    await getPublicPackage("t1", "snap:s1");
+    expect(buildScormExportData).toHaveBeenCalledTimes(1);
+  });
+
   it("builds once for parallel calls with the same key", async () => {
     const [a, b] = await Promise.all([getPublicPackage("t1", "s1"), getPublicPackage("t1", "s1")]);
     expect(a).toBe(b);
