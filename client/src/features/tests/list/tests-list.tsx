@@ -45,6 +45,7 @@ import {
   Info,
   KeyRound,
   Layers,
+  Link2,
   PackageOpen,
   MoreHorizontal,
   Pencil,
@@ -102,6 +103,7 @@ import { describeDeleteImpact, type TestDeleteImpact } from "./delete-impact";
 import { SaveAsDialog } from "@/features/tests/export/save-as-dialog";
 import type { EditorTabKey } from "@/features/tests/editor/use-test-editor";
 import { TestAccessPanel } from "@/features/tests/access/test-access-panel";
+import { PublicLinkModal } from "./public-link-modal";
 import { AssignTestDialog } from "@/components/assign-test-dialog";
 import { useAuth } from "@/lib/auth";
 import { ROLES } from "@shared/access";
@@ -364,6 +366,7 @@ export function TestsListPage(): React.JSX.Element {
 
   // Access panel (PRD-13 / PRD-15 BRC-27) — admin on any test, author on owned.
   const [accessTest, setAccessTest] = useState<{ id: string; title: string } | null>(null);
+  const [publicLinkTest, setPublicLinkTest] = useState<{ id: string; title: string } | null>(null);
   const canGrantAccessCap = can("tests.access.grant");
   const isAdmin = hasRole(ROLES.ADMINISTRATOR) || hasRole(ROLES.SUPERADMIN);
   /** May this user grant access to THIS test (object scope, BRC-27). */
@@ -922,6 +925,9 @@ export function TestsListPage(): React.JSX.Element {
       {/* Access panel (PRD-13, WF-2) ---------------------------------------- */}
       <TestAccessPanel test={accessTest} onClose={() => setAccessTest(null)} />
 
+      {/* Public link of a published test ---------------------------------- */}
+      <PublicLinkModal test={publicLinkTest} onClose={() => setPublicLinkTest(null)} />
+
       {/* PRD-15 T-12 (E-12): publish-infeasible impact dialog --------------- */}
       <ContentImpactDialog
         open={publishImpact !== null}
@@ -1035,6 +1041,21 @@ export function TestsListPage(): React.JSX.Element {
           >
             <KeyRound size={14} />
             Общий доступ
+          </button>
+        )}
+        {can("tests.edit") && test.status === "published" && (
+          <button
+            type="button"
+            className="dropdown-item"
+            role="menuitem"
+            onClick={() => {
+              setTestMenu(null);
+              setPublicLinkTest({ id: test.id, title: test.title });
+            }}
+            data-testid={`menu-public-link-${test.id}`}
+          >
+            <Link2 size={14} />
+            Публичная ссылка
           </button>
         )}
         {canDebugPlay && (
