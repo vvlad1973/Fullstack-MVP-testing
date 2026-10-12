@@ -3570,6 +3570,8 @@ export default function TakeTestPage() {
       return (
         <ScenarioRun
           scenario={scenario}
+          // The question screen's template skins the player, as the package document does.
+          skin={questionTpl}
           caption={testInfo?.title}
           showDetails={showCorrectAnswers}
           closeLabel={scenarioTest ? "Перейти к итогам" : "Вернуться к разделам"}
@@ -3742,6 +3744,8 @@ export default function TakeTestPage() {
       return (
         <ScenarioRun
           scenario={currentScenario}
+          // The question screen's template skins the player, as the package document does.
+          skin={questionTpl}
           caption={testInfo?.title}
           showDetails={showCorrectAnswers}
           closeLabel="Вернуться к вопросу"
