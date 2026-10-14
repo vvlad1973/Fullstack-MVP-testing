@@ -986,6 +986,15 @@ function breakdownRow(
   };
 }
 
+/** Разметка пояснения группы тем, или пустой объект (поле должно ОТСУТСТВОВАТЬ, а не быть ""). */
+function groupDescriptionHtml(
+  description?: { format: "plain" | "richText" | "html"; text: string },
+): { descriptionHtml?: string } {
+  if (!description) return {};
+  const html = richTextToHtml(description.text, description.format as RichTextFormat);
+  return html ? { descriptionHtml: html } : {};
+}
+
 /**
  * Разметка толкования подтемы для строки разреза, или пустой объект.
  *
@@ -1310,6 +1319,7 @@ export function buildResultContext(
       (g): CtxTopicGroup => ({
         key: g.key,
         label: g.label,
+        ...groupDescriptionHtml(g.description),
         topics: g.sections.map((c) => c.view),
         passedCount: g.passedCount,
         totalCount: g.totalCount,
