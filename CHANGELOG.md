@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.46.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.45.0...v2.46.0)
+
+### Features
+
+- **feat**(results): пояснение к группе тем на экране итогов и в отчёте (2026-10-14) [`4aba5451ecf688ced9f21fff7329616eb0de8dc9`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/4aba5451ecf688ced9f21fff7329616eb0de8dc9)
+  Группа тем получает необязательное пояснение (форматированный текст, как у толкования
+  темы): оно печатается под заголовком группы на экране итогов и в PDF-отчёте при любом
+  вердикте. Редактируется в карточке группы; повторная загрузка книги Excel его не стирает.
+  Миграция БД не нужна, тесты без пояснений печатаются как прежде.
+
 ## [2.45.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.44.6...v2.45.0)
 
 ### Features

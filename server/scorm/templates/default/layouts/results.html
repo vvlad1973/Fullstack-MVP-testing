@@ -208,6 +208,7 @@
           {{#if label}}<h4 class="tb-topic-group__title">{{label}}</h4>{{/if}}
           {{#if counterLabel}}<span class="tb-topic-group__counter">{{counterLabel}}</span>{{/if}}
         </div>
+        {{#if descriptionHtml}}<div class="tb-topic-group__description">{{& descriptionHtml}}</div>{{/if}}
           <!-- PRD-49: слот карточки темы гейтится СВОЕЙ надписью. Выключенная надпись —
                это пустая строка, и она убирает не подпись, а ВЕСЬ слот: вердикт уходит
                вместе с цветной пилюлей, «Правильно»/«Баллов» — вместе с числом. Без этого

@@ -595,6 +595,18 @@ export const sectionGroupSchema = z.object({
   key: z.string().trim().min(1).max(64),
   label: z.string().trim().max(200),
   order: z.number().int().min(0).optional(),
+  /**
+   * Пояснение к группе: печатается под её заголовком на экране итогов и в отчёте при ЛЮБОМ
+   * вердикте («Целевой уровень говорит о…»). Форма та же, что у толкования темы
+   * (`interpretationSchema`), и разметку строит тот же `richTextToHtml`. Пустой текст =
+   * пояснения нет. Поле необязательно: тесты и снимки без него печатаются как прежде.
+   */
+  description: z
+    .object({
+      format: z.enum(["plain", "richText", "html"]).default("plain"),
+      text: z.string().max(10000).default(""),
+    })
+    .optional(),
 });
 
 /**
