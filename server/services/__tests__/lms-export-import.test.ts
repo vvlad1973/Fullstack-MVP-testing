@@ -558,6 +558,25 @@ describe("runImport — версия публикации и варианты (P
  * PRD-57 FR-34: новые взаимодействия отчёта. Пакет кодирует текстовые ответы с Э3, Э8 и
  * Э9; до этого разбор их не знал, и ответ участника при импорте терялся целиком.
  */
+describe("runImport — пропущенное задание", () => {
+  it("пустой ответ при известном исходе пишется JSON null, а не SQL NULL", async () => {
+    // Пакет пишет пропущенному заданию «неверно» и пустой ответ. Колонка `user_answer_json`
+    // обязательна, а JS `null` драйвер отправляет как SQL NULL: загрузка падала на первом же
+    // пропуске (ответ 400 «Не удалось прочитать файл» при записи), хотя сухой прогон проходил.
+    const skipped = { ...book, rows: [{ ...book.rows[0], answers: { q2: "" }, results: { q2: "incorrect" } }] };
+    const s = storageStub();
+    s.getQuestionsByIds = async (ids: string[]) =>
+      [{ id: "q2", type: "single", prompt: "Вопрос", topicId: "t1", correctJson: { correctIndex: 0 } }]
+        .filter((q) => ids.includes(q.id)) as never;
+    const res = await runImport({ ...skipped, questionIds: ["q2"] } as never, ON, ctx, s as never);
+    const [answer] = s.answers[0] as Array<Record<string, unknown>>;
+    expect(res.rowsCreated).toBe(1);
+    expect(answer).toMatchObject({ result: "incorrect", isCorrect: false });
+    expect(answer.userAnswerJson).not.toBeNull();
+    expect(answer.userAnswerJson).not.toBeUndefined();
+  });
+});
+
 describe("runImport — текстовые взаимодействия (PRD-57 FR-34)", () => {
   /** Та же книга, но вопрос текстовый: заглушка отдаёт его тип и эталон. */
   function textBook(raw: string, result: string) {
