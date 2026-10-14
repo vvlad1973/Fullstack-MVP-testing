@@ -175,6 +175,12 @@ export interface CtxTopicGroup {
   key: string;
   /** Heading of the group; may be empty if the author left it so. */
   label: string;
+  /**
+   * Author's explanation of the group, ready HTML (`richTextToHtml`). Absent when the author
+   * wrote none, so the layout's `{{#if descriptionHtml}}` prints nothing and a test without
+   * explanations keeps its context byte-identical.
+   */
+  descriptionHtml?: string;
   /** The group's topic cards, in delivery order — the SAME objects as in `topicResults`. */
   topics: CtxTopicResultView[];
   /** Sections of the group with a PASSED verdict. */
