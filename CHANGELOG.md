@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.46.1](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.46.0...v2.46.1)
+
+### Fixes
+
+- **fix**(editor): вставка в форматированный текст очищается от чужих стилей (2026-10-14) [`c5dd863b8de883c205b7667d6b5fc313889b6b30`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/c5dd863b8de883c205b7667d6b5fc313889b6b30)
+  Вставка из Word или другой страницы приносила встроенные стили (Times New Roman, размеры,
+  цвета). Форматированный текст печатается как есть, и встроенный стиль перебивал шрифт
+  шаблона на экране итогов и в отчёте. Теперь при вставке остаются абзацы, жирный, курсив,
+  подчёркивание, ссылки http(s)/mailto и списки; всё остальное — текст.
+
 ## [2.46.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.45.0...v2.46.0)
 
 ### Features
