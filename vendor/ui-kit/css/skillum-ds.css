@@ -3710,6 +3710,11 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
   letter-spacing: 0.04em; text-transform: uppercase;
 }
 .ou-file__thumb svg { width: 18px; height: 18px; }
+/* A thumb may carry the file itself (`thumb={<img>}`): the picture fills the tile whole,
+   on a neutral surface instead of the type colour, so a cut-out illustration with a
+   transparent background reads as itself and not as a purple badge. */
+.ou-file__thumb:has(> img) { background: var(--ou-bg-surface-3); overflow: hidden; }
+.ou-file__thumb > img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .ou-file__thumb--pdf { background: #C5311A; }
 .ou-file__thumb--doc { background: #1F60C0; }
 .ou-file__thumb--xls { background: #1F8A5B; }
