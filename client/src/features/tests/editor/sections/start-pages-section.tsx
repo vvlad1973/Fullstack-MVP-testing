@@ -600,6 +600,7 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
             courseTitle: model.basic.title,
             // FR-44: real test description → the «Старт» subtitle (not the demo's).
             description: model.basic.description,
+            descriptionFormat: model.basic.descriptionFormat,
             passPercent: model.passRules.overall.type === "percent" ? model.passRules.overall.value : null,
             timeLimitMinutes: model.runtime.timeLimitMinutes,
             maxAttempts: model.runtime.maxAttempts,

@@ -28,6 +28,7 @@ import {
 import { buildSectionIntroContext } from "@shared/template/result-context";
 import { buildTemplateCssVars, buildTemplateDataAttrs } from "@shared/template/params-css";
 import { startImageForVariant, type StartVariantDecl } from "@shared/template/start-image";
+import type { RichTextFormat } from "@shared/template/rich-text";
 import { useTemplateBundle } from "./use-template-bundle";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -66,6 +67,8 @@ export type PagePreviewModalProps = {
     courseTitle?: string;
     /** Real test description → «Старт» subtitle. */
     description?: string;
+    /** PRD-59: the format of {@link description}; absent = `plain`. */
+    descriptionFormat?: RichTextFormat | null;
     /** Pass threshold percent (null when the rule is absolute/none). */
     passPercent?: number | null;
     timeLimitMinutes?: number | null;
@@ -161,7 +164,11 @@ export function PagePreviewModal({
         // Start-screen facts: overlaid whenever the editor provides them (using
         // `!== undefined` so a real `null` — e.g. "no time limit" — overrides the
         // demo value instead of leaving the demo's number).
-        ...(realData.description !== undefined ? { description: realData.description } : {}),
+        // The format travels WITH the text: a rich description rendered as plain shows
+        // its tags verbatim, an html one is never escaped in a run either.
+        ...(realData.description !== undefined
+          ? { description: realData.description, descriptionFormat: realData.descriptionFormat ?? null }
+          : {}),
         ...(realData.passPercent !== undefined ? { passPercent: realData.passPercent } : {}),
         ...(realData.timeLimitMinutes !== undefined ? { timeLimitMinutes: realData.timeLimitMinutes } : {}),
         ...(realData.maxAttempts !== undefined ? { maxAttempts: realData.maxAttempts } : {}),
