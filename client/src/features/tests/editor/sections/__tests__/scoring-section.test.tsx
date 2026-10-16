@@ -82,7 +82,22 @@ function buildSection(over: Partial<EditorSection> = {}): EditorSection {
   };
 }
 
-const dbQuestions = [
+/** Bank row as `/api/questions` returns it; `dataJson`/`correctJson` differ per question type. */
+interface DbQuestion {
+  id: string;
+  topicId: string;
+  type: string;
+  prompt: string;
+  dataJson: unknown;
+  correctJson: unknown;
+  points: number;
+  difficulty: number | null;
+  scoringJson: unknown;
+  contentHash: string;
+  tags: string[];
+}
+
+const dbQuestions: DbQuestion[] = [
   {
     id: "q1", topicId: "top-1", type: "multiple", prompt: "Какой документ закрепляет лимиты?",
     dataJson: { options: ["А", "Б", "В"] }, correctJson: { correctIndices: [0, 1] },
