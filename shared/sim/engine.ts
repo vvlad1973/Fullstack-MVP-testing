@@ -20,7 +20,6 @@
  */
 import { checkRuleSet, type AnswerRuleSet } from "@shared/answer-check";
 import {
-  CONTRACT_VERSION,
   RESULT_FORMAT,
   type ActionBase,
   type Box,
@@ -38,6 +37,8 @@ import {
   type Size,
   type Zone,
 } from "./contract";
+// Temporary until this module moves to version 2 (plan task 5 for the engine, task 10 for the checks).
+import { CONTRACT_V1 as CONTRACT_VERSION } from "./contract-v1";
 import { boundsOf, contains, type ZoneShape } from "./geometry";
 
 /** Default number of consecutive errors on a scene before a hint shows. */

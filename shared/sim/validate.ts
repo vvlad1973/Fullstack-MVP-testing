@@ -16,7 +16,9 @@
  *
  * Pure and framework-free: the server runs it on upload and on save, tests run it directly.
  */
-import { CONTRACT_VERSION, SCENARIO_FORMAT, type Condition, type Effect, type Scenario, type Size } from "./contract";
+import { SCENARIO_FORMAT, type Condition, type Effect, type Scenario, type Size } from "./contract";
+// Temporary until this module moves to version 2 (plan task 5 for the engine, task 10 for the checks).
+import { CONTRACT_V1 as CONTRACT_VERSION } from "./contract-v1";
 import { boundsOf, polygonProblem, type Point } from "./geometry";
 
 /** What the server read from one image of the archive. */
