@@ -1,5 +1,6 @@
 import type { Test, TestSection, Topic, Question, TopicCourse, TopicEvent, PassRule, AdaptiveTopicSettings, AdaptiveLevel, AdaptiveLevelLink, ContentPage, ResultVariable, Scale, QuestionMeasurement, RetakePolicy, TestQuestionScoring, ReportBlockRow } from "@shared/schema";
 import { sanitizeHtml, placeholderScope } from "../../utils/html-sanitizer";
+import { withCurrentScenario } from "@shared/sim/upgrade";
 import { findEligibilityPlugin, findEligibilityConfig } from "@shared/eligibility/registry";
 import { resolveAnswerCommitScope } from "@shared/flow/answer-commit-scope";
 import { resolveFlowPolicy } from "@shared/flow/flow-policy";
@@ -504,7 +505,7 @@ export function buildTestJson(data: ExportData): string {
             // библиотека подсветки в ZIP не едет.
             ...promptHtmlOf(q),
             // PRD-57 FR-28v: предел печётся в пакет — конфигурации в рантайме там нет.
-            data: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
+            data: withCurrentScenario(withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength)),
             correct: q.correctJson,
             points: baked.points,
             difficulty: baked.difficulty,
@@ -651,7 +652,7 @@ export function buildTestJson(data: ExportData): string {
             // библиотека подсветки в ZIP не едет.
             ...promptHtmlOf(q),
             // PRD-57 FR-28v: предел печётся в пакет — конфигурации в рантайме там нет.
-            data: withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength),
+            data: withCurrentScenario(withEffectiveMaxLength(q.type, q.dataJson, config.limits.shortAnswerMaxLength)),
             correct: q.correctJson,
             points: baked.points,
             difficulty: baked.difficulty,

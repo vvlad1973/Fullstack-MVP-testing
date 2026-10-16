@@ -77,6 +77,12 @@ describe("приём архива", () => {
     expect(storedScenarioErrors(result.dataJson)).toEqual([]);
   });
 
+  it("архив v1 сохраняется сценарием v2", async () => {
+    const result = await importScenarioArchive(await referenceZip(), "owner", fakeRegistrar().register as never);
+    expect(result.dataJson!.scenario.version).toBe(2);
+    expect(result.dataJson!.scenario.variants[0].device).toBe("desktop");
+  });
+
   it("архив папкой — scenario.json на уровень глубже — тоже принимается", async () => {
     const { register } = fakeRegistrar();
     const result = await importScenarioArchive(await referenceZip("registration/"), "owner", register as never);
