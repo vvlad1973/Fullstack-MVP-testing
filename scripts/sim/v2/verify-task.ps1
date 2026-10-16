@@ -19,7 +19,10 @@
       7. tsc        - no type errors in the task's own files; in wave mode, none at all when the
                       wave requires a clean project;
       8. vitest     - the task's tests and every regression and earlier new test pass, run here;
-      9. package    - the sample SCORM package is byte-identical to the baseline taken before wave 0.
+      9. package    - the sample SCORM package is byte-identical to the baseline taken before wave 0,
+                      except the TBTemplate bundle of shared code at the head of app.js: legitimate
+                      shared/sim changes land there, and the scope check guards which are allowed. The
+                      rest of app.js (the package runtime) and every other entry are compared.
 
     The range checked is <wave start tag>..HEAD, the tag being sim-v2-w<N>-start, set by the
     coordinator on the integration branch before the wave. The baseline of the package is read
@@ -109,6 +112,20 @@ function Get-PackageHashes([string]$Root) {
         $sha = [System.Security.Cryptography.SHA256]::Create()
         foreach ($e in ($zip.Entries | Sort-Object FullName)) {
             if ($e.FullName.EndsWith('/')) { continue }
+            if ($e.FullName -eq 'app.js') {
+                # app.js opens with the TBTemplate bundle of shared code: every legitimate change to
+                # shared/sim changes it, and which shared files a task may touch is the scope check's
+                # job. The rest of app.js is the package runtime and is compared byte for byte.
+                $reader = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8)
+                try { $text = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                $end = [regex]::Match($text, 'return __toCommonJS\(runtime_entry_exports\);\r?\n\}\)\(\);')
+                if (-not $text.StartsWith('"use strict";') -or -not $end.Success) { throw 'app.js: TBTemplate bundle boundary not found' }
+                $cut = $end.Index + $end.Length
+                $utf8 = New-Object System.Text.UTF8Encoding $false
+                $hashes['app.js#runtime'] = [BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($text.Substring($cut)))).Replace('-', '')
+                $hashes['app.js#bundle'] = [BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($text.Substring(0, $cut)))).Replace('-', '')
+                continue
+            }
             $s = $e.Open()
             try { $hashes[$e.FullName] = [BitConverter]::ToString($sha.ComputeHash($s)).Replace('-', '') } finally { $s.Dispose() }
         }
@@ -303,10 +320,12 @@ if ($SkipPackage) {
         $expected = ($baseJson | ConvertFrom-Json).entries
         $actual = Get-PackageHashes $Root
         $names = @($expected.PSObject.Properties | ForEach-Object { $_.Name })
+        $names = @($names | Where-Object { $_ -ne 'app.js#bundle' })
         $diffs = @()
         foreach ($n in $names) { if ($actual[$n] -ne $expected.$n) { $diffs += $n } }
-        foreach ($n in $actual.Keys) { if ($names -notcontains $n) { $diffs += "$n (new)" } }
-        Add-Result 'package' ($diffs.Count -eq 0) ($(if ($diffs.Count) { "differs: $($diffs -join ', ')" } else { "$($names.Count) entries identical to baseline" }))
+        foreach ($n in $actual.Keys) { if ($n -ne 'app.js#bundle' -and $names -notcontains $n) { $diffs += "$n (new)" } }
+        $bundleNote = if ($actual['app.js#bundle'] -eq $expected.'app.js#bundle') { 'shared bundle unchanged' } else { 'shared bundle changed, not compared' }
+        Add-Result 'package' ($diffs.Count -eq 0) ($(if ($diffs.Count) { "differs: $($diffs -join ', ')" } else { "$($names.Count) entries identical to baseline; $bundleNote" }))
     } catch {
         Add-Result 'package' $false $_.Exception.Message
     }

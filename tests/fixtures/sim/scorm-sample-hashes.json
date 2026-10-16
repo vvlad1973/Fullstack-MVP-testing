@@ -1,8 +1,9 @@
 {
-    "commit":  "4d63edc28b5818268cecf0988af38490e862ede6",
+    "commit":  "b49c783c4009b145e18e2c369fa0946ee0170f12",
     "package":  "out/sample-default-template.zip",
     "entries":  {
-                    "app.js":  "A78CFCBBCF7A02156FB8833DA39535816F6E3D543318443070309E40628BE037",
+                    "app.js#runtime":  "5A07619E6D8E52C8D9A0CF06CB9E201DD0B77B9459C474B83384CC24986A4DEC",
+                    "app.js#bundle":  "AE19E31E04ECD21453F48C32B916C9C0B7E5FDF4D62B9FE58BADC3A1EA65E38E",
                     "assets/fonts/Roboto-cyrillic.woff2":  "481DD0C01E6BBB129FD147EB5D8571016193CBA141C4627CA60CEABDB5A46EA8",
                     "assets/fonts/Roboto-cyrillic-ext.woff2":  "01F94D674DB55952C35898FA4DA22C3E7065C3CC4DBBCC9CB7BEB8B6B017FBC9",
                     "assets/fonts/Roboto-latin.woff2":  "1404CA348BD75EF836F4DD8B6F2CC719458642D1237C368296B2FC652DCA47DC",
