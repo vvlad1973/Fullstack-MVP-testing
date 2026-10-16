@@ -18,8 +18,9 @@
  * skin the player keeps its built-in look.
  */
 import { useEffect, useRef } from "react";
-import type { Scenario, SimResult } from "@shared/sim/contract";
+import type { SimResult } from "@shared/sim/contract";
 import { mountPlayer, type MountedPlayer } from "@shared/sim/player";
+import type { ScenarioInput } from "@shared/sim/upgrade";
 import { resolveSceneTheme } from "@shared/template/themes";
 import { DS_SHADOW_CSS, hoistFontFaces, templateCssForShadow } from "@/components/template-screen";
 
@@ -83,7 +84,7 @@ function applySkin(host: HTMLElement, shadow: ShadowRoot, skin: ScenarioSkin): v
 }
 
 export interface ScenarioRunProps {
-  scenario: Scenario;
+  scenario: ScenarioInput;
   /**
    * The design template the test is played in. Absent (the author's check in the question
    * drawer, where no test and so no template is chosen) — the player's built-in look.
@@ -151,9 +152,9 @@ export function ScenarioRun({
     }
     const limit = startRemaining.current;
     const own = scenario.settings?.limitSeconds ?? null;
-    const played: Scenario =
+    const played: ScenarioInput =
       typeof limit === "number" && limit > 0 && (own === null || limit < own)
-        ? { ...scenario, settings: { ...scenario.settings, limitSeconds: Math.floor(limit) } }
+        ? ({ ...scenario, settings: { ...scenario.settings, limitSeconds: Math.floor(limit) } } as ScenarioInput)
         : scenario;
     let result: SimResult | null = null;
     const player: MountedPlayer = mountPlayer(root, {
