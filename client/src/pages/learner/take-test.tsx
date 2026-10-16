@@ -70,7 +70,7 @@ import { t } from "@/lib/i18n";
 import { reportClientError } from "@/lib/report-error";
 import { useAuth } from "@/lib/auth";
 import type { Question, QuestionScoring, Attempt, Test } from "@shared/schema";
-import type { Scenario } from "@shared/sim/contract";
+import { scenarioOf } from "@shared/sim/upgrade";
 import { ScenarioRun, requestScenarioFullscreen } from "@/features/questions/scenario/scenario-run";
 import { SimRulesDialog } from "@/features/questions/scenario/sim-rules-dialog";
 import { simRunReplaces } from "@shared/sim/cover";
@@ -3565,7 +3565,7 @@ export default function TakeTestPage() {
   if (attempt && phase === "question" && scenarioTaskIndex >= 0 && flatQuestions[scenarioTaskIndex]) {
     const task = flatQuestions[scenarioTaskIndex].question;
     const itemKey = flatQuestions[scenarioTaskIndex].topicId;
-    const scenario = (task.dataJson as { scenario?: Scenario } | null)?.scenario;
+    const scenario = scenarioOf(task.dataJson);
     // Г5 паритета хостов: у пункта-сценария свой лимит времени, и прогон ограничен остатком ЕГО
     // часов. Их ведёт сервер, а плеер берёт лимит один раз, при монтировании, — поэтому плеер ждёт,
     // пока сервер назовёт остаток именно этого пункта (одна короткая сверка), а не берёт число
@@ -3747,7 +3747,7 @@ export default function TakeTestPage() {
     // плеер на весь экран поверх страницы; результат — ответ на вопрос, как у любого типа, и
     // фиксируется обычным «Далее». Закрытие окна результата возвращает к экрану вопроса.
     const currentScenario = isSimulation(currentQ.question.type)
-      ? (currentQ.question.dataJson as { scenario?: Scenario } | null)?.scenario ?? null
+      ? scenarioOf(currentQ.question.dataJson)
       : null;
     if (currentScenario && simDialog === "run") {
       return (
