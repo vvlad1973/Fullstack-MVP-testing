@@ -197,6 +197,12 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
   overflow: hidden;
 }
 .tb-scene__logo img { width: 100%; height: 100%; object-fit: contain; }
+/* An author's own logo is an arbitrary picture, most often a horizontal wordmark.
+   The 44x44 tinted tile above is made for a monogram / placeholder: a wide logo was
+   squeezed into it as an unreadable strip on a tinted square. With an image the slot
+   keeps the header height, takes the picture's own proportions and drops the tint. */
+.tb-scene__logo:has(> img) { width: auto; max-width: 240px; background: none; border-radius: 0; }
+.tb-scene__logo:has(> img) img { width: auto; max-width: 100%; }
 /* Logo placeholder: the slot stays in the top-left even without a branding image,
    showing a subtle picture icon so the logo's place is clear. */
 .tb-scene__logo-ph { color: var(--ou-accent-default); opacity: 0.75; }
