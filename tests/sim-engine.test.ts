@@ -260,7 +260,7 @@ describe("результат", () => {
     hit(run, "home-inbox");
     const r = run.result();
     expect(r.format).toBe("skillum.sim-result");
-    expect(r.version).toBe(1);
+    expect(r.version).toBe(2);
     expect(r.events.filter((e) => e.type === "enter").map((e) => (e as { scene: string }).scene)).toEqual(["home", "list"]);
   });
 });
