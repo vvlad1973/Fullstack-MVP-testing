@@ -11,7 +11,7 @@ import { summarizeScenario, validateScenario, type ArchiveImage } from "@shared/
 import type { Scenario } from "@shared/sim/contract";
 
 const ROOT = resolve(process.cwd(), "docs/specs/sim-scenario/example");
-const reference = JSON.parse(readFileSync(resolve(ROOT, "scenario.json"), "utf8")) as Scenario;
+const reference = JSON.parse(readFileSync(resolve(process.cwd(), "tests/fixtures/sim/scenario-v1.json"), "utf8")) as Scenario;
 
 /** The reference archive as the server would see it: every PNG of media/, with its real size. */
 function archiveFiles(): Map<string, ArchiveImage> {

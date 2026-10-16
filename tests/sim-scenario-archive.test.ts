@@ -38,7 +38,7 @@ const ROOT = resolve(process.cwd(), "docs/specs/sim-scenario/example");
 
 async function referenceZip(prefix = "", mutate?: (s: Record<string, unknown>) => void): Promise<Buffer> {
   const zip = new JSZip();
-  const scenario = JSON.parse(readFileSync(resolve(ROOT, "scenario.json"), "utf8"));
+  const scenario = JSON.parse(readFileSync(resolve(process.cwd(), "tests/fixtures/sim/scenario-v1.json"), "utf8"));
   mutate?.(scenario);
   zip.file(`${prefix}scenario.json`, JSON.stringify(scenario));
   for (const name of readdirSync(resolve(ROOT, "media"))) zip.file(`${prefix}media/${name}`, readFileSync(resolve(ROOT, "media", name)));

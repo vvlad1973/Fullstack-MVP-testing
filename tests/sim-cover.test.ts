@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import type { Scenario } from "@shared/sim/contract";
 import { DEFAULT_SIM_PENALTIES } from "@shared/sim/scoring";
 import { renderSimCover, renderSimRulesDialog, simCoverShot, simCoverState, simRules, simRunReplaces } from "@shared/sim/cover";
-import example from "../docs/specs/sim-scenario/example/scenario.json";
+import example from "./fixtures/sim/scenario-v1.json";
 
 const scenario = example as unknown as Scenario;
 
