@@ -87,7 +87,7 @@ describe("кодек протокола", () => {
   });
 
   it("испорченная строка и чужая версия не читаются", () => {
-    expect(decodeProtocol("3;a1@0")).toBeNull();
+    expect(decodeProtocol("9;a1@0")).toBeNull();
     expect(decodeProtocol("1;q1@0")).toBeNull();
     expect(decodeProtocol("1;m10@0")).toBeNull();
     expect(decodeProtocol("")).toBeNull();
