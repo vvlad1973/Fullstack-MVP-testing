@@ -438,7 +438,6 @@ CREATE TABLE "test_scenarios" (
 	"title" text,
 	"required" boolean DEFAULT true NOT NULL,
 	"time_limit_minutes" integer,
-	"image_url" text,
 	"group_key" text,
 	"default_points" integer,
 	"pass_rule_json" jsonb,

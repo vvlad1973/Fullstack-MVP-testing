@@ -42,6 +42,19 @@ import {
   type SequencePlacement,
 } from "./page-sequences";
 import type { ScreenRenderInput, PlaceholderDef } from "./render-screen";
+import {
+  buildRouterHubHtml,
+  type RouterSection,
+  type RouterTopicStatus,
+  type SectionUnlockRule,
+} from "../flow/router-hub";
+import { canonicalItemKey } from "../test-items";
+import {
+  cardImagesForVariant,
+  variantDeclaresCardImages,
+  type CardImages,
+  type CardImagesVariantDecl,
+} from "./router-card-images";
 
 /** One preview route, normalized (`manifest.preview.routes[]` may be a string or object). */
 export interface PreviewRouteTarget {
@@ -285,76 +298,65 @@ function buildSkeleton(placeholders: PlaceholderDef[]): string {
   return placeholders.map((p) => `<div data-placeholder="${esc(p.key)}"></div>`).join("");
 }
 
-/** A demo topic for the router preview (subset of the dataset `topics`). */
-interface RouterTopic {
+/**
+ * A topic for the router preview: a demo topic of the template's dataset, or a real item of
+ * the test (the editor's page preview). `id` is the item key the run uses — a bare topic id or
+ * `scenario:<id>` — so the card words and the picture lookup match the run.
+ */
+export interface RouterTopic {
   id: string;
   title?: string;
+  /** Demo state: `completed` | `inProgress` | `locked` | anything else = not started. */
   status?: string;
   required?: boolean;
+  /** Questions on the card; absent — the card shows no count. */
+  questionCount?: number | null;
+  /**
+   * A demo picture of the template's dataset. Real tests keep their pictures in the router
+   * page's `cardImages` property; this field lets a template show its card layout on its own
+   * demo topics. Shown, like a real picture, only through a variant that declares the property.
+   */
+  image?: string;
 }
 
-/**
- * Required-section progress counter («Разделы X / Y» + bar), prepended to the
- * router menu — the SAME markup `routerFlow.js → renderRouterPage` emits, so run +
- * preview match. Y counts ONLY required sections; empty string when none required.
- */
-function buildRouterProgress(topics: RouterTopic[]): string {
-  const required = topics.filter((t) => t.required !== false);
-  const total = required.length;
-  if (total === 0) return "";
-  const done = required.filter((t) => String(t.status ?? "") === "completed").length;
-  const pct = Math.round((done / total) * 100);
-  return (
-    '<div class="router-progress" role="group" aria-label="Прогресс по разделам">' +
-    '<div class="router-progress__head">' +
-    '<span class="router-progress__label">Разделы</span>' +
-    `<span class="router-progress__count">${done} / ${total}</span>` +
-    "</div>" +
-    `<div class="router-progress__bar"><div class="router-progress__fill" style="width:${pct}%"></div></div>` +
-    "</div>"
-  );
-}
+/** Unlock rule that keeps a demo card locked: it waits for an item that does not exist. */
+const PREVIEW_LOCK: SectionUnlockRule = { mode: "after_sections_completed", sectionIds: ["__preview-never__"] };
 
 /**
- * Build the router topic-menu markup: the «Разделы X / Y» progress counter followed
- * by `.router-topic-cards` → `.router-topic-card`, byte-for-byte the same
- * structure/classes the SCORM runtime emits (`server/scorm/template/app/
- * routerFlow.js → renderRouterPage`), so the preview shows the real topic menu on
- * the template's demo topics. Demo `status` is mapped to the runtime's per-topic
- * states (notStarted / inProgress / completed, plus a `locked` modifier) with the
- * same status labels.
+ * Build the router topic-menu markup through the SHARED hub builder
+ * (`shared/flow/router-hub`), the same one both learner hosts call — so the preview shows
+ * exactly the cards, words, progress and pictures of a run. Demo `status` becomes the run's
+ * per-item state; `locked` becomes an unlock rule that is never met.
+ *
+ * @param topics Demo or real items, in hub order.
+ * @param variant The router variant the screen renders through: pictures are shown only when
+ *   it declares them (`shared/template/router-card-images`), exactly as in a run.
+ * @param settings The router page's settings (its `cardImages` map), when previewing a real page.
  */
-function buildRouterCards(topics: RouterTopic[]): string {
-  const cards = topics
-    .map((t) => {
-      const demo = String(t.status ?? "available");
-      const locked = demo === "locked";
-      const status = demo === "completed" ? "completed" : demo === "inProgress" ? "inProgress" : "notStarted";
-      const lockedClass = locked ? " router-topic-card--locked" : "";
-      const disabled = status === "completed" || locked;
-      const statusText = locked
-        ? "Недоступна"
-        : status === "completed"
-          ? "Пройдена"
-          : status === "inProgress"
-            ? "В процессе"
-            : "Не начата";
-      return (
-        `<button type="button" class="router-topic-card router-topic-card--${status}${lockedClass}" role="listitem"` +
-        ` data-topic-id="${esc(t.id)}" data-router-status="${status}"${locked ? ' data-router-locked="true"' : ""}` +
-        `${disabled ? " disabled" : ""}>` +
-        `<span class="router-topic-card__name">${esc(t.title ?? t.id)}` +
-        (t.required === false ? ' <span class="router-topic-card__optional">(необязательная)</span>' : "") +
-        "</span>" +
-        `<span class="router-topic-card__status">${esc(statusText)}</span>` +
-        "</button>"
-      );
-    })
-    .join("");
-  return (
-    buildRouterProgress(topics) +
-    `<div class="router-topic-cards" role="list" aria-label="Доступные темы">${cards}</div>`
-  );
+function buildRouterCards(
+  topics: RouterTopic[],
+  variant: CardImagesVariantDecl | object | null | undefined,
+  settings?: Record<string, unknown> | null,
+): string {
+  const topicStates: Record<string, RouterTopicStatus> = {};
+  const unlockRules: Record<string, SectionUnlockRule> = {};
+  const demoPictures: CardImages = {};
+  for (const t of topics) {
+    const demo = String(t.status ?? "");
+    if (demo === "completed" || demo === "inProgress") topicStates[t.id] = demo;
+    if (demo === "locked") unlockRules[t.id] = PREVIEW_LOCK;
+    if (t.image) demoPictures[canonicalItemKey(t.id)] = t.image;
+  }
+  const sections: RouterSection[] = topics.map((t) => ({
+    topicId: t.id,
+    topicName: t.title ?? t.id,
+    required: t.required !== false,
+    drawCount: t.questionCount ?? null,
+  }));
+  const images = variantDeclaresCardImages(variant)
+    ? { ...demoPictures, ...cardImagesForVariant(variant, settings ?? null) }
+    : {};
+  return buildRouterHubHtml(sections, { topicStates, unlockRules }, { images });
 }
 
 /** True when a content route/kind is the router (topic menu). */
@@ -687,7 +689,8 @@ function buildOne(target: PreviewRouteTarget, dataset: PreviewDemoDataset, manif
     // Router screens append the runtime topic-menu (`.router-topic-cards`) built
     // from the demo topics, so the preview shows the real menu, not a bare skeleton.
     const pageContent = isRouterScreen(route, tpl?.kind ?? page?.type)
-      ? skeleton + buildRouterCards(c.topics ?? [])
+      ? skeleton +
+        buildRouterCards(c.topics ?? [], tpl, (page as { settings?: Record<string, unknown> } | undefined)?.settings ?? null)
       : skeleton;
     return {
       ...base,
@@ -822,7 +825,8 @@ function buildContentVariant(
   const result = isSummary ? sectionResultContextFromRuntime(dataset) : resultContextFromRuntime(dataset);
   // Router variants append the runtime topic-menu on the demo topics (see buildOne).
   const pageContent = isRouterScreen(route, kind)
-    ? skeleton + buildRouterCards(dataset.course.topics ?? [])
+    ? skeleton +
+      buildRouterCards(dataset.course.topics ?? [], ct, (page as { settings?: Record<string, unknown> } | undefined)?.settings ?? null)
     : skeleton;
   return {
     id: ct.key,
@@ -940,7 +944,7 @@ export function buildContentPageScreen(inp: ContentPageScreenInput): ScreenSpec 
   // маршрутизатор preview shows the actual menu rather than an empty placeholder.
   const isRouter = isRouterScreen(inp.route, tpl?.kind);
   const pageContent = isRouter
-    ? skeleton + buildRouterCards(inp.routerTopics ?? [])
+    ? skeleton + buildRouterCards(inp.routerTopics ?? [], tpl, inp.settings ?? null)
     : skeleton;
   const result = inp.result ?? { scorePercent: 0, status: "", passed: false };
   return {

@@ -1029,8 +1029,6 @@ export const testScenarios = pgTable("test_scenarios", {
   title: text("title"),
   required: boolean("required").notNull().default(true),
   timeLimitMinutes: integer("time_limit_minutes"),
-  /** Картинка карточки пункта в хабе; NULL — без картинки. */
-  imageUrl: text("image_url"),
   /**
    * Группа тем, в которой стоит пункт (PRD-50 `tests.section_groups_json`), — как
    * `test_sections.group_key`. NULL или ключ, которого тест не объявлял, — «вне групп».

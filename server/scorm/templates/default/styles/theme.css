@@ -1371,8 +1371,20 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 .router-topic-card--failed .router-topic-card__status { color: var(--ou-error-default); font-weight: 500; }
 .router-topic-card__optional { font-weight: 400; font-size: 11px; color: var(--ou-fg-muted); }
 .router-topic-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.router-topic-card__img { flex: 0 0 auto; }
-.router-topic-card__img img { display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+/* Card picture («Меню карточек с картинками», property `cardImages`): an accent in the
+   card's top-right corner, beside the name and the chips; the status row keeps the full
+   width. The picture is shown whole (`contain`) — a cut-out illustration on a transparent
+   background reads on every card state. A card without a picture keeps the plain column. */
+.router-topic-card--with-img {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "top img" "meta img" "foot foot";
+  align-items: start; column-gap: var(--ou-space-4);
+}
+.router-topic-card--with-img .router-topic-card__top { grid-area: top; }
+.router-topic-card--with-img .router-topic-card__meta { grid-area: meta; }
+.router-topic-card--with-img .router-topic-card__foot { grid-area: foot; }
+.router-topic-card__img { grid-area: img; }
+.router-topic-card__img img { display: block; width: 64px; height: 64px; object-fit: contain; }
 .router-topic-card__meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .router-topic-card__chip { font-size: 11px; color: var(--ou-fg-muted); background: var(--ou-bg-surface-3); border-radius: 999px; padding: 2px 8px; }
 .router-topic-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

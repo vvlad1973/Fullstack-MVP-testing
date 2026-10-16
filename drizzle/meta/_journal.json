@@ -414,6 +414,13 @@
       "when": 1791829676816,
       "tag": "0058_test_public_links",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792089038478,
+      "tag": "0059_drop_scenario_image_url",
+      "breakpoints": true
     }
   ]
 }
