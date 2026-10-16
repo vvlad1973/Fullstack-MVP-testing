@@ -1130,11 +1130,15 @@ SCORM и превью выглядят одинаково. Шаблон без �
 элемент `router-topic-card__img` с `<img>` сразу после `router-topic-card__top`; карточка без
 картинки не получает ни того, ни другого. Положение и размер картинки задаёт `theme.css`.
 Поставляемые шаблоны раскладывают такую карточку сеткой: название и метки слева, картинка
-справа, строка статуса на всю ширину:
+справа, строка статуса на всю ширину. Карточка резиновая, поэтому картинка занимает ДОЛЮ её ширины
+(`--router-card-img-share`, 28 % поля — около четверти внешней ширины), а не фиксированный
+размер, и сохраняет свои пропорции. Картинка крупнее предела (`--router-card-img-max`) уменьшается
+до него:
 
 ```css
+.router-topic-card { --router-card-img-share: 28%; --router-card-img-max: 160px; }
 .router-topic-card--with-img {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--router-card-img-share);
   grid-template-areas: "top img" "meta img" "foot foot";
   align-items: start; column-gap: var(--ou-space-4);
 }
@@ -1142,7 +1146,11 @@ SCORM и превью выглядят одинаково. Шаблон без �
 .router-topic-card--with-img .router-topic-card__meta { grid-area: meta; }
 .router-topic-card--with-img .router-topic-card__foot { grid-area: foot; }
 .router-topic-card__img { grid-area: img; }
-.router-topic-card__img img { display: block; width: 64px; height: 64px; object-fit: contain; }
+.router-topic-card__img img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1 / 1;
+  max-width: var(--router-card-img-max); max-height: var(--router-card-img-max);
+  margin-left: auto; object-fit: contain;
+}
 ```
 
 Чтобы предпросмотр шаблона показал раскладку на демо-данных, задайте темам в `demo/course.json`

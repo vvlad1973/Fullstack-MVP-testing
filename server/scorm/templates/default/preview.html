@@ -9787,12 +9787,14 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 .router-topic-card--failed .router-topic-card__status { color: var(--ou-error-default); font-weight: 500; }
 .router-topic-card__optional { font-weight: 400; font-size: 11px; color: var(--ou-fg-muted); }
 .router-topic-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-/* Card picture («Меню карточек с картинками», property `cardImages`): an accent in the
-   card's top-right corner, beside the name and the chips; the status row keeps the full
-   width. The picture is shown whole (`contain`) — a cut-out illustration on a transparent
-   background reads on every card state. A card without a picture keeps the plain column. */
+/* Card picture («Меню карточек с картинками», property `cardImages`). The card is fluid, so
+   the picture takes a SHARE of the card's width (`--router-card-img-share`) rather than a
+   fixed size, and keeps its own proportions (`contain`). A picture larger than the limit
+   (`--router-card-img-max`) is scaled down to it. A card without a picture keeps the plain
+   column. */
+.router-topic-card { --router-card-img-share: 28%; --router-card-img-max: 160px; }
 .router-topic-card--with-img {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--router-card-img-share);
   grid-template-areas: "top img" "meta img" "foot foot";
   align-items: start; column-gap: var(--ou-space-4);
 }
@@ -9800,7 +9802,11 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 .router-topic-card--with-img .router-topic-card__meta { grid-area: meta; }
 .router-topic-card--with-img .router-topic-card__foot { grid-area: foot; }
 .router-topic-card__img { grid-area: img; }
-.router-topic-card__img img { display: block; width: 64px; height: 64px; object-fit: contain; }
+.router-topic-card__img img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1 / 1;
+  max-width: var(--router-card-img-max); max-height: var(--router-card-img-max);
+  margin-left: auto; object-fit: contain;
+}
 .router-topic-card__meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .router-topic-card__chip { font-size: 11px; color: var(--ou-fg-muted); background: var(--ou-bg-surface-3); border-radius: 999px; padding: 2px 8px; }
 .router-topic-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
