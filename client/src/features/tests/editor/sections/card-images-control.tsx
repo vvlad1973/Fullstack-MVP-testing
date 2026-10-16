@@ -17,6 +17,7 @@ import { Image as ImageIcon, Trash2, Upload } from "lucide-react";
 import { FileItem, Stack, type FileItemAction } from "@skillum/ui-kit";
 import { canonicalItemKey } from "@shared/test-items";
 import { mediaUrlOf } from "@shared/template/start-image";
+import { IMAGE_UPLOAD_ACCEPT, IMAGE_UPLOAD_MAX_KB, formatUploadLimit, imageUploadHint } from "../image-upload-limit";
 
 /** One item of the hub as the control lists it. */
 export interface CardImageItem {
@@ -34,10 +35,8 @@ interface StoredPicture {
   name?: string;
 }
 
-/** Largest picture accepted — the same limit as every other image field of a page. */
-export const CARD_IMAGE_MAX_KB = 512;
-
-const ACCEPT = "image/png,image/jpeg,image/svg+xml,image/webp";
+/** Largest picture accepted — the same limit as every other image field of the editor. */
+export const CARD_IMAGE_MAX_KB = IMAGE_UPLOAD_MAX_KB;
 
 /** The stored map as `key → {url, name}`, tolerant of plain-address values. */
 function readPictures(value: unknown): Record<string, StoredPicture> {
@@ -136,7 +135,7 @@ export function CardImagesControl(props: {
   const handleFile = async (key: string, file: File) => {
     setError(key, null);
     if (file.size > CARD_IMAGE_MAX_KB * 1024) {
-      setError(key, `Файл превышает ${CARD_IMAGE_MAX_KB} КБ.`);
+      setError(key, `Файл превышает ${formatUploadLimit(CARD_IMAGE_MAX_KB)}.`);
       return;
     }
     setUploading((prev) => ({ ...prev, [key]: 0 }));
@@ -202,11 +201,13 @@ export function CardImagesControl(props: {
           );
         })}
       </Stack>
+      {/* The template says WHAT picture its layout wants; formats and size are the product's. */}
       {props.description && <div className="ou-formfield__desc">{props.description}</div>}
+      <div className="ou-formfield__desc">{imageUploadHint(CARD_IMAGE_MAX_KB)}</div>
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        accept={IMAGE_UPLOAD_ACCEPT}
         hidden
         aria-hidden="true"
         tabIndex={-1}

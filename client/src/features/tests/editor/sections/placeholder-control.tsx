@@ -22,6 +22,7 @@ import {
 import { isPlaceholderType, inputModesFor } from "@shared/template/field-types";
 import { sanitizeHtml as sanitizeContentHtml, placeholderScope } from "@shared/security/html-sanitize";
 import type { ContentTemplatePlaceholder } from "../use-content-pages";
+import { IMAGE_UPLOAD_ACCEPT, IMAGE_UPLOAD_MAX_KB, formatUploadLimit, imageUploadHint } from "../image-upload-limit";
 
 export function PlaceholderControl(props: {
   placeholder: ContentTemplatePlaceholder;
@@ -138,7 +139,7 @@ export function ImagePlaceholderControl(props: {
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const maxSizeKb = 512;
+  const maxSizeKb = IMAGE_UPLOAD_MAX_KB;
 
   useEffect(() => {
     // Normalise a non-string value once, on mount (no-op for the common string case).
@@ -149,7 +150,7 @@ export function ImagePlaceholderControl(props: {
   async function handleFile(file: File) {
     setError(null);
     if (file.size > maxSizeKb * 1024) {
-      setError(`Файл превышает ${maxSizeKb} КБ.`);
+      setError(`Файл превышает ${formatUploadLimit(maxSizeKb)}.`);
       return;
     }
     const form = new FormData();
@@ -217,7 +218,7 @@ export function ImagePlaceholderControl(props: {
         <input
           ref={inputRef}
           type="file"
-          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          accept={IMAGE_UPLOAD_ACCEPT}
           style={{ display: "none" }}
           aria-hidden="true"
           tabIndex={-1}
@@ -229,7 +230,7 @@ export function ImagePlaceholderControl(props: {
           data-testid={`${testId}-file`}
         />
       </div>
-      <div className="ou-formfield__desc">PNG, JPEG, SVG или WebP; до {maxSizeKb} КБ.</div>
+      <div className="ou-formfield__desc">{imageUploadHint(maxSizeKb)}</div>
       {error && <Banner tone="error" size="sm" description={error} data-testid={`${testId}-error`} />}
     </div>
   );

@@ -312,7 +312,8 @@
     </template>
 
     <template id="wf-field-desc">
-      <div class="ou-formfield__desc">Квадратная иллюстрация на прозрачном фоне. PNG, SVG или WebP; до 512 КБ.</div>
+      <div class="ou-formfield__desc">Квадратная иллюстрация на прозрачном фоне.</div>
+      <div class="ou-formfield__desc">PNG, JPEG, SVG или WebP; до 1000 КБ.</div>
     </template>
 
     <!-- ═══════════ STATE: s-collapsed — router row as today ═══════════ -->
@@ -447,7 +448,7 @@
                     </div>
                     <div class="ou-file is-error">
                       <div class="ou-file__thumb ou-file__thumb--img"><img src="/docs/wireframes/assets/router-card-images/company.png" alt="" width="40" height="40" /></div>
-                      <div class="ou-file__main"><div class="ou-file__name">О компании</div><div class="ou-file__meta">Файл превышает 512 КБ.</div></div>
+                      <div class="ou-file__main"><div class="ou-file__name">О компании</div><div class="ou-file__meta">Файл превышает 1000 КБ.</div></div>
                       <div class="ou-file__actions">
                         <button type="button" class="ou-file__btn" aria-label="Заменить картинку карточки"><svg aria-hidden="true"><use href="#i-upload" /></svg></button>
                         <button type="button" class="ou-file__btn ou-file__btn--danger" aria-label="Удалить картинку карточки"><svg aria-hidden="true"><use href="#i-trash" /></svg></button>
@@ -505,7 +506,7 @@
               <tr><td>Поле «Картинки карточек»</td><td>Поле варианта <code>router.menu</code> нового типа (рабочее имя <code>itemImages</code>) в <code>settings[]</code> манифеста шаблона</td><td>Подпись и подсказку о формате задаёт манифест. Нет объявления — нет поля</td></tr>
               <tr><td>Строка списка</td><td>Пункт маршрутизатора: тема <code>topic:&lt;topicId&gt;</code> или сценарий <code>scenario:&lt;id&gt;</code>; порядок — <code>router.itemOrder</code> через <code>orderTestItems</code></td><td>Список строит редактор из состава теста; значение поля — карта «ключ → адрес картинки»</td></tr>
               <tr><td>Подпись строки</td><td>Тема — «Тема · N вопросов»; сценарий — «Сценарий»; при заданной картинке — имя файла</td><td>Различает тему и сценарий с одним банком</td></tr>
-              <tr><td>Загрузить / Заменить</td><td><code>POST /api/media/upload</code>, значение — <code>/api/media/&lt;id&gt;</code></td><td>До 512 КБ, PNG/JPEG/SVG/WebP — те же правила, что у поля изображения страницы</td></tr>
+              <tr><td>Загрузить / Заменить</td><td><code>POST /api/media/upload</code>, значение — <code>/api/media/&lt;id&gt;</code></td><td>До 1000 КБ, PNG/JPEG/SVG/WebP — общий лимит редактора; строку с форматами и лимитом печатает продукт, а не шаблон</td></tr>
               <tr><td>Удалить</td><td>Ключ убирается из карты</td><td>Карточка в хабе остаётся, без картинки</td></tr>
               <tr><td>Удалённый пункт</td><td>Ключ без пункта</td><td>Строки нет; сервер вычищает ключ при сохранении, отрисовка и выпекание его игнорируют</td></tr>
               <tr><td>Тест только для чтения</td><td><code>fieldset disabled</code> раскрытия</td><td>Действия погашены, как у остальных полей страницы</td></tr>
