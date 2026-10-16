@@ -35,6 +35,12 @@
 - Коммиты без трейлера `Co-Authored-By`.
 - Dev-БД общая: приёмка с импортом архива пишет v2 в общую БД, а код `main` в других worktree v2 не читает. Импорт
   для приёмки — только в приватную тему учётки приёмки.
+- Тесты зелёные после каждой задачи: до задач 5 и 10 движок и проверки работают на временном псевдониме версии 1.
+  Красным между волнами бывает только `tsc` в файлах, которые ещё ждут своей задачи.
+- Приёмку задания делает не исполнитель, а скрипт `scripts/sim/v2/verify-task.ps1` по манифесту
+  `scripts/sim/v2/tasks.json`: разрешённые файлы, тесты, допустимые правки старых тестов, эталон пакета SCORM. Файлы
+  `scripts/sim/v2/*`, сам план, файл координации и `tests/sim-host-parity/known-divergences.ts` исполнителям трогать
+  запрещено — скрипт это ловит.
 
 ## Карта файлов
 
@@ -558,6 +564,17 @@ export interface ScenarioV1 {
 }
 ```
 
+- [ ] **Шаг 2а. Временные псевдонимы версии 1 в движке и проверках.** Движок и проверки переходят на v2 только в
+  задачах 5 и 10, а до тех пор обязаны вести себя как раньше: тесты между волнами остаются зелёными. В
+  `shared/sim/engine.ts` и `shared/sim/validate.ts` убрать `CONTRACT_VERSION` из импорта `./contract` и добавить строку:
+
+```ts
+// Temporary until this module moves to version 2 (plan task 5 for the engine, task 10 for the checks).
+import { CONTRACT_V1 as CONTRACT_VERSION } from "./contract-v1";
+```
+
+Больше в этих двух файлах в задаче 1 ничего не менять.
+
 - [ ] **Шаг 3. Проверить типы — ожидаются ошибки потребителей, это карта для задач 5–13.**
 
 ```powershell
@@ -567,10 +584,12 @@ npx tsc --noEmit --incremental false 2>&1 | Select-String "error TS" | Out-File 
 Ожидается: ошибки в `shared/sim/*`, `server/**`, `client/**` (обращения к `scenario.scenes`, `scene.goal`,
 `Record<Outcome, …>`). Не исправлять здесь.
 
+- [ ] **Шаг 3а. Тесты по-прежнему зелёные** — та же команда, что в шаге 3 задачи 0. Ожидается: все PASS.
+
 - [ ] **Шаг 4. Коммит.**
 
 ```powershell
-git add shared/sim/contract.ts shared/sim/contract-v1.ts
+git add shared/sim/contract.ts shared/sim/contract-v1.ts shared/sim/engine.ts shared/sim/validate.ts
 git commit -m "feat(sim): контракт v2 — вид сценария, варианты устройств, финалы, этапы, маршруты, стоимость"
 ```
 
@@ -1264,7 +1283,8 @@ describe("контрольный сценарий", () => {
  * - every accepted action and field commit adds its cost to the run (`./costs`); traps do not.
 ```
 
-Импорты — заменить блок импорта из `./contract` и добавить новые:
+Импорты — удалить временную строку `import { CONTRACT_V1 as CONTRACT_VERSION } from "./contract-v1";` вместе с её
+комментарием (задача 1, шаг 2а), заменить блок импорта из `./contract` и добавить новые:
 
 ```ts
 import {
@@ -2640,7 +2660,8 @@ JSDoc модуля — дополнить вторым абзацем:
  * are the same in both versions; a scenario with several variants prefixes them with the device.
 ```
 
-Импорты:
+Импорты — временную строку `import { CONTRACT_V1 as CONTRACT_VERSION } from "./contract-v1";` с её комментарием
+(задача 1, шаг 2а) удалить, остальное заменить на:
 
 ```ts
 import { CONTRACT_VERSION, SCENARIO_FORMAT, type Condition, type Effect, type Scenario, type Size } from "./contract";
