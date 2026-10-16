@@ -86,6 +86,30 @@ describe("buildScreenInputs — question preview text", () => {
   });
 });
 
+describe("buildScreenInputs — start description format", () => {
+  const manifest = {
+    layouts: { start: "layouts/start.html" },
+    preview: { routes: [{ route: "start" }] },
+  } as unknown as PreviewManifest;
+  const startHtml = (format?: "plain" | "richText" | "html") => {
+    const dataset = {
+      course: { title: "Тест", description: "Текст<br><ul><li>Пункт</li></ul>", descriptionFormat: format },
+    } as Parameters<typeof buildScreenInputs>[0];
+    const start = buildScreenInputs(dataset, manifest).find((s) => s.route === "start");
+    return (start?.input.context as { course: { descriptionHtml: string } }).course.descriptionHtml;
+  };
+
+  it("keeps a rich description's markup, as the learner start screen does", () => {
+    expect(startHtml("richText")).toBe("Текст<br><ul><li>Пункт</li></ul>");
+    expect(startHtml("html")).toBe("Текст<br><ul><li>Пункт</li></ul>");
+  });
+
+  it("escapes a plain (or format-less demo) description", () => {
+    expect(startHtml()).toContain("&lt;br&gt;");
+    expect(startHtml("plain")).toContain("&lt;br&gt;");
+  });
+});
+
 describe("router preview — card pictures follow the variant", () => {
   const routerManifest = {
     layouts: { content: "layouts/content.html" },

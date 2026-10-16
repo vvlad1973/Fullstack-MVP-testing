@@ -42,6 +42,7 @@ import {
   type SequencePlacement,
 } from "./page-sequences";
 import type { ScreenRenderInput, PlaceholderDef } from "./render-screen";
+import type { RichTextFormat } from "./rich-text";
 import {
   buildRouterHubHtml,
   type RouterSection,
@@ -122,6 +123,11 @@ export interface PreviewDemoDataset {
   course: {
     title: string;
     description?: string;
+    /**
+     * PRD-59: the format `description` is written in. Absent = `plain` — a demo
+     * dataset's own text; the editor preview overlays the real test's format.
+     */
+    descriptionFormat?: RichTextFormat | null;
     questionCount?: number;
     passPercent?: number | null;
     timeLimitMinutes?: number | null;
@@ -581,6 +587,7 @@ function buildOne(target: PreviewRouteTarget, dataset: PreviewDemoDataset, manif
       info: {
         title: c.title,
         description: c.description,
+        descriptionFormat: c.descriptionFormat,
         questionCount: c.questionCount,
         passPercent: c.passPercent,
         timeLimitMinutes: c.timeLimitMinutes,
