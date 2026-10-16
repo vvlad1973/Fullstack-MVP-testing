@@ -24,11 +24,16 @@
 import { createRun, type Reaction, type SimRun } from "./engine";
 import { appearSchedule, diffScenes, elementBox, fieldStacking } from "./diff";
 import { boundsOf, radiusOf, svgPoints, type ZoneShape } from "./geometry";
-import type { FieldPlacement, MediaItem, Outcome, Scenario, Scene, SimResult } from "./contract";
+import type { Device, FieldPlacement, MediaItem, Outcome, Scene, SimResult } from "./contract";
+import type { ScenarioInput } from "./upgrade";
+import { playable, type PlayableScenario } from "./variant";
 
 /** Options of a mounted player. */
 export interface PlayerOptions {
-  scenario: Scenario;
+  /** The scenario of any version, or a device view. */
+  scenario: ScenarioInput | PlayableScenario;
+  /** The variant to play; desktop by default. */
+  device?: Device;
   /** URL of a media file given its path inside the archive (`media/x.png`). */
   mediaUrl: (file: string) => string;
   /** Called once when the run ends, before the result dialog shows. */
@@ -180,6 +185,8 @@ const TITLES: Record<Outcome, string> = {
   fail: "Цель не достигнута",
   exited: "Задание прервано",
   timeout: "Время вышло",
+  finale: "Задание завершено",
+  declared: "Задание завершено",
 };
 
 /**
@@ -195,12 +202,12 @@ export function mountPlayer(root: HTMLElement, options: PlayerOptions): MountedP
   // shadow HOST, never the field being typed into.
   const scope = scopeOf(root);
   ensureStyle(scope, doc);
-  const { scenario } = options;
+  const scenario = playable(options.scenario, options.device);
   const media = new Map<string, MediaItem>(scenario.media.map((m) => [m.id, m]));
-  const fieldDefs = new Map((scenario.fields ?? []).map((f) => [f.id, f]));
+  const fieldDefs = new Map(scenario.fields.map((f) => [f.id, f]));
   const run = createRun(scenario);
-  const counters = scenario.settings?.counters ?? {};
-  const limitMs = scenario.settings?.limitSeconds ? scenario.settings.limitSeconds * 1000 : null;
+  const counters = scenario.settings.counters ?? {};
+  const limitMs = scenario.settings.limitSeconds ? scenario.settings.limitSeconds * 1000 : null;
   const startedAt = Date.now();
 
   // ── Skeleton ──
@@ -483,7 +490,9 @@ export function mountPlayer(root: HTMLElement, options: PlayerOptions): MountedP
       text = result.goal?.message
         ? `${result.goal.message}.${trap ? ` Ошибка: ${trap.error}.` : ""}`
         : `Документ оформлен с ошибками: ${result.goal?.checks.filter((c) => !c.passed).map((c) => fieldDefs.get(c.field)?.title ?? c.field).join(", ")}.`;
-    } else if (result.outcome === "timeout") text = "Задание завершено по времени и засчитано как невыполненное.";
+    } else if (result.outcome === "finale") text = result.finale ? result.finale.title + "." : "Задание завершено.";
+    else if (result.outcome === "declared") text = "Вы завершили задание.";
+    else if (result.outcome === "timeout") text = "Задание завершено по времени и засчитано как невыполненное.";
     else text = "Задание засчитано как невыполненное.";
     box.append(h(doc, "p", "", text));
     if (options.showDetails !== false) {
