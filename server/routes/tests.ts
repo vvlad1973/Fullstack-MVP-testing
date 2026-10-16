@@ -118,7 +118,6 @@ const scenarioBodySchema = z.object({
   title: z.string().max(200).nullable().optional(),
   required: z.boolean().optional(),
   timeLimitMinutes: z.number().int().positive().nullable().optional(),
-  imageUrl: z.string().nullable().optional(),
   // Группа тем, в которой стоит пункт роутера (как `group_key` раздела).
   groupKey: z.string().min(1).nullable().optional(),
   // Балл по умолчанию для сценариев пункта (как у раздела темы); null — по тесту.

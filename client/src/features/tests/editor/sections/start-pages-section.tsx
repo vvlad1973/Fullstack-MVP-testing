@@ -113,6 +113,9 @@ import { PagePreviewModal } from "./page-preview-modal";
 import { VariantPreviewPicker } from "./variant-preview-picker";
 import { SanitizeBanner } from "./sanitize-banner";
 import { ScaleAppearanceControl, type AppearanceScale } from "./scale-appearance-control";
+import { CardImagesControl, type CardImageItem } from "./card-images-control";
+import { compositionEntries, hasRouterItems } from "./composition-items";
+import { pluralQuestions } from "@shared/flow/router-hub";
 import { SCALE_APPEARANCE_KEY } from "@shared/template/scale-appearance";
 import {
   SECTION_SUBTITLE_SETTING_KEY,
@@ -356,6 +359,27 @@ const DropContext = createContext<DropState>(null);
 const ScalesContext = createContext<AppearanceScale[]>([]);
 
 /**
+ * The hub's items for the «Картинки карточек» property of the router variant — by context for
+ * the same reason as {@link ScalesContext}: only that one control reads them. Empty outside the
+ * router mode and in component tests.
+ */
+const CardItemsContext = createContext<CardImageItem[]>([]);
+
+/** The hub's items in hub order, as the card-pictures control lists them. */
+export function cardImageItems(model: TestEditorModel): CardImageItem[] {
+  if (!hasRouterItems(model)) return [];
+  return compositionEntries(model).map((entry) =>
+    entry.kind === "topic"
+      ? {
+          key: entry.key,
+          title: entry.section.topicName,
+          meta: `Тема · ${entry.section.drawCount} ${pluralQuestions(entry.section.drawCount)}`,
+        }
+      : { key: entry.key, title: entry.item.title?.trim() || entry.item.topicName, meta: "Сценарий" },
+  );
+}
+
+/**
  * New `sortOrder` list after dropping `activeId` on the `side` of `overId`
  * inside `zone` (already sorted). Returns `null` for a no-op. Pure — unit tested
  * independently of the @dnd-kit sensors (which need real DOM measurements
@@ -500,9 +524,11 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
         })),
     [model.scales],
   );
+  const cardItems = useMemo(() => cardImageItems(model), [model]);
 
   return (
     <ScalesContext.Provider value={appearanceScales}>
+    <CardItemsContext.Provider value={cardItems}>
     <div data-testid="structure-section">
       {savedFlowMode !== null && savedFlowMode !== undefined && savedFlowMode !== model.flowMode && (
         <Banner
@@ -584,10 +610,29 @@ export function StructureSection({ model, testId, content: contentProp, savedFlo
               topicName: s.topicName,
               questionCount: s.drawCount,
             })),
+            // The hub's items in hub order — scenario items included — so the router preview
+            // shows every card the learner gets, each with its picture.
+            routerItems: hasRouterItems(model)
+              ? compositionEntries(model).map((entry) =>
+                  entry.kind === "topic"
+                    ? {
+                        id: entry.section.topicId,
+                        title: entry.section.topicName,
+                        questionCount: entry.section.drawCount,
+                        required: entry.section.required !== false,
+                      }
+                    : {
+                        id: entry.key,
+                        title: entry.item.title?.trim() || entry.item.topicName,
+                        required: entry.item.required !== false,
+                      },
+                )
+              : undefined,
           }}
         />
       )}
     </div>
+    </CardItemsContext.Provider>
     </ScalesContext.Provider>
   );
 }
@@ -2170,7 +2215,33 @@ export function SettingControl(props: {
       );
     case "scaleAppearance":
       return <ScaleAppearanceSetting label={label} setting={st} value={value} onChange={onChange} testId={testId} />;
+    case "itemImages":
+      return <CardImagesSetting label={label} setting={st} value={value} onChange={onChange} testId={testId} />;
   }
+}
+
+/**
+ * «Картинки карточек» wired to the hub's items — a wrapper for the same reason as
+ * {@link ScaleAppearanceSetting}: the items arrive by context.
+ */
+function CardImagesSetting(props: {
+  label: string;
+  setting: ContentTemplateSetting;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  testId: string;
+}) {
+  const items = useContext(CardItemsContext);
+  return (
+    <CardImagesControl
+      label={props.label}
+      description={props.setting.description}
+      value={props.value}
+      onChange={props.onChange}
+      items={items}
+      testId={props.testId}
+    />
+  );
 }
 
 /**

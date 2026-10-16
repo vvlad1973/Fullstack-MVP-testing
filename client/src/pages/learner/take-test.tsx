@@ -54,7 +54,9 @@ type RouterPolicyPayload = {
   completionPolicy?: string | null;
   sectionUnlockRules?: Record<string, SectionUnlockRule | undefined>;
 };
-import type { RenderableContentPage } from "@shared/template/content-page";
+import { resolveContentTemplate, type RenderableContentPage } from "@shared/template/content-page";
+import { cardImagesForVariant } from "@shared/template/router-card-images";
+import { pageSettingsOf } from "@shared/template/page-sequences";
 import {
   useSectionTimer,
   useAdaptiveSectionTimer,
@@ -2999,7 +3001,14 @@ export default function TakeTestPage() {
         template={contentTpl}
         courseTitle={testInfo?.title || attempt?.testTitle || ""}
         // The hub is the section menu, not an in-attempt screen — no «Попытка N».
-        bodyHtml={buildRouterHubHtml(hubSections, hubHubState)}
+        bodyHtml={buildRouterHubHtml(hubSections, hubHubState, {
+          // Card pictures: a property of the router page, shown only through a variant that
+          // declares them — the same rule the package applies.
+          images: cardImagesForVariant(
+            resolveContentTemplate(hubPage, contentTpl?.contentTemplates).template,
+            pageSettingsOf(hubPage as Parameters<typeof pageSettingsOf>[0]),
+          ),
+        })}
         onBodyAction={(action) => {
           if (action.startsWith("router-select:")) {
             const key = action.slice("router-select:".length);

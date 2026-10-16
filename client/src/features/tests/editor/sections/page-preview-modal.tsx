@@ -74,6 +74,12 @@ export type PagePreviewModalProps = {
     questionCount?: number;
     /** Per-section data for the «Введение раздела» preview (topic name + count). */
     sections?: Array<{ topicId: string; topicName: string; questionCount: number }>;
+    /**
+     * The hub's items in hub order — topics AND scenario items — for the router preview. `id`
+     * is the item key the run uses (a bare topic id, `scenario:<id>`), so the card pictures of
+     * the page's `cardImages` property land on the right cards.
+     */
+    routerItems?: Array<{ id: string; title: string; questionCount?: number | null; required?: boolean }>;
   };
   /**
    * PRD-22: the page's place in its sequence, computed by the editor over the whole
@@ -268,12 +274,17 @@ export function PagePreviewModal({
       sequencePlacement,
       courseTitle: realData?.courseTitle ?? effectiveDemo?.course.title ?? "",
       result,
-      // Real topics → the router preview renders the actual topic-menu cards.
-      routerTopics: (effectiveDemo?.course.topics ?? []).map((t) => ({
-        id: t.id,
-        title: t.title,
-        status: t.status,
-      })),
+      // Real items → the router preview renders the actual topic-menu cards, with the
+      // pictures of this page's `cardImages`; without them, the demo topics (and their
+      // demo pictures) of the template.
+      routerTopics: realData?.routerItems?.length
+        ? realData.routerItems.map((t) => ({ ...t }))
+        : (effectiveDemo?.course.topics ?? []).map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            ...((t as { image?: string }).image ? { image: (t as { image?: string }).image } : {}),
+          })),
     });
   }, [bundle, page, effectiveDemo, realData, sequencePlacement, params]);
 

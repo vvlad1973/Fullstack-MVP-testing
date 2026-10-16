@@ -229,6 +229,13 @@ export {
   statusLabel,
   pluralQuestions,
 } from "../flow/router-hub";
+// Pictures of the hub's cards: a property of the ROUTER PAGE that only a variant declaring it
+// shows — resolved by the SAME rule on both hosts and in the previews.
+export {
+  cardImagesForVariant,
+  variantDeclaresCardImages,
+  CARD_IMAGES_SETTING_KEY,
+} from "./router-card-images";
 // PRD-12 FR-6: the SINGLE page-sequence builder — which screens the learner gets
 // and in what order. Both hosts consume it so «Структура» and the run cannot drift.
 export {

@@ -17,6 +17,7 @@ import { hasGradedContent } from "@shared/questions/question-type";
 import { hasOptionFeedback } from "@shared/questions/option-feedback";
 import { feedbackAssets, normalizeFeedback, topicFeedbackTexts } from "@shared/template/result-context";
 import type { ReportBake } from "@shared/report/report-variants";
+import { CARD_IMAGES_SETTING_KEY, pruneCardImageEntries } from "@shared/template/router-card-images";
 
 interface AdaptiveLevelWithLinks extends AdaptiveLevel {
   links: AdaptiveLevelLink[];
@@ -738,6 +739,17 @@ export function buildTestJson(data: ExportData): string {
       // baked in HERE, alongside the settings it belongs to. Unconditional, like the ipsativity
       // verdict: the answer costs one lookup per build and has to be in the package before it
       // is known under which settings it will be read.
+      // Card pictures of the hub travel only for items the package delivers: the media packer
+      // walks the whole tree, and a picture left behind by a removed item would ride into the
+      // archive as a file nobody ever sees.
+      if (page.kind === "router" && sanitizedSettings[CARD_IMAGES_SETTING_KEY] !== undefined) {
+        const kept = pruneCardImageEntries(
+          sanitizedSettings[CARD_IMAGES_SETTING_KEY],
+          data.sections.map((s) => s.topic.id),
+        );
+        if (Object.keys(kept).length > 0) sanitizedSettings[CARD_IMAGES_SETTING_KEY] = kept;
+        else delete sanitizedSettings[CARD_IMAGES_SETTING_KEY];
+      }
       const packedSettings = withResolvedScaleIcons(sanitizedSettings);
 
       return {

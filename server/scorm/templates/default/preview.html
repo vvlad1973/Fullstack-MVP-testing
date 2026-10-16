@@ -3749,6 +3749,11 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
   letter-spacing: 0.04em; text-transform: uppercase;
 }
 .ou-file__thumb svg { width: 18px; height: 18px; }
+/* A thumb may carry the file itself (`thumb={<img>}`): the picture fills the tile whole,
+   on a neutral surface instead of the type colour, so a cut-out illustration with a
+   transparent background reads as itself and not as a purple badge. */
+.ou-file__thumb:has(> img) { background: var(--ou-bg-surface-3); overflow: hidden; }
+.ou-file__thumb > img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .ou-file__thumb--pdf { background: #C5311A; }
 .ou-file__thumb--doc { background: #1F60C0; }
 .ou-file__thumb--xls { background: #1F8A5B; }
@@ -9745,7 +9750,9 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
    page-content slot, on both hosts and in the «Структура» preview. */
 /* Same footprint as the results «Результаты по темам» grid (.tb-topics-grid): min
    column 340px and the DS card spacing, so hub cards read at the same size. */
-.router-topic-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: var(--ou-space-4); margin-top: 24px; }
+/* Every card of the hub is the same size, whatever row it lands in: rows share the height of
+   the tallest card (a long name, a picture), so the grid reads as one set of tiles. */
+.router-topic-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); grid-auto-rows: 1fr; gap: var(--ou-space-4); margin-top: 24px; }
 .router-progress { margin: 18px 0 4px; }
 .router-progress__head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
 .router-progress__label { font-size: 13px; font-weight: 600; color: var(--ou-fg-muted); }
@@ -9781,9 +9788,31 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 .router-topic-card--passed .router-topic-card__status { color: var(--ou-success-default); font-weight: 500; }
 .router-topic-card--failed .router-topic-card__status { color: var(--ou-error-default); font-weight: 500; }
 .router-topic-card__optional { font-weight: 400; font-size: 11px; color: var(--ou-fg-muted); }
-.router-topic-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.router-topic-card__img { flex: 0 0 auto; }
-.router-topic-card__img img { display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+/* The name takes the free height of the card, so the chips and the status row always sit at
+   its bottom — the same place on every card of the hub, with or without a picture (cards of one
+   hub share a height, see .router-topic-cards). */
+.router-topic-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex: 1 1 auto; }
+/* Card picture («Меню карточек с картинками», property `cardImages`). The card is fluid, so
+   the picture takes a SHARE of the card's width (`--router-card-img-share`) rather than a
+   fixed size, and keeps its own proportions (`contain`). A picture larger than the limit
+   (`--router-card-img-max`) is scaled down to it. A card without a picture keeps the plain
+   column. */
+.router-topic-card { --router-card-img-share: 28%; --router-card-img-max: 160px; }
+.router-topic-card--with-img {
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--router-card-img-share);
+  grid-template-areas: "top img" "meta img" "foot foot";
+  grid-template-rows: 1fr auto auto;
+  align-items: start; column-gap: var(--ou-space-4);
+}
+.router-topic-card--with-img .router-topic-card__top { grid-area: top; }
+.router-topic-card--with-img .router-topic-card__meta { grid-area: meta; }
+.router-topic-card--with-img .router-topic-card__foot { grid-area: foot; }
+.router-topic-card__img { grid-area: img; }
+.router-topic-card__img img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1 / 1;
+  max-width: var(--router-card-img-max); max-height: var(--router-card-img-max);
+  margin-left: auto; object-fit: contain;
+}
 .router-topic-card__meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .router-topic-card__chip { font-size: 11px; color: var(--ou-fg-muted); background: var(--ou-bg-surface-3); border-radius: 999px; padding: 2px 8px; }
 .router-topic-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -10783,7 +10812,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       </div>
 
       <div class="pv-dialog-foot">
-        <span>12 экранов · 42 шаблонов контента · шаблон «Стандартный» v1.20.0</span>
+        <span>14 экранов · 43 шаблонов контента · шаблон «Стандартный» v1.21.0</span>
         <button type="button" class="pv-btn">Закрыть</button>
       </div>
     </div>
@@ -10795,7 +10824,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   window.PRD1_PREVIEW_MANIFEST  = {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -12354,6 +12383,43 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       ]
     },
     {
+      "key": "router.menu-images",
+      "label": "Меню карточек с картинками",
+      "kind": "router",
+      "pageKind": "content.router",
+      "isDefault": false,
+      "placeholders": [
+        {
+          "key": "title",
+          "type": "text",
+          "label": "Заголовок меню",
+          "required": false,
+          "maxLength": 120,
+          "textFit": {
+            "mode": "fixed",
+            "defaultFontSize": 28,
+            "allowAuthorFontSize": false,
+            "overflow": "warn"
+          }
+        },
+        {
+          "key": "instruction",
+          "type": "textarea",
+          "label": "Инструкция",
+          "required": false,
+          "maxLength": 600
+        }
+      ],
+      "settings": [
+        {
+          "key": "cardImages",
+          "type": "itemImages",
+          "label": "Картинки карточек",
+          "description": "Квадратная иллюстрация на прозрачном фоне. PNG, SVG или WebP; до 512 КБ."
+        }
+      ]
+    },
+    {
       "key": "report.block.header",
       "label": "Шапка: название, вердикт, слушатель",
       "kind": "report.block",
@@ -12670,6 +12736,18 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
         "label": "Введение раздела"
       },
       {
+        "route": "content.router",
+        "pageId": "router-menu",
+        "templateKey": "router.menu",
+        "label": "Роутер: меню разделов"
+      },
+      {
+        "route": "content.router",
+        "pageId": "router-menu-images",
+        "templateKey": "router.menu-images",
+        "label": "Роутер: карточки с картинками"
+      },
+      {
         "route": "question.single",
         "questionId": "demo-single",
         "label": "Одиночный выбор"
@@ -12741,12 +12819,14 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       {
         "id": "topic-1",
         "title": "Базовые угрозы",
-        "status": "available"
+        "status": "available",
+        "image": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cpath%20d%3D%22M32%206%2054%2014v16c0%2014-9.5%2024-22%2028C19.5%2054%2010%2044%2010%2030V14Z%22%20fill%3D%22%237c4dff%22%20opacity%3D%22.18%22%2F%3E%3Cpath%20d%3D%22M32%206%2054%2014v16c0%2014-9.5%2024-22%2028C19.5%2054%2010%2044%2010%2030V14Z%22%20fill%3D%22none%22%20stroke%3D%22%237c4dff%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22m22%2032%207%207%2013-14%22%20fill%3D%22none%22%20stroke%3D%22%237c4dff%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E"
       },
       {
         "id": "topic-2",
         "title": "Парольная защита",
-        "status": "locked"
+        "status": "locked",
+        "image": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2222%22%20cy%3D%2232%22%20r%3D%2212%22%20fill%3D%22%23ff7043%22%20opacity%3D%22.18%22%20stroke%3D%22%23ff7043%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%2222%22%20cy%3D%2232%22%20r%3D%224%22%20fill%3D%22%23ff7043%22%2F%3E%3Cpath%20d%3D%22M34%2032h22M48%2032v8M54%2032v6%22%20fill%3D%22none%22%20stroke%3D%22%23ff7043%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E"
       }
     ],
     "contentPages": [
@@ -12964,6 +13044,34 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
         "settings": {
           "sequenceId": "Демо-галерея",
           "nextLabel": "Начать"
+        }
+      },
+      {
+        "id": "router-menu",
+        "type": "router",
+        "kind": "router",
+        "route": "content.router",
+        "topicId": null,
+        "position": "before",
+        "sortOrder": 1,
+        "templateKey": "router.menu",
+        "values": {
+          "title": "Выберите раздел",
+          "instruction": "Пройдите разделы в любом порядке, затем нажмите «Завершить»."
+        }
+      },
+      {
+        "id": "router-menu-images",
+        "type": "router",
+        "kind": "router",
+        "route": "content.router",
+        "topicId": null,
+        "position": "before",
+        "sortOrder": 1,
+        "templateKey": "router.menu-images",
+        "values": {
+          "title": "Выберите раздел",
+          "instruction": "Пройдите разделы в любом порядке, затем нажмите «Завершить»."
         }
       }
     ],
@@ -14825,8 +14933,12 @@ function renderContentPage(page, contentTemplates) {
       copy.drawCount = typeof deliveredQuestionCount === "function" ? deliveredQuestionCount(s) : s.drawCount;
       return copy;
     });
+    // Card pictures are a property of the router page, shown only through a variant that
+    // declares them — the variant resolved exactly as the page itself renders.
+    var hubVariant = TBTemplate.resolveContentTemplate(page, manifest.contentTemplates || []).template;
     hub.innerHTML = TBTemplate.buildRouterHubHtml(hubSections, hubState(), {
       deadline: TEST_DATA.deadline || null,
+      images: TBTemplate.cardImagesForVariant(hubVariant, page ? page.settings : null),
     });
     host.appendChild(hub);
 
@@ -15445,6 +15557,7 @@ var TBTemplate = (() => {
   var runtime_entry_exports = {};
   __export(runtime_entry_exports, {
     BLANK_DASH: () => BLANK_DASH,
+    CARD_IMAGES_SETTING_KEY: () => CARD_IMAGES_SETTING_KEY,
     CORE_RENDERER_IDS: () => CORE_RENDERER_IDS,
     DEFAULT_PARAM_CSS_VARS: () => DEFAULT_PARAM_CSS_VARS,
     INPUT_MODES: () => INPUT_MODES,
@@ -15511,6 +15624,7 @@ var TBTemplate = (() => {
     buildTemplateThemeCss: () => buildTemplateThemeCss,
     buildTopicChunk: () => buildTopicChunk,
     buildTransitionContext: () => buildTransitionContext,
+    cardImagesForVariant: () => cardImagesForVariant,
     checkPassRule: () => checkPassRule,
     checkRuleSet: () => checkRuleSet,
     collectSequenceIds: () => collectSequenceIds,
@@ -15628,6 +15742,7 @@ var TBTemplate = (() => {
     supportsThemes: () => supportsThemes,
     syncAllocationDom: () => syncAllocationDom,
     validateVariantFields: () => validateVariantFields,
+    variantDeclaresCardImages: () => variantDeclaresCardImages,
     variantDeclaresStartImage: () => variantDeclaresStartImage,
     withParamDefaults: () => withParamDefaults,
     withTemplateAssetBase: () => withTemplateAssetBase,
@@ -21295,11 +21410,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   var SECTION_SUBTITLE_SETTING_KEY = "sectionSubtitle";
   var DEFAULT_SECTION_SUBTITLE = "\u0418\u043D\u0441\u0442\u0440\u0443\u043A\u0446\u0438\u044F";
   var PASS_CONDITION_SHOWN_SETTING_KEY = "passConditionShown";
-  function settingsOf(page) {
+  function pageSettingsOf(page) {
     var _a, _b;
     if (!page) return null;
     return (_b = (_a = page.settingsJson) != null ? _a : page.settings) != null ? _b : null;
   }
+  var settingsOf = pageSettingsOf;
   function sequenceIdOf(page) {
     const bag = settingsOf(page);
     const raw = bag ? bag[SEQUENCE_SETTING_KEY] : void 0;
@@ -21472,7 +21588,13 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
      * JSON but a row per scale of the test, and the registry exists precisely so a field the
      * editor cannot draw is a template error instead of a silently degraded input.
      */
-    "scaleAppearance"
+    "scaleAppearance",
+    /**
+     * Pictures of the router hub's cards, as a MAP keyed by item key — `topic:<id>` /
+     * `scenario:<id>` (`shared/template/router-card-images`). Like `scaleAppearance`, the control
+     * is a row per item of the test, not a text box over JSON.
+     */
+    "itemImages"
   ];
   var INPUT_MODES = ["plain", "rich", "html"];
   var MODES_BY_PLACEHOLDER_TYPE = {
@@ -21529,10 +21651,19 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   // shared/test-items.ts
   var SCENARIO_KEY_PREFIX = "scenario:";
   var TOPIC_KEY_PREFIX = "topic:";
+  function scenarioItemKey(scenarioId) {
+    return `${SCENARIO_KEY_PREFIX}${scenarioId}`;
+  }
+  function topicItemKey(topicId) {
+    return `${TOPIC_KEY_PREFIX}${topicId}`;
+  }
   function parseItemKey(key) {
     if (key.startsWith(SCENARIO_KEY_PREFIX)) return { kind: "scenario", scenarioId: key.slice(SCENARIO_KEY_PREFIX.length) };
     if (key.startsWith(TOPIC_KEY_PREFIX)) return { kind: "topic", topicId: key.slice(TOPIC_KEY_PREFIX.length) };
     return { kind: "topic", topicId: key };
+  }
+  function canonicalItemKey(key) {
+    return matchTestItem(parseItemKey(key), { topic: (id) => topicItemKey(id), scenario: (id) => scenarioItemKey(id) });
   }
   function matchTestItem(ref, handlers) {
     switch (ref.kind) {
@@ -21545,6 +21676,34 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         throw new Error(`\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u0432\u0438\u0434 \u043F\u0443\u043D\u043A\u0442\u0430 \u0442\u0435\u0441\u0442\u0430: ${JSON.stringify(unreachable)}`);
       }
     }
+  }
+
+  // shared/template/router-card-images.ts
+  var CARD_IMAGES_SETTING_KEY = "cardImages";
+  var CARD_IMAGES_SETTING_TYPE = "itemImages";
+  function parseCardImages(raw) {
+    const out = {};
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof key !== "string" || key.trim() === "") continue;
+      const url = mediaUrlOf(value);
+      if (url) out[canonicalItemKey(key.trim())] = url;
+    }
+    return out;
+  }
+  function cardImageFor(images, itemKey) {
+    var _a;
+    if (!images) return "";
+    return (_a = images[canonicalItemKey(itemKey)]) != null ? _a : "";
+  }
+  function variantDeclaresCardImages(variant) {
+    const settings = variant == null ? void 0 : variant.settings;
+    if (!Array.isArray(settings)) return false;
+    return settings.some((s) => (s == null ? void 0 : s.key) === CARD_IMAGES_SETTING_KEY && (s == null ? void 0 : s.type) === CARD_IMAGES_SETTING_TYPE);
+  }
+  function cardImagesForVariant(variant, pageSettings) {
+    if (!variantDeclaresCardImages(variant)) return {};
+    return parseCardImages(pageSettings ? pageSettings[CARD_IMAGES_SETTING_KEY] : null);
   }
 
   // shared/flow/router-hub.ts
@@ -21656,10 +21815,10 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       else if (section.drawCount) meta.push(section.drawCount + " " + pluralQuestions2(section.drawCount));
       if (section.timeLimitMinutes) meta.push(section.timeLimitMinutes + " \u043C\u0438\u043D");
       const metaHtml = meta.length ? '<span class="router-topic-card__meta">' + meta.map((m) => '<span class="router-topic-card__chip">' + escHtml3(m) + "</span>").join("") + "</span>" : "";
-      const imgUrl = section.image && typeof section.image === "object" ? section.image.url || "" : section.image || "";
+      const imgUrl = cardImageFor(options == null ? void 0 : options.images, section.topicId);
       const imgHtml = imgUrl ? '<span class="router-topic-card__img"><img src="' + escHtml3(imgUrl) + '" alt=""></span>' : "";
       const goHtml = rerun ? '<span class="router-topic-card__go">\u043F\u0440\u043E\u0439\u0442\u0438 \u0437\u0430\u043D\u043E\u0432\u043E</span>' : unlocked && status !== "completed" ? '<span class="router-topic-card__go">\u043D\u0430\u0447\u0430\u0442\u044C</span>' : "";
-      cards += '<button type="button" role="listitem" class="router-topic-card router-topic-card--' + status + (words.isScenario ? " router-topic-card--scenario" : "") + (locked ? " router-topic-card--locked" : "") + '" data-topic-id="' + escHtml3(section.topicId) + '" data-router-status="' + status + '"' + (locked ? ' data-router-locked="true"' : "") + (disabled ? " disabled" : ' data-action="router-select:' + escHtml3(section.topicId) + '"') + '><span class="router-topic-card__top"><span class="router-topic-card__name">' + escHtml3(section.topicName || section.topicId) + (section.required === false ? ' <span class="router-topic-card__optional">' + words.optional + "</span>" : "") + "</span>" + imgHtml + "</span>" + metaHtml + '<span class="router-topic-card__foot"><span class="router-topic-card__status">' + // A completed card carries a ✓ so it reads as clearly finished, distinct from a
+      cards += '<button type="button" role="listitem" class="router-topic-card router-topic-card--' + status + (words.isScenario ? " router-topic-card--scenario" : "") + (imgUrl ? " router-topic-card--with-img" : "") + (locked ? " router-topic-card--locked" : "") + '" data-topic-id="' + escHtml3(section.topicId) + '" data-router-status="' + status + '"' + (locked ? ' data-router-locked="true"' : "") + (disabled ? " disabled" : ' data-action="router-select:' + escHtml3(section.topicId) + '"') + '><span class="router-topic-card__top"><span class="router-topic-card__name">' + escHtml3(section.topicName || section.topicId) + (section.required === false ? ' <span class="router-topic-card__optional">' + words.optional + "</span>" : "") + "</span></span>" + imgHtml + metaHtml + '<span class="router-topic-card__foot"><span class="router-topic-card__status">' + // A completed card carries a ✓ so it reads as clearly finished, distinct from a
       // fresh «Не начата» card at a glance. The mark says «closed», not «passed».
       (status === "completed" ? CARD_CHECK : "") + escHtml3(unlocked ? words.status(status) : words.locked) + "</span>" + goHtml + "</span></button>";
     }
@@ -23739,8 +23898,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         topicDescription: t.description || null,
         required: t.required !== false,
         timeLimitMinutes: t.timeLimitMinutes || null,
-        drawCount: t.questionCount || null,
-        image: t.image || null
+        drawCount: t.questionCount || null
       };
     });
     return Object.assign({}, runtime, {
@@ -23763,7 +23921,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     var routes = (manifest.preview || {}).routes || [];
     var html = "";
     routes.forEach(function (r, i) {
-      html += '<button type="button" class="pv-nav-item' + (i === 0 ? " pv-active" : "") + '" data-route="' + escapeHtml(r.route) + '">' + escapeHtml(r.label) + "</button>";
+      html += '<button type="button" class="pv-nav-item' + (i === 0 ? " pv-active" : "") + '" data-route="' + escapeHtml(r.route) + '" data-route-index="' + i + '">' + escapeHtml(r.label) + "</button>";
     });
     nav.innerHTML = html;
     nav.addEventListener("click", function (e) {
@@ -23779,8 +23937,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   // ─── Route navigation ────────────────────────────────────────────────────────
   function navigateTo(route, btn) {
     var routes = (manifest.preview || {}).routes || [];
+    // Several screens may share one route (two router variants are both `content.router`):
+    // the button carries the screen's own index, the route string is only the fallback.
     var routeDef = null;
-    for (var i = 0; i < routes.length; i++) {
+    var index = btn ? Number(btn.getAttribute("data-route-index")) : NaN;
+    if (!isNaN(index) && routes[index] && routes[index].route === route) routeDef = routes[index];
+    for (var i = 0; !routeDef && i < routes.length; i++) {
       if (routes[i].route === route) { routeDef = routes[i]; break; }
     }
     var label = routeDef ? routeDef.label : route;
@@ -23817,6 +23979,22 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     updateProgress(route);
   }
 
+  /**
+   * The demo topics' pictures (`course.topics[].image`) as the router page's `cardImages`
+   * property, unless the demo page sets its own. The runtime reads card pictures ONLY from the
+   * page property and only through a variant that declares it, so the plain «Меню карточек»
+   * preview stays without pictures exactly as in a run.
+   */
+  function withDemoCardImages(page) {
+    var settings = page.settings || {};
+    if (settings.cardImages) return page;
+    var map = {};
+    ((demoData.course || {}).topics || []).forEach(function (t) {
+      if (t.image) map["topic:" + t.id] = { url: t.image };
+    });
+    return Object.assign({}, page, { settings: Object.assign({}, settings, { cardImages: map }) });
+  }
+
   // ─── Content page rendering ──────────────────────────────────────────────────
   function renderContentRoute(routeDef) {
     if (!routeDef) return;
@@ -23840,7 +24018,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     (manifest.contentTemplates || []).forEach(function (c) { if (c.key === page.templateKey) _ct = c; });
     if (((_ct && _ct.kind === "router") || page.kind === "router") &&
         root.RouterFlow && typeof root.RouterFlow.renderRouterPage === "function") {
-      root.RouterFlow.renderRouterPage(page);
+      root.RouterFlow.renderRouterPage(withDemoCardImages(page));
       return;
     }
 
