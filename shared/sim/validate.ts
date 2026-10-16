@@ -327,12 +327,17 @@ function checkVariant(variant: Obj, v: VariantScope): void {
       if (raw.cost !== undefined && !isCost(raw.cost)) errors.push(`${what} — стоимость должна быть числом не меньше нуля`);
       if (key) {
         if (!isStr(raw.keys) || !KEYS.test(raw.keys)) errors.push(`${what}: запись «${String(raw.keys)}» не по шаблону (Ctrl+S, Shift+F10, Escape)`);
+        // A keyboard shortcut needs a keyboard: only the desktop variant has one.
+        if (v.device !== "desktop") errors.push(`${what}: сочетаний клавиш не бывает на устройстве «${DEVICE_TITLES[v.device]}»`);
       } else {
         checkShape(raw, size, what, errors);
         // Changed: the action must be one of the variant's device.
         if (raw.action !== undefined) {
           if (!(isStr(raw.action) && (MOUSE.has(raw.action) || GESTURES.has(raw.action)))) errors.push(`${what}: неизвестное действие ${String(raw.action)}`);
           else if (!v.actions.has(raw.action)) errors.push(`${what}: действие ${raw.action} не бывает на устройстве «${DEVICE_TITLES[v.device]}»`);
+        } else if (role !== "neutral" && !v.actions.has("click")) {
+          // The default action is a click; a device without a mouse has to name its gesture.
+          errors.push(`${what}: на устройстве «${DEVICE_TITLES[v.device]}» действие зоны задаётся явно — click по умолчанию здесь не бывает`);
         }
         if (raw.action === "drag" && !isObj(raw.drop)) errors.push(`${what}: перетаскивание без drop`);
         if (raw.in !== undefined && !(isStr(raw.in) && isObj(elements.get(raw.in)?.scroll))) errors.push(`${what}: in ${String(raw.in)} — нет такого прокручиваемого элемента на сцене`);
