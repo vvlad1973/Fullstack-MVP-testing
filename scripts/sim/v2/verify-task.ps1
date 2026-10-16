@@ -203,8 +203,16 @@ foreach ($line in $status) {
     $path = $parts[$parts.Count - 1]
     $changes += [pscustomobject]@{ Code = $code; Path = $path; From = $parts[1] }
 }
-$outOfScope = @($changes | Where-Object { -not (Test-Like $_.Path $allowed) } | ForEach-Object { $_.Path })
-$touchedForbidden = @($changes | Where-Object { Test-Like $_.Path $forbidden } | ForEach-Object { $_.Path })
+# Wave mode: the integration branch also carries plan and harness fixes made after the wave tag. A
+# task branch may never touch them — the task check enforces that before the merge — so here they
+# are left out of the scope rules rather than reported as the wave's own changes.
+$scoped = $changes
+if (-not $Task) {
+    $harness = @($Manifest.harness)
+    $scoped = @($changes | Where-Object { -not (Test-Like $_.Path $harness) })
+}
+$outOfScope = @($scoped | Where-Object { -not (Test-Like $_.Path $allowed) } | ForEach-Object { $_.Path })
+$touchedForbidden = @($scoped | Where-Object { Test-Like $_.Path $forbidden } | ForEach-Object { $_.Path })
 $scopeOk = ($outOfScope.Count -eq 0) -and ($touchedForbidden.Count -eq 0)
 $scopeDetail = "$($changes.Count) files changed"
 if ($outOfScope.Count) { $scopeDetail += "; not allowed: $($outOfScope -join ', ')" }
@@ -244,7 +252,26 @@ Add-Result 'tests-kept' ($problems.Count -eq 0) ($(if ($problems.Count) { $probl
 # ── 5. new-tests ─────────────────────────────────────────────────────────────
 $mustCreate = @($scopeTasks | ForEach-Object { $_.newTests } | ForEach-Object { $_ })
 $missing = @($mustCreate | Where-Object { -not (Test-Path (Join-Path $Root $_)) })
-Add-Result 'new-tests' ($missing.Count -eq 0) ($(if ($missing.Count) { "missing: $($missing -join ', ')" } else { "$($mustCreate.Count) present" }))
+# A new test file is the plan's: it may grow, never shrink below the plan's own count of tests
+# and expect( calls (manifest "minCounts").
+$short = @()
+foreach ($t in $scopeTasks) {
+    if (-not $t.PSObject.Properties['minCounts']) { continue }
+    foreach ($p in $t.minCounts.PSObject.Properties) {
+        $file = Join-Path $Root $p.Name
+        if (-not (Test-Path $file)) { continue }
+        $body = Get-Content -Raw -Encoding UTF8 $file
+        $nIt = ([regex]::Matches($body, '\bit\(')).Count
+        $nExpect = ([regex]::Matches($body, 'expect\(')).Count
+        if ($nIt -lt [int]$p.Value.it) { $short += "$($p.Name): it( $nIt < $($p.Value.it)" }
+        if ($nExpect -lt [int]$p.Value.expect) { $short += "$($p.Name): expect( $nExpect < $($p.Value.expect)" }
+    }
+}
+$newOk = ($missing.Count -eq 0) -and ($short.Count -eq 0)
+$newDetail = "$($mustCreate.Count) present"
+if ($missing.Count) { $newDetail = "missing: $($missing -join ', ')" }
+if ($short.Count) { $newDetail += "; below the plan: $($short -join ', ')" }
+Add-Result 'new-tests' $newOk $newDetail
 
 # ── 6. docs ──────────────────────────────────────────────────────────────────
 $md = @($scopeTasks | ForEach-Object { if ($_.PSObject.Properties['markdown']) { $_.markdown } } | ForEach-Object { $_ })
