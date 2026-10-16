@@ -52,7 +52,7 @@ describe("эталонный сценарий", () => {
 describe("ошибки, которые отклоняют архив", () => {
   it("не тот формат или версия новее поддерживаемой", () => {
     expect(archive({ ...copy(), format: "other" }).errors[0]).toMatch(/format/);
-    expect(archive({ ...copy(), version: 2 }).errors[0]).toMatch(/новее/);
+    expect(archive({ ...copy(), version: 3 }).errors[0]).toMatch(/новее/);
   });
 
   it("элемент ссылается на изображение, которого нет в библиотеке, — называется сцена", () => {
