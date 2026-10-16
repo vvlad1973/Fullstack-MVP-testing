@@ -281,12 +281,12 @@ if ($SkipTests) {
         Add-Result 'vitest' $false 'no report written, see %TEMP%\sim-v2-vitest.log'
     } else {
         $r = Get-Content -Raw -Encoding UTF8 $report | ConvertFrom-Json
-        Remove-Item $report -Force
+        [System.IO.File]::Delete($report)
         $names = @($r.testResults | ForEach-Object { $_.name.Replace('\', '/') })
         $unrun = @($paths | Where-Object { $p = $_; -not ($names | Where-Object { $_ -like "*$p*" }) })
         $failedFiles = @($r.testResults | Where-Object { $_.status -ne 'passed' } | ForEach-Object { $_.name.Replace('\', '/') -replace '^.*?/(tests|server|client|shared)/', '$1/' })
         $vOk = ($r.numFailedTests -eq 0) -and ($failedFiles.Count -eq 0) -and ($unrun.Count -eq 0) -and ($r.numTotalTests -gt 0)
-        $vDetail = "$($r.numPassedTests)/$($r.numTotalTests) tests in $($r.numTotalTestSuites) files"
+        $vDetail = "$($r.numPassedTests)/$($r.numTotalTests) tests in $(@($r.testResults).Count) files"
         if ($failedFiles.Count) { $vDetail += "; failed: $($failedFiles -join ', ')" }
         if ($unrun.Count) { $vDetail += "; not run: $($unrun -join ', ')" }
         Add-Result 'vitest' $vOk $vDetail
