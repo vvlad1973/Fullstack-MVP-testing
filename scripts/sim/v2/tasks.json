@@ -142,14 +142,16 @@
                                       "shared/sim/replay.ts",
                                       "tests/sim-engine.test.ts",
                                       "tests/sim-engine-v2.test.ts",
-                                      "tests/sim-replay-v2.test.ts"
+                                      "tests/sim-replay-v2.test.ts",
+                                      "tests/sim-lms-protocol.test.ts"
                                   ],
                       "newTests":  [
                                        "tests/sim-engine-v2.test.ts",
                                        "tests/sim-replay-v2.test.ts"
                                    ],
                       "modifiedTests":  {
-                                            "tests/sim-engine.test.ts":  "toBe\\(2\\)"
+                                            "tests/sim-engine.test.ts":  "toBe\\(2\\)",
+                                            "tests/sim-lms-protocol.test.ts":  "^\\s*expect\\(decodeProtocol\\(\"9;a1@0\"\\)\\)\\.toBeNull\\(\\);\\s*$"
                                         },
                       "tscOwn":  [
                                      "shared/sim/engine.ts",

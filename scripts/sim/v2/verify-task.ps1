@@ -173,11 +173,15 @@ if ($Task) {
     if ($scopeTasks.Count -eq 0) { Write-Host "No tasks in wave $Wave"; exit 2 }
     $label = "wave $Wave"
 }
-$Base = "sim-v2-w$waveNo-start"
-Write-Host "Checking $label in $Root, range $Base..HEAD"
+$Tag = "sim-v2-w$waveNo-start"
 
 if (-not (Test-Path $Root)) { Write-Host "Worktree $Root does not exist"; exit 2 }
-try { $null = Invoke-Git $Root @('rev-parse', '--verify', "$Base^{commit}") } catch { Write-Host "Tag $Base not found: the coordinator sets it before the wave"; exit 2 }
+try { $null = Invoke-Git $Root @('rev-parse', '--verify', "$Tag^{commit}") } catch { Write-Host "Tag $Tag not found: the coordinator sets it before the wave"; exit 2 }
+# The range starts at the common ancestor of the tag and HEAD, not at the tag itself: a fix of the
+# plan or the manifest committed on the integration branch after the task branched moves the tag
+# forward, and a plain tag..HEAD tree diff would show that fix reversed as the task's own change.
+$Base = @(Invoke-Git $Root @('merge-base', $Tag, 'HEAD'))[0]
+Write-Host "Checking $label in $Root, range $Tag ($($Base.Substring(0, 8)))..HEAD"
 
 # ── 1. clean ─────────────────────────────────────────────────────────────────
 $dirty = @(Invoke-Git $Root @('status', '--porcelain') | Where-Object { $_ })
