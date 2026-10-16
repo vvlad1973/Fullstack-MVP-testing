@@ -14,11 +14,12 @@ import { describeRuleSet } from "@shared/answer-check/describe";
 import type { AnswerRuleSet } from "@shared/answer-check";
 import type { BlankRuleSet } from "@shared/questions/blanks-render";
 import { summarizeScenario } from "@shared/sim/validate";
-import type { Scenario } from "@shared/sim/contract";
+import { scenarioOf } from "@shared/sim/upgrade";
 import { summaryTags } from "@/features/questions/scenario/scenario-summary";
 
 export function QuestionPreview({ question }: { question: Question }) {
   const data = question.dataJson as { options?: string[]; left?: string[]; right?: string[]; items?: string[] };
+  const simScenario = scenarioOf(question.dataJson);
   const correct = question.correctJson as { correctIndex?: number; correctIndices?: number[] };
   const type = question.type;
   const tags = Array.isArray(question.tags) ? question.tags : [];
@@ -95,11 +96,11 @@ export function QuestionPreview({ question }: { question: Question }) {
           <Text variant="body-s" tone="muted">Развёрнутый ответ без автоматической проверки</Text>
         )}
         {/* «Сценарий в ИС»: вариантов нет — показывается задание и та же сводка, что в ящике. */}
-        {isSimulation(type) && (data as { scenario?: Scenario }).scenario && (
+        {isSimulation(type) && simScenario && (
           <Stack gap={1}>
             <Text variant="body-s">{question.prompt}</Text>
             <Cluster gap={1} wrap>
-              {summaryTags(summarizeScenario((data as { scenario: Scenario }).scenario)).map((tag) => (
+              {summaryTags(summarizeScenario(simScenario)).map((tag) => (
                 <Chip key={tag} size="s">{tag}</Chip>
               ))}
             </Cluster>
