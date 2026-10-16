@@ -14,7 +14,7 @@ import { participantKey } from "../utils/crypto";
 import { sql } from "drizzle-orm";
 import { decodeLearnerResponse, decodeResultShare } from "@shared/lms-export/response-codec";
 import { hasBlanks, isMeasurementOnly, isSimulation } from "@shared/questions/question-type";
-import type { Scenario } from "@shared/sim/contract";
+import { scenarioOf } from "@shared/sim/upgrade";
 import type { InsertScormAnswer } from "@shared/schema";
 import { importedSimAnswer } from "./sim/imported-run";
 import { TOPIC_LEVEL_NOT_ACHIEVED, type LmsExportBook, type LmsExportRow } from "@shared/lms-export/parse";
@@ -772,7 +772,7 @@ export async function runImport(
             resultsMissing += 1;
             return [];
           }
-          const scenario = (q.dataJson as { scenario?: Scenario } | null)?.scenario ?? null;
+          const scenario = scenarioOf(q.dataJson);
           const run = importedSimAnswer(scenario, a.raw, a.protocol);
           if (run.rejected) simProtocolsRejected += 1;
           const full = ratio >= 1;

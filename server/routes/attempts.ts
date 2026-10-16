@@ -74,7 +74,7 @@ import { resolveFlowPolicy } from "@shared/flow/flow-policy";
 import { buildAfterZone, type FlowContentPage } from "@shared/flow/page-sequence";
 import { isDeliverable, isMeasurementOnly, isSimulation } from "@shared/questions/question-type";
 import { replayRun } from "@shared/sim/replay";
-import type { Scenario } from "@shared/sim/contract";
+import { scenarioOf } from "@shared/sim/upgrade";
 // PRD-50 FR-17: элементы разреза адаптивного прогона собирает хост — движок их вывести не может.
 import type { BreakdownItem } from "@shared/breakdown/types";
 // PRD-32: ONE address rule for a feedback attachment, and ONE source-priority rule for
@@ -2135,7 +2135,7 @@ router.post("/attempts/:attemptId/finish", requirePermission("attempts.take"), a
           // ответ с эталоном. Протокол переигрывается тем же движком по хранимому сценарию, и
           // оценивается и сохраняется ТОТ результат (`shared/sim/replay`).
           if (isSimulation(q.type) && answers && answers[q.id] != null) {
-            const scenario = (q.dataJson as { scenario?: Scenario } | null)?.scenario;
+            const scenario = scenarioOf(q.dataJson);
             if (scenario) {
               const verdict = replayRun(scenario, answers[q.id]);
               if (!verdict.consistent) {
