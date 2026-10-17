@@ -62,6 +62,7 @@
 | `server/**` (места чтения сценария), `server/scorm/builders/test-json.ts` | Изменить: `scenarioOf`, запись v2 | 12 |
 | `client/src/features/**` (места чтения сценария) | Изменить: `scenarioOf`, тип входа | 13 |
 | `docs/specs/sim-scenario/*` | Пример v2, схемы, формат обмена и результата | 14 |
+| `server/services/__tests__/lms-export-import.test.ts` | Фикстура сценария по контракту, прогон на v1 и v2 | 16 |
 
 ---
 
@@ -3850,6 +3851,90 @@ git commit -m "docs(sim): формат обмена и результата ве
 ```
 
 ---
+
+### Задача 16. Фикстура сценария в тесте импорта выгрузки LMS
+
+Дописано 2026-10-17 после волны 4 и выполняется до задачи 15. Регрессия П1, которую регрессионный набор не ловил:
+`server/services/__tests__/lms-export-import.test.ts`, тест «доля цены — в баллы, прогон — повтором протокола», падает
+на вершине волны 4 с «expected undefined to be 'exited'», а на `main` (`e524cf21`) зелёный.
+
+**Причина — фикстура, а не код.** Сценарий в тесте записан без `format` и `version` — это не сценарий по контракту ни
+одной версии. До П1 это никому не мешало: движок версию не смотрел. С П1 сценарий читается одной дверью
+`scenarioOf` (задача 2), а она пускает только документ с `format: "skillum.sim-scenario"`. Импорт считает, что у
+вопроса нет сценария, и сохраняет одни шаги `performance`. Дверь не ослабляется: в настоящих данных сценарий без
+`format` не бывает — вопрос сохраняется только через `scenarioConfigError` (POST и PUT в `server/routes/questions.ts`),
+а та без `format` и `version` не пропускает; перенос `.tbtest` везёт уже проверенное содержимое.
+
+**Файл:** `server/services/__tests__/lms-export-import.test.ts`.
+
+- [ ] **Шаг 1. Импорт** — после строки `import { buildImportPlan, runImport } from "../lms-export-import";`:
+
+```ts
+import { asScenario } from "@shared/sim/upgrade";
+```
+
+- [ ] **Шаг 2. Фикстура — настоящий сценарий версии 1**, такой, какие лежат в базе с прошлого выпуска. В блоке
+  `describe("runImport — «Сценарий в ИС» (Э5б)", …)` заменить комментарий и первую строку объекта `scenario`:
+
+```ts
+  /**
+   * Сценарий из одной сцены с одним шагом в сторону: щелчок по нему и выход. Версия 1 — так лежат вопросы,
+   * сохранённые до версии 2, и импорт обязан читать их через перевод (`shared/sim/upgrade`).
+   */
+  const scenario = {
+    format: "skillum.sim-scenario",
+    version: 1,
+    meta: { title: "Мини", task: "Задание" },
+```
+
+Остальные поля объекта (`settings`, `media`, `fields`, `start`, `scenes`) не менять.
+
+- [ ] **Шаг 3. Два теста** — в конец того же `describe`, после теста «исход без доли цены — пробел, а не «неверно»»:
+
+```ts
+  it("вопрос, сохранённый версией 2, повторяется так же, как версии 1", async () => {
+    const s = {
+      ...storageStub(),
+      getQuestionsByIds: async () => [{ id: "q1", type: "simulation", prompt: "Задание", topicId: "t1", dataJson: { scenario: asScenario(scenario as never) } }],
+    };
+    await runImport(simBook("0.75", "1;aside@3e8;x@3e8;z@0") as never, ON, ctx, s as never);
+    const run = (s as unknown as { answers: Array<Array<Record<string, unknown>>> }).answers[0][0].userAnswerJson as { outcome: string; durationMs: number };
+    expect(run.outcome).toBe("exited");
+    expect(run.durationMs).toBe(2 * parseInt("3e8", 36));
+  });
+
+  it("сценарий не по контракту (без format) не читается: остаются шаги и предупреждение", async () => {
+    const { format: _format, version: _version, ...broken } = scenario;
+    const s = {
+      ...storageStub(),
+      getQuestionsByIds: async () => [{ id: "q1", type: "simulation", prompt: "Задание", topicId: "t1", dataJson: { scenario: broken } }],
+    };
+    const res = await runImport(simBook("0.75", "1;aside@3e8;x@3e8;z@0") as never, ON, ctx, s as never);
+    expect((s as unknown as { answers: Array<Array<Record<string, unknown>>> }).answers[0][0]).toMatchObject({ userAnswerJson: steps });
+    expect(res.warnings.join(" ")).toContain("Протоколов сценариев, не совпавших со сценарием вопроса: 1");
+  });
+```
+
+- [ ] **Шаг 4. Прогнать.**
+
+```powershell
+npm test -- server/services/__tests__/lms-export-import.test.ts
+```
+
+Ожидается: PASS, 81 тест (было 79). Проверено 2026-10-17 на вершине волны 4 (`ef6fad84`): 81 из 81.
+
+- [ ] **Шаг 5. Коммит.**
+
+```powershell
+git add server/services/__tests__/lms-export-import.test.ts
+git commit -m "test(sim): фикстура импорта выгрузки LMS — настоящий сценарий версии 1, прогон и на версии 2"
+```
+
+Сверка за пределами регрессионного набора, 2026-10-17, на `ef6fad84`: все 99 тестовых файлов, где встречаются
+`simulation`, `scenario` или `shared/sim/`, — 2105 из 2107. Второй красный —
+`server/__tests__/test-transfer-completeness.test.ts` (таблица `test_public_links`): он красный и на `main`, к П1
+не относится. Интеграционный `tests/it/sim-chain-roundtrip.it.test.ts` — зелёный. Файлы про сценарии, которые прошли
+и не были в регрессионном наборе, добавлены в него (`scripts/sim/v2/tasks.json`, `regressionTests`).
 
 ### Задача 15. Сводная проверка
 

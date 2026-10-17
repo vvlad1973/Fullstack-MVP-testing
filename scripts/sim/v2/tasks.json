@@ -32,7 +32,16 @@
                             "tests/sim-rules-dialog-theme.test.ts",
                             "tests/sim-router-items.test.ts",
                             "tests/sim-geometry.test.ts",
-                            "tests/sim-host-parity"
+                            "tests/sim-host-parity",
+                            "tests/sim-scenario-delivery.test.ts",
+                            "tests/sim-scoring-chain.test.ts",
+                            "tests/sim-scorm-runtime.test.ts",
+                            "tests/sim-router-section-passed.test.ts",
+                            "tests/sim-workbook-router-items.test.ts",
+                            "server/services/__tests__/lms-export-import.test.ts",
+                            "server/services/__tests__/questions-import-simulation.test.ts",
+                            "client/src/features/questions/__tests__/question-editor-scenario.test.tsx",
+                            "client/src/features/questions/__tests__/scenario-run-skin.test.tsx"
                         ],
     "waves":  [
                   {
@@ -57,6 +66,10 @@
                   },
                   {
                       "n":  5,
+                      "tscClean":  true
+                  },
+                  {
+                      "n":  6,
                       "tscClean":  true
                   }
               ],
@@ -396,8 +409,40 @@
                       "brief":  "Выполни задачу 13."
                   },
                   {
-                      "id":  "W5",
+                      "id":  "W5-lms",
                       "wave":  5,
+                      "model":  "haiku",
+                      "planTasks":  [
+                                        16
+                                    ],
+                      "worktree":  "C:/Repositories/tb-sim-w5-lms",
+                      "branch":  "sim-w5-lms",
+                      "allowed":  [
+                                      "server/services/__tests__/lms-export-import.test.ts"
+                                  ],
+                      "newTests":  [
+
+                                   ],
+                      "modifiedTests":  {
+                                            "server/services/__tests__/lms-export-import.test.ts":  null
+                                        },
+                      "tscOwn":  [
+
+                                 ],
+                      "extraTests":  [
+
+                                     ],
+                      "brief":  "Выполни задачу 16. Только тестовый файл, код не трогать.",
+                      "minCounts":  {
+                                        "server/services/__tests__/lms-export-import.test.ts":  {
+                                                                                                    "it":  81,
+                                                                                                    "expect":  158
+                                                                                                }
+                                    }
+                  },
+                  {
+                      "id":  "W5",
+                      "wave":  6,
                       "model":  "sonnet",
                       "planTasks":  [
                                         "14: steps 1-2",
