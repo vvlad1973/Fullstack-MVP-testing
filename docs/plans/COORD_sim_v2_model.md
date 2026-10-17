@@ -204,7 +204,7 @@ Fable не используется. Задание, остановленное 
 | W4-server | Влит, волна 4 PASS | `a08db7e3` | Подписи `finale`/`declared` в `OUTCOME_LABEL` (иначе не собирается `Record<Outcome>`); показ новых исходов — П6 |
 | W4-client | Влит, волна 4 PASS | `f4299000..bf27f373` | Сверх `tsc` на `scenarioOf` переведены пять чтений `dataJson.scenario` |
 | W5-lms | Влит, волна 5 PASS | `b2939180` | Регрессия с W0 вне набора: фикстура `lms-export-import.test.ts` без `format`/`version`; задача 16 и расширенный набор (`c822e4f4`). Вне П1: `test-transfer-completeness.test.ts` красный и на `main` (`test_public_links`) |
-| W5 | Ждёт запуска, волна 6 | — | Идёт прямо в `sim-editor` |
+| W5 | Готов, волна 6 PASS | `f63be63d` | Полный `npm test` (по «да» владельца): 13 543 / 13 546, три красных красны и на `main` — `test-transfer-completeness` (техдолг №17), `template-parity-standard-rt` (стили отчёта), `migration-prd7` (dev-БД не ответила) |
 
 ### 6.6. Когда останавливаться
 
