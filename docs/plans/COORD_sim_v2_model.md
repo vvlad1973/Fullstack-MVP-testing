@@ -213,3 +213,112 @@ Fable не используется. Задание, остановленное 
 - Конфликт слияния — признак того, что задание вышло за свои файлы, хотя скрипт пропустил. Не вливать, доложить
   владельцу: значит, манифест разрешает лишнее.
 - Откат влитой волны — только с согласия владельца: `git reset --hard sim-v2-w<N>-start` на `sim-editor`.
+
+## 7. Вливание в main и выпуск
+
+Выполняет координатор после PASS волны 6. Каждая команда — из указанного каталога; главная копия —
+`C:\Repositories\test-builder` (ветка `main`), интеграционная — `C:\Repositories\test-builder-sim-editor` (`sim-editor`).
+
+### 7.1. Решения владельца, 2026-10-17
+
+| Вопрос | Решение |
+| --- | --- |
+| Коммит `e9d94063` в `main` (техдолг №17, ещё не в `origin`) | Уходит в `origin` вместе с П1 |
+| Обвязка `scripts/sim/v2/`, эталон `tests/fixtures/sim/scorm-sample-hashes.json`, план и этот файл | Остаются в `main`: следующие подпроекты пойдут той же схемой со своим манифестом |
+| Версия | Выпуск 2.48.0 сейчас, вместе с П1 |
+| Красные полного прогона | Три, все красны и на `main`: `test-transfer-completeness` (техдолг №17), `template-parity-standard-rt`, `migration-prd7` — вливанию не мешают |
+| Анализы конкурентов (`docs/reports/ANALYSIS_*.md`) | Без новых строк: оценка по маршрутам и исследовательский вид станут доступны пользователю в П4 и Р2, тогда и строки |
+| Контракт платформы шаблонов | Не затронут: рендер не менялся, шаблонам ничего добавлять не нужно |
+
+### 7.2. Порядок
+
+1. **Подтянуть `main` в `sim-editor`.** В `main` выше базы трека один коммит документации; в `main` попадает то
+   дерево, что проверено вместе с ним.
+
+   ```powershell
+   git -C C:\Repositories\test-builder-sim-editor merge --no-edit main
+   ```
+
+   Конфликт — стоп, доклад владельцу.
+
+2. **Проверка после подтягивания.** `verify-task.ps1 -Wave 6` здесь не годится: коммит `main` (ROADMAP) вне
+   разрешённых файлов волны. Нужны три команды в `C:\Repositories\test-builder-sim-editor`:
+
+   ```powershell
+   npx tsc --noEmit --incremental false
+   $reg = (Get-Content -Raw -Encoding UTF8 scripts\sim\v2\tasks.json | ConvertFrom-Json).regressionTests
+   npm test -- @reg
+   npm run test:it -- tests/it/sim-chain-roundtrip.it.test.ts
+   ```
+
+   Ожидается: 0 ошибок `tsc`, все тесты PASS. Полный прогон не повторять: он сделан на волне 6, а коммит `main` —
+   только документация.
+
+3. **Руководство автора.** В `docs/guides/test-authoring-guide.md`, раздел 8.10, абзац «Откуда берётся сценарий»,
+   после предложения «Сервис проверяет архив и при ошибках перечисляет их; изображения уходят в медиатеку.» вставить
+   дословно:
+
+   > Принимаются архивы формата версий 1 и 2; выгрузка архива из вопроса всегда даёт версию 2. Формат описан в
+   > `docs/specs/sim-scenario/exchange-format.md`.
+
+   Это текст абзаца, не цитата: без знаков `>`, переносы — по ширине соседних строк. Затем:
+
+   ```powershell
+   node_modules\.bin\markdownlint-cli2.cmd docs/guides/test-authoring-guide.md
+   git -C C:\Repositories\test-builder-sim-editor add docs/guides/test-authoring-guide.md
+   git -C C:\Repositories\test-builder-sim-editor commit -m "docs(guides): сценарий в ИС — архивы версий 1 и 2"
+   ```
+
+4. **Перемотать `main`.** Сначала убедиться, что главная копия чиста и стоит на `main`; иначе — стоп, вопрос
+   владельцу: там может работать другая сессия.
+
+   ```powershell
+   git -C C:\Repositories\test-builder status --short
+   git -C C:\Repositories\test-builder branch --show-current
+   git -C C:\Repositories\test-builder merge --ff-only sim-editor
+   ```
+
+   `--ff-only` отказывает, если `main` ушёл вперёд после шага 1; тогда — повторить с шага 1.
+
+5. **Выпуск 2.48.0** — в `C:\Repositories\test-builder`, строго в этом порядке: генератор журнала строит раздел по
+   тегу, без тега он молча ничего не пишет.
+
+   ```powershell
+   npm version 2.48.0 --no-git-tag-version
+   git add package.json package-lock.json
+   git commit -m "chore(release): поднять версию проекта до 2.48.0"
+   git tag v2.48.0
+   npm run changelog
+   ```
+
+   Проверить раздел 2.48.0 в `CHANGELOG.md` глазами и убрать из него записи обвязки — это не изменения продукта:
+   `fix(plans): …` и `fix(sim): приёмка П1 …`. Остальные `feat`/`fix`/`docs` оставить. Затем:
+
+   ```powershell
+   git add CHANGELOG.md
+   git commit -m "chore(release): раздел 2.48.0 в журнале изменений"
+   git tag -f v2.48.0 HEAD
+   ```
+
+6. **Пуш** — после короткого подтверждения владельца в чате («пушу 2.48.0?»): отправка публична.
+
+   ```powershell
+   git -C C:\Repositories\test-builder push origin HEAD:main
+   git -C C:\Repositories\test-builder push origin v2.48.0
+   ```
+
+7. **Уборка.**
+   - Worktree заданий, если какие-то остались, — только `worktree.ps1 -Remove <ID>`.
+   - Локальные метки трека в `origin` не отправлять и удалить:
+
+     ```powershell
+     git -C C:\Repositories\test-builder-sim-editor tag -l "sim-v2-*" | ForEach-Object { git -C C:\Repositories\test-builder-sim-editor tag -d $_ }
+     ```
+
+   - `sim-editor` и его worktree не удалять: решение — при старте следующего подпроекта.
+   - Старые worktree трека (`test-builder-sim-scenario`, `-sim-docs`, `-sim-parity`, `-sim-chain`,
+     `-fix-router-reload`) — только с согласия владельца и только со снятием junction (`cmd /c rmdir`) до
+     `git worktree remove`.
+
+8. **Таблица 6.5** — строка «Вливание в main: 2.48.0, `<хеш>`», коммит этого файла в `sim-editor` (он уже в `main`
+   после шага 4 — правка уйдёт со следующим подпроектом).
