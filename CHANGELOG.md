@@ -1,5 +1,85 @@
 # Changelog
 
+## [2.48.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.47.3...v2.48.0)
+
+### Features
+
+- **feat**(sim): клиент читает сценарий любой версии (2026-10-17) [`bf27f373d5cb4ba54fd7657c323936d4b7084ea6`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/bf27f373d5cb4ba54fd7657c323936d4b7084ea6)
+
+- **feat**(sim): сервер читает сценарий любой версии, пишет и печёт в пакет v2 (2026-10-17) [`a08db7e30627eacec5d7f52d9ef236651f6febe9`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/a08db7e30627eacec5d7f52d9ef236651f6febe9)
+
+- **feat**(sim): клиент читает сценарий любой версии (2026-10-17) [`09919852e2da0719cfa3b78e93e27b7de41b5fa8`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/09919852e2da0719cfa3b78e93e27b7de41b5fa8)
+
+- **feat**(sim): клиент читает сценарий любой версии (2026-10-17) [`f42990006009cf72ce00589cb555ae5843c84175`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/f42990006009cf72ce00589cb555ae5843c84175)
+
+- **feat**(sim): проверки v2 — действие устройства варианта и случаи ревью (2026-10-17) [`cde76023bae011044ff50c31f6aff649277223e9`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/cde76023bae011044ff50c31f6aff649277223e9)
+
+- **feat**(sim): проверки v2 — вид, концы, этапы, стоимость, устройство, маршруты, оптимум (2026-10-17) [`79b9897d9f74472353fd190268d60bc9446de5ba`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/79b9897d9f74472353fd190268d60bc9446de5ba)
+
+- **feat**(sim): обложка и плеер читают сценарий любой версии через вид устройства (2026-10-17) [`a9fad8370ad1d111c7f2d95471af296bbc71c522`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/a9fad8370ad1d111c7f2d95471af296bbc71c522)
+
+- **feat**(sim): метрики прогона — эффективность, потерянность — и оси оценки (2026-10-17) [`9500125ba8f84506227150aa6e2065412df3904b`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/9500125ba8f84506227150aa6e2065412df3904b)
+
+- **feat**(sim): объявленные маршруты — распознавание прогона и проверки (2026-10-17) [`311a540fd6fc54c0589668cdb46c58a03e2c655e`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/311a540fd6fc54c0589668cdb46c58a03e2c655e)
+
+- **feat**(sim): «Я закончил» в протоколе LMS и в переигрывании, вариант устройства при переигрывании (2026-10-16) [`38a55e7d39cff4f04d02debbd90f29bea85f9684`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/38a55e7d39cff4f04d02debbd90f29bea85f9684)
+
+- **feat**(sim): движок на v2 — финалы, «Я закончил», действия без роли, стоимость прогона (2026-10-16) [`a0af44f6818ecdb9c1995d2eebc93d80b3742867`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/a0af44f6818ecdb9c1995d2eebc93d80b3742867)
+
+- **feat**(sim): самый дешёвый путь по состояниям прогона — оптимум и стоимость маршрута (2026-10-16) [`b3764f87c80b59ede1c912d659b9e030a78a1cb6`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/b3764f87c80b59ede1c912d659b9e030a78a1cb6)
+
+- **feat**(sim): стоимость действий по виду, умолчания сценария и системы (2026-10-16) [`ee959fb8676527ed99ff5f70278f148185f62a49`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/ee959fb8676527ed99ff5f70278f148185f62a49)
+
+- **feat**(sim): вид сценария для одного устройства (2026-10-16) [`d1af205ec174bf2acfcf5682f324e26e1dd664f3`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/d1af205ec174bf2acfcf5682f324e26e1dd664f3)
+
+- **feat**(sim): одна дверь в модель — сценарий v1 читается как v2 (2026-10-16) [`83aa017c9db1fc1dffdb8ce598ac5cedc8c1dc96`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/83aa017c9db1fc1dffdb8ce598ac5cedc8c1dc96)
+
+- **feat**(sim): контракт v2 — вид сценария, варианты устройств, финалы, этапы, маршруты, стоимость (2026-10-16) [`2697335e290c58307c6a2be3bb6ba9b80243b9d2`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/2697335e290c58307c6a2be3bb6ba9b80243b9d2)
+
+### Documentation
+
+- **docs**(guides): сценарий в ИС — архивы версий 1 и 2 (2026-10-17) [`f47963851f9541a30e7347e6c687bf8ca90d0bb9`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/f47963851f9541a30e7347e6c687bf8ca90d0bb9)
+
+- **docs**(plans): координация П1 — раздел 7, вливание в main и выпуск 2.48.0 (2026-10-17) [`cb2d21d267920d200ee2c31808465c18b036f50e`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/cb2d21d267920d200ee2c31808465c18b036f50e)
+  Решения владельца 2026-10-17: e9d94063 уходит в origin вместе с П1, обвязка остаётся в main, выпуск 2.48.0 сейчас. Порядок: main в sim-editor, проверка, фраза в руководство автора, перемотка main, выпуск по тегу, пуш после подтверждения, уборка меток.
+
+- **docs**(roadmap): техдолг №18 — паритет стилей отчёта двух стандартных шаблонов (2026-10-17) [`a5eb5ffdd47f3cc8cb0b9cb409dbe4fd89423430`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/a5eb5ffdd47f3cc8cb0b9cb409dbe4fd89423430)
+
+- **docs**(plans): координация П1 — волна 6 принята, полный прогон (2026-10-17) [`7f1bdc8d2c6bc9251d95c9b548e2a56252f26e93`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/7f1bdc8d2c6bc9251d95c9b548e2a56252f26e93)
+
+- **docs**(sim): пример формата обмена переведён в версию 2, тест примера (2026-10-17) [`f63be63d02ad146c47e02bb85b62a8d03bc1ff89`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/f63be63d02ad146c47e02bb85b62a8d03bc1ff89)
+
+- **docs**(plans): координация П1 — волна 5 принята (2026-10-17) [`817f717e41b6967f6ad80877ab1b20a227bee771`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/817f717e41b6967f6ad80877ab1b20a227bee771)
+
+- **docs**(roadmap): техдолг №17 — test_public_links вне сторожа полноты переноса (2026-10-17) [`e9d940634a0849d8d28555720ca724d7025d96fa`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/e9d940634a0849d8d28555720ca724d7025d96fa)
+
+- **docs**(plans): координация П1 — волна 4 принята, задание W5-lms (2026-10-17) [`f00e16666e653d0d0976d726095bedd667f58401`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/f00e16666e653d0d0976d726095bedd667f58401)
+
+- **docs**(plans): координация П1 — волна 3 принята (2026-10-17) [`b431e9a7f72ed7159cd5f3751d8b2348ce1f95fd`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/b431e9a7f72ed7159cd5f3751d8b2348ce1f95fd)
+
+- **docs**(plans): координация П1 — волна 2 принята (2026-10-17) [`d07dab3c53ac2a88c1a8bc63d157fb5f4db856b8`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/d07dab3c53ac2a88c1a8bc63d157fb5f4db856b8)
+
+- **docs**(plans): координация П1 — волна 1 принята (2026-10-17) [`04f5013387f8f2cb36105de5340a55db67f0c380`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/04f5013387f8f2cb36105de5340a55db67f0c380)
+
+- **docs**(sim): формат результата версии 2 (2026-10-16) [`e3ca95269e15bd509c9eb03a647745e083cd254f`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/e3ca95269e15bd509c9eb03a647745e083cd254f)
+
+- **docs**(sim): формат обмена версии 2 (2026-10-16) [`a6fff39af9b5a0ed51679d61bf04b7429066402e`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/a6fff39af9b5a0ed51679d61bf04b7429066402e)
+
+- **docs**(sim): схема результата версии 2 (2026-10-16) [`786951987b001ff10450e83bd3a5e23c6dc1b3ba`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/786951987b001ff10450e83bd3a5e23c6dc1b3ba)
+
+- **docs**(sim): схема сценария версии 2 (2026-10-16) [`2b3c245a6b94d93d6bde16fd37ed476394dad9dd`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/2b3c245a6b94d93d6bde16fd37ed476394dad9dd)
+
+- **docs**(plans): координация П1 — волна 0 принята (2026-10-16) [`f0182298ca63e5ee33d58eb153d94c6b6c72be3a`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/f0182298ca63e5ee33d58eb153d94c6b6c72be3a)
+
+- **docs**(plans): координация П1 — разметка (2026-10-16) [`b49c783c4009b145e18e2c369fa0946ee0170f12`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/b49c783c4009b145e18e2c369fa0946ee0170f12)
+
+- **docs**(plans): координация П1 — волны, модели по заданиям, тексты заданий, слияние (2026-10-16) [`4d63edc28b5818268cecf0988af38490e862ede6`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/4d63edc28b5818268cecf0988af38490e862ede6)
+
+- **docs**(plans): план реализации П1 «Модель v2» трека «Сценарий в ИС» (2026-10-16) [`55f6f5c9837f611181e586b08448866a10e0a6d9`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/55f6f5c9837f611181e586b08448866a10e0a6d9)
+
+- **docs**(sim): версия 2 — исследовательский вид, маршруты с оценкой, полный след, редактор (2026-10-16) [`81f0c4e4659aee3ba5dce2c15c3e15c6b011c445`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/81f0c4e4659aee3ba5dce2c15c3e15c6b011c445)
+  Требования владельца 2026-10-16, согласованы по разделам: два вида сценария, варианты по устройствам, оптимум и маршруты, оценка по осям, два профиля следа, редактор и порядок работ.
+
 ## [2.47.3](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.47.2...v2.47.3)
 
 ### Fixes
