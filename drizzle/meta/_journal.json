@@ -421,6 +421,13 @@
       "when": 1792089038478,
       "tag": "0059_drop_scenario_image_url",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792442442811,
+      "tag": "0060_test_grants_work_review_slots",
+      "breakpoints": true
     }
   ]
 }

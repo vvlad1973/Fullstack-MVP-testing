@@ -827,8 +827,14 @@ export const tests = pgTable("tests", {
 /**
  * PRD-13 RBAC: explicit access to a test for a non-owner. `edit` lets an author
  * edit/publish/export the test; `assign` lets a manager assign it. Grants are
- * created and revoked only by an administrator or superadmin. One grant per
- * (test, user); `edit` covers the `assign` scope during access resolution.
+ * created and revoked only by an administrator or superadmin. `edit` covers the
+ * `assign` scope during access resolution.
+ *
+ * Two independent slots per (test, user), each holding at most one row: the
+ * WORKING grant (`edit` or `assign`, mutually exclusive, managed by the access
+ * panel) and the REVIEW grant (`review`, managed by the review invitation). A
+ * manager may therefore assign a test and review it at the same time (PRD-52,
+ * 14.8); before, the single slot made an invitation silently replace `assign`.
  */
 export const testAccessGrants = pgTable("test_access_grants", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -840,7 +846,12 @@ export const testAccessGrants = pgTable("test_access_grants", {
   grantedBy: varchar("granted_by", { length: 36 }), // which admin granted it
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
-  testUserIdx: uniqueIndex("test_access_grants_test_user_idx").on(table.testId, table.userId),
+  workIdx: uniqueIndex("test_access_grants_work_idx")
+    .on(table.testId, table.userId)
+    .where(sql`${table.accessLevel} <> 'review'`),
+  reviewIdx: uniqueIndex("test_access_grants_review_idx")
+    .on(table.testId, table.userId)
+    .where(sql`${table.accessLevel} = 'review'`),
 }));
 
 /**
@@ -1252,6 +1263,8 @@ export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
 export type UserRole = typeof userRoles.$inferSelect;
 
 export type InsertTestAccessGrant = z.infer<typeof insertTestAccessGrantSchema>;
+/** Which of the two grant slots of a (test, user) pair: `edit`/`assign` or `review`. */
+export type TestGrantSlot = "work" | "review";
 export type TestAccessGrant = typeof testAccessGrants.$inferSelect;
 
 export type InsertFolder = z.infer<typeof insertFolderSchema>;

@@ -362,11 +362,10 @@ router.post(
 // GET /api/tests/:id/review/candidates — кого можно выбрать на вкладке «Пользователи».
 // Свой маршрут, а не `GET /api/users`: реестр закрыт правом `users.read`, которого у
 // автора нет, и вкладка получала отказ, выглядевший как «все уже приглашены» (PRD-52,
-// 14.7). Позвать можно ЛЮБОГО, независимо от роли (решение владельца 2026-10-19).
-// Не предлагаются: аккаунт без адреса (ссылку некуда отправить), владелец теста и сам
-// приглашающий (рецензирование им ничего не добавляет), уже приглашённые и держатели
-// гранта `assign` — грант на тест у человека один, и приглашение заменило бы им право
-// назначать (см. `inviteReviewers`).
+// 14.7). Позвать можно ЛЮБОГО, независимо от роли и рабочего гранта (решения владельца
+// 2026-10-19, 14.8). Не предлагаются: аккаунт без адреса (ссылку некуда отправить),
+// владелец теста и сам приглашающий (рецензирование им ничего не добавляет) и уже
+// приглашённые.
 // Отдаётся только то, что нужно строке выбора: не роли, не группы и не хеши.
 router.get(
   "/:id/review/candidates",
@@ -377,7 +376,7 @@ router.get(
       const test = (await storage.getTest(req.params.id))!;
       const excluded = new Set(
         (await storage.getTestAccessGrants(req.params.id))
-          .filter((grant) => grant.accessLevel === "review" || grant.accessLevel === "assign")
+          .filter((grant) => grant.accessLevel === "review")
           .map((grant) => grant.userId),
       );
       excluded.add(req.currentUser!.id);
@@ -531,10 +530,9 @@ router.delete("/:id/review/reviewers/:userId", requirePermission("tests.access.g
     if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser!.id, test)) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const grant = await storage.getTestGrantForUser(req.params.id, req.params.userId);
-    if (grant?.accessLevel === "review") {
-      await storage.removeTestAccessGrant(req.params.id, req.params.userId);
-    }
+    // Снимается только слот рецензирования: рабочий грант (`edit`/`assign`) рядом с
+    // ним отзывают в панели доступа, а не здесь.
+    await storage.removeTestAccessGrant(req.params.id, req.params.userId, "review");
     await storage.revokeReviewLinks(req.params.id, req.params.userId);
     res.json({ revoked: true });
   } catch (error) {

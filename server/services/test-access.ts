@@ -91,8 +91,8 @@ export async function canReviewTest(
   test: TestRef,
 ): Promise<boolean> {
   if (await canEditTest(roles, userId, test)) return true;
-  const grant = await storage.getTestGrantForUser(test.id, userId);
-  return grant?.accessLevel === "review";
+  // The review grant has its own slot, so a manager's `assign` beside it does not hide it.
+  return Boolean(await storage.getTestReviewGrant(test.id, userId));
 }
 
 /** Can assign the test: assign- or edit-grant for managers (plus admin/super). */

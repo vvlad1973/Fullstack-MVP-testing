@@ -394,17 +394,16 @@ describe("рецензенты теста", () => {
 
   it("отзыв снимает грант И гасит живые ссылки", async () => {
     storageMock.getReviewComment.mockResolvedValue(root());
-    storageMock.getTestGrantForUser.mockResolvedValue({ accessLevel: "review" });
     const res = await request(authorApp()).delete("/api/tests/t1/review/reviewers/expert-1");
     expect(res.status).toBe(200);
-    expect(storageMock.removeTestAccessGrant).toHaveBeenCalledWith("t1", "expert-1");
+    expect(storageMock.removeTestAccessGrant).toHaveBeenCalledWith("t1", "expert-1", "review");
     expect(storageMock.revokeReviewLinks).toHaveBeenCalledWith("t1", "expert-1");
   });
 
-  it("отзыв не трогает грант другого уровня: edit-доступ отзывают не здесь", async () => {
-    storageMock.getTestGrantForUser.mockResolvedValue({ accessLevel: "edit" });
+  it("отзыв снимает только слот рецензирования: рабочий грант отзывают не здесь", async () => {
     await request(authorApp()).delete("/api/tests/t1/review/reviewers/author-2");
-    expect(storageMock.removeTestAccessGrant).not.toHaveBeenCalled();
+    expect(storageMock.removeTestAccessGrant).toHaveBeenCalledWith("t1", "author-2", "review");
+    expect(storageMock.removeTestAccessGrant).not.toHaveBeenCalledWith("t1", "author-2", "work");
     // Ссылки всё равно гасим: ревью-ссылка могла быть выдана раньше повышения.
     expect(storageMock.revokeReviewLinks).toHaveBeenCalledWith("t1", "author-2");
   });
@@ -486,12 +485,13 @@ describe("кандидаты в рецензенты", () => {
     ]);
   });
 
-  // Решение владельца 2026-10-19: позвать на рецензирование можно любого, роль не важна.
-  it("отдаёт людей любой роли; без адреса, приглашённых, держателей assign и самого автора — нет", async () => {
+  // Решения владельца 2026-10-19: позвать на рецензирование можно любого — роль не важна,
+  // и рабочий грант рядом не мешает (методист с `assign` в списке есть).
+  it("отдаёт людей любой роли; без адреса, приглашённых и самого автора — нет", async () => {
     const res = await request(authorApp()).get("/api/tests/t1/review/candidates");
 
     expect(res.status).toBe(200);
-    expect(res.body.map((u: { id: string }) => u.id)).toEqual(["learner-1", "author-2"]);
+    expect(res.body.map((u: { id: string }) => u.id)).toEqual(["learner-1", "manager-1", "author-2"]);
   });
 
   it("не отдаёт ничего сверх нужного выбору: ни хешей, ни ролей, ни групп", async () => {

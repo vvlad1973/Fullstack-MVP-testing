@@ -871,6 +871,16 @@ describe("GET /api/tests/:id/access", () => {
     expect(res.body.grants).toHaveLength(1);
   });
 
+  it("leaves review grants out: the panel manages the working slot only", async () => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, ownerId: "author1" });
+    storageMock.getTestAccessGrants.mockResolvedValue([
+      { userId: "u2", accessLevel: "assign" },
+      { userId: "u2", accessLevel: "review" },
+    ]);
+    const res = await asAdmin(request(app).get("/api/tests/test1/access"));
+    expect(res.body.grants).toEqual([{ userId: "u2", accessLevel: "assign" }]);
+  });
+
   it("500 when loading grants throws", async () => {
     storageMock.getTest.mockResolvedValue(dbTest);
     storageMock.getTestAccessGrants.mockRejectedValue(new Error("boom"));
@@ -1018,7 +1028,8 @@ describe("DELETE /api/tests/:id/access/:userId", () => {
   it("204 on a successful revoke", async () => {
     const res = await asAdmin(request(app).delete("/api/tests/test1/access/u2"));
     expect(res.status).toBe(204);
-    expect(storageMock.removeTestAccessGrant).toHaveBeenCalledWith("test1", "u2");
+    // Only the working slot: a review invitation of the same person stays (PRD-52, 14.8).
+    expect(storageMock.removeTestAccessGrant).toHaveBeenCalledWith("test1", "u2", "work");
   });
 
   it("500 when the revoke throws", async () => {

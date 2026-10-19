@@ -634,7 +634,8 @@ CREATE UNIQUE INDEX "scorm_attempts_session_attempt_idx" ON "scorm_attempts" USI
 CREATE UNIQUE INDEX "scorm_attempts_import_row_idx" ON "scorm_attempts" USING btree ("test_id","participant_key","started_at","attempt_key") WHERE "scorm_attempts"."origin" = 'import';
 CREATE INDEX "scorm_attempts_test_id_idx" ON "scorm_attempts" USING btree ("test_id");
 CREATE INDEX "scorm_packages_test_id_idx" ON "scorm_packages" USING btree ("test_id");
-CREATE UNIQUE INDEX "test_access_grants_test_user_idx" ON "test_access_grants" USING btree ("test_id","user_id");
+CREATE UNIQUE INDEX "test_access_grants_work_idx" ON "test_access_grants" USING btree ("test_id","user_id") WHERE "test_access_grants"."access_level" <> 'review';
+CREATE UNIQUE INDEX "test_access_grants_review_idx" ON "test_access_grants" USING btree ("test_id","user_id") WHERE "test_access_grants"."access_level" = 'review';
 CREATE INDEX "test_assignments_test_id_idx" ON "test_assignments" USING btree ("test_id");
 CREATE INDEX "test_assignments_user_id_idx" ON "test_assignments" USING btree ("user_id");
 CREATE INDEX "test_assignments_group_id_idx" ON "test_assignments" USING btree ("group_id");

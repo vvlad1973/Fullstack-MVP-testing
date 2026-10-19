@@ -1859,7 +1859,10 @@ router.get("/:id/access", requirePermission("tests.access.grant"), async (req, r
     if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser?.id ?? "", test)) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const grants = await storage.getTestAccessGrants(test.id);
+    // The panel manages the WORKING slot only; review grants belong to the review
+    // dialog (PRD-52, 14.8) and would show here with a level the panel cannot set.
+    const grants = (await storage.getTestAccessGrants(test.id))
+      .filter((grant) => grant.accessLevel !== "review");
     res.json({ testId: test.id, ownerId: test.ownerId ?? null, grants });
   } catch (error) {
     logger.error("Get test access error: " + (error as Error).message, "tests");
@@ -1926,7 +1929,7 @@ router.delete("/:id/access/:userId", requirePermission("tests.access.grant"), as
     if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser?.id ?? "", test)) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const removed = await storage.removeTestAccessGrant(req.params.id, req.params.userId);
+    const removed = await storage.removeTestAccessGrant(req.params.id, req.params.userId, "work");
     if (!removed) return res.status(404).json({ error: "Grant not found" });
     res.status(204).end();
   } catch (error) {

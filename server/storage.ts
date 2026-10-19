@@ -87,7 +87,7 @@ import type {
   SavedListFilter, InsertSavedListFilter, SavedFilterScope,
   Group, InsertGroup,
   UserGroup,
-  TestAccessGrant, InsertTestAccessGrant,
+  TestAccessGrant, InsertTestAccessGrant, TestGrantSlot,
   TestSnapshot,
   TestPublicLink,
   TopicAccessGrant,
@@ -155,9 +155,12 @@ export interface IStorage {
   getTestIdsByOwner(ownerId: string): Promise<string[]>;
   getTestAccessGrants(testId: string): Promise<TestAccessGrant[]>;
   getUserTestGrants(userId: string): Promise<TestAccessGrant[]>;
+  /** The working grant (`edit` | `assign`); the review grant has its own slot. */
   getTestGrantForUser(testId: string, userId: string): Promise<TestAccessGrant | undefined>;
+  /** The review grant (PRD-52), held independently of the working one. */
+  getTestReviewGrant(testId: string, userId: string): Promise<TestAccessGrant | undefined>;
   upsertTestAccessGrant(grant: InsertTestAccessGrant): Promise<TestAccessGrant>;
-  removeTestAccessGrant(testId: string, userId: string): Promise<boolean>;
+  removeTestAccessGrant(testId: string, userId: string, slot: TestGrantSlot): Promise<boolean>;
 
   // "Where used" lookups (PRD-15 FR-03): tests depending on shared content.
   getTestsUsingTopic(topicId: string): Promise<TestUsageRef[]>;
@@ -782,12 +785,16 @@ export class DatabaseStorage implements IStorage {
     return this.accessRepo.getTestGrantForUser(testId, userId);
   }
 
+  getTestReviewGrant(testId: string, userId: string): Promise<TestAccessGrant | undefined> {
+    return this.accessRepo.getTestReviewGrant(testId, userId);
+  }
+
   upsertTestAccessGrant(grant: InsertTestAccessGrant): Promise<TestAccessGrant> {
     return this.accessRepo.upsertTestAccessGrant(grant);
   }
 
-  removeTestAccessGrant(testId: string, userId: string): Promise<boolean> {
-    return this.accessRepo.removeTestAccessGrant(testId, userId);
+  removeTestAccessGrant(testId: string, userId: string, slot: TestGrantSlot): Promise<boolean> {
+    return this.accessRepo.removeTestAccessGrant(testId, userId, slot);
   }
 
   // ============================================
