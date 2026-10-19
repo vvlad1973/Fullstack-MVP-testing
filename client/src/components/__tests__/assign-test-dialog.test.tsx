@@ -47,6 +47,8 @@ let assignmentsData: unknown[] = [];
 let usersData: unknown[] = [];
 let groupsData: unknown[] = [];
 let groupUsersData: unknown[] = [];
+let candidatesData: unknown[] = [];
+let candidatesOk = true;
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -54,6 +56,8 @@ beforeEach(() => {
   usersData = [learner, learner2, author];
   groupsData = [groupA];
   groupUsersData = [];
+  candidatesData = [{ id: "u-expert", email: "expert@example.com", name: "Ирина", status: "active" }];
+  candidatesOk = true;
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = (init?.method || "GET").toUpperCase();
@@ -62,6 +66,10 @@ beforeEach(() => {
       if (url === "/api/users") return jsonRes(usersData);
       if (url === "/api/groups") return jsonRes(groupsData);
       if (url.endsWith("/group-users")) return jsonRes(groupUsersData);
+      if (url === "/api/tests/test1/review/reviewers") return jsonRes([]);
+      if (url === "/api/tests/test1/review/candidates") {
+        return candidatesOk ? jsonRes(candidatesData) : jsonRes({ error: "Forbidden" }, false, 403);
+      }
     }
     // Mutations (bulk assign / remove / resend / revoke) all return ok JSON.
     return jsonRes({ sent: 2 });
@@ -285,11 +293,49 @@ describe("AssignTestDialog — режим рецензирования", () => {
   });
 
   it("пустой список пользователей объясняется приглашением, а не назначением", async () => {
-    usersData = [];
+    candidatesData = [];
     renderDialog({ mode: "review" });
     fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
 
     expect(await screen.findByText("Все пользователи уже приглашены")).toBeInTheDocument();
+  });
+
+  // PRD-52 раздел 14.7: у автора нет `users.read`, поэтому реестр пользователей
+  // ему закрыт — кандидатов отдаёт маршрут под правом приглашения.
+  it("берёт кандидатов из маршрута рецензирования, а не из реестра пользователей", async () => {
+    renderDialog({ mode: "review" });
+    fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
+
+    expect(await screen.findByText("expert@example.com")).toBeInTheDocument();
+    const gets = fetchMock.mock.calls
+      .filter(([, init]) => !init?.method || init.method === "GET")
+      .map(([u]) => String(u));
+    expect(gets).not.toContain("/api/users");
+    expect(gets).not.toContain("/api/groups");
+  });
+
+  it("приглашает выбранного кандидата поимённо", async () => {
+    renderDialog({ mode: "review" });
+    fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
+    await screen.findByText("expert@example.com");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Выбрать строку 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /Пригласить \(1\)/ }));
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([u]) => String(u) === "/api/tests/test1/review/invite");
+      expect(call).toBeTruthy();
+      expect(JSON.parse((call![1] as RequestInit).body as string).rows).toEqual([{ userId: "u-expert" }]);
+    });
+  });
+
+  it("отказ при чтении кандидатов не выдаёт себя за «все уже приглашены»", async () => {
+    candidatesOk = false;
+    renderDialog({ mode: "review" });
+    fireEvent.click(await screen.findByRole("tab", { name: /Пользователи/ }));
+
+    expect(await screen.findByText("Не удалось загрузить список пользователей")).toBeInTheDocument();
+    expect(screen.queryByText("Все пользователи уже приглашены")).toBeNull();
   });
 
   it("обычный режим заголовка и предупреждения не меняет", async () => {

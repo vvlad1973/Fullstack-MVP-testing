@@ -130,6 +130,13 @@ export async function inviteReviewers(opts: ReviewInviteOptions): Promise<Review
       const { user, created } = await resolveReviewer(row, { actorId, storage });
 
       const existingGrant = await storage.getTestGrantForUser(testId, user.id);
+      // Грант на тест у человека ОДИН, а `assign` и `review` друг друга не покрывают:
+      // запись `review` молча отняла бы у методиста право назначать этот тест.
+      if (existingGrant?.accessLevel === "assign") {
+        throw new Error(
+          "У пользователя есть право назначать этот тест; приглашение на рецензирование заменило бы его",
+        );
+      }
       // Уже имеющийся edit-доступ не понижаем до `review`: у автора теста и так
       // есть всё, что даёт рецензирование, а понижение отняло бы у него правку.
       const hadAccess = existingGrant?.accessLevel === "review" || existingGrant?.accessLevel === "edit";

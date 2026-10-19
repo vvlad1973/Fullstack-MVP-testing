@@ -262,21 +262,28 @@ export function AssignTestDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/review/reviewers`] });
+      queryClient.invalidateQueries({ queryKey: [candidatesKey] });
       toast({ tone: "success", title: "Доступ отозван", description: "Ссылка рецензента больше не работает." });
     },
     onError: (e: Error) => toast({ tone: "error", title: t.common.error, description: e.message }),
   });
 
-  // Fetch all users
-  const { data: allUsers = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+  /**
+   * Whom the «Пользователи» tab offers. Review mode reads its own candidate list
+   * under `tests.review.invite`: the user registry is gated by `users.read`, which
+   * the author — the role review exists for — does not hold (PRD-52, 14.7). The
+   * server already applies the selection rule there.
+   */
+  const candidatesKey = `/api/tests/${testId}/review/candidates`;
+  const { data: allUsers = [], isError: usersFailed } = useQuery<User[]>({
+    queryKey: [isReview ? candidatesKey : "/api/users"],
     enabled: open,
   });
 
-  // Fetch all groups
+  // Fetch all groups. Review mode has no «Группы» tab (FR-38), so it does not ask.
   const { data: allGroups = [] } = useQuery<Group[]>({
     queryKey: ["/api/groups"],
-    enabled: open,
+    enabled: open && !isReview,
   });
 
   // Assign mutation
@@ -305,7 +312,12 @@ export function AssignTestDialog({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/assignments`] });
+      if (isReview) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/review/reviewers`] });
+        queryClient.invalidateQueries({ queryKey: [candidatesKey] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/assignments`] });
+      }
       setSelectedUserIds([]);
       setSelectedGroupIds([]);
       setDueDate("");
@@ -416,7 +428,8 @@ export function AssignTestDialog({
   const assignedUserIds = new Set(assignments.filter((a) => a.userId).map((a) => a.userId!));
   const groupMemberIds = new Set(assignments.flatMap((a) => a.groupMemberIds ?? []));
   // PRD-54 BR-54-42: an account without email cannot receive the link, so it is not offered.
-  const availableUsers = allUsers.filter(
+  // Review candidates arrive already selected by the server and carry no roles.
+  const availableUsers = isReview ? allUsers : allUsers.filter(
     (u) => !assignedUserIds.has(u.id) && !groupMemberIds.has(u.id) && (u.roles ?? []).includes("learner")
       && Boolean(u.email)
   );
@@ -717,7 +730,12 @@ export function AssignTestDialog({
           </Button>
         </Cluster>
       </Stack>
-      {availableUsers.length === 0 ? (
+      {usersFailed ? (
+        // A refusal is not an empty list: saying «all invited» here hid a 403 (PRD-52, 14.7).
+        <Box padY={7} style={{ textAlign: "center", color: "var(--ou-fg-muted)" }}>
+          <p>Не удалось загрузить список пользователей</p>
+        </Box>
+      ) : availableUsers.length === 0 ? (
         <Box padY={7} style={{ textAlign: "center", color: "var(--ou-fg-muted)" }}>
           <p>{isReview ? "Все пользователи уже приглашены" : "Все пользователи уже назначены"}</p>
         </Box>

@@ -880,6 +880,55 @@ describe("GET /api/tests/:id/access", () => {
   });
 });
 
+// ─── GET /:id/access/users ────────────────────────────────────────────────────
+// The access panel's people list. It used to read `GET /api/users` under
+// `users.read`, which an author does not hold: the owner and grantee names and the
+// add-user combobox came up empty for the very role that grants its own tests.
+describe("GET /api/tests/:id/access/users", () => {
+  let app: express.Express;
+  beforeEach(() => {
+    resetDefaults();
+    storageMock.getUsers.mockResolvedValue([
+      { id: "u2", name: "Мария", email: "maria@t.ru", status: "active", passwordHash: "h", emailHash: "e" },
+      { id: "u3", name: null, email: null, status: "pending" },
+    ]);
+    app = makeApp();
+  });
+
+  it("200 for the owning author, with roles and nothing else", async () => {
+    storageMock.getUserRoles.mockResolvedValue(["author"]);
+    storageMock.getTest.mockResolvedValue({ ...dbTest, ownerId: "author1" });
+    const res = await asAuthor(request(app).get("/api/tests/test1/access/users"));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      { id: "u2", name: "Мария", email: "maria@t.ru", roles: ["author"] },
+      { id: "u3", name: null, email: null, roles: ["author"] },
+    ]);
+  });
+
+  it("403 when a non-owner author asks", async () => {
+    storageMock.getUserRoles.mockResolvedValue(["author"]);
+    storageMock.getTest.mockResolvedValue({ ...dbTest, ownerId: "someone-else" });
+    const res = await asAuthor(request(app).get("/api/tests/test1/access/users"));
+    expect(res.status).toBe(403);
+    expect(storageMock.getUsers).not.toHaveBeenCalled();
+  });
+
+  it("404 when the test does not exist", async () => {
+    storageMock.getTest.mockResolvedValue(undefined);
+    const res = await asAdmin(request(app).get("/api/tests/ghost/access/users"));
+    expect(res.status).toBe(404);
+  });
+
+  it("500 when loading users throws", async () => {
+    storageMock.getTest.mockResolvedValue(dbTest);
+    storageMock.getUsers.mockRejectedValue(new Error("boom"));
+    const res = await asAdmin(request(app).get("/api/tests/test1/access/users"));
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Failed to get users");
+  });
+});
+
 // ─── POST /:id/access ─────────────────────────────────────────────────────────
 describe("POST /api/tests/:id/access", () => {
   let app: express.Express;

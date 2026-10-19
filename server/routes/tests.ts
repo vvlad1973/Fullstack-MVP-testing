@@ -1867,6 +1867,27 @@ router.get("/:id/access", requirePermission("tests.access.grant"), async (req, r
   }
 });
 
+// GET /api/tests/:id/access/users — the people the access panel names and offers.
+// Behind the panel's own gate, not `users.read`: the author grants access to their
+// own tests yet holds no registry right, so `GET /api/users` answered the panel with
+// a 403 and left the owner, the grantees and the add-user list nameless and empty.
+// Only what the panel shows leaves: id, name, email and roles — no groups, no hashes.
+router.get("/:id/access/users", requirePermission("tests.access.grant"), async (req, res) => {
+  try {
+    const test = await storage.getTest(req.params.id);
+    if (!test) return res.status(404).json({ error: "Test not found" });
+    if (!canGrantAccess(req.effectiveRoles ?? [], req.currentUser?.id ?? "", test)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const users = await storage.getUsers();
+    const roles = await Promise.all(users.map((user) => storage.getUserRoles(user.id)));
+    res.json(users.map((user, i) => ({ id: user.id, name: user.name, email: user.email, roles: roles[i] })));
+  } catch (error) {
+    logger.error("Get test access users error: " + (error as Error).message, "tests");
+    res.status(500).json({ error: "Failed to get users" });
+  }
+});
+
 // POST /api/tests/:id/access — grant or update a user's edit/assign access.
 router.post("/:id/access", requirePermission("tests.access.grant"), async (req, res) => {
   try {

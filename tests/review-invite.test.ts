@@ -114,6 +114,18 @@ describe("inviteReviewers", () => {
     expect(storageMock.upsertTestAccessGrant).not.toHaveBeenCalled();
   });
 
+  it("право назначать не заменяется рецензированием: строка уходит в отказ", async () => {
+    storageMock.getUserByEmail.mockResolvedValue({ id: "mgr-1", email: "mgr@x.test", name: "Методист" });
+    storageMock.getTestGrantForUser.mockResolvedValue({ accessLevel: "assign" });
+    const report = await run([{ email: "mgr@x.test" }]);
+    expect(storageMock.upsertTestAccessGrant).not.toHaveBeenCalled();
+    expect(storageMock.createAssignmentAccessToken).not.toHaveBeenCalled();
+    expect(report.failed).toEqual([{
+      email: "mgr@x.test",
+      reason: "У пользователя есть право назначать этот тест; приглашение на рецензирование заменило бы его",
+    }]);
+  });
+
   it("ссылка всё равно выпускается: доступ уже есть, а войти по письму человек хочет", async () => {
     storageMock.getUserByEmail.mockResolvedValue({ id: "u9", email: "expert@x.test", name: "Ирина" });
     storageMock.getTestGrantForUser.mockResolvedValue({ accessLevel: "review" });

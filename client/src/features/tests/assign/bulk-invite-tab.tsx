@@ -370,7 +370,12 @@ export function BulkInviteTab({
       setReport(result);
       setStep("report");
       setGroupNameConflict(false);
-      // The «Назначено (N)» counter and the list behind it are now stale.
+      // The «Назначено (N)» / «Приглашены (N)» counter and the list behind it are now stale.
+      if (isReview) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/review/reviewers`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/review/candidates`] });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/tests/${testId}/assignments`] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/groups"] });

@@ -359,6 +359,41 @@ router.post(
   },
 );
 
+// GET /api/tests/:id/review/candidates — кого можно выбрать на вкладке «Пользователи».
+// Свой маршрут, а не `GET /api/users`: реестр закрыт правом `users.read`, которого у
+// автора нет, и вкладка получала отказ, выглядевший как «все уже приглашены» (PRD-52,
+// 14.7). Позвать можно ЛЮБОГО, независимо от роли (решение владельца 2026-10-19).
+// Не предлагаются: аккаунт без адреса (ссылку некуда отправить), владелец теста и сам
+// приглашающий (рецензирование им ничего не добавляет), уже приглашённые и держатели
+// гранта `assign` — грант на тест у человека один, и приглашение заменило бы им право
+// назначать (см. `inviteReviewers`).
+// Отдаётся только то, что нужно строке выбора: не роли, не группы и не хеши.
+router.get(
+  "/:id/review/candidates",
+  requirePermission("tests.review.invite"),
+  async (req: Request, res: Response) => {
+    try {
+      if (!(await ensureInviteScope(req, res))) return;
+      const test = (await storage.getTest(req.params.id))!;
+      const excluded = new Set(
+        (await storage.getTestAccessGrants(req.params.id))
+          .filter((grant) => grant.accessLevel === "review" || grant.accessLevel === "assign")
+          .map((grant) => grant.userId),
+      );
+      excluded.add(req.currentUser!.id);
+      if (test.ownerId) excluded.add(test.ownerId);
+      res.json(
+        (await storage.getUsers())
+          .filter((user) => user.email && !excluded.has(user.id))
+          .map((user) => ({ id: user.id, email: user.email, name: user.name, status: user.status })),
+      );
+    } catch (error) {
+      logger.error("Review candidates read failed: " + (error as Error).message, "review");
+      res.status(500).json({ error: "Не удалось прочитать список пользователей" });
+    }
+  },
+);
+
 // GET /api/tests/:id/review/template — шаблон книги для списка рецензентов.
 router.get(
   "/:id/review/template",
