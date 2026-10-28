@@ -215,6 +215,21 @@ describe("GET /api/tests — scope filter and error branch", () => {
     expect(res.body[0].id).toBe("test1");
   });
 
+  it("each row carries canAssign: the object-level answer, not the role's", async () => {
+    storageMock.getTests.mockResolvedValue([{ ...dbTest, id: "test1", ownerId: "author1" }]);
+
+    // An author alone owns the test yet may not assign it.
+    storageMock.getUserRoles.mockResolvedValue(["author"]);
+    storageMock.getTestIdsByOwner.mockResolvedValue(["test1"]);
+    const asOwner = await asAuthor(request(app).get("/api/tests"));
+    expect(asOwner.body[0].canAssign).toBe(false);
+
+    // An administrator may assign any test.
+    storageMock.getUserRoles.mockResolvedValue(["administrator"]);
+    const asAdm = await asAdmin(request(app).get("/api/tests"));
+    expect(asAdm.body[0].canAssign).toBe(true);
+  });
+
   it("500 when storage.getTests throws", async () => {
     storageMock.getTests.mockRejectedValue(new Error("db down"));
     const res = await asAdmin(request(app).get("/api/tests"));

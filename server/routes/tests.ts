@@ -16,7 +16,7 @@ import { colorParamKeys } from "@shared/template/theme-params";
 import { resolveTemplateDir, resolveSystemScreenDir } from "../services/template-dir";
 import { requirePermission, requireUserContext } from "../middleware/auth";
 import { requireTestScope } from "../middleware/test-scope";
-import { readableTestScope, canGrantAccess } from "../services/test-access";
+import { readableTestScope, canGrantAccess, canAssignTest } from "../services/test-access";
 import { visibleTopic } from "../services/topic-access";
 import { assessTestPublish } from "../services/draw-feasibility";
 import { assessBreakdownPublish } from "../services/breakdown-warnings";
@@ -512,6 +512,10 @@ router.get("/", requirePermission("tests.read"), async (req, res) => {
         return {
           ...test,
           ownerName,
+          // The row's «Назначить» is drawn by the capability alone on the client;
+          // whether THIS test may be assigned is the object-level answer, so it
+          // travels with the row instead of being guessed from the role.
+          canAssign: await canAssignTest(req.effectiveRoles ?? [], req.currentUser?.id ?? "", test),
           sections: sectionsWithDetails,
           adaptiveSettings,
           publication,

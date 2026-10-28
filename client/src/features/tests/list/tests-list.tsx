@@ -147,6 +147,7 @@ function apiToEntry(row: ApiTestRow): TestListEntry {
     publicationState: (row as { publication?: { state?: TestListEntry["publicationState"] } }).publication?.state,
     unmappedPageCount: (row as { unmappedPageCount?: number }).unmappedPageCount ?? 0,
     openReviewComments: (row as { openReviewComments?: number }).openReviewComments ?? 0,
+    canAssign: (row as { canAssign?: boolean }).canAssign ?? true,
   };
 }
 
@@ -1472,7 +1473,8 @@ function TestRow(props: {
   // PRD-13: gate row actions by capability (the tree is already scope-filtered,
   // so a visible row is always actionable within the role's allowed actions).
   const canEdit = can("tests.edit");
-  const canAssign = can("assignments.manage");
+  // The capability opens the action; the test decides (e.entry scope from the server).
+  const canAssign = can("assignments.manage") && e.canAssign !== false;
   const canAnalytics = can("analytics.read");
   const canDebugPlay = can("tests.debug.play");
   const canAnyMenu =
