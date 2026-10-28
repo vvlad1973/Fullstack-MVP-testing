@@ -197,6 +197,8 @@ export interface TestPayload {
   // PRD-43: independent of allowReturnToUnanswered.
   quickAdvance?: boolean;
   showSectionResults?: boolean;
+  /** Печатать ли карточки тем (`tests.show_topic_results`); отсутствие = печатать. */
+  showTopicResults?: boolean;
   skipReviewWhenComplete?: boolean;
   /** PRD-67: leaving a started section with a time limit closes it. */
   closeSectionOnLeave?: boolean;
@@ -369,6 +371,7 @@ export class TestSettingsService {
         // allowReturnToUnanswered defaulting to true, i.e. flexible-two-step).
         quickAdvance: payload.test.quickAdvance ?? false,
         showSectionResults: payload.test.showSectionResults ?? true,
+        showTopicResults: payload.test.showTopicResults ?? true,
         // Обзор при полностью отвеченном объёме: новый тест ведёт себя как прежде.
         skipReviewWhenComplete: payload.test.skipReviewWhenComplete ?? false,
         // PRD-67: новый тест — выход из раздела лишь замораживает время, как прежде.

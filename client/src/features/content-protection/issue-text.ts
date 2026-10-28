@@ -75,5 +75,8 @@ export function describeBreakdownWarning(w: BreakdownWarning): string {
     case "gate_without_display":
       return w.message
         ?? "Подтемы учитываются в вердикте темы, но подытоги по подтемам скрыты — участник не увидит причину.";
+    case "breakdown_inside_hidden_cards":
+      return w.message
+        ?? "Карточки тем выключены, а подытоги по подтемам настроены «В карточках тем» — они нигде не покажутся.";
   }
 }

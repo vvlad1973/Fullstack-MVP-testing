@@ -667,6 +667,8 @@ export type TestEditorModel = {
     // PRD-43: НЕЗАВИСИМ от allowReturnToUnanswered; взаимоискл. с showCorrectAnswers (гасится в UI).
     quickAdvance: boolean;
     showSectionResults: boolean; // FR-05a (секционные)
+    /** Печатать ли карточки «Результаты по темам» на экране итогов и в отчёте (`tests.show_topic_results`); отсутствие = печатать. */
+    showTopicResults?: boolean;
     // Обзор при полностью отвеченном объёме — авторское решение (см. `review-gate`).
     skipReviewWhenComplete: boolean;
     /**
@@ -815,6 +817,7 @@ export type TestSettingsPayload = {
   // PRD-43: независим от allowReturnToUnanswered.
   quickAdvance: boolean;
   showSectionResults: boolean;
+  showTopicResults?: boolean;
   skipReviewWhenComplete: boolean;
   // PRD-67: leaving a started section with a time limit closes it.
   closeSectionOnLeave: boolean;

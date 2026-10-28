@@ -185,6 +185,24 @@ describe("1. apiToEditorModel — standard test with sections", () => {
     expect(editorModelToPayload(model).breakdownGateEnabled).toBe(true);
   });
 
+  // Карточки «Результаты по темам»: переключатель живёт в `runtime` и обязан пережить круг
+  // «ответ API → модель → payload»; тест до колонки печатал карточки, и читается он так же.
+  it("карточки тем: выключенный переключатель читается и пишется, отсутствие = печатать", () => {
+    const base = {
+      id: "t",
+      title: "T",
+      mode: "standard" as const,
+      status: "draft" as const,
+      overallPassRuleJson: { type: "percent" as const, value: 70 },
+    };
+    const off = apiToEditorModel({ ...base, showTopicResults: false });
+    expect(off.runtime.showTopicResults).toBe(false);
+    expect(editorModelToPayload(off).showTopicResults).toBe(false);
+    const legacy = apiToEditorModel(base);
+    expect(legacy.runtime.showTopicResults).toBe(true);
+    expect(editorModelToPayload(legacy).showTopicResults).toBe(true);
+  });
+
   // Тест, сохранённый до §16, судится ровно как судился: колонка `NOT NULL DEFAULT false`,
   // а отсутствие поля в ответе — то же «выключено».
   it("PRD-50 FR-53: отсутствие поля читается как выключено", () => {

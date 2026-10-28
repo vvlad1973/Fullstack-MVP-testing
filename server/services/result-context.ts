@@ -180,6 +180,12 @@ export interface MeasuresSource {
    */
   breakdownDisplayJson?: BreakdownDisplaySetting | null;
   /**
+   * Печатать ли карточки тем (`tests.show_topic_results`), из ВЫДАННОЙ версии теста. Только
+   * явное `false` гасит их — отсутствие (тест до переключателя, материал не прочитан)
+   * оставляет экран и отчёт прежними. Едет тем же путём, что {@link breakdownDisplayJson}.
+   */
+  showTopicResults?: boolean;
+  /**
    * Заголовки итога — свойства узла «Итоги теста» (`content_pages.settings_json` страницы
    * `results`). Едут ЗДЕСЬ, а не в `blockSettings`, потому что действуют на каждый тест:
    * `blockSettings` доезжает до построителя только внутри `measures`, то есть у теста со
@@ -515,6 +521,7 @@ export function buildResultContext(
       // column absent (every test predating this PRD) resolves to the builder's own
       // «hidden» default and prints no rows, whatever {@link TopicInput.breakdown} carries.
       breakdownDisplay: measures?.breakdownDisplayJson ?? null,
+      ...(measures?.showTopicResults === false ? { showTopicResults: false } : {}),
       ...barFillOption(measures),
       // Вводный блок ЭКРАНА: у отчёта свой текст, и путать их нельзя — адресаты разные.
       ...(measures?.intro?.results ? { intro: measures.intro.results } : {}),
@@ -554,6 +561,8 @@ function reportFeedbackMeta(measures?: MeasuresSource): Partial<ReportMeta> {
     // отчёт печатает полосы разреза ровно тогда же, когда их печатает экран, с
     // которого его скачали (§5.2).
     ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
+    // Карточки тем — тот же переключатель, что у экрана (§5.2).
+    ...(measures?.showTopicResults === false ? { showTopicResults: false } : {}),
     // Окраска полос подтем — из тех же параметров оформления, что красят экран.
     ...barFillOption(measures),
     // Заголовки итога — тем же приёмом: документ печатает ту же шапку, что экран.
@@ -731,6 +740,7 @@ export function buildAdaptiveResultContext(
       ...(hasMeasures ? { measures: buildMeasuresInput(measures as MeasuresSource) } : {}),
       // PRD-50 FR-13: настройка показа — тот же источник, что у обычного экрана.
       ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
+      ...(measures?.showTopicResults === false ? { showTopicResults: false } : {}),
       ...barFillOption(measures),
       // PRD-49. Same wording, its OWN screen: the adaptive results screen may carry
       // per-screen defaults and, in the shipped manifest, a different sub-block list

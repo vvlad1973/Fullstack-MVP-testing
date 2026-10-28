@@ -476,6 +476,8 @@ function renderAdaptiveResultsTemplated(app, result) {
   // PRD-50 FR-13: настройка показа, выпеченная в TEST_DATA только когда автор её включил —
   // тот же признак, что читает обычный экран (`viewResults.js`). Без неё блока нет.
   if (TEST_DATA.breakdownDisplay) adaptiveOpts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  // Карточки «Результаты по темам»: в TEST_DATA попадает только явное `false`; отсутствие — печатать.
+  if (TEST_DATA.showTopicResults === false) adaptiveOpts.showTopicResults = false;
   // Окраска полос сводного блока — тем же правилом, что у обычного экрана (`viewResults.js`).
   var adaptiveBarFill = (typeof resultsBarFill === 'function') ? resultsBarFill() : null;
   if (adaptiveBarFill) adaptiveOpts.barFill = adaptiveBarFill;

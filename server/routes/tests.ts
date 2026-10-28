@@ -183,6 +183,8 @@ const testBodyBaseSchema = z.object({
   // PRD-43: independent of allowReturnToUnanswered.
   quickAdvance: z.boolean().optional(),
   showSectionResults: z.boolean().optional(),
+  // Карточки «Результаты по темам» на экране итогов и в отчёте; умолчание колонки — печатать.
+  showTopicResults: z.boolean().optional(),
   // Обзор при полностью отвеченном объёме — авторское решение, см. `review-gate`.
   skipReviewWhenComplete: z.boolean().optional(),
   // PRD-67: leaving a started section with a time limit closes it (see schema).
@@ -772,6 +774,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
       allowAnswerChange,
       quickAdvance,
       showSectionResults,
+      showTopicResults,
       skipReviewWhenComplete,
       closeSectionOnLeave,
       lmsAttemptResult,
@@ -869,6 +872,7 @@ router.post("/", requirePermission("tests.create"), async (req, res) => {
         allowAnswerChange,
         quickAdvance,
         showSectionResults,
+        showTopicResults,
         skipReviewWhenComplete,
         closeSectionOnLeave,
         lmsAttemptResult,
@@ -1266,6 +1270,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
       allowAnswerChange,
       quickAdvance,
       showSectionResults,
+      showTopicResults,
       skipReviewWhenComplete,
       closeSectionOnLeave,
       lmsAttemptResult,
@@ -1343,6 +1348,7 @@ router.put("/:id", requirePermission("tests.edit"), requireTestScope("edit"), as
         allowAnswerChange,
         quickAdvance,
         showSectionResults,
+        showTopicResults,
         skipReviewWhenComplete,
         closeSectionOnLeave,
         lmsAttemptResult,

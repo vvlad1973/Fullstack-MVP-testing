@@ -650,6 +650,8 @@ function renderViewResultsTemplated(app, results) {
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
   // byte-identical to what it was before this PRD.
   if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  // Карточки «Результаты по темам»: в TEST_DATA попадает только явное `false`; отсутствие — печатать.
+  if (TEST_DATA.showTopicResults === false) opts.showTopicResults = false;
   var barFill = resultsBarFill();
   if (barFill) opts.barFill = barFill;
   // Заголовки итога: их читает ТОТ ЖЕ построитель, что на вебе, — расхождение шапки между
@@ -772,6 +774,8 @@ function renderResultsTemplated(app, results) {
   // when turned on (`build-export-data`/`test-json.ts`) — absent keeps this context
   // byte-identical to what it was before this PRD.
   if (TEST_DATA.breakdownDisplay) opts.breakdownDisplay = TEST_DATA.breakdownDisplay;
+  // Карточки «Результаты по темам»: в TEST_DATA попадает только явное `false`; отсутствие — печатать.
+  if (TEST_DATA.showTopicResults === false) opts.showTopicResults = false;
   var barFill = resultsBarFill();
   if (barFill) opts.barFill = barFill;
   // Заголовки итога: их читает ТОТ ЖЕ построитель, что на вебе, — расхождение шапки между

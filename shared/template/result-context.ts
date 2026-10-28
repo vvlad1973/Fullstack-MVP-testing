@@ -739,6 +739,14 @@ export interface ResultContextOptions {
   /** Add the per-topic "Баллов" row (`pointsLabel`) — SCORM shows it, web omits. */
   withTopicPoints?: boolean;
   /**
+   * Печатать ли карточки «Результаты по темам» (`tests.show_topic_results`). ТОЛЬКО явное
+   * `false` гасит их; отсутствие значит «печатать», то есть контекст теста до этого
+   * переключателя остаётся прежним. Гасятся сами карточки вместе с блоками разделов и
+   * вложенными строками разреза: вердикт, «Рекомендации» и сводный блок разреза читают
+   * `input.topicResults` напрямую и от переключателя не зависят.
+   */
+  showTopicResults?: boolean;
+  /**
    * Заголовки итога этого теста (см. {@link ResultHeadings}). Отсутствие оставляет
    * контекст прежним до поля.
    */
@@ -1281,7 +1289,7 @@ export function buildResultContext(
   // The card is kept PAIRED with the input it came from: the groups below are resolved off
   // the input's `groupKey` and `passed`, which the presentational view no longer carries
   // (it holds a class and a label instead — deliberately, so the layout cannot judge).
-  const topicCards = (input.topicResults || [])
+  const topicCards = (opts.showTopicResults === false ? [] : input.topicResults || [])
     .filter(topicHasContent)
     .map((t) => ({
       groupKey: t.groupKey ?? null,
@@ -1707,6 +1715,8 @@ export interface AdaptiveResultContextOptions {
    * would be worse than telling them what the mode can do.
    */
   breakdownDisplay?: BreakdownDisplaySetting | null;
+  /** Печатать ли карточки тем — см. {@link ResultContextOptions.showTopicResults}. */
+  showTopicResults?: boolean;
   /** Bar colouring of the summary block — see {@link ResultContextOptions.barFill}. */
   barFill?: BarFillSetting | null;
   /**
@@ -1817,7 +1827,7 @@ export function buildAdaptiveResultContext(
   const result: CtxResult = {
     passed: !!input.passed,
     adaptive: true,
-    topicResults: (input.topicResults || []).map(adaptiveTopicView),
+    topicResults: (opts.showTopicResults === false ? [] : input.topicResults || []).map(adaptiveTopicView),
   };
   // PRD-50 FR-28: сводный блок разреза — ТОТ ЖЕ заполнитель, что у стандартного экрана.
   // Записи для адаптивной попытки считаются и хранятся давно (FR-17/FR-39), но до этого

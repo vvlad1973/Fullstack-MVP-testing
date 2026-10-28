@@ -54,6 +54,7 @@ const ROUND_TRIP_SOURCE = {
   allowAnswerChange: false,
   quickAdvance: true,
   showSectionResults: false,
+  showTopicResults: false,
   skipReviewWhenComplete: true,
   closeSectionOnLeave: true,
   copyProtection: false,
@@ -373,6 +374,9 @@ describe("реестр листа «Настройки»", () => {
       // книги обязаны читаться, и его отсутствие в них значит «настройка не меняется».
       allowFreeSectionNavigation: true,
       showSectionResults: false,
+      // Карточки «Результаты по темам»: параметр листа добавлен, прежние книги без него не меняют
+      // настройку.
+      showTopicResults: false,
       skipReviewWhenComplete: true,
       // PRD-67: добавлен параметр листа; прежние книги без него настройку не трогают.
       closeSectionOnLeave: true,

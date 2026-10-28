@@ -111,6 +111,8 @@ export type ApiTestResponse = {
   // PRD-43: независим от allowReturnToUnanswered.
   quickAdvance?: boolean | null;
   showSectionResults?: boolean | null;
+  /** Печатать ли карточки тем; поля нет у ответа до колонки — читается как «печатать». */
+  showTopicResults?: boolean | null;
   skipReviewWhenComplete?: boolean | null;
   closeSectionOnLeave?: boolean | null;
   lmsAttemptResult?: "best" | "last" | null;
@@ -1300,6 +1302,7 @@ export function emptyEditorModel(args: { folderId: string | null }): TestEditorM
       // + ВЫКЛ быстрого перехода).
       quickAdvance: false,
       showSectionResults: true,
+      showTopicResults: true,
       skipReviewWhenComplete: false,
       // PRD-67: новый тест — выход из раздела лишь замораживает время.
       closeSectionOnLeave: false,
@@ -1435,6 +1438,8 @@ export function apiToEditorModel(api: unknown): TestEditorModel {
       // PRD-19 (Блок A): итоги раздела ВКЛ по умолчанию.
       showSectionResults:
         typeof src.showSectionResults === "boolean" ? src.showSectionResults : true,
+      showTopicResults:
+        typeof src.showTopicResults === "boolean" ? src.showTopicResults : true,
       skipReviewWhenComplete:
         typeof src.skipReviewWhenComplete === "boolean" ? src.skipReviewWhenComplete : false,
       // PRD-67: a response without the column is a test that never closed sections.
@@ -1539,6 +1544,7 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
     allowAnswerChange: model.runtime.allowAnswerChange,
     quickAdvance: model.runtime.quickAdvance,
     showSectionResults: model.runtime.showSectionResults,
+    showTopicResults: model.runtime.showTopicResults,
     skipReviewWhenComplete: model.runtime.skipReviewWhenComplete,
     closeSectionOnLeave: model.runtime.closeSectionOnLeave,
     lmsAttemptResult: model.runtime.lmsAttemptResult,

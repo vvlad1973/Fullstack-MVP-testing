@@ -166,6 +166,8 @@ export function ReportSettingsCard(props: {
   headings?: ReportPreviewTest["headings"];
   /** Настройка показа подытогов теста; уходит в предпросмотр. */
   breakdownDisplay?: ReportPreviewTest["breakdownDisplay"];
+  /** Печатать ли карточки тем; уходит в предпросмотр. */
+  showTopicResults?: boolean;
   /** Группы тем теста; уходят в предпросмотр. */
   sectionGroups?: ReportPreviewTest["sectionGroups"];
   /** Вводные блоки теста (PRD-61 FR-23); уходят в предпросмотр. */
@@ -446,6 +448,7 @@ export function ReportSettingsCard(props: {
         testName={props.testName ?? ""}
         headings={props.headings}
         breakdownDisplay={props.breakdownDisplay}
+        showTopicResults={props.showTopicResults}
         sectionGroups={props.sectionGroups}
         intro={props.intro}
         sections={props.sections ?? []}

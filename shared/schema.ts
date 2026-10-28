@@ -814,6 +814,14 @@ export const tests = pgTable("tests", {
    */
   breakdownGateEnabled: boolean("breakdown_gate_enabled").notNull().default(false),
   /**
+   * Показывать ли карточки «Результаты по темам» — на экране итогов и в отчёте разом.
+   * `true` (умолчание и значение для всех существующих тестов) = печатать, как печатали
+   * всегда. `false` гасит ТОЛЬКО сами карточки вместе с вложенными строками разреза:
+   * вердикт по темам, блок «Рекомендации» и сводный блок разреза читают данные тем до
+   * этого переключателя и не меняются.
+   */
+  showTopicResults: boolean("show_topic_results").notNull().default(true),
+  /**
    * PRD-50 FR-11: named groups of sections, in author order (see {@link sectionGroupSchema}).
    * Null/empty = no groups, and the results screen prints exactly the flat list of topic
    * cards every test has printed so far (FR-27).

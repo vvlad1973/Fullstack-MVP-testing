@@ -95,6 +95,12 @@ export interface ReportMeta {
    */
   breakdownDisplay?: BreakdownDisplaySetting | null;
   /**
+   * Печатать ли карточки «Результаты по темам» (`tests.show_topic_results`) — тот же класс
+   * факта, что {@link breakdownDisplay}: свойство экрана итогов, которое документ обязан
+   * повторить (PRD-51 §5.2). Только явное `false` гасит карточки; отсутствие = печатать.
+   */
+  showTopicResults?: boolean;
+  /**
    * Окраска полос подтем (параметр оформления `breakdownBarFill`, разрешённый
    * {@link module:shared/template/bar-fill barFillFromParams}) — тот же класс факта, что
    * {@link breakdownDisplay}: свойство экрана итогов, которое документ обязан повторить

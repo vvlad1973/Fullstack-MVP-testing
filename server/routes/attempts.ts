@@ -658,6 +658,9 @@ async function resultsMaterialForAttempt(
       // was never set) leaves it `null`, which `buildResultContext` resolves to
       // «hidden» — the byte-identical results screen this test has always shown.
       breakdownDisplayJson: deliveredTest?.breakdownDisplayJson ?? null,
+      // Карточки тем: из той же ВЫДАННОЙ версии. Снимок морозит строку теста целиком, а у
+      // снимка до колонки поля нет — `!== false` читает это как «печатать».
+      showTopicResults: deliveredTest?.showTopicResults !== false,
       // PRD-50 FR-11: блоки разделов теста, из той же ВЫДАННОЙ версии, что и всё
       // остальное здесь. Отсутствие (тест блоков не заводил) оставляет `null`, и экран
       // печатает плоский список тем — ровно тот, что печатал до этого PRD (FR-27).

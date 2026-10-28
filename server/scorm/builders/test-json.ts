@@ -328,6 +328,10 @@ export function buildTestJson(data: ExportData): string {
     // `TEST_DATA.sectionGroups`, а отсутствие значит «блоков нет» — тот самый плоский
     // список тем, который печатал каждый пакет до этого PRD.
     ...(data.test.sectionGroupsJson?.length ? { sectionGroups: data.test.sectionGroupsJson } : {}),
+    // Карточки «Результаты по темам»: выпекается ТОЛЬКО `false`, поэтому пакет теста, который
+    // переключателя не касался, остаётся байт-в-байт прежним; рантайм читает отсутствие как
+    // «печатать».
+    ...(data.test.showTopicResults === false ? { showTopicResults: false } : {}),
     timeLimitMinutes: data.test.timeLimitMinutes || null,
     maxAttempts: data.test.maxAttempts || null,
     showCorrectAnswers: data.test.showCorrectAnswers || false,
