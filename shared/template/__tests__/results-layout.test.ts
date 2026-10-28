@@ -243,7 +243,37 @@ describe("section-results layout (PRD-49)", () => {
       html = compileTemplate(SECTION_LAYOUT)(ctxWithoutLabels);
     }).not.toThrow();
     expect(html).not.toContain("Итоги раздела");
-    // Content itself still prints — only the labels are gone.
-    expect(html).toContain('data-path="sectionResult.total"');
+    // A fact whose label is gone is gone with its number: a bare figure explains nothing.
+    expect(html).not.toContain('data-path="sectionResult.total"');
+  });
+
+  it("drops the whole fact, number included, when its label is switched off", () => {
+    const html = compileTemplate(SECTION_LAYOUT)({
+      ...SECTION_CTX,
+      labels: { ...SECTION_CTX.labels, facts: { questions: "", correct: "верно" } },
+    });
+    expect(html).not.toContain('data-path="sectionResult.total"');
+    expect(html).toContain("верно");
+  });
+});
+
+describe("results layout facts (switched-off labels)", () => {
+  const withFacts = (facts: Record<string, string>) =>
+    compileTemplate(LAYOUT)({
+      ...CTX,
+      result: { ...CTX.result, blocks: [{ key: "summary", heading: "Общий балл", isSummary: true }] },
+      labels: { ...CTX.labels, facts },
+    });
+
+  it("drops only the fact whose label is switched off, number included", () => {
+    const html = withFacts({ questions: "вопросов", correct: "", points: "баллов" });
+    expect(html).toContain('data-path="result.totalQuestions"');
+    expect(html).not.toContain('data-path="result.correct"');
+    expect(html).toContain('data-path="result.earnedPoints"');
+  });
+
+  it("prints no fact numbers when all three labels are switched off", () => {
+    const html = withFacts({ questions: "", correct: "", points: "" });
+    expect(html).not.toContain("tb-facts__num");
   });
 });
