@@ -384,6 +384,14 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
   const queryClient = useQueryClient();
 
   const drawerRef = useRef<HTMLElement | null>(null);
+  const saveErrorRef = useRef<HTMLDivElement | null>(null);
+
+  // The save-error banner sits at the TOP of the scrolled body. An author who
+  // pressed «Применить» deep down a long tab never saw it and read the failed
+  // save as «the button does nothing» — so bring the banner into view.
+  useEffect(() => {
+    if (editor.saveError) saveErrorRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [editor.saveError]);
 
   // NFR-19: focus the first interactive element (the first tab) on open.
   // The Drawer stays mounted between openings, so the initial tab has to be
@@ -912,6 +920,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
           )}
           {editor.saveError && (
             <Banner
+              ref={saveErrorRef}
               tone="error"
               title="Не удалось сохранить тест"
               description={
