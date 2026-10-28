@@ -25,6 +25,7 @@ import {
   applyFormSetChange,
 } from "../test-editor.mappers";
 import type { TestEditorModel } from "../test-editor.types";
+import { retakePolicySchema } from "@shared/schema";
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -899,6 +900,25 @@ describe("PRD-6 — retakePolicy mapping", () => {
       cooldownPeriodDays: 30,
       eligibilityPlugin: { key: "webtutor_cooldown", failPolicy: "failOpen" },
     });
+  });
+
+  it("a test with no policy, switched to outcome-split with the periods untouched, passes the server schema", () => {
+    // Regression: the period inputs SHOW 30 when the model has no value, but the
+    // default policy carried none — the save went out without
+    // `cooldownPeriodDaysPassed` and the server answered 400 on every attempt.
+    const fresh = apiToEditorModel({ id: "t", mode: "standard", sections: [] });
+    const payload = editorModelToPayload({
+      ...fresh,
+      retakePolicy: {
+        ...fresh.retakePolicy,
+        enabled: true,
+        cooldownByOutcome: true,
+        // The author edited only the «после неуспешной» period, as in the incident.
+        cooldownPeriodDaysFailed: 7,
+      },
+    });
+    expect(retakePolicySchema.safeParse(payload.retakePolicyJson).success).toBe(true);
+    expect(payload.retakePolicyJson).toMatchObject({ cooldownPeriodDaysPassed: 30, cooldownPeriodDaysFailed: 7 });
   });
 });
 

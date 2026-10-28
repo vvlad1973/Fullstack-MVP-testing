@@ -1055,6 +1055,13 @@ export function defaultRetakePolicy(): RetakePolicy {
     enabled: false,
     cooldownPeriodDays: 30,
     cooldownByOutcome: false,
+    // The split periods are seeded with the value their inputs SHOW. Left out, a test
+    // that never had a policy displayed 30 in an untouched field but sent nothing,
+    // and switching «Разделять период по результату попытки» on made every save a
+    // 400 (`cooldownPeriodDaysPassed обязателен…`). `readRetakePolicyFromApi` fills
+    // both the same way, so a saved policy and a fresh one now agree.
+    cooldownPeriodDaysPassed: 30,
+    cooldownPeriodDaysFailed: 30,
     gateMode: "before_internal_start",
     eligibilityPlugin: null,
     attemptInterval: null,
