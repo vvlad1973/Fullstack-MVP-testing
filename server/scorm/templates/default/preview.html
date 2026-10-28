@@ -5381,6 +5381,18 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 .ou-modal--l { max-width: 720px; }
 .ou-modal--xl { max-width: 960px; }
 
+/* fill: the dialog keeps one height instead of growing with its content (tabs and steps
+   do not make it jump). The body takes the rest as a column, 4x between its blocks; it
+   scrolls itself, the footer stays at the bottom.
+   The height leaves the toast zone free: toasts stack at the bottom right, so the footer
+   actions must end above one toast (stack offset + a title-and-description toast, 64px)
+   plus 4x. The dialog is centred, hence the same inset on top. */
+.ou-modal--fill {
+  --ou-modal-fill-inset: calc(var(--ou-space-5) + 64px + var(--ou-space-4));
+  height: calc(100vh - var(--ou-modal-fill-inset) * 2);
+}
+.ou-modal--fill > .ou-modal__body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--ou-space-4); }
+
 /* Модульная сетка: от краёв окна 6x, после заголовка 1x — заголовок и содержимое родственны. */
 .ou-modal__head { display: flex; align-items: flex-start; gap: var(--ou-space-4); padding: var(--ou-space-6) var(--ou-space-6) var(--ou-space-1); }
 .ou-modal__head-text { flex: 1; min-width: 0; }
@@ -5397,6 +5409,13 @@ a.ou-crumbs__crumb:hover { color: var(--ou-fg-default); background: var(--ou-bg-
 /* До и после разделителя — 4x. */
 .ou-modal__foot { display: flex; justify-content: flex-end; gap: var(--ou-space-2); padding: var(--ou-space-4) var(--ou-space-6); border-top: 1px solid var(--ou-border-soft); }
 .ou-modal__foot--between { justify-content: space-between; }
+
+/* The 4px grid (1x related, 4x different) inside a fill dialog ONLY. The same intervals
+   are off the grid in the DS defaults everywhere; making them the default is tech debt
+   (ROADMAP, section 0.0.4, item 19), then these scoped rules go. */
+.ou-modal--fill > .ou-modal__foot { gap: var(--ou-space-1); }
+.ou-modal--fill .ou-field { gap: var(--ou-space-1); }
+.ou-modal--fill .ou-tabs__panel { padding-top: var(--ou-space-4); }
 
 /* Icon-led variant (alert / success / info) */
 .ou-modal__head--icon .ou-modal__icon {
@@ -7415,6 +7434,11 @@ button.ou-stepper__step:disabled { cursor: not-allowed; opacity: 0.6; }
 
 .ou-tabs__panel { padding-top: var(--ou-space-5); }
 
+/* fill: the active panel takes what the tab list leaves and scrolls itself. The parent
+   is a flex column with a bounded height (ModalDialog fill). */
+.ou-tabs--fill { flex: 1; min-height: 0; }
+.ou-tabs--fill > .ou-tabs__panel { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+
 
 /* ─── Tag.css ───────────────────────────────── */
 /* Skillum · Tag — static informational labels (statuses, metadata) */
@@ -8180,6 +8204,36 @@ button.ou-stepper__step:disabled { cursor: not-allowed; opacity: 0.6; }
 .ou-transfer__summary-text { font: var(--ou-text-body-s); color: var(--ou-fg-default); }
 .ou-transfer__summary-text strong { font-weight: 600; }
 .ou-transfer__summary-text strong { color: var(--ou-accent-default); }
+
+/* fill: the panes reach the parent's bottom, the lists scroll inside them. The picker
+   never shrinks below 360px, so a list keeps at least 240px (four and a half rows) under
+   the pane's header, search and toolbar; on a low screen the parent scrolls instead.
+   The minimum is set on the picker itself: the intrinsic minimum of a grid row or a
+   flex column would be the height of ALL the list's rows, not its min-height. */
+.ou-transfer--fill { flex: 1; min-height: 360px; grid-template-rows: minmax(0, 1fr); }
+.ou-transfer--fill .ou-transfer__pane { min-height: 0; }
+
+/* above: a row over the panes in the SAME grid, so its content lines up with the panes
+   edge to edge — left, right, or across both panes and the arrows. */
+.ou-transfer--has-above > .ou-transfer__pane,
+.ou-transfer--has-above > .ou-transfer__controls { grid-row: 2; }
+/* The row above (a 64px field) and its 4x gap add to the minimum. */
+.ou-transfer--fill.ou-transfer--has-above { min-height: 440px; grid-template-rows: auto minmax(0, 1fr); }
+.ou-transfer__above { min-width: 0; }
+.ou-transfer__above--left { grid-row: 1; grid-column: 1; }
+.ou-transfer__above--right { grid-row: 1; grid-column: 3; }
+.ou-transfer__above--span { grid-row: 1; grid-column: 1 / -1; }
+
+/* The 4px grid inside a fill list ONLY (tech debt as above): a pane is a panel, its
+   content sits 6x from the edges; related things in a band 1x, different things 4x. */
+.ou-transfer--fill .ou-transfer__header,
+.ou-transfer--fill .ou-transfer__search,
+.ou-transfer--fill .ou-transfer__toolbar,
+.ou-transfer--fill .ou-transfer__row { padding-left: var(--ou-space-6); padding-right: var(--ou-space-6); }
+.ou-transfer--fill .ou-transfer__search,
+.ou-transfer--fill .ou-transfer__select-all,
+.ou-transfer--fill .ou-transfer__row { gap: var(--ou-space-1); }
+.ou-transfer--fill .ou-transfer__toolbar { gap: var(--ou-space-4); }
 
 
 /* ─── Tree.css ───────────────────────────────── */
@@ -22283,14 +22337,14 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   function buildReportPages(rendered, doc, mount) {
     const { cover, rest } = pageBackgrounds(rendered, doc);
     const pad3 = pagePadding(rendered, doc);
-    const usable = usablePageHeight(rendered, doc);
+    const usable2 = usablePageHeight(rendered, doc);
     const parent = mount != null ? mount : rendered.parentElement;
     return buildReportSheets(rendered, doc, mount).map((sheet, index) => {
       const background = index === 0 ? cover : rest;
       const page = doc.createElement("div");
       page.className = "tb-report-page";
       page.style.cssText = `position:relative;width:${PAGE_WIDTH_PX}px;height:${PAGE_HEIGHT_PX}px;overflow:hidden;` + (background ? `background:${background};` : "");
-      const shown = Math.max(0, Math.min(sheet.height, usable));
+      const shown = Math.max(0, Math.min(sheet.height, usable2));
       const window = doc.createElement("div");
       window.style.cssText = `position:absolute;left:0;right:0;top:${pad3.top}px;height:${Math.round(shown)}px;overflow:hidden;`;
       const inner = sheet.root.cloneNode(true);
@@ -22307,12 +22361,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   }
   function buildReportSheets(rendered, doc, mount) {
     const scale = renderScale2(rendered);
-    const usable = usablePageHeight(rendered, doc);
+    const usable2 = usablePageHeight(rendered, doc);
     const pad3 = pagePadding(rendered, doc);
     const breakBefore = new Set(
       [...rendered.children].flatMap((child, i) => child.matches(PAGE_BREAK_SELECTOR) ? [i] : [])
     );
-    const planned = paginateBlocks(measureBlocks(rendered, scale), usable, breakBefore);
+    const planned = paginateBlocks(measureBlocks(rendered, scale), usable2, breakBefore);
     const plan = planned.length ? planned : [{ blocks: [], offset: 0, height: 0 }];
     if (plan.length === 1) {
       const measuredOnly = contentHeight(rendered, scale);
@@ -22320,7 +22374,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       const forcedInside = forcedCutLines(rendered, scale).filter(
         (line) => line - pad3.top > 0 && line - pad3.top < onlyHeight
       );
-      if (onlyHeight <= usable && !forcedInside.length) {
+      if (onlyHeight <= usable2 && !forcedInside.length) {
         return [{ root: rendered, top: 0, height: onlyHeight }];
       }
     }
@@ -22340,7 +22394,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       const lines = safeCutLines(sheetRoot, doc, scale).map((line) => line - pad3.top);
       const blockLines = blockCutLines(sheetRoot, scale, MIN_BLOCK_HEIGHT_PX).map((line) => line - pad3.top);
       const forcedLines = forcedCutLines(sheetRoot, scale).map((line) => line - pad3.top);
-      for (const slice of sliceBySafeLines(lines, height, usable, { blockLines, forcedLines })) {
+      for (const slice of sliceBySafeLines(lines, height, usable2, { blockLines, forcedLines })) {
         sheets.push({ root: sheetRoot, top: slice.top, height: slice.height });
       }
     }
@@ -22579,7 +22633,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
 
   // shared/sim/contract.ts
   var RESULT_FORMAT = "skillum.sim-result";
-  var CONTRACT_VERSION = 1;
+  var CONTRACT_VERSION = 2;
+  var RESULT_VERSION = 2;
 
   // shared/sim/geometry.ts
   function boundsOf(z) {
@@ -22635,6 +22690,149 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return points.map((p) => `${p[0]},${p[1]}`).join(" ");
   }
 
+  // shared/sim/costs.ts
+  var DEFAULT_ACTION_COSTS = Object.freeze({
+    click: 1,
+    dblclick: 1,
+    rightclick: 1,
+    hover: 0.5,
+    drag: 1.5,
+    tap: 1,
+    doubletap: 1,
+    longpress: 1,
+    "swipe-left": 1,
+    "swipe-right": 1,
+    "swipe-up": 1,
+    "swipe-down": 1,
+    key: 0.5,
+    field: 1
+  });
+  var usable = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0;
+  function actionCost(action, costs) {
+    var _a;
+    if (usable(action.cost)) return action.cost;
+    const kind = typeof action.keys === "string" ? "key" : (_a = action.action) != null ? _a : "click";
+    const own = costs == null ? void 0 : costs[kind];
+    return usable(own) ? own : DEFAULT_ACTION_COSTS[kind];
+  }
+  function fieldCost(costs) {
+    return usable(costs == null ? void 0 : costs.field) ? costs.field : DEFAULT_ACTION_COSTS.field;
+  }
+
+  // shared/sim/contract-v1.ts
+  var CONTRACT_V1 = 1;
+
+  // shared/sim/upgrade.ts
+  var ScenarioUpgradeError = class extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "ScenarioUpgradeError";
+    }
+  };
+  var isObj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+  var upgraded = /* @__PURE__ */ new WeakMap();
+  function liftV1(raw) {
+    var _a;
+    const notes = [];
+    const sceneList = Array.isArray(raw.scenes) ? raw.scenes : null;
+    const success = (sceneList != null ? sceneList : []).filter(
+      (s) => isObj(s) && isObj(s.goal) && s.goal.outcome === "success"
+    );
+    const checkSets = new Set(success.map((s) => {
+      var _a2;
+      return JSON.stringify((_a2 = s.goal.checks) != null ? _a2 : []);
+    }));
+    const conflict = checkSets.size > 1 ? `\u0421\u0446\u0435\u043D\u044B-\u0446\u0435\u043B\u0438 ${success.map((s) => `\xAB${String(s.title || s.id)}\xBB`).join(", ")} \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u044E\u0442 \u0440\u0430\u0437\u043D\u044B\u0435 \u043F\u043E\u043B\u044F: \u0432 \u0432\u0435\u0440\u0441\u0438\u0438 2 \u0443 \u0441\u0446\u0435\u043D\u0430\u0440\u0438\u044F \u043E\u0434\u043D\u0430 \u0446\u0435\u043B\u044C \u2014 \u043E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0443 \u043D\u0438\u0445 \u043E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u044B\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438` : null;
+    const scenes = sceneList ? sceneList.map((s) => {
+      if (!isObj(s)) return s;
+      const { goal, views: views2, ...rest } = s;
+      if (Array.isArray(views2) && views2.length > 0) {
+        notes.push(`\u0421\u0446\u0435\u043D\u0430 \xAB${String(s.title || s.id)}\xBB: \u0440\u0430\u0441\u043A\u043B\u0430\u0434\u043A\u0430 views \u0432\u0435\u0440\u0441\u0438\u0438 1 \u043D\u0435 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u0441\u044F \u2014 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0437\u0430\u0434\u0430\u0451\u0442\u0441\u044F \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u043C \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u043E\u043C`);
+      }
+      if (goal === void 0) return rest;
+      const { checks: _checks, ...end } = isObj(goal) ? goal : {};
+      return { ...rest, end };
+    }) : raw.scenes;
+    const { version: _version, scenes: _scenes, start, settings, ...common } = raw;
+    const variant = { device: "desktop", start, scenes };
+    let commonSettings;
+    if (isObj(settings)) {
+      const { stage, minViewportWidth, ...rest } = settings;
+      if (stage !== void 0) variant.stage = stage;
+      if (minViewportWidth !== void 0) variant.minViewportWidth = minViewportWidth;
+      commonSettings = rest;
+    } else if (settings !== void 0) {
+      commonSettings = settings;
+    }
+    const doc = {
+      ...common,
+      version: CONTRACT_VERSION,
+      kind: "control",
+      ...commonSettings !== void 0 ? { settings: commonSettings } : {},
+      ...success.length ? { goal: { checks: (_a = success[0].goal.checks) != null ? _a : [] } } : {},
+      variants: [variant]
+    };
+    return { doc, notes, conflict };
+  }
+  function upgradeV1(v1) {
+    const { doc, notes, conflict } = liftV1(v1);
+    if (conflict) throw new ScenarioUpgradeError(conflict);
+    return { scenario: doc, notes };
+  }
+  function upgradeScenario(input) {
+    if (input.version === CONTRACT_VERSION) return { scenario: input, notes: [] };
+    if (input.version === CONTRACT_V1) return upgradeV1(input);
+    throw new ScenarioUpgradeError(`\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F \u0444\u043E\u0440\u043C\u0430\u0442\u0430 ${String(input.version)}`);
+  }
+  function asScenario(input) {
+    if (input.version === CONTRACT_VERSION) return input;
+    const known = upgraded.get(input);
+    if (known) return known;
+    const { scenario } = upgradeScenario(input);
+    upgraded.set(input, scenario);
+    return scenario;
+  }
+
+  // shared/sim/variant.ts
+  var DEFAULT_DEVICE = "desktop";
+  var views = /* @__PURE__ */ new WeakMap();
+  function isPlayable(value) {
+    return typeof value === "object" && value !== null && typeof value.device === "string" && Array.isArray(value.scenes);
+  }
+  function playable(input, device = DEFAULT_DEVICE) {
+    var _a, _b, _c, _d;
+    if (isPlayable(input)) return input;
+    const scenario = asScenario(input);
+    let byDevice = views.get(scenario);
+    const known = byDevice == null ? void 0 : byDevice.get(device);
+    if (known) return known;
+    const variant = scenario.variants.find((v) => v.device === device);
+    if (!variant) throw new ScenarioUpgradeError(`\u0412 \u0441\u0446\u0435\u043D\u0430\u0440\u0438\u0438 \u043D\u0435\u0442 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u0430 \u0434\u043B\u044F \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 ${device}`);
+    const view = {
+      kind: scenario.kind,
+      device,
+      meta: scenario.meta,
+      settings: {
+        ...scenario.settings,
+        ...variant.stage ? { stage: variant.stage } : {},
+        ...variant.minViewportWidth !== void 0 ? { minViewportWidth: variant.minViewportWidth } : {}
+      },
+      media: scenario.media,
+      fields: (_a = scenario.fields) != null ? _a : [],
+      goal: (_b = scenario.goal) != null ? _b : null,
+      stages: (_c = scenario.stages) != null ? _c : [],
+      start: variant.start,
+      scenes: variant.scenes,
+      routes: (_d = variant.routes) != null ? _d : []
+    };
+    if (!byDevice) {
+      byDevice = /* @__PURE__ */ new Map();
+      views.set(scenario, byDevice);
+    }
+    byDevice.set(device, view);
+    return view;
+  }
+
   // shared/sim/engine.ts
   var DEFAULT_HINT_AFTER = 3;
   function shapeOf(z) {
@@ -22646,15 +22844,16 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     if (!check) return value.trim() !== "";
     return checkRuleSet(check, value).passed;
   }
-  function createRun(scenario, options = {}) {
-    var _a, _b, _c, _d, _e, _f, _g;
+  function createRun(input, options = {}) {
+    var _a, _b, _c, _d, _e;
+    const scenario = playable(input, options.device);
     const now = (_a = options.now) != null ? _a : (() => Date.now());
     const t0 = now();
     const startedAt = (/* @__PURE__ */ new Date()).toISOString();
     const scenes = new Map(scenario.scenes.map((s) => [s.id, s]));
     const fieldDefs = new Map(((_b = scenario.fields) != null ? _b : []).map((f) => [f.id, f]));
-    const hintsOn = ((_d = (_c = scenario.settings) == null ? void 0 : _c.hints) == null ? void 0 : _d.enabled) !== false;
-    const hintAfter = (_g = (_f = (_e = scenario.settings) == null ? void 0 : _e.hints) == null ? void 0 : _f.afterMisses) != null ? _g : DEFAULT_HINT_AFTER;
+    const hintsOn = ((_c = scenario.settings.hints) == null ? void 0 : _c.enabled) !== false;
+    const hintAfter = (_e = (_d = scenario.settings.hints) == null ? void 0 : _d.afterMisses) != null ? _e : DEFAULT_HINT_AFTER;
     let current = scenes.get(scenario.start);
     const values = {};
     const wrong = {};
@@ -22663,6 +22862,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const events = [];
     const counts = { actions: 0, misses: 0, blocked: 0, wrongValues: 0, detours: 0, traps: 0, hints: 0 };
     const traps = [];
+    let cost = 0;
     let localErrors = 0;
     let hintOn = null;
     let selected = null;
@@ -22687,24 +22887,29 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       if ("any" in c) return c.any.some(evaluate);
       return !evaluate(c.not);
     }
-    function finish(outcome, goal) {
+    function finish(outcome, goal, finale = null) {
       if (finished) return;
-      finished = { outcome, at: t(), goal };
+      finished = { outcome, at: t(), goal, finale };
       hintOn = null;
     }
-    function judgeGoal(scene) {
-      var _a2;
-      const g = scene.goal;
-      if (g.outcome === "fail") {
+    function judgeEnd(scene) {
+      var _a2, _b2;
+      const end = scene.end;
+      if (end.outcome === "fail") {
         events.push({ t: t(), type: "goal", scene: scene.id, outcome: "fail" });
-        finish("fail", { scene: scene.id, message: g.message, checks: [], share: 0 });
+        finish("fail", { scene: scene.id, message: end.message, checks: [], share: 0 });
         return;
       }
-      const checks = ((_a2 = g.checks) != null ? _a2 : []).map((c) => {
-        var _a3, _b2, _c2, _d2;
+      if (end.outcome === "finale") {
+        events.push({ t: t(), type: "goal", scene: scene.id, outcome: "finale", finale: scene.id });
+        finish("finale", null, { scene: scene.id, title: end.title, target: end.target === true });
+        return;
+      }
+      const checks = ((_b2 = (_a2 = scenario.goal) == null ? void 0 : _a2.checks) != null ? _b2 : []).map((c) => {
+        var _a3, _b3, _c2, _d2;
         return {
           field: c.field,
-          passed: passes((_b2 = c.check) != null ? _b2 : (_a3 = fieldDefs.get(c.field)) == null ? void 0 : _a3.check, (_c2 = values[c.field]) != null ? _c2 : ""),
+          passed: passes((_b3 = c.check) != null ? _b3 : (_a3 = fieldDefs.get(c.field)) == null ? void 0 : _a3.check, (_c2 = values[c.field]) != null ? _c2 : ""),
           critical: c.critical !== false,
           weight: (_d2 = c.weight) != null ? _d2 : 1
         };
@@ -22713,7 +22918,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       const got = checks.reduce((s, c) => s + (c.passed ? c.weight : 0), 0);
       const outcome = checks.every((c) => c.passed) ? "success" : checks.some((c) => c.critical && !c.passed) ? "fail" : "partial";
       events.push({ t: t(), type: "goal", scene: scene.id, outcome });
-      finish(outcome, { scene: scene.id, message: g.message, checks, share: total ? got / total : 1 });
+      finish(outcome, { scene: scene.id, message: end.message, checks, share: total ? got / total : 1 });
     }
     function enter(id) {
       const next = scenes.get(id);
@@ -22723,7 +22928,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       localErrors = 0;
       hintOn = null;
       events.push({ t: t(), type: "enter", scene: id });
-      if (next.goal) judgeGoal(next);
+      if (next.end) judgeEnd(next);
     }
     function apply(effects) {
       let moved = false;
@@ -22772,8 +22977,17 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         if (a.role === "trap") {
           counts.traps += 1;
           traps.push({ id: a.id, error: (_a2 = a.error) != null ? _a2 : a.id, t: t() });
+        } else {
+          cost += actionCost(a, scenario.settings.costs);
         }
-        events.push({ t: t(), type: "action", scene: current.id, id: a.id, role: a.role, ...a.role === "trap" ? { error: a.error } : {} });
+        events.push({
+          t: t(),
+          type: "action",
+          scene: current.id,
+          id: a.id,
+          ...a.role ? { role: a.role } : {},
+          ...a.role === "trap" ? { error: a.error } : {}
+        });
         localErrors = 0;
         hintOn = null;
       }
@@ -22821,8 +23035,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       scenario,
       scene: () => current,
       stage: () => {
-        var _a2, _b2, _c2;
-        return (_c2 = (_b2 = current.size) != null ? _b2 : (_a2 = scenario.settings) == null ? void 0 : _a2.stage) != null ? _c2 : { w: 1920, h: 1080 };
+        var _a2, _b2;
+        return (_b2 = (_a2 = current.size) != null ? _a2 : scenario.settings.stage) != null ? _b2 : { w: 1920, h: 1080 };
       },
       isVisible,
       value: (id) => {
@@ -22875,6 +23089,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         const placement = ((_a2 = current.fields) != null ? _a2 : []).find((p) => p.field === fieldId && p.editable);
         const def = fieldDefs.get(fieldId);
         if (!placement || !def) return { kind: "none" };
+        cost += fieldCost(scenario.settings.costs);
         values[fieldId] = value;
         const judged = !!def.check && ((_b2 = def.checkWhen) != null ? _b2 : "input") === "input" && value.trim() !== "";
         const correct = judged ? passes(def.check, value) : null;
@@ -22909,6 +23124,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         finish("exited", null);
         return { kind: "done", outcome: "exited" };
       },
+      declare() {
+        if (finished || scenario.kind !== "research" || scenario.settings.finishButton === false) return { kind: "none" };
+        events.push({ t: t(), type: "declare" });
+        finish("declared", null);
+        return { kind: "done", outcome: "declared" };
+      },
       timeout() {
         if (finished) return { kind: "none" };
         events.push({ t: t(), type: "timeout" });
@@ -22916,16 +23137,19 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         return { kind: "done", outcome: "timeout" };
       },
       result() {
-        var _a2, _b2;
+        var _a2, _b2, _c2;
         return {
           format: RESULT_FORMAT,
-          version: CONTRACT_VERSION,
+          version: RESULT_VERSION,
           scenario: { title: scenario.meta.title },
+          variant: scenario.device,
           startedAt,
           durationMs: finished ? finished.at : t(),
           outcome: (_a2 = finished == null ? void 0 : finished.outcome) != null ? _a2 : "exited",
           goal: (_b2 = finished == null ? void 0 : finished.goal) != null ? _b2 : null,
+          finale: (_c2 = finished == null ? void 0 : finished.finale) != null ? _c2 : null,
           counts: { ...counts },
+          cost,
           traps: traps.slice(),
           fields: { ...values },
           events: events.slice()
@@ -22933,7 +23157,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       }
     };
     events.push({ t: 0, type: "enter", scene: current.id });
-    if (current.goal) judgeGoal(current);
+    if (current.end) judgeEnd(current);
     return run;
   }
 
@@ -23108,24 +23332,26 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     partial: "\u0426\u0435\u043B\u044C \u0434\u043E\u0441\u0442\u0438\u0433\u043D\u0443\u0442\u0430 \u0447\u0430\u0441\u0442\u0438\u0447\u043D\u043E",
     fail: "\u0426\u0435\u043B\u044C \u043D\u0435 \u0434\u043E\u0441\u0442\u0438\u0433\u043D\u0443\u0442\u0430",
     exited: "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u043F\u0440\u0435\u0440\u0432\u0430\u043D\u043E",
-    timeout: "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E"
+    timeout: "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E",
+    finale: "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E",
+    declared: "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E"
   };
   function mountPlayer(root, options) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c;
     const doc = root.ownerDocument;
     const scope = scopeOf(root);
     ensureStyle2(scope, doc);
-    const { scenario } = options;
+    const scenario = playable(options.scenario, options.device);
     const media = new Map(scenario.media.map((m) => [m.id, m]));
-    const fieldDefs = new Map(((_a = scenario.fields) != null ? _a : []).map((f) => [f.id, f]));
+    const fieldDefs = new Map(scenario.fields.map((f) => [f.id, f]));
     const run = createRun(scenario);
-    const counters = (_c = (_b = scenario.settings) == null ? void 0 : _b.counters) != null ? _c : {};
-    const limitMs = ((_d = scenario.settings) == null ? void 0 : _d.limitSeconds) ? scenario.settings.limitSeconds * 1e3 : null;
+    const counters = (_a = scenario.settings.counters) != null ? _a : {};
+    const limitMs = scenario.settings.limitSeconds ? scenario.settings.limitSeconds * 1e3 : null;
     const startedAt = Date.now();
     const shell = h(doc, "div", "tbsim");
     const bar = h(doc, "div", "tbsim__bar");
     const task = h(doc, "div", "tbsim__task");
-    task.append(h(doc, "span", "tbsim__cap", (_e = options.caption) != null ? _e : "\u0417\u0430\u0434\u0430\u043D\u0438\u0435"), h(doc, "span", "", scenario.meta.task));
+    task.append(h(doc, "span", "tbsim__cap", (_b = options.caption) != null ? _b : "\u0417\u0430\u0434\u0430\u043D\u0438\u0435"), h(doc, "span", "", scenario.meta.task));
     const counterBox = h(doc, "div", "tbsim__counters");
     const timerBox = h(doc, "div", "tbsim__timer");
     const timerNum = h(doc, "b");
@@ -23157,7 +23383,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       canvas.style.transform = `scale(${scale})`;
     }
     const onResize = () => fit();
-    (_f = doc.defaultView) == null ? void 0 : _f.addEventListener("resize", onResize);
+    (_c = doc.defaultView) == null ? void 0 : _c.addEventListener("resize", onResize);
     const nodes = /* @__PURE__ */ new Map();
     const timers = /* @__PURE__ */ new Set();
     const shownAt = /* @__PURE__ */ new Map();
@@ -23230,8 +23456,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     function focusNext(from) {
       var _a2, _b2;
       const editable = ((_a2 = run.scene().fields) != null ? _a2 : []).filter((p) => p.editable).sort((a, b) => {
-        var _a3, _b3, _c2, _d2;
-        return ((_b3 = (_a3 = fieldDefs.get(a.field)) == null ? void 0 : _a3.tabIndex) != null ? _b3 : 0) - ((_d2 = (_c2 = fieldDefs.get(b.field)) == null ? void 0 : _c2.tabIndex) != null ? _d2 : 0);
+        var _a3, _b3, _c2, _d;
+        return ((_b3 = (_a3 = fieldDefs.get(a.field)) == null ? void 0 : _a3.tabIndex) != null ? _b3 : 0) - ((_d = (_c2 = fieldDefs.get(b.field)) == null ? void 0 : _c2.tabIndex) != null ? _d : 0);
       });
       const i = editable.findIndex((p) => p.field === from);
       const next = editable[i + 1];
@@ -23254,7 +23480,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       });
       input.addEventListener("blur", () => commit(p.field, input));
       input.addEventListener("paste", (e) => {
-        var _a3, _b3, _c2, _d2, _e2;
+        var _a3, _b3, _c2, _d, _e;
         if (((_a3 = fieldDefs.get(p.field)) == null ? void 0 : _a3.allowPaste) === false) {
           e.preventDefault();
           return;
@@ -23262,7 +23488,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         const text = (_c2 = (_b3 = e.clipboardData) == null ? void 0 : _b3.getData("text")) != null ? _c2 : "";
         if (!text && clipboard) {
           e.preventDefault();
-          input.setRangeText(clipboard, (_d2 = input.selectionStart) != null ? _d2 : input.value.length, (_e2 = input.selectionEnd) != null ? _e2 : input.value.length, "end");
+          input.setRangeText(clipboard, (_d = input.selectionStart) != null ? _d : input.value.length, (_e = input.selectionEnd) != null ? _e : input.value.length, "end");
         }
       });
       return input;
@@ -23398,7 +23624,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       return { veil, box };
     }
     function showResult(result) {
-      var _a2, _b2, _c2, _d2;
+      var _a2, _b2, _c2, _d;
       const { box } = dialog();
       box.append(h(doc, "h2", "", TITLES[result.outcome]));
       let text = "";
@@ -23413,7 +23639,9 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
           var _a3, _b3;
           return (_b3 = (_a3 = fieldDefs.get(c.field)) == null ? void 0 : _a3.title) != null ? _b3 : c.field;
         }).join(", ")}.`;
-      } else if (result.outcome === "timeout") text = "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E \u043F\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0438 \u0437\u0430\u0441\u0447\u0438\u0442\u0430\u043D\u043E \u043A\u0430\u043A \u043D\u0435\u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u043E\u0435.";
+      } else if (result.outcome === "finale") text = result.finale ? result.finale.title + "." : "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E.";
+      else if (result.outcome === "declared") text = "\u0412\u044B \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0438 \u0437\u0430\u0434\u0430\u043D\u0438\u0435.";
+      else if (result.outcome === "timeout") text = "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E \u043F\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0438 \u0437\u0430\u0441\u0447\u0438\u0442\u0430\u043D\u043E \u043A\u0430\u043A \u043D\u0435\u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u043E\u0435.";
       else text = "\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0441\u0447\u0438\u0442\u0430\u043D\u043E \u043A\u0430\u043A \u043D\u0435\u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u043E\u0435.";
       box.append(h(doc, "p", "", text));
       if (options.showDetails !== false) {
@@ -23429,7 +23657,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
         box.append(k);
       }
       const actions = h(doc, "div", "tbsim__actions");
-      const back = h(doc, "button", "tbsim__btn tbsim__btn--primary", (_d2 = options.closeLabel) != null ? _d2 : "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0432\u043E\u043F\u0440\u043E\u0441\u0443");
+      const back = h(doc, "button", "tbsim__btn tbsim__btn--primary", (_d = options.closeLabel) != null ? _d : "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0432\u043E\u043F\u0440\u043E\u0441\u0443");
       back.type = "button";
       back.addEventListener("click", () => {
         var _a3;
@@ -23513,7 +23741,8 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
   }
 
   // shared/sim/protocol-codec.ts
-  var PROTOCOL_CODEC_VERSION = 1;
+  var PROTOCOL_CODEC_VERSION = 2;
+  var PLAIN_VERSION = 1;
   var CHUNK_SIZE = 3999;
   var MAX_CHUNKS = 10;
   var CHUNK_MARK = "~";
@@ -23527,6 +23756,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     if (!Array.isArray(events)) return "";
     const parts = [];
     let last = 0;
+    let newer = false;
     for (const event of events) {
       if (!event || typeof event.t !== "number") continue;
       let body;
@@ -23542,6 +23772,10 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
           break;
         case "value":
           body = `v${escape(event.field)}=${escape(event.value)}`;
+          break;
+        case "declare":
+          body = "d";
+          newer = true;
           break;
         case "exit":
           body = "x";
@@ -23560,7 +23794,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     if (typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0) {
       parts.push(`z@${Math.max(0, Math.round(durationMs) - last).toString(36)}`);
     }
-    return `${PROTOCOL_CODEC_VERSION};${parts.join(";")}`;
+    return `${newer ? PROTOCOL_CODEC_VERSION : PLAIN_VERSION};${parts.join(";")}`;
   }
   function protocolChunks(encoded) {
     if (!encoded) return [];
@@ -23574,16 +23808,22 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const outcome = answer && typeof answer === "object" ? answer.outcome : void 0;
     if (outcome === "exited") return "exited";
     if (outcome === "timeout") return "timeout";
-    if (outcome === "success" || outcome === "partial" || outcome === "fail") return "done";
+    if (outcome === "success" || outcome === "partial" || outcome === "fail" || outcome === "finale" || outcome === "declared") return "done";
     return "fresh";
   }
   function simCoverShot(scenario) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e;
     if (!scenario) return null;
-    const scene = (_c = (_a = scenario.scenes) == null ? void 0 : _a.find((s) => s.id === scenario.start)) != null ? _c : (_b = scenario.scenes) == null ? void 0 : _b[0];
-    const first = (_f = (_d = scene == null ? void 0 : scene.elements) == null ? void 0 : _d.find((el) => !el.hidden)) != null ? _f : (_e = scene == null ? void 0 : scene.elements) == null ? void 0 : _e[0];
-    const media = first ? (_g = scenario.media) == null ? void 0 : _g.find((m) => m.id === first.media) : void 0;
-    return (_h = media == null ? void 0 : media.file) != null ? _h : null;
+    let play;
+    try {
+      play = playable(scenario);
+    } catch (e) {
+      return null;
+    }
+    const scene = (_a = play.scenes.find((s) => s.id === play.start)) != null ? _a : play.scenes[0];
+    const first = (_d = (_b = scene == null ? void 0 : scene.elements) == null ? void 0 : _b.find((el) => !el.hidden)) != null ? _d : (_c = scene == null ? void 0 : scene.elements) == null ? void 0 : _c[0];
+    const media = first ? play.media.find((m) => m.id === first.media) : void 0;
+    return (_e = media == null ? void 0 : media.file) != null ? _e : null;
   }
   var esc3 = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
   var ICON_PLAY = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>';
@@ -23643,26 +23883,27 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return `${minutes} \u043C\u0438\u043D ${rest} \u0441`;
   }
   function simRules(scenario, penalties) {
-    var _a, _b, _c, _d, _e;
-    const settings = (_a = scenario.settings) != null ? _a : {};
+    var _a, _b, _c, _d;
+    const play = playable(scenario);
+    const settings = play.settings;
     const items = ["\u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D. \u0412\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u0432 \u043E\u043A\u043D\u0435 \u0441\u0438\u0441\u0442\u0435\u043C\u044B \u0442\u0430\u043A, \u043A\u0430\u043A \u0434\u0435\u043B\u0430\u0435\u0442\u0435 \u044D\u0442\u043E \u0432 \u0440\u0430\u0431\u043E\u0442\u0435."];
     const limit = typeof settings.limitSeconds === "number" && settings.limitSeconds > 0 ? settings.limitSeconds : null;
     if (limit !== null) {
       items.push(`\u041D\u0430 \u0437\u0430\u0434\u0430\u043D\u0438\u0435 \u043E\u0442\u0432\u043E\u0434\u0438\u0442\u0441\u044F ${duration(limit)}. \u0422\u0430\u0439\u043C\u0435\u0440 \u2014 \u043D\u0430 \u043F\u0430\u043D\u0435\u043B\u0438 \u043D\u0430\u0434 \u043E\u043A\u043D\u043E\u043C \u0441\u0438\u0441\u0442\u0435\u043C\u044B; \u043A\u043E\u0433\u0434\u0430 \u0432\u0440\u0435\u043C\u044F \u0432\u044B\u0439\u0434\u0435\u0442, \u0437\u0430\u0434\u0430\u043D\u0438\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0441\u044F.`);
     }
-    if (penalties) {
+    if (penalties && play.kind === "control") {
       const named = PENALTY_WORDS.filter(([key]) => penalties[key] > 0).map(([, words]) => words);
       if (named.length > 0) {
         items.push(`\u0411\u0430\u043B\u043B \u0441\u043D\u0438\u0436\u0430\u044E\u0442: ${named.join("; ")}.`);
       }
     }
-    if ((_b = settings.hints) == null ? void 0 : _b.enabled) {
-      const after = (_c = settings.hints.afterMisses) != null ? _c : 3;
+    if ((_a = settings.hints) == null ? void 0 : _a.enabled) {
+      const after = (_b = settings.hints.afterMisses) != null ? _b : 3;
       const hintCosts = penalties ? penalties.hint > 0 : false;
       items.push(`\u041F\u043E\u0441\u043B\u0435 ${after} ${plural(after, "\u043E\u0448\u0438\u0431\u043A\u0438", "\u043E\u0448\u0438\u0431\u043E\u043A", "\u043E\u0448\u0438\u0431\u043E\u043A")} \u043D\u0430 \u043E\u0434\u043D\u043E\u043C \u0448\u0430\u0433\u0435 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430.${hintCosts ? " \u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u0442\u043E\u0436\u0435 \u0441\u043D\u0438\u0436\u0430\u0435\u0442 \u0431\u0430\u043B\u043B." : ""}`);
     }
     items.push("\u0412\u044B\u0439\u0442\u0438 \u0434\u043E\u0441\u0440\u043E\u0447\u043D\u043E \u043C\u043E\u0436\u043D\u043E \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \u043D\u0430 \u043F\u0430\u043D\u0435\u043B\u0438. \u0417\u0430\u0434\u0430\u043D\u0438\u0435 \u0442\u043E\u0433\u0434\u0430 \u0431\u0443\u0434\u0435\u0442 \u0437\u0430\u0441\u0447\u0438\u0442\u0430\u043D\u043E \u043A\u0430\u043A \u043D\u0435\u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u043E\u0435.");
-    return { title: "\u041F\u0440\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u0435", description: (_e = (_d = scenario.meta) == null ? void 0 : _d.title) != null ? _e : "", items };
+    return { title: "\u041F\u0440\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u0435", description: (_d = (_c = play.meta) == null ? void 0 : _c.title) != null ? _d : "", items };
   }
   function renderSimRulesDialog(rules) {
     const items = rules.items.map((item) => `<li>${esc3(item)}</li>`).join("");
