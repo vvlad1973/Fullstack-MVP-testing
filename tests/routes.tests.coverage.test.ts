@@ -680,19 +680,26 @@ describe("GET /api/tests/:id/export/options", () => {
     storageMock.getTest.mockResolvedValue({ ...dbTest, status: "draft", telemetryEnabled: true });
     const res = await asAdmin(request(app).get("/api/tests/test1/export/options"));
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ published: null, telemetry: { draft: true, published: null } });
+    expect(res.body).toEqual({
+      published: null,
+      telemetry: { draft: true, published: null },
+      // Р7а: выгрузка SCORM опубликует черновик первой версией.
+      scorm: { publishes: true, version: 1 },
+    });
   });
 
   it("a published test: the snapshot version and the telemetry of each version", async () => {
-    storageMock.getTest.mockResolvedValue({ ...dbTest, status: "published", telemetryEnabled: false });
+    storageMock.getTest.mockResolvedValue({ ...dbTest, status: "published", telemetryEnabled: false, version: 1 });
     storageMock.getLatestSnapshot.mockResolvedValue({
       id: "snap", version: 4, publishedAt: "2026-09-28T10:00:00.000Z",
-      contentJson: { test: { telemetryEnabled: true } },
+      contentJson: { test: { telemetryEnabled: true, version: 1 }, sections: [], questionsByTopic: {} },
     });
     const res = await asAdmin(request(app).get("/api/tests/test1/export/options"));
     expect(res.body).toEqual({
       published: { version: 4, publishedAt: "2026-09-28T10:00:00.000Z" },
       telemetry: { draft: false, published: true },
+      // Р7а: правок после публикации нет — SCORM собирается из действующей версии.
+      scorm: { publishes: false, version: 4 },
     });
   });
 });
@@ -708,19 +715,67 @@ describe("GET /api/tests/:id/export/scorm", () => {
     app = makeApp();
   });
 
-  it("Э5: ?source passes the chosen version to the build; a bad value is 400", async () => {
-    const draft = await asAdmin(request(app).get("/api/tests/test1/export/scorm?source=draft"));
-    expect(draft.status).toBe(200);
-    expect(buildExportMock).toHaveBeenLastCalledWith("test1", { source: "export", version: "draft" });
-
-    const bad = await asAdmin(request(app).get("/api/tests/test1/export/scorm?source=old"));
-    expect(bad.status).toBe(400);
+  it("Р7а: ?source is refused — a SCORM export has no version to choose", async () => {
+    for (const source of ["draft", "published"]) {
+      const res = await asAdmin(request(app).get(`/api/tests/test1/export/scorm?source=${source}`));
+      expect(res.status).toBe(400);
+      expect(res.body.field).toBe("source");
+    }
+    expect(storageMock.patchTestStatus).not.toHaveBeenCalled();
+    expect(buildExportMock).not.toHaveBeenCalled();
   });
 
-  it("Э5: 409 when the published version is asked for and there is none", async () => {
-    buildExportMock.mockRejectedValue(new ScormBuildError("Тест не опубликован", 409));
-    const res = await asAdmin(request(app).get("/api/tests/test1/export/scorm?source=published"));
+  it("Р7а: a draft is published by the export and baked from the new snapshot", async () => {
+    storageMock.patchTestStatus.mockResolvedValue({ id: "test1", status: "published", version: 1 });
+    const res = await asAdmin(request(app).get("/api/tests/test1/export/scorm"));
+    expect(res.status).toBe(200);
+    expect(storageMock.patchTestStatus).toHaveBeenCalledWith("test1", "published");
+    expect(storageMock.createTestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ testId: "test1", version: 1 }));
+    expect(buildExportMock).toHaveBeenLastCalledWith("test1", { source: "export", version: "published" });
+  });
+
+  it("Р7а: a published test edited after publication is republished as the next version", async () => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, status: "published", version: 3 });
+    storageMock.getLatestSnapshot.mockResolvedValue({
+      id: "snap", version: 4, contentJson: { test: { version: 2 }, sections: [], questionsByTopic: {} },
+    });
+    storageMock.patchTestStatus.mockResolvedValue({ id: "test1", status: "published", version: 3 });
+    const res = await asAdmin(request(app).get("/api/tests/test1/export/scorm"));
+    expect(res.status).toBe(200);
+    expect(storageMock.createTestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ version: 5 }));
+    expect(buildExportMock).toHaveBeenLastCalledWith("test1", { source: "export", version: "published" });
+  });
+
+  it("Р7а: an unchanged published test bakes its active snapshot, no new version", async () => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, status: "published", version: 2 });
+    storageMock.getLatestSnapshot.mockResolvedValue({
+      id: "snap", version: 4, contentJson: { test: { version: 2 }, sections: [], questionsByTopic: {} },
+    });
+    const res = await asAdmin(request(app).get("/api/tests/test1/export/scorm"));
+    expect(res.status).toBe(200);
+    expect(storageMock.patchTestStatus).not.toHaveBeenCalled();
+    expect(storageMock.createTestSnapshot).not.toHaveBeenCalled();
+    expect(buildExportMock).toHaveBeenLastCalledWith("test1", { source: "export", version: "published" });
+  });
+
+  it("Р7а: an infeasible draw refuses the export like a publication — no package, no snapshot", async () => {
+    storageMock.getTestSections.mockResolvedValue([dbSection]);
+    storageMock.getQuestionsByTopic.mockResolvedValue([{ id: "q1", topicId: "t1", tags: [], difficulty: 50 }]);
+    const res = await asAdmin(request(app).get("/api/tests/test1/export/scorm"));
     expect(res.status).toBe(409);
+    expect(res.body.error).toBe("publish_infeasible");
+    expect(res.body.findings.length).toBeGreaterThan(0);
+    expect(storageMock.patchTestStatus).not.toHaveBeenCalled();
+    expect(buildExportMock).not.toHaveBeenCalled();
+    expect(generateScormMock).not.toHaveBeenCalled();
+  });
+
+  it("Р7а: an archived test is outside the decision — baked live, not published", async () => {
+    storageMock.getTest.mockResolvedValue({ ...dbTest, status: "archived" });
+    const res = await asAdmin(request(app).get("/api/tests/test1/export/scorm"));
+    expect(res.status).toBe(200);
+    expect(storageMock.patchTestStatus).not.toHaveBeenCalled();
+    expect(buildExportMock).toHaveBeenLastCalledWith("test1", { source: "export", version: undefined });
   });
 
   it("404 when the build reports the test is missing", async () => {
