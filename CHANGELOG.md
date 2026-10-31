@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.51.1](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.51.0...v2.51.1)
+
+### Fixes
+
+- **fix**(content): значок варианта в предпросмотре вопроса не сжимается под длинным текстом (2026-10-31) [`e85903dc42edbd417e5995e680964e414b00281f`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/e85903dc42edbd417e5995e680964e414b00281f)
+  Значок лежал во flex-строке без запрета сжатия, поэтому длинный вариант отбирал у него место. Теперь значок постоянного размера и стоит на первой строке варианта.
+
 ## [2.51.0](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.50.0...v2.51.0)
 
 ### Features
