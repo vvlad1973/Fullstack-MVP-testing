@@ -241,7 +241,7 @@ export function QuestionScoringModal(props: QuestionScoringModalProps) {
         </div>
       ) : (
       <div className="tb-qscoring__recap">
-        <b>{question.prompt}</b>
+        <b>{questionLabel(question)}</b>
         <br />
         Базовая сложность вопроса: {question.difficulty}. Текст и варианты правятся в банке
         вопросов; здесь — только оценка для этого теста.

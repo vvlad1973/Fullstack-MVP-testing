@@ -68,6 +68,7 @@ import type { ReviewAnchorItem } from "../review/review-comment-form";
 import { useReviewComments } from "../review/use-review-comments";
 import { QuestionEditorDrawer } from "@/features/questions/question-editor-drawer";
 import type { Question, Topic } from "@shared/schema";
+import { questionLabel } from "@shared/questions/question-label";
 import { useOptionalAuth } from "@/lib/auth";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -698,7 +699,7 @@ export function TestEditorView(props: TestEditorViewProps): React.JSX.Element | 
         id: q.id,
         // Формулировка бывает длинной, и в списке от неё нужен только опознавательный
         // кусок — номер несёт остальное.
-        label: `Вопрос ${index + 1}: ${(q.prompt ?? "").slice(0, 60)}`,
+        label: `Вопрос ${index + 1}: ${questionLabel(q).slice(0, 60)}`,
         kind: "question" as const,
         topicId: q.topicId ?? null,
       }));
