@@ -131,6 +131,10 @@
   top: 0; bottom: 0; width: 1px; background: var(--ou-border-default);
 }
 .tb-content-tree .ct-qpreview { max-width: 40rem; }
+/* Option mark: fixed size whatever the option length, centred on the first text line
+   (the box takes the option text's font, so `1lh` is exactly one line of it). */
+.tb-content-tree .ct-qpreview__mark { flex: none; display: inline-flex; align-items: center; height: 1lh; font: var(--ou-text-body-s); }
+.tb-content-tree .ct-qpreview__mark svg { flex: none; }
 
 /* States */
 .tb-content-tree .ct-empty { padding: var(--ou-space-7) var(--ou-space-3); }

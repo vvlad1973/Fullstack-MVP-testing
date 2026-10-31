@@ -65,10 +65,14 @@ export function QuestionPreview({ question }: { question: Question }) {
                 ? (correct?.correctIndices ?? []).includes(i)
                 : i === correct?.correctIndex;
               return (
-                <Cluster key={i} gap={2} wrap={false} align="center">
-                  {isCorrect
-                    ? <CheckSquare size={15} color="var(--ou-success-default)" />
-                    : <Square size={15} color="var(--ou-fg-muted)" />}
+                <Cluster key={i} gap={2} wrap={false} align="start">
+                  {/* The mark must not shrink under a long option, and it sits on the
+                      option's first line rather than the middle of a wrapped paragraph. */}
+                  <span className="ct-qpreview__mark">
+                    {isCorrect
+                      ? <CheckSquare size={15} color="var(--ou-success-default)" />
+                      : <Square size={15} color="var(--ou-fg-muted)" />}
+                  </span>
                   <Text variant="body-s" tone={isCorrect ? "success" : undefined}>{opt}</Text>
                 </Cluster>
               );
