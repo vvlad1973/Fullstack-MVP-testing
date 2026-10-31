@@ -20238,7 +20238,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     return "";
   }
   function optionCard(control, title, chosen, review, oi) {
-    return `<label class="ou-radio-card${chosen ? " is-on" : ""}${review}" data-action="select:${oi}" data-index="${oi}" role="button" tabindex="0">${control}<span class="ou-radio-card__text"><span class="ou-radio-card__title" style="font-weight:400;font-size:var(--tb-answer-fs,1.25rem);line-height:1.35;text-wrap:pretty">${title}</span></span>${reviewMark(review)}</label>`;
+    return `<label class="ou-radio-card${chosen ? " is-on" : ""}${review}" data-action="select:${oi}" data-index="${oi}" role="button" tabindex="0">${control}<span class="ou-radio-card__text"><span class="ou-radio-card__title" style="display:block;font-weight:400;font-size:var(--tb-answer-fs,1.25rem);line-height:1.35;text-wrap:pretty">${title}</span></span>${reviewMark(review)}</label>`;
   }
   function renderChoice(question, answer, shuffleMapping, review, multiple) {
     const options = fields(question).options;
@@ -21945,7 +21945,9 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const learnerName = String((_a = meta.learnerName) != null ? _a : "").trim();
     return {
       attemptDateLabel: formatTimestamp(meta.timestamp),
-      attemptsCountLabel: attemptsCountLabel(meta.attemptsCount),
+      // Строку автор вправе погасить (`tests.show_attempts_count`): пустая подпись снимает
+      // её в макете целиком, тем же гейтом, которым её гасит тест без вердикта ниже.
+      attemptsCountLabel: meta.showAttemptsCount === false ? "" : attemptsCountLabel(meta.attemptsCount),
       learnerName,
       hasLearnerName: learnerName.length > 0,
       gridColumns: reportGridColumns(topicCount),
