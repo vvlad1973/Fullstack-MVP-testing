@@ -199,7 +199,9 @@ function reportBlock(meta: ReportMeta, topicCount: number, opts: ReportContextOp
   const learnerName = String(meta.learnerName ?? "").trim();
   return {
     attemptDateLabel: formatTimestamp(meta.timestamp),
-    attemptsCountLabel: attemptsCountLabel(meta.attemptsCount),
+    // Строку автор вправе погасить (`tests.show_attempts_count`): пустая подпись снимает
+    // её в макете целиком, тем же гейтом, которым её гасит тест без вердикта ниже.
+    attemptsCountLabel: meta.showAttemptsCount === false ? "" : attemptsCountLabel(meta.attemptsCount),
     learnerName,
     hasLearnerName: learnerName.length > 0,
     gridColumns: reportGridColumns(topicCount),

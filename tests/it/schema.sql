@@ -520,6 +520,7 @@ CREATE TABLE "tests" (
 	"breakdown_display_json" jsonb,
 	"breakdown_gate_enabled" boolean DEFAULT false NOT NULL,
 	"show_topic_results" boolean DEFAULT true NOT NULL,
+	"show_attempts_count" boolean DEFAULT true NOT NULL,
 	"section_groups_json" jsonb
 );
 

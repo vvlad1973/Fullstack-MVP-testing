@@ -186,6 +186,11 @@ export interface MeasuresSource {
    */
   showTopicResults?: boolean;
   /**
+   * Печатать ли в отчёте строку «Лучший результат за N попыток» (`tests.show_attempts_count`),
+   * из ВЫДАННОЙ версии теста. Только явное `false` гасит её; отсутствие оставляет отчёт прежним.
+   */
+  showAttemptsCount?: boolean;
+  /**
    * Заголовки итога — свойства узла «Итоги теста» (`content_pages.settings_json` страницы
    * `results`). Едут ЗДЕСЬ, а не в `blockSettings`, потому что действуют на каждый тест:
    * `blockSettings` доезжает до построителя только внутри `measures`, то есть у теста со
@@ -563,6 +568,8 @@ function reportFeedbackMeta(measures?: MeasuresSource): Partial<ReportMeta> {
     ...(measures?.breakdownDisplayJson ? { breakdownDisplay: measures.breakdownDisplayJson } : {}),
     // Карточки тем — тот же переключатель, что у экрана (§5.2).
     ...(measures?.showTopicResults === false ? { showTopicResults: false } : {}),
+    // Строка «Лучший результат за N попыток» — переключатель одного лишь документа.
+    ...(measures?.showAttemptsCount === false ? { showAttemptsCount: false } : {}),
     // Окраска полос подтем — из тех же параметров оформления, что красят экран.
     ...barFillOption(measures),
     // Заголовки итога — тем же приёмом: документ печатает ту же шапку, что экран.

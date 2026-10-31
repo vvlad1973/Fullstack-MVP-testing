@@ -123,6 +123,17 @@ describe("buildTestJson: карточки тем в пакете", () => {
   });
 });
 
+describe("buildTestJson: строка числа попыток в пакете", () => {
+  it("выключенный переключатель выпекается флагом `false`", () => {
+    expect(bake(standardFixture({ showAttemptsCount: false })).showAttemptsCount).toBe(false);
+  });
+
+  it("включённый или нетронутый переключатель в пакет не попадает — пакет байт-в-байт прежний", () => {
+    expect("showAttemptsCount" in bake(standardFixture())).toBe(false);
+    expect("showAttemptsCount" in bake(standardFixture({ showAttemptsCount: true }))).toBe(false);
+  });
+});
+
 describe("buildTestJson: список ключей разреза (PRD-36 FR-02)", () => {
   it("ключи собираются из тегов вопросов — их адресом станет НОМЕР в этом списке", () => {
     const json = bake(standardFixture());

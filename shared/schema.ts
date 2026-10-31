@@ -822,6 +822,12 @@ export const tests = pgTable("tests", {
    */
   showTopicResults: boolean("show_topic_results").notNull().default(true),
   /**
+   * Печатать ли в шапке отчёта строку «Лучший результат за N попыток». `true` (умолчание и
+   * значение для всех существующих тестов) = печатать, как печатали всегда. Экран итогов
+   * этой строки не знает, поэтому переключатель касается только документа.
+   */
+  showAttemptsCount: boolean("show_attempts_count").notNull().default(true),
+  /**
    * PRD-50 FR-11: named groups of sections, in author order (see {@link sectionGroupSchema}).
    * Null/empty = no groups, and the results screen prints exactly the flat list of topic
    * cards every test has printed so far (FR-27).

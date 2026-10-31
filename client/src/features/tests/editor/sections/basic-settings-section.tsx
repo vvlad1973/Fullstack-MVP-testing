@@ -574,6 +574,10 @@ export function ReportContentPane({ model, updateModel, design }: SettingsSectio
         headings={Object.keys(reportHeadings).length > 0 ? reportHeadings : undefined}
         breakdownDisplay={model.runtime.breakdownDisplay}
         showTopicResults={model.runtime.showTopicResults}
+        showAttemptsCount={model.runtime.showAttemptsCount}
+        onShowAttemptsCountChange={(checked) =>
+          updateModel((m) => ({ ...m, runtime: { ...m.runtime, showAttemptsCount: checked } }))
+        }
         intro={model.intro}
         sectionGroups={model.sectionGroups}
         sections={model.sections.map((s) => ({

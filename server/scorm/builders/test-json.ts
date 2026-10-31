@@ -332,6 +332,8 @@ export function buildTestJson(data: ExportData): string {
     // переключателя не касался, остаётся байт-в-байт прежним; рантайм читает отсутствие как
     // «печатать».
     ...(data.test.showTopicResults === false ? { showTopicResults: false } : {}),
+    // Строка «Лучший результат за N попыток» в отчёте — тем же приёмом: только `false`.
+    ...(data.test.showAttemptsCount === false ? { showAttemptsCount: false } : {}),
     timeLimitMinutes: data.test.timeLimitMinutes || null,
     maxAttempts: data.test.maxAttempts || null,
     showCorrectAnswers: data.test.showCorrectAnswers || false,

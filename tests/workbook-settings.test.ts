@@ -55,6 +55,7 @@ const ROUND_TRIP_SOURCE = {
   quickAdvance: true,
   showSectionResults: false,
   showTopicResults: false,
+  showAttemptsCount: false,
   skipReviewWhenComplete: true,
   closeSectionOnLeave: true,
   copyProtection: false,
@@ -377,6 +378,8 @@ describe("реестр листа «Настройки»", () => {
       // Карточки «Результаты по темам»: параметр листа добавлен, прежние книги без него не меняют
       // настройку.
       showTopicResults: false,
+      // Строка числа попыток в отчёте: параметр листа добавлен тем же порядком.
+      showAttemptsCount: false,
       skipReviewWhenComplete: true,
       // PRD-67: добавлен параметр листа; прежние книги без него настройку не трогают.
       closeSectionOnLeave: true,

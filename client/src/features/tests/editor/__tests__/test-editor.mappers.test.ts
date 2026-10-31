@@ -203,6 +203,23 @@ describe("1. apiToEditorModel — standard test with sections", () => {
     expect(editorModelToPayload(legacy).showTopicResults).toBe(true);
   });
 
+  // Строка «Лучший результат за N попыток» в отчёте — тем же кругом, что карточки тем выше.
+  it("число попыток в отчёте: выключенный переключатель читается и пишется, отсутствие = печатать", () => {
+    const base = {
+      id: "t",
+      title: "T",
+      mode: "standard" as const,
+      status: "draft" as const,
+      overallPassRuleJson: { type: "percent" as const, value: 70 },
+    };
+    const off = apiToEditorModel({ ...base, showAttemptsCount: false });
+    expect(off.runtime.showAttemptsCount).toBe(false);
+    expect(editorModelToPayload(off).showAttemptsCount).toBe(false);
+    const legacy = apiToEditorModel(base);
+    expect(legacy.runtime.showAttemptsCount).toBe(true);
+    expect(editorModelToPayload(legacy).showAttemptsCount).toBe(true);
+  });
+
   // Тест, сохранённый до §16, судится ровно как судился: колонка `NOT NULL DEFAULT false`,
   // а отсутствие поля в ответе — то же «выключено».
   it("PRD-50 FR-53: отсутствие поля читается как выключено", () => {

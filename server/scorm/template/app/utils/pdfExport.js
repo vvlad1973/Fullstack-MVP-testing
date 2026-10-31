@@ -87,7 +87,7 @@ function pdfTopicFeedback(topicResult) {
  * Both come from the same readers the results screen goes through, for the same reason
  * {@link pdfTopicFeedback} does.
  *
- * @returns {{feedback?: Object, hasPassThreshold?: boolean, breakdownDisplay?: Object, showTopicResults?: boolean, barFill?: Object}} Report-input fields.
+ * @returns {{feedback?: Object, hasPassThreshold?: boolean, breakdownDisplay?: Object, showTopicResults?: boolean, showAttemptsCount?: boolean, barFill?: Object}} Report-input fields.
  */
 function pdfReportMeta() {
   var meta = {};
@@ -111,6 +111,10 @@ function pdfReportMeta() {
   // Карточки тем: документ повторяет экран (§5.2) — гасятся только явным `false`.
   if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.showTopicResults === false) {
     meta.showTopicResults = false;
+  }
+  // Строка «Лучший результат за N попыток» — переключатель одного лишь документа.
+  if (typeof TEST_DATA !== 'undefined' && TEST_DATA && TEST_DATA.showAttemptsCount === false) {
+    meta.showAttemptsCount = false;
   }
   // Окраска полос подтем — та же, что у экрана итогов (`resultsBarFill`, viewResults.js):
   // документ красит их так же, как экран, с которого его скачали.

@@ -51,6 +51,12 @@ export interface ReportMeta {
   /** How many attempts the «Лучший результат за N попыток» line counts. */
   attemptsCount?: number;
   /**
+   * Печатать ли строку «Лучший результат за N попыток» (`tests.show_attempts_count`).
+   * Свойство только документа: экран итогов этой строки не печатает. Только явное `false`
+   * гасит строку; отсутствие = печатать.
+   */
+  showAttemptsCount?: boolean;
+  /**
    * Обратная связь САМОГО теста (`tests.feedback_json`), уже нормализованная хостом
    * (`normalizeFeedback`) — самый общий источник консолидированного блока рекомендаций
    * и первый в нём.

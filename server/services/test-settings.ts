@@ -199,6 +199,8 @@ export interface TestPayload {
   showSectionResults?: boolean;
   /** Печатать ли карточки тем (`tests.show_topic_results`); отсутствие = печатать. */
   showTopicResults?: boolean;
+  /** Печатать ли строку «Лучший результат за N попыток» в отчёте (`tests.show_attempts_count`); отсутствие = печатать. */
+  showAttemptsCount?: boolean;
   skipReviewWhenComplete?: boolean;
   /** PRD-67: leaving a started section with a time limit closes it. */
   closeSectionOnLeave?: boolean;
@@ -372,6 +374,7 @@ export class TestSettingsService {
         quickAdvance: payload.test.quickAdvance ?? false,
         showSectionResults: payload.test.showSectionResults ?? true,
         showTopicResults: payload.test.showTopicResults ?? true,
+        showAttemptsCount: payload.test.showAttemptsCount ?? true,
         // Обзор при полностью отвеченном объёме: новый тест ведёт себя как прежде.
         skipReviewWhenComplete: payload.test.skipReviewWhenComplete ?? false,
         // PRD-67: новый тест — выход из раздела лишь замораживает время, как прежде.
