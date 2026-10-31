@@ -19,7 +19,7 @@ import { normalizeOptionalText, normalizeQuestionData, normalizePromptByFormat }
 import { promptFormatOf } from "@shared/questions/prompt-format";
 import { normalizeOptionFeedback, optionCountOf } from "@shared/questions/option-feedback";
 import type { SanitizeRemoval } from "@shared/security/html-sanitize";
-import { formulasFor, promptHtmlOf } from "../services/prompt-html";
+import { withFormulas, promptHtmlOf } from "../services/prompt-html";
 import { importQuestionRows } from "../services/questions-import";
 import { serializeQuestionRow, QUESTION_HEADERS, QUESTION_WIDTHS } from "../services/questions-export";
 import { assessQuestionsRemoval, assessQuestionChange } from "../services/draw-feasibility";
@@ -64,19 +64,6 @@ import { config } from "../config";
  * невыполнимой, и вводить общую проверку «на всякий случай» значит менять поведение,
  * о котором PRD-44 не просил.
  */
-/**
- * Положить в содержимое задания готовые формулы (PRD-57 FR-07).
- *
- * Пустой словарь НЕ кладётся: задание без формул обязано остаться байт в байт таким же,
- * каким было, иначе хеш содержимого дрогнет у каждого вопроса в базе.
- */
-function withFormulas(dataJson: unknown, prompt: string): unknown {
-  const formulas = formulasFor(prompt);
-  if (Object.keys(formulas).length === 0) return dataJson;
-  const base = (dataJson ?? {}) as Record<string, unknown>;
-  return { ...base, formulas };
-}
-
 /**
  * Приложить к ответу то, что санитайзер вырезал из текста задания (согласованный эскиз
  * `prd57-question-text.html`, состояние `s-diag`).
