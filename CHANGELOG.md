@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.53.3](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.53.2...v2.53.3)
+
+### Fixes
+
+- **fix**(db): дробный балл за задание в scorm_answers (миграция 0064) (2026-11-09) [`f7d57985ebe099b3e4dfeb6d52b1bedae3cf88d8`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/f7d57985ebe099b3e4dfeb6d52b1bedae3cf88d8)
+  Частичный ответ и прогон сценария приходят долей цены в 0..1 — и из импорта выгрузки,
+  и из живой телеметрии. Целочисленная колонка `points` отвергала такую запись, а
+  округление выдало бы 0.75 за полный балл. `points` и `max_points` переведены в
+  double precision; смена типа без потерь.
+
+- **fix**(lms-import): «Баллы» дробью WebTutor `N / M (P)` больше не роняют загрузку (2026-11-09) [`e2aeb2b082c3e26bf67440efd9322db9fd460338`](https://github.com/vvlad1973/Fullstack-MVP-testing/commit/e2aeb2b082c3e26bf67440efd9322db9fd460338)
+  Отчёты WebTutor стали выгружать колонку «Баллы» как `98 / 100 (98)`. Разбор ждал число,
+  получал NaN, и при записи целочисленная `scorm_attempts.total_points` отвергала его —
+  вся партия падала с «Не удалось записать загрузку», хотя «Проверить» проходила.
+  
+  Разбор читает обе формы: процент берётся из скобок (или N / M · 100), нечитаемая ячейка
+  даёт пусто и одно предупреждение на файл. Перед целочисленными колонками значения
+  проходят через `integerOrNull`, чтобы NaN и дроби до базы не доходили.
+
 ## [2.53.2](https://github.com/vvlad1973/Fullstack-MVP-testing/compare/v2.53.1...v2.53.2)
 
 ### Fixes
