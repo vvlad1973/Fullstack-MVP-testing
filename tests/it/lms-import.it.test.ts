@@ -319,4 +319,13 @@ describe("replaceImportedAnswers — пропущенное задание", () 
     expect(rows).toHaveLength(1);
     expect(rows[0].userAnswerJson).toBeNull();
   });
+
+  it("доля цены задания пишется дробью, а не роняет загрузку (миграция 0064)", async () => {
+    const { id } = await repo.upsertImportedAttempt(importedRow());
+    await repo.replaceImportedAnswers(id, [{ ...answer(id, sql`'[0,2]'::jsonb`), points: 0.75, maxPoints: 1 }]);
+
+    const rows = await h.current!.db.select().from(scormAnswers);
+    expect(rows[0].points).toBe(0.75);
+    expect(rows[0].maxPoints).toBe(1);
+  });
 });

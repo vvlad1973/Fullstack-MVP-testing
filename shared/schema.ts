@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, integer, boolean, timestamp, date, jsonb, uniqueIndex, index, check, uuid, real, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, varchar, text, integer, boolean, timestamp, date, jsonb, uniqueIndex, index, check, uuid, real, doublePrecision, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -2695,9 +2695,16 @@ export const scormAnswers = pgTable("scorm_answers", {
   result: text("result", { enum: ["correct", "incorrect", "neutral"] }).notNull().default("incorrect"),
   /** PRD-54: необязательная. NULL = «оценивать нечего». Оставлена ради прежних читателей. */
   isCorrect: boolean("is_correct"),
-  /** PRD-54: необязательные по той же причине, что и `correctAnswerJson`. */
-  points: integer("points"),
-  maxPoints: integer("max_points"),
+  /**
+   * PRD-54: необязательные по той же причине, что и `correctAnswerJson`.
+   *
+   * Дробные (миграция `0064`): балл за задание бывает долей цены — частичный ответ оцениваемого
+   * задания и прогон сценария приходят числом в 0..1 и из телеметрии, и из импорта выгрузки.
+   * В целочисленной колонке такая запись роняла всю загрузку, а округление выдало бы 0.75 за
+   * полный балл.
+   */
+  points: doublePrecision("points"),
+  maxPoints: doublePrecision("max_points"),
 
 
   // Варианты ответов для отображения в аналитике
