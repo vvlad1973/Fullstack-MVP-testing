@@ -84,13 +84,23 @@ describe("buildImportPlan", () => {
     const noDate = { ...book, rows: [{ ...book.rows[0], moduleActivatedAt: "" }] };
     const plan = buildImportPlan(noDate as never, ON);
     expect(plan.rows).toHaveLength(0);
-    expect(plan.warnings.some((w) => w.includes("без даты активации модуля"))).toBe(true);
+    expect(plan.warnings.some((w) => w.includes("нет даты активации модуля"))).toBe(true);
   });
 
-  it("в предупреждении о пропуске ФИО не раскрывается, когда обезличивание включено", () => {
+  it("пропущенные строки сводятся в ОДНО предупреждение с числом, а не по строке на участника", () => {
+    const noDate = { ...book.rows[0], moduleActivatedAt: "" };
+    const plan = buildImportPlan({ ...book, rows: [noDate, { ...noDate }, { ...noDate }, book.rows[0]] } as never, OFF);
+    expect(plan.rows).toHaveLength(1);
+    const warned = plan.warnings.filter((w) => w.includes("даты активации модуля"));
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain(": 3.");
+    expect(warned[0]).not.toContain("Иванов");
+  });
+
+  it("в предупреждении о пропуске ФИО не раскрывается ни при каком режиме обезличивания", () => {
     const noDate = { ...book, rows: [{ ...book.rows[0], moduleActivatedAt: "" }] };
     expect(buildImportPlan(noDate as never, ON).warnings.join()).not.toContain("Иванов");
-    expect(buildImportPlan(noDate as never, OFF).warnings.join()).toContain("Иванов");
+    expect(buildImportPlan(noDate as never, OFF).warnings.join()).not.toContain("Иванов");
   });
 
   it("неопознанные колонки попадают в протокол", () => {

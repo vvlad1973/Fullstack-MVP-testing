@@ -302,12 +302,15 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
   const sameDay = new Map<string, number>();
   // Строки с нечитаемыми «Баллами» — одним предупреждением на файл, а не на строку.
   let pointsUnreadable = 0;
+  // Участники, не приступавшие к модулю, — одним предупреждением на файл. В отчёте по назначению
+  // таких строк бывает больше, чем прохождений (статус «Назначен», дата модуля пуста), и
+  // предупреждение на каждую хоронило под собой остальные. Имён в нём нет вовсе: при
+  // обезличивании протокол не должен становиться обходным путём к ним, а без него список имён
+  // ничего не добавляет к числу.
+  let notStarted = 0;
   for (const r of book.rows) {
     if (!r.moduleActivatedAt) {
-      // Имя в предупреждении раскрывается только тогда, когда мы его и так сохраняем: иначе
-      // протокол импорта стал бы обходным путём к тем самым данным, которые обезличивание убирает.
-      const who = opts.anonymize ? "скрыто" : r.participantName;
-      warnings.push(`Строка участника «${who}» без даты активации модуля пропущена.`);
+      notStarted += 1;
       continue;
     }
     const at = new Date(r.moduleActivatedAt);
@@ -387,6 +390,11 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
     });
   }
 
+  if (notStarted > 0) {
+    warnings.push(
+      `Участников, ещё не приступавших к модулю (нет даты активации модуля): ${notStarted}. Их строки пропущены — прохождений у них пока нет.`,
+    );
+  }
   if (pointsUnreadable > 0) {
     warnings.push(
       `Не разобрана колонка «Баллы» в строках: ${pointsUnreadable}. Баллы и процент этих прохождений не загружены, остальное — загружено.`,
