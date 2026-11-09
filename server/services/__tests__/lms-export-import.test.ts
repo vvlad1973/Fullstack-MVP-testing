@@ -227,6 +227,27 @@ describe("buildImportPlan — процент прохождения", () => {
     expect(row.maxPoints).toBeNull();
   });
 
+  it("«Баллы» дробью `N / M (P)`: процент — из скобок, баллы — набранные", () => {
+    const book2 = { ...book, rows: [{ ...book.rows[0], points: 49, scorePercent: 98, results: { q1: "correct" } }] };
+    const row = buildImportPlan(book2 as never, ON).rows[0];
+    expect(row.resultPercent).toBe(98);
+    expect(row.maxPoints).toBe(100);
+    expect(row.totalPoints).toBe(49);
+  });
+
+  it("дробные баллы в целочисленную колонку идут округлёнными", () => {
+    expect(buildImportPlan(graded(72.5) as never, ON).rows[0].totalPoints).toBe(73);
+  });
+
+  it("нечитаемые «Баллы» не доходят до базы `NaN`: пусто и одно предупреждение на файл", () => {
+    const bad = { ...book.rows[0], points: Number.NaN, pointsUnreadable: true, results: { q1: "correct" } };
+    const plan = buildImportPlan({ ...book, rows: [bad, { ...bad }] } as never, ON);
+    expect(plan.rows.map((r) => [r.totalPoints, r.resultPercent])).toEqual([[null, null], [null, null]]);
+    const warned = plan.warnings.filter((w) => w.includes("«Баллы»"));
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain(": 2.");
+  });
+
   it("измерительное прохождение со старым «0 баллов» оцененным не становится (PRD-54 §14 п.1)", () => {
     // `book` — ровно такая строка: «Пройден», 0 баллов, единственный исход `neutral`.
     const row = buildImportPlan(book as never, ON).rows[0];

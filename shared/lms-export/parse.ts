@@ -135,7 +135,20 @@ export interface LmsExportRow {
   courseActivatedAt: string;
   moduleActivatedAt: string;
   passed: boolean | null;
+  /**
+   * Набранные баллы из колонки «Баллы» (`cmi.score.raw`); `null` — ячейка пуста или не
+   * разобрана (тогда {@link LmsExportRow.pointsUnreadable} поднят).
+   */
   points: number | null;
+  /**
+   * Процент, который LMS сама показала в «Баллах» в форме `N / M (P)`, либо `N / M · 100`, если
+   * скобок нет. `null` — колонка пришла простым числом: тогда процентом служат сами `points`
+   * (пакет сообщает балл процентом при `cmi.score.max = 100`). Необязательное поле: строки,
+   * собранные до формы с дробью, его не несут.
+   */
+  scorePercent?: number | null;
+  /** Ячейка «Баллы» непуста, но ни в одной известной форме не читается. */
+  pointsUnreadable?: boolean;
   /**
    * `q_<uuid>` без префикса -> строка «Полученный ответ».
    *
@@ -220,6 +233,54 @@ export interface LmsExportBook {
   rows: LmsExportRow[];
 }
 
+/** Число ячейки: десятичная точка или запятая, знак минус допускается. */
+const NUMBER_SRC = String.raw`-?\d+(?:[.,]\d+)?`;
+/** Колонка «Баллы» простым числом: `98`, `72,5`. */
+const PLAIN_POINTS_RE = new RegExp(`^(${NUMBER_SRC})$`);
+/**
+ * Колонка «Баллы» дробью WebTutor: `98 / 100 (98)` — набрано, максимум и процент в скобках.
+ * Скобки и знак процента в них необязательны.
+ */
+const FRACTION_POINTS_RE = new RegExp(`^(${NUMBER_SRC})\\s*/\\s*(${NUMBER_SRC})\\s*(?:\\(\\s*(${NUMBER_SRC})\\s*%?\\s*\\))?$`);
+
+/** Разобранная колонка «Баллы». */
+export interface LmsPoints {
+  /** Набранные баллы. */
+  points: number;
+  /** Процент, если колонка его несёт (форма с дробью); `null` — колонка была простым числом. */
+  percent: number | null;
+}
+
+/** Число из текста ячейки с точкой или запятой. */
+function toNumber(text: string): number {
+  return Number(text.replace(",", "."));
+}
+
+/**
+ * Разобрать колонку «Баллы».
+ *
+ * LMS выгружает её в двух формах: простым числом (`98`) и дробью с процентом (`98 / 100 (98)`,
+ * отчёты WebTutor с ноября 2026). Во второй форме процент берётся из скобок, а без скобок
+ * считается как `N / M · 100`; при нулевом максимуме процента нет.
+ *
+ * @param text ячейка «Баллы»
+ * @returns баллы и процент; `null` — ячейка пуста; `undefined` — ячейка непуста, но не читается
+ */
+export function parseLmsPoints(text: string): LmsPoints | null | undefined {
+  const s = String(text ?? "").trim();
+  if (s === "") return null;
+  const plain = PLAIN_POINTS_RE.exec(s);
+  if (plain) return { points: toNumber(plain[1]), percent: null };
+  const fraction = FRACTION_POINTS_RE.exec(s);
+  if (!fraction) return undefined;
+  const points = toNumber(fraction[1]);
+  const max = toNumber(fraction[2]);
+  const percent = fraction[3] !== undefined
+    ? toNumber(fraction[3])
+    : max > 0 ? (points / max) * 100 : null;
+  return { points, percent };
+}
+
 function cell(row: string[] | undefined, i: number): string {
   return String(row?.[i] ?? "").trim();
 }
@@ -288,6 +349,7 @@ export function parseLmsExport(input: string[][]): LmsExportBook {
     const raw = sheet[r];
     if (!raw || raw.every((v) => String(v ?? "").trim() === "")) continue;
 
+    const score = parseLmsPoints(cell(raw, 8));
     const row: LmsExportRow = {
       participantName: cell(raw, 0),
       participantCode: cell(raw, 1),
@@ -297,7 +359,11 @@ export function parseLmsExport(input: string[][]): LmsExportBook {
       courseActivatedAt: cell(raw, 5),
       moduleActivatedAt: cell(raw, 6),
       passed: cell(raw, 7) === "" ? null : cell(raw, 7) === "Пройден",
-      points: cell(raw, 8) === "" ? null : Number(cell(raw, 8)),
+      // Нечитаемая ячейка — `null` с отметкой, а не `NaN`: `NaN` доходил до целочисленной
+      // колонки базы и ронял всю загрузку.
+      points: score ? score.points : null,
+      scorePercent: score ? score.percent : null,
+      pointsUnreadable: score === undefined,
       // BR-54-32: идентификатор обучающегося, если его дописал внешний обезличиватель.
       learnerId: extra.learnerId[r],
       externalId: extra.externalId[r],

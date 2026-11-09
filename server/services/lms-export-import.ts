@@ -49,9 +49,22 @@ const LMS_SCORE_MAX = 100;
  * Значение вне 0..100 обрезается, а не отбрасывается: процент чужой LMS мог приехать с
  * округлением за край, и выбросить из-за этого вердикт было бы хуже, чем прижать к границе.
  */
-function percentOf(points: number | null): number | null {
-  if (points === null || !Number.isFinite(points)) return null;
+function percentOf(points: number | null | undefined): number | null {
+  if (points == null || !Number.isFinite(points)) return null;
   return Math.round(Math.min(LMS_SCORE_MAX, Math.max(0, points)));
+}
+
+/**
+ * Значение для целочисленной колонки базы: округлённое конечное число либо `null`.
+ *
+ * Последний рубеж перед записью: `NaN`, бесконечность или дробь, дошедшие до `integer`, роняют
+ * весь импорт ошибкой базы, а не одной строкой.
+ *
+ * @param value число из плана
+ * @returns целое либо `null`
+ */
+export function integerOrNull(value: number | null | undefined): number | null {
+  return value != null && Number.isFinite(value) ? Math.round(value) : null;
 }
 
 export interface ImportOptions {
@@ -287,6 +300,8 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
   const sameContent = new Map<string, number>();
   // BR-54-34: сколько строк у участника за одну дату — для протокола.
   const sameDay = new Map<string, number>();
+  // Строки с нечитаемыми «Баллами» — одним предупреждением на файл, а не на строку.
+  let pointsUnreadable = 0;
   for (const r of book.rows) {
     if (!r.moduleActivatedAt) {
       // Имя в предупреждении раскрывается только тогда, когда мы его и так сохраняем: иначе
@@ -312,7 +327,9 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
     // Пакеты до 2026-09-12 слали измерительному тесту «0 баллов» (PRD-54 §14 п.1), и такие
     // выгрузки в ходу: без этой проверки опросник стал бы оцененным на ноль.
     const graded = Object.values(r.results).some((v) => v === "correct" || v === "incorrect");
-    const percent = graded ? percentOf(r.points) : null;
+    // «Баллы» дробью `N / M (P)` несут процент сами; простое число и есть процент пакета.
+    const percent = graded ? percentOf(r.scorePercent ?? r.points) : null;
+    if (r.pointsUnreadable) pointsUnreadable += 1;
 
     rows.push({
       participantKey: key,
@@ -336,7 +353,7 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
       finishedAt: r.durationSeconds != null ? new Date(at.getTime() + r.durationSeconds * 1000) : at,
       attemptNumber: r.attemptNumber ?? null,
       resultPassed: r.passed,
-      totalPoints: r.points,
+      totalPoints: integerOrNull(r.points),
       resultPercent: percent,
       maxPoints: percent === null ? null : LMS_SCORE_MAX,
       // Ключи ответов — это и есть выданный состав: разбор кладёт туда только блоки, где
@@ -355,9 +372,9 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
         // Выгрузка даёт целые секунды, база хранит миллисекунды — как и живая телеметрия,
         // иначе два источника не сравнить одним запросом. Нет измерения — нет и числа;
         // отсутствие самой карты означает то же (выгрузка пакета, времени не мерившего).
-        latencyMs: (r.latencySeconds || {})[questionId] != null
-          ? (r.latencySeconds || {})[questionId] * 1000
-          : null,
+        latencyMs: integerOrNull(
+          (r.latencySeconds || {})[questionId] != null ? (r.latencySeconds || {})[questionId] * 1000 : null,
+        ),
         protocol: (r.simProtocols || {})[questionId] ?? null,
       })),
       responseFormat: r.responseFormat ?? null,
@@ -368,6 +385,12 @@ export function buildImportPlan(book: LmsExportBook, opts: ImportOptions): Impor
       topicLevels: r.topicLevels ?? {},
       topicCourses: r.topicCourses ?? {},
     });
+  }
+
+  if (pointsUnreadable > 0) {
+    warnings.push(
+      `Не разобрана колонка «Баллы» в строках: ${pointsUnreadable}. Баллы и процент этих прохождений не загружены, остальное — загружено.`,
+    );
   }
 
   const repeatedDays = [...sameDay.values()].filter((n) => n > 1).length;

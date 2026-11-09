@@ -2,7 +2,26 @@
  * @module shared/lms-export/__tests__/parse
  */
 import { describe, it, expect } from "vitest";
-import { TOPIC_LEVEL_NOT_ACHIEVED, looksLikeLmsExport, parseLmsExport } from "../parse";
+import { TOPIC_LEVEL_NOT_ACHIEVED, looksLikeLmsExport, parseLmsExport, parseLmsPoints } from "../parse";
+
+describe("parseLmsPoints — колонка «Баллы»", () => {
+  it.each([
+    ["98", { points: 98, percent: null }],
+    ["72,5", { points: 72.5, percent: null }],
+    ["98 / 100 (98)", { points: 98, percent: 98 }],
+    ["0 / 100 (0)", { points: 0, percent: 0 }],
+    ["49/50(98%)", { points: 49, percent: 98 }],
+    ["3 / 4", { points: 3, percent: 75 }],
+    ["5 / 0", { points: 5, percent: null }],
+  ])("«%s»", (text, expected) => {
+    expect(parseLmsPoints(text)).toEqual(expected);
+  });
+
+  it("пустая ячейка — null, нечитаемая — undefined", () => {
+    expect(parseLmsPoints("  ")).toBeNull();
+    expect(parseLmsPoints("98 из 100")).toBeUndefined();
+  });
+});
 
 /** Шапка и строка по образцу docs/references/7684237229762827328-1.xlsx, урезанные до двух блоков. */
 const SHEET: string[][] = [
@@ -180,6 +199,30 @@ describe("parseLmsExport", () => {
     expect(row.moduleActivatedAt).toBe("2026-09-09T13:39:00.000Z");
     expect(row.passed).toBe(true);
     expect(row.points).toBe(0);
+  });
+
+  it("«Баллы» простым числом: процента в колонке нет", () => {
+    const [row] = parseLmsExport(SHEET).rows;
+    expect(row.scorePercent).toBeNull();
+    expect(row.pointsUnreadable).toBe(false);
+  });
+
+  it("«Баллы» дробью WebTutor `98 / 100 (98)` читаются, а не превращаются в NaN", () => {
+    const sheet = SHEET.map((r) => [...r]);
+    sheet[2][8] = "49 / 50 (98)";
+    const [row] = parseLmsExport(sheet).rows;
+    expect(row.points).toBe(49);
+    expect(row.scorePercent).toBe(98);
+    expect(row.pointsUnreadable).toBe(false);
+  });
+
+  it("нечитаемые «Баллы» — пусто с отметкой", () => {
+    const sheet = SHEET.map((r) => [...r]);
+    sheet[2][8] = "девяносто";
+    const [row] = parseLmsExport(sheet).rows;
+    expect(row.points).toBeNull();
+    expect(row.scorePercent).toBeNull();
+    expect(row.pointsUnreadable).toBe(true);
   });
 
   it("читает время на задании — это материал анализа пунктов, а не украшение", () => {
