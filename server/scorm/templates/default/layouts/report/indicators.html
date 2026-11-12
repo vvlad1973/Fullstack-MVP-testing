@@ -5,7 +5,8 @@
      плотно. Заголовок несёт первая — иначе он остался бы карточкой из одной строки. -->
 {{#each result.indicators}}
 <section class="tb-report__card">
-  {{#if @first}}{{#if @root.labels.results.indicators}}<div class="tb-report__title tb-report__title--tight">{{ @root.labels.results.indicators }}</div>{{/if}}{{/if}}
+  {{#if @first}}{{#if @root.block.values.title}}<div class="tb-report__title tb-report__title--tight" data-placeholder="title"></div>{{/if}}{{#unless @root.block.values.title}}{{#if @root.labels.results.indicators}}<div class="tb-report__title tb-report__title--tight">{{ @root.labels.results.indicators }}</div>{{/if}}{{/unless}}{{/if}}
+  {{#if @first}}{{#if @root.block.values.lead}}<div class="tb-report__rec tb-report__rec--plain"><div class="tb-report__event" data-placeholder="lead"></div></div>{{/if}}{{/if}}
   <div class="tb-report__scales">
     <div class="tb-report__scale-list">
       <div class="tb-report__scale">

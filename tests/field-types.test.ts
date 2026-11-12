@@ -192,3 +192,26 @@ describe("collectFieldTypeIssues — manifest level (FR-12)", () => {
     ).toEqual([]);
   });
 });
+
+describe("validateVariantFields: outcomeDefaults", () => {
+  it("accepts defaults for passed and failed", () => {
+    expect(
+      validateVariantFields({
+        placeholders: [{ key: "title", type: "text", outcomeDefaults: { failed: "Над чем поработать" } }],
+        settings: [{ key: "topics", type: "select", options: ["all", "failed"], outcomeDefaults: { passed: "all", failed: "failed" } }],
+      }),
+    ).toEqual([]);
+  });
+
+  it("names a misspelt outcome key", () => {
+    const issues = validateVariantFields({
+      placeholders: [{ key: "title", type: "text", outcomeDefaults: { pass: "Так держать" } }],
+    });
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toContain("pass");
+  });
+
+  it("rejects a non-object declaration", () => {
+    expect(validateVariantFields({ placeholders: [{ key: "title", type: "text", outcomeDefaults: "x" }] })).toHaveLength(1);
+  });
+});

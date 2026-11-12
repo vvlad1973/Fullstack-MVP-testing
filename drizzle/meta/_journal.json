@@ -456,6 +456,13 @@
       "when": 1794225841142,
       "tag": "0064_scorm_answer_fractional_points",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1794516010989,
+      "tag": "0065_report_block_outcome",
+      "breakpoints": true
     }
   ]
 }

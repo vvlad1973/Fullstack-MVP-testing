@@ -218,6 +218,7 @@ CREATE TABLE "report_blocks" (
 	"enabled" boolean DEFAULT true NOT NULL,
 	"values_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"settings_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"outcome_json" jsonb,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.25.0",
+  "version": "1.26.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -1576,7 +1576,8 @@
       "kind": "report.block",
       "block": "summary",
       "layoutFile": "layouts/report/summary.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.topics",
@@ -1585,7 +1586,8 @@
       "block": "topics",
       "kinds": ["report"],
       "layoutFile": "layouts/report/topics.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.breakdown",
@@ -1594,7 +1596,8 @@
       "block": "breakdown",
       "kinds": ["report"],
       "layoutFile": "layouts/report/breakdown.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.scales",
@@ -1603,7 +1606,8 @@
       "block": "scales",
       "kinds": ["report"],
       "layoutFile": "layouts/report/scales.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.indicators",
@@ -1612,7 +1616,8 @@
       "block": "indicators",
       "kinds": ["report"],
       "layoutFile": "layouts/report/indicators.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.recommendations",
@@ -1621,7 +1626,8 @@
       "block": "recommendations",
       "kinds": ["report"],
       "layoutFile": "layouts/report/recommendations.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.courses",
@@ -1630,7 +1636,8 @@
       "block": "courses",
       "kinds": ["report"],
       "layoutFile": "layouts/report/courses.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.events",
@@ -1638,7 +1645,8 @@
       "kind": "report.block",
       "block": "events",
       "layoutFile": "layouts/report/events.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.page.text",
@@ -1687,7 +1695,8 @@
       "block": "breakdown",
       "kinds": ["report.adaptive"],
       "layoutFile": "layouts/report/adaptive/breakdown.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.adaptive.scales",
@@ -1696,7 +1705,8 @@
       "block": "scales",
       "kinds": ["report.adaptive"],
       "layoutFile": "layouts/report/adaptive/scales.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.adaptive.indicators",
@@ -1705,7 +1715,8 @@
       "block": "indicators",
       "kinds": ["report.adaptive"],
       "layoutFile": "layouts/report/adaptive/indicators.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.adaptive.recommendations",
@@ -1714,7 +1725,8 @@
       "block": "recommendations",
       "kinds": ["report.adaptive"],
       "layoutFile": "layouts/report/adaptive/recommendations.html",
-      "isDefault": true
+      "isDefault": true,
+      "placeholders": [{"key": "title", "type": "text", "label": "Заголовок блока", "required": false}, {"key": "lead", "type": "html", "label": "Подводка", "required": false}]
     },
     {
       "key": "report.block.adaptive.courses",

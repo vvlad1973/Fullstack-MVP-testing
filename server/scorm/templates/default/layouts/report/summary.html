@@ -9,7 +9,8 @@
      итогов: он покрывает сводку, темы, шкалы и показатели. Формулировку и сам показ
      задаёт автор одним тумблером на оба экрана; выключен — заголовка нет, разделы
      остаются. -->
-{{#if labels.results.heading}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.heading }}</div>{{/if}}
+{{#if block.values.title}}<div class="tb-report__title tb-report__title--tight" data-placeholder="title"></div>{{/if}}{{#unless block.values.title}}{{#if labels.results.heading}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.heading }}</div>{{/if}}{{/unless}}
+{{#if block.values.lead}}<div class="tb-report__rec tb-report__rec--plain"><div class="tb-report__event" data-placeholder="lead"></div></div>{{/if}}
 
 <!-- Сводка баллов гейтится ТЕМ ЖЕ признаком, что на экране итогов (PRD-29 §6.7):
      измерительная методика не приносит баллов, и «0 вопросов / 0.0 баллов / 0 %» —

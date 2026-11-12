@@ -2560,6 +2560,7 @@ router.get("/attempts/:attemptId/result", requirePermission("attempts.self.read"
           templateKey: typeof r.templateKey === "string" ? r.templateKey : null,
           valuesJson: (r.valuesJson ?? {}) as Record<string, unknown>,
           settingsJson: (r.settingsJson ?? {}) as Record<string, unknown>,
+          outcomeJson: r.outcomeJson,
         }))
         .filter((r) => r.block.length > 0);
       reportRender = readReportRenderPayload(

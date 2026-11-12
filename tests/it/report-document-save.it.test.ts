@@ -176,4 +176,45 @@ describe("сохранение документа отчёта", () => {
     expect((await repo.listReportBlocks(testId, "adaptive")).map((r) => r.block)).toEqual(["topics"]);
     expect((await repo.listReportBlocks(testId, "standard")).map((r) => r.block)).toEqual(["header"]);
   });
+
+  it("сохраняет содержимое по исходу рядом с общим и чистит в нём разметку", async () => {
+    await service.save(testId, {
+      test: {},
+      reportBlocks: [
+        block({
+          block: "recommendations",
+          values: { title: "Рекомендации" },
+          outcome: {
+            passed: { values: { lead: '<p onclick="x()">Закрепите результат</p>' } },
+            failed: { values: { title: "Над чем поработать" }, settings: { topics: "failed" } },
+            // Чужие ключи отбрасываются: у ветви исхода только values и settings.
+            unknown: { values: { title: "мусор" } },
+          },
+        }),
+      ],
+    } as never);
+
+    const [row] = await repo.listReportBlocks(testId, "standard");
+    expect(row.valuesJson).toEqual({ title: "Рекомендации" });
+    expect(Object.keys(row.outcomeJson ?? {}).sort()).toEqual(["failed", "passed"]);
+    const lead = String(row.outcomeJson?.passed?.values?.lead);
+    expect(lead).toContain("Закрепите результат");
+    expect(lead).not.toContain("onclick");
+    // Очистка ставит неразрывные пробелы после коротких слов, поэтому пробелы сравниваются
+    // обычными — предмет проверки здесь, что ветвь дошла целиком.
+    expect(String(row.outcomeJson?.failed?.values?.title).replace(/\s/g, " ")).toBe("Над чем поработать");
+    expect(row.outcomeJson?.failed?.settings).toEqual({ topics: "failed" });
+  });
+
+  it("без поля исхода пишет NULL — печатаются умолчания шаблона", async () => {
+    await service.save(testId, { test: {}, reportBlocks: [block()] } as never);
+    const [row] = await repo.listReportBlocks(testId, "standard");
+    expect(row.outcomeJson).toBeNull();
+  });
+
+  it("пустой объект исхода сохраняется как есть — автор выключил содержимое по исходу", async () => {
+    await service.save(testId, { test: {}, reportBlocks: [block({ outcome: {} })] } as never);
+    const [row] = await repo.listReportBlocks(testId, "standard");
+    expect(row.outcomeJson).toEqual({});
+  });
 });

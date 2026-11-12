@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveReportDocument,
   resolveReportBundle,
+  variantOutcomeDefaults,
   type ReportBlockRowInput,
 } from "../report-document";
 
@@ -188,3 +189,52 @@ describe("минимальный документ", () => {
     expect(resolveReportDocument(halfMigrated, "report.adaptive").monolithic).toBe(true);
   });
 });
+
+describe("содержимое по исходу", () => {
+  const withDefaults = {
+    ...manifest,
+    contentTemplates: [
+      ...manifest.contentTemplates.filter((v) => v.key !== "b.topics"),
+      {
+        key: "b.topics",
+        kind: "report.block",
+        block: "topics",
+        layoutFile: "topics.html",
+        isDefault: true,
+        placeholders: [{ key: "title", type: "text", outcomeDefaults: { failed: "Над чем поработать" } }],
+        settings: [{ key: "filter", type: "select", options: ["all", "failed"], outcomeDefaults: { failed: "failed" } }],
+      },
+    ],
+  };
+  const topicsOf = (rows: ReportBlockRowInput[]) =>
+    resolveReportDocument(withDefaults, "report", rows).blocks.find((b) => b.block === "topics")!;
+
+  it("собирает умолчания варианта по исходу из полей и свойств", () => {
+    expect(variantOutcomeDefaults(withDefaults.contentTemplates.find((v) => v.key === "b.topics"))).toEqual({
+      failed: { values: { title: "Над чем поработать" }, settings: { filter: "failed" } },
+    });
+  });
+
+  it("документ по умолчанию получает умолчания шаблона", () => {
+    expect(topicsOf([]).outcome?.failed?.values?.title).toBe("Над чем поработать");
+  });
+
+  it("строка без решения автора (NULL) получает умолчания шаблона", () => {
+    expect(topicsOf([row({ block: "topics", outcomeJson: null })]).outcome?.failed?.settings?.filter).toBe("failed");
+  });
+
+  it("решение автора побеждает умолчания целиком", () => {
+    const b = topicsOf([row({ block: "topics", outcomeJson: { passed: { values: { title: "Так держать" } } } })]);
+    expect(b.outcome).toEqual({ passed: { values: { title: "Так держать" } } });
+  });
+
+  it("выключенное автором содержимое ({}) умолчаниями не возвращается", () => {
+    expect("outcome" in topicsOf([row({ block: "topics", outcomeJson: {} })])).toBe(false);
+  });
+
+  it("блок без содержимого по исходу поля не несёт — пакет прежний", () => {
+    const header = resolveReportDocument(manifest, "report", []).blocks[0];
+    expect("outcome" in header).toBe(false);
+  });
+});
+

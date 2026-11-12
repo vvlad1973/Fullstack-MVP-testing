@@ -44,6 +44,7 @@ import {
   type ReportBlockRowInput,
 } from "@shared/report/report-document";
 import { reportImageKeys, resolveReportImageValues } from "@shared/report/report-assets";
+import type { ReportBlockOutcome } from "@shared/report/report-outcome";
 
 /**
  * Where the browser reaches ONE template's own files (`GET /api/templates/:id/assets/*`).
@@ -623,6 +624,8 @@ export function readReportRenderPayload(
     placeholders: Array<{ key: string; type: string }>;
     values: Record<string, unknown>;
     settings: Record<string, unknown>;
+    /** Содержимое по исходу; отсутствует, когда по исходу ничего не печатается. */
+    outcome?: ReportBlockOutcome;
   }>;
 } | null {
   try {
@@ -676,6 +679,9 @@ export function readReportRenderPayload(
             placeholders: b.placeholders,
             values: b.values,
             settings: b.settings,
+            // Содержимое по исходу: печать накладывает его по исходу прогона. Потеряйся оно
+            // здесь — веб-PDF печатал бы только общее, расходясь с пакетом и предпросмотром.
+            ...(b.outcome ? { outcome: b.outcome } : {}),
           }))
           .filter((b) => b.nature === "page-break" || b.layout.length > 0);
 

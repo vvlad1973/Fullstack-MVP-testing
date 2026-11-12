@@ -53,3 +53,15 @@ describe("строка числа попыток в отчёте: адаптив
     expect(ctx.report.attemptsCountLabel).toBe("");
   });
 });
+
+describe("исход прогона в контексте отчёта", () => {
+  it("пройденный тест — `passed`, не пройденный — `failed`", () => {
+    expect(buildReportContext({ testName: "Т", result: standardResult } as never).report.outcome).toBe("passed");
+    const failed = { ...standardResult, passed: false, percent: 10, correct: 0, earnedPoints: 0 };
+    expect(buildReportContext({ testName: "Т", result: failed } as never).report.outcome).toBe("failed");
+  });
+
+  it("адаптивный отчёт вердикта не выносит — исход пуст", () => {
+    expect(buildAdaptiveReportContext({ testName: "Т", result: adaptiveResult } as never).report.outcome).toBe("");
+  });
+});

@@ -541,6 +541,22 @@ describe("PUT /api/tests/:id — section formSetJson (PRD-17)", () => {
     expect(serviceMock.save.mock.calls[0][1].test.passDecisionPolicy).toBe("required_topics_only");
   });
 
+  // Same class again: a report block's outcome content must reach the service, or the
+  // editor would show the texts «if passed / if failed» vanishing after every save.
+  it("passes a report block's outcome content through to the save service", async () => {
+    const outcome = { failed: { values: { title: "Над чем поработать" } } };
+    const res = await asAuthor(
+      request(app).put("/api/tests/test1").send({
+        title: "My Test",
+        mode: "standard",
+        sections: [{ topicId: "t1", drawCount: 2 }],
+        reportBlocks: [{ block: "recommendations", outcome }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(serviceMock.save.mock.calls[0][1].reportBlocks[0].outcome).toEqual(outcome);
+  });
+
   it("rejects an unknown passDecisionPolicy with 400", async () => {
     const res = await asAuthor(
       request(app).put("/api/tests/test1").send({

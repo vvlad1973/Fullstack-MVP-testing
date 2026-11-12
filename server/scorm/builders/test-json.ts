@@ -18,6 +18,7 @@ import { hasGradedContent } from "@shared/questions/question-type";
 import { hasOptionFeedback } from "@shared/questions/option-feedback";
 import { feedbackAssets, normalizeFeedback, topicFeedbackTexts } from "@shared/template/result-context";
 import type { ReportBake } from "@shared/report/report-variants";
+import { normalizeReportBlockOutcome, REPORT_OUTCOMES } from "@shared/report/report-outcome";
 import { CARD_IMAGES_SETTING_KEY, pruneCardImageEntries } from "@shared/template/router-card-images";
 
 interface AdaptiveLevelWithLinks extends AdaptiveLevel {
@@ -804,6 +805,23 @@ export function buildTestJson(data: ExportData): string {
       for (const [k, v] of Object.entries(row.settingsJson ?? {})) {
         settings[k] = typeof v === "string" ? sanitizeHtml(v) : v;
       }
+      // Ветви исхода чистятся тем же правилом, что и общие значения: это та же авторская
+      // разметка, только для прошедшего или не прошедшего тест.
+      const outcome = normalizeReportBlockOutcome(row.outcomeJson);
+      for (const key of REPORT_OUTCOMES) {
+        const branch = outcome[key];
+        if (!branch) continue;
+        if (branch.values) {
+          for (const [k, v] of Object.entries(branch.values)) {
+            branch.values[k] = typeof v === "string" ? sanitizeHtml(v, { scope: placeholderScope(k) }) : v;
+          }
+        }
+        if (branch.settings) {
+          for (const [k, v] of Object.entries(branch.settings)) {
+            branch.settings[k] = typeof v === "string" ? sanitizeHtml(v) : v;
+          }
+        }
+      }
       return {
         block: row.block,
         templateKey: row.templateKey,
@@ -811,6 +829,9 @@ export function buildTestJson(data: ExportData): string {
         enabled: row.enabled,
         values,
         settings,
+        // Пустое содержимое по исходу в пакет не пишется: тест, где его не задавали,
+        // собирает тот же `test.json`, что и до появления колонки.
+        ...(Object.keys(outcome).length ? { outcome } : {}),
       };
     });
   }

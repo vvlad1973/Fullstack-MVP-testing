@@ -128,4 +128,17 @@ describe("веб-выдача отчёта получает БЛОКИ доку�
     expect(order.slice(0, 2)).toEqual(["topics", "header"]);
     expect(payload!.blocks!.find((b) => b.block === "header")!.enabled).toBe(false);
   });
+
+  /**
+   * Дефект, пойманный живой приёмкой 2026-11-13: веб-PDF печатал только общее содержимое
+   * блока, потому что сборка этой выдачи переписывала блок по списку полей и содержимое по
+   * исходу в нём не значилось. Пакет и предпросмотр печатали верно.
+   */
+  it("содержимое блока по исходу доезжает до веб-выдачи", () => {
+    const outcome = { failed: { values: { title: "Над чем поработать" } } };
+    const payload = readReportRenderPayload(DEFAULT_DIR, "report", null, null, undefined, undefined, null, [
+      { block: "summary", sortOrder: 0, enabled: true, templateKey: null, valuesJson: {}, settingsJson: {}, outcomeJson: outcome },
+    ]);
+    expect(payload!.blocks!.find((b) => b.block === "summary")!.outcome).toEqual(outcome);
+  });
 });

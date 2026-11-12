@@ -86,6 +86,12 @@ export interface ReportBlock {
   verdictBadge: string;
   /** Класс вердикта для CSS отчёта: `is-pass` / `is-fail`; пуст, когда вердикта нет. */
   verdictClass: string;
+  /**
+   * Исход, по которому блоки документа выбирают своё содержимое: `passed` / `failed`;
+   * ПУСТ, когда вердикт не вынесен — тогда печатается только общее содержимое блоков.
+   * Считается тем же гейтом, что и {@link verdictClass}: две копии правила разошлись бы.
+   */
+  outcome: "" | "passed" | "failed";
   /** Гейт блока тем. */
   hasTopics: boolean;
   /** «3/5» — верно из общего числа вопросов. */
@@ -211,6 +217,7 @@ function reportBlock(meta: ReportMeta, topicCount: number, opts: ReportContextOp
     verdictHeadline: "",
     verdictBadge: "",
     verdictClass: "",
+    outcome: "",
     hasTopics: topicCount > 0,
     correctLabel: "",
     earnedPointsLabel: "",
@@ -355,6 +362,7 @@ export function buildReportContext(input: ReportInput, opts: ReportContextOption
   // цвет вердикта, и любой из двух цветов был бы утверждением. Макет гейтит их на пустоте.
   report.verdictBadge = !hasVerdict ? "" : passed ? "пройден" : "не пройден";
   report.verdictClass = !hasVerdict ? "" : passed ? "is-pass" : "is-fail";
+  report.outcome = !hasVerdict ? "" : passed ? "passed" : "failed";
   // «Лучший результат за N попыток» — утверждение о СРАВНЕНИИ попыток по баллам, то есть о
   // том же, о чём вердикт и сводка. Тест, который ничего не оценивает, лучшей попытки не
   // знает: у всех его прогонов баллов ноль поровну, а документ печатал «Лучший результат за

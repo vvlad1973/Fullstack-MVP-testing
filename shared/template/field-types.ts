@@ -109,6 +109,34 @@ interface DeclaredField {
   type?: unknown;
   options?: unknown;
   default?: unknown;
+  /**
+   * Defaults per test outcome of a report-block field (`{ passed?, failed? }`): what the
+   * report prints for a passed / failed run until the author decides otherwise.
+   */
+  outcomeDefaults?: unknown;
+}
+
+/** Outcomes a field may declare defaults for. */
+const OUTCOME_DEFAULT_KEYS = ["passed", "failed"];
+
+/**
+ * Checks a field's `outcomeDefaults`: an object with only `passed` / `failed` keys.
+ *
+ * A misspelt key (`pass`, `failure`) would be silently ignored by the report, and the
+ * template author would never learn why the default does not print — hence a hard issue.
+ *
+ * @returns The problem in words, or `null` when the declaration is absent or valid.
+ */
+function outcomeDefaultsIssue(raw: unknown): string | null {
+  if (raw === undefined) return null;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return "outcomeDefaults должен быть объектом с ключами passed и/или failed";
+  }
+  const unknown = Object.keys(raw).filter((k) => !OUTCOME_DEFAULT_KEYS.includes(k));
+  if (unknown.length) {
+    return `outcomeDefaults: неизвестные ключи ${unknown.join(", ")}; допустимы passed и failed`;
+  }
+  return null;
 }
 
 /** Human-readable key for diagnostics when the declaration has no usable `key`. */
@@ -158,6 +186,8 @@ export function validateVariantFields(variant: {
           issues.push({ list, field: label, message: 'тип "select" требует непустой список options' });
         }
       }
+      const outcomeIssue = outcomeDefaultsIssue(field.outcomeDefaults);
+      if (outcomeIssue) issues.push({ list, field: label, message: outcomeIssue });
     });
   };
 

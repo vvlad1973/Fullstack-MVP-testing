@@ -7,6 +7,7 @@ import { isAllocationFeasible } from "./questions/allocation";
 import { STORED_ROLES } from "./access/roles";
 import { PLACEHOLDER_TYPES, SETTING_TYPES } from "./template/field-types";
 import type { BreakdownFeedback as BreakdownFeedbackShape } from "./breakdown/types";
+import type { ReportBlockOutcome } from "./report/report-outcome";
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -2864,6 +2865,18 @@ export const reportBlocks = pgTable("report_blocks", {
   valuesJson: jsonb("values_json").$type<Record<string, unknown>>().notNull().default({}),
   /** Свойства: значения `settings[]` варианта. */
   settingsJson: jsonb("settings_json").$type<Record<string, unknown>>().notNull().default({}),
+  /**
+   * Содержимое ПО ИСХОДУ: значения полей и свойств, переопределённые для прошедшего
+   * (`passed`) и не прошедшего (`failed`) тест. Лежит РЯДОМ с общими `valuesJson` /
+   * `settingsJson`, а не вместо них: общее печатает прогон без вынесенного вердикта, поэтому
+   * оно обязано пережить любую правку ветвей исхода.
+   *
+   * NULL и `{}` различаются намеренно. NULL — автор содержимым по исходу не распоряжался, и
+   * печатаются умолчания по исходу, объявленные вариантом шаблона (`outcomeDefaults`). `{}` —
+   * автор выключил содержимое по исходу, и умолчания шаблона НЕ возвращаются: иначе
+   * выключение отменялось бы само собой.
+   */
+  outcomeJson: jsonb("outcome_json").$type<ReportBlockOutcome>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

@@ -136,3 +136,41 @@ describe("сборка документа отчёта", () => {
     );
   });
 });
+
+describe("содержимое блока по исходу", () => {
+  const LEAD = '<section class="tb-report__card"><div data-placeholder="lead"></div>{{#if block.values.title}}<h2>{{ block.values.title }}</h2>{{/if}}</section>';
+  const outcomeBlock = () =>
+    block({
+      block: "recommendations",
+      layout: LEAD,
+      placeholders: [{ key: "lead", type: "html" }, { key: "title", type: "text" }],
+      values: { lead: "<p>Общее</p>" },
+      outcome: {
+        passed: { values: { lead: "<p>Так держать</p>" } },
+        failed: { values: { title: "Над чем поработать" } },
+      },
+    });
+
+  it("дописывает длинный текст исхода к общему у прошедшего", () => {
+    const el = stage();
+    renderReportInto(el, { shell: SHELL, context: { report: { outcome: "passed" } }, blocks: [outcomeBlock()] });
+    expect(el.textContent).toContain("Общее");
+    expect(el.textContent).toContain("Так держать");
+    expect(el.querySelector("h2")).toBeNull();
+  });
+
+  it("отдаёт раскладке собственное содержимое блока под именем `block`", () => {
+    const el = stage();
+    renderReportInto(el, { shell: SHELL, context: { report: { outcome: "failed" } }, blocks: [outcomeBlock()] });
+    expect(el.querySelector("h2")?.textContent).toBe("Над чем поработать");
+    expect(el.textContent).not.toContain("Так держать");
+  });
+
+  it("без вынесенного вердикта печатает только общее", () => {
+    const el = stage();
+    renderReportInto(el, { shell: SHELL, context: { report: { outcome: "" } }, blocks: [outcomeBlock()] });
+    expect(el.textContent).toContain("Общее");
+    expect(el.textContent).not.toContain("Так держать");
+    expect(el.querySelector("h2")).toBeNull();
+  });
+});

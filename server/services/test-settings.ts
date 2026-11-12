@@ -7,6 +7,11 @@
  */
 import { sanitizeAllStringValues } from "./content-page-fields";
 import {
+  normalizeReportBlockOutcome,
+  REPORT_OUTCOMES,
+  type ReportBlockOutcome,
+} from "@shared/report/report-outcome";
+import {
   replaceReportBlocksIn,
   type ReportDocumentMode,
 } from "../storage/report-blocks-repository";
@@ -303,7 +308,35 @@ export interface SavePayload {
     enabled?: boolean;
     values?: Record<string, unknown>;
     settings?: Record<string, unknown>;
+    /**
+     * Содержимое по исходу (`passed` / `failed`). Отсутствие или `null` — автор им не
+     * распоряжался, и печатаются умолчания варианта шаблона; `{}` — выключено автором.
+     */
+    outcome?: Record<string, unknown> | null;
   }>;
+}
+
+/**
+ * Bring a block's outcome content to its canonical shape and clean the author markup in it.
+ *
+ * Each outcome branch is cleaned by the SAME call as the common values: the text «if the test
+ * is passed» is the same author markup and must not become a way around the sanitizer.
+ *
+ * @param raw The `outcome` of a block from the request body.
+ * @returns The value for `report_blocks.outcome_json`; `{}` when nothing is overridden.
+ */
+function sanitizeReportBlockOutcome(raw: unknown): ReportBlockOutcome {
+  const outcome = normalizeReportBlockOutcome(raw);
+  const out: ReportBlockOutcome = {};
+  for (const key of REPORT_OUTCOMES) {
+    const branch = outcome[key];
+    if (!branch) continue;
+    out[key] = {
+      ...(branch.values ? { values: sanitizeAllStringValues(branch.values) } : {}),
+      ...(branch.settings ? { settings: sanitizeAllStringValues(branch.settings) } : {}),
+    };
+  }
+  return out;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -541,6 +574,11 @@ export class TestSettingsService {
             // правил очистки в продукте быть не должно.
             valuesJson: sanitizeAllStringValues(b.values),
             settingsJson: sanitizeAllStringValues(b.settings),
+            // Ветви исхода несут ту же авторскую разметку, что и общие значения, и чистятся
+            // тем же вызовом — иначе текст «если тест пройден» стал бы обходом очистки.
+            // Отсутствие поля — «автор исходом не распоряжался» (NULL: печатаются умолчания
+            // шаблона), пустой объект — «автор выключил содержимое по исходу».
+            outcomeJson: b.outcome === undefined || b.outcome === null ? null : sanitizeReportBlockOutcome(b.outcome),
           })),
         );
       }

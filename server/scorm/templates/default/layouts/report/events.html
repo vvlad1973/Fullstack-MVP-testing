@@ -1,6 +1,7 @@
 {{#if report.hasEvents}}
 <section class="tb-report__card">
-  {{#if labels.recommendations.events}}<div class="tb-report__title tb-report__title--tight">{{ labels.recommendations.events }}</div>{{/if}}
+  {{#if block.values.title}}<div class="tb-report__title tb-report__title--tight" data-placeholder="title"></div>{{/if}}{{#unless block.values.title}}{{#if labels.recommendations.events}}<div class="tb-report__title tb-report__title--tight">{{ labels.recommendations.events }}</div>{{/if}}{{/unless}}
+  {{#if block.values.lead}}<div class="tb-report__rec tb-report__rec--plain"><div class="tb-report__event" data-placeholder="lead"></div></div>{{/if}}
   <div class="tb-report__lead">Посетите очные мероприятия для углублённого изучения материала.</div>
   {{#each report.events}}
   <div class="tb-report__rec tb-report__rec--plain">

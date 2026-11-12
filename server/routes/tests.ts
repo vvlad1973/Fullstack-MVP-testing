@@ -267,6 +267,10 @@ const reportBlockBodySchema = z.object({
   enabled: z.boolean().optional(),
   values: z.record(z.string(), z.unknown()).optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
+  // Содержимое по исходу. Форма проверяется мягко: чужие ключи не ошибка, а мусор, и
+  // служба сохранения приводит значение к каноническому виду (`normalizeReportBlockOutcome`).
+  // `null` и отсутствие — «автор не распоряжался»: печатаются умолчания шаблона.
+  outcome: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const updateTestBodySchema = testBodyBaseSchema.extend({

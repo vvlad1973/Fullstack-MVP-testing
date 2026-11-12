@@ -28,6 +28,7 @@ import {
   type ReportKind,
   type ReportLabelLayers,
 } from "./report-variants";
+import { normalizeReportBlockOutcome, type ReportBlockOutcome } from "./report-outcome";
 
 /** Строка документа, как её хранит тест (подмножество `report_blocks`). */
 export interface ReportBlockRowInput {
@@ -37,6 +38,8 @@ export interface ReportBlockRowInput {
   templateKey: string | null;
   valuesJson: Record<string, unknown>;
   settingsJson: Record<string, unknown>;
+  /** Содержимое по исходу (`report_blocks.outcome_json`); отсутствие — по исходу ничего. */
+  outcomeJson?: unknown;
 }
 
 /** Объявление поля содержимого в том виде, в каком его читает рендерер. */
@@ -56,6 +59,19 @@ export interface ResolvedReportBlock {
   placeholders: ReportBlockPlaceholder[];
   values: Record<string, unknown>;
   settings: Record<string, unknown>;
+  /**
+   * Содержимое по исходу в каноническом виде. Печать накладывает его на {@link values} и
+   * {@link settings} по исходу прогона (`applyReportBlockOutcome`). ОТСУТСТВУЕТ, когда по
+   * исходу ничего не задано: так документ теста, не знающего об исходах, запекается в пакет
+   * тем же, что и до появления поля.
+   */
+  outcome?: ReportBlockOutcome;
+  /**
+   * Содержимым по исходу распорядился АВТОР: в строке лежит объект, а не NULL. Печати
+   * признак не нужен; нужен редактору, чтобы отличить «умолчания шаблона» от «автор выключил»
+   * — у обоих может не оказаться {@link outcome}. Отсутствует, когда автор не распоряжался.
+   */
+  outcomeByAuthor?: true;
   /**
    * Вариант, ВЫБРАННЫЙ автором; `null` — умолчание блока. Печати он не нужен (она уже
    * получила `layoutFile`), но нужен редактору: черновик обязан помнить выбор автора, а не
@@ -98,6 +114,8 @@ export interface BlockVariant {
    */
   description?: string;
   placeholders?: unknown;
+  /** Свойства варианта (`settings[]`); здесь читаются только их умолчания по исходу. */
+  settings?: unknown;
 }
 
 /**
@@ -123,6 +141,51 @@ export function blockVariants(manifest: unknown, kind: ReportKind): BlockVariant
     if (!Array.isArray(raw.kinds) || !raw.kinds.length) return true;
     return (raw.kinds as unknown[]).includes(kind);
   });
+}
+
+/**
+ * Умолчания по исходу, объявленные вариантом: `outcomeDefaults` у полей (`placeholders[]`)
+ * и у свойств (`settings[]`), собранные в форму {@link ReportBlockOutcome}.
+ *
+ * Экспортируется ради редактора: он показывает автору ровно те умолчания, которые напечатает
+ * документ, пока автор содержимым по исходу не распорядился.
+ *
+ * @param variant Вариант блока из манифеста.
+ * @returns Умолчания по исходу; `{}`, если вариант их не объявляет.
+ */
+export function variantOutcomeDefaults(variant: Pick<BlockVariant, "placeholders" | "settings"> | undefined): ReportBlockOutcome {
+  const raw: Record<string, { values: Record<string, unknown>; settings: Record<string, unknown> }> = {
+    passed: { values: {}, settings: {} },
+    failed: { values: {}, settings: {} },
+  };
+  const collect = (list: unknown, into: "values" | "settings") => {
+    if (!Array.isArray(list)) return;
+    for (const field of list) {
+      const key = (field as { key?: unknown })?.key;
+      const defaults = (field as { outcomeDefaults?: unknown })?.outcomeDefaults;
+      if (typeof key !== "string" || !defaults || typeof defaults !== "object") continue;
+      for (const which of ["passed", "failed"] as const) {
+        const value = (defaults as Record<string, unknown>)[which];
+        if (value !== undefined && value !== null) raw[which][into][key] = value;
+      }
+    }
+  };
+  collect(variant?.placeholders, "values");
+  collect(variant?.settings, "settings");
+  return normalizeReportBlockOutcome(raw);
+}
+
+/**
+ * Поле `outcome` блока: присутствует, только когда по исходу что-то печатается.
+ *
+ * `null`/отсутствие в строке — автор содержимым по исходу не распоряжался, и действуют
+ * умолчания варианта. Любой объект, включая пустой, — выбор автора, и умолчания варианта
+ * не подмешиваются: выключение содержимого по исходу не должно отменяться шаблоном.
+ */
+function outcomeField(raw: unknown, variant: BlockVariant | undefined): { outcome?: ReportBlockOutcome } {
+  const outcome =
+    raw === null || raw === undefined ? variantOutcomeDefaults(variant) : normalizeReportBlockOutcome(raw);
+  return Object.keys(outcome).length ? { outcome } : {};
 }
 
 /** Поля содержимого варианта, приведённые к паре «ключ + тип». */
@@ -196,6 +259,8 @@ export function resolveReportDocument(
       placeholders: placeholdersOf(chosen),
       values: input.valuesJson ?? {},
       settings: input.settingsJson ?? {},
+      ...outcomeField(input.outcomeJson, chosen),
+      ...(input.outcomeJson !== null && input.outcomeJson !== undefined ? { outcomeByAuthor: true as const } : {}),
       // Именно строка, а не `chosen.key`: выбор автора переживает пропажу варианта из
       // шаблона, хотя печать на время этой пропажи деградирует к умолчанию блока.
       templateKey: input.templateKey ?? null,

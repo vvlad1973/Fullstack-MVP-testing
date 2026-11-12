@@ -1,6 +1,7 @@
 {{#if result.recommendations.hasAny}}
 <section class="tb-report__card">
-  {{#if labels.results.recommendations}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.recommendations }}</div>{{/if}}
+  {{#if block.values.title}}<div class="tb-report__title tb-report__title--tight" data-placeholder="title"></div>{{/if}}{{#unless block.values.title}}{{#if labels.results.recommendations}}<div class="tb-report__title tb-report__title--tight">{{ labels.results.recommendations }}</div>{{/if}}{{/unless}}
+  {{#if block.values.lead}}<div class="tb-report__rec tb-report__rec--plain"><div class="tb-report__event" data-placeholder="lead"></div></div>{{/if}}
   <!-- Текст рекомендации печатается РАЗМЕТКОЙ: автор выбирает формат («Обычный»,
        «Форматированный», «HTML») в редакторе обратной связи, и его выбор доезжает сюда
        полем `textsHtml`. Обычный текст ядро экранирует само, а переводы строк отдаёт

@@ -80,4 +80,24 @@ describe("документ отчёта в пакете", () => {
   it("у теста без документа ключа в TEST_DATA нет вовсе", () => {
     expect(bake([]).reportBlocks).toBeUndefined();
   });
+
+  it("содержимое по исходу едет в пакет и очищается тем же правилом", () => {
+    const baked = bake([
+      row({
+        outcomeJson: {
+          passed: { values: { body: '<p onclick="x()">Так держать</p>' } },
+          failed: { settings: { topics: "failed" } },
+        },
+      }),
+    ]);
+    const [block] = baked.reportBlocks as Array<{ outcome: Record<string, { values?: Record<string, string>; settings?: unknown }> }>;
+    expect(block.outcome.passed.values!.body).toContain("Так держать");
+    expect(block.outcome.passed.values!.body).not.toContain("onclick");
+    expect(block.outcome.failed.settings).toEqual({ topics: "failed" });
+  });
+
+  it("пустое содержимое по исходу в пакет не пишется", () => {
+    const [block] = bake([row({ outcomeJson: {} })]).reportBlocks as Array<Record<string, unknown>>;
+    expect("outcome" in block).toBe(false);
+  });
 });
