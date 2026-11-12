@@ -10834,6 +10834,72 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 /* ЖИРНЫЙ В АВТОРСКОМ ТЕКСТЕ. Текст отчёта набран весом 300, а `b` / `strong` по умолчанию
    `bolder` — от 300 это 400, обычное начертание: выделение автора пропадало. */
 .tb-report b, .tb-report strong { font-weight: 600; }
+
+/* ── ЛИСТЫ ПРОДОЛЖЕНИЯ ─────────────────────────────────────────────────────────
+   Подложка — обложка документа: картинку получает только титульная. Страницам после неё
+   продукт ставит на корень `.tb-report--continued`, и здесь они становятся БЕЛЫМ листом
+   без фона. Белый текст на белом не читается, поэтому под тем же классом текст и карточки
+   перекрашены в светлую палитру: тёмный текст, светлые карточки, тёмные линии.
+
+   Только ЦВЕТ и фон. Раскладка листов считается без этого класса, и любая правка
+   геометрии здесь разошлась бы с уже нарезанными страницами. Блок стоит в КОНЦЕ файла:
+   при равной специфичности он обязан перебить правила выше. */
+.tb-report.tb-report--continued { background: #ffffff; color: #1c1c2b; }
+
+.tb-report.tb-report--continued .tb-report__card { background: #f3f2f8; }
+.tb-report.tb-report--continued .tb-report__topic { background: #e9e7f2; }
+
+.tb-report.tb-report--continued .tb-report__headline,
+.tb-report.tb-report--continued .tb-report__learner,
+.tb-report.tb-report--continued .tb-report__event { color: #1c1c2b; }
+
+.tb-report.tb-report--continued .tb-report__attempts,
+.tb-report.tb-report--continued .tb-report__date,
+.tb-report.tb-report--continued .tb-report__subtitle,
+.tb-report.tb-report--continued .tb-report__lead,
+.tb-report.tb-report--continued .tb-report__metric-lbl,
+.tb-report.tb-report--continued .tb-report__topic-group-counter,
+.tb-report.tb-report--continued .tb-report__topic-group-description,
+.tb-report.tb-report--continued .tb-report__topic-stats,
+.tb-report.tb-report--continued .tb-report__topic-counts,
+.tb-report.tb-report--continued .tb-report__breakdown-name,
+.tb-report.tb-report--continued .tb-report__breakdown-val,
+.tb-report.tb-report--continued .tb-report__breakdown-req { color: #5f5c6e; }
+
+.tb-report.tb-report--continued .tb-report__topic-fb { color: rgba(28, 28, 43, 0.75); }
+.tb-report.tb-report--continued .tb-report__topic-fb--sep {
+  color: rgba(28, 28, 43, 0.85);
+  border-top-color: rgba(28, 28, 43, 0.12);
+}
+
+.tb-report.tb-report--continued .tb-report__ring-track { stroke: #d9d7e3; }
+.tb-report.tb-report--continued .tb-report__topic-bar,
+.tb-report.tb-report--continued .tb-report__breakdown-bar { background: #d9d7e3; }
+.tb-report.tb-report--continued .tb-report__breakdown-row.is-fail .tb-report__breakdown-bar { background: #fee2e2; }
+
+.tb-report.tb-report--continued .tb-report__rec,
+.tb-report.tb-report--continued .tb-report__scale { border-bottom-color: rgba(28, 28, 43, 0.12); }
+
+.tb-report.tb-report--continued .tb-report__scale-rail { background: rgba(28, 28, 43, 0.12); }
+.tb-report.tb-report--continued .tb-report__scale-mark { color: rgba(28, 28, 43, 0.7); }
+
+.tb-report.tb-report--continued .tb-chart__ring,
+.tb-report.tb-report--continued .tb-chart__axis { stroke: rgba(28, 28, 43, 0.2); }
+.tb-report.tb-report--continued .tb-radar__dot--over { stroke: #1c1c2b; }
+.tb-report.tb-report--continued .tb-chart__limit { color: rgba(28, 28, 43, 0.7); }
+.tb-report.tb-report--continued .tb-radar__label,
+.tb-report.tb-report--continued .tb-rose__label { fill: #1c1c2b; }
+.tb-report.tb-report--continued .tb-radar__level,
+.tb-report.tb-report--continued .tb-rose__level { fill: rgba(28, 28, 43, 0.7); }
+.tb-report.tb-report--continued .tb-rose__sector { stroke: #ffffff; }
+.tb-report.tb-report--continued .tb-rose__sector--overflow { stroke: #1c1c2b; }
+.tb-report.tb-report--continued .tb-rose__icon { stroke: rgba(28, 28, 43, 0.7); }
+
+/* Тон уровня: светлые оттенки тёмного листа на белом теряются — те же тона, на ступень темнее. */
+.tb-report.tb-report--continued .tb-report__scale-lvl.tb-tone--favorable { color: hsl(142 72% 30%); }
+.tb-report.tb-report--continued .tb-report__scale-lvl.tb-tone--neutral   { color: hsl(217 80% 45%); }
+.tb-report.tb-report--continued .tb-report__scale-lvl.tb-tone--attention { color: hsl(32 90% 38%); }
+.tb-report.tb-report--continued .tb-report__scale-lvl.tb-tone--critical  { color: hsl(0 74% 45%); }
 </style>
   <style id="pv-fixes">
     /* Undo template global resets that break the preview chrome */
@@ -10884,7 +10950,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       </div>
 
       <div class="pv-dialog-foot">
-        <span>14 экранов · 43 шаблонов контента · шаблон «Стандартный» v1.23.0</span>
+        <span>14 экранов · 43 шаблонов контента · шаблон «Стандартный» v1.24.0</span>
         <button type="button" class="pv-btn">Закрыть</button>
       </div>
     </div>
@@ -10896,7 +10962,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   window.PRD1_PREVIEW_MANIFEST  = {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -22401,6 +22467,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
 
   // shared/report/paginate-dom.ts
   var PAGE_BREAK_SELECTOR = "[data-page-break]";
+  var CONTINUED_SHEET_CLASS = "tb-report--continued";
   var PAGE_WIDTH_PX = 595;
   var PAGE_HEIGHT_PX = 842;
   var MIN_BLOCK_HEIGHT_PX = 40;
@@ -22487,10 +22554,12 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
     const view = doc.defaultView;
     const cover = (_a = view == null ? void 0 : view.getComputedStyle(rendered).background) != null ? _a : "";
     const inline = rendered.style.backgroundImage;
-    if (!inline) return { cover, rest: cover };
+    const hadClass = rendered.classList.contains(CONTINUED_SHEET_CLASS);
     rendered.style.backgroundImage = "";
+    rendered.classList.add(CONTINUED_SHEET_CLASS);
     const rest = (_b = view == null ? void 0 : view.getComputedStyle(rendered).background) != null ? _b : "";
     rendered.style.backgroundImage = inline;
+    if (!hadClass) rendered.classList.remove(CONTINUED_SHEET_CLASS);
     return { cover, rest };
   }
   function buildReportPages(rendered, doc, mount) {
@@ -22509,6 +22578,7 @@ ${(_a = s.description) != null ? _a : ""}`.trimEnd();
       const inner = sheet.root.cloneNode(true);
       inner.style.display = "";
       inner.style.background = "none";
+      if (index > 0) inner.classList.add(CONTINUED_SHEET_CLASS);
       inner.style.paddingTop = "0";
       inner.style.paddingBottom = "0";
       inner.style.marginTop = `-${Math.round(sheet.top)}px`;

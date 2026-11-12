@@ -25,6 +25,19 @@ import { paginateBlocks, sliceBySafeLines, type ReportBlockBox } from "./paginat
  */
 export const PAGE_BREAK_SELECTOR = "[data-page-break]";
 
+/**
+ * Класс-модификатор корня отчёта на страницах ПОСЛЕ титульной.
+ *
+ * Контракт рендерера: ставит его продукт, а что он значит, решает шаблон. Титульная несёт
+ * подложку, остальные — то, что шаблон объявил под этим классом: свой фон листа и свои
+ * цвета текста (на светлом листе белый текст читаться перестаёт). Шаблон без правил под
+ * классом печатает продолжение так же, как титульную без картинки.
+ *
+ * Правила под классом обязаны менять только ЦВЕТ и фон: раскладка листов считается без
+ * класса, и сменившаяся геометрия разошлась бы с уже нарезанными страницами.
+ */
+export const CONTINUED_SHEET_CLASS = "tb-report--continued";
+
 /** Ширина страницы отчёта в CSS-пикселях (A4 при 72 dpi). */
 export const PAGE_WIDTH_PX = 595;
 /** Высота страницы отчёта в CSS-пикселях. */
@@ -212,21 +225,33 @@ function safeCutLines(root: Element, doc: Document, scale: number): number[] {
  *
  * Картинка-подложка — обложка, а не обои: повторённая на каждом листе, она спорит с текстом
  * и печатает семь одинаковых разворотов вместо одного. Поэтому изображение остаётся первой
- * странице, а прочие получают фон шаблона — тот самый градиент, который печатается, когда
- * автор подложку не задал вовсе.
+ * странице, а прочие получают фон, который шаблон объявил под {@link CONTINUED_SHEET_CLASS}.
+ * Не объявил — им достаётся фон корня без картинки: тот самый градиент, который печатается,
+ * когда автор подложку не задал вовсе.
  *
- * Градиент читается ЗАМЕРОМ, а не собирается из строки: изображение приходит инлайновым
- * `background-image` из макета и перебивает градиент CSS целиком, поэтому в вычисленном
- * значении его уже нет. Инлайн снимается на время замера и возвращается на место.
+ * Фон продолжения читается ЗАМЕРОМ, а не собирается из строки: изображение приходит
+ * инлайновым `background-image` из макета и перебивает фон CSS целиком, поэтому в
+ * вычисленном значении его уже нет. На время замера инлайн снимается, а класс продолжения
+ * ставится; потом оба возвращаются как были.
+ *
+ * Экспортирована ради тестов: многолистовую раскладку jsdom не строит, а правило фона
+ * проверяется и без неё.
+ *
+ * @param rendered Корень отрисованной страницы отчёта (`.tb-report`).
+ * @param doc Документ, в котором она живёт.
+ * @returns Фон титульной (`cover`) и фон листов продолжения (`rest`) — вычисленные
+ *   значения свойства `background`.
  */
-function pageBackgrounds(rendered: HTMLElement, doc: Document): { cover: string; rest: string } {
+export function pageBackgrounds(rendered: HTMLElement, doc: Document): { cover: string; rest: string } {
   const view = doc.defaultView;
   const cover = view?.getComputedStyle(rendered).background ?? "";
   const inline = rendered.style.backgroundImage;
-  if (!inline) return { cover, rest: cover };
+  const hadClass = rendered.classList.contains(CONTINUED_SHEET_CLASS);
   rendered.style.backgroundImage = "";
+  rendered.classList.add(CONTINUED_SHEET_CLASS);
   const rest = view?.getComputedStyle(rendered).background ?? "";
   rendered.style.backgroundImage = inline;
+  if (!hadClass) rendered.classList.remove(CONTINUED_SHEET_CLASS);
   return { cover, rest };
 }
 
@@ -243,7 +268,8 @@ function pageBackgrounds(rendered: HTMLElement, doc: Document): { cover: string;
  * Фон переносится на страницу, а у внутренней копии гасится: иначе градиент копии,
  * растянутый по её полной высоте, лёг бы поверх и вернул ту же поехавшую подложку.
  * Картинку-подложку получает ТОЛЬКО первая страница, остальные — фон шаблона
- * ({@link pageBackgrounds}).
+ * ({@link pageBackgrounds}), а их копия корня — класс {@link CONTINUED_SHEET_CLASS}, чтобы
+ * шаблон перекрасил текст под свой лист продолжения.
  *
  * @param rendered Корень отрисованной страницы отчёта (`.tb-report`).
  * @param doc Документ, в котором она живёт.
@@ -281,6 +307,7 @@ export function buildReportPages(rendered: HTMLElement, doc: Document, mount?: H
     const inner = sheet.root.cloneNode(true) as HTMLElement;
     inner.style.display = "";
     inner.style.background = "none";
+    if (index > 0) inner.classList.add(CONTINUED_SHEET_CLASS);
     // Свои вертикальные поля копия отдаёт окну — иначе на первой странице отступ сложился
     // бы дважды. Горизонтальные остаются: их окно не задаёт.
     inner.style.paddingTop = "0";

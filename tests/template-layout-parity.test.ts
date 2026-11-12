@@ -374,6 +374,18 @@ describe("certification CSS declares every selector the standard stylesheet does
     "styles/theme.css": [],
     "styles/report.css": [],
   };
+  /**
+   * Selector PREFIXES certification may lack, by the same rule as `ALLOWED_MISSING`.
+   *
+   * `.tb-report.tb-report--continued` — the sheets after the cover. The standard template
+   * prints the cover on a dark picture with white text and turns the rest into white sheets,
+   * so it has to recolour its text there. Certification's sheet is light on every page
+   * already (`#E2E2E2`, dark text): there is nothing to recolour, and its continuation
+   * pages keep printing exactly as before.
+   */
+  const ALLOWED_MISSING_PREFIXES: Record<string, string[]> = {
+    "styles/report.css": [".tb-report.tb-report--continued"],
+  };
 
   for (const styleFile of ["styles/theme.css", "styles/report.css"]) {
     it(`${styleFile}: every selector default declares exists in certification's copy too`, () => {
@@ -385,7 +397,13 @@ describe("certification CSS declares every selector the standard stylesheet does
       const stdSelectors = extractDeclaredSelectors(stdCss);
       const certSelectors = extractDeclaredSelectors(certCss);
       const allowedMissing = new Set(ALLOWED_MISSING[styleFile] ?? []);
-      const missing = [...stdSelectors].filter((s) => !certSelectors.has(s) && !allowedMissing.has(s));
+      const allowedPrefixes = ALLOWED_MISSING_PREFIXES[styleFile] ?? [];
+      const missing = [...stdSelectors].filter(
+        (s) =>
+          !certSelectors.has(s) &&
+          !allowedMissing.has(s) &&
+          !allowedPrefixes.some((prefix) => s.startsWith(prefix)),
+      );
       expect(
         missing,
         `certification/${styleFile} is missing selector(s) declared in default/${styleFile}: ${missing.join(", ")}`,
