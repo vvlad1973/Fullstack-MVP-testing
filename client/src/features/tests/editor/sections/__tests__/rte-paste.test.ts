@@ -11,8 +11,23 @@ describe("sanitizePastedHtml", () => {
     expect(out).not.toMatch(/style|font|Times/i);
   });
 
-  it("div и заголовки становятся абзацами, span и font — просто текстом", () => {
-    expect(sanitizePastedHtml("<div>Один</div><h2>Два</h2><font face=Arial>три</font>")).toBe("<p>Один</p><p>Два</p>три");
+  it("div становится абзацем, span и font — просто текстом", () => {
+    expect(sanitizePastedHtml("<div>Один</div><font face=Arial>три</font>")).toBe("<p>Один</p>три");
+  });
+
+  it("заголовки источника сводятся к трём уровням редактора: h1 и h2 → h2, h3 → h3, h4–h6 → h4", () => {
+    expect(
+      sanitizePastedHtml('<h1 style="x">А</h1><h2>Б</h2><h3 class="y">В</h3><h4>Г</h4><h5>Д</h5><h6>Е</h6>'),
+    ).toBe("<h2>А</h2><h2>Б</h2><h3>В</h3><h4>Г</h4><h4>Д</h4><h4>Е</h4>");
+  });
+
+  it("пустой заголовок пропадает, как пустой абзац", () => {
+    expect(sanitizePastedHtml("<h2> </h2><p>Текст</p>")).toBe("<p>Текст</p>");
+  });
+
+  it("у абзаца выживает только класс размера, прочие классы снимаются", () => {
+    expect(sanitizePastedHtml('<p class="MsoNormal tb-text-l">К</p><p class="tb-text-s x">М</p><p class="MsoNormal">О</p>'))
+      .toBe('<p class="tb-text-l">К</p><p class="tb-text-s">М</p><p>О</p>');
   });
 
   it("ссылки оставляет только http(s) и mailto, без прочих атрибутов", () => {

@@ -138,7 +138,7 @@ describe("<LevelFeedbackCard />", () => {
     const model = baseModel();
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("adaptive-topic-failure-t1"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Повторите тему" } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "Повторите тему" } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     expect(runUpdater(updateModel, model).adaptive.topics[0].failureFeedback).toBe("Повторите тему");
   });
@@ -162,7 +162,7 @@ describe("<LevelFeedbackCard />", () => {
     } as never);
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("adaptive-level-t1-1-feedback"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Целевой уровень" } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "Целевой уровень" } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     const next = runUpdater(updateModel, model);
     expect(next.adaptive.topics[0].levels[1].feedback).toBe("Целевой уровень");

@@ -7,19 +7,28 @@
  * цвета, `mso-*`). Продукт печатает форматированный текст КАК ЕСТЬ (`richTextToHtml`), а
  * встроенный стиль сильнее любого CSS шаблона, поэтому текст автора выходил на экране итогов
  * и в отчёте чужим шрифтом. Чистить нужно на входе: оставляем только то, что умеет сам
- * редактор (абзацы, жирный, курсив, подчёркивание, ссылки, списки), остальное — текст.
+ * редактор (абзацы, заголовки трёх уровней, крупный и мелкий текст, жирный, курсив,
+ * подчёркивание, ссылки, списки), остальное — текст.
  *
  * `stripPastedPresentation` is the softer variant for content fields (test description,
  * content-page fields): structure stays, only the source's colours and fonts go.
  *
  * Чистый модуль относительно React; DOM нужен только для разбора разметки.
  */
+import { TEXT_LARGE_CLASS, TEXT_SMALL_CLASS } from "./rte-block-styles";
 
 /** Теги, которые редактор умеет создавать сам, — они проходят как есть, без атрибутов. */
-const KEEP = new Set(["P", "BR", "B", "STRONG", "I", "EM", "U", "UL", "OL", "LI"]);
+const KEEP = new Set(["BR", "B", "STRONG", "I", "EM", "U", "UL", "OL", "LI"]);
+/**
+ * Заголовки источника → уровни стилей абзаца редактора («Заголовок 1/2/3» = `h2`/`h3`/`h4`).
+ * `h1` на экране занят названием теста, поэтому первые два уровня источника сходятся в один.
+ */
+const HEADING_LEVEL: Record<string, string> = { H1: "h2", H2: "h2", H3: "h3", H4: "h4", H5: "h4", H6: "h4" };
 /** Блочные теги, которых у редактора нет: каждый становится абзацем. */
-const BLOCK_TO_P = new Set(["DIV", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "PRE", "SECTION", "ARTICLE", "TR"]);
+const BLOCK_TO_P = new Set(["DIV", "BLOCKQUOTE", "PRE", "SECTION", "ARTICLE", "TR"]);
 /** Вырезаются вместе с содержимым: это не текст автора. */
+/** Классы размера абзаца, которые ставит редактор ({@link module:features/tests/editor/sections/rte-block-styles}). */
+const PARAGRAPH_SIZE_CLASSES = [TEXT_LARGE_CLASS, TEXT_SMALL_CLASS];
 const DROP = new Set(["SCRIPT", "STYLE", "META", "LINK", "TITLE", "HEAD", "XML", "TEMPLATE", "IFRAME", "OBJECT"]);
 
 function safeHref(href: string | null): string | null {
@@ -44,6 +53,15 @@ function walk(node: Node): string {
     return href ? `<a href="${escapeHtml(href)}">${inner}</a>` : inner;
   }
   if (tag === "BR") return "<br>";
+  if (HEADING_LEVEL[tag]) {
+    const name = HEADING_LEVEL[tag];
+    return inner.trim() === "" ? "" : `<${name}>${inner}</${name}>`;
+  }
+  if (tag === "P") {
+    // Из классов абзаца выживает только размер — стиль, который ставит сам редактор.
+    const size = PARAGRAPH_SIZE_CLASSES.find((c) => el.classList.contains(c));
+    return size ? `<p class="${size}">${inner}</p>` : `<p>${inner}</p>`;
+  }
   if (KEEP.has(tag)) {
     const name = tag.toLowerCase();
     return `<${name}>${inner}</${name}>`;

@@ -157,7 +157,7 @@ describe("<TopicDrawer /> — feedback editor", () => {
     );
     fireEvent.click(screen.getByTestId("topic-feedback"));
     const dialog = await screen.findByRole("dialog", { name: /Обратная связь по теме/i });
-    fireEvent.change(within(dialog).getByTestId("feedback-editor-text"), {
+    fireEvent.change(within(dialog).getByTestId("feedback-editor-text-input"), {
       target: { value: "Полезный совет" },
     });
     fireEvent.click(within(dialog).getByTestId("feedback-editor-save"));

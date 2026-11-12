@@ -758,55 +758,13 @@
   min-width: 0;
 }
 
-/* ── RTE (Rich Text Editor, execCommand-based toolbar) ───────────────────
-   Used in FeedbackEditorModal when format === "richText". No external RTE
-   library — only browser execCommand for bold/italic/link. */
-.tb-rte {
-  border: var(--wf-border-w, 1px) solid var(--ou-border-default);
-  border-radius: var(--ou-radius-m);
-  overflow: hidden;
-  background: var(--ou-bg-elevated);
-}
-.tb-rte__toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--ou-space-1);
-  padding: var(--ou-space-1) var(--ou-space-2);
-  border-bottom: var(--wf-border-w, 1px) solid var(--ou-border-soft);
-  background: var(--ou-bg-subtle);
-}
-.tb-rte__sep {
-  width: var(--wf-border-w, 1px);
-  height: var(--ou-space-4);
-  background: var(--ou-border-default);
-  margin: 0 var(--ou-space-1);
-  flex-shrink: 0;
-  display: inline-block;
-}
-.tb-rte__area {
-  min-height: 120px;
-  padding: var(--ou-space-3);
-  font: var(--ou-text-body-m);
-  color: var(--ou-fg-default);
-  line-height: 1.5;
-  outline: none;
-}
-.tb-rte__area:focus { outline: none; }
-.tb-rte__area p { margin: 0 0 var(--ou-space-2); }
-.tb-rte__area p:last-child { margin-bottom: 0; }
-.tb-rte__area strong { font-weight: 700; }
-.tb-rte__area em { font-style: italic; }
-.tb-rte__area a { color: var(--ou-accent-default); text-decoration: underline; }
-.tb-rte__area ul,
-.tb-rte__area ol { margin: 0 0 var(--ou-space-2); padding-left: var(--ou-space-5); }
-/* preflight.css (@layer base) drops list markers from every ul/ol, and nothing
-   in the cascade puts them back: the rule above only restores the indent. The
-   RTE shows the RESULT, so the author must see the same bullets and numbers the
-   learner gets. Values mirror the browser defaults used on the render side. */
-.tb-rte__area ul { list-style: disc outside; }
-.tb-rte__area ul ul { list-style-type: circle; }
-.tb-rte__area ul ul ul { list-style-type: square; }
-.tb-rte__area ol { list-style: decimal outside; }
+/* ── Paragraph sizes in the formatted editor (`RTE_BLOCK_STYLES`) ─────────
+   The headings are styled by the design system itself (`.ou-rte__area h2..h4`);
+   the two sizes are product classes, so their look in the field lives here. It is
+   one step below the learner's scale, like the headings, and without a template's
+   colour. Wireframe: docs/wireframes/approved/rte-paragraph-styles.html. */
+.ou-rte__area .tb-text-l { font: var(--ou-text-body-m); }
+.ou-rte__area .tb-text-s { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
 
 /* Inline status dot for tabs / list rows (per prd7-editor-drawer.html
    и prd7-structure-*.html wireframes). Smaller than .tb-status-dot —
@@ -1167,7 +1125,7 @@
 .tb-feedback-preview__rich p:last-child { margin-bottom: 0; }
 .tb-feedback-preview__rich ul,
 .tb-feedback-preview__rich ol { margin: 0; padding-left: 1.25em; }
-/* Same preflight reset as in .tb-rte__area: the preview shows authored HTML, so
+/* Same preflight reset as in the editor field (.ou-rte__area): the preview shows authored HTML, so
    it needs the markers back or the card disagrees with both the editor and the
    published text. */
 .tb-feedback-preview__rich ul { list-style: disc outside; }

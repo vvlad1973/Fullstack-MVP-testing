@@ -408,13 +408,13 @@ describe("<CompositionSection />: группы тем", () => {
     });
     renderWithClient(<CompositionSection model={model} updateModel={updateModel} />);
     fireEvent.click(screen.getByTestId("composition-group-description-group-1-edit"));
-    fireEvent.change(await screen.findByTestId("feedback-editor-text"), { target: { value: "Стало" } });
+    fireEvent.change(await screen.findByTestId("feedback-editor-text-input"), { target: { value: "Стало" } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     expect(runUpdater(updateModel, model).sectionGroups?.[0].description).toEqual({ format: "plain", text: "Стало" });
 
     updateModel.mockClear();
     fireEvent.click(screen.getByTestId("composition-group-description-group-1-edit"));
-    fireEvent.change(await screen.findByTestId("feedback-editor-text"), { target: { value: "  " } });
+    fireEvent.change(await screen.findByTestId("feedback-editor-text-input"), { target: { value: "  " } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     expect(runUpdater(updateModel, model).sectionGroups?.[0]).not.toHaveProperty("description");
   });

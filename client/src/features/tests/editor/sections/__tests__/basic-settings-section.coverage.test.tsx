@@ -464,7 +464,7 @@ describe("<FeedbackTextsPane /> — вводный текст по исходу"
     const model = baseModel();
     renderSettings(model, updateModel, { pane: FeedbackTextsPane });
     fireEvent.click(screen.getByTestId("settings-intro-results-failed-trigger"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Не хватило баллов." } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "Не хватило баллов." } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     const next = runUpdater(updateModel, model);
     expect(next.intro?.results?.failed?.text).toBe("Не хватило баллов.");
@@ -477,7 +477,7 @@ describe("<FeedbackTextsPane /> — вводный текст по исходу"
     model.intro = { results: { format: "plain", text: "", failed: { format: "plain", text: "Не хватило." } } };
     renderSettings(model, updateModel, { pane: FeedbackTextsPane });
     fireEvent.click(screen.getByTestId("settings-intro-results-trigger"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Спасибо." } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "Спасибо." } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     const next = runUpdater(updateModel, model);
     expect(next.intro?.results?.text).toBe("Спасибо.");

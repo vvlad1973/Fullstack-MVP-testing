@@ -3,15 +3,14 @@
  * @description Additional branch coverage for {@link FeedbackEditorModal}
  * (PRD-7 FR-36 / FR-37). Complements `feedback-editor-modal.test.tsx` by
  * exercising the interactive paths the smoke test only renders:
- *   - RTE toolbar commands (bold / italic) and the contenteditable `onInput`;
- *   - the link-insert modal submit across all three branches (wrap existing
- *     selection via `createLink`, insert `<a>` at a collapsed caret, append when
- *     the editor was never focused);
+ *   - toolbar commands (bold / italic) and the formatted area's `onInput`;
+ *   - the link-insert dialog across its branches (wrap an existing selection via
+ *     `createLink`, insert `<a>` at a collapsed caret, the URL as the text);
  *   - editing link / event / asset fields and asserting the emitted value;
  *   - the description subtitle, the richText open-init effect and the value reset.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { FeedbackEditorModal } from "../feedback-editor-modal";
 import type { FeedbackEditorValue } from "../feedback-editor-modal";
 
@@ -37,9 +36,9 @@ function renderModal(props: Partial<Parameters<typeof FeedbackEditorModal>[0]> =
   return { onCancel, onSave };
 }
 
-// ─── RTE toolbar + link-insert (execCommand-backed) ────────────────────────────
+// ─── Formatted editor + link-insert (execCommand-backed) ───────────────────────
 
-describe("<FeedbackEditorModal /> — RTE editing", () => {
+describe("<FeedbackEditorModal /> — formatted editing", () => {
   let execCommandMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -53,79 +52,74 @@ describe("<FeedbackEditorModal /> — RTE editing", () => {
 
   it("bold / italic toolbar buttons run the matching execCommand", () => {
     renderModal({ value: baseValue({ format: "richText" }) });
-    fireEvent.click(screen.getByTestId("rte-bold"));
+    fireEvent.click(screen.getByRole("button", { name: "Полужирный" }));
     expect(execCommandMock).toHaveBeenCalledWith("bold", false, undefined);
-    fireEvent.click(screen.getByTestId("rte-italic"));
+    fireEvent.click(screen.getByRole("button", { name: "Курсив" }));
     expect(execCommandMock).toHaveBeenCalledWith("italic", false, undefined);
   });
 
-  it("typing into the RTE area feeds the draft text emitted on save", () => {
+  it("typing into the area feeds the draft text emitted on save", () => {
     const { onSave } = renderModal({ value: baseValue({ format: "richText" }) });
-    const area = screen.getByTestId("feedback-editor-rte-area");
+    const area = screen.getByTestId("feedback-editor-text-area");
     area.innerHTML = "<b>bold</b>";
     fireEvent.input(area);
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ text: "<b>bold</b>" }));
   });
 
-  it("wraps an existing selection via createLink on submit", () => {
-    renderModal({ value: baseValue({ format: "richText" }) });
-    const area = screen.getByTestId("feedback-editor-rte-area");
-    area.innerHTML = "hello";
+  it("wraps an existing selection via createLink on submit", async () => {
+    renderModal({ value: baseValue({ format: "richText", text: "<p>hello</p>" }) });
+    const area = screen.getByTestId("feedback-editor-text-area");
     const range = document.createRange();
     range.selectNodeContents(area);
     const sel = window.getSelection()!;
     sel.removeAllRanges();
     sel.addRange(range);
 
-    fireEvent.click(screen.getByTestId("rte-link"));
+    fireEvent.click(screen.getByRole("button", { name: "Ссылка" }));
+    // The selected text is offered as the link text.
+    expect(((await screen.findByTestId("rte-link-text")) as HTMLInputElement).value).toBe("hello");
     fireEvent.change(screen.getByTestId("rte-link-url"), { target: { value: "https://a.b" } });
     fireEvent.click(screen.getByTestId("rte-link-submit"));
 
-    expect(execCommandMock).toHaveBeenCalledWith("createLink", false, "https://a.b");
-    // Modal closed after submit.
+    await waitFor(() => expect(execCommandMock).toHaveBeenCalledWith("createLink", false, "https://a.b"));
     expect(screen.queryByTestId("rte-link-url")).not.toBeInTheDocument();
   });
 
-  it("inserts an <a> at a collapsed caret on submit", () => {
-    renderModal({ value: baseValue({ format: "richText" }) });
-    const area = screen.getByTestId("feedback-editor-rte-area");
-    area.innerHTML = "abc";
+  it("types the given text at a collapsed caret and turns it into a link", async () => {
+    renderModal({ value: baseValue({ format: "richText", text: "<p>abc</p>" }) });
+    const area = screen.getByTestId("feedback-editor-text-area");
     const range = document.createRange();
-    range.setStart(area.firstChild!, 1);
+    range.setStart(area.querySelector("p")!.firstChild!, 1);
     range.collapse(true);
     const sel = window.getSelection()!;
     sel.removeAllRanges();
     sel.addRange(range);
 
-    fireEvent.click(screen.getByTestId("rte-link"));
-    fireEvent.change(screen.getByTestId("rte-link-url"), { target: { value: "https://x.y" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ссылка" }));
+    fireEvent.change(await screen.findByTestId("rte-link-url"), { target: { value: "https://x.y" } });
     fireEvent.change(screen.getByTestId("rte-link-text"), { target: { value: "Link" } });
     fireEvent.click(screen.getByTestId("rte-link-submit"));
 
-    const a = area.querySelector("a");
-    expect(a?.getAttribute("href")).toBe("https://x.y");
-    expect(a?.textContent).toBe("Link");
+    await waitFor(() => expect(execCommandMock).toHaveBeenCalledWith("createLink", false, "https://x.y"));
+    expect(execCommandMock).toHaveBeenCalledWith("insertText", false, "Link");
   });
 
-  it("appends the link to the editor when there was no selection", () => {
+  it("uses the URL as the link text when the text field is left empty", async () => {
     renderModal({ value: baseValue({ format: "richText" }) });
-    const area = screen.getByTestId("feedback-editor-rte-area");
     window.getSelection()?.removeAllRanges();
 
-    fireEvent.click(screen.getByTestId("rte-link"));
-    fireEvent.change(screen.getByTestId("rte-link-url"), { target: { value: "https://z.z" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ссылка" }));
+    fireEvent.change(await screen.findByTestId("rte-link-url"), { target: { value: "https://z.z" } });
     fireEvent.click(screen.getByTestId("rte-link-submit"));
 
-    // Empty display text → the URL is used as the link text.
-    const a = area.querySelector("a");
-    expect(a?.getAttribute("href")).toBe("https://z.z");
-    expect(a?.textContent).toBe("https://z.z");
+    await waitFor(() => expect(execCommandMock).toHaveBeenCalledWith("createLink", false, "https://z.z"));
+    expect(execCommandMock).toHaveBeenCalledWith("insertText", false, "https://z.z");
   });
 
-  it("initializes the RTE area with the incoming text on open", () => {
+  it("initializes the area with the incoming text on open", () => {
     renderModal({ value: baseValue({ format: "richText", text: "<p>привет</p>" }) });
-    expect(screen.getByTestId("feedback-editor-rte-area").innerHTML).toContain("привет");
+    expect(screen.getByTestId("feedback-editor-text-area").innerHTML).toContain("привет");
   });
 });
 
@@ -176,10 +170,10 @@ describe("<FeedbackEditorModal /> — misc", () => {
     const { rerender } = render(
       <FeedbackEditorModal open title="T" value={baseValue({ text: "A" })} onCancel={vi.fn()} onSave={vi.fn()} />,
     );
-    expect((screen.getByTestId("feedback-editor-text") as HTMLTextAreaElement).value).toBe("A");
+    expect((screen.getByTestId("feedback-editor-text-input") as HTMLTextAreaElement).value).toBe("A");
     rerender(
       <FeedbackEditorModal open title="T" value={baseValue({ text: "B" })} onCancel={vi.fn()} onSave={vi.fn()} />,
     );
-    expect((screen.getByTestId("feedback-editor-text") as HTMLTextAreaElement).value).toBe("B");
+    expect((screen.getByTestId("feedback-editor-text-input") as HTMLTextAreaElement).value).toBe("B");
   });
 });

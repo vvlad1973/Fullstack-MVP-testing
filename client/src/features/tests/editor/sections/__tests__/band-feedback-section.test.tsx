@@ -182,7 +182,7 @@ describe("«По уровням шкал» — тексты уровней", () 
     const { updateModel } = renderTab(model);
     fireEvent.click(screen.getByTestId("feedback-rail-scale-levels"));
     fireEvent.click(screen.getByLabelText("Редактировать рекомендации уровня «Базовый»"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), {
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), {
       target: { value: "Начните с курса" },
     });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));

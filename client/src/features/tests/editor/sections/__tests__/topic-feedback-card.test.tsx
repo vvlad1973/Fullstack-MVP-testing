@@ -125,7 +125,7 @@ describe("<TopicFeedbackCard />", () => {
     render(model, updateModel);
     // Предпросмотр не пуст (пришёл текст темы) — правку открывает карандаш.
     fireEvent.click(screen.getByTestId("topic-feedback-law-edit"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), {
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), {
       target: { value: "Своя формулировка" },
     });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
@@ -179,7 +179,7 @@ describe("<TopicFeedbackCard />: толкование", () => {
     const model = baseModel([section("law", "Право", "Текст этого теста")]);
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("topic-interpretation-law-edit"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), {
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), {
       target: { value: "Своё толкование" },
     });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
@@ -194,7 +194,7 @@ describe("<TopicFeedbackCard />: толкование", () => {
     model.sections[0].interpretation = { format: "plain", text: "Толкование этого теста" };
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("topic-interpretation-law-edit"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "   " } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "   " } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     expect(runUpdater(updateModel, model).sections[0].interpretation).toBeNull();
   });

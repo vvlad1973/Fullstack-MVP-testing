@@ -10,13 +10,13 @@
  *   - per-topic feedback in Состав tab (TopicRow)
  *
  * Composition:
- *   1. Format selector (SegmentedControl) — plain / richText / html.
- *   2. Body editor:
- *      - plain/html: ui-kit Textarea with appropriate placeholder.
- *      - richText: execCommand-based RTE toolbar (B / I / link) + contenteditable
- *        area. No external RTE library (tiptap/slate) — browser execCommand only.
- *        innerHTML is initialized once on format-switch or modal-open; never
- *        re-bound on each setDraft to avoid cursor disruption.
+ *   1-2. Text: the design-system `RichTextEditor` with its own mode switch
+ *      («Простой текст» / «Форматированный» / «HTML») and, in the formatted mode,
+ *      the paragraph-style list (`RTE_BLOCK_STYLES`; wireframe
+ *      `docs/wireframes/approved/rte-paragraph-styles.html`). The stored `format`
+ *      keeps its values (`plain` / `richText` / `html`); plain text is kept as the
+ *      author's source with real line breaks (`sourceMode`). The link button opens
+ *      this modal's own «Вставить ссылку» dialog through `onRequestLink`.
  *   3. Links list — array of {title, url} editable rows + «Добавить ссылку» button.
  *      The button is wrapped in a <div> to prevent flex-column stretching.
  *   4. Materials list — array of {title, url} editable rows + «Добавить материал»
@@ -36,11 +36,13 @@ import {
   IconButton,
   Input,
   ModalDialog,
-  SegmentedControl,
-  Textarea,
+  RichTextEditor,
+  type RichTextMode,
 } from "@skillum/ui-kit";
+import { richTextToPlain } from "@shared/template/rich-text";
 import type { FeedbackAsset } from "../test-editor.types";
 import { plainTextToHtml, sanitizePastedHtml } from "./rte-paste";
+import { RTE_BLOCK_STYLES } from "./rte-block-styles";
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -127,6 +129,25 @@ function toDraftAssets(assets: FeedbackAsset[]): DraftAsset[] {
   return assets.map((asset) => ({ ...asset, uid: nextDraftUid() }));
 }
 
+/** Stored format -> entry mode of the editor component. */
+function toMode(format: FeedbackFormat): RichTextMode {
+  return format === "richText" ? "rich" : format;
+}
+
+/** Entry mode of the editor component -> stored format. */
+function toFormat(mode: RichTextMode): FeedbackFormat {
+  return mode === "rich" ? "richText" : mode;
+}
+
+/**
+ * Crossing the plain boundary: plain source becomes paragraphs, markup becomes text with
+ * its line breaks. The same converters the product uses elsewhere for this text.
+ */
+const PLAIN_SOURCE = {
+  toMarkup: (text: string) => plainTextToHtml(text),
+  toPlain: (html: string) => richTextToPlain(html, "richText"),
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /** @public */
@@ -137,110 +158,41 @@ export function FeedbackEditorModal(props: FeedbackEditorModalProps) {
     assets: toDraftAssets(props.value.assets),
     events: props.value.events ?? [],
   }));
-  /** Ref to the contenteditable RTE area (richText mode only). */
-  const rteRef = useRef<HTMLDivElement>(null);
-
-  // S13.1-G39: link-insert modal state. `savedRange` captures the user's
-  // selection inside the RTE before the modal steals focus, so submitting
-  // the form can restore it and `createLink` wraps the original text.
-  const [linkInsert, setLinkInsert] = useState<{
-    url: string;
-    text: string;
-    savedRange: Range | null;
-  } | null>(null);
+  // S13.1-G39: link-insert dialog. The editor asks for a link through `onRequestLink`
+  // and waits; the dialog settles that wait with the address or with `null` on cancel.
+  const [linkInsert, setLinkInsert] = useState<{ url: string; text: string } | null>(null);
+  const linkResolver = useRef<((answer: { url: string; text?: string } | null) => void) | null>(null);
 
   // Reset draft when the modal re-opens or receives a new value.
-  // For richText format: initialize the RTE innerHTML via requestAnimationFrame
-  // so the div is guaranteed to be mounted after the re-render triggered by setDraft.
   useEffect(() => {
     if (!props.open) return;
     const newVal = props.value;
+    // The editor re-binds its formatted area only when the text differs from what the area
+    // already shows, so replacing the draft never moves a caret the author is using.
     setDraft({ ...newVal, assets: toDraftAssets(newVal.assets), events: newVal.events ?? [] });
-    if (newVal.format === "richText") {
-      requestAnimationFrame(() => {
-        if (rteRef.current) rteRef.current.innerHTML = newVal.text;
-      });
-    }
   }, [props.open, props.value]);
 
-  // When the user switches format TO richText inside the modal, initialize the
-  // RTE area with the current draft text. Intentionally omits draft.text from
-  // the dependency array — re-binding on every keystroke would destroy the cursor.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (draft.format === "richText" && rteRef.current) {
-      rteRef.current.innerHTML = draft.text;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.format]);
-
-  /** Focus the RTE area and run an execCommand. */
-  function execRteCommand(command: string, value?: string) {
-    rteRef.current?.focus();
-    // execCommand is deprecated but still the only cross-browser solution at
-    // wireframe scope without pulling in tiptap/slate (blocked per task constraints).
-    document.execCommand(command, false, value);
+  /** The editor's link button: opens the dialog prefilled with the selected text. */
+  function requestLink(selectedText: string): Promise<{ url: string; text?: string } | null> {
+    return new Promise((resolve) => {
+      linkResolver.current = resolve;
+      setLinkInsert({ url: "", text: selectedText });
+    });
   }
 
-  /**
-   * Open the link-insert modal (S13.1-G39). Captures the current selection
-   * range so the modal submit can restore it and wrap the original text in
-   * `<a>`. If there is no selection, the modal falls back to using its
-   * «Display text» field as the inserted text.
-   */
-  function handleLinkInsert() {
-    const sel = window.getSelection();
-    let savedRange: Range | null = null;
-    let selectedText = "";
-    if (sel && sel.rangeCount > 0 && rteRef.current?.contains(sel.anchorNode)) {
-      savedRange = sel.getRangeAt(0).cloneRange();
-      selectedText = sel.toString();
-    }
-    setLinkInsert({ url: "", text: selectedText, savedRange });
+  /** Settles the editor's wait and closes the dialog. */
+  function settleLink(answer: { url: string; text?: string } | null) {
+    linkResolver.current?.(answer);
+    linkResolver.current = null;
+    setLinkInsert(null);
   }
 
-  /**
-   * Commit the link-insert modal: restore the saved selection (if any) and
-   * either wrap it with `createLink` or insert a new `<a>` element at the
-   * cursor for the empty-selection case.
-   */
+  /** Commit of the link dialog. */
   function handleLinkInsertSubmit() {
     if (!linkInsert) return;
     const url = linkInsert.url.trim();
     if (!url) return;
-    const text = linkInsert.text.trim();
-    rteRef.current?.focus();
-    if (linkInsert.savedRange) {
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(linkInsert.savedRange);
-      if (linkInsert.savedRange.collapsed) {
-        // No selection — insert <a>text</a> at cursor.
-        const a = document.createElement("a");
-        a.href = url;
-        a.textContent = text || url;
-        linkInsert.savedRange.insertNode(a);
-        // Move cursor after the inserted link.
-        const range = document.createRange();
-        range.setStartAfter(a);
-        range.collapse(true);
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-      } else {
-        // Wrap the existing selection.
-        document.execCommand("createLink", false, url);
-      }
-    } else {
-      // Editor was never focused; insert at the end.
-      const a = document.createElement("a");
-      a.href = url;
-      a.textContent = text || url;
-      rteRef.current?.appendChild(a);
-    }
-    if (rteRef.current) {
-      setDraft((d) => ({ ...d, text: rteRef.current!.innerHTML }));
-    }
-    setLinkInsert(null);
+    settleLink({ url, text: linkInsert.text.trim() });
   }
 
   /** Strip the UI-only `uid` before emitting to the caller. */
@@ -284,112 +236,25 @@ export function FeedbackEditorModal(props: FeedbackEditorModalProps) {
       data-testid={props.testId ?? "feedback-editor"}
     >
       <div className="tb-feedback-editor">
-        {/* ── Format selector ──────────────────────────────────────────── */}
-        <div className="tb-feedback-editor__section tb-feedback-editor__section--inline">
-          <span className="tb-feedback-editor__sec-title">Формат</span>
-          <SegmentedControl<FeedbackFormat>
-            size="s"
-            value={draft.format}
-            aria-label="Формат текста"
-            items={[
-              { value: "plain", label: "Простой" },
-              { value: "richText", label: "Форматированный" },
-              { value: "html", label: "HTML" },
-            ]}
-            onChange={(format) => setDraft((d) => ({ ...d, format }))}
+        {/* ── Text: mode switch, toolbar with paragraph styles, field ──── */}
+        <div className="tb-feedback-editor__section">
+          <RichTextEditor
+            label={textLabel}
+            fullWidth
+            rows={6}
+            value={draft.text}
+            onChange={(text) => setDraft((d) => ({ ...d, text }))}
+            mode={toMode(draft.format)}
+            onModeChange={(mode) => setDraft((d) => ({ ...d, format: toFormat(mode) }))}
+            sourceMode={PLAIN_SOURCE}
+            // Pasted text keeps only what the editor can produce itself: inline styles from
+            // Word or a web page would beat the template's font on the results screen.
+            transformPaste={sanitizePastedHtml}
+            blockStyles={RTE_BLOCK_STYLES}
+            onRequestLink={requestLink}
+            data-testid="feedback-editor-text"
           />
         </div>
-
-        {/* ── Body editor ──────────────────────────────────────────────── */}
-        {draft.format === "richText" ? (
-          /* richText: execCommand-based RTE toolbar + contenteditable area. */
-          <div className="tb-feedback-editor__section">
-            <div className="tb-feedback-editor__sec-title">{textLabel}</div>
-            <div className="tb-rte">
-              <div className="tb-rte__toolbar" role="toolbar" aria-label="Форматирование">
-                <button
-                  type="button"
-                  className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-                  aria-label="Жирный (Ctrl+B)"
-                  aria-pressed="false"
-                  onClick={() => execRteCommand("bold")}
-                  data-testid="rte-bold"
-                >
-                  <strong>B</strong>
-                </button>
-                <button
-                  type="button"
-                  className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-                  aria-label="Курсив (Ctrl+I)"
-                  aria-pressed="false"
-                  onClick={() => execRteCommand("italic")}
-                  data-testid="rte-italic"
-                >
-                  <em>I</em>
-                </button>
-                <span className="tb-rte__sep" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s"
-                  aria-label="Вставить ссылку"
-                  onClick={handleLinkInsert}
-                  data-testid="rte-link"
-                >
-                  <LinkIcon width={14} height={14} aria-hidden="true" />
-                </button>
-              </div>
-              {/* contentEditable area — innerHTML is managed via ref, not React state,
-                  to avoid cursor disruption on every keystroke. */}
-              <div
-                className="tb-rte__area"
-                contentEditable
-                role="textbox"
-                aria-multiline="true"
-                aria-label={textLabel}
-                ref={rteRef}
-                onInput={() => {
-                  if (rteRef.current) {
-                    setDraft((d) => ({ ...d, text: rteRef.current!.innerHTML }));
-                  }
-                }}
-                onPaste={(e) => {
-                  // Чужие встроенные стили (Word, письмо) не должны попадать в текст: он
-                  // печатается как есть и перебил бы шрифт шаблона. Остаётся то, что умеет
-                  // сам редактор.
-                  e.preventDefault();
-                  const html = e.clipboardData.getData("text/html");
-                  const clean = html
-                    ? sanitizePastedHtml(html)
-                    : plainTextToHtml(e.clipboardData.getData("text/plain"));
-                  if (clean) document.execCommand("insertHTML", false, clean);
-                }}
-                data-testid="feedback-editor-rte-area"
-                suppressContentEditableWarning
-              />
-            </div>
-          </div>
-        ) : (
-          /* plain / html: standard Textarea. */
-          <div className="tb-feedback-editor__section">
-            <Textarea
-              size="m"
-              fullWidth
-              rows={6}
-              label={textLabel}
-              value={draft.text}
-              placeholder={
-                draft.format === "html"
-                  ? "Введите HTML-разметку…"
-                  : "Текст, который увидит обучающийся…"
-              }
-              onChange={(e) => {
-                const text = e.target.value;
-                setDraft((d) => ({ ...d, text }));
-              }}
-              data-testid="feedback-editor-text"
-            />
-          </div>
-        )}
 
         {/* ── Courses section (data field `links`; UI label «Курсы») ────── */}
         {!props.hideLinks && (
@@ -645,7 +510,7 @@ export function FeedbackEditorModal(props: FeedbackEditorModalProps) {
     {linkInsert !== null && (
       <ModalDialog
         open
-        onClose={() => setLinkInsert(null)}
+        onClose={() => settleLink(null)}
         size="s"
         title="Вставить ссылку"
         description="Укажите URL и текст, который увидит обучающийся"
@@ -655,7 +520,7 @@ export function FeedbackEditorModal(props: FeedbackEditorModalProps) {
             <Button
               variant="ghost"
               size="s"
-              onClick={() => setLinkInsert(null)}
+              onClick={() => settleLink(null)}
               data-testid="rte-link-cancel"
             >
               Отмена

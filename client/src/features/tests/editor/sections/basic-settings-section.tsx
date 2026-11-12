@@ -57,6 +57,7 @@ import {
 } from "./feedback-editor-modal";
 import { FeedbackPreview } from "./feedback-preview";
 import { stripPastedPresentation } from "./rte-paste";
+import { RTE_BLOCK_STYLES } from "./rte-block-styles";
 import { FoldAllButtons, useSectionFold } from "./section-fold";
 import type {
   AdaptiveLevelConfig,
@@ -162,6 +163,7 @@ export function MainPane({
           }}
           sanitize={(html) => sanitizeContentHtml(html, { scope: DESCRIPTION_SCOPE })}
           transformPaste={stripPastedPresentation}
+          blockStyles={RTE_BLOCK_STYLES}
           onChange={(value) =>
             updateModel((m) => ({ ...m, basic: { ...m.basic, description: value } }))
           }

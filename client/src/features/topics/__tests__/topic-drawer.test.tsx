@@ -338,7 +338,7 @@ describe("<TopicDrawer />: толкование темы", () => {
       <TopicDrawer target={{ mode: "edit", topic: withInterpretation }} folders={[]} isAdmin={false} onClose={() => {}} />,
     );
     fireEvent.click(screen.getByTestId("topic-interpretation-edit"));
-    fireEvent.change(await screen.findByTestId("feedback-editor-text"), {
+    fireEvent.change(await screen.findByTestId("feedback-editor-text-input"), {
       target: { value: "Новое толкование" },
     });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
@@ -361,7 +361,7 @@ describe("<TopicDrawer />: толкование темы", () => {
     );
     fireEvent.change(screen.getByTestId("input-topic-name"), { target: { value: "Новая тема" } });
     fireEvent.click(screen.getByTestId("topic-interpretation"));
-    fireEvent.change(await screen.findByTestId("feedback-editor-text"), {
+    fireEvent.change(await screen.findByTestId("feedback-editor-text-input"), {
       target: { value: "Толкование новой темы" },
     });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
@@ -389,8 +389,8 @@ describe("<TopicDrawer />: толкование темы", () => {
       <TopicDrawer target={{ mode: "edit", topic: rich }} folders={[]} isAdmin={false} onClose={() => {}} />,
     );
     fireEvent.click(screen.getByTestId("topic-interpretation-edit"));
-    // У форматированного текста поле другое — область RTE, а не textarea.
-    const area = await screen.findByTestId("feedback-editor-rte-area");
+    // У форматированного текста поле другое — область ввода компонента, а не textarea.
+    const area = await screen.findByTestId("feedback-editor-text-area");
     area.innerHTML = "<p>Другой богатый текст</p>";
     fireEvent.input(area);
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
@@ -433,7 +433,7 @@ describe("<TopicDrawer />: толкование темы", () => {
       <TopicDrawer target={{ mode: "edit", topic: withInterpretation }} folders={[]} isAdmin={false} onClose={() => {}} />,
     );
     fireEvent.click(screen.getByTestId("topic-interpretation-edit"));
-    fireEvent.change(await screen.findByTestId("feedback-editor-text"), { target: { value: "   " } });
+    fireEvent.change(await screen.findByTestId("feedback-editor-text-input"), { target: { value: "   " } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     fireEvent.click(screen.getByTestId("button-submit-topic"));
     await waitFor(() => {

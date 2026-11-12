@@ -115,7 +115,7 @@ describe("<BreakdownFeedbackCard />", () => {
     const model = baseModel([section("law", "Право")]);
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("breakdown-feedback-law-Персональные данные"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), {
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), {
       target: { value: "Повторите тему" },
     });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
@@ -143,7 +143,7 @@ describe("<BreakdownFeedbackCard />", () => {
     ] as never);
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("breakdown-feedback-law-Персональные данные-edit"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "  " } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "  " } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     const next = (updateModel.mock.calls[0][0] as (m: TestEditorModel) => TestEditorModel)(model);
     expect(next.sections[0].breakdownFeedback).toBeNull();
@@ -194,7 +194,7 @@ describe("<BreakdownFeedbackCard />: толкование", () => {
     const model = withInterpretation(true);
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("breakdown-interpretation-law-Персональные данные-edit"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "Новый текст" } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "Новый текст" } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     const next = (updateModel.mock.calls[0][0] as (m: TestEditorModel) => TestEditorModel)(model);
     expect(next.sections[0].breakdownInterpretation).toEqual({
@@ -208,7 +208,7 @@ describe("<BreakdownFeedbackCard />: толкование", () => {
     const model = withInterpretation(true);
     render(model, updateModel);
     fireEvent.click(screen.getByTestId("breakdown-interpretation-law-Персональные данные-edit"));
-    fireEvent.change(screen.getByTestId("feedback-editor-text"), { target: { value: "   " } });
+    fireEvent.change(screen.getByTestId("feedback-editor-text-input"), { target: { value: "   " } });
     fireEvent.click(screen.getByTestId("feedback-editor-save"));
     const next = (updateModel.mock.calls[0][0] as (m: TestEditorModel) => TestEditorModel)(model);
     expect(next.sections[0].breakdownInterpretation).toBeNull();

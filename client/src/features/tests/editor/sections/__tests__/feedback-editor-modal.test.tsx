@@ -3,11 +3,11 @@
  * @description Component tests for FeedbackEditorModal (PRD-7 FR-36 / FR-37).
  *
  * Coverage:
- *   - Renders Textarea when format="plain".
- *   - Switches to RTE toolbar + contenteditable area on format change.
+ *   - The text is the design-system RichTextEditor: modes, conversions at the plain
+ *     boundary, the paragraph-style list in the formatted mode.
  *   - Empty-state for links: list absent, only button shown.
  *   - «Добавить ссылку» appends a link row; button is not full-width.
- *   - createLink: mock window.prompt + document.execCommand, verify call.
+ *   - Link button: the modal's own dialog instead of window.prompt.
  *   - Materials list (assets): add/edit/remove a {title, url} row; a legacy upload
  *     descriptor (PRD-32) renders as a plain editable row; onSave strips the UI-only uid.
  *   - «Отменить» calls onCancel; «Сохранить» calls onSave with canonical value.
@@ -50,43 +50,63 @@ function renderModal(
 // ─── Tests: body editor ───────────────────────────────────────────────────────
 
 describe("<FeedbackEditorModal /> — body editor", () => {
-  it("renders Textarea when format='plain'", () => {
+  it("renders the plain textarea when format='plain'", () => {
     renderModal({ value: baseValue({ format: "plain" }) });
-    expect(screen.getByTestId("feedback-editor-text")).toBeInTheDocument();
-    expect(screen.queryByTestId("feedback-editor-rte-area")).not.toBeInTheDocument();
+    expect(screen.getByTestId("feedback-editor-text-input")).toBeInTheDocument();
+    expect(screen.queryByTestId("feedback-editor-text-area")).not.toBeInTheDocument();
   });
 
-  it("renders Textarea when format='html'", () => {
+  it("renders the code textarea when format='html'", () => {
     renderModal({ value: baseValue({ format: "html" }) });
-    expect(screen.getByTestId("feedback-editor-text")).toBeInTheDocument();
-    expect(screen.queryByTestId("feedback-editor-rte-area")).not.toBeInTheDocument();
+    expect(screen.getByTestId("feedback-editor-text-input")).toHaveClass("ou-rte__input--code");
+    expect(screen.queryByTestId("feedback-editor-text-area")).not.toBeInTheDocument();
   });
 
-  it("renders tb-rte toolbar and contenteditable area when format='richText'", () => {
-    renderModal({ value: baseValue({ format: "richText" }) });
-    expect(screen.queryByTestId("feedback-editor-text")).not.toBeInTheDocument();
-    const area = screen.getByTestId("feedback-editor-rte-area");
-    expect(area).toBeInTheDocument();
+  it("formatted mode: editable area, toolbar and the paragraph-style list", () => {
+    renderModal({ value: baseValue({ format: "richText", text: "<p>Т</p>" }) });
+    expect(screen.queryByTestId("feedback-editor-text-input")).not.toBeInTheDocument();
+    const area = screen.getByTestId("feedback-editor-text-area");
     expect(area).toHaveAttribute("contenteditable", "true");
-    // Toolbar buttons.
-    expect(screen.getByTestId("rte-bold")).toBeInTheDocument();
-    expect(screen.getByTestId("rte-italic")).toBeInTheDocument();
-    expect(screen.getByTestId("rte-link")).toBeInTheDocument();
-    // Separator.
-    expect(document.querySelector(".tb-rte__sep")).toBeInTheDocument();
+    expect(area.innerHTML).toBe("<p>Т</p>");
+    expect(screen.getByRole("button", { name: "Полужирный" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ссылка" })).toBeInTheDocument();
+    expect(screen.getByTestId("feedback-editor-text-style")).toBeInTheDocument();
   });
 
-  it("switching to richText shows RTE and hides Textarea", async () => {
+  it("the mode switch lives in the editor; the old «Формат» row is gone", () => {
     renderModal({ value: baseValue({ format: "plain" }) });
-    // Initially Textarea is visible.
-    expect(screen.getByTestId("feedback-editor-text")).toBeInTheDocument();
-    // SegmentedControl renders items as <button aria-pressed>, not role="tab".
-    const richBtn = screen.getByRole("button", { name: /Форматированный/i });
-    fireEvent.click(richBtn);
-    await waitFor(() =>
-      expect(screen.getByTestId("feedback-editor-rte-area")).toBeInTheDocument(),
+    expect(screen.queryByText("Формат")).not.toBeInTheDocument();
+    expect(screen.getByTestId("feedback-editor-text-mode-rich")).toHaveTextContent("Форматированный");
+  });
+
+  it("switching to the formatted mode keeps paragraphs and stores format 'richText'", async () => {
+    const { onSave } = renderModal({ value: baseValue({ format: "plain", text: "Раз\nДва" }) });
+    fireEvent.click(screen.getByTestId("feedback-editor-text-mode-rich"));
+    await waitFor(() => expect(screen.getByTestId("feedback-editor-text-area")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ format: "richText", text: "<p>Раз</p><p>Два</p>" }),
     );
-    expect(screen.queryByTestId("feedback-editor-text")).not.toBeInTheDocument();
+  });
+
+  it("switching back to plain keeps the line breaks of the source", async () => {
+    const { onSave } = renderModal({
+      value: baseValue({ format: "richText", text: "<h2>Раз</h2><p class=\"tb-text-s\">Два</p>" }),
+    });
+    fireEvent.click(screen.getByTestId("feedback-editor-text-mode-plain"));
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ format: "plain", text: "Раз\nДва" }));
+  });
+
+  it("typing in the formatted area reaches the saved value", () => {
+    const { onSave } = renderModal({ value: baseValue({ format: "richText", text: "<p>Т</p>" }) });
+    const area = screen.getByTestId("feedback-editor-text-area");
+    area.innerHTML = "<h3>Подзаголовок</h3><p>Т</p>";
+    fireEvent.input(area);
+    fireEvent.click(screen.getByTestId("feedback-editor-save"));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ format: "richText", text: "<h3>Подзаголовок</h3><p>Т</p>" }),
+    );
   });
 });
 
@@ -171,10 +191,10 @@ describe("<FeedbackEditorModal /> — events", () => {
   });
 });
 
-// ─── Tests: RTE link insert (S13.1-G39 — modal replaces window.prompt) ───────
+// ─── Tests: link insert (S13.1-G39 — the modal's dialog, not window.prompt) ───
 
-describe("<FeedbackEditorModal /> — RTE link-insert modal", () => {
-  /** Mock for document.execCommand (JSDOM may not expose it as a configurable property). */
+describe("<FeedbackEditorModal /> — link-insert dialog", () => {
+  /** jsdom has no `execCommand`; the mock records what the editor asks of the browser. */
   let execCommandMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -194,34 +214,46 @@ describe("<FeedbackEditorModal /> — RTE link-insert modal", () => {
     });
   });
 
-  it("«Вставить ссылку» opens the link-insert modal (no window.prompt)", () => {
+  function openLinkDialog() {
+    renderModal({ value: baseValue({ format: "richText", text: "<p>Т</p>" }) });
+    fireEvent.click(screen.getByRole("button", { name: "Ссылка" }));
+  }
+
+  it("the link button opens the modal's own dialog (no window.prompt)", async () => {
     const promptSpy = vi.spyOn(window, "prompt");
-    renderModal({ value: baseValue({ format: "richText" }) });
-    fireEvent.click(screen.getByTestId("rte-link"));
-    expect(promptSpy).not.toHaveBeenCalled();
-    expect(screen.getByTestId("rte-link-url")).toBeInTheDocument();
+    openLinkDialog();
+    expect(await screen.findByTestId("rte-link-url")).toBeInTheDocument();
     expect(screen.getByTestId("rte-link-text")).toBeInTheDocument();
     expect(screen.getByTestId("rte-link-submit")).toBeInTheDocument();
     expect(screen.getByTestId("rte-link-cancel")).toBeInTheDocument();
+    expect(promptSpy).not.toHaveBeenCalled();
     promptSpy.mockRestore();
   });
 
-  it("«Вставить» is disabled until URL field is non-empty", () => {
-    renderModal({ value: baseValue({ format: "richText" }) });
-    fireEvent.click(screen.getByTestId("rte-link"));
-    expect(screen.getByTestId("rte-link-submit")).toBeDisabled();
-    fireEvent.change(screen.getByTestId("rte-link-url"), {
+  it("«Вставить» is disabled until URL field is non-empty", async () => {
+    openLinkDialog();
+    fireEvent.change(await screen.findByTestId("rte-link-url"), {
       target: { value: "https://test.example" },
     });
     expect(screen.getByTestId("rte-link-submit")).not.toBeDisabled();
   });
 
-  it("«Отмена» closes the modal without inserting a link", () => {
-    renderModal({ value: baseValue({ format: "richText" }) });
-    fireEvent.click(screen.getByTestId("rte-link"));
-    fireEvent.click(screen.getByTestId("rte-link-cancel"));
+  it("«Вставить» with an empty selection types the link text and wraps it", async () => {
+    openLinkDialog();
+    fireEvent.change(await screen.findByTestId("rte-link-url"), { target: { value: "https://a.ru" } });
+    fireEvent.change(screen.getByTestId("rte-link-text"), { target: { value: "Курс" } });
+    fireEvent.click(screen.getByTestId("rte-link-submit"));
+    await waitFor(() => expect(execCommandMock).toHaveBeenCalledWith("createLink", false, "https://a.ru"));
+    expect(execCommandMock).toHaveBeenCalledWith("insertText", false, "Курс");
+    expect(screen.queryByTestId("rte-link-url")).not.toBeInTheDocument();
+  });
+
+  it("«Отмена» closes the dialog without inserting a link", async () => {
+    openLinkDialog();
+    fireEvent.click(await screen.findByTestId("rte-link-cancel"));
     expect(screen.queryByTestId("rte-link-url")).not.toBeInTheDocument();
     expect(execCommandMock).not.toHaveBeenCalledWith("createLink", false, expect.anything());
+    expect(execCommandMock).not.toHaveBeenCalledWith("insertText", false, expect.anything());
   });
 });
 
