@@ -4,10 +4,14 @@
  * listbox menu with optional group headings. Opt into `searchable` and the menu
  * grows a search row that filters the options by a substring and highlights the
  * match — the same picking model, just findable in a long list. Opt into
- * `onClear` and the trigger grows a reset button.
+ * `onClear` and the trigger grows a reset button. Opt into `portal` and the
+ * menu is drawn on the document's top layer instead of inside the field.
  */
-import React, { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { cn, type Size } from '../utils';
+import React, {
+  forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
+} from 'react';
+import { createPortal } from 'react-dom';
+import { cn, cssStyleClass, type Size } from '../utils';
 
 type Tone = 'default' | 'error';
 
@@ -57,6 +61,19 @@ export interface SelectProps<T extends string = string>
   onClear?: () => void;
   /** Accessible name of that reset button. */
   clearLabel?: string;
+  /**
+   * Draws the menu in a portal on `document.body`, positioned against the
+   * trigger, instead of inside the field. An in-place menu is clipped by any
+   * scrolling ancestor; a portalled one is not, and it opens upwards when there
+   * is no room below. The markup of the menu is the same either way.
+   */
+  portal?: boolean;
+  /**
+   * Whether picking an option or pressing Escape returns the focus to the
+   * trigger. Default `true`. A host that keeps its own focus target — a text
+   * editor whose toolbar this Select sits in — turns it off and focuses itself.
+   */
+  returnFocus?: boolean;
   id?: string;
   name?: string;
 }
@@ -110,7 +127,7 @@ function SelectInner<T extends string = string>(
     label, hint, error, size = 'm', tone, options, value, defaultValue, onChange,
     placeholder = 'Выберите…', disabled, fullWidth,
     searchable, searchPlaceholder = 'Поиск…', emptyMessage = 'Ничего не найдено',
-    onClear, clearLabel = 'Очистить', id, name, className,
+    onClear, clearLabel = 'Очистить', portal = false, returnFocus = true, id, name, className,
     ...rest
   }: SelectProps<T>,
   ref: React.Ref<HTMLButtonElement>,
@@ -125,6 +142,8 @@ function SelectInner<T extends string = string>(
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number; maxHeight?: number } | null>(null);
   useImperativeHandle(ref, () => triggerRef.current as HTMLButtonElement);
 
   const [query, setQuery] = useState('');
@@ -156,10 +175,14 @@ function SelectInner<T extends string = string>(
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // A portalled menu is not inside the wrapper: without the second check a
+      // press on an option would close the menu before the option is picked.
+      if (wrapRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); }
+      if (e.key === 'Escape') { setOpen(false); if (returnFocus) triggerRef.current?.focus(); }
     };
     document.addEventListener('mousedown', close);
     document.addEventListener('keydown', onKey);
@@ -167,14 +190,56 @@ function SelectInner<T extends string = string>(
       document.removeEventListener('mousedown', close);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, returnFocus]);
+
+  // Portal placement: under the trigger at its width, flipped above it when the
+  // menu does not fit below but does fit above — the same rule Popover follows.
+  // When it fits on neither side it takes the roomier one and its list scrolls
+  // inside the room left, so no option ends up beyond the window edge.
+  const placeMenu = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+    const a = trigger.getBoundingClientRect();
+    const natural = menu.scrollHeight;
+    const gap = 4;
+    const margin = 8;
+    const viewH = document.documentElement.clientHeight || window.innerHeight;
+    const below = viewH - a.bottom - gap - margin;
+    const above = a.top - gap - margin;
+    const fitsBelow = natural <= below;
+    const up = !fitsBelow && (natural <= above || above > below);
+    const room = up ? above : below;
+    const height = Math.min(natural, Math.max(room, 0));
+    setMenuPos({
+      top: (up ? a.top - height - gap : a.bottom + gap) + window.scrollY,
+      left: a.left + window.scrollX,
+      width: a.width,
+      maxHeight: natural > room ? Math.max(room, 0) : undefined,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!portal || !open) { setMenuPos(null); return; }
+    placeMenu();
+  }, [portal, open, placeMenu]);
+
+  useEffect(() => {
+    if (!portal || !open) return;
+    window.addEventListener('scroll', placeMenu, true);
+    window.addEventListener('resize', placeMenu);
+    return () => {
+      window.removeEventListener('scroll', placeMenu, true);
+      window.removeEventListener('resize', placeMenu);
+    };
+  }, [portal, open, placeMenu]);
 
   const handleSelect = (opt: SelectOption<T>) => {
     if (opt.disabled) return;
     if (value === undefined) setInternal(opt.value);
     onChange?.(opt.value);
     setOpen(false);
-    triggerRef.current?.focus();
+    if (returnFocus) triggerRef.current?.focus();
   };
 
   const onSearchKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
@@ -190,6 +255,92 @@ function SelectInner<T extends string = string>(
       if (opt) handleSelect(opt);
     }
   };
+
+  const menu = (
+    <div
+      ref={menuRef}
+      className={cn(
+        'ou-select__menu',
+        portal && cssStyleClass(
+          menuPos
+            ? {
+              position: 'absolute', top: menuPos.top, left: menuPos.left, right: 'auto', width: menuPos.width,
+              maxHeight: menuPos.maxHeight, zIndex: 1000,
+            }
+            // First frame: measured before it is placed, so it must not flash at 0,0.
+            : { position: 'absolute', top: 0, left: 0, right: 'auto', visibility: 'hidden', zIndex: 1000 },
+          'ou-select-pos',
+        ),
+      )}
+    >
+      {searchable && (
+        <div className="ou-select__search">
+          <SearchIcon />
+          <input
+            ref={searchRef}
+            type="text"
+            className="ou-select__search-input"
+            value={query}
+            placeholder={searchPlaceholder}
+            autoComplete="off"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={menuId}
+            aria-autocomplete="list"
+            aria-label={searchPlaceholder}
+            aria-activedescendant={
+              activeIdx >= 0 && shown[activeIdx] ? `${fieldId}-opt-${shown[activeIdx].value}` : undefined
+            }
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onSearchKeyDown}
+          />
+        </div>
+      )}
+      {searchable && shown.length === 0 ? (
+        <div className="ou-select__empty" aria-live="polite">{emptyMessage}</div>
+      ) : (
+        <ul
+          className={cn(
+            'ou-select__list',
+            // A capped menu must let its list shrink, or the list keeps its own height
+            // and the overflow is cut off instead of scrolled.
+            portal && menuPos?.maxHeight !== undefined && cssStyleClass({ minHeight: 0, maxHeight: 'none', flex: '1 1 auto' }, 'ou-select-list'),
+          )}
+          id={menuId}
+          role="listbox"
+          aria-labelledby={fieldId}
+        >
+          {shown.map((o, i) => {
+            const showHeader = !!o.group && o.group !== (i > 0 ? shown[i - 1].group : undefined);
+            const labelStr = searchable && typeof o.label === 'string' ? o.label : '';
+            return (
+              <React.Fragment key={o.value}>
+                {showHeader && (
+                  <li role="presentation" className="ou-select__optgroup">{o.group}</li>
+                )}
+                <li
+                  id={`${fieldId}-opt-${o.value}`}
+                  role="option"
+                  aria-selected={o.value === current ? 'true' : 'false'}
+                  aria-disabled={o.disabled || undefined}
+                  className={cn(
+                    'ou-select__opt',
+                    o.value === current && 'is-selected',
+                    searchable && i === activeIdx && 'is-active',
+                    o.disabled && 'is-disabled',
+                  )}
+                  onMouseEnter={() => { if (searchable) setActiveIdx(i); }}
+                  onClick={() => handleSelect(o)}
+                >
+                  {labelStr ? highlight(labelStr, query.trim()) : o.label}
+                </li>
+              </React.Fragment>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -251,66 +402,9 @@ function SelectInner<T extends string = string>(
       {name !== undefined && (
         <input type="hidden" name={name} value={current ?? ''} />
       )}
-      {open && !disabled && (
-        <div className="ou-select__menu">
-          {searchable && (
-            <div className="ou-select__search">
-              <SearchIcon />
-              <input
-                ref={searchRef}
-                type="text"
-                className="ou-select__search-input"
-                value={query}
-                placeholder={searchPlaceholder}
-                autoComplete="off"
-                role="combobox"
-                aria-expanded="true"
-                aria-controls={menuId}
-                aria-autocomplete="list"
-                aria-label={searchPlaceholder}
-                aria-activedescendant={
-                  activeIdx >= 0 && shown[activeIdx] ? `${fieldId}-opt-${shown[activeIdx].value}` : undefined
-                }
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={onSearchKeyDown}
-              />
-            </div>
-          )}
-          {searchable && shown.length === 0 ? (
-            <div className="ou-select__empty" aria-live="polite">{emptyMessage}</div>
-          ) : (
-            <ul className="ou-select__list" id={menuId} role="listbox" aria-labelledby={fieldId}>
-              {shown.map((o, i) => {
-                const showHeader = !!o.group && o.group !== (i > 0 ? shown[i - 1].group : undefined);
-                const labelStr = searchable && typeof o.label === 'string' ? o.label : '';
-                return (
-                  <React.Fragment key={o.value}>
-                    {showHeader && (
-                      <li role="presentation" className="ou-select__optgroup">{o.group}</li>
-                    )}
-                    <li
-                      id={`${fieldId}-opt-${o.value}`}
-                      role="option"
-                      aria-selected={o.value === current ? 'true' : 'false'}
-                      aria-disabled={o.disabled || undefined}
-                      className={cn(
-                        'ou-select__opt',
-                        o.value === current && 'is-selected',
-                        searchable && i === activeIdx && 'is-active',
-                        o.disabled && 'is-disabled',
-                      )}
-                      onMouseEnter={() => { if (searchable) setActiveIdx(i); }}
-                      onClick={() => handleSelect(o)}
-                    >
-                      {labelStr ? highlight(labelStr, query.trim()) : o.label}
-                    </li>
-                  </React.Fragment>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
+      {open && !disabled && (portal
+        ? createPortal(menu, document.body)
+        : menu)}
       {(error || hint) && (
         <div className={`ou-field__msg ou-field__msg--${t}`}>{error || hint}</div>
       )}

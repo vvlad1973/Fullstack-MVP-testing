@@ -245,7 +245,7 @@ export type {
 } from './components/Tabs';
 export type { TagProps, TagVariant, TagSize } from './components/Tag';
 export type { TagInputProps } from './components/TagInput';
-export type { RichTextEditorProps, RichTextMode } from './components/RichTextEditor';
+export type { RichTextBlockStyle, RichTextEditorProps, RichTextMode } from './components/RichTextEditor';
 export type {
   TextProps, TextVariant, TextTone, TextWeight, TextAlign,
   HeadingProps, HeadingLevel, HeadingSize,

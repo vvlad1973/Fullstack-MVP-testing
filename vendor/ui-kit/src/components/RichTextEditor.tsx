@@ -1,5 +1,26 @@
+/**
+ * @module RichTextEditor
+ * @description Text field with three entry modes - plain text, formatted text and raw
+ * HTML. The formatted mode is a fixed toolbar over a contenteditable area; with
+ * `blockStyles` the toolbar starts with a paragraph-style list (see
+ * {@link module:richTextBlocks}).
+ */
 import React, { forwardRef, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { cn, type Size } from '../utils';
+import { Select } from './Select';
+import {
+  blockStyleState,
+  endOffsetOf,
+  readSelection,
+  replaceContentUndoably,
+  restyleBlocks,
+  writeSelection,
+  type BlockStyleState,
+  type RichTextBlockStyle,
+  type TextSelection,
+} from './richTextBlocks';
+
+export type { RichTextBlockStyle } from './richTextBlocks';
 
 /**
  * Entry modes a content field may offer. The consumer decides which of them are
@@ -54,6 +75,18 @@ export interface RichTextEditorProps {
     /** Markup -> plain source. Called when the author lowers it; must keep line breaks. */
     toPlain: (html: string) => string;
   };
+  /**
+   * Paragraph styles offered in the formatted mode, in list order. Opt-in: without it the
+   * toolbar has no style list. The host owns the tags and classes - the kit only applies
+   * them - so a product's style classes never leak into the design system.
+   */
+  blockStyles?: RichTextBlockStyle[];
+  /**
+   * Asks the host for a link. Called by the link button with the selected text; resolve
+   * with the address (and, for an empty selection, the text to insert) or `null` to cancel.
+   * Without it the button falls back to the browser's `prompt`.
+   */
+  onRequestLink?: (selectedText: string) => Promise<{ url: string; text?: string } | null>;
   rows?: number;
   /**
    * Cap on the field's height, in lines. Without it the field grows with its content
@@ -87,6 +120,11 @@ function fromPlainText(text: string): string {
   const el = document.createElement('div');
   el.textContent = text;
   return el.innerHTML;
+}
+
+/** Escapes text for an attribute value or an element body. */
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 interface ToolButton {
@@ -163,7 +201,7 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
     {
       label, hint, error, required, size = 'm', fullWidth, disabled,
       value, onChange, modes = ['plain', 'rich', 'html'], mode, onModeChange,
-      sanitize, transformPaste, sourceMode, rows = 4, maxRows, id, className, ...rest
+      sanitize, transformPaste, sourceMode, blockStyles, onRequestLink, rows = 4, maxRows, id, className, ...rest
     },
     ref,
   ) => {
@@ -173,6 +211,13 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
     const [internalMode, setInternalMode] = useState<RichTextMode>(mode ?? modes[modes.length - 1] ?? 'plain');
     const current = mode ?? internalMode;
     const [activeMarks, setActiveMarks] = useState<Record<string, boolean>>({});
+    /**
+     * Last selection inside the area, as text offsets. The style list takes the focus when
+     * it opens and the browser's own selection goes with it; the offsets survive.
+     */
+    const savedSelection = useRef<TextSelection | null>(null);
+    const [styleState, setStyleState] = useState<BlockStyleState>({ value: '', disabled: false });
+    const hasStyles = Boolean(blockStyles && blockStyles.length > 0);
 
     const clean = useCallback((html: string) => (sanitize ? sanitize(html) : html), [sanitize]);
 
@@ -216,19 +261,125 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
       setActiveMarks(marks);
     };
 
-    const exec = (tool: ToolButton) => {
+    /** Re-reads which style the selection sits in; remembers the selection. */
+    const refreshStyle = useCallback(() => {
+      const el = areaRef.current;
+      if (!el || !blockStyles || blockStyles.length === 0) return;
+      const selection = readSelection(el);
+      if (!selection) return;
+      savedSelection.current = selection;
+      setStyleState(blockStyleState(el, selection, blockStyles));
+    }, [blockStyles]);
+
+    // The caret moves by keys, clicks, Enter and drag; `selectionchange` is the one event
+    // that sees them all.
+    useEffect(() => {
+      if (!hasStyles || current !== 'rich') return undefined;
+      document.addEventListener('selectionchange', refreshStyle);
+      return () => document.removeEventListener('selectionchange', refreshStyle);
+    }, [hasStyles, current, refreshStyle]);
+
+    /** Applies a paragraph style to the blocks the remembered selection touches. */
+    const applyBlockStyle = (styleId: string) => {
+      const el = areaRef.current;
+      const style = blockStyles?.find((s) => s.id === styleId);
+      if (!el || !style || !blockStyles) return;
+      const selection = savedSelection.current;
+      el.focus();
+      const html = restyleBlocks(el, selection, style, blockStyles);
+      if (html !== null) {
+        replaceContentUndoably(el, html);
+        // Not cleaned here: a sanitiser that rewrites markup would make the value differ
+        // from the area, the area would be re-bound and the undo step lost. Blur cleans.
+        onChange(el.innerHTML);
+      }
+      const end = endOffsetOf(el);
+      writeSelection(el, selection ?? { start: end, end });
+      refreshStyle();
+      refreshMarks();
+    };
+
+    /** The link button: asks the host (or the browser) for an address. */
+    const insertLink = async () => {
       const el = areaRef.current;
       if (!el) return;
-      el.focus();
-      if (tool.command === 'createLink') {
-        const href = window.prompt('Адрес ссылки', 'https://');
-        if (!href) return;
-        document.execCommand('createLink', false, href);
+      const selection = readSelection(el) ?? savedSelection.current;
+      const sel = document.getSelection();
+      const selectedText = sel && selection && selection.start !== selection.end ? sel.toString() : '';
+      let url: string | null = null;
+      let text = '';
+      if (onRequestLink) {
+        const answer = await onRequestLink(selectedText);
+        if (!answer || !answer.url.trim()) return;
+        url = answer.url.trim();
+        text = (answer.text ?? '').trim();
       } else {
-        document.execCommand(tool.command, false, tool.value);
+        url = window.prompt('Адрес ссылки', 'https://');
+        if (!url) return;
+      }
+      el.focus();
+      if (selection) writeSelection(el, selection);
+      if (selection && selection.start !== selection.end) {
+        document.execCommand('createLink', false, url);
+      } else {
+        // An empty selection has nothing to wrap: the text goes in first and is then
+        // wrapped, both through the browser's own commands so that Ctrl+Z takes them back.
+        // Not `insertHTML`: Chromium copies the computed style of the spot into the new
+        // element (`<a style="font-size: 12px">` inside a small paragraph), and that inline
+        // style would later beat the template.
+        const label = text || url;
+        const at = selection ?? { start: endOffsetOf(el), end: endOffsetOf(el) };
+        writeSelection(el, at);
+        const inserted = document.execCommand('insertText', false, label);
+        if (inserted) {
+          writeSelection(el, { start: at.start, end: at.start + label.length });
+          document.execCommand('createLink', false, url);
+          writeSelection(el, { start: at.start + label.length, end: at.start + label.length });
+        } else {
+          // No editing commands at all (a test DOM): append the link as markup.
+          el.insertAdjacentHTML('beforeend', `<a href="${escapeHtml(url)}">${escapeHtml(label)}</a>`);
+        }
       }
       onChange(clean(el.innerHTML));
       refreshMarks();
+    };
+
+    const exec = (tool: ToolButton) => {
+      const el = areaRef.current;
+      if (!el) return;
+      if (tool.command === 'createLink') {
+        void insertLink();
+        return;
+      }
+      el.focus();
+      document.execCommand(tool.command, false, tool.value);
+      onChange(clean(el.innerHTML));
+      refreshMarks();
+    };
+
+    /** `Ctrl+Alt+<digit>` applies the style that declares that digit. */
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!blockStyles || !e.ctrlKey || !e.altKey || e.shiftKey || e.metaKey) return;
+      const digit = /^Digit(\d)$/.exec(e.code)?.[1] ?? (/^\d$/.test(e.key) ? e.key : undefined);
+      const style = digit !== undefined ? blockStyles.find((s) => s.shortcut === digit) : undefined;
+      if (!style) return;
+      e.preventDefault();
+      savedSelection.current = readSelection(e.currentTarget) ?? savedSelection.current;
+      applyBlockStyle(style.id);
+    };
+
+    /**
+     * Without a paragraph separator Chromium splits lines with `div`, or leaves text loose
+     * in the field - and a paragraph style has nothing to attach to. Set only where styles
+     * are offered, so fields without them behave as before.
+     */
+    const handleFocus = () => {
+      if (!hasStyles) return;
+      try {
+        document.execCommand('defaultParagraphSeparator', false, 'p');
+      } catch {
+        // Not supported by this browser: styles still apply, loose lines get wrapped then.
+      }
     };
 
     const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
@@ -282,6 +433,23 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
             )}
             {current === 'rich' && (
               <div className="ou-rte__tools" role="toolbar" aria-label="Форматирование">
+                {hasStyles && (
+                  <>
+                    <Select
+                      size="s"
+                      portal
+                      returnFocus={false}
+                      placeholder=""
+                      aria-label="Стиль абзаца"
+                      options={blockStyles!.map((s) => ({ value: s.id, label: s.label }))}
+                      value={styleState.value}
+                      onChange={applyBlockStyle}
+                      disabled={disabled || styleState.disabled}
+                      data-testid={rest['data-testid'] ? `${rest['data-testid']}-style` : undefined}
+                    />
+                    <span className="ou-rte__tools-sep" aria-hidden="true" />
+                  </>
+                )}
                 {TOOLS.map((group, gi) => (
                   <React.Fragment key={gi}>
                     {gi > 0 && <span className="ou-rte__tools-sep" aria-hidden="true" />}
@@ -320,6 +488,8 @@ export const RichTextEditor = forwardRef<HTMLDivElement, RichTextEditorProps>(
               onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
               onBlur={(e) => onChange(clean((e.target as HTMLDivElement).innerHTML))}
               onPaste={handlePaste}
+              onFocus={handleFocus}
+              onKeyDown={handleKeyDown}
               onKeyUp={refreshMarks}
               onMouseUp={refreshMarks}
               data-testid={rest['data-testid'] ? `${rest['data-testid']}-area` : undefined}
