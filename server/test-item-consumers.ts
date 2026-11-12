@@ -40,6 +40,7 @@ export const ITEM_CONSUMERS: Record<string, ItemDecision> = {
   "server/routes/questions.ts": { decision: "not-applicable", why: "Разделы читаются для экспорта вопросов теста в книгу, а сценарии книга не переносит — они переносятся архивом" },
   "server/routes/content-pages.ts": { decision: "not-applicable", why: "Страницы «перед темой / после темы» привязаны к теме; у пункта-сценария таких страниц нет" },
   "server/services/breakdown-warnings.ts": { decision: "not-applicable", why: "Разрезы и квоты PRD-50 считаются по тегам вопросов раздела; у пункта-сценария их нет" },
+  "server/services/scoring-warnings.ts": { decision: "not-applicable", why: "Замечание о «Весах опций» касается только вопросов с одним ответом и шкалы (`weightedReferenceMismatch`); у вопроса-сценария весов опций нет, а разделы читаются лишь для порядка тем в списке замечаний" },
   "server/storage/scales-variables-repository.ts": { decision: "not-applicable", why: "Вклады в шкалы — по вопросам с вариантами; у сценария их нет" },
   "server/services/media/usage-index.ts": { decision: "not-applicable", why: "Индексирует обратную связь разделов; у пункта-сценария своей обратной связи нет" },
   "server/storage/topics-repository.ts": { decision: "not-applicable", why: "Переименование темы в формулах показателей: формула ссылается на темы разделов, не на банки пунктов" },
