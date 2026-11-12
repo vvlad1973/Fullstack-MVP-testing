@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Wireframe: стили абзаца в редакторе форматированного текста.
+      Файл: docs/wireframes/rte-paragraph-styles.html
+
+      ЧТО ЭТО. В режим «Форматированный» компонента RichTextEditor (ui-kit) добавляется
+      список «Стиль абзаца»: «Обычный текст», «Заголовок 1», «Заголовок 2», «Заголовок 3»,
+      «Крупный текст», «Мелкий текст». Модалка обратной связи и толкований
+      (FeedbackEditorModal) переходит со своего самодельного редактора на тот же
+      компонент — иначе список не дошёл бы до экрана итогов, ради которого задача.
+
+      ИСТОЧНИКИ РАЗМЕТКИ.
+        - поле «Описание» — утверждённый эскиз docs/wireframes/prd59-description-field.html,
+          изменено одно место: список стилей в начале панели инструментов;
+        - модалка — утверждённый эскиз docs/wireframes/approved/prd7-editor-drawer.html,
+          состояние s-feedback-edit, и текущий код feedback-editor-modal.tsx
+          (разделы «Курсы», «Мероприятия», «Материалы»);
+        - экран итогов — реальный шаблон «Стандартный»
+          (server/scorm/templates/default/styles/theme.css, подключён как есть) и макет
+          server/scorm/templates/default/layouts/results.html (сцена, вводный блок, подвал).
+      Классы с префиксом wf- — каркас эскиза, не UI.
+
+      СОСТОЯНИЯ:
+        s-menu      поле «Описание», список стилей раскрыт
+        s-feedback  модалка обратной связи: текст со всеми стилями, курсор в «Заголовке 2»
+        s-html      та же модалка в режиме «HTML»: как стили хранятся
+        s-learner   экран итогов: тот же текст глазами участника
+        s-notes     пояснения и DS Mapping
+    -->
+    <title>Wireframe: стили абзаца в редакторе форматированного текста</title>
+    <link rel="stylesheet" href="/client/src/styles/vendor/skillum-ds.css" />
+    <link rel="stylesheet" href="/docs/wireframes/ds/wf-utils.css" />
+    <link rel="stylesheet" href="/client/src/styles/tb-components.css" />
+    <link rel="stylesheet" href="/server/scorm/templates/default/styles/theme.css" />
+    <style>
+      :root {
+        /* gate-skip-start */
+        /* WIREFRAME-ONLY: литеральные размеры каркаса. В ДС нет шкалы толщин линий и
+           размеров кадра, поэтому они объявлены здесь один раз. */
+        --wf-border-w: 1px;
+        --wf-space-half: 2px;
+        --wf-size-52: 52px;
+        --wf-size-1200: 1200px;
+        --wf-size-1280: 1280px;
+        --wf-size-800: 800px;
+        --wf-size-720: 720px;
+        /* gate-skip-end */
+      }
+
+      /* ══════════════════════════════════════════════════════════════════════
+         ДЕЛЬТА ШАБЛОНА — предлагаемое дополнение к
+         server/scorm/templates/default/styles/theme.css (и report.css).
+         Типографика авторского текста: три уровня заголовков и два размера абзаца.
+         Только токены ДС; цвет подзаголовка — акцент шаблона, поэтому он следует
+         параметрам оформления теста. В эскизе правила показаны на вводном блоке
+         (.tb-intro); в шаблоне тот же набор получат все места, куда печатается
+         авторский текст (толкование, интерпретация, рекомендации, отчёт).
+         ══════════════════════════════════════════════════════════════════════ */
+      .tb-intro h2 { font: var(--ou-text-heading-l); color: var(--ou-fg-default); margin: var(--ou-space-6) 0 var(--ou-space-3); }
+      .tb-intro h3 { font: var(--ou-text-heading-m); color: var(--ou-accent-default); margin: var(--ou-space-5) 0 var(--ou-space-2); }
+      .tb-intro h4 { font: var(--ou-text-heading-s); color: var(--ou-fg-default); margin: var(--ou-space-4) 0 var(--ou-space-2); }
+      .tb-intro .tb-text-l { font: var(--ou-text-body-l); }
+      .tb-intro .tb-text-s { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+
+      /* ══════════════════════════════════════════════════════════════════════
+         ДЕЛЬТА КОМПОНЕНТА — предлагаемое дополнение к RichTextEditor.css (ui-kit).
+         Область ввода показывает РЕЗУЛЬТАТ, поэтому стили абзаца видны в ней
+         сразу — той же ступенью шкалы ДС, без цвета шаблона: редактор не знает,
+         в каком шаблоне текст окажется.
+         ══════════════════════════════════════════════════════════════════════ */
+      .ou-rte__area h2 { font: var(--ou-text-heading-m); margin: var(--ou-space-4) 0 var(--ou-space-2); }
+      .ou-rte__area h3 { font: var(--ou-text-heading-s); margin: var(--ou-space-3) 0 var(--ou-space-2); }
+      .ou-rte__area h4 { font: var(--ou-text-body-m); font-weight: 600; margin: var(--ou-space-3) 0 var(--ou-space-1); }
+      .ou-rte__area > :first-child { margin-top: 0; }
+      .ou-rte__area .tb-text-l { font: var(--ou-text-body-m); }
+      .ou-rte__area .tb-text-s { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
+      /* Список стилей в панели: ширина по самой длинной подписи, чтобы панель не
+         прыгала при переходе курсора между абзацами. */
+      .ou-rte__tools .ou-select { min-width: calc(var(--ou-space-11) * 2); }
+
+      /* ══════════════════════════════════════════════════════════════════════
+         КАРКАС ЭСКИЗА — не часть UI.
+         ══════════════════════════════════════════════════════════════════════ */
+      .wf-sprite { position: absolute; width: 0; height: 0; }
+      /* Ящик и модалка в продукте — фиксированные слои. Здесь они в потоке
+         страницы, чтобы под ними оставались видны пояснения. */
+      .wf-state .ou-drawer-root { position: relative; inset: auto; height: 88vh; }
+      .wf-state .ou-modal-root { position: relative; inset: auto; min-height: 92vh; padding: var(--ou-space-6) 0; }
+      .ou-drawer__body { padding: 0; }
+      /* In the product the settings pane fills the drawer body; here the body is not
+         a flex column, so the pane is stretched explicitly. */
+      .wf-state .tb-settings-content { min-height: 100%; }
+      /* Раскрытое меню лежит поверх поля, как в продукте. */
+      .wf-open-menu { display: block; }
+      /* Окно плеера: высота кадра включает контракт сцены (шапка, тело со
+         скроллом, подвал). */
+      .wf-viewport {
+        width: var(--wf-size-1280); height: var(--wf-size-800);
+        max-width: 100%; margin: 0 auto;
+        border: var(--wf-border-w) solid var(--ou-border-default);
+        border-radius: var(--ou-radius-l); overflow: hidden;
+      }
+      .wf-annot-wrap { position: relative; }
+      .wf-annot {
+        display: none; position: absolute; top: 0; right: 0; z-index: 200;
+        background: var(--ou-warning-default); color: var(--ou-fg-default);
+        border-radius: var(--ou-radius-s); padding: 0 var(--ou-space-1);
+        font: var(--ou-text-body-xs); font-weight: 700; pointer-events: none; white-space: nowrap;
+      }
+      body.wf-annots-on .wf-annot { display: block; }
+    </style>
+  </head>
+  <body class="ou ou--light ou--normal">
+
+    <nav class="wf-nav" aria-label="Переключатель состояний">
+      <span class="wf-nav-title">Стили абзаца:</span>
+      <button class="active" type="button" onclick="showState(this, 's-menu')">Список стилей</button>
+      <button type="button" onclick="showState(this, 's-feedback')">Модалка обратной связи</button>
+      <button type="button" onclick="showState(this, 's-html')">Режим HTML</button>
+      <button type="button" onclick="showState(this, 's-learner')">Экран итогов</button>
+      <button type="button" onclick="showState(this, 's-notes')">Пояснения</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" onclick="toggleTheme(this)">Dark</button>
+      <button type="button" onclick="toggleDensity(this)">Compact</button>
+      <button type="button" onclick="toggleAnnots(this)">Аннотации</button>
+    </nav>
+
+    <!-- ═══════════ STATE: s-menu — поле «Описание», список стилей раскрыт ═══════════ -->
+    <section id="s-menu" class="wf-state active">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true" aria-labelledby="dt-menu">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text">
+              <h1 id="dt-menu" class="ou-drawer__title">Развивается и развивает</h1>
+            </div>
+            <span class="ou-tag ou-tag--warning ou-tag--outline">Черновик</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор">
+              <svg width="16" height="16"><use href="#i-x" /></svg>
+            </button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true">Основное</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Состав и сценарий</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Правила прохождения</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оценка результата</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Обратная связь и итоги</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Оформление</button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false">Комментарии</button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body" tabindex="0">
+            <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro">
+                  <h3 class="ou-formsection__title">О тесте</h3>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl" for="menu-title">Название <span class="ou-formfield__lbl-req" aria-hidden="true">*</span></label>
+                    <div class="ou-field ou-field--m">
+                      <div class="ou-field__box">
+                        <input class="ou-field__input" id="menu-title" type="text" value="Развивается и развивает" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="ou-formfield">
+                    <div class="ou-rte ou-rte--full">
+                      <label class="ou-rte__lbl" for="menu-desc">Описание</label>
+                      <div class="ou-rte__bar">
+                        <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                          <button type="button" class="ou-seg__item">Простой текст</button>
+                          <button type="button" class="ou-seg__item is-active">Форматированный</button>
+                          <button type="button" class="ou-seg__item">HTML</button>
+                        </div>
+                        <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование">
+                          <span class="wf-annot-wrap">
+                            <div class="ou-select ou-field--s is-open">
+                              <button type="button" class="ou-field__box ou-select__trigger" aria-label="Стиль абзаца" aria-haspopup="listbox" aria-expanded="true">
+                                <span class="ou-select__value">Обычный текст</span>
+                                <svg class="ou-select__chev" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                              </button>
+                              <div class="ou-select__menu wf-open-menu" role="listbox" aria-label="Стиль абзаца">
+                                <ul class="ou-select__list">
+                                  <li class="ou-select__opt is-selected" role="option" aria-selected="true">Обычный текст</li>
+                                  <li class="ou-select__opt is-active" role="option" aria-selected="false">Заголовок 1</li>
+                                  <li class="ou-select__opt" role="option" aria-selected="false">Заголовок 2</li>
+                                  <li class="ou-select__opt" role="option" aria-selected="false">Заголовок 3</li>
+                                  <li class="ou-select__opt" role="option" aria-selected="false">Крупный текст</li>
+                                  <li class="ou-select__opt" role="option" aria-selected="false">Мелкий текст</li>
+                                </ul>
+                              </div>
+                            </div>
+                            <span class="wf-annot">стиль абзаца</span>
+                          </span>
+                          <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Полужирный"><svg aria-hidden="true"><use href="#i-bold" /></svg></button>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Курсив"><svg aria-hidden="true"><use href="#i-italic" /></svg></button>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Зачёркнутый"><svg aria-hidden="true"><use href="#i-strikethrough" /></svg></button>
+                          <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Маркированный список"><svg aria-hidden="true"><use href="#i-list" /></svg></button>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Нумерованный список"><svg aria-hidden="true"><use href="#i-list-ordered" /></svg></button>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Ссылка"><svg aria-hidden="true"><use href="#i-link" /></svg></button>
+                          <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                          <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Очистить форматирование"><svg aria-hidden="true"><use href="#i-remove-formatting" /></svg></button>
+                        </div>
+                      </div>
+                      <div class="ou-rte__box">
+                        <div class="ou-rte__area" id="menu-desc" contenteditable="true" role="textbox" aria-multiline="true" style="min-height: 4.8em">
+                          <p>Методика оценивает, как сотрудник развивается сам и помогает расти коллегам.</p>
+                          <p>Тест занимает около 20 минут. Результат и рекомендации вы увидите сразу после последнего вопроса.</p>
+                        </div>
+                      </div>
+                      <span class="ou-rte__msg">Опишите цели теста и аудиторию</span>
+                    </div>
+                  </div>
+
+                  <div class="ou-formfield">
+                    <label class="ou-formfield__lbl">Режим теста</label>
+                    <div class="ou-seg" role="group" aria-label="Режим теста">
+                      <button type="button" class="ou-seg__item is-active" aria-pressed="true"><span>Стандартный</span></button>
+                      <button type="button" class="ou-seg__item" aria-pressed="false"><span>Адаптивный</span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--secondary ou-btn--m">Отменить</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Сохранить</button>
+          </footer>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ═══════════ STATE: s-feedback — модалка на RichTextEditor ═══════════ -->
+    <section id="s-feedback" class="wf-state">
+      <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="fb-title">
+        <div class="ou-modal__backdrop"></div>
+        <div class="ou-modal ou-modal--l">
+          <header class="ou-modal__head">
+            <div class="ou-modal__head-text">
+              <h2 id="fb-title" class="ou-modal__title">Вводный текст экрана итогов</h2>
+              <p class="ou-modal__desc">Показывается участнику над результатами</p>
+            </div>
+            <button class="ou-modal__close" type="button" aria-label="Закрыть"><svg width="16" height="16"><use href="#i-x" /></svg></button>
+          </header>
+          <div class="ou-modal__body tb-feedback-editor">
+            <div class="tb-feedback-editor__section">
+              <span class="wf-annot-wrap">
+                <div class="ou-rte ou-rte--full">
+                  <label class="ou-rte__lbl" for="fb-area">Текст</label>
+                  <div class="ou-rte__bar">
+                    <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                      <button type="button" class="ou-seg__item">Простой текст</button>
+                      <button type="button" class="ou-seg__item is-active">Форматированный</button>
+                      <button type="button" class="ou-seg__item">HTML</button>
+                    </div>
+                    <div class="ou-rte__tools" role="toolbar" aria-label="Форматирование">
+                      <div class="ou-select ou-field--s">
+                        <button type="button" class="ou-field__box ou-select__trigger" aria-label="Стиль абзаца" aria-haspopup="listbox" aria-expanded="false">
+                          <span class="ou-select__value">Заголовок 2</span>
+                          <svg class="ou-select__chev" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                        </button>
+                      </div>
+                      <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Полужирный"><svg aria-hidden="true"><use href="#i-bold" /></svg></button>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Курсив"><svg aria-hidden="true"><use href="#i-italic" /></svg></button>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Зачёркнутый"><svg aria-hidden="true"><use href="#i-strikethrough" /></svg></button>
+                      <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Маркированный список"><svg aria-hidden="true"><use href="#i-list" /></svg></button>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Нумерованный список"><svg aria-hidden="true"><use href="#i-list-ordered" /></svg></button>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Ссылка"><svg aria-hidden="true"><use href="#i-link" /></svg></button>
+                      <span class="ou-rte__tools-sep" aria-hidden="true"></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Очистить форматирование"><svg aria-hidden="true"><use href="#i-remove-formatting" /></svg></button>
+                    </div>
+                  </div>
+                  <div class="ou-rte__box">
+                    <div class="ou-rte__area" id="fb-area" contenteditable="true" role="textbox" aria-multiline="true" style="min-height: 9.6em">
+                      <h2>2. Запрашивайте обратную связь и корректируйте свои действия по её результатам</h2>
+                      <p class="tb-text-l">Обратная связь помогает увидеть то, что не видно изнутри. Ниже — три шага, которые сделают её вашим инструментом роста.</p>
+                      <h3>2.1. Выведите сбор обратной связи на экспертный уровень</h3>
+                      <p>Вы регулярно запрашиваете обратную связь. Чтобы она стала ещё полезнее:</p>
+                      <ul>
+                        <li>запрашивайте её там, где некомфортно, — именно в таких оценках чаще всего прячутся точки роста;</li>
+                        <li>расширяйте круг респондентов: клиенты, коллеги из смежных подразделений и подчинённые видят аспекты, незаметные ближнему кругу.</li>
+                      </ul>
+                      <h4>Если мнения расходятся</h4>
+                      <p>Исследуйте причины расхождений: отношения с респондентами, возможность наблюдать поведение, разница восприятия.</p>
+                      <p class="tb-text-s">Материалы к разделу — в Онлайн-университете, курс «Культура обратной связи».</p>
+                    </div>
+                  </div>
+                </div>
+                <span class="wf-annot">RichTextEditor</span>
+              </span>
+            </div>
+
+            <div class="tb-feedback-editor__section">
+              <div class="tb-feedback-editor__sec-title">
+                <svg width="14" height="14" aria-hidden="true"><use href="#i-link" /></svg>
+                Курсы
+              </div>
+              <div>
+                <button type="button" class="ou-btn ou-btn--secondary ou-btn--s">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
+                  Добавить курс
+                </button>
+              </div>
+            </div>
+
+            <div class="tb-feedback-editor__section">
+              <div class="tb-feedback-editor__sec-title">
+                <svg width="14" height="14" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+                Мероприятия
+              </div>
+              <div>
+                <button type="button" class="ou-btn ou-btn--secondary ou-btn--s">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
+                  Добавить мероприятие
+                </button>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-modal__foot">
+            <button class="ou-btn ou-btn--secondary ou-btn--m" type="button">Отменить</button>
+            <button class="ou-btn ou-btn--primary ou-btn--m" type="button">Сохранить</button>
+          </footer>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ STATE: s-html — та же модалка в режиме «HTML» ═══════════ -->
+    <section id="s-html" class="wf-state">
+      <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="fbh-title">
+        <div class="ou-modal__backdrop"></div>
+        <div class="ou-modal ou-modal--l">
+          <header class="ou-modal__head">
+            <div class="ou-modal__head-text">
+              <h2 id="fbh-title" class="ou-modal__title">Вводный текст экрана итогов</h2>
+              <p class="ou-modal__desc">Показывается участнику над результатами</p>
+            </div>
+            <button class="ou-modal__close" type="button" aria-label="Закрыть"><svg width="16" height="16"><use href="#i-x" /></svg></button>
+          </header>
+          <div class="ou-modal__body tb-feedback-editor">
+            <div class="tb-feedback-editor__section">
+              <div class="ou-rte ou-rte--full">
+                <label class="ou-rte__lbl" for="fbh-area">Текст</label>
+                <div class="ou-rte__bar">
+                  <div class="ou-seg ou-seg--s" role="group" aria-label="Режим ввода">
+                    <button type="button" class="ou-seg__item">Простой текст</button>
+                    <button type="button" class="ou-seg__item">Форматированный</button>
+                    <button type="button" class="ou-seg__item is-active">HTML</button>
+                  </div>
+                </div>
+                <div class="ou-rte__box">
+                  <textarea class="ou-rte__input ou-rte__input--code" id="fbh-area" rows="14">&lt;h2&gt;2. Запрашивайте обратную связь и корректируйте свои действия по её результатам&lt;/h2&gt;
+&lt;p class="tb-text-l"&gt;Обратная связь помогает увидеть то, что не видно изнутри. Ниже — три шага, которые сделают её вашим инструментом роста.&lt;/p&gt;
+&lt;h3&gt;2.1. Выведите сбор обратной связи на экспертный уровень&lt;/h3&gt;
+&lt;p&gt;Вы регулярно запрашиваете обратную связь. Чтобы она стала ещё полезнее:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;запрашивайте её там, где некомфортно, — именно в таких оценках чаще всего прячутся точки роста;&lt;/li&gt;
+  &lt;li&gt;расширяйте круг респондентов: клиенты, коллеги из смежных подразделений и подчинённые видят аспекты, незаметные ближнему кругу.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4&gt;Если мнения расходятся&lt;/h4&gt;
+&lt;p&gt;Исследуйте причины расхождений: отношения с респондентами, возможность наблюдать поведение, разница восприятия.&lt;/p&gt;
+&lt;p class="tb-text-s"&gt;Материалы к разделу — в Онлайн-университете, курс «Культура обратной связи».&lt;/p&gt;</textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="tb-feedback-editor__section">
+              <div class="tb-feedback-editor__sec-title">
+                <svg width="14" height="14" aria-hidden="true"><use href="#i-link" /></svg>
+                Курсы
+              </div>
+              <div>
+                <button type="button" class="ou-btn ou-btn--secondary ou-btn--s">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
+                  Добавить курс
+                </button>
+              </div>
+            </div>
+
+            <div class="tb-feedback-editor__section">
+              <div class="tb-feedback-editor__sec-title">
+                <svg width="14" height="14" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+                Мероприятия
+              </div>
+              <div>
+                <button type="button" class="ou-btn ou-btn--secondary ou-btn--s">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg>
+                  Добавить мероприятие
+                </button>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-modal__foot">
+            <button class="ou-btn ou-btn--secondary ou-btn--m" type="button">Отменить</button>
+            <button class="ou-btn ou-btn--primary ou-btn--m" type="button">Сохранить</button>
+          </footer>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ STATE: s-learner — экран итогов глазами участника ═══════════ -->
+    <section id="s-learner" class="wf-state">
+      <div class="wf-page">
+        <div class="wf-viewport">
+          <div class="tb-scene">
+            <header class="tb-scene__header">
+              <div class="tb-scene__brandrow">
+                <div class="tb-scene__titles">
+                  <h1 class="tb-scene__title">Развивается и развивает</h1>
+                </div>
+                <div class="tb-scene__headtag"><span class="ou-tag ou-tag--error">Не пройден</span></div>
+              </div>
+              <div class="tb-scene__progress"><div class="tb-scene__progress-fill" style="width: 62%"></div></div>
+            </header>
+            <main class="tb-scene__body">
+              <div class="tb-scene__col tb-scene__col--wide">
+                <span class="wf-annot-wrap">
+                  <div class="tb-intro">
+                    <h2>2. Запрашивайте обратную связь и корректируйте свои действия по её результатам</h2>
+                    <p class="tb-text-l">Обратная связь помогает увидеть то, что не видно изнутри. Ниже — три шага, которые сделают её вашим инструментом роста.</p>
+                    <h3>2.1. Выведите сбор обратной связи на экспертный уровень</h3>
+                    <p>Вы регулярно запрашиваете обратную связь. Чтобы она стала ещё полезнее:</p>
+                    <ul>
+                      <li>запрашивайте её там, где некомфортно, — именно в таких оценках чаще всего прячутся точки роста;</li>
+                      <li>расширяйте круг респондентов: клиенты, коллеги из смежных подразделений и подчинённые видят аспекты, незаметные ближнему кругу.</li>
+                    </ul>
+                    <h4>Если мнения расходятся</h4>
+                    <p>Исследуйте причины расхождений: отношения с респондентами, возможность наблюдать поведение, разница восприятия.</p>
+                    <p class="tb-text-s">Материалы к разделу — в Онлайн-университете, курс «Культура обратной связи».</p>
+                  </div>
+                  <span class="wf-annot">.tb-intro + дельта шаблона</span>
+                </span>
+              </div>
+            </main>
+            <footer class="tb-scene__foot">
+              <button type="button" class="ou-btn ou-btn--secondary ou-btn--m">Скачать отчёт</button>
+              <div class="tb-scene__foot-spacer"></div>
+              <button type="button" class="ou-btn ou-btn--secondary ou-btn--l">Пройти заново</button>
+              <button type="button" class="ou-btn ou-btn--primary ou-btn--l">Завершить</button>
+            </footer>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ STATE: s-notes — пояснения и DS Mapping ═══════════ -->
+    <section id="s-notes" class="wf-state">
+      <div class="wf-page">
+        <div class="wf-notes">
+          <h3 class="wf-notes-title">Пояснения — Wireframe</h3>
+          <table>
+            <thead>
+              <tr><th>Элемент</th><th>Поле API / условие</th><th>Примечание</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Список «Стиль абзаца»</td>
+                <td>Только режим «Форматированный». Включается свойством компонента; без него панель как сегодня</td>
+                <td>Первый в панели, отделён разделителем. Показывает стиль абзаца, в котором стоит курсор; при выделении нескольких абзацев разных стилей — пустое значение</td>
+              </tr>
+              <tr>
+                <td>«Обычный текст»</td>
+                <td><code>&lt;p&gt;</code></td>
+                <td>Снимает заголовок или размер с абзаца</td>
+              </tr>
+              <tr>
+                <td>«Заголовок 1 / 2 / 3»</td>
+                <td><code>&lt;h2&gt;</code> / <code>&lt;h3&gt;</code> / <code>&lt;h4&gt;</code></td>
+                <td><code>h1</code> на экране занят названием теста, поэтому уровни автора начинаются со второго</td>
+              </tr>
+              <tr>
+                <td>«Крупный текст» / «Мелкий текст»</td>
+                <td><code>&lt;p class="tb-text-l"&gt;</code> / <code>&lt;p class="tb-text-s"&gt;</code></td>
+                <td>Размер — свойство абзаца, а не выделенных слов: стиль, а не <code>font-size</code>. Размер и цвет задаёт шаблон</td>
+              </tr>
+              <tr>
+                <td>Клавиши</td>
+                <td><code>Ctrl+Alt+0</code> — обычный текст, <code>Ctrl+Alt+1..3</code> — заголовки</td>
+                <td>Как в Google Документах. Для размеров клавиш нет</td>
+              </tr>
+              <tr>
+                <td>Вид в поле ввода</td>
+                <td>Дельта компонента</td>
+                <td>Стили видны сразу, ступенью ниже, чем у участника, и без цвета шаблона</td>
+              </tr>
+              <tr>
+                <td>Модалка обратной связи</td>
+                <td><code>FeedbackEditorModal</code> → <code>RichTextEditor</code></td>
+                <td>Строка «Формат» уходит: переключатель режимов — в панели компонента, подписи «Простой текст / Форматированный / HTML» по компоненту. Подпись поля — по <code>textLabel</code>. Курсы, мероприятия, материалы без изменений</td>
+              </tr>
+              <tr>
+                <td>Вставка из Word и страниц</td>
+                <td><code>sanitizePastedHtml</code></td>
+                <td>Заголовки больше не превращаются в абзацы: <code>H1</code>, <code>H2</code> → «Заголовок 1», <code>H3</code> → «Заголовок 2», <code>H4</code>–<code>H6</code> → «Заголовок 3». Классы, кроме двух размеров, снимаются</td>
+              </tr>
+              <tr>
+                <td>Экран итогов, отчёт, пакет</td>
+                <td><code>richTextToHtml</code> без изменений</td>
+                <td>Разметка печатается как есть; вид задаёт шаблон (дельта шаблона в начале файла). Обёртка <code>&lt;p class="ou-formsection__sub"&gt;</code> в <code>results.html</code> меняется на <code>&lt;div&gt;</code>: заголовок внутри <code>&lt;p&gt;</code> разрывает абзац</td>
+              </tr>
+              <tr>
+                <td>Шаблоны в отдельных репозиториях</td>
+                <td>Свои <code>theme.css</code></td>
+                <td>Получают те же правила своим выпуском. Пока их нет, заголовок показывается как сегодня, ничего не ломается</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="wf-notes">
+          <h3 class="wf-notes-title">Открытые вопросы</h3>
+          <table>
+            <thead>
+              <tr><th>Вопрос</th><th>Предложение</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Показывать ли пункты списка стилей в их собственном виде (как в Word)</td>
+                <td>Нет: в ДС у пунктов <code>ou-select</code> один вид, а вид в поле ввода и так виден сразу</td>
+              </tr>
+              <tr>
+                <td>Ссылка в модалке: сегодня отдельный диалог «Вставить ссылку», в компоненте — системный <code>prompt</code></td>
+                <td>Компонент получает свойство «запросить ссылку», модалка передаёт в него свой диалог. Диалог не теряется</td>
+              </tr>
+              <tr>
+                <td>Плашка у «Заголовка 1», как в референсе</td>
+                <td>Плашка — оформление шаблона РТК, делается в его репозитории. В «Стандартном» — без плашки</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="wf-mapping">
+          <h2 class="wf-mapping-title">DS Mapping</h2>
+          <p class="wf-mapping-sub">Строка с «custom» в колонке DS-компонент является блокером.</p>
+          <table>
+            <thead>
+              <tr><th>Элемент wireframe</th><th>DS-компонент</th><th>Используемые токены</th><th>Примечания</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Поле с режимами и панелью</td>
+                <td><code>RichTextEditor</code> (<code>ou-rte</code>)</td>
+                <td><code>--ou-space-2</code>, <code>--ou-border-soft</code></td>
+                <td>Новое свойство — список стилей абзаца; состав и разметку стилей передаёт продукт, ДС не знает классов <code>tb-*</code></td>
+              </tr>
+              <tr>
+                <td>Список «Стиль абзаца»</td>
+                <td><code>Select</code> <code>size="s"</code> (<code>ou-select ou-field--s</code>)</td>
+                <td><code>--ou-size-control-s</code>, <code>--ou-space-12</code></td>
+                <td>Внутри <code>ou-rte__tools</code>; минимальная ширина — дельта компонента</td>
+              </tr>
+              <tr>
+                <td>Кнопки панели</td>
+                <td><code>IconButton</code> <code>variant="ghost"</code> <code>size="s"</code></td>
+                <td>—</td>
+                <td>Состав и порядок — как в компоненте сегодня</td>
+              </tr>
+              <tr>
+                <td>Стили в поле ввода</td>
+                <td><code>ou-rte__area h2/h3/h4</code>, <code>.tb-text-l/-s</code></td>
+                <td><code>--ou-text-heading-m/s</code>, <code>--ou-text-body-m/xs</code>, <code>--ou-fg-muted</code></td>
+                <td>Дельта компонента</td>
+              </tr>
+              <tr>
+                <td>Модалка</td>
+                <td><code>ModalDialog</code> <code>size="l"</code>, <code>tb-feedback-editor</code></td>
+                <td>—</td>
+                <td>Как сегодня, без строки «Формат»</td>
+              </tr>
+              <tr>
+                <td>Текст на экране итогов</td>
+                <td>Шаблон: <code>.tb-intro</code> и остальные места авторского текста</td>
+                <td><code>--ou-text-heading-l/m/s</code>, <code>--ou-text-body-l/s</code>, <code>--ou-accent-default</code>, <code>--ou-fg-muted</code>, <code>--ou-space-2..6</code></td>
+                <td>Дельта шаблона</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <svg class="wf-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <!-- Контуры lucide-react 1.48.0, перенесены из dist/esm/icons/*.mjs дословно. -->
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-bold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8" /></symbol>
+      <symbol id="i-italic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="10" y1="4" y2="4" /><line x1="14" x2="5" y1="20" y2="20" /><line x1="15" x2="9" y1="4" y2="20" /></symbol>
+      <symbol id="i-strikethrough" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-2.83 4" /><path d="M14 12a4 4 0 0 1 0 8H6" /><line x1="4" x2="20" y1="12" y2="12" /></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h.01" /><path d="M3 12h.01" /><path d="M3 19h.01" /><path d="M8 5h13" /><path d="M8 12h13" /><path d="M8 19h13" /></symbol>
+      <symbol id="i-list-ordered" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5h10" /><path d="M11 12h10" /><path d="M11 19h10" /><path d="M4 4h1v5" /><path d="M4 9h2" /><path d="M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02" /></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></symbol>
+      <symbol id="i-remove-formatting" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3" /><path d="M5 20h6" /><path d="M13 4 8 20" /><path d="m15 15 5 5" /><path d="m20 15-5 5" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></symbol>
+      <symbol id="i-calendar-days" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M8 13h.01" /><path d="M12 13h.01" /><path d="M16 13h.01" /><path d="M8 17h.01" /><path d="M12 17h.01" /><path d="M16 17h.01" /></symbol>
+    </svg>
+
+    <script>
+      /** Meta navigation of the sketch: shows one state and marks its button. */
+      function showState(btn, id) {
+        document.querySelectorAll('.wf-state').forEach(function (el) {
+          el.classList.toggle('active', el.id === id);
+        });
+        btn.closest('.wf-nav').querySelectorAll('button[onclick^="showState"]').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+      }
+      /** Light / dark theme of the design system. */
+      function toggleTheme(btn) {
+        var body = document.body;
+        var isDark = body.classList.contains('ou--dark');
+        body.classList.toggle('ou--dark', !isDark);
+        body.classList.toggle('ou--light', isDark);
+        document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+        btn.textContent = isDark ? 'Dark' : 'Light';
+        btn.classList.toggle('active', !isDark);
+      }
+      /** Normal / compact density of the design system. */
+      function toggleDensity(btn) {
+        var body = document.body;
+        var isCompact = body.classList.contains('ou--compact');
+        body.classList.toggle('ou--compact', !isCompact);
+        body.classList.toggle('ou--normal', isCompact);
+        btn.textContent = isCompact ? 'Compact' : 'Normal';
+        btn.classList.toggle('active', !isCompact);
+      }
+      /** Requirement badges on and off. */
+      function toggleAnnots(btn) {
+        var on = document.body.classList.toggle('wf-annots-on');
+        if (btn) btn.classList.toggle('active', on);
+      }
+    </script>
+  </body>
+</html>
