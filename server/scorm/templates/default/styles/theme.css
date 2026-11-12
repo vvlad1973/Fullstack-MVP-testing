@@ -992,9 +992,11 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
    caption size too. */
 .tb-measure .ou-slider__val { font: var(--ou-text-body-m); }
 .tb-measure .ou-slider__val strong { font: var(--ou-text-display-s); }
-/* Толкование уровня — авторский текст, его переводы строк держатся (см. `.tb-recs-group__text`). */
-.tb-measure .ou-formsection__sub { font: var(--ou-text-body-m); white-space: pre-wrap; }
-.tb-measure .ou-banner__desc { white-space: pre-wrap; }
+/* Толкование уровня — авторский текст. Переводы строк делают теги (`richTextToHtml` меняет
+   переводы строк простого текста на `<br>`), поэтому `pre-wrap` здесь не нужен — и вреден с
+   тех пор, как сюда едут заголовки и абзацы: перевод строки МЕЖДУ тегами рисовался бы пустой
+   строкой (см. `.tb-recs-group__text`). */
+.tb-measure .ou-formsection__sub { font: var(--ou-text-body-m); }
 
 /* The ring arc defaults to the accent colour; the measure's tone lives in `toneClass`,
    so the ring has to pick it up too — otherwise a critical level draws in the brand
@@ -1164,6 +1166,72 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
 .tb-recs-group__text ul,
 .tb-recs-group__text ol { margin: 0 0 var(--ou-space-2); }
 .tb-recs-group__text ul, .tb-recs-group__text ol { padding-left: 20px; }
+
+/* ── Author text: paragraph styles ─────────────────────────────────────────
+   The formatted editor offers three heading levels and two paragraph sizes
+   (wireframe docs/wireframes/approved/rte-paragraph-styles.html): «Заголовок 1/2/3»
+   are `h2`/`h3`/`h4` (`h1` is the test title), «Крупный текст» / «Мелкий текст» are
+   `p.tb-text-l` / `p.tb-text-s`. Every place that prints author text gets the same
+   scale; the second level takes the template's accent, so it follows the test's
+   own palette. Contract: «Авторский текст» in the template platform spec. */
+.tb-intro h2,
+.tb-cover__desc h2,
+.tb-recs-group__text h2,
+.tb-topic-card__interpretation h2,
+.tb-breakdown__note h2,
+.tb-topic-group__description h2,
+.tb-measure .ou-banner__desc h2,
+.tb-measure .ou-formsection__sub h2 { font: var(--ou-text-heading-l); color: var(--ou-fg-default); margin: var(--ou-space-6) 0 var(--ou-space-3); }
+.tb-intro h3,
+.tb-cover__desc h3,
+.tb-recs-group__text h3,
+.tb-topic-card__interpretation h3,
+.tb-breakdown__note h3,
+.tb-topic-group__description h3,
+.tb-measure .ou-banner__desc h3,
+.tb-measure .ou-formsection__sub h3 { font: var(--ou-text-heading-m); color: var(--ou-accent-default); margin: var(--ou-space-5) 0 var(--ou-space-2); }
+.tb-intro h4,
+.tb-cover__desc h4,
+.tb-recs-group__text h4,
+.tb-topic-card__interpretation h4,
+.tb-breakdown__note h4,
+.tb-topic-group__description h4,
+.tb-measure .ou-banner__desc h4,
+.tb-measure .ou-formsection__sub h4 { font: var(--ou-text-heading-s); color: var(--ou-fg-default); margin: var(--ou-space-4) 0 var(--ou-space-2); }
+.tb-intro > :first-child,
+.tb-cover__desc > :first-child,
+.tb-recs-group__text > :first-child,
+.tb-topic-card__interpretation > :first-child,
+.tb-breakdown__note > :first-child,
+.tb-topic-group__description > :first-child,
+.tb-measure .ou-banner__desc > :first-child,
+.tb-measure .ou-formsection__sub > :first-child { margin-top: 0; }
+.tb-intro .tb-text-l,
+.tb-cover__desc .tb-text-l,
+.tb-recs-group__text .tb-text-l,
+.tb-topic-card__interpretation .tb-text-l,
+.tb-breakdown__note .tb-text-l,
+.tb-topic-group__description .tb-text-l,
+.tb-measure .ou-banner__desc .tb-text-l,
+.tb-measure .ou-formsection__sub .tb-text-l { font: var(--ou-text-body-l); }
+.tb-intro .tb-text-s,
+.tb-cover__desc .tb-text-s,
+.tb-recs-group__text .tb-text-s,
+.tb-topic-card__interpretation .tb-text-s,
+.tb-breakdown__note .tb-text-s,
+.tb-topic-group__description .tb-text-s,
+.tb-measure .ou-banner__desc .tb-text-s,
+.tb-measure .ou-formsection__sub .tb-text-s { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+/* The level interpretation used to receive plain text only and has no paragraph rhythm of
+   its own; with paragraphs and lists in it, it gets the same one as `.tb-intro`. */
+.tb-measure .ou-formsection__sub p,
+.tb-measure .ou-formsection__sub ul,
+.tb-measure .ou-formsection__sub ol,
+.tb-measure .ou-banner__desc p,
+.tb-measure .ou-banner__desc ul,
+.tb-measure .ou-banner__desc ol { margin: 0 0 var(--ou-space-2); }
+.tb-measure .ou-formsection__sub > :last-child,
+.tb-measure .ou-banner__desc > :last-child { margin-bottom: 0; }
 
 /* ── Content / gallery pages ────────────────────────────────────── */
 /* The body CENTRES its block — reading measure, balanced, no vertical stretching

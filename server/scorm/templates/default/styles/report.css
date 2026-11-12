@@ -348,11 +348,39 @@
 .tb-report__scale-meta { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
 .tb-report__scale-val { font-size: 14px; font-weight: 300; }
 .tb-report__scale-lvl { font-size: 12px; font-weight: 700; }
-/* Абзацы автора сохраняются: толкование уровня и текст рекомендации пишутся в поле
-   переводами строк, а HTML их схлопывает — методичка на полторы страницы приходила
-   слушателю одним сплошным полотном. `pre-wrap` держит переносы автора и переносит
-   длинные строки по ширине страницы. */
-.tb-report__scale-text { font-size: 12px; font-weight: 300; margin-top: 4px; white-space: pre-wrap; }
+/* Абзацы автора сохраняются тегами: переводы строк простого текста ядро меняет на `<br>`,
+   форматированный текст приходит абзацами. `pre-wrap` здесь не ставится — перевод строки
+   МЕЖДУ тегами форматированного текста печатался бы пустой строкой. */
+.tb-report__scale-text { font-size: 12px; font-weight: 300; margin-top: 4px; }
+
+/* Author text: paragraph styles of the formatted editor — headings `h2`/`h3`/`h4` and
+   the sizes `p.tb-text-l` / `p.tb-text-s`. Sizes are relative to the block's own text, so
+   each block keeps its place in the sheet's scale; the colour stays the block's own (the
+   event plaque is light on dark). */
+.tb-report__intro h2,
+.tb-report__event h2,
+.tb-report__scale-text h2,
+.tb-report__topic-group-description h2 { font-size: 1.5em; font-weight: 600; line-height: 1.25; margin: 1em 0 0.5em; break-after: avoid; }
+.tb-report__intro h3,
+.tb-report__event h3,
+.tb-report__scale-text h3,
+.tb-report__topic-group-description h3 { font-size: 1.25em; font-weight: 600; line-height: 1.3; margin: 0.9em 0 0.4em; break-after: avoid; }
+.tb-report__intro h4,
+.tb-report__event h4,
+.tb-report__scale-text h4,
+.tb-report__topic-group-description h4 { font-size: 1.07em; font-weight: 600; line-height: 1.35; margin: 0.8em 0 0.3em; break-after: avoid; }
+.tb-report__intro > :first-child,
+.tb-report__event > :first-child,
+.tb-report__scale-text > :first-child,
+.tb-report__topic-group-description > :first-child { margin-top: 0; }
+.tb-report__intro .tb-text-l,
+.tb-report__event .tb-text-l,
+.tb-report__scale-text .tb-text-l,
+.tb-report__topic-group-description .tb-text-l { font-size: 1.15em; }
+.tb-report__intro .tb-text-s,
+.tb-report__event .tb-text-s,
+.tb-report__scale-text .tb-text-s,
+.tb-report__topic-group-description .tb-text-s { font-size: 0.85em; opacity: 0.8; }
 
 /* ЛИНЕЙЧАТАЯ ДИАГРАММА ШКАЛ. Та же фигура, что на экране итогов, и по той же причине
    объявленная здесь заново литералами: отчёт печатается ВНЕ сцены и токенов дизайн-системы
