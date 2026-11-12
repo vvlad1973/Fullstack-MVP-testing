@@ -78,6 +78,12 @@ export interface ReportDocumentListProps {
   onReplaceVariant?: (index: number) => void;
   /** Опубликованный тест: строки читаются, но не правятся. */
   readOnly?: boolean;
+  /**
+   * Печатает ли строка разное содержимое по исходу — метка «Разное содержимое по исходу»
+   * под строкой (эскиз `report-block-outcome`, состояние `s-list`). Решает вызывающий: он
+   * знает умолчания шаблона и выносит ли тест вердикт.
+   */
+  hasOutcome?: (index: number) => boolean;
 }
 
 /** Подпись строки: у системного блока — из реестра продукта, у страницы — своя. */
@@ -145,6 +151,7 @@ export function ReportDocumentList(props: ReportDocumentListProps) {
             onPreview={props.onPreview}
             onReplaceVariant={props.onReplaceVariant}
             readOnly={readOnly}
+            hasOutcome={props.hasOutcome?.(index) ?? false}
           />
           {props.expandedIndex === index && props.renderExpanded?.(index)}
           {insert(index + 1)}
@@ -184,6 +191,7 @@ function ReportBlockRow(props: {
   onPreview?: (index: number) => void;
   onReplaceVariant?: (index: number) => void;
   readOnly: boolean;
+  hasOutcome: boolean;
 }) {
   const { block, index, blocks, variants, onChange, readOnly } = props;
   const nature = reportBlockNature(block.block);
@@ -195,6 +203,10 @@ function ReportBlockRow(props: {
   const forBlock = variants.filter((v) => v.block === block.block);
   const variant = variants.find((v) => v.key === block.templateKey) ?? forBlock.find((v) => v.isDefault);
   const canSwitch = !readOnly && forBlock.length > 1 && !!props.onReplaceVariant;
+  // Раскрывается страница и СИСТЕМНЫЙ блок, вариант которого объявляет поля: их пишет автор
+  // теста (свой заголовок, подводка), и править их больше негде.
+  const expandable =
+    nature === "page" || (nature === "system" && (variant?.placeholders?.length ?? 0) > 0);
 
   const remove = () => onChange(removeBlock(blocks, index));
 
@@ -236,7 +248,7 @@ function ReportBlockRow(props: {
         </span>
       )}
 
-      {nature === "page" && !readOnly && props.onToggleExpand && (
+      {expandable && !readOnly && props.onToggleExpand && (
         <button
           type="button"
           className="page-expand-toggle"
@@ -363,7 +375,8 @@ function ReportBlockRow(props: {
           ))}
       </div>
 
-      {nature !== "page-break" && (forBlock.length > 1 || block.block === "intro" || block.appended) && (
+      {nature !== "page-break" &&
+        (forBlock.length > 1 || block.block === "intro" || block.appended || props.hasOutcome) && (
         <div className="page-row__meta">
           {/* Блок, добавленный шаблоном уже после сборки документа, приходит выключенным
               и в конце списка. Без этой метки он читался бы как забытый автором. */}
@@ -377,6 +390,11 @@ function ReportBlockRow(props: {
             <Tag tone="info" size="s" data-testid={`report-document-intro-hint-${index}`}>
               <Info size={12} aria-hidden="true" />
               Текст задаётся в подразделе «Обратная связь», карточка «Вводный текст»
+            </Tag>
+          )}
+          {props.hasOutcome && (
+            <Tag tone="accent" size="s" data-testid={`report-document-outcome-${index}`}>
+              Разное содержимое по исходу
             </Tag>
           )}
           {forBlock.length > 1 && (

@@ -71,3 +71,116 @@ describe("поля блока-страницы", () => {
     expect(screen.getByTestId("report-document-edit-fields-0")).toBeDisabled();
   });
 });
+
+describe("содержимое блока по исходу", () => {
+  const rec: DraftBlock = {
+    block: "recommendations",
+    templateKey: null,
+    enabled: true,
+    values: { title: "Рекомендации", lead: "<p>Общее слово</p>" },
+    settings: {},
+    outcome: null,
+  };
+  const fields = [
+    { key: "title", type: "text", label: "Заголовок блока" },
+    { key: "lead", type: "html", label: "Подводка" },
+  ];
+
+  it("s-common: переключатель выключен, показаны только общие поля", () => {
+    render(<ReportBlockFields index={4} block={rec} placeholders={fields as never} onChange={vi.fn()} />);
+    expect(screen.getByTestId("report-block-outcome-switch-4")).not.toBeChecked();
+    expect(screen.queryByTestId("report-block-outcome-group-4-passed")).toBeNull();
+    expect(screen.getByTestId("report-document-field-4-lead")).toHaveTextContent("Общее слово");
+  });
+
+  it("включение показывает три группы и само ничего не записывает", () => {
+    const onChange = vi.fn();
+    render(<ReportBlockFields index={4} block={rec} placeholders={fields as never} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId("report-block-outcome-switch-4"));
+    expect(screen.getByTestId("report-block-outcome-group-4-any")).toBeInTheDocument();
+    expect(screen.getByTestId("report-block-outcome-group-4-passed")).toBeInTheDocument();
+    expect(screen.getByTestId("report-block-outcome-group-4-failed")).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("короткое поле исхода показывает общее подсказкой и пишет в свою ветвь", () => {
+    const onChange = vi.fn();
+    render(<ReportBlockFields index={4} block={rec} placeholders={fields as never} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId("report-block-outcome-switch-4"));
+    const input = screen.getByTestId("report-field-4-failed-title") as HTMLInputElement;
+    expect(input.placeholder).toBe("Рекомендации");
+    fireEvent.change(input, { target: { value: "Над чем поработать" } });
+    const next = onChange.mock.calls[0][0] as DraftBlock;
+    expect(next.outcome).toEqual({ failed: { values: { title: "Над чем поработать" } } });
+    expect(next.values.title).toBe("Рекомендации");
+  });
+
+  it("сброс снимает значение исхода", () => {
+    const onChange = vi.fn();
+    render(
+      <ReportBlockFields
+        index={4}
+        block={{ ...rec, outcome: { failed: { values: { title: "Над чем поработать" } } } }}
+        placeholders={fields as never}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("report-field-4-failed-title-reset"));
+    expect((onChange.mock.calls[0][0] as DraftBlock).outcome).toEqual({});
+  });
+
+  it("под длинным текстом исхода — подпись о дописывании", () => {
+    render(
+      <ReportBlockFields
+        index={4}
+        block={{ ...rec, outcome: { passed: { values: { lead: "<p>Так держать</p>" } } } }}
+        placeholders={fields as never}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByText("Печатается после текста «При любом исходе».")).toHaveLength(2);
+    expect(screen.getByTestId("report-document-field-4-passed-lead")).toHaveTextContent("Так держать");
+  });
+
+  it("s-outcome-off: выключение с заданными значениями спрашивает и пишет пустой объект", () => {
+    const onChange = vi.fn();
+    render(
+      <ReportBlockFields
+        index={4}
+        block={{ ...rec, outcome: { failed: { values: { title: "Над чем поработать" } } } }}
+        placeholders={fields as never}
+        onChange={onChange}
+        blockTitle="Рекомендации"
+      />,
+    );
+    fireEvent.click(screen.getByTestId("report-block-outcome-switch-4"));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText("Убрать содержимое по исходу?")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("report-block-outcome-off-confirm-4"));
+    expect((onChange.mock.calls[0][0] as DraftBlock).outcome).toEqual({});
+  });
+
+  it("умолчания шаблона действуют, пока автор не распорядился", () => {
+    render(
+      <ReportBlockFields
+        index={4}
+        block={rec}
+        placeholders={fields as never}
+        outcomeDefaults={{ failed: { values: { title: "Над чем поработать" } } }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("report-block-outcome-switch-4")).toBeChecked();
+    expect((screen.getByTestId("report-field-4-failed-title") as HTMLInputElement).value).toBe("Над чем поработать");
+  });
+
+  it("s-no-verdict: переключатель недоступен и объясняет почему", () => {
+    render(
+      <ReportBlockFields index={4} block={rec} placeholders={fields as never} onChange={vi.fn()} verdictPossible={false} />,
+    );
+    expect(screen.getByTestId("report-block-outcome-switch-4")).toBeDisabled();
+    expect(screen.getByText(/У теста нет порога прохождения/)).toBeInTheDocument();
+    expect(screen.queryByTestId("report-block-outcome-group-4-passed")).toBeNull();
+  });
+});
+

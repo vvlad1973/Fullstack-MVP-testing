@@ -9,6 +9,7 @@
 
 import type { DrawBlueprint, FormSet, RetakePolicy, SectionGroup, SimScoringSettings } from "@shared/schema";
 import type { DraftBlock } from "./use-report-document";
+import type { ReportBlockOutcome } from "@shared/report/report-outcome";
 import type { ReportSettings, TestIntro, BreakdownDisplaySetting } from "@shared/schema";
 import type { LearnerVisibility, LevelTone, Valence } from "@shared/scales/interpretation";
 import type { TestQuestionOrder } from "@shared/draw/assemble-delivery";
@@ -872,6 +873,8 @@ export type TestSettingsPayload = {
     enabled: boolean;
     values: Record<string, unknown>;
     settings: Record<string, unknown>;
+    /** Содержимое по исходу; отсутствует, пока автор им не распоряжался. */
+    outcome?: ReportBlockOutcome;
   }>;
   expectedVersion: number;
   /** Only sent on create (FAB folder-pick). PUT path leaves it undefined and

@@ -71,6 +71,7 @@ import type {
 import { DEFAULT_BREAKDOWN_DISPLAY } from "./test-editor.types";
 import { makeQuestionOverride, type QuestionScoringOverride } from "./scoring-api";
 import type { DraftBlock } from "./use-report-document";
+import { normalizeReportBlockOutcome } from "@shared/report/report-outcome";
 import { itemOrderForSave } from "./sections/composition-items";
 import { scenarioItemKey } from "@shared/test-items";
 
@@ -1202,6 +1203,8 @@ function readReportDocumentFromApi(api: ApiTestResponse): {
         enabled: r.enabled !== false,
         values: isPlainObject(r.valuesJson) ? (r.valuesJson as Record<string, unknown>) : {},
         settings: isPlainObject(r.settingsJson) ? (r.settingsJson as Record<string, unknown>) : {},
+        // NULL — автор содержимым по исходу не распоряжался; объект — его решение.
+        outcome: isPlainObject(r.outcomeJson) ? normalizeReportBlockOutcome(r.outcomeJson) : null,
       }))
       .filter((b) => b.block.length > 0);
   }
@@ -1609,6 +1612,9 @@ export function editorModelToPayload(model: TestEditorModel): TestSettingsPayloa
             enabled: b.enabled,
             values: b.values,
             settings: b.settings,
+            // Не распоряжался — поля нет, и сервер оставит NULL: умолчания шаблона продолжат
+            // действовать. Пустой объект уходит как есть — это «выключено».
+            ...(b.outcome ? { outcome: b.outcome } : {}),
           })),
         }
       : {}),

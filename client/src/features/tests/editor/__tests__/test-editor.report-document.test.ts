@@ -89,7 +89,46 @@ describe("документ отчёта в модели редактора", () 
       enabled: false,
       values: { title: "О тесте" },
       settings: { align: "left" },
+      // NULL в базе — автор содержимым по исходу не распоряжался.
+      outcome: null,
     });
+  });
+
+  it("переносит содержимое по исходу и отличает «выключено» от «не распоряжался»", () => {
+    const model = apiToEditorModel(
+      apiTest({
+        standard: [
+          row("recommendations", 0, { outcomeJson: { failed: { values: { title: "Над чем поработать" } } } }),
+          row("topics", 1, { outcomeJson: {} }),
+          row("courses", 2, { outcomeJson: null }),
+        ],
+      }),
+    );
+    const [rec, topics, courses] = model.reportDocument?.saved?.standard ?? [];
+    expect(rec.outcome).toEqual({ failed: { values: { title: "Над чем поработать" } } });
+    expect(topics.outcome).toEqual({});
+    expect(courses.outcome).toBeNull();
+  });
+
+  it("шлёт содержимое по исходу, только когда автор им распорядился", () => {
+    const model = apiToEditorModel(apiTest({ standard: [row("header", 0)] }));
+    const payload = editorModelToPayload({
+      ...model,
+      reportDocument: {
+        ...model.reportDocument,
+        draft: {
+          standard: [
+            { block: "recommendations", templateKey: null, enabled: true, values: {}, settings: {}, outcome: { passed: { values: { lead: "<p>Так держать</p>" } } } },
+            { block: "topics", templateKey: null, enabled: true, values: {}, settings: {}, outcome: {} },
+            { block: "courses", templateKey: null, enabled: true, values: {}, settings: {}, outcome: null },
+          ],
+        },
+      },
+    });
+    const sent = payload.reportBlocks ?? [];
+    expect(sent[0].outcome).toEqual({ passed: { values: { lead: "<p>Так держать</p>" } } });
+    expect(sent[1].outcome).toEqual({});
+    expect("outcome" in sent[2]).toBe(false);
   });
 
   it("тест без документа читается без строк, а не с пустыми", () => {

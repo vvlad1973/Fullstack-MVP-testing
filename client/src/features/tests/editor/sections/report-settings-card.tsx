@@ -42,6 +42,9 @@ import { ReportBlockPalette } from "./report-block-palette";
 import { ReportBlockFields } from "./report-block-fields";
 import { insertBlock, initialReportDraft, type DraftBlock } from "../use-report-document";
 import { reportKindForMode } from "@shared/report/report-variants";
+import { variantOutcomeDefaults } from "@shared/report/report-document";
+import { hasReportBlockOutcome } from "@shared/report/report-outcome";
+import { reportBlockLabel } from "@shared/report/report-blocks";
 import type { ContentTemplatePlaceholder } from "../use-content-pages";
 
 /** Одно поле варианта: тип решает, каким компонентом дизайн-системы его показать. */
@@ -188,6 +191,11 @@ export function ReportSettingsCard(props: {
   /** Черновик автора; `undefined` — документ ещё не правился в этой сессии. */
   document?: DraftBlock[];
   onDocumentChange?: (next: DraftBlock[]) => void;
+  /**
+   * Выносит ли тест вердикт: без него содержимое блоков по исходу не печатается, и
+   * переключатель «Разное содержимое при разном исходе» недоступен. По умолчанию — выносит.
+   */
+  verdictPossible?: boolean;
 }) {
   const scope: ReportFieldScope = props.scope ?? "appearance";
   const isContent = scope === "content";
@@ -261,12 +269,22 @@ export function ReportSettingsCard(props: {
       ? (v.placeholders as ContentTemplatePlaceholder[])
       : undefined,
   }));
+  /** Вариант, выбранный строкой, либо умолчание её блока. */
+  const variantOf = (block: DraftBlock) => {
+    const forBlock = catalogue.blocks.filter((v) => v.block === block.block);
+    return forBlock.find((v) => v.key === block.templateKey) ?? forBlock.find((v) => v.isDefault);
+  };
   /** Поля варианта, выбранного строкой; у блока без варианта их нет. */
   const placeholdersOf = (block: DraftBlock): ContentTemplatePlaceholder[] => {
-    const forBlock = catalogue.blocks.filter((v) => v.block === block.block);
-    const variant = forBlock.find((v) => v.key === block.templateKey) ?? forBlock.find((v) => v.isDefault);
+    const variant = variantOf(block);
     return Array.isArray(variant?.placeholders) ? (variant.placeholders as ContentTemplatePlaceholder[]) : [];
   };
+  const verdictPossible = props.verdictPossible !== false && props.mode !== "adaptive";
+  /** Действующее содержимое по исходу строки: решение автора либо умолчания шаблона. */
+  const outcomeOf = (block: DraftBlock) =>
+    block.outcome === null || block.outcome === undefined
+      ? variantOutcomeDefaults(variantOf(block))
+      : block.outcome;
 
   const onFieldChange = (key: string, value: unknown) => {
     const variantKey = catalogue.selected?.key;
@@ -406,11 +424,17 @@ export function ReportSettingsCard(props: {
                 onReplaceVariant={(i) => setVariantAt(i)}
                 expandedIndex={expanded}
                 onToggleExpand={(i) => setExpanded(expanded === i ? null : i)}
+                // Метка ставится по ТОМУ, что напечатается: у теста без вердикта содержимое
+                // по исходу не печатается, и метка была бы обещанием, которого отчёт не сдержит.
+                hasOutcome={(i) => verdictPossible && hasReportBlockOutcome(outcomeOf(doc[i]))}
                 renderExpanded={(i) => (
                   <ReportBlockFields
                     index={i}
                     block={doc[i]}
                     placeholders={placeholdersOf(doc[i])}
+                    outcomeDefaults={variantOutcomeDefaults(variantOf(doc[i]))}
+                    verdictPossible={verdictPossible}
+                    blockTitle={reportBlockLabel(doc[i].block) || String(doc[i].values.title || "")}
                     readOnly={props.readOnly}
                     onChange={(next) => setDoc(doc.map((b, j) => (j === i ? next : b)))}
                   />

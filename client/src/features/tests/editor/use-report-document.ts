@@ -21,6 +21,7 @@ import {
   type ResolvedReportBlock,
 } from "@shared/report/report-document";
 import type { ReportKind } from "@shared/report/report-variants";
+import type { ReportBlockOutcome } from "@shared/report/report-outcome";
 
 /** Блок документа, каким его держит черновик редактора. */
 export interface DraftBlock {
@@ -34,6 +35,12 @@ export interface DraftBlock {
   values: Record<string, unknown>;
   /** Свойства: значения `settings[]` варианта. */
   settings: Record<string, unknown>;
+  /**
+   * Содержимое по исходу. `null` (или отсутствие) — автор им не распоряжался: печатаются
+   * умолчания варианта шаблона, и на сервер поле не уходит. Объект, в том числе пустой, —
+   * решение автора; пустой означает «содержимое по исходу выключено».
+   */
+  outcome?: ReportBlockOutcome | null;
   /**
    * Блок дописан в конец РАЗРЕШЕНИЕМ документа: шаблон объявил его после того, как автор
    * собрал свой (§5.1). Признак выводится при загрузке и в базу не сохраняется — он живёт
@@ -92,6 +99,9 @@ function draftOf(block: ResolvedReportBlock): DraftBlock {
     enabled: block.enabled,
     values: block.values,
     settings: block.settings,
+    // Умолчания шаблона в черновик НЕ переносятся: перенесённые, они ушли бы на сервер как
+    // решение автора и перестали бы следовать за шаблоном.
+    outcome: block.outcomeByAuthor ? (block.outcome ?? {}) : null,
     ...(block.appended ? { appended: true } : {}),
   };
 }
@@ -129,5 +139,6 @@ export function toRowInputs(blocks: readonly DraftBlock[]): ReportBlockRowInput[
     templateKey: b.templateKey,
     valuesJson: b.values,
     settingsJson: b.settings,
+    outcomeJson: b.outcome ?? null,
   }));
 }

@@ -167,3 +167,31 @@ describe("список блоков документа", () => {
     );
   });
 });
+
+describe("содержимое по исходу в списке блоков", () => {
+  it("ставит метку под строкой, которая печатает разное по исходу", () => {
+    renderList({ hasOutcome: (i) => i === 1 });
+    expect(screen.getByTestId("report-document-outcome-1")).toHaveTextContent("Разное содержимое по исходу");
+    expect(screen.queryByTestId("report-document-outcome-0")).toBeNull();
+  });
+
+  it("раскрывает системный блок, вариант которого объявляет поля", () => {
+    renderList({
+      variants: [
+        ...variants.filter((v) => v.block !== "summary"),
+        {
+          key: "report.block.summary",
+          block: "summary",
+          label: "Кольцо",
+          isDefault: true,
+          placeholders: [{ key: "title", type: "text", label: "Заголовок блока" }],
+        },
+      ],
+      onToggleExpand: vi.fn(),
+    });
+    expect(screen.getByTestId("report-document-expand-1")).toBeInTheDocument();
+    // Шапка полей не объявляет — раскрывать нечего.
+    expect(screen.queryByTestId("report-document-expand-0")).toBeNull();
+  });
+});
+

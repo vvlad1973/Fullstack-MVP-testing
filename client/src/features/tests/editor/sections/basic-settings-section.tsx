@@ -77,6 +77,7 @@ import { EMPTY_FIELD_ERRORS, type FieldErrorIndex } from "../field-errors";
 import type { UseDesignSettingsResult } from "../use-design-settings";
 import { useContentPages } from "../use-content-pages";
 import { ReportSettingsCard } from "./report-settings-card";
+import { resolveOverallRule } from "@shared/scoring/pass-rule";
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -370,6 +371,19 @@ export function DuringTestPane({ model, updateModel }: SettingsSectionProps) {
 // ─── Панель «Обратная связь» (тексты после теста) ─────────────────────────────
 
 /**
+ * Может ли тест вынести вердикт: задан общий порог либо хотя бы одна тема судится своим
+ * правилом. Только подсказка редактору — печать отчёта решает по факту прогона
+ * (`report.outcome`), где учтено и то, есть ли что оценивать.
+ *
+ * @param passRules Правила прохождения черновика.
+ * @returns `false` — у теста нет ни одного порога, и исход не выносится никогда.
+ */
+function testCanPronounceVerdict(passRules: { overall: unknown; byTopic?: Record<string, { source?: string }> }): boolean {
+  if (resolveOverallRule(passRules.overall) !== null) return true;
+  return Object.values(passRules.byTopic ?? {}).some((r) => r.source === "custom" || r.source === "by_variant");
+}
+
+/**
  * ОБЩЕЕ ВСТУПЛЕНИЕ ветви выдачи — без текстов исхода (PRD-61).
  *
  * Триггер правит ОДИН текст, а ветвь несёт три, поэтому её приходится разбирать. Пустое
@@ -559,6 +573,10 @@ export function ReportContentPane({ model, updateModel, design }: SettingsSectio
         // PRD-51: документ ветви текущего режима. Сохранённые строки и черновик разведены:
         // из первых разрешается начальный вид документа, второй появляется с первой правкой
         // и только он уходит на сервер.
+        // Содержимое блоков по исходу имеет смысл, только если тест выносит вердикт: есть
+        // общий порог или хотя бы одна тема судится своим правилом. Это подсказка редактора;
+        // печать решает по факту прогона (`report.outcome`).
+        verdictPossible={testCanPronounceVerdict(model.passRules)}
         savedDocument={model.reportDocument?.saved?.[model.mode === "adaptive" ? "adaptive" : "standard"]}
         document={model.reportDocument?.draft?.[model.mode === "adaptive" ? "adaptive" : "standard"]}
         onDocumentChange={(next) =>
