@@ -14,7 +14,148 @@
  * Браузерный модуль (нужен живой DOM), как `shared/template/dnd`.
  */
 
-import { paginateBlocks, sliceBySafeLines, type ReportBlockBox } from "./paginate";
+import { paginateBlocks, sliceBySafeLines, splitIndex, type ReportBlockBox } from "./paginate";
+
+/** Upper bound of split passes: a guard against a layout that never settles. */
+const MAX_SPLIT_PASSES = 400;
+
+/** Elements whose children are text runs, not blocks: a paragraph is not split inside. */
+function isTextBlock(el: Element, doc: Document): boolean {
+  const view = doc.defaultView;
+  if (!view) return true;
+  const children = [...el.children];
+  if (!children.length) return true;
+  // A container whose element children are all inline (`<b>`, `<a>`, `<br>`) is a run of
+  // text: its «children» are words, and splitting between them would cut a line.
+  return children.every((child) => view.getComputedStyle(child).display.startsWith("inline"));
+}
+
+/** A computed length in pixels; `0` for anything unparsable. */
+function px(value: string | undefined): number {
+  return Number.parseFloat(value || "0") || 0;
+}
+
+/**
+ * Bottom edge of an element WITH its bottom margin, in the root's own pixels.
+ *
+ * The margin counts: inside a padded card the last child's margin is not collapsed, it
+ * stays between the text and the card's own padding — and so it takes room on the sheet.
+ */
+function bottomOf(el: Element, rootTop: number, scale: number, doc: Document): number {
+  const margin = px(doc.defaultView?.getComputedStyle(el).marginBottom);
+  return (el.getBoundingClientRect().bottom - rootTop) / scale + margin;
+}
+
+/** Room a container keeps below its last child: bottom padding and border. */
+function bottomInset(el: Element, doc: Document): number {
+  const style = doc.defaultView?.getComputedStyle(el);
+  return px(style?.paddingBottom) + px(style?.borderBottomWidth);
+}
+
+/**
+ * Split `container` so that its first part ends above `limit`.
+ *
+ * The container is cut between its children: the leading children that end above the limit
+ * stay, the rest move into a shallow copy of the container inserted right after it. A copy,
+ * not a new element: it keeps the template's classes and attributes, so each part is an
+ * ordinary card with its own padding and corners. When the first child alone crosses the
+ * limit and is itself a container of blocks (a list, a wrapper around the author's text),
+ * the cut goes one level down and the wrapper chain is copied with it.
+ *
+ * @returns `true` when the container was split.
+ */
+function splitAt(container: Element, limit: number, rootTop: number, scale: number, doc: Document): boolean {
+  if (isTextBlock(container, doc)) return false;
+  const children = [...container.children];
+  // The part keeps the container's own bottom padding and border, so its children have to
+  // end that much higher: otherwise the part closes past the sheet edge and is cut anyway.
+  const childLimit = limit - bottomInset(container, doc);
+  let k = splitIndex(
+    children.map((child) => ({
+      bottom: bottomOf(child, rootTop, scale, doc),
+      heading: /^H[1-6]$/.test(child.tagName),
+    })),
+    childLimit,
+  );
+  if (k >= children.length) return false;
+  // The child on the edge may itself be a container of blocks: then it is split as well, and
+  // its first part stays on this sheet — the sheet is filled instead of left half empty.
+  const edge = children[k];
+  if (!/^H[1-6]$/.test(edge.tagName) && splitAt(edge, childLimit, rootTop, scale, doc)) k += 1;
+  if (k === 0) return false;
+  const tail = container.cloneNode(false) as Element;
+  for (const child of [...container.children].slice(k)) tail.appendChild(child);
+  container.after(tail);
+  return true;
+}
+
+/** Does the block open with an element that alone is taller than a sheet. */
+function leadsWithOversize(block: Element, scale: number, usable: number): boolean {
+  let el: Element | null = block.firstElementChild;
+  while (el) {
+    const height = el.getBoundingClientRect().height / scale;
+    if (height > usable) {
+      // A wrapper taller than a sheet only because of its own children is not an oversize
+      // element: look inside it.
+      if (!el.firstElementChild || el.children.length > 1) return true;
+      el = el.firstElementChild;
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
+/**
+ * Print a block taller than a sheet in parts made of whole paragraphs.
+ *
+ * Without this step such a block is shown through windows cut by the sheet height: lines
+ * break mid-paragraph, the card loses its corners, and a heading may close a sheet alone.
+ * Here every block that runs past the bottom of its sheet is split between its children
+ * ({@link splitAt}), and the plan is recomputed until nothing is left to split. A block that
+ * cannot be split — one element taller than a sheet, a picture, a long table row — stays
+ * whole and is cut by height downstream, as before.
+ *
+ * Mutates `rendered`; works on the live, laid-out document because only the browser knows
+ * where each paragraph ends.
+ */
+function splitOversizeBlocks(rendered: HTMLElement, doc: Document, scale: number, usable: number): void {
+  if (!(usable > 0)) return;
+  for (let pass = 0; pass < MAX_SPLIT_PASSES; pass += 1) {
+    const children = [...rendered.children];
+    const boxes = measureBlocks(rendered, scale);
+    const breakBefore = new Set(children.flatMap((child, i) => (child.matches(PAGE_BREAK_SELECTOR) ? [i] : [])));
+    const plan = paginateBlocks(boxes, usable, breakBefore);
+    const rootTop = rendered.getBoundingClientRect().top;
+    let changed = false;
+    for (const page of plan) {
+      const limit = page.offset + usable;
+      const crossing = page.blocks.find((i) => boxes[i].bottom > limit);
+      if (crossing === undefined) continue;
+      const block = children[crossing];
+      if (splitAt(block, limit, rootTop, scale, doc)) {
+        changed = true;
+      } else if (
+        boxes[crossing].top > page.offset + 1 &&
+        boxes[crossing].bottom - boxes[crossing].top > usable &&
+        !leadsWithOversize(block, scale, usable)
+      ) {
+        // Nothing of the block fits whole on this sheet (its first paragraph runs past the
+        // edge, or it opens with a heading): start it on the next sheet, where it can be
+        // split from the top. A block already at the top of its sheet stays — moving it
+        // would only add an empty sheet. A block that opens with an element taller than a
+        // sheet stays too: that element is cut by height wherever it starts, and moving it
+        // would only waste the rest of this sheet.
+        const mark = doc.createElement("div");
+        mark.setAttribute("data-page-break", "");
+        block.before(mark);
+        changed = true;
+      }
+      if (changed) break;
+    }
+    if (!changed) return;
+  }
+}
 
 /**
  * Узел ПРИНУДИТЕЛЬНОГО РАЗРЫВА страницы в макете отчёта.
@@ -342,6 +483,10 @@ export function buildReportSheets(rendered: HTMLElement, doc: Document, mount?: 
   const usable = usablePageHeight(rendered, doc);
   // Верхнее поле страницы: им отличается пространство ИЗМЕРЕНИЙ от пространства КУСКОВ.
   const pad = pagePadding(rendered, doc);
+  // Блок выше листа делится по целым абзацам ДО раскладки: дальше он — несколько обычных
+  // блоков, и раскладка кладёт их по листам своим правилом. Резать по высоте остаётся
+  // только то, что делить не по чему.
+  splitOversizeBlocks(rendered, doc, scale, usable);
   // Метки разрыва ВЕРХНЕГО УРОВНЯ решают раскладку страниц, а не разрез внутри листа:
   // индексы совпадают с боксами, потому что и те и другие считаются по одним детям корня.
   const breakBefore = new Set(

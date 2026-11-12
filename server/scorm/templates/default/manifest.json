@@ -1,7 +1,7 @@
 {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.26.1",
+  "version": "1.27.0",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
@@ -1739,8 +1739,8 @@
     }
   ],
   "reportDocument": {
-    "report": ["header", "intro", "summary", "topics", "breakdown", "scales", "indicators", "recommendations", "courses", "events"],
-    "report.adaptive": ["header", "intro", "topics", "breakdown", "scales", "indicators", "recommendations", "courses"]
+    "report": ["header", "summary", "page-break", "intro", "topics", "breakdown", "scales", "indicators", "recommendations", "courses", "events"],
+    "report.adaptive": ["header", "page-break", "intro", "topics", "breakdown", "scales", "indicators", "recommendations", "courses"]
   },
   "rendererPlugins": [],
   "layouts": {

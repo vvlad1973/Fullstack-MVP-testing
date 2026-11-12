@@ -53,8 +53,32 @@ function renderMonolithic(context: unknown, layoutFile: string): string {
   return (stage.firstElementChild as HTMLElement).innerHTML;
 }
 
+/**
+ * Состав цельной раскладки — порядок блоков, в котором она печатала документ.
+ *
+ * Документ по умолчанию шаблона с 1.27.0 открывается титульным листом (шапка, сводка,
+ * разрыв листа) и с цельной раскладкой больше не совпадает НАМЕРЕННО. Паритет же
+ * проверяет другое — что блоки воспроизводят разметку прежнего отчёта, — поэтому документ
+ * собирается в её порядке явно, строками теста.
+ */
+const LEGACY_ORDER: Record<"report" | "report.adaptive", string[]> = {
+  report: ["header", "intro", "summary", "topics", "breakdown", "scales", "indicators", "recommendations", "courses", "events"],
+  "report.adaptive": ["header", "intro", "topics", "breakdown", "scales", "indicators", "recommendations", "courses"],
+};
+
 function renderFromBlocks(context: unknown, kind: "report" | "report.adaptive", shellFile: string): string {
-  const doc = resolveReportDocument(MANIFEST, kind);
+  const doc = resolveReportDocument(
+    MANIFEST,
+    kind,
+    LEGACY_ORDER[kind].map((block, sortOrder) => ({
+      block,
+      sortOrder,
+      enabled: true,
+      templateKey: null,
+      valuesJson: {},
+      settingsJson: {},
+    })),
+  );
   expect(doc.monolithic, "шаблон обязан быть переведён на блоки").toBe(false);
   const stage = document.createElement("div");
   renderReportInto(stage, {

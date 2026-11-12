@@ -300,3 +300,32 @@ export function paginateBlocks(
 
   return pages;
 }
+
+/** One child of a card the paginator may split, as measured by the host. */
+export interface SplitCandidate {
+  /** Bottom edge, in the same pixels as the limit. */
+  bottom: number;
+  /** A heading (`h1`–`h6`): it must not be the last element of a part. */
+  heading: boolean;
+}
+
+/**
+ * Where to split a card that runs past the bottom of its sheet.
+ *
+ * The card is printed in parts, each made of WHOLE children: a paragraph cut by the sheet
+ * edge cannot be read on either half. The part on the current sheet takes every leading
+ * child that ends above the limit; a heading left at the end of that part goes on with the
+ * text it introduces, because a title closing a sheet reads as a section with no content.
+ *
+ * @param children The card's children in document order.
+ * @param limit The bottom of the sheet's usable area.
+ * @returns How many leading children stay on the current sheet. `0` — nothing fits whole
+ *   (the first child crosses the limit, or everything that fits is headings): the caller
+ *   either descends into the first child or moves the card to the next sheet.
+ */
+export function splitIndex(children: readonly SplitCandidate[], limit: number): number {
+  let k = 0;
+  while (k < children.length && children[k].bottom <= limit) k += 1;
+  while (k > 0 && children[k - 1].heading) k -= 1;
+  return k;
+}

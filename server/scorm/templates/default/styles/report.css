@@ -13,7 +13,8 @@
 .tb-report {
   width: 595px;
   min-height: 842px;
-  padding: 20px 25px;
+  /* Поля листа: 40 px сверху и снизу — на каждом листе, не только на титульном. */
+  padding: 40px 25px;
   box-sizing: border-box;
   position: relative;
   /* ШРИФТ ОТЧЁТА — параметр «Шрифт» шаблона (`--font-sans`), как у экранов. Жёсткая

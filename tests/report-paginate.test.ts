@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { paginateBlocks, sliceBySafeLines, type ReportBlockBox } from "../shared/report/paginate";
+import { paginateBlocks, sliceBySafeLines, splitIndex, type ReportBlockBox } from "../shared/report/paginate";
 
 /** Блоки, идущие подряд с заданными высотами и зазором. */
 function stack(heights: number[], gap = 0): ReportBlockBox[] {
@@ -301,5 +301,35 @@ describe("принудительный разрыв страницы", () => {
       { top: 0, height: 800 },
       { top: 800, height: 400 },
     ]);
+  });
+});
+
+describe("splitIndex — где разделить карточку выше листа", () => {
+  const p = (bottom: number) => ({ bottom, heading: false });
+  const h = (bottom: number) => ({ bottom, heading: true });
+
+  it("оставляет на листе все дети, что кончаются выше границы", () => {
+    expect(splitIndex([p(100), p(300), p(500), p(900)], 762)).toBe(3);
+  });
+
+  it("абзац на границе целиком уходит дальше", () => {
+    expect(splitIndex([p(100), p(780)], 762)).toBe(1);
+  });
+
+  it("заголовок не закрывает часть — уходит вместе со своим текстом", () => {
+    expect(splitIndex([p(100), p(600), h(650), p(800)], 762)).toBe(2);
+  });
+
+  it("два заголовка подряд уходят оба", () => {
+    expect(splitIndex([p(100), h(600), h(650), p(800)], 762)).toBe(1);
+  });
+
+  it("ноль — ничего не помещается целиком", () => {
+    expect(splitIndex([p(900), p(1200)], 762)).toBe(0);
+    expect(splitIndex([h(100), p(900)], 762)).toBe(0);
+  });
+
+  it("всё помещается — делить нечего", () => {
+    expect(splitIndex([p(100), p(200)], 762)).toBe(2);
   });
 });
