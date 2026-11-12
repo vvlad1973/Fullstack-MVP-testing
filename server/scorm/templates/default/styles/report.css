@@ -58,7 +58,7 @@
 }
 .tb-report.is-pass .tb-report__headline { color: #22c55e; }
 
-.tb-report__attempts { font-size: 14px; font-weight: 300; color: #aca9a9; margin-bottom: 8px; }
+.tb-report__attempts { font-size: 14px; font-weight: 400; color: #aca9a9; margin-bottom: 8px; }
 .tb-report__learner { font-size: 13px; color: #ffffff; margin-bottom: 4px; }
 .tb-report__date { font-size: 12px; color: #aca9a9; margin-bottom: 15px; }
 
@@ -73,7 +73,7 @@
    если считает нужным. Текст приходит РАЗМЕТКОЙ (см. `.tb-report__event`), поэтому
    переносы делают теги, а не `pre-wrap`: он печатал бы пустую строку на каждый перевод
    строки между тегами. */
-.tb-report__intro { font-size: 14px; font-weight: 300; line-height: 1.55; }
+.tb-report__intro { font-size: 14px; font-weight: 400; line-height: 1.55; }
 .tb-report__intro > :first-child { margin-top: 0; }
 .tb-report__intro > :last-child { margin-bottom: 0; }
 .tb-report__intro p, .tb-report__intro ul, .tb-report__intro ol { margin: 0 0 8px; }
@@ -84,15 +84,15 @@
    мельче самого вердикта — сначала читатель понимает, что за бумага, потом каков итог. */
 .tb-report__title--head { font-size: 26px; font-weight: 500; margin-bottom: 10px; }
 .tb-report__title--solid { font-weight: 500; margin-bottom: 0; }
-.tb-report__subtitle { font-size: 14px; font-weight: 300; color: #aca9a9; margin-bottom: 20px; }
-.tb-report__lead { font-size: 11px; font-weight: 300; color: #aca9a9; margin-bottom: 15px; line-height: 1.5; }
+.tb-report__subtitle { font-size: 14px; font-weight: 400; color: #aca9a9; margin-bottom: 20px; }
+.tb-report__lead { font-size: 11px; font-weight: 400; color: #aca9a9; margin-bottom: 15px; line-height: 1.5; }
 
 /* Счёт: метрики, кольцо процента, бейдж вердикта — одной строкой. */
 .tb-report__score { display: flex; align-items: center; gap: 20px; }
 .tb-report__metrics { display: flex; gap: 30px; }
 .tb-report__metric { text-align: center; }
 .tb-report__metric-num { font-size: 28px; font-weight: 900; }
-.tb-report__metric-lbl { font-size: 12px; font-weight: 300; color: #aca9a9; }
+.tb-report__metric-lbl { font-size: 12px; font-weight: 400; color: #aca9a9; }
 
 .tb-report__ring {
   width: 100px;
@@ -283,7 +283,7 @@
 
 .tb-report__topic-fb {
   font-size: 10px;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.3;
   margin-top: 4px;
   color: rgba(255, 255, 255, 0.7);
@@ -311,7 +311,7 @@
   padding: 10px 25px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 300;
+  font-weight: 400;
   color: #fafafa;
   background: #59209b;
 }
@@ -320,7 +320,7 @@
    (`richTextToHtml`), а форматированный переносит абзацы своими тегами. `pre-wrap` здесь
    был лишним и печатал ПУСТУЮ строку на каждый перевод строки МЕЖДУ тегами — поверх
    отступа абзаца, отчего между абзацами методички зияла дыра в две строки. */
-.tb-report__event { font-size: 14px; font-weight: 300; color: #fafafa; }
+.tb-report__event { font-size: 14px; font-weight: 400; color: #fafafa; }
 .tb-report__event > :first-child { margin-top: 0; }
 .tb-report__event > :last-child { margin-bottom: 0; }
 .tb-report__event p, .tb-report__event ul, .tb-report__event ol { margin: 0 0 8px; }
@@ -346,12 +346,12 @@
 .tb-report__scale { border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; }
 .tb-report__scale-name { font-size: 14px; font-weight: 700; }
 .tb-report__scale-meta { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
-.tb-report__scale-val { font-size: 14px; font-weight: 300; }
+.tb-report__scale-val { font-size: 14px; font-weight: 400; }
 .tb-report__scale-lvl { font-size: 12px; font-weight: 700; }
 /* Абзацы автора сохраняются тегами: переводы строк простого текста ядро меняет на `<br>`,
    форматированный текст приходит абзацами. `pre-wrap` здесь не ставится — перевод строки
    МЕЖДУ тегами форматированного текста печатался бы пустой строкой. */
-.tb-report__scale-text { font-size: 12px; font-weight: 300; margin-top: 4px; }
+.tb-report__scale-text { font-size: 12px; font-weight: 400; margin-top: 4px; }
 
 /* Author text: paragraph styles of the formatted editor — headings `h2`/`h3`/`h4` and
    the sizes `p.tb-text-l` / `p.tb-text-s`. Sizes are relative to the block's own text, so
@@ -454,7 +454,7 @@
   top: 12px;
   transform: translateX(-50%);
   font-size: 10px;
-  font-weight: 300;
+  font-weight: 400;
   color: rgba(250, 250, 250, 0.7);
   white-space: nowrap;
 }
@@ -530,8 +530,26 @@
    при равной специфичности он обязан перебить правила выше. */
 .tb-report.tb-report--continued { background: #ffffff; color: #1c1c2b; }
 
-.tb-report.tb-report--continued .tb-report__card { background: #f3f2f8; }
-.tb-report.tb-report--continued .tb-report__topic { background: #e9e7f2; }
+/* Карточка на белом листе — без заливки: серый фон гасил контраст текста, и лист
+   выглядел грязным. Блоки разделяют отступы и заголовки, как в обычном документе. */
+.tb-report.tb-report--continued .tb-report__card { background: transparent; }
+/* Карточке темы граница нужна — в ней полосы результата. Рамка съедает ровно столько,
+   сколько у карточки отнято поля: геометрия та же, что у раскладки без этого класса, по
+   которой нарезаны листы. Тенью рамку не нарисовать: растеризатор PDF заливает
+   внутреннюю тень серым. */
+.tb-report.tb-report--continued .tb-report__topic {
+  background: #ffffff;
+  border: 1px solid rgba(28, 28, 43, 0.12);
+  padding: 9px;
+}
+.tb-report.tb-report--continued .tb-report__topic--level { padding: 11px; }
+/* Плашка «не пройден» несёт тёмную заливку под тёмный титульный лист; на белом она
+   читалась бурым пятном. Светлая заливка — как у плашки «пройден». */
+.tb-report.tb-report--continued:not(.is-pass) .tb-report__badge {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+  color: #dc2626;
+}
 
 .tb-report.tb-report--continued .tb-report__headline,
 .tb-report.tb-report--continued .tb-report__learner,
