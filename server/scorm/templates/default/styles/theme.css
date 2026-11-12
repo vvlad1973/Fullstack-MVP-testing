@@ -324,7 +324,11 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
    `:empty` cannot be used — the layout leaves whitespace text nodes behind. */
 .tb-cover__eyebrow:not(:has(*)) { display: none; }
 .tb-cover__title { margin: 0; font-weight: 700; font-size: 44px; line-height: 1.08; letter-spacing: -0.02em; color: var(--ou-fg-default); text-wrap: pretty; }
-.tb-cover__desc { margin: 0; font: var(--ou-text-body-l); color: var(--ou-fg-soft); max-width: 60ch; text-wrap: pretty; }
+.tb-cover__desc { margin: 0; font: var(--ou-text-body-l); color: var(--ou-fg-soft); text-wrap: pretty; }
+/* No measure cap: since PRD-59 the description is the author's full text, and the old
+   60ch cap squeezed it into a narrow column at the left edge of a cover without an
+   illustration. It now spans the field like the title; with the media panel its grid
+   column bounds it. Certification never had the cap. */
 /* PRD-59: описание автора может нести абзацы, списки и ссылки. Интервалы заданы явно
    и по модульной сетке: умолчания браузера дают абзацу отступ в 1em, а он с сеткой
    обложки не совпадает. Крайние отступы сняты, чтобы блок не раздвигал раскладку. */

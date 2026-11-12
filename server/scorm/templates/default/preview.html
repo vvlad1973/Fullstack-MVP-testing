@@ -8801,7 +8801,11 @@ body { background: var(--ou-bg-page); color: var(--ou-fg-default); }
    `:empty` cannot be used — the layout leaves whitespace text nodes behind. */
 .tb-cover__eyebrow:not(:has(*)) { display: none; }
 .tb-cover__title { margin: 0; font-weight: 700; font-size: 44px; line-height: 1.08; letter-spacing: -0.02em; color: var(--ou-fg-default); text-wrap: pretty; }
-.tb-cover__desc { margin: 0; font: var(--ou-text-body-l); color: var(--ou-fg-soft); max-width: 60ch; text-wrap: pretty; }
+.tb-cover__desc { margin: 0; font: var(--ou-text-body-l); color: var(--ou-fg-soft); text-wrap: pretty; }
+/* No measure cap: since PRD-59 the description is the author's full text, and the old
+   60ch cap squeezed it into a narrow column at the left edge of a cover without an
+   illustration. It now spans the field like the title; with the media panel its grid
+   column bounds it. Certification never had the cap. */
 /* PRD-59: описание автора может нести абзацы, списки и ссылки. Интервалы заданы явно
    и по модульной сетке: умолчания браузера дают абзацу отступ в 1em, а он с сеткой
    обложки не совпадает. Крайние отступы сняты, чтобы блок не раздвигал раскладку. */
@@ -10950,7 +10954,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
       </div>
 
       <div class="pv-dialog-foot">
-        <span>14 экранов · 43 шаблонов контента · шаблон «Стандартный» v1.24.0</span>
+        <span>14 экранов · 43 шаблонов контента · шаблон «Стандартный» v1.24.1</span>
         <button type="button" class="pv-btn">Закрыть</button>
       </div>
     </div>
@@ -10962,7 +10966,7 @@ a.tb-rec:hover .tb-rec__ico { color: var(--ou-accent-default); }
   window.PRD1_PREVIEW_MANIFEST  = {
   "id": "default",
   "name": "Стандартный",
-  "version": "1.24.0",
+  "version": "1.24.1",
   "templateApiVersion": "1.0",
   "description": "Базовый одноколоночный плеер. Используется по умолчанию для обратной совместимости.",
   "themes": [
