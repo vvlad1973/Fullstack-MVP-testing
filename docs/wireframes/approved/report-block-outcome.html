@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Wireframe: содержимое блока отчёта по исходу теста.
+      Файл: docs/wireframes/approved/report-block-outcome.html (согласован 2026-11-12)
+      Каркас ящика, шапка, вкладки, рейл, строки документа и стили взяты из
+      docs/wireframes/editor-settings-target.html (состояние s-report) без изменений.
+      Группы «При любом исходе / Если тест пройден / Если тест не пройден» повторяют
+      карточку «Вводный текст на экране итогов» того же эскиза (состояние s-feedback).
+      Состояния: s-list, s-common, s-outcome, s-outcome-off, s-no-verdict.
+      Карточки состояний: docs/specs/report-block-outcome/wireframe-states.md.
+    -->
+    <title>Отчёт — содержимое блока по исходу</title>
+    <link rel="stylesheet" href="/docs/wireframes/prd7-shared.css" />
+    <!-- ДС берётся из редактируемой зависимости, а не из копии в docs/wireframes/ds:
+         копия отстала на 212 классов и врала бы про облик компонентов. -->
+    <link rel="stylesheet" href="/vendor/ui-kit/css/skillum-ds.css" />
+    <link rel="stylesheet" href="/client/src/styles/tb-components.css" />
+    <script defer src="/docs/wireframes/prd7-shared.js"></script>
+    <style>
+      /* МОДУЛЬНАЯ СЕТКА: модуль — шаг шкалы ДС, токен --ou-space-1. Родственные элементы
+         получают 1x, разные — 4x, отступы от краёв панели или карточки — 6x.
+
+         ВАЖНО: часть правил ниже перебивает СОБСТВЕННЫЕ интервалы компонентов ui-kit
+         (у них метка отбита на 2x, строки аккордеона на 3x и т.п.). Пока это правки
+         эскиза; чтобы интерфейс совпал с эскизом, те же значения надо поменять
+         в vendor/ui-kit — список помечен комментарием «ui-kit». */
+
+      .wf-sprite { position: absolute; width: 0; height: 0; }
+      /* Панель переключения состояний эскиза (wf-utils.css не подключается: он
+         переопределяет настоящие классы ДС и рисовал полям чужую рамку). Ящик —
+         фиксированный оверлей, поэтому панель держится НАД ним. */
+      .wf-nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
+        display: flex; flex-wrap: wrap; align-items: center;
+        gap: var(--ou-space-1);
+        padding: var(--ou-space-2) var(--ou-space-4);
+        background: var(--ou-bg-elevated);
+        border-bottom: var(--wf-border-w) solid var(--ou-border-soft);
+      }
+      .wf-nav-sep { width: 100%; }
+      /* Ящик опускается ниже панели, чтобы его шапка не пряталась под ней. */
+      .wf-state .ou-drawer { top: var(--ou-space-12); }
+      .wf-state { display: none; }
+      .wf-state.active { display: block; }
+
+      /* gate-skip-start */
+      /* Фиксированные размеры эскиза: колонки условий, слоты строк и поповер. */
+      .wf-state, .wf-nav {
+        --wf-w-lhs: 152px;      /* колонка счётчика в ступени */
+        --wf-w-op: 88px;        /* колонка оператора */
+        --wf-w-op-lg: 96px;     /* оператор в конструкторе формулы */
+        --wf-w-score: 88px;     /* балл ступени */
+        --wf-w-slot: 20px;      /* слот раскрытия строки блока */
+        --wf-w-act: 40px;       /* слот действия в строке блока */
+        --wf-w-menu: 28px;      /* слот меню строки блока */
+        --wf-w-nature: 96px;    /* колонка природы блока */
+        --wf-w-list: 320px;     /* список вариантов в палитре */
+        --wf-w-list-min: 220px;
+        --wf-w-sheet: 320px;    /* лист превью */
+        --wf-w-popover: 420px;  /* список изменений */
+        --wf-h-changes: 320px;
+        --wf-font-mono: 13px;
+        --wf-ring: 2px;
+        --wf-w-rhs: 120px;      /* значение условия */
+      }
+      /* gate-skip-end */
+      /* ── Края ящика: всё содержимое отбито от края на 6x ─────────────────── */
+      .ou-drawer__head { padding: var(--ou-space-6); }            /* ui-kit: 20 -> 24 */
+      .ou-tabs__list { padding-inline: var(--ou-space-6); }       /* ui-kit: 0 -> 24 */
+      /* Семь вкладок с точками состояния шире полосы: отступ вкладки — на два шага меньше,
+         полосе разрешена прокрутка (то же правило в `tb-components.css`). */
+      .ou-tabs--m .ou-tabs__tab { padding-inline: var(--ou-space-2); }
+      .ou-tabs__list { overflow-x: auto; scrollbar-width: thin; }
+      .ou-drawer__body { padding: 0; }
+      .ou-drawer__foot { padding: var(--ou-space-6); }            /* ui-kit: 20 -> 24 */
+      .ou-drawer__rail { padding: var(--ou-space-6); }            /* ui-kit: 24/16 -> 24 */
+      .ou-drawer__split .tb-settings-content { flex: 1 1 auto; min-width: 0; }
+      .tb-settings-content { padding: var(--ou-space-6); }        /* проектный слой: 20 -> 24 */
+
+      /* ── Родственные пары внутри компонентов: 1x ─────────────────────────── */
+      /* Проектный слой (tb-components.css:148) даёт формфилду gap 8 и нижнюю отбивку 16;
+         второе складывалось с интервалом группы. Правится там же, не в ui-kit. */
+      .ou-formfield,
+      .tb-settings-content .ou-formfield,
+      .tb-level-card .ou-card__body .ou-formfield,
+      .ou-modal .ou-formfield { gap: var(--ou-space-1); margin-bottom: 0; }
+      .ou-select { gap: var(--ou-space-1); }                      /* ui-kit: 8 -> 4 */
+      .ou-number { gap: var(--ou-space-1); }                      /* ui-kit: 8 -> 4 */
+      .ou-textarea { gap: var(--ou-space-1); }                    /* ui-kit: 8 -> 4 */
+      .ou-switch-field { gap: var(--ou-space-1); }                /* ui-kit: 12 -> 4 */
+      .ou-switch-field__text { gap: var(--ou-space-1); }         /* ui-kit: 2 -> 4 */
+      .ou-acc__trigger-text { gap: var(--ou-space-1); }
+      .ou-btn { gap: var(--ou-space-1); }                         /* ui-kit: 8 -> 4 */
+
+      /* ── Однородные строки списка: 1x ────────────────────────────────────── */
+      .ou-drawer__rail { gap: var(--ou-space-1); }                /* ui-kit: 2 -> 4 */
+      .tb-settings-content .ou-acc { gap: var(--ou-space-4); }    /* ui-kit: 12 -> 16 */
+      .ou-drawer__foot { gap: var(--ou-space-1); }                /* ui-kit: 12 -> 4 */
+      .ou-formactions__buttons { gap: var(--ou-space-1); }
+      .wf-order > * + * { margin-top: var(--ou-space-1); }
+
+      /* ── Разные элементы: 4x ─────────────────────────────────────────────── */
+      .tb-settings-content > * { margin: var(--ou-space-4) 0 0; }
+      .tb-settings-content > *:first-child { margin-top: 0; }
+      /* Разделы отбиваются друг от друга сильнее, чем заголовок от своего содержимого. */
+      .tb-settings-content > .ou-formsection { margin-top: var(--ou-space-6); }
+      .tb-settings-content > .ou-formsection:first-child { margin-top: 0; }
+      .tb-settings-content .ou-formactions { padding: 0; border-top: 0; }
+      .ou-formsection__body { gap: var(--ou-space-4); }           /* ui-kit: 20 -> 16 */
+      /* Раскладка группы — одна колонка (штатный --stacked), без разделителя и
+         собственных вертикальных полей: интервалы задаёт панель. */
+      .ou-formsection { padding: 0; border-bottom: 0; }
+      /* Модалка оценки вопроса: строка «Цена ответа» с тегом sMax справа, пояснение способа. */
+      .tb-qscoring__price { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); }
+      .tb-qscoring__price-lbl { font: var(--ou-text-heading-s); }
+      .tb-qscoring__mode-note {
+        border: var(--wf-border-w) dashed var(--ou-border-default);
+        border-radius: var(--ou-radius-m);
+        padding: var(--ou-space-4);
+        color: var(--ou-fg-muted);
+      }
+      .tb-qscoring__modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ou-space-4); }
+      .tb-qscoring .ou-modal__body { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-qscoring__foot-left { margin-right: auto; }
+      /* Строка балла по умолчанию и шапка секции — как в редакторе. */
+      .tb-qscoring__default-row { display: flex; align-items: center; gap: var(--ou-space-4); }
+      .tb-qscoring__sec-default { display: flex; align-items: center; gap: var(--ou-space-4); margin-left: auto; }
+      .tb-fold-toolbar { display: flex; justify-content: flex-end; }
+      /* Действия списка стоят в строке заголовка раздела, справа. */
+      .tb-section-head { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--ou-space-4); }
+      .tb-section-head > .ou-formsection__title { margin: 0; }
+      .tb-section-head .tb-fold-toolbar { flex: 0 0 auto; }
+      .tb-fold-actions { display: inline-flex; gap: var(--ou-space-1); }
+      .tb-settings-content .tb-qscoring__num { width: var(--tb-input-w-sm); }
+      /* Заголовок раздела принадлежит своему содержимому: под ним 1x, а до него — 6x. */
+      .ou-formsection__intro { margin-bottom: 0; }
+      .tb-settings-content .ou-formsection { gap: var(--ou-space-1); }
+
+      /* Переключатели подряд — однородный список внутри группы. */
+      /* Два переключателя — РАЗНЫЕ компоненты, между ними 4x, как между любыми другими
+         настройками. 1x остаётся только внутри одного компонента (метка и поле) и между
+         однородными строками одного списка: пункты рейла, карточки тем, строки порядка. */
+
+      /* ── Карточка объекта (тема): края 6x, содержимое 4x ─────────────────── */
+      .tb-settings-content .ou-acc__trigger { padding: var(--ou-space-4) var(--ou-space-6); }
+      .tb-settings-content .ou-acc__body { padding: 0 var(--ou-space-6) var(--ou-space-6); }
+      .tb-settings-content .ou-acc__body > * { margin-top: var(--ou-space-4); }
+      .tb-settings-content .ou-acc__body > *:first-child { margin-top: 0; }
+      /* Таблице внутри карточки объекта интервал задаёт та же сетка. */
+      .tb-settings-content .ou-acc__body > .tb-table { margin-top: var(--ou-space-4); }
+      /* Блок квот взят из приложения целиком; его собственные интервалы (3x) приводятся
+         к сетке. Проектный слой: tb-components.css, .tb-quota-block / __actions / __sum. */
+      .tb-quota-block { margin-top: var(--ou-space-4); padding-left: var(--ou-space-4); }
+      .tb-quota-actions,
+      .tb-quota-sum { margin-top: var(--ou-space-4); }
+      .tb-settings-content .tb-quota-block > .tb-table { margin-top: 0; }
+      /* Числовое поле имеет свою ширину (проектный слой, --tb-input-w-md); в группе-flex
+         оно растягивалось на весь ящик. */
+      .tb-settings-content .ou-formsection__body > .ou-number,
+      .tb-settings-content .ou-formsection__body > .ou-formfield > .ou-number {
+        width: var(--tb-input-w-md); max-width: 100%;
+      }
+      /* Оценка ответа: текст вопроса — первой строкой на всю ширину, поля — второй. */
+      .tb-qscoring__qrow td { border-bottom: 0; padding-bottom: 0; font: var(--ou-text-body-m); }
+      .tb-qscoring__frow td { padding-top: var(--ou-space-1); }
+      /* Карточка вопроса во вкладах: теги шкал — родственные заголовку (1x), сетка — 4x. */
+      .tb-level-card__summary { margin: 0; display: flex; gap: var(--ou-space-1); }
+      .tb-level-card__heading { display: flex; flex-direction: column; gap: var(--ou-space-1); }
+      .tb-contrib-grid-wrap { overflow-x: auto; max-width: 100%; }
+      .tb-settings-content .tb-contrib-grid { width: 100%; table-layout: fixed; }
+      .tb-settings-content .tb-contrib-grid .tb-contrib-grid__unit-col { width: auto; }
+      /* Вложенный рейл шкал: собственная колонка внутри панели вкладки. */
+      .ou-drawer__split--nested { display: flex; min-width: 0; flex: 1 1 auto; }
+      .ou-drawer__split--nested > .ou-drawer__rail { background: transparent; }
+      /* Строка «переключатель темы + предпросмотр» и ячейка цвета — как в редакторе. */
+      .design-theme-head { display: flex; align-items: center; gap: var(--ou-space-4); }
+      .design-color-field { display: flex; align-items: center; gap: var(--ou-space-1); }
+      .design-colors-table__hint { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); }
+      /* Тег максимального балла — инлайновый, не во всю ширину группы. */
+      .tb-qscoring .ou-formsection__body > .ou-tag { align-self: flex-start; }
+      /* Сетка вкладов: колонки идут через 1x, значение — обычное поле ввода. */
+      .tb-settings-content .tb-contrib-grid th,
+      .tb-settings-content .tb-contrib-grid td { padding-inline: var(--ou-space-2); }
+      .tb-settings-content .tb-contrib-grid th.tb-contrib-grid__val-col {
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .tb-settings-content .tb-contrib-grid .tb-contrib-grid__unit-col { width: 50%; }
+      .tb-settings-content .tb-contrib-grid .tb-contrib-grid__val-col { width: auto; }
+      .tb-settings-content .tb-contrib-grid .ou-field__input { min-width: 0; }
+      .tb-settings-content .tb-contrib-grid .ou-field { min-width: 0; }
+      .tb-settings-content .tb-level-card { gap: 0; }
+      .tb-settings-content .tb-level-card > .ou-card__header { padding-bottom: 0; }
+      .tb-settings-content .tb-level-card > .tb-level-card__body {
+        display: flex; flex-direction: column; gap: var(--ou-space-4);
+        padding: var(--ou-space-4) var(--ou-space-6) var(--ou-space-6);
+      }
+      /* Карточки объектов (уровни, шкалы, показатели) отбиваются одинаково — 4x. */
+      .tb-adaptive-levels { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      /* Ключи шкал в подзаголовке идут через 1x. */
+      .tb-level-card__summary { display: flex; align-items: center; gap: var(--ou-space-1); flex-wrap: wrap; }
+      /* Уровни шкалы по образцу: границы по краям, лента покрытия между ними. */
+      .tb-levels__cover { display: flex; align-items: flex-end; gap: var(--ou-space-4); margin: 0; }
+      /* Поля строки стоят рядом: отступ соседних полей формы здесь не нужен. */
+      .tb-levels__cover > .ou-formfield { margin-top: 0; }
+      .tb-levels__bound { flex: 0 0 auto; width: var(--tb-input-w-sm); }
+      .tb-levels__ribbonwrap { flex: 1 1 auto; min-width: 0; }
+      /* Лента той же высоты, что поля границ размера s, — как в коде. */
+      .tb-levels__ribbon { display: flex; gap: var(--ou-space-1); height: var(--ou-size-control-s); }
+      .tb-levels__seg { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 var(--ou-space-2); border-radius: var(--ou-radius-s); background: var(--ou-bg-surface-2); font: var(--ou-text-body-s); }
+      /* Цвет уровня: пара фон/текст ленты и сплошной акцент линейки — TONE_CHIPS. */
+      .tb-levels__seg--good { background: var(--ou-success-default); color: var(--ou-neutral-900); }
+      .tb-levels__seg--neutral { background: var(--ou-neutral-600); color: var(--ou-neutral-0); }
+      .tb-levels__seg--warn { background: var(--ou-warning-default); color: var(--ou-warning-on); }
+      .tb-levels__seg--crit { background: var(--ou-error-600); color: var(--ou-neutral-0); }
+      .tb-levels__coverstat { font: var(--ou-text-body-xs); color: var(--ou-fg-muted); text-align: center;
+        margin-top: calc(var(--ou-space-1) - var(--ou-space-4)); }
+      .tb-levels__lbl--end { text-align: right; display: block; }
+      .tb-levels__row { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); border-top: var(--wf-border-w) solid var(--ou-border-soft); padding-top: var(--ou-space-4); }
+      .tb-levels__fold { display: inline-flex; align-items: center; gap: var(--ou-space-1); background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+      .tb-levels__status { color: var(--ou-fg-muted); font: var(--ou-text-body-s); }
+      .tb-levels__tonedot { width: var(--ou-space-2); height: var(--ou-space-2); border-radius: 50%; display: inline-block; margin-right: var(--ou-space-1); }
+      .tb-levels__tonedot--auto { background: var(--ou-fg-muted); }
+      .tb-levels__tonedot--good { background: var(--ou-success-default); }
+      .tb-levels__tonedot--neutral { background: var(--ou-neutral-400); }
+      .tb-levels__tonedot--warn { background: var(--ou-warning-default); }
+      .tb-levels__tonedot--crit { background: var(--ou-error-default); }
+      .tb-levels__add { display: flex; justify-content: center; }
+      /* Состав: действия в шапке темы, строка порядка вопросов, порог в таблице квот. */
+      .tb-topic-actions { display: inline-flex; align-items: center; }
+      .tb-fold-toolbar__lead { margin-inline-end: auto; }
+      /* Шеврон вынесен из триггера, поэтому отступ от края держит сама строка-шапка. */
+      .tb-acc-head { display: flex; align-items: center; gap: var(--ou-space-1); padding-right: var(--ou-space-6); }
+      .tb-acc-head > .ou-acc__trigger { flex: 1 1 auto; min-width: 0; padding-right: var(--ou-space-3); }
+      .tb-question-order-row { display: flex; align-items: center; gap: var(--ou-space-1); }
+      .tb-question-order-row__lbl { font: var(--ou-text-body-s); }
+      .tb-question-order-row__hint { font: var(--ou-text-caption); color: var(--ou-fg-muted); }
+      /* Строка блока документа отчёта: родственные элементы — 1x. */
+      .page-row { gap: var(--ou-space-1); }                        /* проектный слой: 8 -> 4 */
+      .page-row__meta { gap: var(--ou-space-1); padding-top: 0; }  /* проектный слой: 6/2 -> 4/0 */
+      /* Природа блока и действия — в фиксированных колонках: одинаковые элементы
+         разных строк стоят друг под другом. */
+      .page-row .page-title { flex: 1 1 auto; min-width: 0; }
+      .page-nature { flex: 0 0 var(--wf-w-nature); display: flex; justify-content: flex-start; }
+      .page-actions { flex: 0 0 auto; display: grid; grid-template-columns: var(--wf-w-act) var(--wf-w-menu); align-items: center; justify-items: center; gap: var(--ou-space-1); }
+      .page-actions__slot { display: block; }
+      .page-expand-toggle, .page-expand-slot { flex: 0 0 var(--wf-w-slot); width: var(--wf-w-slot); min-width: var(--wf-w-slot); padding: 0; display: flex; justify-content: center; align-items: center; }
+      /* Ступени цены ответа: условия слева, балл ступени справа. */
+      .tb-tier { border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-m); padding: var(--ou-space-4); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--ou-space-4); }
+      .tb-tier__conds { min-width: 0; display: flex; flex-direction: column; gap: var(--ou-space-1); }
+      .tb-tier__cond { display: grid; grid-template-columns: var(--wf-w-lhs) var(--wf-w-op) minmax(0, 1fr) var(--wf-w-menu); align-items: center; gap: var(--ou-space-1); }
+      .tb-tier__x { display: block; }
+      /* DS-селект держит свою минимальную ширину — в узкой колонке его надо распустить. */
+      .tb-tier__cond > .ou-select, .tb-tier__cond > .ou-field { width: 100%; min-width: 0; }
+      .tb-tier__cond .ou-field__box, .tb-tier__cond .ou-select__trigger { width: 100%; min-width: 0; }
+      .tb-tier__cond .ou-select__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tb-tier__addcond { display: flex; }
+      .tb-tier__score { flex: 0 0 auto; display: flex; align-items: center; gap: var(--ou-space-1); }
+      .tb-tier__scorerow { display: flex; align-items: center; gap: var(--ou-space-1); }
+      .tb-tier__score .ou-field { width: var(--wf-w-score); }
+      .tb-tier--else { border-style: dashed; align-items: center; justify-content: space-between; color: var(--ou-fg-muted); }
+      .tb-qscoring__addtier { display: flex; }
+      .tb-weights td:last-child, .tb-weights th:last-child { width: var(--wf-w-rhs); }
+      /* Палитра блоков и выбор темы: строка-кнопка с названием и пометкой. */
+      .tb-palette__group { display: flex; flex-direction: column; gap: var(--ou-space-1); }
+      .tb-palette__group-title { font: var(--ou-text-caption); color: var(--ou-fg-muted); text-transform: uppercase; }
+      .tb-palette__item { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); width: 100%; text-align: left; padding: var(--ou-space-2) var(--ou-space-4); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-m); background: var(--ou-bg-surface); font: var(--ou-text-body-m); color: inherit; cursor: pointer; }
+      .tb-palette__meta { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+      /* Пустое состояние: рисунок и текст — 4x, заголовок и описание — 1x. */
+      .ou-empty { gap: var(--ou-space-4); }
+      .ou-empty__content { gap: var(--ou-space-1); }
+      .ou-empty__title, .ou-empty__desc { margin: 0; }
+      .ou-empty__actions { margin-top: var(--ou-space-3); }
+      /* Список изменений черновика: всплывает над подвалом. */
+      .tb-changes-popover { position: absolute; right: var(--ou-space-6); bottom: calc(100% + var(--ou-space-4)); width: var(--wf-w-popover); max-width: calc(100% - var(--ou-space-12)); background: var(--ou-bg-elevated); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-m); box-shadow: var(--ou-shadow-2); display: flex; flex-direction: column; gap: var(--ou-space-4); padding: var(--ou-space-4); }
+      .tb-changes-popover__header { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); }
+      .tb-changes-popover__title { font-weight: 600; }
+      .tb-changes-popover__count { color: var(--ou-fg-muted); }
+      .tb-changes-popover__body { display: flex; flex-direction: column; gap: var(--ou-space-4); max-height: var(--wf-h-changes); overflow-y: auto; }
+      .tb-changes-popover__group { display: flex; flex-direction: column; gap: var(--ou-space-1); }
+      .tb-changes-popover__group-title { font: var(--ou-text-caption); color: var(--ou-fg-muted); text-transform: uppercase; }
+      .tb-changes-popover__item { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--ou-space-1); font: var(--ou-text-body-s); }
+      .tb-changes-popover__label { flex: 1 1 100%; }
+      .tb-changes-popover__old { color: var(--ou-fg-muted); text-decoration: line-through; }
+      .tb-changes-popover__arrow { color: var(--ou-fg-muted); display: inline-flex; }
+      .tb-changes-popover__new { font-weight: 600; }
+      #wf-changes .ou-drawer__foot { position: relative; }   /* якорь для поповера изменений */
+      /* Раскрытая строка блока документа: поля варианта под строкой. */
+      /* Отступы раскрытой строки — как в проектном слое: слева ровно столько же,
+         сколько у самой строки блока, без лишней пустой колонки. */
+      .page-row-expand { padding: var(--ou-space-4); background: var(--ou-bg-surface-2); }
+      .page-row-expand__fields { display: flex; flex-direction: column; gap: var(--ou-space-4); border: 0; margin: 0; padding: 0; }
+      /* Поле, на которое ведёт «Перейти к ошибкам»: фокус после перехода. */
+      .ou-field.is-focused .ou-field__box { outline: var(--wf-ring) solid var(--ou-focus-ring, var(--ou-primary-default)); outline-offset: var(--wf-ring); }
+      /* Точка состояния во вкладке и в рейле. */
+      .ou-tabs__tab .tb-status-dot, .ou-drawer__rail-item .tb-status-dot { margin-inline-start: var(--ou-space-1); }
+      .ou-drawer__rail-item { display: flex; align-items: center; }
+      /* Конструктор формулы: строка условия из четырёх колонок и предпросмотр выражения. */
+      .tb-cond { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) var(--wf-w-op-lg) minmax(0, 1fr); align-items: center; gap: var(--ou-space-1); }
+      .tb-cond > .ou-select, .tb-cond > .ou-field { width: 100%; min-width: 0; }
+      .tb-cond .ou-field__box, .tb-cond .ou-select__trigger { width: 100%; min-width: 0; }
+      .tb-cond .ou-select__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tb-formula-preview { font-family: var(--ou-font-mono, monospace); font-size: var(--wf-font-mono); color: var(--ou-fg-muted); border: var(--wf-border-w) dashed var(--ou-border-default); border-radius: var(--ou-radius-m); padding: var(--ou-space-4); overflow-x: auto; }
+      /* Палитра блоков: список слева, живое превью справа (variant-picker). */
+      .variant-picker { display: grid; grid-template-columns: minmax(var(--wf-w-list-min), var(--wf-w-list)) minmax(0, 1fr); gap: var(--ou-space-4); align-items: stretch; }
+      .variant-picker__list { display: flex; flex-direction: column; gap: var(--ou-space-4); min-width: 0; }
+      .variant-search { flex: 0 0 auto; margin: 0; display: flex; align-items: center; gap: var(--ou-space-1); border: var(--wf-border-w) solid var(--ou-border-default); border-radius: var(--ou-radius-m); padding: var(--ou-space-2) var(--ou-space-4); }
+      .variant-search__icon { display: flex; color: var(--ou-fg-muted); }
+      .variant-search__input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: none; font: var(--ou-text-body-m); color: inherit; }
+      .variant-list { list-style: none; margin: 0; padding: var(--ou-space-1); display: flex; flex-direction: column; gap: 0; border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-s); background: var(--ou-bg-elevated); overflow-y: auto; }
+      .variant-group { font: var(--ou-text-caption); font-weight: 600; letter-spacing: 0.05em; color: var(--ou-fg-muted); text-transform: uppercase; padding: var(--ou-space-1) var(--ou-space-3) 0; line-height: 1.4; }
+      .variant-list > .variant-group:first-child { padding-top: 0; }
+      .variant-list__item { display: flex; flex-direction: column; gap: 0; padding: var(--ou-space-2) var(--ou-space-3); border-radius: var(--ou-radius-xs); cursor: pointer; }
+      .variant-list__item.is-selected { background: var(--ou-accent-soft); }
+      .variant-list__item.is-selected .variant-list__name { color: var(--ou-accent-on-soft); font-weight: 600; }
+      .variant-list__name { font: var(--ou-text-body-m); margin: 0; line-height: 1.4; }
+      .variant-list__desc { font: var(--ou-text-body-s); color: var(--ou-fg-muted); margin: var(--ou-space-1) 0 0; line-height: 1.4; }
+      .variant-picker__preview { border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-m); padding: var(--ou-space-4); background: var(--ou-bg-surface-2); display: flex; justify-content: center; }
+      .tb-sheet { width: 100%; max-width: var(--wf-w-sheet); background: var(--ou-bg-surface); border: var(--wf-border-w) solid var(--ou-border-soft); border-radius: var(--ou-radius-s); padding: var(--ou-space-4); display: flex; flex-direction: column; gap: var(--ou-space-1); }
+      .tb-sheet__title { height: var(--ou-space-4); width: 60%; border-radius: var(--ou-radius-s); background: var(--ou-border-default); }
+      .tb-sheet__line { height: var(--ou-space-2); border-radius: var(--ou-radius-s); background: var(--ou-border-soft); }
+      .tb-sheet__line--short { width: 70%; }
+      .tb-sheet__block { height: var(--ou-space-12); border-radius: var(--ou-radius-s); background: var(--ou-bg-surface-2); border: var(--wf-border-w) solid var(--ou-border-soft); }
+      .ou-modal__body { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-palette__group + .tb-palette__group { margin-top: 0; }
+      /* Квоты по подтемам — карточки: шапка с названием и служебными числами, поля двумя колонками. */
+      .tb-quota-block { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-quota-block .tb-level-card + .tb-level-card { margin-top: 0; }
+      .tb-quota-actions, .tb-quota-sum { margin-top: 0; }
+      /* Длинное имя подтемы и «Не менее, %» не должны распирать колонку. */
+      .ou-acc__body { gap: var(--ou-space-4); }                   /* ui-kit: 2 -> 4 */
+      /* Порог между уровнями: поле слева, линия с подписью — как в редакторе. */
+      .tb-levels__cut { display: grid; grid-template-columns: var(--tb-input-w-sm) 1fr; column-gap: var(--ou-space-4); align-items: start; }
+      .tb-levels__cutfield { min-width: 0; }
+      .tb-levels__cutrule { display: flex; align-items: center; gap: var(--ou-space-2); min-width: 0; min-height: var(--ou-size-control-s); }
+      .tb-levels__cutline { flex: 1; height: var(--wf-border-w); background: var(--ou-border-soft); }
+      .tb-levels__cutlbl { font: var(--ou-text-caption); color: var(--ou-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* Уровни шкалы: лента покрытия, пороги и карточки уровней. */
+      .tb-levels { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-levels__card { border: var(--wf-border-w) solid var(--ou-border-soft); border-left-width: var(--ou-space-1); border-radius: var(--ou-radius-m); padding: var(--ou-space-4); display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-levels__card--good { border-left-color: var(--ou-success-default); }
+      .tb-levels__card--neutral { border-left-color: var(--ou-neutral-400); }
+      .tb-levels__card--warn { border-left-color: var(--ou-warning-default); }
+      .tb-levels__card--crit { border-left-color: var(--ou-error-default); }
+      .tb-levels__head { display: flex; align-items: center; gap: var(--ou-space-4); margin: 0; }
+      .tb-levels__ribbon, .tb-levels__grid, .tb-levels__tone, .tb-levels__cut, .tb-levels__cover { margin: 0; }
+      .tb-levels__spacer { flex: 1; }
+      .tb-levels__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ou-space-4); }
+      .tb-levels__tone { display: flex; align-items: center; gap: var(--ou-space-4); }
+      /* Пиктограмма типа — в одной строке с текстом вопроса. */
+      .tb-level-card__title .tb-qscoring__qtype { margin-right: var(--ou-space-1); vertical-align: text-bottom; }
+      /* Значение вклада — счётчик со степпером; поле внутри может сжиматься. */
+      .tb-settings-content .tb-contrib-grid .ou-number { width: 100%; min-width: 0; }
+      .tb-settings-content .tb-contrib-grid .ou-number__input { min-width: 0; text-align: center; }
+      /* Двухколоночная группа: поля занимают ячейку целиком. */
+      .ou-formgroup { min-width: 0; }
+      .ou-formgroup > * { min-width: 0; }
+      .ou-formgroup .ou-field,
+      .ou-formgroup .ou-select,
+      .ou-formgroup .ou-number,
+      .ou-formgroup .ou-seg { width: 100%; }
+      .ou-formgroup .ou-field__box,
+      .ou-formgroup .ou-select__trigger { width: 100%; }
+      /* Секция темы в списках: шапка и тело — разные элементы, карточки внутри тоже. */
+      .tb-fold-sec { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-fold-sec__body { display: flex; flex-direction: column; gap: var(--ou-space-4); margin: 0; padding: 0; }
+      .tb-fold-sec-head { margin: 0; }
+      .tb-fold-sec__body > .ou-card { margin: 0; }
+      /* ── Сквозное выравнивание по сетке: 1x внутри одного объекта, 4x между разными ── */
+      .ou-radio-group__items { gap: var(--ou-space-1); }            /* ui-kit: 12 -> 4 */
+      .ou-banner__body { gap: var(--ou-space-1); }                  /* ui-kit: 2 -> 4 */
+      .tpl-info { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tpl-info__head { margin: 0; }
+      .tpl-desc, .tpl-actions { margin: 0; }
+      .tb-settings-content .ou-acc__item.is-open > .ou-acc__body { padding-top: var(--ou-space-4); }
+      .tb-feedback-preview { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-feedback-preview__head, .tb-feedback-preview__group { margin: 0; }
+      .ou-modal__body > * { margin: 0; }
+      .tb-adaptive-section { display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-adaptive-section__head { margin: 0; }
+      .tb-level-grid { gap: var(--ou-space-4); }                    /* проектный слой: 8 -> 16 */
+      .tree-branches > .tree-branch { margin-bottom: var(--ou-space-4); }
+      .design-colors-table__param { display: block; margin-bottom: var(--ou-space-1); }
+      .design-colors-table__hint { margin: 0; }
+      /* Модалка вариантов: соотношение сторон 3:2, тело и списки тянутся по высоте. */
+      .tb-variants-modal { aspect-ratio: 3 / 2; }
+      .tb-variants-modal .ou-modal__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--ou-space-4); }
+      .tb-variants-modal .ou-transfer { flex: 1 1 auto; min-height: 0; }
+      .tb-variants-modal .ou-transfer__pane { min-height: 0; }
+      /* Условная обратная связь — два текста: отдельными абзацами с пометкой исхода. */
+      .tb-feedback-line { margin: 0; }
+      .tb-feedback-line + .tb-feedback-line { margin-top: var(--ou-space-1); }
+      .tb-feedback-line__mark { color: var(--ou-fg-muted); margin-right: var(--ou-space-1); }
+      /* Заголовок объекта и его действие — одна строка; карточка идёт следом через 1x. */
+      .tb-feedback-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ou-space-4); }
+      /* Текст переопределён в этом тесте — помечаем полосой, без подписи. */
+      .tb-feedback-preview.is-overridden { border-left: var(--ou-space-1) solid var(--ou-warning-default); }
+      /* Маркеры состояния: жёлтый — несохранённые изменения, красный — ошибки. */
+      .ou-tabs__tab .tb-status-dot,
+      .ou-drawer__rail-item .tb-status-dot { margin-left: var(--ou-space-1); }
+      /* Ячейка «правило + порог» — одна строка: селект тянется, счётчик фиксирован. */
+      .tb-pass-table__rule .ou-select { flex: 1 1 auto; min-width: var(--tb-input-w-sm); }
+      .tb-pass-table__rule .ou-number { flex: 0 0 calc(var(--tb-input-w-sm) + var(--ou-space-1)); width: calc(var(--tb-input-w-sm) + var(--ou-space-1)); }
+      .tb-pass-table td:last-child { width: auto; white-space: normal; }
+      .tb-pass-table td:last-child > .ou-select { display: inline-flex; }
+      .tb-pass-table__rule { display: flex; align-items: center; gap: var(--ou-space-4); }
+      /* Таблица никогда не шире своего контейнера: раскладка фиксированная, контролы
+         внутри сжимаются, длинная подпись обрезается многоточием. */
+      .tb-settings-content .tb-table { width: 100%; }
+      .tb-settings-content .tb-table .ou-select { min-width: 0; width: 100%; }
+      .tb-settings-content .tb-table .ou-number { width: var(--tb-input-w-sm); }
+      .tb-settings-content .tb-table:has(input[placeholder]) .ou-number { width: var(--tb-input-w-md); }
+      .tb-settings-content .tb-table .ou-number__box,
+      .tb-settings-content .tb-table .ou-field__box { min-width: 0; }
+      .tb-settings-content .tb-table .ou-number__input,
+      .tb-settings-content .tb-table .ou-field__input { min-width: 0; width: 100%; }
+      .tb-settings-content .tb-table .ou-select__value {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .tb-settings-content .tb-table th { white-space: nowrap; }
+      /* Собственные отбивки таблицы складывались с интервалом группы. */
+      .tb-settings-content .tb-table { margin-top: 0; }
+      .tb-settings-content .tb-table--mb { margin-bottom: 0; }
+      .tb-settings-content .tb-card-desc { margin-bottom: 0; }
+
+      /* Строка порядка подблоков: имя слева, кнопки перемещения справа. */
+      .wf-order-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ou-space-2);
+        padding: var(--ou-space-2) var(--ou-space-3);
+        border: var(--wf-border-w) solid var(--ou-border-soft);
+        border-radius: var(--ou-radius-s);
+      }
+      .wf-order-row__actions { display: inline-flex; gap: var(--ou-space-1); }
+
+      /* Строка «переключатель + действие»: действие прижато вправо. */
+      .ou-formfield.wf-row {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ou-space-2);
+      }
+
+      /* Действие строки таблицы не отбирает ширину у текста. */
+      /* Узкой делаем только колонку ДЕЙСТВИЙ; колонка со значением должна вмещать число. */
+      .tb-settings-content .tb-table td:last-child:has(.ou-btn, .ou-iconbtn) { width: 1%; text-align: right; white-space: nowrap; }
+      .tb-settings-content .tb-table .ou-number__input { min-width: var(--ou-space-10); }
+
+      /* Вопросы теста (рейл «Вопросы теста» -> тема): текст вопроса первой строкой, свойства
+         в этом тесте второй; вся строка открывает ящик вопроса, действия — в правой колонке. */
+      .tb-qlist__row { cursor: pointer; }
+      .tb-qlist__row:hover td { background: var(--ou-bg-surface-2); }
+      .tb-qlist__cell { display: flex; flex-direction: column; gap: var(--ou-space-1); }
+      .tb-qlist__text { font: var(--ou-text-body-m); }
+      .tb-qlist__text .tb-qscoring__qtype { margin-right: var(--ou-space-1); vertical-align: text-bottom; }
+      .tb-qlist__meta { font: var(--ou-text-body-s); color: var(--ou-fg-muted); }
+      .tb-qlist__flags { display: flex; flex-wrap: wrap; gap: var(--ou-space-1); }
+      .tb-qlist__actions { display: inline-flex; gap: var(--ou-space-1); }
+    </style>
+  </head>
+  <body class="ou ou--light ou--normal">
+    <nav class="wf-nav">
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s active" onclick="showState(this, 'list')">s-list</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'common')">s-common</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'outcome')">s-outcome</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'outcome-off')">s-outcome-off</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="showState(this, 'no-verdict')">s-no-verdict</button>
+      <span class="wf-nav-sep"></span>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="toggleTheme(this)">Dark</button>
+      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s" onclick="toggleDensity(this)">Compact</button>
+    </nav>
+
+    <!-- ═══════════ STATE: s-list — документ отчёта, метка содержимого по исходу ═══════════ -->
+    <div id="wf-list" class="wf-state active">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Развивается и развивает</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v28</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <button type="button" class="ou-drawer__rail-item">Обратная связь</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro">
+                  <h3 class="ou-formsection__title">Отчёт о результатах</h3>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="ou-formfield">
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">Выдавать отчёт обучающемуся</span></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="zone-block" data-testid="report-document">
+                <div class="zone-header"><svg width="14" height="14" aria-hidden="true"><use href="#i-file" /></svg> Документ</div>
+                <div class="topic-body">
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Вводный блок: текст автора</span>
+                    <span class="page-title">Вводный блок</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Вводный блок»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Вводный блок»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                    <div class="page-row__meta">
+                      <span class="ou-tag ou-tag--info"><svg width="12" height="12" aria-hidden="true"><use href="#i-info" /></svg> Текст задаётся в подразделе «Обратная связь», карточка «Вводный текст»</span>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Сводка: кольцо и три числа</span>
+                    <span class="page-title">Сводка баллов</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Сводка баллов»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Сводка баллов»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Темы: карточки</span>
+                    <span class="page-title">Результаты по темам</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Результаты по темам»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Результаты по темам»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <!-- Системный блок с полями, объявленными шаблоном: раскрывается так же, как
+                       авторская страница. Метка в строке — у блока задано содержимое по исходу. -->
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <button type="button" class="page-expand-toggle" aria-expanded="false" aria-label="Развернуть" onclick="showStateById('outcome')"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-right" /></svg></span></button>
+                    <span class="page-variant-badge">Рекомендации: тексты и материалы</span>
+                    <span class="page-title">Рекомендации</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Рекомендации»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Рекомендации»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                    <div class="page-row__meta">
+                      <span class="ou-tag ou-tag--accent">Разное содержимое по исходу</span>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <button type="button" class="page-expand-toggle" aria-expanded="false" aria-label="Развернуть"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-right" /></svg></span></button>
+                    <span class="page-variant-badge">Курсы: список</span>
+                    <span class="page-title">Курсы</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Курсы»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Курсы»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <button type="button" class="page-expand-toggle" aria-expanded="false" aria-label="Развернуть"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-right" /></svg></span></button>
+                    <span class="page-variant-badge">Заголовок и текст</span>
+                    <span class="page-title">Что дальше</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">страница</span></span>
+                    <div class="page-actions">
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Предпросмотр блока «Что дальше»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-eye" /></svg></span></button>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Что дальше»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                    <div class="page-row__meta">
+                      <span class="ou-tag ou-tag--accent">Разное содержимое по исходу</span>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__body">
+                  <div class="ou-formactions ou-formactions--between">
+                    <span class="ou-formactions__buttons">
+                      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-eye" /></svg></span><span>Предпросмотр отчёта</span></button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" disabled>Отменить</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m" disabled>Применить</button>
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ═══════════ STATE: s-common — раскрытый блок, содержимое одно на любой исход ═══════════ -->
+    <div id="wf-common" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Развивается и развивает</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v28</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <button type="button" class="ou-drawer__rail-item">Обратная связь</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro">
+                  <h3 class="ou-formsection__title">Отчёт о результатах</h3>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="ou-formfield">
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">Выдавать отчёт обучающемуся</span></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="zone-block" data-testid="report-document">
+                <div class="zone-header"><svg width="14" height="14" aria-hidden="true"><use href="#i-file" /></svg> Документ</div>
+                <div class="topic-body">
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Темы: карточки</span>
+                    <span class="page-title">Результаты по темам</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Результаты по темам»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Результаты по темам»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system is-expanded">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <button type="button" class="page-expand-toggle" aria-expanded="true" aria-label="Свернуть" onclick="showStateById('list')"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-right" /></svg></span></button>
+                    <span class="page-variant-badge">Рекомендации: тексты и материалы</span>
+                    <span class="page-title">Рекомендации</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Рекомендации»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Рекомендации»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="page-row-expand">
+                    <div class="page-row-expand__fields">
+                      <div class="ou-formfield">
+                        <label class="ou-switch-field">
+                          <span class="ou-switch ou-switch--m" role="switch" aria-checked="false" onclick="showStateById('outcome')"><input type="checkbox" class="ou-switch__input" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                          <span class="ou-switch-field__text"><span class="ou-switch-field__label">Разное содержимое при разном исходе</span><span class="ou-switch-field__desc">Включите, чтобы задать блоку свои тексты и настройки для прошедшего и для не прошедшего тест.</span></span>
+                        </label>
+                      </div>
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl" for="cm-title">Заголовок блока</label>
+                        <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="cm-title" type="text" value="Рекомендации" /></div></div>
+                      </div>
+                      <div class="tb-textfield">
+                        <div class="tb-feedback-head"><label class="ou-formfield__lbl">Подводка</label></div>
+                        <div class="tb-feedback-preview">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Ниже — темы и материалы, которые помогут развить компетенцию «Развивается и развивает».</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: подводка блока «Рекомендации»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ou-select ou-field--m ou-field--full">
+                        <label class="ou-field__lbl" for="cm-topics">Какие темы показывать</label>
+                        <button type="button" class="ou-field__box ou-select__trigger" id="cm-topics" aria-haspopup="listbox" aria-expanded="false">
+                          <span class="ou-select__value">Все темы</span>
+                          <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Курсы: список</span>
+                    <span class="page-title">Курсы</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Курсы»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Курсы»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__body">
+                  <div class="ou-formactions ou-formactions--between">
+                    <span class="ou-formactions__buttons">
+                      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-eye" /></svg></span><span>Предпросмотр отчёта</span></button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" disabled>Отменить</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m" disabled>Применить</button>
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ═══════════ STATE: s-outcome — раскрытый блок, содержимое по исходу ═══════════ -->
+    <div id="wf-outcome" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Развивается и развивает</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v28</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span><span class="tb-status-dot tb-status-dot--warn" aria-label="Есть несохранённые изменения"></span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <button type="button" class="ou-drawer__rail-item">Обратная связь</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Отчёт<span class="tb-status-dot tb-status-dot--warn" aria-label="Есть несохранённые изменения"></span></button>
+              </nav>
+              <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro">
+                  <h3 class="ou-formsection__title">Отчёт о результатах</h3>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="ou-formfield">
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">Выдавать отчёт обучающемуся</span></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="zone-block" data-testid="report-document">
+                <div class="zone-header"><svg width="14" height="14" aria-hidden="true"><use href="#i-file" /></svg> Документ</div>
+                <div class="topic-body">
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Темы: карточки</span>
+                    <span class="page-title">Результаты по темам</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Результаты по темам»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Результаты по темам»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system is-expanded">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <button type="button" class="page-expand-toggle" aria-expanded="true" aria-label="Свернуть" onclick="showStateById('list')"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-right" /></svg></span></button>
+                    <span class="page-variant-badge">Рекомендации: тексты и материалы</span>
+                    <span class="page-title">Рекомендации</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Рекомендации»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Рекомендации»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                    <div class="page-row__meta">
+                      <span class="ou-tag ou-tag--accent">Разное содержимое по исходу</span>
+                    </div>
+                  </div>
+                  <div class="page-row-expand">
+                    <div class="page-row-expand__fields">
+                      <div class="ou-formfield">
+                        <label class="ou-switch-field">
+                          <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true" onclick="showStateById('outcome-off')"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                          <span class="ou-switch-field__text"><span class="ou-switch-field__label">Разное содержимое при разном исходе</span><span class="ou-switch-field__desc">Включите, чтобы задать блоку свои тексты и настройки для прошедшего и для не прошедшего тест.</span></span>
+                        </label>
+                      </div>
+
+                      <!-- Группа 1: общее содержимое. Ровно те же поля, что в s-common. -->
+                      <div class="tb-textgroup">
+                        <div class="tb-section-label">При любом исходе</div>
+                        <div class="ou-formfield">
+                          <label class="ou-formfield__lbl" for="oc-any-title">Заголовок блока</label>
+                          <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="oc-any-title" type="text" value="Рекомендации" /></div></div>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head"><label class="ou-formfield__lbl">Подводка</label></div>
+                          <div class="tb-feedback-preview">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Ниже — темы и материалы, которые помогут развить компетенцию «Развивается и развивает».</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: подводка при любом исходе"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="ou-select ou-field--m ou-field--full">
+                          <label class="ou-field__lbl" for="oc-any-topics">Какие темы показывать</label>
+                          <button type="button" class="ou-field__box ou-select__trigger" id="oc-any-topics" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="ou-select__value">Все темы</span>
+                            <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Группа 2: тест пройден. Здесь ничего не переопределено: короткие поля
+                           показывают общее значение подсказкой, длинный текст пуст. -->
+                      <div class="tb-textgroup">
+                        <div class="tb-section-label">Если тест пройден</div>
+                        <div class="ou-formfield">
+                          <label class="ou-formfield__lbl" for="oc-pass-title">Заголовок блока</label>
+                          <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="oc-pass-title" type="text" value="" placeholder="Рекомендации" /></div></div>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head"><label class="ou-formfield__lbl">Подводка</label></div>
+                          <div class="tb-feedback-preview">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Закрепите результат: делитесь опытом с коллегами и берите наставничество над новыми сотрудниками.</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: подводка, если тест пройден"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                          </div>
+                          <p class="ou-formfield__desc">Печатается после текста «При любом исходе».</p>
+                        </div>
+                        <div class="ou-select ou-field--m ou-field--full">
+                          <label class="ou-field__lbl" for="oc-pass-topics">Какие темы показывать</label>
+                          <button type="button" class="ou-field__box ou-select__trigger" id="oc-pass-topics" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="ou-select__value">Как при любом исходе: все темы</span>
+                            <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Группа 3: тест не пройден. Заголовок и настройка переопределены —
+                           у них появляется сброс к общему значению; длинный текст пуст. -->
+                      <div class="tb-textgroup">
+                        <div class="tb-section-label">Если тест не пройден</div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl" for="oc-fail-title">Заголовок блока</label>
+                            <span class="tb-feedback-head__trail">
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Сбросить заголовок блока к значению «При любом исходе»" title="Сбросить к значению «При любом исходе»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-rotate-ccw" /></svg></span></button>
+                            </span>
+                          </div>
+                          <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="oc-fail-title" type="text" value="Над чем поработать" /></div></div>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head"><label class="ou-formfield__lbl">Подводка</label></div>
+                          <div class="tb-feedback-preview is-empty">
+                            <div class="tb-feedback-preview__head">
+                              <span class="tb-feedback-preview__snippet">Без текста</span>
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: подводка, если тест не пройден"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                            </div>
+                          </div>
+                          <p class="ou-formfield__desc">Печатается после текста «При любом исходе».</p>
+                        </div>
+                        <div class="tb-textfield">
+                          <div class="tb-feedback-head">
+                            <label class="ou-formfield__lbl" for="oc-fail-topics">Какие темы показывать</label>
+                            <span class="tb-feedback-head__trail">
+                              <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Сбросить выбор тем к значению «При любом исходе»" title="Сбросить к значению «При любом исходе»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-rotate-ccw" /></svg></span></button>
+                            </span>
+                          </div>
+                          <div class="ou-select ou-field--m ou-field--full">
+                            <button type="button" class="ou-field__box ou-select__trigger" id="oc-fail-topics" aria-haspopup="listbox" aria-expanded="false">
+                              <span class="ou-select__value">Только непройденные</span>
+                              <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Курсы: список</span>
+                    <span class="page-title">Курсы</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Курсы»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Курсы»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__body">
+                  <div class="ou-formactions ou-formactions--between">
+                    <span class="ou-formactions__buttons">
+                      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-eye" /></svg></span><span>Предпросмотр отчёта</span></button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--secondary ou-btn--m">Отменить</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m">Применить</button>
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ═══════════ STATE: s-outcome-off — выключение при заданном содержимом по исходу ═══════════ -->
+    <div id="wf-outcome-off" class="wf-state">
+      <div class="ou-modal-root" role="dialog" aria-modal="true" aria-labelledby="off-title">
+        <div class="ou-modal__backdrop"></div>
+        <div class="ou-modal ou-modal--s">
+          <header class="ou-modal__head ou-modal__head--icon">
+            <span class="ou-modal__icon ou-modal__icon--warning"><svg width="20" height="20" aria-hidden="true"><use href="#i-info" /></svg></span>
+            <div class="ou-modal__head-text">
+              <h2 id="off-title" class="ou-modal__title">Убрать содержимое по исходу?</h2>
+              <p class="ou-modal__desc">Блок «Рекомендации»</p>
+            </div>
+            <button type="button" class="ou-modal__close" aria-label="Закрыть" onclick="showStateById('outcome')"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <div class="ou-modal__body">
+            <p>Тексты и настройки для «Если тест пройден» и «Если тест не пройден» будут удалены. Останется содержимое «При любом исходе».</p>
+          </div>
+          <footer class="ou-modal__foot">
+            <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" onclick="showStateById('outcome')">Отмена</button>
+            <button type="button" class="ou-btn ou-btn--destructive ou-btn--m" onclick="showStateById('common')">Убрать</button>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ STATE: s-no-verdict — у теста нет порога прохождения ═══════════ -->
+    <div id="wf-no-verdict" class="wf-state">
+      <div class="ou-drawer-root" role="dialog" aria-modal="true">
+        <div class="ou-drawer__backdrop"></div>
+        <aside class="ou-drawer ou-drawer--xl ou-drawer--right">
+          <header class="ou-drawer__head">
+            <div class="ou-drawer__head-text"><h2 class="ou-drawer__title">Развивается и развивает</h2></div>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">Черновик</span>
+            <span class="ou-tag ou-tag--neutral ou-tag--outline">v28</span>
+            <button type="button" class="ou-drawer__close" aria-label="Закрыть редактор"><svg width="16" height="16" aria-hidden="true"><use href="#i-x" /></svg></button>
+          </header>
+          <nav class="ou-tabs ou-tabs--underline ou-tabs--m">
+            <div class="ou-tabs__list" role="tablist" aria-label="Разделы редактора">
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Основное</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Состав и сценарий</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Правила прохождения</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оценка результата</span></button>
+              <button type="button" class="ou-tabs__tab is-active" role="tab" aria-selected="true"><span class="ou-tabs__label">Обратная связь и итоги</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Оформление</span></button>
+              <button type="button" class="ou-tabs__tab" role="tab" aria-selected="false"><span class="ou-tabs__label">Комментарии</span></button>
+            </div>
+          </nav>
+          <div class="ou-drawer__body ou-drawer__body--flush" tabindex="0">
+            <div class="ou-drawer__split">
+              <nav class="ou-drawer__rail" aria-label="Подразделы обратной связи и итогов">
+                <button type="button" class="ou-drawer__rail-item">Во время теста</button>
+                <button type="button" class="ou-drawer__rail-item">Состав итогов</button>
+                <button type="button" class="ou-drawer__rail-item">Обратная связь</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">Общее</button>
+                <button type="button" class="ou-drawer__rail-item ou-drawer__rail-item--child">По темам</button>
+                <button type="button" class="ou-drawer__rail-item is-active" aria-current="page">Отчёт</button>
+              </nav>
+              <div class="tb-settings-content">
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__intro">
+                  <h3 class="ou-formsection__title">Отчёт о результатах</h3>
+                </div>
+                <div class="ou-formsection__body">
+                  <div class="ou-formfield">
+                    <label class="ou-switch-field">
+                      <span class="ou-switch ou-switch--m is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <span class="ou-switch-field__text"><span class="ou-switch-field__label">Выдавать отчёт обучающемуся</span></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="zone-block" data-testid="report-document">
+                <div class="zone-header"><svg width="14" height="14" aria-hidden="true"><use href="#i-file" /></svg> Документ</div>
+                <div class="topic-body">
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Темы: карточки</span>
+                    <span class="page-title">Результаты по темам</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Результаты по темам»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Результаты по темам»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system is-expanded">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <button type="button" class="page-expand-toggle" aria-expanded="true" aria-label="Свернуть"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-chevron-right" /></svg></span></button>
+                    <span class="page-variant-badge">Рекомендации: тексты и материалы</span>
+                    <span class="page-title">Рекомендации</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Рекомендации»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Рекомендации»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="page-row-expand">
+                    <div class="page-row-expand__fields">
+                      <div class="ou-formfield">
+                        <label class="ou-switch-field is-disabled">
+                          <span class="ou-switch ou-switch--m is-disabled" role="switch" aria-checked="false" aria-disabled="true"><input type="checkbox" class="ou-switch__input" disabled /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                          <span class="ou-switch-field__text"><span class="ou-switch-field__label">Разное содержимое при разном исходе</span><span class="ou-switch-field__desc">У теста нет порога прохождения: исход не выносится, и отчёт печатает одно содержимое для всех.</span></span>
+                        </label>
+                      </div>
+                      <div class="ou-formfield">
+                        <label class="ou-formfield__lbl" for="nv-title">Заголовок блока</label>
+                        <div class="ou-field ou-field--m ou-field--full"><div class="ou-field__box"><input class="ou-field__input" id="nv-title" type="text" value="Рекомендации" /></div></div>
+                      </div>
+                      <div class="tb-textfield">
+                        <div class="tb-feedback-head"><label class="ou-formfield__lbl">Подводка</label></div>
+                        <div class="tb-feedback-preview">
+                          <div class="tb-feedback-preview__head">
+                            <span class="tb-feedback-preview__snippet">Ниже — темы и материалы, которые помогут развить компетенцию «Развивается и развивает».</span>
+                            <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Редактировать: подводка блока «Рекомендации»"><span class="ou-iconbtn__ico"><svg width="14" height="14" aria-hidden="true"><use href="#i-pencil" /></svg></span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="ou-select ou-field--m ou-field--full">
+                        <label class="ou-field__lbl" for="nv-topics">Какие темы показывать</label>
+                        <button type="button" class="ou-field__box ou-select__trigger" id="nv-topics" aria-haspopup="listbox" aria-expanded="false">
+                          <span class="ou-select__value">Все темы</span>
+                          <svg class="ou-select__chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                  <div class="page-row page-row--system">
+                    <span class="drag-handle" aria-hidden="true"><svg width="12" height="12" aria-hidden="true"><use href="#i-grip" /></svg></span>
+                    <span class="page-expand-slot" aria-hidden="true"></span>
+                    <span class="page-variant-badge">Курсы: список</span>
+                    <span class="page-title">Курсы</span>
+                    <span class="page-nature"><span class="ou-tag ou-tag--neutral ou-tag--outline">системный</span></span>
+                    <div class="page-actions">
+                      <span class="ou-switch ou-switch--s is-on" role="switch" aria-checked="true"><input type="checkbox" class="ou-switch__input" checked aria-label="Показывать блок «Курсы»" /><span class="ou-switch__track"><span class="ou-switch__thumb"></span></span></span>
+                      <button type="button" class="ou-iconbtn ou-iconbtn--ghost ou-iconbtn--s" aria-label="Действия для блока «Курсы»"><span class="ou-iconbtn__ico"><svg width="13" height="13" aria-hidden="true"><use href="#i-more-vertical" /></svg></span></button>
+                    </div>
+                  </div>
+                  <div class="insert-row">
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                    <button type="button" class="insert-btn"><svg width="12" height="12" aria-hidden="true"><use href="#i-plus" /></svg> Добавить блок</button>
+                    <div class="insert-row-line" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ou-formsection ou-formsection--stacked">
+                <div class="ou-formsection__body">
+                  <div class="ou-formactions ou-formactions--between">
+                    <span class="ou-formactions__buttons">
+                      <button type="button" class="ou-btn ou-btn--secondary ou-btn--s"><span class="ou-btn__ico"><svg width="16" height="16" aria-hidden="true"><use href="#i-eye" /></svg></span><span>Предпросмотр отчёта</span></button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+          <footer class="ou-drawer__foot">
+            <button type="button" class="ou-btn ou-btn--secondary ou-btn--m" disabled>Отменить</button>
+            <button type="button" class="ou-btn ou-btn--primary ou-btn--m" disabled>Применить</button>
+            <button type="button" class="ou-btn ou-btn--ghost ou-btn--m">Закрыть</button>
+          </footer>
+        </aside>
+      </div>
+    </div>
+
+    <svg class="wf-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <!-- Контуры lucide (24x24, stroke-width 2) — тот же набор, что даёт lucide-react. -->
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol>
+      <symbol id="i-more-vertical" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></symbol>
+      <symbol id="i-scissors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3" /><path d="M8.12 8.12 12 12" /><path d="M20 4 8.12 15.88" /><circle cx="6" cy="18" r="3" /><path d="M14.8 14.8 20 20" /></symbol>
+      <symbol id="i-chart-column" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></symbol>
+      <symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></symbol>
+      <symbol id="i-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></symbol>
+      <symbol id="i-panels" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="9" cy="18" r="1" /><circle cx="15" cy="6" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="18" r="1" /></symbol>
+      <symbol id="i-check-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></symbol>
+      <symbol id="i-list-ordered" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11" /><path d="M10 12h11" /><path d="M10 18h11" /><path d="M4 6h1v4" /><path d="M4 10h2" /><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" /></symbol>
+      <symbol id="i-sliders-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line x1="21" x2="12" y1="12" y2="12" /><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line x1="12" x2="3" y1="20" y2="20" /><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line x1="16" x2="16" y1="18" y2="22" /></symbol>
+      <symbol id="i-circle-dot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="1" /></symbol>
+      <symbol id="i-chevrons-up-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" /></symbol>
+      <symbol id="i-chevrons-down-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 20 5-5 5 5" /><path d="m7 4 5 5 5-5" /></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h.01" /><path d="M3 18h.01" /><path d="M3 6h.01" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M8 6h13" /></symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></symbol>
+    </svg>
+
+    <script>
+      function showState(btn, id) {
+        document.querySelectorAll('.wf-state').forEach(function (el) {
+          el.classList.toggle('active', el.id === 'wf-' + id);
+        });
+        btn.closest('.wf-nav').querySelectorAll('button').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+      }
+      function showStateById(id) {
+        var btn = Array.prototype.find.call(document.querySelectorAll('.wf-nav button'), function (b) {
+          return (b.getAttribute('onclick') || '').indexOf("'" + id + "'") !== -1;
+        });
+        if (btn) showState(btn, id);
+      }
+      function toggleTheme() {
+        document.body.classList.toggle('ou--dark');
+        document.body.classList.toggle('ou--light');
+      }
+      function toggleDensity() {
+        document.body.classList.toggle('ou--compact');
+        document.body.classList.toggle('ou--normal');
+      }
+    </script>
+  </body>
+</html>
