@@ -31,6 +31,8 @@ const { storageMock } = vi.hoisted(() => ({
     selectObservations: vi.fn(),
     // PRD-56 FR-25: ответы прохождений из LMS — часть выборки страницы теста.
     selectAnswersForTest: vi.fn().mockResolvedValue([]),
+    // Выданный состав импорта — итог по темам добирает по нему баллы неотвеченных заданий.
+    selectDeliveredQuestionIds: vi.fn().mockResolvedValue(new Map()),
     getAttempt: vi.fn(),
     getQuestionsByIds: vi.fn().mockResolvedValue([]),
     getTopics: vi.fn().mockResolvedValue([]),

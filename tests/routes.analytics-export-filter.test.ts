@@ -48,6 +48,8 @@ const { storageMock } = vi.hoisted(() => ({
     selectOrgSpellings: vi.fn(),
     // Ответы LMS теста — общий сбор ответов (`loadTestAnswerFacts`).
     selectAnswersForTest: vi.fn(),
+    // Выданный состав импорта — итог по темам добирает по нему баллы неотвеченных заданий.
+    selectDeliveredQuestionIds: vi.fn().mockResolvedValue(new Map()),
     // Реестр в том же приложении: справочники порции (сбой — в лог, строки остаются).
     getGroup: vi.fn(), getUserGroups: vi.fn(), selectAttemptOrder: vi.fn(),
   },

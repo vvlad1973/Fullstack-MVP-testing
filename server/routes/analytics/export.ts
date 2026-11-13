@@ -51,6 +51,12 @@ import {
   type QuestionType,
 } from "@shared/scales/engine";
 import { plainPromptOf } from "@shared/questions/prompt-format";
+import type { Question } from "@shared/schema";
+import {
+  lmsAttemptTopics,
+  webAttemptTopics,
+  type AttemptTopicResult,
+} from "../../services/analytics/attempt-topics";
 
 /** Scale key -> label, for the per-answer contribution cell. */
 const scaleLabelsOf = (measures: MeasureCatalogue) =>
@@ -189,6 +195,27 @@ function outcomeTitle(outcome: Observation["outcome"]): string {
   return NOT_APPLICABLE;
 }
 
+/** Topic verdict in words — the «итог» cell of a topic. */
+function topicVerdictTitle(passed: boolean | null): string {
+  if (passed === true) return "Пройдена";
+  if (passed === false) return "Не пройдена";
+  return NOT_APPLICABLE;
+}
+
+/** Points and percent of a topic: one decimal, a number Excel can sort and filter. */
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+/**
+ * The three cells of one topic: points, percent, verdict. A topic the run did not have, or had
+ * nothing to grade in, gets the «неприменимо» dash — never a zero that would read as a failure.
+ */
+function topicCells(result: AttemptTopicResult | undefined): unknown[] {
+  if (!result || result.percent === null) return [NOT_APPLICABLE, NOT_APPLICABLE, NOT_APPLICABLE];
+  return [round1(result.earned), round1(result.percent), topicVerdictTitle(result.passed)];
+}
+
 /** Result of one answer in words; a partially credited answer is not «Неверно». */
 function answerResultTitle(fact: AnswerFact): string {
   if (fact.result === "neutral") return NOT_APPLICABLE;
@@ -216,6 +243,77 @@ function jsonArray<T>(value: unknown): T[] {
     }
   }
   return [];
+}
+
+/**
+ * Build the per-run topic results of a selection.
+ *
+ * A web attempt reads its stored `topicResults`; an LMS run (telemetry or import) is rebuilt from
+ * its answers with the test's question prices and topic thresholds — the threshold of the
+ * variant it was DELIVERED (PRD-24), and the delivered set of an import adding the possible points
+ * of questions left unanswered. Unfinished and adaptive runs have no topic results here.
+ *
+ * @param observed the selected runs
+ * @param webById raw web attempts of the selection
+ * @param answersByTest answer facts and test references per test
+ * @returns a lookup: run -> topic id -> result, or `null` when the run has none
+ */
+async function buildTopicResolver(
+  observed: readonly Observation[],
+  webById: ReadonlyMap<string, WebAttemptRaw>,
+  answersByTest: ReadonlyMap<string, { data: TestAnswerFacts; facts: AnswerFact[] }>,
+): Promise<(o: Observation) => Map<string, AttemptTopicResult> | null> {
+  const judged = (o: Observation) => o.outcome !== "incomplete" && !o.adaptive && !!o.testId;
+  const lmsRuns = observed.filter(o => judged(o) && o.source !== "web");
+
+  const factsByAttempt = new Map<string, AnswerFact[]>();
+  for (const { facts } of answersByTest.values()) {
+    for (const fact of facts) {
+      const list = factsByAttempt.get(fact.attemptId) ?? [];
+      list.push(fact);
+      factsByAttempt.set(fact.attemptId, list);
+    }
+  }
+
+  // Delivered sets exist for imports only. A question delivered but never answered is not among
+  // the answer references yet — the missing ones are read in one query.
+  const delivered = lmsRuns.length
+    ? await storage.selectDeliveredQuestionIds(lmsRuns.map(o => o.id))
+    : new Map<string, string[]>();
+  const known = (id: string) => [...answersByTest.values()].some(({ data }) => data.questionById.has(id));
+  const missing = [...new Set([...delivered.values()].flat())].filter(id => !known(id));
+  const extra = new Map<string, Question>(
+    missing.length ? (await storage.getQuestionsByIds(missing)).map(q => [q.id, q] as const) : [],
+  );
+
+  const cache = new Map<string, Map<string, AttemptTopicResult> | null>();
+  return (o: Observation) => {
+    const cached = cache.get(o.id);
+    if (cached !== undefined) return cached;
+    let result: Map<string, AttemptTopicResult> | null = null;
+    if (judged(o)) {
+      if (o.source === "web") {
+        result = webAttemptTopics(webById.get(o.id)?.resultJson ?? null);
+      } else {
+        const data = answersByTest.get(o.testId!)?.data;
+        if (data) {
+          const questionOf = (id: string) => data.questionById.get(id) ?? extra.get(id);
+          result = lmsAttemptTopics({
+            facts: factsByAttempt.get(o.id) ?? [],
+            delivered: delivered.get(o.id) ?? null,
+            topicOf: id => questionOf(id)?.topicId ?? null,
+            priceOf: id => {
+              const question = questionOf(id);
+              return question ? data.pointsOf(question) : null;
+            },
+            ruleOf: topicId => data.topicRuleOf(topicId, o.forms?.[topicId] ?? null),
+          });
+        }
+      }
+    }
+    cache.set(o.id, result);
+    return result;
+  };
 }
 
 // POST /api/export/excel - книга по выборке реестра
@@ -329,6 +427,22 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
     const singleTest = summaryTests.length === 1 ? summaryTests[0] : null;
     const singleMeasures = singleTest ? await loadMeasureCatalogue(singleTest.id) : null;
 
+    // Ответы обоих источников — общим сбором (`loadTestAnswerFacts`), тем же, что у страницы
+    // вопроса и психометрики, и только по прохождениям выборки. Листу прохождений они нужны ради
+    // итога по темам у прохождений LMS: те хранят только ответы (см. `attempt-topics`).
+    const topicsWanted = !!includeSheets.attempts && testsInSelection.some(t => t.mode !== "adaptive");
+    const answersByTest = new Map<string, { data: TestAnswerFacts; facts: AnswerFact[] }>();
+    if (includeSheets.answers || includeSheets.questionStats || topicsWanted) {
+      for (const t of testsInSelection) {
+        const data = await loadTestAnswerFacts(t.id, completedWeb.filter(a => a.testId === t.id));
+        answersByTest.set(t.id, { data, facts: data.facts.filter(f => observedIds.has(f.attemptId)) });
+      }
+    }
+
+    const topicResultsOf = topicsWanted
+      ? await buildTopicResolver(observed, webById, answersByTest)
+      : () => null;
+
     const wb = new ExcelJS.Workbook();
 
     // Sheet: Summary — по тем же наблюдениям, что лист прохождений.
@@ -386,6 +500,18 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
       const adaptiveColumn = singleTest?.mode === "adaptive";
       if (adaptiveColumn) rows[0].push("Достигнутые уровни");
       if (singleMeasures) rows[0].push(...measureHeaders(singleMeasures));
+      // One test, not adaptive: three columns per topic in the author's order — points, percent
+      // and the verdict against the topic's threshold. An adaptive test's topic outcome is the
+      // achieved level, already in its own column. Several tests share no topics: they get the
+      // long «Темы» sheet below instead.
+      const singleTopics = singleTest && !adaptiveColumn
+        ? answersByTest.get(singleTest.id)?.data ?? null
+        : null;
+      const topicIds = singleTopics?.sectionTopicIds ?? [];
+      for (const topicId of topicIds) {
+        const name = singleTopics!.topicNameById.get(topicId) ?? "Тема";
+        rows[0].push(`${name}: баллы`, `${name}: %`, `${name}: итог`);
+      }
 
       for (const o of observed) {
         const stored = await storedOf(o);
@@ -396,6 +522,10 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
             .join("; "));
         }
         if (singleMeasures) extra.push(...measureCells(singleMeasures, stored));
+        if (topicIds.length > 0) {
+          const topics = topicResultsOf(o);
+          for (const topicId of topicIds) extra.push(...topicCells(topics?.get(topicId)));
+        }
         rows.push([
           titleOf(o.testId),
           o.id,
@@ -418,13 +548,38 @@ router.post("/export/excel", requirePermission("analytics.export"), async (req: 
       addAoaSheet(wb, "Прохождения", rows, [24, 36, 22, 22, 22, 22, 18, 18, 12, 12, 10, 12, 12, 14]);
     }
 
-    // Ответы обоих источников — общим сбором (`loadTestAnswerFacts`), тем же, что у страницы
-    // вопроса и психометрики, и только по прохождениям выборки.
-    const answersByTest = new Map<string, { data: TestAnswerFacts; facts: AnswerFact[] }>();
-    if (includeSheets.answers || includeSheets.questionStats) {
-      for (const t of testsInSelection) {
-        const data = await loadTestAnswerFacts(t.id, completedWeb.filter(a => a.testId === t.id));
-        answersByTest.set(t.id, { data, facts: data.facts.filter(f => observedIds.has(f.attemptId)) });
+    // Sheet: Темы — the book of SEVERAL tests: one row per (run, topic). Their topics have
+    // nothing in common, so columns per topic would be a sparse matrix — the same reason the
+    // measurements go to the long «Измерения» sheet.
+    if (includeSheets.attempts && !singleTest && topicsWanted) {
+      const rows: unknown[][] = [[
+        "Тест", "ID прохождения", "Участник", "Тема", "Баллы", "Макс. баллы", "%", "Итог",
+      ]];
+      for (const o of observed) {
+        const topics = topicResultsOf(o);
+        const data = o.testId ? answersByTest.get(o.testId)?.data : undefined;
+        if (!topics || !data) continue;
+        const order = [
+          ...data.sectionTopicIds.filter(id => topics.has(id)),
+          ...[...topics.keys()].filter(id => !data.sectionTopicIds.includes(id)),
+        ];
+        for (const topicId of order) {
+          const result = topics.get(topicId)!;
+          if (result.percent === null) continue;
+          rows.push([
+            titleOf(o.testId),
+            o.id,
+            o.participant,
+            data.topicNameById.get(topicId) ?? "—",
+            round1(result.earned),
+            round1(result.possible),
+            round1(result.percent),
+            topicVerdictTitle(result.passed),
+          ]);
+        }
+      }
+      if (rows.length > 1) {
+        addAoaSheet(wb, "Темы", rows, [24, 36, 22, 30, 10, 12, 10, 14]);
       }
     }
 

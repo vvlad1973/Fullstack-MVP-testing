@@ -54,6 +54,14 @@ export interface TestAnswerFacts {
   topicNameById: Map<string, string>;
   /** Порог темы, разрешённый правилом теста; отсутствие ключа значит «порога нет». */
   topicRules: Map<string, ResolvedRule | null>;
+  /**
+   * Порог темы для ОДНОГО прохождения: правило «по варианту» (PRD-24) зависит от выданного
+   * варианта, и `topicRules` выше, разрешённые без него, такое правило подменяют порогом теста.
+   * `null` — порога нет либо темы нет среди разделов теста.
+   */
+  topicRuleOf: (topicId: string, formId?: string | null) => ResolvedRule | null;
+  /** Темы разделов теста в порядке автора, без повторов — порядок колонок книги. */
+  sectionTopicIds: string[];
   /** Эффективная трудность задания: та же цепочка, что и у стоимости (PRD-15 блок D). */
   difficultyOf: (question: Question) => number | null;
   /**
@@ -99,6 +107,7 @@ export async function loadTestAnswerFacts(
     section.topicId,
     resolveTopicRule(section.topicPassRuleJson, overallRule),
   ]));
+  const ruleJsonByTopic = new Map(sections.map(section => [section.topicId, section.topicPassRuleJson]));
 
   const facts = await loadAnswerFacts(testId, {
     attempts: attempts as Parameters<typeof loadAnswerFacts>[1]["attempts"],
@@ -125,6 +134,10 @@ export async function loadTestAnswerFacts(
     questionById,
     topicNameById: new Map(topics.map(t => [t.id, t.name])),
     topicRules,
+    topicRuleOf: (topicId, formId) => ruleJsonByTopic.has(topicId)
+      ? resolveTopicRule(ruleJsonByTopic.get(topicId), overallRule, { formId: formId ?? null })
+      : null,
+    sectionTopicIds: [...new Set(sections.map(section => section.topicId))],
     difficultyOf: question => scoring.difficultyOf(question),
     pointsOf: question => (isMeasurementOnly(question) ? null : scoring.resolve(question).points),
   };

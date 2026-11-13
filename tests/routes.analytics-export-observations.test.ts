@@ -45,6 +45,8 @@ const { storageMock } = vi.hoisted(() => ({
         id: row.id, achievedLevelsJson: row.achievedLevelsJson ?? null, failedTopicCoursesJson: row.failedTopicCoursesJson ?? null,
       }))),
     selectAnswersForTest: vi.fn().mockResolvedValue([]),
+    // Выданный состав импорта — итог по темам добирает по нему баллы неотвеченных заданий.
+    selectDeliveredQuestionIds: vi.fn().mockResolvedValue(new Map()),
     selectOrgSpellings: vi.fn().mockResolvedValue({ organization: [], unit: [], position: [] }),
   },
 }));

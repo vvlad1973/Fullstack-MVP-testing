@@ -47,6 +47,8 @@ const { storageMock } = vi.hoisted(() => ({
     getScormAnswersByAttempt: vi.fn(),
     // PRD-56 FR-04: the registry book reads answers of every source and org spellings.
     selectAnswersForTest: vi.fn(), selectOrgSpellings: vi.fn(),
+    // Выданный состав импорта — итог по темам добирает по нему баллы неотвеченных заданий.
+    selectDeliveredQuestionIds: vi.fn().mockResolvedValue(new Map()),
     // PRD-5/PRD-2: the export now names the test's scales and indicators, so it reads
     // the measurement rows too. Empty by default — these fixtures are control tests.
     getScales: vi.fn().mockResolvedValue([]),
@@ -172,6 +174,7 @@ beforeEach(() => {
   storageMock.getTopicCourses.mockResolvedValue([]);
   storageMock.getScormAnswersByAttempt.mockResolvedValue([]);
   storageMock.selectAnswersForTest.mockResolvedValue([]);
+  storageMock.selectDeliveredQuestionIds.mockResolvedValue(new Map());
   storageMock.selectOrgSpellings.mockResolvedValue({ organization: [], unit: [], position: [] });
   // PRD-5/PRD-2 measurement sources — re-armed here because `resetAllMocks` above
   // drops the implementations declared at hoist time.

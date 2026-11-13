@@ -30,6 +30,8 @@ const { storageMock } = vi.hoisted(() => ({
     getScormAnswersByAttempt: vi.fn(),
     // PRD-56 FR-04: the registry book reads answers of every source and org spellings.
     selectAnswersForTest: vi.fn().mockResolvedValue([]),
+    // Выданный состав импорта — итог по темам добирает по нему баллы неотвеченных заданий.
+    selectDeliveredQuestionIds: vi.fn().mockResolvedValue(new Map()),
     selectOrgSpellings: vi.fn().mockResolvedValue({ organization: [], unit: [], position: [] }),
     // PRD-5/PRD-2: the export now names the test's scales and indicators, so it reads
     // the measurement rows too. Empty by default — these fixtures are control tests.
@@ -113,6 +115,7 @@ describe("POST /analytics/export/excel", () => {
     storageMock.getResultVariables.mockResolvedValue([]);
     storageMock.getQuestionMeasurements.mockResolvedValue([]);
     storageMock.selectAnswersForTest.mockResolvedValue([]);
+    storageMock.selectDeliveredQuestionIds.mockResolvedValue(new Map());
     storageMock.getTestSections.mockResolvedValue([]);
     storageMock.getTestQuestionScoring.mockResolvedValue([]);
     storageMock.selectOrgSpellings.mockResolvedValue({ organization: [], unit: [], position: [] });
