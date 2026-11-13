@@ -26,6 +26,10 @@
 
     Флажка «Данные уже обезличены» нет (решение владельца 2026-09-25): обезличенный файл узнаётся
     по колонке external_id, и вместе с флажком ушло состояние anon-mismatch.
+
+    Флажок «Обезличить участников» (решение владельца 2026-11-13) переносит параметр конфигурации
+    analytics.lmsImport.anonymizeParticipants в форму: конфиг задаёт начальное значение, решение
+    принимается на каждую загрузку.
     -->
 
     <title>PRD-54 — Загрузка выгрузки LMS</title>
@@ -163,11 +167,11 @@
 
                   <div class="ou-check-group wf-mt-4">
                     <label class="ou-check ou-check--s">
-                      <input class="ou-check__input" type="checkbox" />
+                      <input class="ou-check__input" type="checkbox" checked />
                       <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                       <span class="ou-check__text">
-                        <span class="ou-check__lbl">Связать с пользователями по ключу</span>
-                        <span class="ou-check__desc">Совпадение с внешним ключом пользователя свяжет прохождение с ним.</span>
+                        <span class="ou-check__lbl">Обезличить участников</span>
+                        <span class="ou-check__desc">ФИО и организация не сохраняются: участник получает подпись «Участник» и код.</span>
                       </span>
                     </label>
                   </div>
@@ -467,9 +471,12 @@
               </div>
               <div class="ou-check-group wf-mt-4">
                 <label class="ou-check ou-check--s">
-                  <input class="ou-check__input" type="checkbox" />
+                  <input class="ou-check__input" type="checkbox" checked />
                   <span class="ou-check__box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-                  <span class="ou-check__text"><span class="ou-check__lbl">Связать с пользователями по ключу</span></span>
+                  <span class="ou-check__text">
+                    <span class="ou-check__lbl">Обезличить участников</span>
+                    <span class="ou-check__desc">ФИО и организация не сохраняются: участник получает подпись «Участник» и код.</span>
+                  </span>
                 </label>
               </div>
               <!-- ДЕЛЬТА PRD-66 FR-12 (2026-09-25): тест задан страницей, поэтому загрузки видны
@@ -513,7 +520,8 @@
               <tr><td>Чужой тест</td><td>Только там, где тест задан страницей: несовпадение даёт <code>422</code> с названиями ОБОИХ тестов, «Импортировать» заблокирован</td><td>Состояние «чужой тест»</td></tr>
               <tr><td>Группа</td><td>Список существующих + «＋ Создать новую группу» + явный пункт «Без группы»</td><td>Метка на прохождении; разрез для психометрики</td></tr>
               <tr><td>Обезличенный файл</td><td>Узнаётся по колонке <code>external_id</code> в любом месте листа, флажка нет; без колонки <code>external_id</code> вычисляется при импорте тем же алгоритмом</td><td>Спрашивать человека о том, что видно из файла, незачем</td></tr>
-              <tr><td>«Связать по ключу»</td><td>Сначала <code>learner_id</code> против <code>users.lms_learner_id</code>, затем <code>external_id</code> против <code>users.external_key</code>; несовпадение — не ошибка</td><td>Вместе с обезличиванием даёт предупреждение</td></tr>
+              <tr><td>Связывание</td><td>Всегда, флажка нет (BR-54-38): сначала <code>learner_id</code> против <code>users.lms_learner_id</code>, затем <code>external_id</code> против <code>users.external_key</code>; не нашлось — заводится внешняя учётная запись</td><td>Каждое прохождение связано</td></tr>
+              <tr><td>«Обезличить участников» (дельта 2026-11-13)</td><td>Начальное значение — <code>analytics.lmsImport.anonymizeParticipants</code> инстанса; уходит полем <code>anonymize</code> и в проверку, и в запись; смена флажка сбрасывает план. Снят — ФИО и организация сохраняются у новых записей; уже заведённую запись повторная загрузка не переименовывает</td><td>Решение — на каждую загрузку; режим пишется в <code>lms_import_batches.anonymized</code></td></tr>
               <tr><td>«Проверить»</td><td><code>POST /api/analytics/lms-import?dryRun=true</code> — план и предупреждения без записи</td><td>«Импортировать» до проверки заблокирован</td></tr>
               <tr><td>«Импортировать»</td><td>Тот же эндпоинт без <code>dryRun</code>; после успеха гасится кеш аналитики</td><td>Цифры на странице обновляются без перезагрузки</td></tr>
               <tr><td>Повторная загрузка</td><td>Обновляет по ключу (тест + участник + дата активации модуля), дублей не создаёт</td><td>Ею же проставляется позднее связывание</td></tr>

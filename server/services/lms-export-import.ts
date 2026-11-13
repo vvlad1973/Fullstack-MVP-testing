@@ -55,6 +55,24 @@ function percentOf(points: number | null | undefined): number | null {
 }
 
 /**
+ * Режим обезличивания загрузки по полю формы (PRD-54 BR-54-46).
+ *
+ * Поле приходит строкой multipart. Нет поля или значение непонятное — действует параметр
+ * инстанса: так ведут себя клиенты, которые о флажке не знают (скрипт, старая вкладка), и
+ * сомнение решается так, как решил инстанс.
+ *
+ * @param raw значение поля `anonymize`
+ * @param instanceDefault `analytics.lmsImport.anonymizeParticipants`
+ * @returns обезличивать ли участников
+ */
+export function anonymizeOf(raw: unknown, instanceDefault: boolean): boolean {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return instanceDefault;
+}
+
+/**
  * Значение для целочисленной колонки базы: округлённое конечное число либо `null`.
  *
  * Последний рубеж перед записью: `NaN`, бесконечность или дробь, дошедшие до `integer`, роняют

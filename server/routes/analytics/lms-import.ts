@@ -18,7 +18,7 @@ import { readWorkbookFromBuffer } from "../../utils/excel";
 import { canReadTestAnalytics } from "../../services/test-access";
 import { detectLmsExport, IMPORT_DENIED_ERROR } from "../workbook";
 import { chooseTest, resolveTestByQuestionIds, type TestChoice } from "../../services/lms-test-resolver";
-import { runImport } from "../../services/lms-export-import";
+import { anonymizeOf, runImport } from "../../services/lms-export-import";
 
 const router = Router();
 
@@ -82,7 +82,8 @@ async function handleUpload(req: Request, res: Response, dryRun: boolean) {
     return runImport(
       book,
       // PRD-54 BR-54-38: связывание больше не выбирается — каждое прохождение получает учётную запись.
-      { anonymize: config.analytics.lmsImport.anonymizeParticipants },
+      // BR-54-46: обезличивание выбирается флажком формы; конфиг — лишь его начальное значение.
+      { anonymize: anonymizeOf(req.body?.anonymize, config.analytics.lmsImport.anonymizeParticipants) },
       {
         testId: choice.testId,
         groupId,
@@ -120,6 +121,15 @@ router.post(
       if (respondWorkbookReadError(res, error)) return;
       res.status(400).json({ error: "Не удалось прочитать файл" });
     }
+  },
+);
+
+// GET /api/analytics/lms-import/settings — начальные значения формы (BR-54-46)
+router.get(
+  "/lms-import/settings",
+  requirePermission("analytics.import"),
+  (_req: Request, res: Response) => {
+    res.json({ anonymizeDefault: config.analytics.lmsImport.anonymizeParticipants });
   },
 );
 

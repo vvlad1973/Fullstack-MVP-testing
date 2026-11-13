@@ -19,6 +19,7 @@ import {
   Banner,
   Box,
   Button,
+  Checkbox,
   Cluster,
   EmptyState,
   FileItem,
@@ -210,6 +211,13 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, presetTest
   const batchesTestId = testId ?? presetTestId ?? null;
 
   const groups = useQuery<Array<{ id: string; name: string }>>({ queryKey: ["/api/groups"] });
+  const settings = useQuery<{ anonymizeDefault: boolean }>({ queryKey: ["/api/analytics/lms-import/settings"] });
+  /**
+   * Обезличивание этой загрузки (BR-54-46). Пока человек флажок не трогал, действует параметр
+   * инстанса; до ответа сервера — обезличивание, как у параметра по умолчанию.
+   */
+  const [anonymizeChoice, setAnonymize] = useState<boolean | null>(null);
+  const anonymize = anonymizeChoice ?? settings.data?.anonymizeDefault ?? true;
   const batches = useQuery<Batch[]>({
     queryKey: [`/api/analytics/lms-import/batches/${batchesTestId}`],
     enabled: !!batchesTestId,
@@ -223,6 +231,7 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, presetTest
     if (ambiguous && testId) fd.append("testId", testId);
     if (group !== NO_GROUP && group !== NEW_GROUP) fd.append("groupId", group);
     if (group === NEW_GROUP) fd.append("newGroupName", newGroupName);
+    fd.append("anonymize", String(anonymize));
     return fd;
   }
 
@@ -522,9 +531,23 @@ export function LmsImportForm({ file: hostFile, inspect: hostInspect, presetTest
         />
       )}
 
-      {/* Флажков нет. «Данные уже обезличены» узнаётся по колонке `external_id`, а связывание с
-          пользователями с 2026-10-06 идёт всегда: участник, которого в системе нет, получает
-          внешнюю учётную запись (PRD-54 BR-54-38). */}
+      {/* Флажок один — обезличивание (BR-54-46). «Данные уже обезличены» узнаётся по колонке
+          `external_id`, а связывание с пользователями с 2026-10-06 идёт всегда: участник, которого
+          в системе нет, получает внешнюю учётную запись (PRD-54 BR-54-38). */}
+      <div className="ou-check-group">
+        <Checkbox
+          size="s"
+          label="Обезличить участников"
+          description="ФИО и организация не сохраняются: участник получает подпись «Участник» и код."
+          checked={anonymize}
+          onChange={(e) => {
+            setAnonymize(e.target.checked);
+            // План посчитан в другом режиме — его надо проверить заново.
+            setPlan(null);
+          }}
+          disabled={runMut.isPending}
+        />
+      </div>
 
       {plan && (
         <Stack gap={2}>

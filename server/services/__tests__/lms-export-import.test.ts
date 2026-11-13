@@ -3,7 +3,7 @@
  * @description PRD-54 разделы 4 и 8: план импорта, источники `external_id`, связывание и запись.
  */
 import { describe, it, expect } from "vitest";
-import { buildImportPlan, runImport } from "../lms-export-import";
+import { anonymizeOf, buildImportPlan, runImport } from "../lms-export-import";
 import { asScenario } from "@shared/sim/upgrade";
 
 /** Разобранная книга из одной строки — форма ровно та, что отдаёт `parseLmsExport`. */
@@ -1006,5 +1006,19 @@ describe("номер и длительность попытки (PRD-54, реш�
     const s = storageStub();
     await runImport(withMeta(2, 60) as never, ON, ctx, s as never);
     expect((s as unknown as { attempts: Array<Record<string, unknown>> }).attempts[0]).toMatchObject({ attemptNumber: 2 });
+  });
+});
+
+describe("anonymizeOf — флажок формы против параметра инстанса (BR-54-46)", () => {
+  it("явное значение формы главнее параметра", () => {
+    expect(anonymizeOf("false", true)).toBe(false);
+    expect(anonymizeOf("true", false)).toBe(true);
+    expect(anonymizeOf(" TRUE ", false)).toBe(true);
+  });
+
+  it("нет поля или оно непонятное — действует параметр инстанса", () => {
+    expect(anonymizeOf(undefined, true)).toBe(true);
+    expect(anonymizeOf(undefined, false)).toBe(false);
+    expect(anonymizeOf("да", false)).toBe(false);
   });
 });

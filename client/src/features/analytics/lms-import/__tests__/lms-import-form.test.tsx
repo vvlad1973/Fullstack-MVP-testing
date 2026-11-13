@@ -20,14 +20,18 @@ const BATCHES = [
 ];
 
 let fetchMock: ReturnType<typeof vi.fn>;
+/** Параметр инстанса, который отдаёт `/lms-import/settings` (BR-54-46). */
+let anonymizeDefault = true;
 
 beforeEach(() => {
   queryClient.clear();
+  anonymizeDefault = true;
   queryClient.setDefaultOptions({ queries: { retry: false, queryFn: getQueryFn({ on401: "throw" }) } });
   const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
   fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/analytics/lms-import/batches/t1") return ok(BATCHES);
+    if (url === "/api/analytics/lms-import/settings") return ok({ anonymizeDefault });
     if (url.startsWith("/api/analytics/lms-import/batches/") && init?.method === "DELETE") {
       return ok({ ok: true });
     }
@@ -224,5 +228,42 @@ describe("<LmsImportForm /> — вопросы файла в нескольки�
 
     expect(screen.getByText("Выберите тест")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Проверить" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("<LmsImportForm /> — обезличивание (PRD-54 BR-54-46)", () => {
+  /** Режим, ушедший в теле последнего запроса проверки или записи. */
+  function sentAnonymize(): FormDataEntryValue | null | undefined {
+    const calls = fetchMock.mock.calls.filter(([u]) => String(u).startsWith("/api/analytics/lms-import?dryRun="));
+    return (calls.at(-1)?.[1]?.body as FormData | undefined)?.get("anonymize");
+  }
+
+  it("флажок включён, когда обезличивание включено в инстансе, и уходит в проверку", async () => {
+    renderForm();
+    const box = screen.getByRole("checkbox", { name: /Обезличить участников/ }) as HTMLInputElement;
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/analytics/lms-import/settings", expect.anything()));
+    expect(box.checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Проверить" }));
+    await waitFor(() => expect(sentAnonymize()).toBe("true"));
+  });
+
+  it("начальное значение берётся из параметра инстанса", async () => {
+    anonymizeDefault = false;
+    renderForm();
+    const box = screen.getByRole("checkbox", { name: /Обезличить участников/ }) as HTMLInputElement;
+    await waitFor(() => expect(box.checked).toBe(false));
+  });
+
+  it("снятый флажок уходит в проверку, а прежний план сбрасывается", async () => {
+    renderForm();
+    fireEvent.click(await screen.findByRole("button", { name: "Проверить" }));
+    expect(await screen.findByText("Будет добавлено: 2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Обезличить участников/ }));
+    expect(screen.queryByText("Будет добавлено: 2")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Проверить" }));
+    await waitFor(() => expect(sentAnonymize()).toBe("false"));
   });
 });
